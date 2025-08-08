@@ -556,6 +556,86 @@ fn test_disable_type_errors_default_workspace() {
     });
 }
 
+/// If we failed to parse pylance configs, we would fail to apply the `disableTypeErrors` settings.
+/// This test ensures that we don't fail to apply `disableTypeErrors`.
+#[test]
+fn test_parse_pylance_configs() {
+    let test_files_root = get_test_files_root();
+    let file_path = test_files_root.path().join("type_errors.py");
+    let messages_from_language_client = vec![
+        Message::Response(Response {
+            id: RequestId::from(1),
+            result: Some(serde_json::json!([])),
+            error: None,
+        }),
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::Notification(Notification {
+            method: DidChangeConfiguration::METHOD.to_owned(),
+            params: serde_json::json!({"settings": {}}),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!([
+                {
+                    "pyrefly": {"disableTypeErrors": true},
+                    "analysis": {
+                        "diagnosticMode": "workspace",
+                        "importFormat": "relative",
+                        "inlayHints": {
+                            "callArgumentNames": true,
+                            "functionReturnTypes": true,
+                            "pytestParameters": true,
+                            "variableTypes": true
+                        },
+                    }
+                },
+            ])),
+            error: None,
+        }),
+        Message::from(Request {
+            id: RequestId::from(3),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+    ];
+    let expected_messages_from_language_server = vec![
+        Message::Request(Request {
+            id: RequestId::from(1),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("python".to_owned()),
+                }]),
+            }),
+        }),
+        Message::Request(Request {
+            id: RequestId::from(2),
+            method: WorkspaceConfiguration::METHOD.to_owned(),
+            params: serde_json::json!(ConfigurationParams {
+                items: Vec::from([ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("python".to_owned()),
+                }]),
+            }),
+        }),
+        Message::Response(Response {
+            id: RequestId::from(3),
+            result: Some(serde_json::json!({"items": [], "kind": "full"})),
+            error: None,
+        }),
+    ];
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        configuration: true,
+        ..Default::default()
+    });
+}
+
 #[test]
 fn test_diagnostics_default_workspace() {
     let root = get_test_files_root();
