@@ -64,18 +64,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let targs = if !targs.is_empty() && self.get_base_types_for_class(cls).has_unknown_tparams()
-        {
+        let metadata = self.get_metadata_for_class(cls);
+        let tparams = self.get_class_tparams(cls);
+
+        // We didn't find any type parameters for this class, but it may have ones we don't know about if:
+        // - the class inherits from Any, or
+        // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
+        //   arguments because we found an error in them.
+        let has_unknown_tparams =
+            tparams.is_empty() && (metadata.has_base_any() || metadata.has_generic_base_class());
+
+        let targs = if !targs.is_empty() && has_unknown_tparams {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
-            self.check_and_create_targs(
-                cls.name(),
-                self.get_class_tparams(cls),
-                targs,
-                range,
-                errors,
-            )
+            self.check_and_create_targs(cls.name(), tparams, targs, range, errors)
         };
         self.type_of_instance(cls, targs)
     }

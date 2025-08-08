@@ -208,6 +208,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             bases.push((**special_base).clone());
         }
         let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
+        let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
         let parsed_results = bases
@@ -608,6 +609,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
+            has_generic_base_class,
             has_base_any,
             is_new_type,
             is_final,

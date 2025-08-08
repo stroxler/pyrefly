@@ -47,6 +47,7 @@ pub struct ClassMetadata {
     protocol_metadata: Option<ProtocolMetadata>,
     dataclass_metadata: Option<DataclassMetadata>,
     bases: Vec<Class>,
+    has_generic_base_class: bool,
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
@@ -80,6 +81,7 @@ impl ClassMetadata {
         enum_metadata: Option<EnumMetadata>,
         protocol_metadata: Option<ProtocolMetadata>,
         dataclass_metadata: Option<DataclassMetadata>,
+        has_generic_base_class: bool,
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
@@ -96,6 +98,7 @@ impl ClassMetadata {
             protocol_metadata,
             dataclass_metadata,
             bases,
+            has_generic_base_class,
             has_base_any,
             is_new_type,
             is_final,
@@ -115,6 +118,7 @@ impl ClassMetadata {
             protocol_metadata: None,
             dataclass_metadata: None,
             bases: Vec::new(),
+            has_generic_base_class: false,
             has_base_any: false,
             is_new_type: false,
             is_final: false,
@@ -139,6 +143,10 @@ impl ClassMetadata {
 
     pub fn is_final(&self) -> bool {
         self.is_final
+    }
+
+    pub fn has_generic_base_class(&self) -> bool {
+        self.has_generic_base_class
     }
 
     pub fn has_base_any(&self) -> bool {
