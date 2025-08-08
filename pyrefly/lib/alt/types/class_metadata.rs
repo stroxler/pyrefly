@@ -195,6 +195,10 @@ impl ClassMetadata {
         self.dataclass_metadata.as_ref()
     }
 
+    pub fn pydantic_metadata(&self) -> Option<&PydanticMetadata> {
+        self.pydantic_metadata.as_ref()
+    }
+
     pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformKeywords> {
         self.dataclass_transform_metadata.as_ref()
     }

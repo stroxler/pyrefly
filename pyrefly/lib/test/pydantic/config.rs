@@ -29,7 +29,6 @@ print(u)
 );
 
 testcase!(
-    bug = "we should raise an error that x is immutable",
     test_model_config,
     pydantic_env(),
     r#"
@@ -41,12 +40,13 @@ class Model(BaseModel):
 
 
 m = Model()
-m.x = 10 
+m.x = 10 # E: Cannot set field `x`
 "#,
 );
 
-// This won't freeze the model. We must directly assign a ConfigDict to model_config.
 testcase!(
+    bug = "This is the wrong usage of the model. 
+    model_config is a class variable. y is not.",
     test_model_config_alias,
     pydantic_env(),
     r#"
@@ -57,14 +57,15 @@ class Model(BaseModel):
     model_config = y
     x: int = 42
 
-m = Model()
-m.x = 10
+m = Model() # E:  Missing argument `y` in function `Model.__init__`
+m.x = 10 # E:  Cannot set field `x`
 
 "#,
 );
 
-// Not a model config. The field must specifically be called model_config.
 testcase!(
+    bug = "The field should not be readonly here. we need to use model_config specifically since its a ClassVar.
+     Investigate raising an error on y due to missing annotation.",
     test_model_config_y,
     pydantic_env(),
     r#"
@@ -75,7 +76,7 @@ class Model(BaseModel):
     x: int = 42
 
 m = Model()
-m.x = 10 
+m.x = 10 # E: Cannot set field `x`
 "#,
 );
 
@@ -91,8 +92,7 @@ class Model(BaseModel):
     model_config = ConfigDict(frozen=False)
     x: int = 42
 
-
 m = Model()
-m.x = 10 
+m.x = 10
 "#,
 );

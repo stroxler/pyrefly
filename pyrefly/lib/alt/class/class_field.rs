@@ -1084,6 +1084,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             return Some(ReadOnlyReason::FrozenDataclass);
         }
+
+        // all frozen pydantic fields are read-only
+        if let Some(pm) = metadata.pydantic_metadata()
+            && let Some(dm) = metadata.dataclass_metadata()
+            && dm.fields.contains(name)
+            && pm.frozen
+        {
+            return Some(ReadOnlyReason::PydanticFrozen);
+        }
+
         // A `type[X]` that is initialized on the class is assumed to be ReadOnly. This
         // is partly because that's what nested class defs look like to Pyrefly. But even
         // for assignments of class objects, this implies covariance and is probably more
