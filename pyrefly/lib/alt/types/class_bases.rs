@@ -91,30 +91,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.named_tuple_fallback().clone().to_type(),
                     x.range(),
                 )),
-                BaseClass::TypedDict(..) => None,
-                BaseClass::Generic(args, _) | BaseClass::Protocol(args, _) => {
-                    if !is_new_type {
-                        let mut type_var_tuple_count = 0;
-                        args.iter().for_each(|x| {
-                            let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                            if let Type::Unpack(unpacked) = &ty
-                                && unpacked.is_kind_type_var_tuple()
-                            {
-                                if type_var_tuple_count == 1 {
-                                    self.error(
-                                        errors,
-                                        x.range(),
-                                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                        "There cannot be more than one TypeVarTuple type parameter"
-                                            .to_owned(),
-                                    );
-                                }
-                                type_var_tuple_count += 1;
-                            }
-                        });
-                    }
-                    None
-                }
+                BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => None,
             })
             .collect::<Vec<_>>();
 

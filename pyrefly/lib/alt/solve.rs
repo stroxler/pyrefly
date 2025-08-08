@@ -19,7 +19,6 @@ use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprSubscript;
-use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -996,11 +995,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    pub fn scoped_type_params(
-        &self,
-        x: Option<&TypeParams>,
-        errors: &ErrorCollector,
-    ) -> Vec<TParam> {
+    pub fn scoped_type_params(&self, x: Option<&TypeParams>) -> Vec<TParam> {
         match x {
             Some(x) => {
                 fn get_quantified(t: &Type) -> Quantified {
@@ -1009,21 +1004,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         _ => unreachable!(),
                     }
                 }
-                let mut type_var_tuple_count = 0;
                 let mut params = Vec::new();
                 for raw_param in x.type_params.iter() {
-                    if matches!(raw_param, TypeParam::TypeVarTuple(_)) {
-                        if type_var_tuple_count == 1 {
-                            self.error(
-                                errors,
-                                raw_param.range(),
-                                ErrorInfo::Kind(ErrorKind::InvalidTypeVarTuple),
-                                "There cannot be more than one TypeVarTuple type parameter"
-                                    .to_owned(),
-                            );
-                        }
-                        type_var_tuple_count += 1;
-                    }
                     let name = raw_param.name();
                     let quantified =
                         get_quantified(self.get(&Key::Definition(ShortIdentifier::new(name))).ty());
@@ -1042,6 +1024,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut last_tparam: Option<&TParam> = None;
         let mut seen = SmallSet::new();
         let mut typevartuple = None;
+        let mut typevartuple_count = 0;
         for tparam in tparams {
             if let Some(p) = last_tparam
                 && p.quantified.default().is_some()
@@ -1103,8 +1086,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             seen.insert(tparam.quantified.name().clone());
             if tparam.quantified.is_type_var_tuple() {
                 typevartuple = Some(tparam.quantified.name().clone());
+                typevartuple_count += 1;
             }
             last_tparam = Some(tparam);
+        }
+        if typevartuple_count > 1 {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                "There cannot be more than one TypeVarTuple type parameter".to_owned(),
+            );
         }
     }
 
@@ -2787,7 +2779,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let params_range = params.as_ref().map_or(expr.range(), |x| x.range);
                         Forallable::TypeAlias(ta).forall(self.validated_tparams(
                             params_range,
-                            self.scoped_type_params(params.as_ref(), errors),
+                            self.scoped_type_params(params.as_ref()),
                             errors,
                         ))
                     }

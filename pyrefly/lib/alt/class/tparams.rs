@@ -37,7 +37,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         scoped_type_params: Option<&TypeParams>,
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
-        let scoped_tparams = self.scoped_type_params(scoped_type_params, errors);
+        let scoped_tparams = self.scoped_type_params(scoped_type_params);
         self.validated_tparams(name.range, scoped_tparams, errors)
     }
 
@@ -49,7 +49,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         legacy: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
-        let scoped_tparams = self.scoped_type_params(scoped_type_params, errors);
+        let scoped_tparams = self.scoped_type_params(scoped_type_params);
         let legacy_tparams = legacy
             .iter()
             .filter_map(|key| self.get_idx(*key).deref().parameter().cloned())

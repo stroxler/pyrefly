@@ -23,8 +23,9 @@ testcase!(
     test_type_var_tuple_multiple,
     r#"
 from typing import TypeVarTuple, Generic
-Ts = TypeVarTuple('Ts')
-class ArrayTwoParams(Generic[*Ts, *Ts]): ...  # E: There cannot be more than one TypeVarTuple type parameter
+Ts1 = TypeVarTuple('Ts1')
+Ts2 = TypeVarTuple('Ts2')
+class ArrayTwoParams(Generic[*Ts1, *Ts2]): ...  # E: There cannot be more than one TypeVarTuple type parameter
 class ArrayTwoParams2[*Ts1, *Ts2](): ...  # E: There cannot be more than one TypeVarTuple type parameter
 "#,
 );
