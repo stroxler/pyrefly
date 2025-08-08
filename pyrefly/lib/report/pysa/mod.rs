@@ -43,6 +43,7 @@ use tracing::info;
 use crate::alt::answers::Answers;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -111,6 +112,8 @@ struct FunctionDefinition {
     is_property_getter: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_property_setter: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_stub: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -547,6 +550,7 @@ fn export_all_functions(
                             .flags
                             .is_property_setter_with_getter
                             .is_some(),
+                        is_stub: function.stub_or_impl == FunctionStubOrImpl::Stub,
                     }
                 )
                 .is_none(),
