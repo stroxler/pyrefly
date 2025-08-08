@@ -25,6 +25,7 @@ use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::base_class::BaseClass;
@@ -115,8 +116,13 @@ impl<'a> BindingsBuilder<'a> {
     // The goal of this function is to extract pydantic metadata (https://docs.pydantic.dev/latest/concepts/models/) from expressions.
     // TODO: Consider propagating the entire expression instead of the value
     // in case it is aliased.
-    fn extract_pydantic_metadata(&self, e: &Expr) -> Option<PydanticMetadataBinding> {
-        if let Some(call) = e.as_call_expr()
+    fn extract_pydantic_metadata(
+        &self,
+        e: &Expr,
+        name: Hashed<&Name>,
+    ) -> Option<PydanticMetadataBinding> {
+        if name.as_str() == "model_config"
+            && let Some(call) = e.as_call_expr()
             && let Some(special) = self.as_special_export(&call.func)
             && special == SpecialExport::PydanticConfigDict
         {
@@ -262,7 +268,8 @@ impl<'a> BindingsBuilder<'a> {
                         match info.as_initial_value() {
                             ClassFieldInBody::InitializedByAssign(e) => {
                                 // TODO Zeina: This logic will need to be updated after we extract more data
-                                let curr_pydantic_metadata = self.extract_pydantic_metadata(&e);
+                                let curr_pydantic_metadata =
+                                    self.extract_pydantic_metadata(&e, name);
                                 if curr_pydantic_metadata.is_some() {
                                     pydantic_metadata = curr_pydantic_metadata;
                                 }

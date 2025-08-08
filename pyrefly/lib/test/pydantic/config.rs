@@ -44,9 +44,8 @@ m.x = 10 # E: Cannot set field `x`
 "#,
 );
 
+// This is a corner case, but since y is annotated, we consider it a field
 testcase!(
-    bug = "This is the wrong usage of the model. 
-    model_config is a class variable. y is not.",
     test_model_config_alias,
     pydantic_env(),
     r#"
@@ -58,14 +57,13 @@ class Model(BaseModel):
     x: int = 42
 
 m = Model() # E:  Missing argument `y` in function `Model.__init__`
-m.x = 10 # E:  Cannot set field `x`
+m.x = 10
 
 "#,
 );
 
 testcase!(
-    bug = "The field should not be readonly here. we need to use model_config specifically since its a ClassVar.
-     Investigate raising an error on y due to missing annotation.",
+    bug = "We should raise an error on y because all model fields require an annotation.",
     test_model_config_y,
     pydantic_env(),
     r#"
@@ -76,7 +74,7 @@ class Model(BaseModel):
     x: int = 42
 
 m = Model()
-m.x = 10 # E: Cannot set field `x`
+m.x = 10 
 "#,
 );
 
