@@ -4,6 +4,8 @@ build-backend = "maturin"
 
 [tool.maturin]
 bindings = "bin"
+python-source = "python"
+module-name = "pyrefly"
 strip = true
 include = ["rust-toolchain"]
 
