@@ -18,6 +18,9 @@ use pyrefly_util::visit::Visit as _;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtImport;
+use ruff_python_ast::StmtImportFrom;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
@@ -237,7 +240,30 @@ impl SemanticTokenBuilder {
         }
     }
 
+    fn process_stmt(&mut self, x: &Stmt) {
+        match x {
+            Stmt::Import(StmtImport { names, .. }) => {
+                for alias in names {
+                    self.push_if_in_range(alias.name.range, SemanticTokenType::NAMESPACE, vec![]);
+                    if let Some(asname) = &alias.asname {
+                        self.push_if_in_range(asname.range, SemanticTokenType::NAMESPACE, vec![]);
+                    }
+                }
+            }
+            Stmt::ImportFrom(StmtImportFrom {
+                module: Some(module),
+                ..
+            }) => {
+                self.push_if_in_range(module.range, SemanticTokenType::NAMESPACE, vec![]);
+            }
+            _ => {}
+        }
+    }
+
     pub fn process_ast(&mut self, ast: &ModModule) {
+        for s in &ast.body {
+            self.process_stmt(s);
+        }
         ast.visit(&mut |e| self.process_expr(e));
     }
 

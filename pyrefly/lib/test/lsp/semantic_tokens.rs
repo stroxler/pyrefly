@@ -73,6 +73,9 @@ from json import decoder
         &[("main", code)],
         r#"
 # main.py
+line: 1, column: 5, length: 4, text: json
+token-type: namespace
+
 line: 1, column: 17, length: 7, text: decoder
 token-type: namespace
 "#,
