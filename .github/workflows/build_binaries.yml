@@ -37,6 +37,7 @@ jobs:
           "${BINARY_NAME}" --version
           "${BINARY_NAME}" --help
           "${BINARY_NAME}" check test.py
+          python -m "${BINARY_NAME}" --version
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
@@ -74,6 +75,7 @@ jobs:
           "${BINARY_NAME}" --version
           "${BINARY_NAME}" --help
           "${BINARY_NAME}" check test.py
+          python -m "${BINARY_NAME}" --version
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -118,6 +120,7 @@ jobs:
           "${BINARY_NAME}" --version
           "${BINARY_NAME}" --help
           "${BINARY_NAME}" check test.py
+          python -m "${BINARY_NAME}" --version
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -168,6 +171,7 @@ jobs:
           "${BINARY_NAME}" --version
           "${BINARY_NAME}" --help
           "${BINARY_NAME}" check test.py
+          python -m "${BINARY_NAME}" --version
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
