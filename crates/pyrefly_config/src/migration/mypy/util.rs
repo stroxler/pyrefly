@@ -119,6 +119,11 @@ fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayCon
     {
         map.insert(ErrorKind::MissingAttribute, value);
     }
+
+    if let Some(value) = [errors.remove("arg-type")].into_iter().flatten().max() {
+        map.insert(ErrorKind::BadArgumentType, value);
+    }
+
     if map.is_empty() {
         None
     } else {
