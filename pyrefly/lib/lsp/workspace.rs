@@ -13,6 +13,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use lsp_types::Url;
 use lsp_types::WorkspaceFoldersChangeEvent;
+use pyrefly_python::COMPILED_FILE_SUFFIXES;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::arc_id::WeakArcId;
@@ -115,7 +116,7 @@ impl WeakConfigCache {
         config
             .search_path()
             .chain(config.site_package_path())
-            .cartesian_product(PYTHON_EXTENSIONS)
+            .cartesian_product(PYTHON_EXTENSIONS.iter().chain(COMPILED_FILE_SUFFIXES))
             .for_each(|(s, suffix)| {
                 result.push((s.to_owned(), format!("**/*.{suffix}")));
             });

@@ -9,6 +9,7 @@ use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
 
+use pyrefly_python::COMPILED_FILE_SUFFIXES;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use ruff_python_ast::name::Name;
@@ -111,7 +112,7 @@ fn find_one_part_in_root(name: &Name, root: &Path) -> Option<FindResult> {
         }
     }
     // Check if `name` corresponds to a compiled module.
-    for candidate_compiled_suffix in ["pyc", "pyx", "pyd"] {
+    for candidate_compiled_suffix in COMPILED_FILE_SUFFIXES {
         let candidate_path = root.join(format!("{name}.{candidate_compiled_suffix}"));
         if candidate_path.exists() {
             return Some(FindResult::CompiledModule(candidate_path));
@@ -194,14 +195,20 @@ fn find_one_part_prefix<'a>(
                                     .push(path.clone());
                             }
                         } else if let Some((stem, ext)) = name.rsplit_once('.')
-                            && ["pyi", "py"].contains(&ext)
-                            && !["__init__", "__main__"].contains(&stem)
                             && path.is_file()
+                            && !["__init__", "__main__"].contains(&stem)
                         {
-                            results.push((
-                                FindResult::single_file(path.clone(), ext),
-                                ModuleName::from_str(stem),
-                            ));
+                            if ["pyi", "py"].contains(&ext) {
+                                results.push((
+                                    FindResult::single_file(path.clone(), ext),
+                                    ModuleName::from_str(stem),
+                                ));
+                            } else if COMPILED_FILE_SUFFIXES.contains(&ext) {
+                                results.push((
+                                    FindResult::CompiledModule(path.clone()),
+                                    ModuleName::from_str(stem),
+                                ));
+                            }
                         }
                     }
                 }

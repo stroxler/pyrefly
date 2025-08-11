@@ -34,3 +34,6 @@ pub mod sys_info;
 
 /// Suffixes of python files that we can be processed.
 pub const PYTHON_EXTENSIONS: &[&str] = &["py", "pyi"];
+
+/// Suffixes of compiled python modules
+pub const COMPILED_FILE_SUFFIXES: &[&str] = &["pyc", "pyx", "pyd"];
