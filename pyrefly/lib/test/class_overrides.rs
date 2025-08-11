@@ -417,3 +417,16 @@ class B(A):
     d: int = 42  # E: `B.d` and `A.d` must both be descriptors
     "#,
 );
+
+testcase!(
+    test_inherit_type_attribute,
+    r#"
+class ParentAttr: ...
+class ChildAttr(ParentAttr): ...
+
+class A:
+    Attr: type[ParentAttr]
+class B(A):
+    Attr = ChildAttr
+    "#,
+);

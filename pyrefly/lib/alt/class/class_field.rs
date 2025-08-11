@@ -908,8 +908,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
-        let read_only_reason =
-            self.determine_read_only_reason(class, name, annotation, &value_ty, &initialization);
+        let read_only_reason = self.determine_read_only_reason(
+            class,
+            name,
+            annotation,
+            &value_ty,
+            &initialization,
+            range,
+        );
         let is_namedtuple_member = metadata
             .named_tuple_metadata()
             .is_some_and(|nt| nt.elements.contains(name));
@@ -1059,6 +1065,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         annotation: Option<&Annotation>,
         ty: &Type,
         initialization: &ClassFieldInitialization,
+        range: TextRange,
     ) -> Option<ReadOnlyReason> {
         if let Some(ann) = annotation {
             // TODO: enable this for Final attrs that aren't initialized on the class
@@ -1094,22 +1101,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return Some(ReadOnlyReason::PydanticFrozen);
         }
 
-        // A `type[X]` that is initialized on the class is assumed to be ReadOnly. This
-        // is partly because that's what nested class defs look like to Pyrefly. But even
-        // for assignments of class objects, this implies covariance and is probably more
-        // useful than allowing reassignment but forcing invariance.
-        //
-        // TODO(stroxler): We may need to revisit this if we find projects that require
-        // read-write behavior. Covariance is known to be strictly necessary for many
-        // projects, so the obvious alternative to read-only semantics is likely to
-        // allow covariance unsoundly.
-        let is_class_object_type = match ty {
-            Type::ClassDef(..) => true,
-            Type::Type(c) if matches!(**c, Type::ClassType(..)) => true,
-            _ => false,
-        };
-        if is_class_object_type && matches!(initialization, ClassFieldInitialization::ClassBody(..))
-        {
+        // A nested class def is assumed to be ReadOnly. We distinguish a nested `class C: ...`
+        // from an assignment of a class object (`SomeAttr = C`) by checking the attribute range
+        // against the nested class definition range.
+        if matches!(ty, Type::ClassDef(cls) if cls.range() == range) {
             return Some(ReadOnlyReason::ClassObjectInitializedOnBody);
         }
         // Default: the field is read-write
