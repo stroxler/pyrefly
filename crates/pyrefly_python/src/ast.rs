@@ -24,6 +24,7 @@ use ruff_python_ast::Parameters;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternMatchSingleton;
 use ruff_python_ast::PySourceType;
+use ruff_python_ast::PythonVersion as RuffPythonVersion;
 use ruff_python_ast::Singleton;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtIf;
@@ -32,11 +33,14 @@ use ruff_python_ast::StringLiteral;
 use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
 use ruff_python_ast::visitor::source_order::TraversalSignal;
 use ruff_python_parser::ParseError;
+use ruff_python_parser::ParseOptions;
 use ruff_python_parser::parse_expression_range;
-use ruff_python_parser::parse_unchecked_source;
+use ruff_python_parser::parse_unchecked;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+
+use crate::sys_info::PythonVersion;
 
 /// Just used for convenient namespacing - not a real type
 pub struct Ast;
@@ -80,8 +84,22 @@ impl<'a> SourceOrderVisitor<'a> for CoveringNodeVisitor<'a> {
 
 impl Ast {
     pub fn parse(contents: &str) -> (ModModule, Vec<ParseError>) {
+        Ast::parse_with_version(contents, PythonVersion::default())
+    }
+
+    pub fn parse_with_version(
+        contents: &str,
+        version: PythonVersion,
+    ) -> (ModModule, Vec<ParseError>) {
         // PySourceType of Python vs Stub doesn't actually change the parsing
-        let res = parse_unchecked_source(contents, PySourceType::Python);
+        let options =
+            ParseOptions::from(PySourceType::Python).with_target_version(RuffPythonVersion {
+                major: version.major as u8,
+                minor: version.minor as u8,
+            });
+        let res = parse_unchecked(contents, options)
+            .try_into_module()
+            .unwrap();
         let errors = res.errors().to_owned();
         (res.into_syntax(), errors)
     }

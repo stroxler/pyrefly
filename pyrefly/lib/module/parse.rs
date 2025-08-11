@@ -16,7 +16,7 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 
 pub fn module_parse(contents: &str, version: PythonVersion, errors: &ErrorCollector) -> ModModule {
-    let (module, parse_errors) = Ast::parse(contents);
+    let (module, parse_errors) = Ast::parse_with_version(contents, version);
     for err in parse_errors {
         errors.add(
             err.location,
