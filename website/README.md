@@ -69,12 +69,16 @@ We have snapshot tests powered by Jest.
 Run them with:
 
 ```bash
+yarn install
+scripts/build_wasm_for_test_for_sandcastle.sh
 yarn test
 ```
 
 When you make a UI change, you should update the snapshots with:
 
 ```bash
+yarn install
+scripts/build_wasm_for_test_for_sandcastle.sh
 yarn test --updateSnapshot
 ```
 

@@ -17,7 +17,7 @@ pub struct State(Playground);
 
 #[wasm_bindgen]
 impl State {
-    #[wasm_bindgen(js_name = new)]
+    #[wasm_bindgen(constructor)]
     pub fn new(version: String) -> Self {
         let playground =
             Playground::new(Some(&version)).unwrap_or_else(|e| wasm_bindgen::throw_str(&e));
