@@ -342,6 +342,18 @@ yield from 0  # E: Invalid `yield from` outside of a function
 );
 
 testcase!(
+    test_invalid_async_yield_from,
+    r#"
+from typing import AsyncGenerator
+async def f() -> AsyncGenerator[int, None]:
+    yield 1
+
+async def g() -> AsyncGenerator[int, None]:
+    yield from f() # E: Invalid `yield from` in async function
+"#,
+);
+
+testcase!(
     test_missing_return,
     r#"
 from typing import Generator

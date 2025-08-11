@@ -2915,8 +2915,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<YieldFromResult> {
         match x {
-            BindingYieldFrom::YieldFrom(annot, x) => {
-                // TODO: Error if the function is async
+            BindingYieldFrom::YieldFrom(annot, is_async, x) => {
+                if is_async.is_async() {
+                    self.error(
+                        errors,
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidYield),
+                        "Invalid `yield from` in async function".to_owned(),
+                    );
+                }
                 let annot = annot.map(|k| self.get_idx(k));
                 let want = annot
                     .as_ref()
@@ -2938,15 +2945,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .to_type();
                     YieldFromResult::from_iterable(yield_ty)
                 } else {
-                    ty = self.error(
-                        errors,
-                        x.range,
-                        ErrorInfo::Kind(ErrorKind::InvalidYield),
-                        format!(
-                            "yield from value must be iterable, got `{}`",
-                            self.for_display(ty)
-                        ),
-                    );
+                    ty = if is_async.is_async() {
+                        // We already errored above.
+                        Type::any_error()
+                    } else {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::InvalidYield),
+                            format!(
+                                "yield from value must be iterable, got `{}`",
+                                self.for_display(ty)
+                            ),
+                        )
+                    };
                     YieldFromResult::any_error()
                 };
                 if let Some((want_yield, want_send, _)) = want {

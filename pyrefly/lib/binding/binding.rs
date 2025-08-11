@@ -1941,14 +1941,14 @@ impl DisplayWith<Bindings> for BindingYield {
 
 #[derive(Clone, Debug)]
 pub enum BindingYieldFrom {
-    YieldFrom(Option<Idx<KeyAnnotation>>, ExprYieldFrom),
+    YieldFrom(Option<Idx<KeyAnnotation>>, IsAsync, ExprYieldFrom),
     Invalid(ExprYieldFrom),
 }
 
 impl BindingYieldFrom {
     fn expr(&self) -> &ExprYieldFrom {
         match self {
-            Self::YieldFrom(_, x) => x,
+            Self::YieldFrom(_, _, x) => x,
             Self::Invalid(x) => x,
         }
     }

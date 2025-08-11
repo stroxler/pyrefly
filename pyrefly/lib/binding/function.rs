@@ -354,7 +354,10 @@ impl<'a> BindingsBuilder<'a> {
         let yield_from_keys = yields_and_returns
             .yield_froms
             .into_map(|(idx, x)| {
-                self.insert_binding_idx(idx, BindingYieldFrom::YieldFrom(return_ann, x))
+                self.insert_binding_idx(
+                    idx,
+                    BindingYieldFrom::YieldFrom(return_ann, IsAsync::new(is_async), x),
+                )
             })
             .into_boxed_slice();
 
