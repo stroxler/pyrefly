@@ -145,6 +145,7 @@ pub enum ClassKind {
     Property,
     Class,
     EnumMember,
+    EnumNonmember,
     DataclassField,
 }
 
@@ -162,6 +163,7 @@ impl ClassKind {
             ("cinder", "cached_property") => Self::Property,
             ("cinder", "async_cached_property") => Self::Property,
             ("enum", "member") => Self::EnumMember,
+            ("enum", "nonmember") => Self::EnumNonmember,
             ("dataclasses", "Field") => Self::DataclassField,
             _ => Self::Class,
         }
