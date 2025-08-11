@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::sys_info::PythonVersion;
+
 use crate::test::util::TestEnv;
 use crate::testcase;
 
@@ -969,5 +971,15 @@ class Identity(Protocol):
 def f[T]() -> Callable[[T], T]:
     return lambda x: x
 x: Identity = f()  # E: `[T](T) -> T` is not assignable to `Identity`
+    "#,
+);
+
+testcase!(
+    bug = "This should be an error",
+    test_too_new_syntax,
+    TestEnv::new_with_version(PythonVersion::new(3, 8, 0)),
+    r#"
+class A[T]:
+    x: T
     "#,
 );
