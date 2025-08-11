@@ -33,6 +33,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
 use crate::binding::bindings::BindingsBuilder;
@@ -291,8 +292,30 @@ impl NarrowOps {
     }
 
     pub fn or_all(&mut self, other: Self) {
+        let mut seen = SmallSet::new();
         for (name, (op, range)) in other.0 {
+            seen.insert(name.clone());
             self.or(name, op, range);
+        }
+        // For names present in `self` but not `other`, `Or` their narrows with a placeholder
+        let unmerged_names: Vec<_> = self
+            .0
+            .keys()
+            .filter_map(|name| {
+                if seen.contains(name) {
+                    None
+                } else {
+                    Some(name.clone())
+                }
+            })
+            .collect();
+        for name in unmerged_names {
+            if let Entry::Occupied(mut entry) = self.0.entry(name) {
+                entry
+                    .get_mut()
+                    .0
+                    .or(NarrowOp::Atomic(None, AtomicNarrowOp::Placeholder));
+            }
         }
     }
 

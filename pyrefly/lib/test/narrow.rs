@@ -229,6 +229,32 @@ def f(x: bool | None):
 );
 
 testcase!(
+    test_or_multiple_vars,
+    r#"
+from typing import assert_type
+def f(x: int | None, y: int | None) -> None:
+    if x is None or y is None:
+        assert_type(y, int | None)
+        assert_type(x, int | None)
+    else:
+        assert_type(y, int)
+        assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_or_walrus_multiple_vars,
+    r#"
+from typing import assert_type
+def f(x: None | int, y: None | int) -> None:
+    if (z := x is None) or y is None:
+        assert_type(x, None | int)
+        assert_type(y, None | int)
+        assert_type(z, bool)
+    "#,
+);
+
+testcase!(
     test_elif,
     r#"
 from typing import assert_type
