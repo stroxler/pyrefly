@@ -1210,6 +1210,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeInner::Simple(ty, Visibility::ReadWrite)
             | AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Ok(ty),
             AttributeInner::Property(getter, ..) => {
+                self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
             }
             AttributeInner::ModuleFallback(_, name, ty) => {

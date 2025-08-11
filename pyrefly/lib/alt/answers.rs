@@ -88,6 +88,8 @@ pub struct Traces {
     types: SmallMap<TextRange, Arc<Type>>,
     /// A map from (range of callee, overload information)
     overloaded_callees: SmallMap<TextRange, OverloadedCallee>,
+    /// A map of text ranges that correspond to 'b' portion in expressions a.b where b is a property access -> getter type
+    invoked_properties: SmallMap<TextRange, Arc<Type>>,
 }
 
 /// Invariants:
@@ -558,6 +560,11 @@ impl Answers {
         lock.types.get(&range).duped()
     }
 
+    pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Arc<Type>> {
+        let lock = self.trace.as_ref()?.lock();
+        lock.invoked_properties.get(&range).duped()
+    }
+
     pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Callable> {
         let lock = self.trace.as_ref()?.lock();
         let overloaded_callee = lock.overloaded_callees.get(&range)?;
@@ -692,6 +699,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => {}
                 }
             }
+        }
+    }
+
+    pub fn record_property_getter(&self, loc: TextRange, getter_ty: &Type) {
+        if let Some(trace) = &self.current().trace {
+            trace
+                .lock()
+                .invoked_properties
+                .insert(loc, Arc::new(getter_ty.clone()));
         }
     }
 
