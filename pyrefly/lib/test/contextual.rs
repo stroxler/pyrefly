@@ -498,6 +498,18 @@ x: Identity = lambda x: x  # E: `(x: Unknown) -> Unknown` is not assignable to `
 );
 
 testcase!(
+    bug = "We should contextually type *args and **kwargs here based on the Protocol",
+    test_context_lambda_args_kwargs_protocol,
+    r#"
+from typing import Protocol, assert_type, Any
+class Identity(Protocol):
+    def __call__(self, *args: int, **kwargs: int) -> Any: ...
+x: Identity = lambda *args, **kwargs: assert_type(args, tuple[int, ...]) # E: assert_type(Any, tuple[int, ...]) failed
+y: Identity = lambda *args, **kwargs: assert_type(kwargs, dict[str, int]) # E: assert_type(Any, dict[str, int]) failed
+    "#,
+);
+
+testcase!(
     test_typeddict_union,
     r#"
 from typing import TypedDict
