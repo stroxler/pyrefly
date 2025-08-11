@@ -1330,8 +1330,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "Cannot yield from a generator of type `Generator[A, None, None]` because it does not match the declared return type `Iterator[B]`",
-      "description": "Cannot yield from a generator of type `Generator[A, None, None]` because it does not match the declared return type `Iterator[B]`",
+      "concise_description": "Cannot yield from a generator of type `Generator[A, None, None]` because it does not match the declared return type `Generator[B, None, Unknown]`",
+      "description": "Cannot yield from a generator of type `Generator[A, None, None]` because it does not match the declared return type `Generator[B, None, Unknown]`",
       "line": 118,
       "name": "invalid-yield",
       "stop_column": 29,
@@ -1340,8 +1340,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "Cannot yield from a generator of type `Generator[int, None, None]` because it does not match the declared return type `Iterator[B]`",
-      "description": "Cannot yield from a generator of type `Generator[int, None, None]` because it does not match the declared return type `Iterator[B]`",
+      "concise_description": "Cannot yield from a generator of type `Generator[int, None, None]` because it does not match the declared return type `Generator[B, None, Unknown]`",
+      "description": "Cannot yield from a generator of type `Generator[int, None, None]` because it does not match the declared return type `Generator[B, None, Unknown]`",
       "line": 119,
       "name": "invalid-yield",
       "stop_column": 19,
@@ -1350,8 +1350,8 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "Cannot yield from a generator of type `Generator[None, int, None]` because it does not match the declared return type `Generator[None, str, None]`",
-      "description": "Cannot yield from a generator of type `Generator[None, int, None]` because it does not match the declared return type `Generator[None, str, None]`",
+      "concise_description": "Cannot yield from a generator of type `Generator[None, int, None]` because it does not match the declared return type `Generator[None, str, Unknown]`",
+      "description": "Cannot yield from a generator of type `Generator[None, int, None]` because it does not match the declared return type `Generator[None, str, Unknown]`",
       "line": 135,
       "name": "invalid-yield",
       "stop_column": 29,
