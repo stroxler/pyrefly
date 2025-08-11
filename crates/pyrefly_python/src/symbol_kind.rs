@@ -24,6 +24,7 @@ pub enum SymbolKind {
     TypeParameter,
     TypeAlias,
     Function,
+    Method,
     Class,
 }
 
@@ -38,6 +39,7 @@ impl SymbolKind {
             SymbolKind::TypeParameter => lsp_types::SymbolKind::TYPE_PARAMETER,
             SymbolKind::TypeAlias => lsp_types::SymbolKind::INTERFACE,
             SymbolKind::Function => lsp_types::SymbolKind::FUNCTION,
+            SymbolKind::Method => lsp_types::SymbolKind::METHOD,
             SymbolKind::Class => lsp_types::SymbolKind::CLASS,
         }
     }
@@ -52,6 +54,7 @@ impl SymbolKind {
             SymbolKind::TypeParameter => CompletionItemKind::TYPE_PARAMETER,
             SymbolKind::TypeAlias => CompletionItemKind::INTERFACE,
             SymbolKind::Function => CompletionItemKind::FUNCTION,
+            SymbolKind::Method => CompletionItemKind::METHOD,
             SymbolKind::Class => CompletionItemKind::CLASS,
         }
     }
@@ -66,6 +69,7 @@ impl SymbolKind {
             SymbolKind::TypeParameter => "(type parameter)".to_owned(),
             SymbolKind::TypeAlias => "(type alias)".to_owned(),
             SymbolKind::Function => "(function)".to_owned(),
+            SymbolKind::Method => "(method)".to_owned(),
             SymbolKind::Class => "(class)".to_owned(),
         }
     }
@@ -86,6 +90,7 @@ impl SymbolKind {
             SymbolKind::TypeAlias => (SemanticTokenType::INTERFACE, vec![]),
             // todo(samzhou19815): modifier for async
             SymbolKind::Function => (SemanticTokenType::FUNCTION, vec![]),
+            SymbolKind::Method => (SemanticTokenType::METHOD, vec![]),
             SymbolKind::Class => (SemanticTokenType::CLASS, vec![]),
         }
     }

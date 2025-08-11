@@ -952,11 +952,29 @@ impl<'a> Transaction<'a> {
     ) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
         let intermediate_definition = key_to_intermediate_definition(&bindings, key)?;
-        self.resolve_intermediate_definition(
+        let (definition_handle, mut export) = self.resolve_intermediate_definition(
             handle,
             intermediate_definition,
             jump_through_renamed_import,
-        )
+        )?;
+        if let Export {
+            symbol_kind: Some(symbol_kind),
+            ..
+        } = &export
+            && *symbol_kind == SymbolKind::Variable
+            && let Some(type_) = self.get_type(handle, key)
+        {
+            let symbol_kind = match type_ {
+                Type::Callable(_) | Type::Function(_) => SymbolKind::Function,
+                Type::BoundMethod(_) => SymbolKind::Method,
+                Type::ClassDef(_) | Type::Type(_) => SymbolKind::Class,
+                Type::Module(_) => SymbolKind::Module,
+                Type::TypeAlias(_) => SymbolKind::TypeAlias,
+                _ => *symbol_kind,
+            };
+            export.symbol_kind = Some(symbol_kind);
+        }
+        Some((definition_handle, export))
     }
 
     // This is for cases where we are 100% certain that `identifier` points to a "real" name

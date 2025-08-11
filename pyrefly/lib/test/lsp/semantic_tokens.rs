@@ -112,6 +112,68 @@ token-type: variable, token-modifiers: [readonly]
 }
 
 #[test]
+fn type_aware_variables_test() {
+    let code = r#"
+from typing import Literal
+
+class Foo:
+  def bar(self):
+    return 3
+Bar = Foo
+
+def fun():
+  return 3
+
+fun2 = fun
+meth = Bar().bar
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 5, length: 6, text: typing
+token-type: namespace
+
+line: 1, column: 19, length: 7, text: Literal
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 6, length: 3, text: Foo
+token-type: class
+
+line: 4, column: 6, length: 3, text: bar
+token-type: function
+
+line: 4, column: 10, length: 4, text: self
+token-type: parameter
+
+line: 6, column: 0, length: 3, text: Bar
+token-type: class
+
+line: 6, column: 6, length: 3, text: Foo
+token-type: class
+
+line: 8, column: 4, length: 3, text: fun
+token-type: function
+
+line: 11, column: 0, length: 4, text: fun2
+token-type: function
+
+line: 11, column: 7, length: 3, text: fun
+token-type: function
+
+line: 12, column: 0, length: 4, text: meth
+token-type: method
+
+line: 12, column: 7, length: 3, text: Bar
+token-type: class
+
+line: 12, column: 13, length: 3, text: bar
+token-type: property
+"#,
+    );
+}
+
+#[test]
 fn function_test() {
     let code = r#"
 def foo(v: int) -> int: ...
