@@ -94,3 +94,22 @@ m = Model()
 m.x = 10
 "#,
 );
+
+testcase!(
+    bug = "Nested config not supported yet. Fields should be frozen.",
+    test_nested_model_config,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel
+
+class Model(BaseModel):
+    class Config:
+        frozen = True
+
+    x: int = 42
+
+m = Model()
+m.x = 10
+
+"#,
+);
