@@ -422,6 +422,20 @@ if x := f():
 );
 
 testcase!(
+    test_walrus_with_rhs_narrowing,
+    r#"
+from typing import assert_type, Literal
+def f(x: None | int) -> int:
+    # this is: y := (x is None)
+    # `y` being truthy means `x is None` is also true
+    if y := x is None:
+        assert_type(y, Literal[True])
+        x = 1
+    return x
+    "#,
+);
+
+testcase!(
     test_walrus_value,
     r#"
 from typing import assert_type
