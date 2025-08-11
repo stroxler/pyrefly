@@ -213,9 +213,7 @@ impl Workspaces {
     pub fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
         let workspaces = workspaces.dupe();
         standard_config_finder(Arc::new(move |dir, mut config| {
-            if let Some(dir) = dir
-                && config.interpreters.is_empty()
-            {
+            if let Some(dir) = dir {
                 workspaces.get_with(dir.to_owned(), |w| {
                     if let Some(search_path) = w.search_path.clone() {
                         config.search_path_from_args = search_path;
