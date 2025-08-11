@@ -946,6 +946,7 @@ from typing import TypedDict, Required, NotRequired
 class TD(TypedDict):
     x: Required[NotRequired[int]]  # E: Cannot combine `Required` and `NotRequired` for a TypedDict field
     y: NotRequired[Required[int]]  # E: Cannot combine `Required` and `NotRequired` for a TypedDict field
+    z: NotRequired[NotRequired[int]]  # E: Duplicate qualifier `NotRequired`
     "#,
 );
 

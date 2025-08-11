@@ -447,7 +447,6 @@
   "typeddicts_readonly_kwargs.py": [],
   "typeddicts_readonly_update.py": [],
   "typeddicts_required.py": [
-    "Line 62: Expected 1 errors",
     "Line 74: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMovie']`\"]"
   ],
   "typeddicts_type_consistency.py": [],

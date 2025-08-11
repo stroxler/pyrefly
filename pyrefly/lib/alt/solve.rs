@@ -536,7 +536,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .to_owned(),
                     );
                 }
-                ann.qualifiers.insert(0, qualifier);
+                if qualifier != Qualifier::Annotated && ann.qualifiers.contains(&qualifier) {
+                    self.error(
+                        errors,
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                        format!("Duplicate qualifier `{qualifier}`"),
+                    );
+                } else {
+                    ann.qualifiers.insert(0, qualifier);
+                }
                 ann
             }
             _ => {

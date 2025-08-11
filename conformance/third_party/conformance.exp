@@ -10348,6 +10348,16 @@
     {
       "code": -2,
       "column": 8,
+      "concise_description": "Duplicate qualifier `Required`",
+      "description": "Duplicate qualifier `Required`",
+      "line": 62,
+      "name": "invalid-annotation",
+      "stop_column": 31,
+      "stop_line": 62
+    },
+    {
+      "code": -2,
+      "column": 8,
       "concise_description": "Cannot combine `Required` and `NotRequired` for a TypedDict field",
       "description": "Cannot combine `Required` and `NotRequired` for a TypedDict field",
       "line": 63,
