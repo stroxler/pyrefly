@@ -236,8 +236,11 @@ impl Workspaces {
 
             // we print the errors here instead of returning them since
             // it gives the most immediate feedback for config loading errors
-            for error in config.configure() {
-                error!("Error configuring `ConfigFile`: {}", error.get_message());
+            let config_errors = config.configure();
+            if !config_errors.is_empty() {
+                for error in config.configure() {
+                    error.print();
+                }
             }
             let config = ArcId::new(config);
 
