@@ -1907,6 +1907,16 @@
     },
     {
       "code": -2,
+      "column": 21,
+      "concise_description": "`Unpack` in **kwargs annotation must be used only with a `TypedDict`",
+      "description": "`Unpack` in **kwargs annotation must be used only with a `TypedDict`",
+      "line": 122,
+      "name": "invalid-annotation",
+      "stop_column": 30,
+      "stop_line": 122
+    },
+    {
+      "code": -2,
       "column": 19,
       "concise_description": "`(*, v1: int, v3: str, v2: str = '') -> None` is not assignable to `TDProtocol6`",
       "description": "`(*, v1: int, v3: str, v2: str = '') -> None` is not assignable to `TDProtocol6`",

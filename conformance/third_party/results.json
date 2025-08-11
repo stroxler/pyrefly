@@ -3,7 +3,7 @@
   "pass": 79,
   "fail": 57,
   "pass_rate": 0.58,
-  "differences": 258,
+  "differences": 257,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -94,7 +94,7 @@
     "annotations_forward_refs.py": 7,
     "annotations_generators.py": 1,
     "callables_annotation.py": 2,
-    "callables_kwargs.py": 2,
+    "callables_kwargs.py": 1,
     "constructors_call_init.py": 1,
     "constructors_call_type.py": 4,
     "constructors_callable.py": 11,

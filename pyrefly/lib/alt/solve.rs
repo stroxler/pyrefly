@@ -3082,6 +3082,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "`Unpack` with a `TypedDict` is only allowed in a **kwargs annotation".to_owned(),
             );
         }
+        if type_form_context == TypeFormContext::ParameterKwargsAnnotation
+            && matches!(ty, Type::Unpack(ref inner) if !matches!(**inner, Type::TypedDict(_)))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                "`Unpack` in **kwargs annotation must be used only with a `TypedDict`".to_owned(),
+            );
+        }
         if type_form_context != TypeFormContext::ParameterKwargsAnnotation
             && matches!(ty, Type::Kwargs(_))
         {

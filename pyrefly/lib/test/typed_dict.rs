@@ -134,7 +134,7 @@ class A(TypedDict):
 
 a1: A = {"x": 1, "y": 2}
 a2: A = {"x": 3, "y": 4}
-a1.update(a2) # E: No matching overload 
+a1.update(a2) # E: No matching overload
 
 class B(TypedDict):
     x: NotRequired[Never]
@@ -167,9 +167,9 @@ class A(TypedDict):
 
 def test(a: A) -> None:
     a.update([("x", 123), ("y", 456)])  # E: No matching overload found for function `A.update`
-    a.update([("y", 456)]) 
+    a.update([("y", 456)])
     a.update(x=789, y=999)  # E: No matching overload found for function `A.update`
-    a.update(y=999) 
+    a.update(y=999)
     "#,
 );
 
@@ -288,9 +288,9 @@ from typing import TypedDict, NotRequired
 
 class TD(TypedDict):
     x: NotRequired[int]
-    
+
 def f(td: TD):
-    td.pop("x") 
+    td.pop("x")
     "#,
 );
 
@@ -315,10 +315,10 @@ td_r: TDRequired = {"a": 10, "b": "hi"}
 td_o: TDOptional = {"x": 42}
 td_m: TDMixed = {"a": 1, "x": 99}
 
-v1 = td_r.pop("a") # E: 
+v1 = td_r.pop("a") # E:
 assert_type(v1, object)
 
-v2 = td_r.pop("a", 3.14) # E: 
+v2 = td_r.pop("a", 3.14) # E:
 assert_type(v2, object)
 
 v3 = td_o.pop("x")
@@ -330,7 +330,7 @@ assert_type(v4, int)
 v5 = td_o.pop("x", "fallback")
 assert_type(v5, int | str)
 
-v6 = td_m.pop("a") # E: 
+v6 = td_m.pop("a") # E:
 assert_type(v6, Any)
 
 v7 = td_m.pop("x")
@@ -345,7 +345,7 @@ assert_type(v9, int | str)
 v10 = td_r.pop("abc", 123) # E:
 assert_type(v10, object)
 
-v11 = td_r.pop("abc", "default") # E: 
+v11 = td_r.pop("abc", "default") # E:
 assert_type(v11, object)
     "#,
 );
@@ -371,14 +371,14 @@ td_r: TDRequired = {"a": 10, "b": "hi"}
 td_o: TDOptional = {"x": 42}
 td_m: TDMixed = {"a": 1, "x": 99}
 
-del td_r["a"]  # E: 
+del td_r["a"]  # E:
 del td_o["x"]  # OK
 del td_o["y"]  # OK
 del td_m["x"]  # OK
-del td_m["a"]  # E: 
-del td_r["nonexistent"]  # E: 
+del td_m["a"]  # E:
+del td_r["nonexistent"]  # E:
 
-# Delete optional key from TDOptional again 
+# Delete optional key from TDOptional again
 del td_o["x"]  # OK
 
 del td_r["b"]  # E:
@@ -386,10 +386,10 @@ del td_r["b"]  # E:
 del td_o["unknown"]  # E:
 
 key_var = "x"
-del td_o[key_var]  
+del td_o[key_var]
 
 unknown_key = "a"
-del td_m[unknown_key]  # E: 
+del td_m[unknown_key]  # E:
 
 td_r: TDRequired = {"a": 10, "b": "hi"}
 td_o: TDOptional = {"x": 42}
@@ -403,7 +403,7 @@ td_m.__delitem__("a") # E: No matching overload found for function `TDMixed.__de
 
 td_r.__delitem__("nonexistent") # E: Argument `Literal['nonexistent']` is not assignable to parameter `k` with type `Never`
 td_r.__delitem__("unknown") # E:  Argument `Literal['unknown']` is not assignable to parameter `k` with type `Never
- 
+
     "#,
 );
 
@@ -413,22 +413,22 @@ testcase!(
 from typing import TypedDict, assert_type
 
 class TD1(TypedDict):
-    a: int 
-    b: str 
+    a: int
+    b: str
 
 class TD2(TypedDict):
-    c: float 
-    d: bool 
+    c: float
+    d: bool
 
 class TD3(TypedDict, total=False):
-    a: str 
-    f: int 
+    a: str
+    f: int
 
 class TD4(TypedDict):
-    a: int 
+    a: int
 
 class TD5(TypedDict, total=False):
-    a: int  
+    a: int
 
 td1 = TD1(a=1, b="x")
 td2 = TD2(c=3.14, d=True)
@@ -457,7 +457,7 @@ x: TD = {"a": 1, "b": 2}
 
 y: TD = {"a": "3", "b": "4"}
 
-x |= y  
+x |= y
 
 assert_type((x["a"]), int | str)
 
@@ -465,7 +465,7 @@ x |= {} # E: Augmented assignment produces a value of type `dict[str, object]`, 
 
 x: TD = {"a": 1, "b": 2}
 x.__ior__(y)
-x.__ior__({}) # E:  Missing required key `a` for TypedDict `TD` # E: Missing required key `b` for TypedDict `TD` 
+x.__ior__({}) # E:  Missing required key `a` for TypedDict `TD` # E: Missing required key `b` for TypedDict `TD`
 
     "#,
 );
@@ -822,14 +822,14 @@ class E(TypedDict):
 class F(TypedDict):
     x: int
 def f(c1: C, c2: C, c3: dict[str, int], d: D, e: E, f: F):
-    c1.update(c2) 
+    c1.update(c2)
     c1.update(c3)  # E: No matching overload found for function `C.update`
-    c1.update(d) 
+    c1.update(d)
     c1.update(e)  # E: No matching overload found for function `C.update`
     # This is not ok because `F` could contain `y` with an incompatible type
     c1.update(f) # E: No matching overload found for function `C.update`
     c1.update({"x": 1, "y": 1})
-    c1.update({"x": 1})  
+    c1.update({"x": 1})
     c1.update({"z": 1})  # E: No matching overload found for function `C.update`
     c1.update([("x", 1), ("y", 2)])
     c1.update([("z", 3)]) # E: No matching overload found for function `C.update`
@@ -845,10 +845,10 @@ from typing import TypedDict
 
 class X[T](TypedDict):
     a: T
-    
+
 def f(x: X[int], y: dict[str, int]):
     x.update(y)  # E: No matching overload found for function `X.update`
-    x.update(x) 
+    x.update(x)
     x.update({"a": 1})
     x.update({"b": 1}) # E: No matching overload found for function `X.update`
     "#,
@@ -1026,5 +1026,89 @@ class A(TypedDict):
     x: int
 # Test that the dict literal still matches `A` despite the error in `int(oops)`.
 a: A | dict[int, str] = {'x': int(oops)}  # E: Could not find name `oops`
+    "#,
+);
+
+testcase!(
+    test_unpack_typed_dict_kwargs_validation,
+    r#"
+from typing import TypedDict, Unpack
+
+class Coord(TypedDict):
+    x: int
+    y: int
+
+class Person(TypedDict):
+    name: str
+    age: int
+
+# Valid: Unpack[TypedDict] in **kwargs annotation
+def valid_kwargs(**kwargs: Unpack[Coord]):
+    pass
+
+# Invalid: Unpack[TypedDict] in other contexts
+def invalid_param(param: Unpack[Coord]):  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+    pass
+
+def invalid_return() -> Unpack[Coord]:  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+    pass
+
+x: Unpack[Coord] = ...  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+
+# Invalid: Unpack with non-TypedDict in **kwargs
+def invalid_unpack_int(**kwargs: Unpack[int]):  # E: `Unpack` in **kwargs annotation must be used only with a `TypedDict`
+    pass
+
+def invalid_unpack_dict(**kwargs: Unpack[dict[str, int]]):  # E: `Unpack` in **kwargs annotation must be used only with a `TypedDict`
+    pass
+
+# Valid: Regular TypedDict in **kwargs (without Unpack)
+def regular_kwargs(**kwargs: Coord):
+    pass
+    "#,
+);
+
+testcase!(
+    test_unpack_typed_dict_args_validation,
+    r#"
+from typing import TypedDict, Unpack
+
+class Coord(TypedDict):
+    x: int
+    y: int
+
+# Invalid: Unpack[TypedDict] in *args annotation
+def invalid_args(*args: Unpack[Coord]):  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+    pass
+
+# Valid: Unpack with tuple in *args
+def valid_args(*args: Unpack[tuple[int, str]]):
+    pass
+    "#,
+);
+
+testcase!(
+    test_unpack_typed_dict_nested_validation,
+    r#"
+from typing import TypedDict, Unpack, Union
+
+class Coord(TypedDict):
+    x: int
+    y: int
+
+class Person(TypedDict):
+    name: str
+    age: int
+
+# Invalid: Nested Unpack[TypedDict] outside **kwargs
+def invalid_union(param: Union[int, Unpack[Coord]]):  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+    pass
+
+def invalid_list(param: list[Unpack[Coord]]):  # E: `Unpack` with a `TypedDict` is only allowed in a **kwargs annotation
+    pass
+
+# Valid: Unpack[TypedDict] only in **kwargs
+def valid_kwargs(**kwargs: Unpack[Coord]):
+    pass
     "#,
 );

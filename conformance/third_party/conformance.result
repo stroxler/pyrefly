@@ -90,8 +90,7 @@
     "Line 157: Unexpected errors ['`Proto7` is not assignable to `Proto6`']"
   ],
   "callables_kwargs.py": [
-    "Line 111: Expected 1 errors",
-    "Line 122: Expected 1 errors"
+    "Line 111: Expected 1 errors"
   ],
   "callables_protocol.py": [],
   "callables_subtyping.py": [],
