@@ -427,10 +427,10 @@ impl Query {
                 (None, x.range())
             };
             if let Some(func_ty) = callee_ty {
-                eprintln!(
-                    "func_ty: {func_ty:?} at {:?}",
-                    module_info.display_range(callee_range)
-                );
+                // eprintln!(
+                //     "func_ty: {func_ty:?} at {:?}",
+                //     module_info.display_range(callee_range)
+                // );
 
                 callee_for_type(&func_ty, callee_range, module_info, transaction, handle)
                     .into_iter()
@@ -533,32 +533,56 @@ impl Query {
         lt: &str,
         gt: &str,
     ) -> Result<bool, String> {
-        let types = format!("type pyrefly_lt = ({lt})\ntype pyrefly_gt = ({gt})\n");
-        let imported = Self::find_imports(&Ast::parse(&types).0);
-        let imports = imported.map(|x| format!("import {x}\n")).join("");
-        let check = "def pyrefly_func(x: pyrefly_lt) -> pyrefly_gt:\n    return x";
+        fn do_check(
+            t: &mut Transaction<'_>,
+            h: Handle,
+            path: &PathBuf,
+            lt: &str,
+            gt: &str,
+            types: String,
+            check: &'static str,
+        ) -> Result<bool, String> {
+            let imported = Query::find_imports(&Ast::parse(&types).0);
+            let imports = imported.map(|x| format!("import {x}\n")).join("");
 
-        let before = format!("{imports}\n{types}\n");
-        let after = format!("{imports}\n{types}\n{check}");
+            let before = format!("{imports}\n{types}\n");
+            let after = format!("{imports}\n{types}\n{check}");
+
+            t.set_memory(vec![(path.clone(), Some(Arc::new(before.clone())))]);
+            t.run(&[(h.dupe(), Require::Everything)]);
+            let errors = t.get_errors([&h]).collect_errors();
+            if !errors.shown.is_empty() {
+                let mut res = Vec::new();
+                for e in errors.shown {
+                    e.write_line(&mut Cursor::new(&mut res), true).unwrap();
+                }
+                return Err(format!(
+                    "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",
+                    str::from_utf8(&res).unwrap_or("UTF8 error")
+                ));
+            }
+            t.set_memory(vec![(path.clone(), Some(Arc::new(after)))]);
+            t.run(&[(h.dupe(), Require::Everything)]);
+            let errors = t.get_errors([&h]).collect_errors();
+            Ok(errors.shown.is_empty())
+        }
 
         let mut t = self.state.transaction();
         let h = self.make_handle(name, ModulePath::memory(path.clone()));
-        t.set_memory(vec![(path.clone(), Some(Arc::new(before.clone())))]);
-        t.run(&[(h.dupe(), Require::Everything)]);
-        let errors = t.get_errors([&h]).collect_errors();
-        if !errors.shown.is_empty() {
-            let mut res = Vec::new();
-            for e in errors.shown {
-                e.write_line(&mut Cursor::new(&mut res), true).unwrap();
-            }
-            return Err(format!(
-                "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",
-                str::from_utf8(&res).unwrap_or("UTF8 error")
-            ));
+
+        // py2hack uses pyre1 fake type order for typed dicts
+        if gt == "TypedDictionary" || gt == "NonTotalTypedDictionary" {
+            let types = format!("type pyrefly_lt = ({lt})");
+            // check if type has attributes specific to TypedDict
+            let check =
+                "pyrefly_lt.__required_keys__, pyrefly_lt.__optional_keys__, pyrefly_lt.__total__";
+
+            do_check(&mut t, h, &path, lt, gt, types, check)
+        } else {
+            let types = format!("type pyrefly_lt = ({lt})\ntype pyrefly_gt = ({gt})\n");
+            let check = "def pyrefly_func(x: pyrefly_lt) -> pyrefly_gt:\n    return x";
+
+            do_check(&mut t, h, &path, lt, gt, types, check)
         }
-        t.set_memory(vec![(path.clone(), Some(Arc::new(after)))]);
-        t.run(&[(h.dupe(), Require::Everything)]);
-        let errors = t.get_errors([&h]).collect_errors();
-        Ok(errors.shown.is_empty())
     }
 }
