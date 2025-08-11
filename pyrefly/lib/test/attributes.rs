@@ -1184,7 +1184,6 @@ def f(c: Config):
 );
 
 testcase!(
-    bug = "We probably should disallow reassignment of class objects",
     test_nested_class_mutability,
     r#"
 class Backend:
