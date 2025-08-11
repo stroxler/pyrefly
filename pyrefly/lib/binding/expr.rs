@@ -782,12 +782,12 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         decorators: Vec<Decorator>,
         usage: &mut Usage,
-    ) -> Vec<Idx<Key>> {
+    ) -> Vec<(Idx<Key>, TextRange)> {
         let mut decorator_keys = Vec::with_capacity(decorators.len());
         for mut x in decorators {
             self.ensure_expr(&mut x.expression, usage);
             let k = self.insert_binding(Key::Anon(x.range), Binding::Decorator(x.expression));
-            decorator_keys.push(k);
+            decorator_keys.push((k, x.range));
         }
         decorator_keys
     }

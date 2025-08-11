@@ -60,7 +60,7 @@ struct Decorators {
     has_no_type_check: bool,
     is_overload: bool,
     is_abstract_method: bool,
-    decorators: Box<[Idx<Key>]>,
+    decorators: Box<[(Idx<Key>, TextRange)]>,
 }
 
 pub struct SelfAssignments {
@@ -324,7 +324,7 @@ impl<'a> BindingsBuilder<'a> {
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
         implicit_return_if_inferring_return_type: Option<Idx<Key>>,
         stub_or_impl: FunctionStubOrImpl,
-        decorators: Box<[Idx<Key>]>,
+        decorators: Box<[(Idx<Key>, TextRange)]>,
     ) {
         let is_generator =
             !(yields_and_returns.yields.is_empty() && yields_and_returns.yield_froms.is_empty());
@@ -372,7 +372,7 @@ impl<'a> BindingsBuilder<'a> {
                         range,
                         annotation,
                         stub_or_impl,
-                        decorators,
+                        decorators: decorators.into_iter().map(|x| x.0).collect(),
                         implicit_return,
                         is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
                         has_explicit_return: !return_keys.is_empty(),

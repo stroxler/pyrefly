@@ -906,7 +906,7 @@ pub struct BindingFunction {
     pub def: StmtFunctionDef,
     pub stub_or_impl: FunctionStubOrImpl,
     pub class_key: Option<Idx<KeyClass>>,
-    pub decorators: Box<[Idx<Key>]>,
+    pub decorators: Box<[(Idx<Key>, TextRange)]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
     pub successor: Option<Idx<KeyFunction>>,
     pub docstring_range: Option<TextRange>,

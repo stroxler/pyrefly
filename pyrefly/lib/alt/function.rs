@@ -177,7 +177,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         def: &StmtFunctionDef,
         stub_or_impl: FunctionStubOrImpl,
         class_key: Option<&Idx<KeyClass>>,
-        decorators: &[Idx<Key>],
+        decorators: &[(Idx<Key>, TextRange)],
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
@@ -204,8 +204,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut dataclass_transform_metadata = None;
         let decorators = decorators
             .iter()
-            .filter(|k| {
-                let decorator = self.get_idx(**k);
+            .filter(|(k, _)| {
+                let decorator = self.get_idx(*k);
                 let decorator_ty = decorator.ty();
                 match decorator_ty.callee_kind() {
                     Some(CalleeKind::Function(FunctionKind::Overload)) => {
@@ -513,7 +513,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
         .forall(self.validated_tparams(def.range, tparams, errors));
         ty = self.move_return_tparams(ty);
-        for x in decorators.into_iter().rev() {
+        for (x, _) in decorators.into_iter().rev() {
             ty = self.apply_function_decorator(*x, ty, &metadata, errors);
         }
         Arc::new(DecoratedFunction {
