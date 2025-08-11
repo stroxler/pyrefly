@@ -975,11 +975,10 @@ x: Identity = f()  # E: `[T](T) -> T` is not assignable to `Identity`
 );
 
 testcase!(
-    bug = "This should be an error",
     test_too_new_syntax,
     TestEnv::new_with_version(PythonVersion::new(3, 8, 0)),
     r#"
-class A[T]:
+class A[T]:  # E: Cannot use type parameter lists on Python 3.8 (syntax was added in Python 3.12)
     x: T
     "#,
 );

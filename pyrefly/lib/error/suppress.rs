@@ -50,7 +50,7 @@ fn read_and_validate_file(path: &Path) -> anyhow::Result<String> {
     match file {
         Ok(file) => {
             // Check for generated + parsable files
-            let (_ast, parse_errors) = Ast::parse(&file);
+            let (_ast, parse_errors, _unsupported_syntax_errors) = Ast::parse(&file);
             if !parse_errors.is_empty() {
                 return Err(anyhow!("File is not parsable"));
             }
