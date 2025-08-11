@@ -9,6 +9,7 @@
 
 use std::io::Cursor;
 use std::iter;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -536,7 +537,7 @@ impl Query {
         fn do_check(
             t: &mut Transaction<'_>,
             h: Handle,
-            path: &PathBuf,
+            path: &Path,
             lt: &str,
             gt: &str,
             types: String,
@@ -548,7 +549,7 @@ impl Query {
             let before = format!("{imports}\n{types}\n");
             let after = format!("{imports}\n{types}\n{check}");
 
-            t.set_memory(vec![(path.clone(), Some(Arc::new(before.clone())))]);
+            t.set_memory(vec![(path.to_owned(), Some(Arc::new(before.clone())))]);
             t.run(&[(h.dupe(), Require::Everything)]);
             let errors = t.get_errors([&h]).collect_errors();
             if !errors.shown.is_empty() {
@@ -561,7 +562,7 @@ impl Query {
                     str::from_utf8(&res).unwrap_or("UTF8 error")
                 ));
             }
-            t.set_memory(vec![(path.clone(), Some(Arc::new(after)))]);
+            t.set_memory(vec![(path.to_owned(), Some(Arc::new(after)))]);
             t.run(&[(h.dupe(), Require::Everything)]);
             let errors = t.get_errors([&h]).collect_errors();
             Ok(errors.shown.is_empty())

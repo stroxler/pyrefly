@@ -6,7 +6,6 @@
  */
 
 use configparser::ini::Ini;
-use configparser::ini::IniDefault;
 
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
@@ -52,6 +51,7 @@ impl ConfigOptionMigrater for ErrorCodes {
 
 #[cfg(test)]
 mod tests {
+    use configparser::ini::IniDefault;
 
     use super::*;
     use crate::error_kind::ErrorKind;
