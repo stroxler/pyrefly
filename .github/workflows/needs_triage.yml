@@ -2,8 +2,8 @@ name: Label issues and PRs that need triage
 
 on:
   schedule:
-    # Run once every weekday at midnight
-    - cron: '0 0 * * 1-5'
+    # Run once every weekday at 9AM PT / 12PM ET
+    - cron: '0 16 * * 1-5'
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
