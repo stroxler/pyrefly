@@ -6,6 +6,7 @@
  */
 
 use configparser::ini::Ini;
+use configparser::ini::IniDefault;
 
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
@@ -51,6 +52,7 @@ impl ConfigOptionMigrater for ErrorCodes {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use crate::error_kind::ErrorKind;
     use crate::error_kind::Severity;
@@ -113,8 +115,15 @@ mod tests {
 
     #[test]
     fn test_migrate_from_mypy_with_disable_codes() {
-        let mut mypy_cfg = Ini::new();
-        mypy_cfg.set("mypy", "disable_error_code", Some("arg-type".to_owned()));
+        let mut default = IniDefault::default();
+        default.multiline = true;
+        let mut mypy_cfg = Ini::new_from_defaults(default);
+
+        mypy_cfg.set(
+            "mypy",
+            "disable_error_code",
+            Some("arg-type, call-overload".to_owned()),
+        );
 
         let mut pyrefly_cfg = ConfigFile::default();
 
@@ -125,6 +134,10 @@ mod tests {
         let errors = pyrefly_cfg.root.errors.as_ref().unwrap();
         assert_eq!(
             errors.severity(ErrorKind::BadArgumentType),
+            Severity::Ignore
+        );
+        assert_eq!(
+            errors.severity(ErrorKind::InvalidOverload),
             Severity::Ignore
         );
     }
