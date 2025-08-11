@@ -9138,6 +9138,16 @@
       "name": "bad-override",
       "stop_column": 15,
       "stop_line": 118
+    },
+    {
+      "code": -2,
+      "column": 1,
+      "concise_description": "Decorator `@final` can only be used on methods.",
+      "description": "Decorator `@final` can only be used on methods.",
+      "line": 125,
+      "name": "invalid-decorator",
+      "stop_column": 7,
+      "stop_line": 125
     }
   ],
   "specialtypes_any.py": [],

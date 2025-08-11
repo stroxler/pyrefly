@@ -146,6 +146,9 @@ pub enum ErrorKind {
     InvalidAnnotation,
     /// Passing an argument that is invalid for reasons besides type.
     InvalidArgument,
+    /// Error caused by incorrect usage of a decorator.
+    /// e.g. using @final on a top-level function
+    InvalidDecorator,
     /// An error caused by incorrect inheritance in a class or type definition.
     /// e.g. a metaclass that is not a subclass of `type`.
     InvalidInheritance,

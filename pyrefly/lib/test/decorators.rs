@@ -198,10 +198,31 @@ testcase!(
     test_final,
     r#"
 from typing import final, reveal_type
-@final
+@final  # E: `@final` can only be used on methods
 def f(x: int) -> int:
     return x
 reveal_type(f)  # E: revealed type: (x: int) -> int
+    "#,
+);
+
+testcase!(
+    test_invalid_top_level_function_decorators,
+    r#"
+from typing import *
+from abc import abstractstaticmethod, abstractmethod
+from enum import member, nonmember
+
+@member  # E: can only be used on methods
+@nonmember  # E: can only be used on methods
+@abstractmethod  # E: can only be used on methods
+@staticmethod  # E: can only be used on methods
+@classmethod  # E: can only be used on methods
+@abstractstaticmethod  # E: can only be used on methods
+@property  # E: can only be used on methods
+@final  # E: can only be used on methods
+@override  # E: can only be used on methods
+def f(x: int) -> int:
+    return x
     "#,
 );
 

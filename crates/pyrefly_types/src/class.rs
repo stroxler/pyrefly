@@ -140,9 +140,9 @@ impl Debug for ClassInner {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum ClassKind {
-    StaticMethod,
-    ClassMethod,
-    Property,
+    StaticMethod(String),
+    ClassMethod(String),
+    Property(String),
     Class,
     EnumMember,
     EnumNonmember,
@@ -151,17 +151,18 @@ pub enum ClassKind {
 
 impl ClassKind {
     fn from_qname(qname: &QName) -> Self {
-        match (qname.module_name().as_str(), qname.id().as_str()) {
-            ("builtins", "staticmethod") => Self::StaticMethod,
-            ("abc", "abstractstaticmethod") => Self::StaticMethod,
-            ("builtins", "classmethod") => Self::ClassMethod,
-            ("abc", "abstractclassmethod") => Self::ClassMethod,
-            ("builtins", "property") => Self::Property,
-            ("abc", "abstractproperty") => Self::Property,
-            ("functools", "cached_property") => Self::Property,
-            ("cached_property", "cached_property") => Self::Property,
-            ("cinder", "cached_property") => Self::Property,
-            ("cinder", "async_cached_property") => Self::Property,
+        let name = qname.id().as_str();
+        match (qname.module_name().as_str(), name) {
+            ("builtins", "staticmethod") => Self::StaticMethod(name.to_owned()),
+            ("abc", "abstractstaticmethod") => Self::StaticMethod(name.to_owned()),
+            ("builtins", "classmethod") => Self::ClassMethod(name.to_owned()),
+            ("abc", "abstractclassmethod") => Self::ClassMethod(name.to_owned()),
+            ("builtins", "property") => Self::Property(name.to_owned()),
+            ("abc", "abstractproperty") => Self::Property(name.to_owned()),
+            ("functools", "cached_property") => Self::Property(name.to_owned()),
+            ("cached_property", "cached_property") => Self::Property(name.to_owned()),
+            ("cinder", "cached_property") => Self::Property(name.to_owned()),
+            ("cinder", "async_cached_property") => Self::Property(name.to_owned()),
             ("enum", "member") => Self::EnumMember,
             ("enum", "nonmember") => Self::EnumNonmember,
             ("dataclasses", "Field") => Self::DataclassField,

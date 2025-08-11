@@ -311,7 +311,7 @@ testcase!(
 from typing import assert_type, final, overload
 
 @overload
-@final
+@final  # E: `@final` can only be used on methods
 def f(x: int) -> int: ...
 
 @overload
