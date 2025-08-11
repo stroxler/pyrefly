@@ -35,6 +35,7 @@ use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -134,6 +135,57 @@ impl Query {
             e.write_line(&mut s, false).unwrap();
             String::from_utf8_lossy(&s.into_inner()).into_owned()
         })
+    }
+
+    pub fn get_attributes(
+        &self,
+        name: ModuleName,
+        path: ModulePath,
+        class_name: &str,
+    ) -> Option<Vec<Attribute>> {
+        let transaction = self.state.transaction();
+        let handle = self.make_handle(name, path);
+        let ast = transaction.get_ast(&handle)?;
+        // find last declaration of class with specified name in file
+        let cls = ast
+            .body
+            .iter()
+            .filter_map(|e| {
+                if let Stmt::ClassDef(cls) = e {
+                    if cls.name.id.as_str() == class_name {
+                        Some(cls)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .last()?;
+        let class_ty = transaction.get_type_at(&handle, cls.name.start());
+        if let Some(Type::ClassDef(cd)) = &class_ty {
+            let res = cd
+                .fields()
+                .filter_map(|n| {
+                    let range = cd.field_decl_range(n)?;
+                    let field_ty = transaction.get_type_at(&handle, range.start())?;
+                    let kind = if let Type::Function(f) = &field_ty
+                        && f.metadata.flags.is_property_getter
+                    {
+                        Some(String::from("property"))
+                    } else {
+                        None
+                    };
+                    Some(Attribute {
+                        name: n.to_string(),
+                        kind,
+                    })
+                })
+                .collect_vec();
+            Some(res)
+        } else {
+            None
+        }
     }
 
     // fetches information about callees of a callable in a module
