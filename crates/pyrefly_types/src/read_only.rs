@@ -46,7 +46,7 @@ impl ReadOnlyReason {
                 "A field accessed through `super()` is considered read-only".to_owned()
             }
             ReadOnlyReason::PydanticFrozen => {
-                "This field belongs to a frozen Pydantic model,".to_owned()
+                "This field belongs to a frozen Pydantic model".to_owned()
             }
         }
     }
