@@ -1722,6 +1722,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Any(style) => Some(AttributeBase::Any(style)),
             Type::TypeAlias(ta) => self.as_attribute_base_no_union(ta.as_value(self.stdlib)),
+            Type::Type(box Type::Tuple(_)) => Some(AttributeBase::ClassObject(
+                self.stdlib.tuple_object().dupe(),
+            )),
             Type::Type(box Type::ClassType(class)) => {
                 Some(AttributeBase::ClassObject(class.class_object().dupe()))
             }

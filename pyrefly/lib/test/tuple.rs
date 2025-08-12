@@ -139,6 +139,16 @@ def foo(x: tuple, y: Tuple) -> None:
 );
 
 testcase!(
+    test_tuple_type_attr_base,
+    r#"
+from typing import Any
+def is_namedtuple_cls(cls: Any):
+    if issubclass(cls, tuple):
+        print(cls.__bases__)
+"#,
+);
+
+testcase!(
     test_tuple_bad_unpack,
     r#"
 from typing import Any, Iterable
