@@ -250,7 +250,8 @@ fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                 match connection.handle_shutdown(&x) {
                     Ok(is_shutdown) => {
                         if is_shutdown {
-                            return;
+                            // break to ensure we send exit event
+                            break;
                         }
                     }
                     Err(_) => {
