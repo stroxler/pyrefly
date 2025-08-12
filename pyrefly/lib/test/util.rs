@@ -187,7 +187,7 @@ impl TestEnv {
         config.python_environment.site_package_path = Some(self.site_package_path.clone());
         config.root.untyped_def_behavior = Some(self.untyped_def_behavior);
         for (name, (path, _)) in self.modules.iter() {
-            config.custom_module_paths.insert(*name, path.clone());
+            config.custom_module_paths.insert(*name, path.dupe());
         }
         config.interpreters.skip_interpreter_query = true;
         config.configure();
@@ -207,7 +207,7 @@ impl TestEnv {
             // Reverse so we start at the last file, which is likely to be what the user
             // would have opened, so make it most faithful.
             .rev()
-            .map(|(x, (path, _))| Handle::new(*x, path.clone(), config.dupe()))
+            .map(|(x, (path, _))| Handle::new(*x, path.dupe(), config.dupe()))
             .collect::<Vec<_>>();
         let state = State::new(self.config_finder());
         let subscriber = TestSubscriber::new();
