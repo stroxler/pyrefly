@@ -27,7 +27,6 @@ use dupe::Dupe;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
-use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::display;
 use pyrefly_util::display::count;
@@ -36,12 +35,9 @@ use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
-use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::memory::MemoryUsageTrace;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::watcher::Watcher;
-use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::info;
 
@@ -766,27 +762,7 @@ impl CheckArgs {
             suppress::suppress_errors(errors.shown.clone());
         }
         if self.behavior.remove_unused_ignores {
-            let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
-            for (module_path, ignore) in loads.collect_ignores() {
-                if let ModulePathDetails::FileSystem(path) = module_path.details() {
-                    all_ignores.insert(path, ignore.get_pyrefly_ignores());
-                }
-            }
-
-            let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
-            for e in &errors.suppressed {
-                if e.is_ignored(false)
-                    && let ModulePathDetails::FileSystem(path) = e.path().details()
-                {
-                    suppressed_errors
-                        .entry(path)
-                        .or_default()
-                        .insert(e.display_range().start.line);
-                }
-            }
-
-            let unused_ignores = suppress::find_unused_ignores(all_ignores, suppressed_errors);
-            suppress::remove_unused_ignores(unused_ignores);
+            suppress::remove_unused_ignores(&loads);
         }
         if self.behavior.expectations {
             loads.check_against_expectations()?;

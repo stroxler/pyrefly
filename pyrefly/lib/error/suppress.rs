@@ -21,6 +21,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::error;
 
 use crate::error::error::Error;
+use crate::state::errors::Errors;
 
 /// Combines all errors that affect one line into a single entry.
 // The current format is: `# pyrefly: ignore  # error1, error2, ...`
@@ -152,7 +153,29 @@ pub fn find_unused_ignores<'a>(
     all_unused_ignores
 }
 
-pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>>) {
+pub fn remove_unused_ignores(loads: &Errors) {
+    let errors = loads.collect_errors();
+    let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
+    for (module_path, ignore) in loads.collect_ignores() {
+        if let ModulePathDetails::FileSystem(path) = module_path.details() {
+            all_ignores.insert(path, ignore.get_pyrefly_ignores());
+        }
+    }
+
+    let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
+    for e in &errors.suppressed {
+        if e.is_ignored(false)
+            && let ModulePathDetails::FileSystem(path) = e.path().details()
+        {
+            suppressed_errors
+                .entry(path)
+                .or_default()
+                .insert(e.display_range().start.line);
+        }
+    }
+
+    let path_ignores = find_unused_ignores(all_ignores, suppressed_errors);
+
     // TODO: right now we only remove pyrefly ignores, but we should have options to clean up
     // other comment based ignores as well
     let regex = Regex::new(r"# pyrefly: ignore.*$").unwrap();
@@ -201,65 +224,30 @@ pub fn remove_unused_ignores(path_ignores: SmallMap<&PathBuf, SmallSet<LineNumbe
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
     use std::path::PathBuf;
     use std::sync::Arc;
 
     use dupe::Dupe;
-    use pretty_assertions::assert_str_eq;
     use pyrefly_python::module_name::ModuleName;
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_python::sys_info::SysInfo;
     use pyrefly_util::arc_id::ArcId;
     use pyrefly_util::fs_anyhow;
-    use pyrefly_util::lined_buffer::DisplayPos;
-    use ruff_text_size::TextRange;
-    use ruff_text_size::TextSize;
     use tempfile;
     use tempfile::TempDir;
-    use vec1::Vec1;
 
     use super::*;
     use crate::config::config::ConfigFile;
-    use crate::config::error_kind::ErrorKind;
     use crate::config::finder::ConfigFinder;
     use crate::error::suppress;
-    use crate::module::module_info::ModuleInfo;
     use crate::state::handle::Handle;
     use crate::state::require::Require;
     use crate::state::state::State;
 
-    fn error(path: PathBuf, row: usize, column: usize, error_kind: ErrorKind) -> Error {
-        let contents = format!("{}{}", "\n".repeat(row - 1), " ".repeat(column - 1));
-        let pos = TextSize::new(contents.len() as u32);
-        let e = Error::new(
-            ModuleInfo::new(
-                ModuleName::unknown(),
-                ModulePath::filesystem(path),
-                Arc::new(contents),
-            ),
-            TextRange::new(pos, pos),
-            Vec1::new("test message".to_owned()),
-            error_kind,
-        );
-        assert_eq!(
-            e.display_range().start,
-            DisplayPos {
-                line: LineNumber::new(row as u32).unwrap(),
-                column: NonZeroU32::new(column as u32).unwrap()
-            }
-        );
-        e
-    }
-
-    fn test_remove_suppressions(lines: SmallSet<LineNumber>, input: &str, want: &str) {
-        let tdir = tempfile::tempdir().unwrap();
-        let path = tdir.path().join("test.py");
-        fs_anyhow::write(&path, input).unwrap();
-        let map = SmallMap::from_iter([(&path, lines)]);
-        remove_unused_ignores(map);
-        let got_file = fs_anyhow::read_to_string(&path).unwrap();
-        assert_str_eq!(want, got_file);
+    #[derive(PartialEq)]
+    enum SuppressFlag {
+        Remove,
+        Add,
     }
 
     fn get_path(tdir: &TempDir) -> PathBuf {
@@ -267,6 +255,14 @@ mod tests {
     }
 
     fn assert_suppress_errors(before: &str, after: &str) {
+        assert_suppressions(before, after, SuppressFlag::Add)
+    }
+
+    fn assert_remove_ignores(before: &str, after: &str) {
+        assert_suppressions(before, after, SuppressFlag::Remove)
+    }
+
+    fn assert_suppressions(before: &str, after: &str, kind: SuppressFlag) {
         let tdir = tempfile::tempdir().unwrap();
 
         let mut config = ConfigFile::default();
@@ -291,35 +287,14 @@ mod tests {
         )]);
         transaction.run(&[handle.clone()].map(|x| (x.dupe(), Require::Everything)));
         let loads = transaction.get_errors([handle.clone()].iter());
-        suppress::suppress_errors(loads.collect_errors().shown);
+        if kind == SuppressFlag::Add {
+            suppress::suppress_errors(loads.collect_errors().shown);
+        } else {
+            suppress::remove_unused_ignores(&loads);
+        }
 
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
-    }
-
-    fn assert_no_error_suppression(
-        path_errors: Vec<(usize, usize, ErrorKind)>,
-        input: &str,
-        output: &str,
-    ) {
-        let tdir = tempfile::tempdir().unwrap();
-        let path = tdir.path().join("test.py");
-        fs_anyhow::write(&path, input).unwrap();
-        let errors = {
-            let mut e = SmallMap::new();
-            e.insert(
-                path.clone(),
-                path_errors
-                    .into_iter()
-                    .map(|x| error(path.clone(), x.0, x.1, x.2))
-                    .collect(),
-            );
-            e
-        };
-        let (failures, _successes) = add_suppressions(&errors);
-        assert!(!failures.is_empty());
-        let got_file = fs_anyhow::read_to_string(&path).unwrap();
-        assert_str_eq!(output, got_file);
     }
 
     #[test]
@@ -410,8 +385,7 @@ x: int = foo("Hello")
 
     #[test]
     fn test_add_suppressions_unparseable_line_break() {
-        assert_no_error_suppression(
-            vec![(3, 10, ErrorKind::BadAssignment)],
+        assert_suppress_errors(
             r#"
 def foo() -> None:
     line_break = \\
@@ -441,16 +415,11 @@ def bar() -> None:
 pass 
     "#,
         );
-        assert_no_error_suppression(
-            vec![(1, 10, ErrorKind::BadAssignment)],
-            &file_contents,
-            &file_contents,
-        );
+        assert_suppress_errors(&file_contents, &file_contents);
     }
 
     #[test]
     fn test_remove_suppression_above() {
-        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap()]);
         let input = r#"
 def f() -> int:
     # pyrefly: ignore # bad-return
@@ -461,12 +430,11 @@ def f() -> int:
 
     return 1
 "#;
-        test_remove_suppressions(lines, input, want);
+        assert_remove_ignores(input, want);
     }
 
     #[test]
     fn test_remove_suppression_above_two() {
-        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap()]);
         let input = r#"
 def g() -> str:
     # pyrefly: ignore # bad-return
@@ -477,12 +445,11 @@ def g() -> str:
 
     return "hello"
 "#;
-        test_remove_suppressions(lines, input, want);
+        assert_remove_ignores(input, want);
     }
 
     #[test]
     fn test_remove_suppression_inline() {
-        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap()]);
         let input = r#"
 def g() -> str:
     return "hello" # pyrefly: ignore # bad-return
@@ -491,12 +458,11 @@ def g() -> str:
 def g() -> str:
     return "hello"
 "#;
-        test_remove_suppressions(lines, input, want);
+        assert_remove_ignores(input, want);
     }
 
     #[test]
     fn test_remove_suppression_multiple() {
-        let lines = SmallSet::from_iter([LineNumber::new(4).unwrap(), LineNumber::new(6).unwrap()]);
         let input = r#"
 def g() -> str:
     return "hello" # pyrefly: ignore # bad-return
@@ -511,12 +477,11 @@ def f() -> int:
 
     return 1
 "##;
-        test_remove_suppressions(lines, input, output);
+        assert_remove_ignores(input, output);
     }
 
     #[test]
     fn test_no_remove_suppression_generated() {
-        let lines = SmallSet::from_iter([LineNumber::new(3).unwrap(), LineNumber::new(5).unwrap()]);
         let input = format!(
             r#"
 {GENERATED_TOKEN}
@@ -527,6 +492,15 @@ def f() -> int:
     return 1
 "#,
         );
-        test_remove_suppressions(lines, &input, &input);
+        assert_remove_ignores(&input, &input);
+    }
+
+    #[test]
+    fn test_no_remove_suppression() {
+        let input = r#"
+def g() -> int:
+    return "hello" # pyrefly: ignore # bad-return
+"#;
+        assert_remove_ignores(input, input);
     }
 }
