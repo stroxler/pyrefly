@@ -35,7 +35,6 @@ use ruff_source_file::PositionEncoding;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
-use starlark_map::small_map::SmallMap;
 
 use crate::binding::binding::KeyExport;
 use crate::config::base::UntypedDefBehavior;
@@ -94,7 +93,7 @@ fn default_path(module: ModuleName) -> PathBuf {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TestEnv {
-    modules: SmallMap<ModuleName, (ModulePath, Option<Arc<String>>)>,
+    modules: Vec<(ModuleName, ModulePath, Option<Arc<String>>)>,
     version: PythonVersion,
     untyped_def_behavior: UntypedDefBehavior,
     site_package_path: Vec<PathBuf>,
@@ -130,22 +129,18 @@ impl TestEnv {
             path.ends_with(".py") || path.ends_with(".pyi") || path.ends_with(".rs"),
             "{path} doesn't look like a reasonable path"
         );
-        self.modules.insert(
+        self.modules.push((
             ModuleName::from_str(name),
-            (
-                ModulePath::memory(PathBuf::from(path)),
-                Some(Arc::new(code.to_owned())),
-            ),
-        );
+            ModulePath::memory(PathBuf::from(path)),
+            Some(Arc::new(code.to_owned())),
+        ));
     }
 
     pub fn add(&mut self, name: &str, code: &str) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(default_path(module_name));
-        self.modules.insert(
-            module_name,
-            (relative_path, Some(Arc::new(code.to_owned()))),
-        );
+        self.modules
+            .push((module_name, relative_path, Some(Arc::new(code.to_owned()))));
     }
 
     pub fn one(name: &str, code: &str) -> Self {
@@ -163,7 +158,7 @@ impl TestEnv {
     pub fn add_real_path(&mut self, name: &str, path: PathBuf) {
         let module_name = ModuleName::from_str(name);
         self.modules
-            .insert(module_name, (ModulePath::filesystem(path), None));
+            .push((module_name, ModulePath::filesystem(path), None));
     }
 
     pub fn sys_info(&self) -> SysInfo {
@@ -172,8 +167,8 @@ impl TestEnv {
 
     pub fn get_memory(&self) -> Vec<(PathBuf, Option<Arc<String>>)> {
         self.modules
-            .values()
-            .filter_map(|(path, contents)| match path.details() {
+            .iter()
+            .filter_map(|(_, path, contents)| match path.details() {
                 ModulePathDetails::Memory(path) => Some((path.clone(), contents.dupe())),
                 _ => None,
             })
@@ -186,7 +181,7 @@ impl TestEnv {
         config.python_environment.python_platform = Some(PythonPlatform::linux());
         config.python_environment.site_package_path = Some(self.site_package_path.clone());
         config.root.untyped_def_behavior = Some(self.untyped_def_behavior);
-        for (name, (path, _)) in self.modules.iter() {
+        for (name, path, _) in self.modules.iter() {
             config.custom_module_paths.insert(*name, path.dupe());
         }
         config.interpreters.skip_interpreter_query = true;
@@ -207,7 +202,7 @@ impl TestEnv {
             // Reverse so we start at the last file, which is likely to be what the user
             // would have opened, so make it most faithful.
             .rev()
-            .map(|(x, (path, _))| Handle::new(*x, path.dupe(), config.dupe()))
+            .map(|(x, path, _)| Handle::new(*x, path.dupe(), config.dupe()))
             .collect::<Vec<_>>();
         let state = State::new(self.config_finder());
         let subscriber = TestSubscriber::new();
@@ -467,11 +462,7 @@ pub fn testcase_for_macro(
             t.get_errors([&handle("main")])
                 .check_against_expectations()?;
             // THen check all handles, so we make sure the rest of the TestEnv is valid.
-            let handles = env
-                .modules
-                .keys()
-                .map(|x| handle(x.as_str()))
-                .collect::<Vec<_>>();
+            let handles = env.modules.map(|(x, _, _)| handle(x.as_str()));
             state
                 .transaction()
                 .get_errors(handles.iter())
