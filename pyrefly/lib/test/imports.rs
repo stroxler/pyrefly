@@ -770,7 +770,6 @@ from . import foo  # E: Could not find import of `.`
 );
 
 #[test]
-#[should_panic]
 fn test_interface_has_more() {
     let temp = tempfile::tempdir().unwrap();
     let mut env = TestEnv::new();
