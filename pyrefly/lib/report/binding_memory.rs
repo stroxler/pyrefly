@@ -119,6 +119,7 @@ mod tests {
     use crate::binding::binding::BindingClass;
     use crate::binding::binding::BindingClassMetadata;
     use crate::binding::binding::Key;
+    use crate::binding::pydantic::PydanticMetadataBinding;
     use crate::graph::index::Idx;
     use crate::types::class::ClassDefIndex;
 
@@ -162,7 +163,7 @@ mod tests {
             decorators: Default::default(),
             is_new_type: false,
             special_base: None,
-            pydantic_metadata: None,
+            pydantic_metadata: PydanticMetadataBinding::default(),
         };
         assert_eq!(
             ReportKey::new(module, &v),

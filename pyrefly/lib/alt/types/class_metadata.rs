@@ -141,6 +141,10 @@ impl ClassMetadata {
         self.typed_dict_metadata.is_some()
     }
 
+    pub fn is_pydantic_model(&self) -> bool {
+        self.pydantic_metadata.is_some()
+    }
+
     pub fn is_final(&self) -> bool {
         self.is_final
     }

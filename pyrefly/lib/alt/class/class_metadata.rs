@@ -199,7 +199,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         special_base: &Option<Box<BaseClass>>,
-        pydantic_metadata_binding: &Option<PydanticMetadataBinding>,
+        pydantic_metadata_binding: &PydanticMetadataBinding,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mut enum_metadata = None;
@@ -579,6 +579,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(dm) = dataclass_metadata.as_ref() {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
+
+        let has_pydantic_base_model_base_class =
+            bases_with_metadata.iter().any(|(base_class_object, _)| {
+                base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
+            });
+
+        let is_pydantic_model = has_pydantic_base_model_base_class
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.is_pydantic_model());
+
         let bases = if is_typed_dict && bases_with_metadata.is_empty() {
             // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
             // Note that this also makes those attributes available on *instances* of said subclasses; this is
@@ -593,12 +604,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .collect::<Vec<_>>()
         };
 
-        let pydantic_metadata =
-            if let Some(PydanticMetadataBinding { frozen }) = pydantic_metadata_binding {
+        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
+        let pydantic_metadata = match pydantic_metadata_binding {
+            PydanticMetadataBinding { frozen } if is_pydantic_model => {
                 Some(PydanticMetadata { frozen: *frozen })
-            } else {
-                None
-            };
+            }
+            _ => None,
+        };
 
         ClassMetadata::new(
             bases,

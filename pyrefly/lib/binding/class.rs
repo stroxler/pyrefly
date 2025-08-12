@@ -113,14 +113,15 @@ impl<'a> BindingsBuilder<'a> {
         (class_object, class_indices)
     }
 
+    // TODO Zeina: We should expect to extend this beyond the frozen data.
+    fn make_pydantic_metadata(&self, frozen: bool) -> PydanticMetadataBinding {
+        PydanticMetadataBinding { frozen }
+    }
+
     // The goal of this function is to extract pydantic metadata (https://docs.pydantic.dev/latest/concepts/models/) from expressions.
     // TODO: Consider propagating the entire expression instead of the value
     // in case it is aliased.
-    fn extract_pydantic_metadata(
-        &self,
-        e: &Expr,
-        name: Hashed<&Name>,
-    ) -> Option<PydanticMetadataBinding> {
+    fn extract_frozen_pydantic_metadata(&self, e: &Expr, name: Hashed<&Name>) -> Option<bool> {
         if name.as_str() == "model_config"
             && let Some(call) = e.as_call_expr()
             && let Some(special) = self.as_special_export(&call.func)
@@ -136,7 +137,7 @@ impl<'a> BindingsBuilder<'a> {
                     break;
                 }
             }
-            return Some(PydanticMetadataBinding { frozen });
+            return Some(frozen);
         }
         None
     }
@@ -154,7 +155,7 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
-        let mut pydantic_metadata = None;
+        let mut pydantic_frozen = false;
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
@@ -268,12 +269,11 @@ impl<'a> BindingsBuilder<'a> {
                         match info.as_initial_value() {
                             ClassFieldInBody::InitializedByAssign(e) => {
                                 // TODO Zeina: This logic will need to be updated after we extract more data
-                                let curr_pydantic_metadata =
-                                    self.extract_pydantic_metadata(&e, name);
-                                if curr_pydantic_metadata.is_some() {
-                                    pydantic_metadata = curr_pydantic_metadata;
+                                let curr_frozen_pydantic_info =
+                                    self.extract_frozen_pydantic_metadata(&e, name);
+                                if let Some(frozen) = curr_frozen_pydantic_info {
+                                    pydantic_frozen = frozen;
                                 }
-
                                 (
                                     ClassFieldDefinition::AssignedInBody {
                                         value: ExprOrBinding::Expr(e.clone()),
@@ -408,7 +408,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
                 special_base: None,
-                pydantic_metadata,
+                pydantic_metadata: self.make_pydantic_metadata(pydantic_frozen),
             },
         );
     }
@@ -510,7 +510,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: Box::new([]),
                 is_new_type,
                 special_base,
-                pydantic_metadata: None, // This is a synthesized class, so no pydantic metadata
+                pydantic_metadata: PydanticMetadataBinding::default(),
             },
         );
         self.insert_binding_idx(

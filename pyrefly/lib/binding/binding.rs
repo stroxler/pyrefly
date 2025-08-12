@@ -1881,8 +1881,7 @@ pub struct BindingClassMetadata {
     /// for some synthesized classes, which have no actual class body and therefore usually have no
     /// base class expressions, but may have a known base class for the synthesized class.
     pub special_base: Option<Box<BaseClass>>,
-    #[allow(dead_code)]
-    pub pydantic_metadata: Option<PydanticMetadataBinding>,
+    pub pydantic_metadata: PydanticMetadataBinding,
 }
 
 impl DisplayWith<Bindings> for BindingClassMetadata {

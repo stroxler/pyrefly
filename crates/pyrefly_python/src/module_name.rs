@@ -142,6 +142,10 @@ impl ModuleName {
         Self::from_str("_typeshed._type_checker_internals")
     }
 
+    pub fn pydantic() -> Self {
+        Self::from_str("pydantic.main")
+    }
+
     /// The "unknown" module name, which corresponds to `__unknown__`.
     /// Used for files directly opened or passed on the command line which aren't on the search path.
     pub fn unknown() -> Self {

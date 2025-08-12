@@ -44,6 +44,22 @@ m.x = 10 # E: Cannot set field `x`
 "#,
 );
 
+testcase!(
+    test_not_a_pydantic_model,
+    pydantic_env(),
+    r#"
+from pydantic import ConfigDict
+
+class Model:
+    model_config = ConfigDict(frozen=True)
+    x: int = 42
+
+
+m = Model()
+m.x = 10 
+"#,
+);
+
 // This is a corner case, but since y is annotated, we consider it a field
 testcase!(
     test_model_config_alias,
