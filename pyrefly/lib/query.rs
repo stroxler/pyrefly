@@ -23,6 +23,7 @@ use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::callable::FuncMetadata;
 use pyrefly_types::callable::Function;
 use pyrefly_types::callable::FunctionKind;
+use pyrefly_types::class::Class;
 use pyrefly_types::qname::QName;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
@@ -44,6 +45,7 @@ use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::Answers;
+use crate::alt::answers_solver::AnswersSolver;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
 use crate::state::handle::Handle;
@@ -51,6 +53,7 @@ use crate::state::lsp::DefinitionMetadata;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
+use crate::state::state::TransactionHandle;
 use crate::types::display::TypeDisplayContext;
 
 pub struct Query {
@@ -298,6 +301,31 @@ impl Query {
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
+        fn callee_in_mro<F: Fn(&AnswersSolver<TransactionHandle>, &Class) -> Option<String>>(
+            c: &Class,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
+            name: &str,
+            f: F,
+        ) -> Vec<Callee> {
+            let call_target = transaction.ad_hoc_solve(handle, |solver| {
+                let mro = solver.get_mro_for_class(c);
+                iter::once(c)
+                    .chain(mro.ancestors(solver.stdlib).map(|x| x.class_object()))
+                    .find_map(|c| f(&solver, c))
+            });
+            let class_name = qname_to_string(c.qname());
+            let target = if let Some(Some(t)) = call_target {
+                t
+            } else {
+                format!("{class_name}.{name}")
+            };
+            vec![Callee {
+                kind: String::from(CALLEE_KIND_METHOD),
+                target,
+                class_name: Some(class_name),
+            }]
+        }
         fn callee_for_type(
             ty: &Type,
             callee_range: TextRange,
@@ -358,37 +386,20 @@ impl Query {
                     }
                 }
                 Type::ClassDef(cls) => {
-                    let call_target = transaction.ad_hoc_solve(handle, |solver| {
-                        let mro = solver.get_mro_for_class(cls);
-                        iter::once(cls)
-                            .chain(mro.ancestors(solver.stdlib).map(|x| x.class_object()))
-                            .find_map(|c| {
-                                // find first class that has __init__ or __new__
-                                let class_metadata = solver.get_metadata_for_class(c);
-                                if c.contains(&dunder::INIT)
-                                    || class_metadata.dataclass_metadata().is_some()
-                                {
-                                    // treat dataclasses as always having __init__
-                                    Some(format!("{}.{}.__init__", c.module_name(), c.name()))
-                                } else if c.contains(&dunder::NEW) {
-                                    Some(format!("{}.{}.__new__", c.module_name(), c.name()))
-                                } else {
-                                    None
-                                }
-                            })
-                    });
-                    // calling class - make it a call to __init__
-                    let class_name = format!("{}.{}", cls.module_name(), cls.name());
-                    let target = if let Some(Some(t)) = call_target {
-                        t
-                    } else {
-                        format!("{class_name}.__init__")
-                    };
-                    vec![Callee {
-                        kind: String::from(CALLEE_KIND_METHOD),
-                        target,
-                        class_name: Some(class_name),
-                    }]
+                    callee_in_mro(cls, transaction, handle, "__init__", |solver, c| {
+                        // find first class that has __init__ or __new__
+                        let class_metadata = solver.get_metadata_for_class(c);
+                        if c.contains(&dunder::INIT)
+                            || class_metadata.dataclass_metadata().is_some()
+                        {
+                            // treat dataclasses as always having __init__
+                            Some(format!("{}.{}.__init__", c.module_name(), c.name()))
+                        } else if c.contains(&dunder::NEW) {
+                            Some(format!("{}.{}.__new__", c.module_name(), c.name()))
+                        } else {
+                            None
+                        }
+                    })
                 }
                 Type::Forall(v) => {
                     if let Forallable::Function(func) = &v.body {
@@ -397,15 +408,19 @@ impl Query {
                         panic!("unsupported forallable type")
                     }
                 }
-                Type::ClassType(c) => {
-                    // TODO: seems like __call__ - but needs confirmation
-                    let class_name = qname_to_string(c.qname());
-                    vec![Callee {
-                        kind: String::from(CALLEE_KIND_METHOD),
-                        target: format!("{class_name}.__call__"),
-                        class_name: Some(class_name),
-                    }]
-                }
+                Type::ClassType(c) => callee_in_mro(
+                    c.class_object(),
+                    transaction,
+                    handle,
+                    "__call__",
+                    |_solver, c| {
+                        if c.contains(&dunder::CALL) {
+                            Some(format!("{}.{}.__call__", c.module_name(), c.name()))
+                        } else {
+                            None
+                        }
+                    },
+                ),
                 Type::Any(_) => vec![],
                 _ => panic!("unexpected type: {ty:?}"),
             }
@@ -428,11 +443,6 @@ impl Query {
                 (None, x.range())
             };
             if let Some(func_ty) = callee_ty {
-                // eprintln!(
-                //     "func_ty: {func_ty:?} at {:?}",
-                //     module_info.display_range(callee_range)
-                // );
-
                 callee_for_type(&func_ty, callee_range, module_info, transaction, handle)
                     .into_iter()
                     .for_each(|callee| {
