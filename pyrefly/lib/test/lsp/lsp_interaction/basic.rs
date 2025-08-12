@@ -19,13 +19,51 @@ use lsp_types::request::Request as _;
 use lsp_types::request::Shutdown;
 use lsp_types::request::WorkspaceConfiguration;
 
+use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 #[test]
 fn test_initialize_basic() {
-    run_test_lsp(TestCase::default());
+    let interaction = LspInteraction::new();
+
+    interaction
+        .server
+        .send_initialize(interaction.server.get_initialize_params(None, false, false));
+    interaction
+        .client
+        .expect_message(Message::Response(Response {
+            id: RequestId::from(1),
+            result: Some(serde_json::json!({"capabilities": {
+                "positionEncoding": "utf-16",
+                "textDocumentSync": 2,
+                "definitionProvider": true,
+                "codeActionProvider": {
+                    "codeActionKinds": ["quickfix"]
+                },
+                "completionProvider": {
+                    "triggerCharacters": ["."]
+                },
+                "documentHighlightProvider": true,
+                "signatureHelpProvider": {
+                    "triggerCharacters": ["(", ","]
+                },
+                "hoverProvider": true,
+                "inlayHintProvider": true,
+                "documentSymbolProvider": true,
+                "workspaceSymbolProvider": true,
+                "workspace": {
+                    "workspaceFolders": {
+                        "supported": true,
+                        "changeNotifications": true
+                    }
+                }
+            }})),
+            error: None,
+        }));
+    interaction.server.send_initialized();
+    interaction.shutdown();
 }
 
 #[test]

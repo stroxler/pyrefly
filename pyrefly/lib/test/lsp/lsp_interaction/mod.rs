@@ -16,6 +16,7 @@ mod did_change;
 mod hover;
 mod inlay_hint;
 mod io;
+mod object_model;
 mod references;
 mod rename;
 mod util;
