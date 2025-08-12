@@ -165,6 +165,20 @@ impl TestClient {
             }
         }
     }
+
+    pub fn expect_any_message(&self) {
+        match self.receiver.recv_timeout(self.timeout) {
+            Ok(msg) => {
+                eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                panic!("Timeout waiting for response");
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                panic!("Channel disconnected");
+            }
+        }
+    }
 }
 
 pub struct LspInteraction {
@@ -199,6 +213,13 @@ impl LspInteraction {
             server: TestServer::new(language_server_sender),
             client: TestClient::new(language_client_receiver),
         }
+    }
+
+    pub fn initialize(&self) {
+        self.server
+            .send_initialize(self.server.get_initialize_params(None, false, false));
+        self.client.expect_any_message();
+        self.server.send_initialized();
     }
 
     pub fn shutdown(&self) {
