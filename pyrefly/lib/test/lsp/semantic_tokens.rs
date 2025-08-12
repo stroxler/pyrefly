@@ -168,7 +168,7 @@ line: 12, column: 7, length: 3, text: Bar
 token-type: class
 
 line: 12, column: 13, length: 3, text: bar
-token-type: property
+token-type: method
 "#,
     );
 }
@@ -269,7 +269,7 @@ line: 5, column: 0, length: 4, text: Test
 token-type: class
 
 line: 5, column: 5, length: 3, text: foo
-token-type: property
+token-type: function
 
 line: 6, column: 0, length: 4, text: Test
 token-type: class

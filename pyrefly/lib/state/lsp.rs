@@ -2164,7 +2164,7 @@ impl<'a> Transaction<'a> {
                 builder.process_key(&key, definition_handle.module(), symbol_kind)
             }
         }
-        builder.process_ast(&ast);
+        builder.process_ast(&ast, &|range| self.get_type_trace(handle, range));
         Some(
             legends
                 .convert_tokens_into_lsp_semantic_tokens(&builder.all_tokens_sorted(), module_info),
