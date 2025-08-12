@@ -6,4 +6,5 @@
  */
 
 #![cfg(test)]
+mod aliases;
 mod config;
