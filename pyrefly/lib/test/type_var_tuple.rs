@@ -22,11 +22,13 @@ def foo(*args: *Ts):
 testcase!(
     test_type_var_tuple_multiple,
     r#"
-from typing import TypeVarTuple, Generic
+from typing import TypeVarTuple, Generic, TypeAlias
 Ts1 = TypeVarTuple('Ts1')
 Ts2 = TypeVarTuple('Ts2')
-class ArrayTwoParams(Generic[*Ts1, *Ts2]): ...  # E: There cannot be more than one TypeVarTuple type parameter
-class ArrayTwoParams2[*Ts1, *Ts2](): ...  # E: There cannot be more than one TypeVarTuple type parameter
+class ArrayTwoParams(Generic[*Ts1, *Ts2]): ...  # E: Type parameters for class may not have more than one TypeVarTuple
+class ArrayTwoParams2[*Ts1, *Ts2](): ...  # E: Type parameters for class may not have more than one TypeVarTuple
+TA: TypeAlias = tuple[*Ts1] | tuple[*Ts2]  # E: Type parameters for type alias may not have more than one TypeVarTuple
+def foo(t1: tuple[*Ts1], t2: tuple[*Ts2]): ...  # ok
 "#,
 );
 

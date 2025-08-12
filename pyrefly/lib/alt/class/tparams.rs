@@ -27,6 +27,7 @@ use crate::error::context::ErrorInfo;
 use crate::graph::index::Idx;
 use crate::types::class::Class;
 use crate::types::types::TParams;
+use crate::types::types::TParamsSource;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -39,7 +40,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
         let scoped_tparams = self.scoped_type_params(scoped_type_params);
-        self.validated_tparams(name.range, scoped_tparams, errors)
+        self.validated_tparams(name.range, scoped_tparams, TParamsSource::Class, errors)
     }
 
     pub fn calculate_class_tparams(
@@ -169,7 +170,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Convert our set of `TParam`s into a `TParams` object, which will also perform
         // some additional validation that isn't specific to classes.
-        self.validated_tparams(name.range, tparams.into_iter().collect(), errors)
+        self.validated_tparams(
+            name.range,
+            tparams.into_iter().collect(),
+            TParamsSource::Class,
+            errors,
+        )
     }
 
     pub fn get_class_tparams(&self, class: &Class) -> Arc<TParams> {

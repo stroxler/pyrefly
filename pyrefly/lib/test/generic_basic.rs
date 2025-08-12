@@ -773,7 +773,7 @@ Ps = TypeVarTuple('Ps')
 Qs = TypeVarTuple('Qs', default=Unpack[Ps])
 # This error is expected. What we're testing is that the unpacked TypeVarTuple default is accepted
 # without any additional error.
-class A[*Ps, *Qs = *Ps]: # E: cannot be more than one TypeVarTuple
+class A[*Ps, *Qs = *Ps]: # E: may not have more than one TypeVarTuple
     pass
     "#,
 );

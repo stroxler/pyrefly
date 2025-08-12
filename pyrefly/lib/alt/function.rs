@@ -16,6 +16,7 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Params;
 use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
+use pyrefly_types::types::TParamsSource;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
@@ -536,7 +537,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             signature: callable,
             metadata: metadata.clone(),
         })
-        .forall(self.validated_tparams(def.range, tparams, errors));
+        .forall(self.validated_tparams(
+            def.range,
+            tparams,
+            TParamsSource::Function,
+            errors,
+        ));
         ty = self.move_return_tparams(ty);
         for (x, _) in decorators.into_iter().rev() {
             ty = self.apply_function_decorator(*x, ty, &metadata, errors);

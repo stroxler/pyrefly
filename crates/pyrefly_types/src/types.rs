@@ -77,6 +77,23 @@ impl Var {
     }
 }
 
+#[derive(PartialEq, Eq)]
+pub enum TParamsSource {
+    Class,
+    TypeAlias,
+    Function,
+}
+
+impl Display for TParamsSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Class => write!(f, "class"),
+            Self::TypeAlias => write!(f, "type alias"),
+            Self::Function => write!(f, "function"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct TParam {

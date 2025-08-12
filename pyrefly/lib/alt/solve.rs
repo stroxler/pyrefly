@@ -115,6 +115,7 @@ use crate::types::types::Forallable;
 use crate::types::types::SuperObj;
 use crate::types::types::TParam;
 use crate::types::types::TParams;
+use crate::types::types::TParamsSource;
 use crate::types::types::Type;
 use crate::types::types::TypeAlias;
 use crate::types::types::TypeAliasStyle;
@@ -882,7 +883,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &mut tparams,
         );
         let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style);
-        Forallable::TypeAlias(ta).forall(self.validated_tparams(range, tparams, errors))
+        Forallable::TypeAlias(ta).forall(self.validated_tparams(
+            range,
+            tparams,
+            TParamsSource::TypeAlias,
+            errors,
+        ))
     }
 
     fn context_value_enter(
@@ -1029,7 +1035,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn validate_type_params(&self, range: TextRange, tparams: &[TParam], errors: &ErrorCollector) {
+    fn validate_type_params(
+        &self,
+        range: TextRange,
+        tparams: &[TParam],
+        source: TParamsSource,
+        errors: &ErrorCollector,
+    ) {
         let mut last_tparam: Option<&TParam> = None;
         let mut seen = SmallSet::new();
         let mut typevartuple = None;
@@ -1099,12 +1111,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             last_tparam = Some(tparam);
         }
-        if typevartuple_count > 1 {
+        if typevartuple_count > 1
+            && matches!(source, TParamsSource::Class | TParamsSource::TypeAlias)
+        {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                "There cannot be more than one TypeVarTuple type parameter".to_owned(),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeVarTuple),
+                format!("Type parameters for {source} may not have more than one TypeVarTuple")
+                    .to_owned(),
             );
         }
     }
@@ -1113,9 +1128,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         range: TextRange,
         tparams: Vec<TParam>,
+        source: TParamsSource,
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
-        self.validate_type_params(range, &tparams, errors);
+        self.validate_type_params(range, &tparams, source, errors);
         Arc::new(TParams::new(tparams))
     }
 
@@ -2789,6 +2805,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Forallable::TypeAlias(ta).forall(self.validated_tparams(
                             params_range,
                             self.scoped_type_params(params.as_ref()),
+                            TParamsSource::TypeAlias,
                             errors,
                         ))
                     }

@@ -6420,10 +6420,10 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "There cannot be more than one TypeVarTuple type parameter",
-      "description": "There cannot be more than one TypeVarTuple type parameter",
+      "concise_description": "Type parameters for class may not have more than one TypeVarTuple",
+      "description": "Type parameters for class may not have more than one TypeVarTuple",
       "line": 106,
-      "name": "invalid-inheritance",
+      "name": "invalid-type-var-tuple",
       "stop_column": 13,
       "stop_line": 106
     }
