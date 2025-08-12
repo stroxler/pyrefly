@@ -796,7 +796,7 @@
                     "key": {
                       "name": {
                         "id": 0,
-                        "key": "Animal"
+                        "key": "classes.Animal"
                       }
                     }
                   }
@@ -1445,7 +1445,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "Dog"
+            "key": "classes.Dog"
           }
         }
       },
@@ -1464,7 +1464,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "dog"
+            "key": "classes.dog"
           }
         }
       },
@@ -1479,15 +1479,11 @@
             {
               "length": 4,
               "start": 121
-            },
-            {
-              "length": 4,
-              "start": 213
             }
           ],
           "target": {
             "id": 0,
-            "key": "self"
+            "key": "classes.Animal.self"
           }
         }
       },
@@ -1505,16 +1501,50 @@
             },
             {
               "length": 4,
-              "start": 218
-            },
-            {
-              "length": 4,
               "start": 69
             }
           ],
           "target": {
             "id": 0,
-            "key": "name"
+            "key": "classes.Animal.name"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "classes.py"
+          },
+          "spans": [
+            {
+              "length": 4,
+              "start": 213
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "classes.Dog.self"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "classes.py"
+          },
+          "spans": [
+            {
+              "length": 4,
+              "start": 218
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "classes.Dog.name"
           }
         }
       },
@@ -1533,7 +1563,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "speak"
+            "key": "classes.Dog.speak"
           }
         }
       },
@@ -1552,7 +1582,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "Animal"
+            "key": "classes.Animal"
           }
         }
       }
@@ -1586,7 +1616,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "Dog"
+                "key": "classes.Dog"
               }
             },
             {
@@ -1596,7 +1626,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "dog"
+                "key": "classes.dog"
               }
             },
             {
@@ -1626,7 +1656,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "self"
+                "key": "classes.Animal.self"
               }
             },
             {
@@ -1636,7 +1666,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "name"
+                "key": "classes.Animal.name"
               }
             },
             {
@@ -1646,7 +1676,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "self"
+                "key": "classes.Dog.self"
               }
             },
             {
@@ -1656,7 +1686,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "name"
+                "key": "classes.Dog.name"
               }
             },
             {
@@ -1666,7 +1696,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "name"
+                "key": "classes.Animal.name"
               }
             },
             {
@@ -1676,7 +1706,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "speak"
+                "key": "classes.Dog.speak"
               }
             },
             {
@@ -1686,7 +1716,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "Animal"
+                "key": "classes.Animal"
               }
             }
           ]

@@ -80,7 +80,7 @@
         "key": {
           "callee": {
             "id": 0,
-            "key": "exists"
+            "key": "os.path.exists"
           },
           "caller": {
             "id": 0,
@@ -773,7 +773,7 @@
                           },
                           "target": {
                             "id": 0,
-                            "key": "List"
+                            "key": "typing.List"
                           }
                         }
                       ]
@@ -1080,7 +1080,7 @@
                       },
                       "target": {
                         "id": 0,
-                        "key": "List"
+                        "key": "typing.List"
                       }
                     }
                   ]
@@ -1180,22 +1180,7 @@
             {
               "length": 11,
               "start": 293
-            }
-          ],
-          "target": {
-            "id": 0,
-            "key": "hello_world"
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "file": {
-            "id": 0,
-            "key": "imports.py"
-          },
-          "spans": [
+            },
             {
               "length": 11,
               "start": 54
@@ -1222,7 +1207,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "process_files"
+            "key": "imports.process_files"
           }
         }
       },
@@ -1298,7 +1283,22 @@
             {
               "length": 4,
               "start": 200
-            },
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "os.path"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "imports.py"
+          },
+          "spans": [
             {
               "length": 4,
               "start": 212
@@ -1306,7 +1306,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "path"
+            "key": "imports.process_files.<locals>.path"
           }
         }
       },
@@ -1321,22 +1321,7 @@
             {
               "length": 4,
               "start": 29
-            }
-          ],
-          "target": {
-            "id": 0,
-            "key": "typing.List"
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "file": {
-            "id": 0,
-            "key": "imports.py"
-          },
-          "spans": [
+            },
             {
               "length": 4,
               "start": 92
@@ -1344,7 +1329,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "List"
+            "key": "typing.List"
           }
         }
       },
@@ -1363,7 +1348,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "paths"
+            "key": "imports.paths"
           }
         }
       },
@@ -1382,7 +1367,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "count"
+            "key": "imports.process_files.<locals>.count"
           }
         }
       },
@@ -1420,7 +1405,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "exists"
+            "key": "os.path.exists"
           }
         }
       },
@@ -1463,7 +1448,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "hello_world"
+                "key": "simple.hello_world"
               }
             },
             {
@@ -1483,7 +1468,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "process_files"
+                "key": "imports.process_files"
               }
             },
             {
@@ -1533,7 +1518,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "path"
+                "key": "os.path"
               }
             },
             {
@@ -1543,7 +1528,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "path"
+                "key": "imports.process_files.<locals>.path"
               }
             },
             {
@@ -1563,7 +1548,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "List"
+                "key": "typing.List"
               }
             },
             {
@@ -1573,7 +1558,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "paths"
+                "key": "imports.paths"
               }
             },
             {
@@ -1583,7 +1568,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "count"
+                "key": "imports.process_files.<locals>.count"
               }
             },
             {
@@ -1603,7 +1588,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "exists"
+                "key": "os.path.exists"
               }
             },
             {

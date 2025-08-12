@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::env::current_dir;
 
 use num_traits::ToPrimitive;
+use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::visit::Visit;
@@ -16,7 +17,9 @@ use ruff_python_ast::Alias;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Parameter;
 use ruff_python_ast::ParameterWithDefault;
@@ -34,6 +37,7 @@ use crate::report::glean::facts::*;
 use crate::report::glean::schema::*;
 use crate::state::handle::Handle;
 use crate::state::state::Transaction;
+use crate::types::types::Type;
 
 fn hash(x: &[u8]) -> String {
     // Glean uses blake3
@@ -118,6 +122,7 @@ struct GleanState<'a> {
     module: ModuleInfo,
     module_name: ModuleName,
     facts: Facts,
+    locations_fqnames: HashMap<TextSize, String>,
 }
 
 impl Facts {
@@ -151,6 +156,7 @@ impl GleanState<'_> {
                 file_fact(module_info),
                 python::Module::new(python::Name::new(module_info.name().to_string())),
             ),
+            locations_fqnames: HashMap::new(),
         }
     }
 
@@ -256,8 +262,11 @@ impl GleanState<'_> {
         }
     }
 
-    fn make_fq_name(&self, name: &Name, module_name: Option<&str>) -> python::Name {
-        // TODO(@rubmary) create fully qualified name
+    fn make_fq_name_with_optional_module(
+        &self,
+        name: &Name,
+        module_name: Option<&str>,
+    ) -> python::Name {
         let fq_name = if let Some(module) = module_name {
             module.to_owned() + "." + name
         } else {
@@ -267,8 +276,8 @@ impl GleanState<'_> {
     }
 
     fn make_fq_name_for_declaration(
-        &self,
-        name: &Name,
+        &mut self,
+        name: &Identifier,
         container: &python::DeclarationContainer,
         scope_type: ScopeType,
     ) -> python::Name {
@@ -294,7 +303,117 @@ impl GleanState<'_> {
             }
         };
 
-        python::Name::new(scope.to_owned() + "." + name)
+        let fqname = scope.to_owned() + "." + name;
+
+        self.locations_fqnames
+            .insert(name.range.start(), fqname.clone());
+
+        python::Name::new(fqname)
+    }
+
+    fn make_fq_names_for_expr(&self, expr: &Expr) -> Vec<python::Name> {
+        self.fq_names_for_name_or_attr(expr)
+            .into_iter()
+            .map(python::Name::new)
+            .collect()
+    }
+
+    fn default_fq_name(&self, name: &Name) -> String {
+        self.module_name.to_string() + "." + name
+    }
+
+    fn fq_name_for_xref_definition(
+        &self,
+        name: &Name,
+        def_range: TextRange,
+        module: &ModuleInfo,
+    ) -> String {
+        let module_name = module.name();
+        if module_name == ModuleName::builtins() {
+            name.to_string()
+        } else if module_name == self.module_name {
+            self.locations_fqnames
+                .get(&def_range.start())
+                .map_or(self.default_fq_name(name), |x| x.to_owned())
+        } else {
+            let local_name = module.code_at(def_range);
+            if local_name.is_empty() {
+                module_name.to_string()
+            } else {
+                module_name.to_string() + "." + local_name
+            }
+        }
+    }
+
+    fn fq_names_for_name_or_attr(&self, expr: &Expr) -> Vec<String> {
+        match expr {
+            Expr::Attribute(attr) => self.fq_names_for_attribute(attr),
+            Expr::Name(name) => vec![self.fq_name_for_name_use(name)],
+            _ => vec![],
+        }
+    }
+
+    fn fq_name_for_name_use(&self, expr_name: &ExprName) -> String {
+        let name = expr_name.id();
+        let identifier = Ast::expr_name_identifier(expr_name.clone());
+
+        let definition =
+            self.transaction
+                .find_definition_for_name_use(self.handle, &identifier, false);
+
+        definition.map_or(self.default_fq_name(name), |def| {
+            self.fq_name_for_xref_definition(name, def.definition_range, &def.module)
+        })
+    }
+
+    fn fq_name_for_type(&self, ty: Type) -> Option<String> {
+        if let Some(module) = ty.as_module() {
+            Some(module.parts().join("."))
+        } else {
+            ty.qname().map(|qname| {
+                self.fq_name_for_xref_definition(qname.id(), qname.range(), qname.module())
+            })
+        }
+    }
+
+    fn fq_names_for_attribute(&self, expr_attr: &ExprAttribute) -> Vec<String> {
+        let name = &expr_attr.attr;
+        let base_expr = expr_attr.value.as_ref();
+
+        let base_types = if let Some(answers) = self.transaction.get_answers(self.handle)
+            && let Some(base_type) = answers.get_type_trace(base_expr.range())
+        {
+            self.transaction
+                .ad_hoc_solve(self.handle, |solver| match base_type.arc_clone() {
+                    Type::Union(tys) | Type::Intersect(tys) => tys
+                        .into_iter()
+                        .filter(|ty: &Type| {
+                            solver
+                                .completions_no_union_intersection(
+                                    ty.clone(),
+                                    Some(name.id()),
+                                    false,
+                                )
+                                .into_iter()
+                                .any(|attr| &attr.name == name.id())
+                        })
+                        .collect(),
+                    ty => vec![ty],
+                })
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
+
+        if base_types.is_empty() {
+            let base_fq_names = self.fq_names_for_name_or_attr(base_expr);
+            base_fq_names.into_iter().map(|base| base + name).collect()
+        } else {
+            base_types
+                .into_iter()
+                .filter_map(|ty| self.fq_name_for_type(ty).map(|base| base + "." + name))
+                .collect()
+        }
     }
 
     fn make_decorators(&self, decorators: &[Decorator]) -> Vec<String> {
@@ -317,7 +436,10 @@ impl GleanState<'_> {
                 .iter()
                 .filter_map(|expr| expr.as_name_expr())
                 .map(|expr_name| {
-                    python::ClassDeclaration::new(self.make_fq_name(&expr_name.id, None), None)
+                    python::ClassDeclaration::new(
+                        python::Name::new(self.fq_name_for_name_use(expr_name)),
+                        None,
+                    )
                 })
                 .collect()
         } else {
@@ -346,21 +468,35 @@ impl GleanState<'_> {
         }
     }
 
-    fn make_xref(&self, expr: &Expr) -> Option<python::XRefViaName> {
-        let none_name = Name::new("None");
-        let xref_info = match expr {
-            Expr::Attribute(attr) => Some((attr.attr.id(), attr.attr.range(), Some(attr.ctx))),
-            Expr::Name(name) => Some((name.id(), name.range, Some(name.ctx))),
-            Expr::NoneLiteral(none) => Some((&none_name, none.range(), None)),
-            _ => None,
+    fn make_xrefs(&self, expr: &Expr) -> Vec<python::XRefViaName> {
+        let (names, range) = match expr {
+            Expr::Attribute(attr) => {
+                let fq_names = if attr.ctx.is_load() {
+                    self.fq_names_for_attribute(attr)
+                } else {
+                    vec![]
+                };
+                (fq_names, attr.attr.range())
+            }
+            Expr::Name(name) => {
+                let fq_names = if name.ctx.is_load() {
+                    vec![self.fq_name_for_name_use(name)]
+                } else {
+                    vec![]
+                };
+                (fq_names, name.range())
+            }
+            Expr::NoneLiteral(none) => (vec!["None".to_owned()], none.range()),
+            _ => (vec![], expr.range()),
         };
 
-        xref_info
-            .filter(|(_, _, ctx)| ctx.is_none_or(|x| x.is_load()))
-            .map(|(name, range, _)| python::XRefViaName {
-                target: self.make_fq_name(name, None),
+        names
+            .into_iter()
+            .map(|name| python::XRefViaName {
+                target: python::Name::new(name),
                 source: to_span(range),
             })
+            .collect()
     }
 
     fn add_xref(&mut self, xref: python::XRefViaName) {
@@ -375,9 +511,7 @@ impl GleanState<'_> {
     }
 
     fn xrefs_for_type_info(&self, expr: &Expr, xrefs: &mut Vec<python::XRefViaName>) {
-        if let Some(xref) = self.make_xref(expr) {
-            xrefs.push(xref)
-        }
+        xrefs.extend(self.make_xrefs(expr));
 
         expr.recurse(&mut |x| self.xrefs_for_type_info(x, xrefs));
     }
@@ -422,7 +556,7 @@ impl GleanState<'_> {
     }
 
     fn parameter_info(
-        &self,
+        &mut self,
         param: &Parameter,
         value: Option<String>,
         container: &python::DeclarationContainer,
@@ -430,9 +564,9 @@ impl GleanState<'_> {
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
         let type_info: Option<python::TypeInfo> = self.type_info(param.annotation());
-
+        let fqname = self.make_fq_name_for_declaration(&param.name, container, ScopeType::Local);
         decl_infos.push(self.variable_info(
-            self.make_fq_name_for_declaration(param.name.id(), container, ScopeType::Local),
+            fqname,
             param.range(),
             None,
             type_info.clone(),
@@ -446,14 +580,14 @@ impl GleanState<'_> {
     }
 
     fn parameter_with_default_info(
-        &self,
+        &mut self,
         parameter_with_default: &ParameterWithDefault,
         top_level_declaration: Option<&python::Declaration>,
         container: &python::DeclarationContainer,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
         let lined_buffer = self.module.lined_buffer();
-        let value = parameter_with_default
+        let value: Option<String> = parameter_with_default
             .default
             .as_ref()
             .map(|x| lined_buffer.code_at(x.range()).to_owned());
@@ -579,8 +713,10 @@ impl GleanState<'_> {
             } else {
                 ScopeType::Local
             };
+            let name_id = Ast::expr_name_identifier(name.clone());
+            let fqname = self.make_fq_name_for_declaration(&name_id, container, scope_type);
             def_infos.push(self.variable_info(
-                self.make_fq_name_for_declaration(&name.id, container, scope_type),
+                fqname,
                 range,
                 Some(container),
                 self.type_info(annotation),
@@ -620,10 +756,10 @@ impl GleanState<'_> {
 
         let mut decl_infos = vec![];
         for import in imports {
-            let from_name = &import.name.id;
+            let from_name = &import.name;
             let star_import = "*";
 
-            if *from_name.as_str() == *star_import {
+            if *from_name.id.as_str() == *star_import {
                 let import_star = python::ImportStarStatement::new(
                     from_module_fact.clone(),
                     self.facts.module.clone(),
@@ -636,9 +772,13 @@ impl GleanState<'_> {
                         to_span(range),
                     ));
             } else {
-                let as_name = import.asname.as_ref().map_or(from_name, |x| &x.id);
+                let as_name = import.asname.as_ref().unwrap_or(from_name);
+                let from_name_fact =
+                    self.make_fq_name_with_optional_module(from_name.id(), from_module.as_deref());
 
-                let from_name_fact = self.make_fq_name(from_name, from_module.as_deref());
+                self.locations_fqnames
+                    .insert(as_name.range.start(), *from_name_fact.key.clone());
+
                 self.add_xref(python::XRefViaName {
                     target: from_name_fact.clone(),
                     source: to_span(import.name.range()),
@@ -646,7 +786,10 @@ impl GleanState<'_> {
 
                 let import_fact = python::ImportStatement::new(
                     from_name_fact,
-                    self.make_fq_name(as_name, Some(&self.module_name.to_string())),
+                    self.make_fq_name_with_optional_module(
+                        as_name.id(),
+                        Some(&self.module_name.to_string()),
+                    ),
                 );
 
                 decl_infos.push(DeclarationInfo {
@@ -690,7 +833,7 @@ impl GleanState<'_> {
                 label: keyword
                     .arg
                     .as_ref()
-                    .map(|id| self.make_fq_name(id.id(), None)),
+                    .map(|id| python::Name::new(id.id().to_string())),
                 span: to_span(keyword.range()),
                 argument: self.arg_string_lit(&keyword.value),
             });
@@ -705,17 +848,15 @@ impl GleanState<'_> {
     }
 
     fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &python::FunctionDeclaration) {
-        let caller_fact = caller.key.name.clone();
-        let callee_name = match call.func.as_ref() {
-            Expr::Attribute(attr) => Some(attr.attr.id()),
-            Expr::Name(expr_name) => Some(expr_name.id()),
-            _ => None,
-        };
-        if let Some(name) = callee_name {
-            let callee_fact = self.make_fq_name(name, None);
+        let caller_fact = &caller.key.name;
+        let callee_names = self.make_fq_names_for_expr(call.func.as_ref());
+        for callee_fact in callee_names {
             self.facts
                 .callee_to_callers
-                .push(python::CalleeToCaller::new(callee_fact, caller_fact));
+                .push(python::CalleeToCaller::new(
+                    callee_fact,
+                    caller_fact.clone(),
+                ));
         }
     }
 
@@ -726,7 +867,7 @@ impl GleanState<'_> {
                 self.callee_to_caller_facts(call, caller);
             }
         };
-        if let Some(xref) = self.make_xref(expr) {
+        for xref in self.make_xrefs(expr) {
             self.add_xref(xref);
         }
         expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
@@ -753,7 +894,7 @@ impl GleanState<'_> {
         match stmt {
             Stmt::ClassDef(cls) => {
                 let cls_fq_name =
-                    self.make_fq_name_for_declaration(&cls.name.id, container, ScopeType::Local);
+                    self.make_fq_name_for_declaration(&cls.name, container, ScopeType::Local);
                 let cls_declaration = python::ClassDeclaration::new(cls_fq_name, None);
                 let decl_info = self.class_facts(cls, cls_declaration.clone(), container.clone());
                 self.visit_exprs(&cls.decorator_list, container);
@@ -770,7 +911,7 @@ impl GleanState<'_> {
             }
             Stmt::FunctionDef(func) => {
                 let func_fq_name =
-                    self.make_fq_name_for_declaration(&func.name.id, container, ScopeType::Local);
+                    self.make_fq_name_for_declaration(&func.name, container, ScopeType::Local);
                 let func_declaration = python::FunctionDeclaration::new(func_fq_name);
                 if let python::Declaration::module(_) = top_level_decl {
                     new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));

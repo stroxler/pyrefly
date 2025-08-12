@@ -485,7 +485,7 @@
           ],
           "target": {
             "id": 0,
-            "key": "hello_world"
+            "key": "simple.hello_world"
           }
         }
       }
@@ -509,7 +509,7 @@
               },
               "target": {
                 "id": 0,
-                "key": "hello_world"
+                "key": "simple.hello_world"
               }
             }
           ]
