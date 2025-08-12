@@ -659,3 +659,11 @@ Y: TypeAlias = X[S]
 Z: TypeAlias = X[U]  # E: `str` is not assignable to upper bound `int`
     "#,
 );
+
+testcase!(
+    test_invalid_scoped_alias,
+    r#"
+def test():
+    type X = int  # E: `type` statement is not allowed in this context
+    "#,
+);

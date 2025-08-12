@@ -841,6 +841,16 @@
     },
     {
       "code": -2,
+      "column": 5,
+      "concise_description": "`type` statement is not allowed in this context",
+      "description": "`type` statement is not allowed in this context",
+      "line": 56,
+      "name": "invalid-syntax",
+      "stop_column": 30,
+      "stop_line": 56
+    },
+    {
+      "code": -2,
       "column": 15,
       "concise_description": "Type parameters used in `TA1` but not declared",
       "description": "Type parameters used in `TA1` but not declared",

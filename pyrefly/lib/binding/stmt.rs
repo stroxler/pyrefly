@@ -41,6 +41,7 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
+use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::export::special::SpecialExport;
@@ -581,6 +582,16 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::TypeAlias(mut x) => {
+                if !matches!(
+                    self.scopes.current().kind,
+                    ScopeKind::Module | ScopeKind::Class(_)
+                ) {
+                    self.error(
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`type` statement is not allowed in this context".to_owned(),
+                    );
+                }
                 if let Expr::Name(name) = *x.name {
                     if let Some(params) = &mut x.type_params {
                         self.type_params(params);
