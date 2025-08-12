@@ -301,12 +301,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             |default: Option<&Expr>, check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>| {
                 match default {
                     Some(default)
-                        if stub_or_impl != FunctionStubOrImpl::Stub
-                            || !matches!(default, Expr::EllipsisLiteral(_)) =>
+                        if stub_or_impl == FunctionStubOrImpl::Stub
+                            && matches!(default, Expr::EllipsisLiteral(_)) =>
                     {
-                        Required::Optional(Some(self.expr(default, check, errors)))
+                        Required::Optional(None)
                     }
-                    Some(_) => Required::Optional(None),
+                    Some(default) => Required::Optional(Some(self.expr(default, check, errors))),
                     None => Required::Required,
                 }
             };
