@@ -5,8 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::fs_anyhow;
 
+use crate::state::handle::Handle;
 use crate::test::util::TestEnv;
 use crate::testcase;
 
@@ -779,4 +782,33 @@ fn test_interface_has_more() {
     env.add_real_path("foo", foo_py);
     env.add_real_path("foo", foo_pyi);
     let _ = env.to_state();
+}
+
+#[test]
+fn test_interface_disagree() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut env = TestEnv::new();
+    let foo_py = temp.path().join("foo.py");
+    let foo_pyi = temp.path().join("foo.pyi");
+
+    fs_anyhow::write(
+        &foo_py,
+        "class Foo:\n  def method(self): pass\nFoo().method()",
+    )
+    .unwrap();
+    fs_anyhow::write(&foo_pyi, "").unwrap();
+    env.add_real_path("foo", foo_py.clone());
+    env.add_real_path("foo", foo_pyi);
+    let h_py = Handle::new(
+        ModuleName::from_str("foo"),
+        ModulePath::filesystem(foo_py),
+        env.sys_info(),
+    );
+    let (state, _) = env.to_state();
+    let errs = state
+        .transaction()
+        .get_errors([&h_py])
+        .collect_errors()
+        .shown;
+    assert_eq!(errs.len(), 0);
 }
