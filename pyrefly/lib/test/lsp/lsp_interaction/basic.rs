@@ -13,8 +13,6 @@ use lsp_server::Response;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Url;
-use lsp_types::notification::Exit;
-use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::request::WorkspaceConfiguration;
 
@@ -81,33 +79,16 @@ fn test_shutdown() {
         }));
 
     interaction.server.send_exit();
+    interaction.server.expect_stop();
 }
 
 #[test]
-// #[should_panic]
 fn test_exit_without_shutdown() {
-    if true {
-        // Temporarily disabled because it wasn't really shutting down properly, but was assuming
-        // that queues got deallocated in certain orders.
-        return;
-    }
+    let interaction = LspInteraction::new();
+    interaction.initialize();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::Notification(Notification {
-                method: Exit::METHOD.to_owned(),
-                params: serde_json::json!(null),
-            }),
-            // This second request should never be received by the server since it has already shut down.
-            // `run_test_lsp` panics if any request does not get handled.
-            Message::Request(Request {
-                id: RequestId::from(3),
-                method: "should not get here".to_owned(),
-                params: serde_json::json!(null),
-            }),
-        ],
-        ..Default::default()
-    });
+    interaction.server.send_exit();
+    interaction.server.expect_stop();
 }
 
 #[test]

@@ -6,8 +6,10 @@
  */
 
 /// This file contains a new implementation of the lsp_interaction test suite. Soon it will replace the old one.
+use std::io;
 use std::sync::Arc;
-use std::thread::spawn;
+use std::thread::JoinHandle;
+use std::thread::{self};
 use std::time::Duration;
 
 use crossbeam_channel::RecvTimeoutError;
@@ -33,6 +35,8 @@ use crate::test::util::init_test;
 pub struct TestServer {
     sender: crossbeam_channel::Sender<Message>,
     timeout: Duration,
+    /// Handle to the spawned server thread
+    server_thread: Option<JoinHandle<Result<(), io::Error>>>,
 }
 
 impl TestServer {
@@ -40,6 +44,19 @@ impl TestServer {
         Self {
             sender,
             timeout: Duration::from_secs(25),
+            server_thread: None,
+        }
+    }
+
+    pub fn expect_stop(&self) {
+        let start = std::time::Instant::now();
+        while let Some(thread) = &self.server_thread
+            && !thread.is_finished()
+        {
+            if start.elapsed() > Duration::from_secs(10) {
+                panic!("Server did not shutdown in time");
+            }
+            thread::sleep(Duration::from_millis(100));
         }
     }
 
@@ -204,13 +221,19 @@ impl LspInteraction {
         let connection = Arc::new(connection);
         let args = args.clone();
 
-        spawn(move || {
+        let mut server = TestServer::new(language_server_sender);
+
+        // Spawn the server thread and store its handle
+        let thread_handle = thread::spawn(move || {
             run_lsp(connection, args)
                 .map(|_| ())
                 .map_err(|e| std::io::Error::other(e.to_string()))
         });
+
+        server.server_thread = Some(thread_handle);
+
         Self {
-            server: TestServer::new(language_server_sender),
+            server,
             client: TestClient::new(language_client_receiver),
         }
     }
