@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_util::fs_anyhow;
+
 use crate::test::util::TestEnv;
 use crate::testcase;
 
@@ -763,3 +765,18 @@ testcase!(
 from . import foo  # E: Could not find import of `.`
     "#,
 );
+
+#[test]
+#[should_panic]
+fn test_interface_has_more() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut env = TestEnv::new();
+    let foo_py = temp.path().join("foo.py");
+    let foo_pyi = temp.path().join("foo.pyi");
+
+    fs_anyhow::write(&foo_py, "import foo as X\nX.Extra").unwrap();
+    fs_anyhow::write(&foo_pyi, "class Extra: pass").unwrap();
+    env.add_real_path("foo", foo_py);
+    env.add_real_path("foo", foo_pyi);
+    let _ = env.to_state();
+}
