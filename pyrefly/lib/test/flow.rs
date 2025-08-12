@@ -1417,3 +1417,25 @@ for j in [1, 2, 3, 4]:
 print([value for value in intList])  # E: Type `Sized` is not iterable
 "#,
 );
+
+testcase!(
+    test_setitem_with_loop_and_walrus,
+    r#"
+def f():
+    d: dict[int, int] = {}
+    for i in range(10):
+        idx = i
+        d[idx] = (x := idx)
+    "#,
+);
+
+testcase!(
+    test_bad_setitem_with_loop_and_walrus,
+    r#"
+def f():
+    d: dict[str, int] = {}
+    for i in range(10):
+        idx = i
+        d[idx] = (x := idx)  # E: `int` is not assignable to parameter `key` with type `str`
+    "#,
+);
