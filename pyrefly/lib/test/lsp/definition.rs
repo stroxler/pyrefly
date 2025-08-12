@@ -1286,3 +1286,25 @@ Definition Result:
         report.trim(),
     );
 }
+
+// todo(kylei) go-to definition on x should go to the definition
+#[test]
+fn global_keyword() {
+    let code = r#"
+x = 5
+def test():
+    global x
+    #      ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+4 |     global x
+               ^
+Definition Result: None
+"#
+        .trim(),
+        report.trim(),
+    );
+}
