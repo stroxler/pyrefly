@@ -428,7 +428,7 @@ pub fn testcase_for_macro(
     init_test();
     let is_empty_env = env == TestEnv::default();
     let mut start_line = line as usize + 1;
-    if !env.modules.is_empty() {
+    if !env.modules.is_empty() || !env.site_package_path.is_empty() {
         start_line += 1;
     }
     let contents = format!("{}{}", "\n".repeat(start_line), contents);
