@@ -549,3 +549,16 @@ class C:
             return "sub" # E: Returned type `Literal['sub']` is not assignable to declared return type `int`
     "#,
 );
+
+testcase!(
+    bug = "We should treat `A.f` as a classmethod",
+    test_desugared_decorator_application,
+    r#"
+from typing import assert_type
+class A:
+    def f(cls):
+        return cls
+    f = classmethod(f)  # E: not assignable
+assert_type(A.f(), type[A])  # E: assert_type(Any, type[A])
+    "#,
+);
