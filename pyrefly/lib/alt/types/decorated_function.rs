@@ -14,6 +14,7 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::class::Class;
+use pyrefly_types::keywords::TypeMap;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 
@@ -59,4 +60,20 @@ impl DecoratedFunction {
             defining_cls: None,
         }
     }
+}
+
+/// Decorators that need special handling
+pub enum SpecialDecorator<'a> {
+    Overload,
+    StaticMethod(String),
+    ClassMethod(String),
+    Property(String),
+    EnumMember,
+    Override,
+    Final,
+    Deprecated,
+    PropertySetter(&'a Type),
+    DataclassTransformCall(&'a TypeMap),
+    EnumNonmember,
+    AbstractMethod,
 }

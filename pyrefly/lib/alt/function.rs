@@ -30,6 +30,7 @@ use vec1::Vec1;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::alt::types::decorated_function::SpecialDecorator;
 use crate::binding::binding::Binding;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Key;
@@ -204,13 +205,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .filter(|(k, range)| {
                 let decorator = self.get_idx(*k);
                 let decorator_ty = decorator.ty();
-                !self.set_flag_from_decorator(
-                    &mut flags,
-                    decorator_ty,
-                    is_top_level_function,
-                    *range,
-                    errors,
-                )
+                if let Some(special_decorator) = self.get_special_decorator(decorator_ty) {
+                    !self.set_flag_from_special_decorator(
+                        &mut flags,
+                        &special_decorator,
+                        is_top_level_function,
+                        *range,
+                        errors,
+                    )
+                } else {
+                    true
+                }
             })
             .collect::<Vec<_>>();
 
@@ -468,51 +473,72 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    pub fn get_special_decorator(&'a self, decorator: &'a Type) -> Option<SpecialDecorator<'a>> {
+        match decorator.callee_kind() {
+            Some(CalleeKind::Function(FunctionKind::Overload)) => Some(SpecialDecorator::Overload),
+            Some(CalleeKind::Class(ClassKind::StaticMethod(name))) => {
+                Some(SpecialDecorator::StaticMethod(name))
+            }
+            Some(CalleeKind::Class(ClassKind::ClassMethod(name))) => {
+                Some(SpecialDecorator::ClassMethod(name))
+            }
+            Some(CalleeKind::Class(ClassKind::Property(name))) => {
+                Some(SpecialDecorator::Property(name))
+            }
+            Some(CalleeKind::Class(ClassKind::EnumMember)) => Some(SpecialDecorator::EnumMember),
+            Some(CalleeKind::Function(FunctionKind::Override)) => Some(SpecialDecorator::Override),
+            Some(CalleeKind::Function(FunctionKind::Final)) => Some(SpecialDecorator::Final),
+            _ if matches!(decorator, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) => {
+                Some(SpecialDecorator::Deprecated)
+            }
+            _ if decorator.is_property_setter_decorator() => {
+                Some(SpecialDecorator::PropertySetter(decorator))
+            }
+            _ if let Type::KwCall(call) = decorator
+                && call.has_function_kind(FunctionKind::DataclassTransform) =>
+            {
+                Some(SpecialDecorator::DataclassTransformCall(&call.keywords))
+            }
+            Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
+                Some(SpecialDecorator::EnumNonmember)
+            }
+            Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
+                Some(SpecialDecorator::AbstractMethod)
+            }
+            _ => None,
+        }
+    }
+
     /// If the decorator corresponds to a function flag, set the flag appropriately. Returns whether a flag was set.
-    pub fn set_flag_from_decorator(
+    pub fn set_flag_from_special_decorator(
         &self,
         flags: &mut FuncFlags,
-        decorator: &Type,
+        decorator: &SpecialDecorator,
         is_top_level_function: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> bool {
-        match decorator.callee_kind() {
-            Some(CalleeKind::Function(FunctionKind::Overload)) => {
+        match decorator {
+            SpecialDecorator::Overload => {
                 flags.is_overload = true;
                 true
             }
-            Some(CalleeKind::Class(ClassKind::StaticMethod(name))) => {
+            SpecialDecorator::StaticMethod(name) => {
                 flags.is_staticmethod = true;
-                self.check_top_level_function_decorator(
-                    &name,
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
+                self.check_top_level_function_decorator(name, is_top_level_function, range, errors);
                 true
             }
-            Some(CalleeKind::Class(ClassKind::ClassMethod(name))) => {
+            SpecialDecorator::ClassMethod(name) => {
                 flags.is_classmethod = true;
-                self.check_top_level_function_decorator(
-                    &name,
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
+                self.check_top_level_function_decorator(name, is_top_level_function, range, errors);
                 true
             }
-            Some(CalleeKind::Class(ClassKind::Property(name))) => {
+            SpecialDecorator::Property(name) => {
                 flags.is_property_getter = true;
-                self.check_top_level_function_decorator(
-                    &name,
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
+                self.check_top_level_function_decorator(name, is_top_level_function, range, errors);
                 true
             }
-            Some(CalleeKind::Class(ClassKind::EnumMember)) => {
+            SpecialDecorator::EnumMember => {
                 flags.has_enum_member_decoration = true;
                 self.check_top_level_function_decorator(
                     "member",
@@ -522,7 +548,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 true
             }
-            Some(CalleeKind::Function(FunctionKind::Override)) => {
+            SpecialDecorator::Override => {
                 flags.is_override = true;
                 self.check_top_level_function_decorator(
                     "override",
@@ -532,7 +558,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 true
             }
-            Some(CalleeKind::Function(FunctionKind::Final)) => {
+            SpecialDecorator::Final => {
                 flags.has_final_decoration = true;
                 self.check_top_level_function_decorator(
                     "final",
@@ -542,12 +568,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 true
             }
-            _ if matches!(decorator, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) =>
-            {
+            SpecialDecorator::Deprecated => {
                 flags.is_deprecated = true;
                 true
             }
-            _ if decorator.is_property_setter_decorator() => {
+            SpecialDecorator::PropertySetter(decorator) => {
                 // When the `setter` attribute is accessed on a property, we return the type
                 // of the raw getter function, but with the `is_property_setter_decorator`
                 // flag set to true; the type does does not accurately model the runtime
@@ -557,17 +582,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 //
                 // See AnswersSolver::lookup_attr_from_attribute_base
                 // for details.
-                flags.is_property_setter_with_getter = Some(decorator.clone());
+                flags.is_property_setter_with_getter = Some((*decorator).clone());
                 true
             }
-            _ if let Type::KwCall(call) = decorator
-                && call.has_function_kind(FunctionKind::DataclassTransform) =>
-            {
+            SpecialDecorator::DataclassTransformCall(kws) => {
                 flags.dataclass_transform_metadata =
-                    Some(DataclassTransformKeywords::from_type_map(&call.keywords));
+                    Some(DataclassTransformKeywords::from_type_map(kws));
                 true
             }
-            Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
+            SpecialDecorator::EnumNonmember => {
                 self.check_top_level_function_decorator(
                     "nonmember",
                     is_top_level_function,
@@ -576,7 +599,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 false
             }
-            Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
+            SpecialDecorator::AbstractMethod => {
                 self.check_top_level_function_decorator(
                     "abstractmethod",
                     is_top_level_function,
@@ -585,7 +608,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 false
             }
-            _ => false,
         }
     }
 
