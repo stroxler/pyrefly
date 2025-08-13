@@ -1741,3 +1741,19 @@ f1 = lambda x, *args, **kwargs: x
 reveal_type(f1) # E: revealed type: (x: Unknown, *args: Unknown, **kwargs: Unknown) -> Unknown
     "#,
 );
+
+testcase!(
+    test_ellipsis_default_source,
+    r#"
+def f(x: bool = ...):  # E: Default `Ellipsis` is not assignable to parameter `x` with type `bool`
+    pass
+    "#,
+);
+
+testcase!(
+    test_ellipsis_default_stub,
+    TestEnv::one_with_path("foo", "foo.pyi", "def f(x: bool = ...): pass"),
+    r#"
+import foo
+    "#,
+);

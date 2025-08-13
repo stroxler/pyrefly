@@ -301,7 +301,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             |default: Option<&Expr>, check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>| {
                 match default {
                     Some(default)
-                        if stub_or_impl == FunctionStubOrImpl::Stub
+                        if (stub_or_impl == FunctionStubOrImpl::Stub
+                            || self.module().path().style() == ModuleStyle::Interface)
                             && matches!(default, Expr::EllipsisLiteral(_)) =>
                     {
                         Required::Optional(None)
