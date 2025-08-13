@@ -913,33 +913,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             |t: &Type, r: TextRange| self.as_bool(t, r, errors) == Some(target);
         let should_discard = |t: &Type, r: TextRange| self.as_bool(t, r, errors) == Some(!target);
 
-        let mut types = Vec::new();
+        let mut t_acc = Type::never();
         let last_index = values.len() - 1;
         for (i, value) in values.iter().enumerate() {
+            // If there isn't a hint for the overall expression, use the preceding branches as a "soft" hint
+            // for the next one. Most useful for expressions like `optional_list or []`.
+            let hint = hint.or_else(|| Some(HintRef::new(&t_acc, None)));
             let mut t = self.expr_infer_with_hint(value, hint, errors);
             self.expand_type_mut(&mut t);
             if should_shortcircuit(&t, value.range()) {
-                types.push(t);
+                t_acc = self.union(t_acc, t);
                 break;
             }
             for t in t.into_unions() {
                 // If we reach the last value, we should always keep it.
                 if i == last_index || !should_discard(&t, value.range()) {
-                    if i != last_index && t == self.stdlib.bool().clone().to_type() {
-                        types.push(Lit::Bool(target).to_type());
+                    let t = if i != last_index && t == self.stdlib.bool().clone().to_type() {
+                        Lit::Bool(target).to_type()
                     } else if i != last_index && t == self.stdlib.int().clone().to_type() && !target
                     {
-                        types.push(Lit::Int(LitInt::new(0)).to_type());
+                        Lit::Int(LitInt::new(0)).to_type()
                     } else if i != last_index && t == self.stdlib.str().clone().to_type() && !target
                     {
-                        types.push(Lit::Str(Default::default()).to_type());
+                        Lit::Str(Default::default()).to_type()
                     } else {
-                        types.push(t);
-                    }
+                        t
+                    };
+                    t_acc = self.union(t_acc, t)
                 }
             }
         }
-        self.unions(types)
+        t_acc
     }
 
     /// Infers types for `if` clauses in the given comprehensions.
