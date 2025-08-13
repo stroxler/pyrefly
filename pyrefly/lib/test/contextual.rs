@@ -255,6 +255,17 @@ ys: list[A] = takes_int("") if False else [B()] # E: Argument `Literal['']` is n
 );
 
 testcase!(
+    test_context_boolop,
+    r#"
+class A: ...
+class B(A): ...
+
+x1: list[A] = False or [B()]
+x2: list[A] = True and [B()]
+"#,
+);
+
+testcase!(
     test_context_yield,
     r#"
 from typing import Generator, Iterator

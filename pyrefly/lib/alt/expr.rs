@@ -314,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => self.union(body_type, orelse_type),
                 }
             }
-            Expr::BoolOp(x) => self.boolop(&x.values, x.op, errors),
+            Expr::BoolOp(x) => self.boolop(&x.values, x.op, hint, errors),
             Expr::BinOp(x) => self.binop_infer(x, hint, errors),
             Expr::UnaryOp(x) => self.unop_infer(x, errors),
             Expr::Lambda(lambda) => {
@@ -887,7 +887,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     // Helper method for inferring the type of a boolean operation over a sequence of values.
-    fn boolop(&self, values: &[Expr], op: BoolOp, errors: &ErrorCollector) -> Type {
+    fn boolop(
+        &self,
+        values: &[Expr],
+        op: BoolOp,
+        hint: Option<HintRef>,
+        errors: &ErrorCollector,
+    ) -> Type {
         let target = match op {
             BoolOp::And => false,
             BoolOp::Or => true,
@@ -899,7 +905,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut types = Vec::new();
         let last_index = values.len() - 1;
         for (i, value) in values.iter().enumerate() {
-            let mut t = self.expr_infer(value, errors);
+            let mut t = self.expr_infer_with_hint(value, hint, errors);
             self.expand_type_mut(&mut t);
             if should_shortcircuit(&t, value.range()) {
                 types.push(t);
