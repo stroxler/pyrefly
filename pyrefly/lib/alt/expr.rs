@@ -480,7 +480,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::List(x) => {
                 let elt_hint = hint.and_then(|ty| self.decompose_list(ty));
                 if x.is_empty() {
-                    let elem_ty = self.solver().fresh_contained(self.uniques).to_type();
+                    let elem_ty = elt_hint.map_or_else(
+                        || self.solver().fresh_contained(self.uniques).to_type(),
+                        |hint| hint.to_type(),
+                    );
                     self.stdlib.list(elem_ty).to_type()
                 } else {
                     let elem_tys = self.elts_infer(&x.elts, elt_hint, errors);
