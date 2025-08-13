@@ -25,7 +25,6 @@ use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
-use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::base_class::BaseClass;
@@ -67,7 +66,6 @@ use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
-use crate::export::special::SpecialExport;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::types::Type;
@@ -111,35 +109,6 @@ impl<'a> BindingsBuilder<'a> {
         let class_object =
             self.declare_current_idx(Key::Definition(ShortIdentifier::new(class_name)));
         (class_object, class_indices)
-    }
-
-    // TODO Zeina: We should expect to extend this beyond the frozen data.
-    fn make_pydantic_metadata(&self, frozen: bool) -> PydanticMetadataBinding {
-        PydanticMetadataBinding { frozen }
-    }
-
-    // The goal of this function is to extract pydantic metadata (https://docs.pydantic.dev/latest/concepts/models/) from expressions.
-    // TODO: Consider propagating the entire expression instead of the value
-    // in case it is aliased.
-    fn extract_frozen_pydantic_metadata(&self, e: &Expr, name: Hashed<&Name>) -> Option<bool> {
-        if name.as_str() == "model_config"
-            && let Some(call) = e.as_call_expr()
-            && let Some(special) = self.as_special_export(&call.func)
-            && special == SpecialExport::PydanticConfigDict
-        {
-            let mut frozen = false;
-            for kw in &call.arguments.keywords {
-                if let Some(arg_name) = &kw.arg
-                    && arg_name.id.as_str() == "frozen"
-                    && let Expr::BooleanLiteral(bl) = &kw.value
-                {
-                    frozen = bl.value;
-                    break;
-                }
-            }
-            return Some(frozen);
-        }
-        None
     }
 
     pub fn class_def(&mut self, mut x: StmtClassDef) {
