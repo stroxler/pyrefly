@@ -445,13 +445,8 @@ impl GleanState<'_> {
             arguments
                 .args
                 .iter()
-                .filter_map(|expr| expr.as_name_expr())
-                .map(|expr_name| {
-                    python::ClassDeclaration::new(
-                        python::Name::new(self.fq_name_for_name_use(expr_name)),
-                        None,
-                    )
-                })
+                .flat_map(|expr| self.fq_names_for_name_or_attr(expr))
+                .map(|name| python::ClassDeclaration::new(python::Name::new(name), None))
                 .collect()
         } else {
             vec![]
