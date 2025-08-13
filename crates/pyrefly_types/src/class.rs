@@ -140,9 +140,9 @@ impl Debug for ClassInner {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum ClassKind {
-    StaticMethod(String),
-    ClassMethod(String),
-    Property(String),
+    StaticMethod(Name),
+    ClassMethod(Name),
+    Property(Name),
     Class,
     EnumMember,
     EnumNonmember,
@@ -151,18 +151,18 @@ pub enum ClassKind {
 
 impl ClassKind {
     fn from_qname(qname: &QName) -> Self {
-        let name = qname.id().as_str();
-        match (qname.module_name().as_str(), name) {
-            ("builtins", "staticmethod") => Self::StaticMethod(name.to_owned()),
-            ("abc", "abstractstaticmethod") => Self::StaticMethod(name.to_owned()),
-            ("builtins", "classmethod") => Self::ClassMethod(name.to_owned()),
-            ("abc", "abstractclassmethod") => Self::ClassMethod(name.to_owned()),
-            ("builtins", "property") => Self::Property(name.to_owned()),
-            ("abc", "abstractproperty") => Self::Property(name.to_owned()),
-            ("functools", "cached_property") => Self::Property(name.to_owned()),
-            ("cached_property", "cached_property") => Self::Property(name.to_owned()),
-            ("cinder", "cached_property") => Self::Property(name.to_owned()),
-            ("cinder", "async_cached_property") => Self::Property(name.to_owned()),
+        let name = qname.id();
+        match (qname.module_name().as_str(), name.as_str()) {
+            ("builtins", "staticmethod") => Self::StaticMethod(name.clone()),
+            ("abc", "abstractstaticmethod") => Self::StaticMethod(name.clone()),
+            ("builtins", "classmethod") => Self::ClassMethod(name.clone()),
+            ("abc", "abstractclassmethod") => Self::ClassMethod(name.clone()),
+            ("builtins", "property") => Self::Property(name.clone()),
+            ("abc", "abstractproperty") => Self::Property(name.clone()),
+            ("functools", "cached_property") => Self::Property(name.clone()),
+            ("cached_property", "cached_property") => Self::Property(name.clone()),
+            ("cinder", "cached_property") => Self::Property(name.clone()),
+            ("cinder", "async_cached_property") => Self::Property(name.clone()),
             ("enum", "member") => Self::EnumMember,
             ("enum", "nonmember") => Self::EnumNonmember,
             ("dataclasses", "Field") => Self::DataclassField,

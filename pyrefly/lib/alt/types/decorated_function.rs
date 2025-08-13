@@ -65,9 +65,9 @@ impl DecoratedFunction {
 /// Decorators that need special handling
 pub enum SpecialDecorator<'a> {
     Overload,
-    StaticMethod(String),
-    ClassMethod(String),
-    Property(String),
+    StaticMethod(Name),
+    ClassMethod(Name),
+    Property(Name),
     EnumMember,
     Override,
     Final,
