@@ -1784,7 +1784,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.stdlib.ellipsis_type()?.clone(),
             )),
             Type::Forall(forall) => self.as_attribute_base_no_union(forall.body.as_type()),
-            Type::Var(v) => self.as_attribute_base_no_union(self.solver().force_var(v)),
+            Type::Var(v) => {
+                if let Some(_guard) = self.recurser.recurse(v) {
+                    self.as_attribute_base_no_union(self.solver().force_var(v))
+                } else {
+                    Some(AttributeBase::Any(AnyStyle::Implicit))
+                }
+            }
             Type::SuperInstance(box (cls, obj)) => Some(AttributeBase::SuperInstance(cls, obj)),
             // TODO: check to see which ones should have class representations
             Type::Union(_)
