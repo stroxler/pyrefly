@@ -94,6 +94,7 @@ fn snapshot_test() {
     return "Hello, World!"
 
 x = 42
+"""Answer to everything"""
 y = hello_world()"#;
 
     let classes_code = r#"class Animal:

@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::env::current_dir;
+use std::slice;
 use std::sync::Arc;
 
 use num_traits::ToPrimitive;
@@ -543,6 +544,7 @@ impl GleanState<'_> {
         container: Option<&python::DeclarationContainer>,
         type_info: Option<python::TypeInfo>,
         top_level_decl: Option<python::Declaration>,
+        docstring_range: Option<TextRange>,
     ) -> DeclarationInfo {
         let variable_declaration = python::VariableDeclaration::new(name);
         let variable_definition = python::VariableDefinition::new(
@@ -557,7 +559,7 @@ impl GleanState<'_> {
             definition: Some(python::Definition::variable(variable_definition)),
             def_span: Some(to_span(range)),
             top_level_decl,
-            docstring_range: None,
+            docstring_range,
         }
     }
 
@@ -577,6 +579,7 @@ impl GleanState<'_> {
             None,
             type_info.clone(),
             top_level_declaration.cloned(),
+            None,
         ));
         python::Parameter {
             name: python::Name::new(param.name().to_string()),
@@ -706,33 +709,34 @@ impl GleanState<'_> {
         expr: &Expr,
         range: TextRange,
         annotation: Option<&Expr>,
-        container: &python::DeclarationContainer,
-        globals: &SmallSet<Name>,
-        nonlocals: &SmallSet<Name>,
+        ctx: &NodeContext,
+        next: Option<&Stmt>,
         def_infos: &mut Vec<DeclarationInfo>,
     ) {
         if let Some(name) = expr.as_name_expr() {
-            let scope_type = if globals.contains(&name.id) {
+            let scope_type = if ctx.globals.contains(&name.id) {
                 ScopeType::Global
-            } else if nonlocals.contains(&name.id) {
+            } else if ctx.nonlocals.contains(&name.id) {
                 ScopeType::Nonlocal
             } else {
                 ScopeType::Local
             };
+
             let name_id = Ast::expr_name_identifier(name.clone());
-            let fqname = self.make_fq_name_for_declaration(&name_id, container, scope_type);
+            let fqname = self.make_fq_name_for_declaration(&name_id, &ctx.container, scope_type);
+            let docstring_range =
+                next.and_then(|stmt| Docstring::range_from_stmts(slice::from_ref(stmt)));
             def_infos.push(self.variable_info(
                 fqname,
                 range,
-                Some(container),
+                Some(&ctx.container),
                 self.type_info(annotation),
                 None,
+                docstring_range,
             ));
         }
         expr.recurse(&mut |expr| {
-            self.variable_facts(
-                expr, range, annotation, container, globals, nonlocals, def_infos,
-            )
+            self.variable_facts(expr, range, annotation, ctx, next, def_infos)
         });
     }
 
@@ -895,16 +899,24 @@ impl GleanState<'_> {
         ast.visit(&mut |x| nodes.push_back((x, root_context.clone())));
 
         while let Some((node, node_context)) = nodes.pop_front() {
-            let children_context = self.process_statement(node, &node_context);
+            // Get next node if in same level. Needed to compute docstring range for variables
+            let next = nodes
+                .front()
+                .filter(|(_, ctx)| ctx.container == node_context.container)
+                .map(|(x, _)| *x);
+            let children_context = self.process_statement(node, next, &node_context);
             node.recurse(&mut |x| nodes.push_back((x, children_context.clone())));
         }
     }
 
-    fn process_statement(&mut self, stmt: &Stmt, context: &NodeContext) -> NodeContext {
+    fn process_statement(
+        &mut self,
+        stmt: &Stmt,
+        next: Option<&Stmt>,
+        context: &NodeContext,
+    ) -> NodeContext {
         let container = &context.container;
         let top_level_decl = &context.top_level_decl;
-        let globals = &context.globals;
-        let nonlocals = &context.nonlocals;
 
         let mut this_ctx = context.clone();
 
@@ -957,9 +969,8 @@ impl GleanState<'_> {
                         target,
                         assign.range(),
                         None,
-                        container,
-                        globals,
-                        nonlocals,
+                        context,
+                        next,
                         &mut decl_infos,
                     )
                 });
@@ -970,9 +981,8 @@ impl GleanState<'_> {
                     &assign.target,
                     assign.range(),
                     Some(&assign.annotation),
-                    container,
-                    globals,
-                    nonlocals,
+                    context,
+                    next,
                     &mut decl_infos,
                 );
                 self.visit_exprs(&assign.annotation, container);
@@ -983,9 +993,8 @@ impl GleanState<'_> {
                     &assign.target,
                     assign.range(),
                     None,
-                    container,
-                    globals,
-                    nonlocals,
+                    context,
+                    next,
                     &mut decl_infos,
                 );
                 self.visit_exprs(&assign.value, container);
@@ -1009,9 +1018,8 @@ impl GleanState<'_> {
                         target,
                         target.range(),
                         None,
-                        container,
-                        globals,
-                        nonlocals,
+                        context,
+                        next,
                         &mut decl_infos,
                     )
                 });
@@ -1032,9 +1040,8 @@ impl GleanState<'_> {
                             target,
                             target.range(),
                             None,
-                            container,
-                            globals,
-                            nonlocals,
+                            context,
+                            next,
                             &mut decl_infos,
                         )
                     });

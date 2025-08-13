@@ -5,10 +5,6 @@
   },
   {
     "facts": [],
-    "predicate": "python.DeclarationDocstring.4"
-  },
-  {
-    "facts": [],
     "predicate": "python.ImportStarLocation.4"
   },
   {
@@ -28,7 +24,7 @@
           "call_args": [],
           "callee_span": {
             "length": 13,
-            "start": 58
+            "start": 85
           },
           "file": {
             "id": 0,
@@ -197,7 +193,7 @@
             "key": "simple.py"
           },
           "span": {
-            "length": 71,
+            "length": 98,
             "start": 0
           }
         }
@@ -246,12 +242,38 @@
           },
           "span": {
             "length": 17,
-            "start": 54
+            "start": 81
           }
         }
       }
     ],
     "predicate": "python.DeclarationLocation.4"
+  },
+  {
+    "facts": [
+      {
+        "id": 0,
+        "key": {
+          "declaration": {
+            "variable": {
+              "id": 0,
+              "key": {
+                "name": {
+                  "id": 0,
+                  "key": "simple.x"
+                }
+              }
+            }
+          },
+          "location": {
+            "length": 26,
+            "start": 54
+          },
+          "pretty_text": "Answer to everything"
+        }
+      }
+    ],
+    "predicate": "python.DeclarationDocstring.4"
   },
   {
     "facts": [
@@ -324,7 +346,7 @@
             "key": "simple.py"
           },
           "span": {
-            "length": 71,
+            "length": 98,
             "start": 0
           }
         }
@@ -405,7 +427,7 @@
           },
           "span": {
             "length": 17,
-            "start": 54
+            "start": 81
           }
         }
       }
@@ -418,8 +440,8 @@
         "id": 0,
         "key": {
           "digest": {
-            "hash": "9a2ef1d832badb8d7468f5260bd97bf98a1e5afa60b4ee47b2cf363cbee97dc0",
-            "size": 71
+            "hash": "e0898d5c05ea23d482681bc5138101cdac39e2aa7f52e6e83a3a2adef1b2f2fd",
+            "size": 98
           },
           "file": {
             "id": 0,
@@ -445,6 +467,7 @@
             1,
             18,
             19,
+            27,
             27,
             7
           ]
@@ -480,7 +503,7 @@
           "spans": [
             {
               "length": 11,
-              "start": 58
+              "start": 85
             }
           ],
           "target": {
@@ -505,7 +528,7 @@
             {
               "source": {
                 "length": 11,
-                "start": 58
+                "start": 85
               },
               "target": {
                 "id": 0,
