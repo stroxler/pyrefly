@@ -679,22 +679,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(&t1, &t2)
                     }
-                    (var_type, Variable::Answer(t2)) if should_force(&var_type) => {
-                        if *got != t2 {
-                            variables.insert(*v1, Variable::Answer(t2.clone()));
-                        }
-                        true
+                    (_, Variable::Answer(t2)) => {
+                        drop(variables);
+                        self.is_subset_eq(got, &t2)
                     }
-                    (Variable::Answer(t1), var_type) if should_force(&var_type) => {
-                        if t1 != *want {
-                            // Note that we promote the type when the var is on the RHS, but not when it's on the
-                            // LHS, so that we infer more general types but leave user-specified types alone.
-                            variables.insert(
-                                *v2,
-                                Variable::Answer(var_type.promote(t1, self.type_order)),
-                            );
-                        }
-                        true
+                    (Variable::Answer(t1), _) => {
+                        drop(variables);
+                        self.is_subset_eq(&t1, want)
                     }
                     (var_type1, var_type2)
                         if should_force(&var_type1) && should_force(&var_type2) =>
