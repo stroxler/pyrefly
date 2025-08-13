@@ -1331,3 +1331,29 @@ tuple.mro()
 type.mro()  # E: Missing argument `self`
     "#,
 );
+
+// How special forms are represented in typing.py is an implementation detail, but in practice,
+// some of the representations are stable across Python versions. In particular, user code
+// sometimes relies on some special forms being classes and Type behaving like builtins.type.
+testcase!(
+    bug = "There should be no errors",
+    test_special_forms,
+    r#"
+from typing import Callable, Generic, Protocol, Tuple, Type
+def f1(cls):
+    if cls is Callable:
+        return cls.mro()  # E: attribute base undefined
+def f2(cls):
+    if cls is Generic:
+        return cls.mro()  # E: attribute base undefined
+def f3(cls):
+    if cls is Protocol:
+        return cls.mro()  # E: attribute base undefined
+def f4(cls):
+    if cls is Tuple:
+        return cls.mro()  # E: attribute base undefined
+def f5(cls, x: type):
+    if cls is Type:
+        return cls.mro(x)  # E: attribute base undefined
+    "#,
+);
