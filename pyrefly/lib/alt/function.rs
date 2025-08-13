@@ -194,16 +194,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_dunder_init_subclass =
             defining_cls.is_some() && def.name.as_str() == dunder::INIT_SUBCLASS;
 
-        let mut is_overload = false;
-        let mut is_staticmethod = is_dunder_new;
-        let mut is_classmethod = is_dunder_init_subclass;
-        let mut is_deprecated = false;
-        let mut is_property_getter = false;
-        let mut is_property_setter_with_getter = None;
-        let mut has_enum_member_decoration = false;
-        let mut is_override = false;
-        let mut has_final_decoration = false;
-        let mut dataclass_transform_metadata = None;
+        let mut flags = FuncFlags {
+            is_staticmethod: is_dunder_new,
+            is_classmethod: is_dunder_init_subclass,
+            ..Default::default()
+        };
         let check_top_level_function_decorator = |name: &str, range| {
             if is_top_level_function {
                 self.error(
@@ -221,41 +216,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let decorator_ty = decorator.ty();
                 match decorator_ty.callee_kind() {
                     Some(CalleeKind::Function(FunctionKind::Overload)) => {
-                        is_overload = true;
+                        flags.is_overload = true;
                         false
                     }
                     Some(CalleeKind::Class(ClassKind::StaticMethod(name))) => {
-                        is_staticmethod = true;
+                        flags.is_staticmethod = true;
                         check_top_level_function_decorator(&name, *range);
                         false
                     }
                     Some(CalleeKind::Class(ClassKind::ClassMethod(name))) => {
-                        is_classmethod = true;
+                        flags.is_classmethod = true;
                         check_top_level_function_decorator(&name, *range);
                         false
                     }
                     Some(CalleeKind::Class(ClassKind::Property(name))) => {
-                        is_property_getter = true;
+                        flags.is_property_getter = true;
                         check_top_level_function_decorator(&name, *range);
                         false
                     }
                     Some(CalleeKind::Class(ClassKind::EnumMember)) => {
-                        has_enum_member_decoration = true;
+                        flags.has_enum_member_decoration = true;
                         check_top_level_function_decorator("member", *range);
                         false
                     }
                     Some(CalleeKind::Function(FunctionKind::Override)) => {
-                        is_override = true;
+                        flags.is_override = true;
                         check_top_level_function_decorator("override", *range);
                         false
                     }
                     Some(CalleeKind::Function(FunctionKind::Final)) => {
-                        has_final_decoration = true;
+                        flags.has_final_decoration = true;
                         check_top_level_function_decorator("final", *range);
                         false
                     }
                     _ if matches!(decorator_ty, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) => {
-                        is_deprecated = true;
+                        flags.is_deprecated = true;
                         false
                     }
                     _ if decorator_ty.is_property_setter_decorator() => {
@@ -268,11 +263,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         //
                         // See AnswersSolver::lookup_attr_from_attribute_base
                         // for details.
-                        is_property_setter_with_getter = Some(decorator.arc_clone_ty());
+                        flags.is_property_setter_with_getter = Some(decorator.arc_clone_ty());
                         false
                     }
                     _ if let Type::KwCall(call) = decorator_ty && call.has_function_kind(FunctionKind::DataclassTransform) => {
-                        dataclass_transform_metadata = Some(DataclassTransformKeywords::from_type_map(&call.keywords));
+                        flags.dataclass_transform_metadata = Some(DataclassTransformKeywords::from_type_map(&call.keywords));
                         false
                     }
                     Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
@@ -291,9 +286,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Look for a @classmethod or @staticmethod decorator and change the "self" type
         // accordingly. This is not totally correct, since it doesn't account for chaining
         // decorators, or weird cases like both decorators existing at the same time.
-        if is_classmethod || is_dunder_new {
+        if flags.is_classmethod || is_dunder_new {
             self_type = self_type.map(Type::type_form);
-        } else if is_staticmethod {
+        } else if flags.is_staticmethod {
             self_type = None;
         }
 
@@ -440,7 +435,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &params,
                 def,
                 class_key,
-                is_staticmethod,
+                flags.is_staticmethod,
                 errors,
             );
         };
@@ -450,7 +445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &params,
                 def,
                 class_key,
-                is_staticmethod,
+                flags.is_staticmethod,
                 ty_narrow,
                 errors,
             );
@@ -518,22 +513,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             defining_cls.as_ref().map(|cls| cls.name()),
             &def.name.id,
         );
-        let metadata = FuncMetadata {
-            kind,
-            flags: FuncFlags {
-                is_overload,
-                is_staticmethod,
-                is_classmethod,
-                is_deprecated,
-                is_property_getter,
-                is_property_setter_decorator: false,
-                is_property_setter_with_getter,
-                has_enum_member_decoration,
-                is_override,
-                has_final_decoration,
-                dataclass_transform_metadata,
-            },
-        };
+        let metadata = FuncMetadata { kind, flags };
         let mut ty = Forallable::Function(Function {
             signature: callable,
             metadata: metadata.clone(),
