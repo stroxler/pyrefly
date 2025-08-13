@@ -43,6 +43,7 @@ use tracing::info;
 use crate::alt::answers::Answers;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::binding::binding::BindingClass;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
@@ -142,6 +143,8 @@ struct ClassDefinition {
     name: String,
     bases: Vec<ClassRef>,
     parent: ScopeParent,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
 }
 
 /// Format of a module file `my.module:id.json`
@@ -568,7 +571,7 @@ fn export_all_functions(
 fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item = Class> {
     bindings
         .keys::<KeyClass>()
-        .filter_map(|idx| answers.get_idx(idx).unwrap().0.clone())
+        .map(|idx| answers.get_idx(idx).unwrap().0.clone().unwrap())
 }
 
 fn export_all_classes(
@@ -580,13 +583,19 @@ fn export_all_classes(
 ) -> HashMap<String, ClassDefinition> {
     let mut class_definitions = HashMap::new();
 
-    for class in get_all_classes(bindings, answers) {
+    for class_idx in bindings.keys::<KeyClass>() {
+        let class = answers.get_idx(class_idx).unwrap().0.clone().unwrap();
         let display_range = module_info.display_range(class.qname().range());
         let class_index = class.index();
         let parent = get_scope_parent(ast, module_info, class.qname().range());
         let metadata = answers
             .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
             .unwrap();
+
+        let is_synthesized = match bindings.get(class_idx) {
+            BindingClass::FunctionalClassDef(_, _, _) => true,
+            BindingClass::ClassDef(_) => false,
+        };
 
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
@@ -604,6 +613,7 @@ fn export_all_classes(
                     class_name: base_class.qname().id().to_string(),
                 })
                 .collect::<Vec<_>>(),
+            is_synthesized,
         };
 
         assert!(
