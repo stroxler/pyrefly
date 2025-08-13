@@ -10,6 +10,7 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_server::ResponseError;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Url;
@@ -175,4 +176,26 @@ fn test_nonexistent_file() {
         })],
         ..Default::default()
     });
+}
+
+#[test]
+fn test_unknown_request() {
+    let interaction = LspInteraction::new();
+    interaction.initialize();
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(1),
+        method: "fake-method".to_owned(),
+        params: serde_json::json!(null),
+    }));
+    interaction
+        .client
+        .expect_message(Message::Response(Response {
+            id: RequestId::from(1),
+            result: None,
+            error: Some(ResponseError {
+                code: -32601,
+                message: "Unknown request: fake-method".to_owned(),
+                data: None,
+            }),
+        }));
 }
