@@ -199,87 +199,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_classmethod: is_dunder_init_subclass,
             ..Default::default()
         };
-        let check_top_level_function_decorator = |name: &str, range| {
-            if is_top_level_function {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::Kind(ErrorKind::InvalidDecorator),
-                    format!("Decorator `@{name}` can only be used on methods."),
-                );
-            }
-        };
         let decorators = decorators
             .iter()
             .filter(|(k, range)| {
                 let decorator = self.get_idx(*k);
                 let decorator_ty = decorator.ty();
-                match decorator_ty.callee_kind() {
-                    Some(CalleeKind::Function(FunctionKind::Overload)) => {
-                        flags.is_overload = true;
-                        false
-                    }
-                    Some(CalleeKind::Class(ClassKind::StaticMethod(name))) => {
-                        flags.is_staticmethod = true;
-                        check_top_level_function_decorator(&name, *range);
-                        false
-                    }
-                    Some(CalleeKind::Class(ClassKind::ClassMethod(name))) => {
-                        flags.is_classmethod = true;
-                        check_top_level_function_decorator(&name, *range);
-                        false
-                    }
-                    Some(CalleeKind::Class(ClassKind::Property(name))) => {
-                        flags.is_property_getter = true;
-                        check_top_level_function_decorator(&name, *range);
-                        false
-                    }
-                    Some(CalleeKind::Class(ClassKind::EnumMember)) => {
-                        flags.has_enum_member_decoration = true;
-                        check_top_level_function_decorator("member", *range);
-                        false
-                    }
-                    Some(CalleeKind::Function(FunctionKind::Override)) => {
-                        flags.is_override = true;
-                        check_top_level_function_decorator("override", *range);
-                        false
-                    }
-                    Some(CalleeKind::Function(FunctionKind::Final)) => {
-                        flags.has_final_decoration = true;
-                        check_top_level_function_decorator("final", *range);
-                        false
-                    }
-                    _ if matches!(decorator_ty, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) => {
-                        flags.is_deprecated = true;
-                        false
-                    }
-                    _ if decorator_ty.is_property_setter_decorator() => {
-                        // When the `setter` attribute is accessed on a property, we return the type
-                        // of the raw getter function, but with the `is_property_setter_decorator`
-                        // flag set to true; the type does does not accurately model the runtime
-                        // (calling the `.setter` decorator does not invoke a getter function),
-                        // but makes it convenient to construct the property getter and setter
-                        // in our class field logic.
-                        //
-                        // See AnswersSolver::lookup_attr_from_attribute_base
-                        // for details.
-                        flags.is_property_setter_with_getter = Some(decorator.arc_clone_ty());
-                        false
-                    }
-                    _ if let Type::KwCall(call) = decorator_ty && call.has_function_kind(FunctionKind::DataclassTransform) => {
-                        flags.dataclass_transform_metadata = Some(DataclassTransformKeywords::from_type_map(&call.keywords));
-                        false
-                    }
-                    Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
-                        check_top_level_function_decorator("nonmember", *range);
-                        true
-                    }
-                    Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
-                        check_top_level_function_decorator("abstractmethod", *range);
-                        true
-                    }
-                    _ => true,
-                }
+                !self.set_flag_from_decorator(
+                    &mut flags,
+                    decorator_ty,
+                    is_top_level_function,
+                    *range,
+                    errors,
+                )
             })
             .collect::<Vec<_>>();
 
@@ -535,6 +466,144 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             stub_or_impl,
             defining_cls,
         })
+    }
+
+    /// If the decorator corresponds to a function flag, set the flag appropriately. Returns whether a flag was set.
+    pub fn set_flag_from_decorator(
+        &self,
+        flags: &mut FuncFlags,
+        decorator: &Type,
+        is_top_level_function: bool,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> bool {
+        match decorator.callee_kind() {
+            Some(CalleeKind::Function(FunctionKind::Overload)) => {
+                flags.is_overload = true;
+                true
+            }
+            Some(CalleeKind::Class(ClassKind::StaticMethod(name))) => {
+                flags.is_staticmethod = true;
+                self.check_top_level_function_decorator(
+                    &name,
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                true
+            }
+            Some(CalleeKind::Class(ClassKind::ClassMethod(name))) => {
+                flags.is_classmethod = true;
+                self.check_top_level_function_decorator(
+                    &name,
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                true
+            }
+            Some(CalleeKind::Class(ClassKind::Property(name))) => {
+                flags.is_property_getter = true;
+                self.check_top_level_function_decorator(
+                    &name,
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                true
+            }
+            Some(CalleeKind::Class(ClassKind::EnumMember)) => {
+                flags.has_enum_member_decoration = true;
+                self.check_top_level_function_decorator(
+                    "member",
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                true
+            }
+            Some(CalleeKind::Function(FunctionKind::Override)) => {
+                flags.is_override = true;
+                self.check_top_level_function_decorator(
+                    "override",
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                true
+            }
+            Some(CalleeKind::Function(FunctionKind::Final)) => {
+                flags.has_final_decoration = true;
+                self.check_top_level_function_decorator(
+                    "final",
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                true
+            }
+            _ if matches!(decorator, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) =>
+            {
+                flags.is_deprecated = true;
+                true
+            }
+            _ if decorator.is_property_setter_decorator() => {
+                // When the `setter` attribute is accessed on a property, we return the type
+                // of the raw getter function, but with the `is_property_setter_decorator`
+                // flag set to true; the type does does not accurately model the runtime
+                // (calling the `.setter` decorator does not invoke a getter function),
+                // but makes it convenient to construct the property getter and setter
+                // in our class field logic.
+                //
+                // See AnswersSolver::lookup_attr_from_attribute_base
+                // for details.
+                flags.is_property_setter_with_getter = Some(decorator.clone());
+                true
+            }
+            _ if let Type::KwCall(call) = decorator
+                && call.has_function_kind(FunctionKind::DataclassTransform) =>
+            {
+                flags.dataclass_transform_metadata =
+                    Some(DataclassTransformKeywords::from_type_map(&call.keywords));
+                true
+            }
+            Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
+                self.check_top_level_function_decorator(
+                    "nonmember",
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                false
+            }
+            Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
+                self.check_top_level_function_decorator(
+                    "abstractmethod",
+                    is_top_level_function,
+                    range,
+                    errors,
+                );
+                false
+            }
+            _ => false,
+        }
+    }
+
+    fn check_top_level_function_decorator(
+        &self,
+        name: &str,
+        is_top_level_function: bool,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        if is_top_level_function {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::InvalidDecorator),
+                format!("Decorator `@{name}` can only be used on methods."),
+            );
+        }
     }
 
     /// Check if `ty` is a generic function whose return type is a callable that contains type
