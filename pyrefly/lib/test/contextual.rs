@@ -348,15 +348,47 @@ z: list[A] = y # E: `list[B]` is not assignable to `list[A]`
 );
 
 testcase!(
+    bug = "Propagating the hint should still allow for a narrower inferred type",
+    test_context_return_narrow,
+    r#"
+from typing import assert_type
+
+def f[T](x: T) -> T:
+    return x
+
+def test(x: int | str):
+    x = f(0)
+    assert_type(x, int) # E: assert_type(int | str, int) failed
+"#,
+);
+
+testcase!(
     test_context_ctor_return,
     r#"
 class A: ...
 class B(A): ...
 
 class C[T]:
+    x: T
     def __init__(self, x: T) -> None: ...
 
 x: C[list[A]] = C([B()])
+"#,
+);
+
+testcase!(
+    bug = "Propagating the hint should still allow for a narrower inferred type",
+    test_context_ctor_return_narrow,
+    r#"
+from typing import assert_type
+
+class C[T]:
+    x: T
+    def __init__(self, x: T) -> None: ...
+
+def test(x: C[int | str]):
+    x = C(0)
+    assert_type(x, C[int]) # E: assert_type(C[int | str], C[int]) failed
 "#,
 );
 
@@ -372,6 +404,21 @@ class TD[T](TypedDict):
     x: list[T]
 
 x: TD[A] = TD(x = [B()])
+"#,
+);
+
+testcase!(
+    bug = "Propagating the hint should still allow for a narrower inferred type",
+    test_context_typeddict_ctor_return_narrow,
+    r#"
+from typing import assert_type, TypedDict
+
+class TD[T](TypedDict):
+    x: T
+
+def test(x: TD[int | str]):
+    x = TD(x = 0)
+    assert_type(x, TD[int]) # E: assert_type(TypedDict[TD[int | str]], TypedDict[TD[int]]) failed
 "#,
 );
 
