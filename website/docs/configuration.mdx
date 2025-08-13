@@ -660,6 +660,79 @@ value that can be found in the order the SubConfigs appear in your configuration
 If no SubConfigs match, or there are no non-null config options present, then we take
 the value in the 'root'/top-level Pyrefly config (or Pyrefly default if no value is specified).
 
+#### **SubConfig Example**
+
+For the following config, this how options would be resolved.
+
+```toml
+replace-imports-with-any = [
+  "sympy.*",
+  "*.series",
+]
+ignore-errors-in-generated-code = true
+
+# disable `bad-assignment` and `invalid-argument` for the whole project
+[errors]
+bad-assignment = false
+invalid-argument = false
+
+[[sub-config]]
+# apply this to `sub/project/tests/file.py`
+matches = "sub/project/tests/file.py"
+
+# any unittest imports will by typed as `typing.Any`
+replace-imports-with-any = ["unittest.*"]
+
+[[sub-config]]
+# apply this config to all files in `sub/project`
+matches = "sub/project/**"
+
+# enable `assert-type` errors in `sub/project`
+[sub-config.errors]
+assert-type = true
+
+[[sub-config]]
+# apply this config to all files in `sub`
+matches = "sub/**`
+
+# disable `assert-type` errors in `sub`
+[sub-config.errors]
+assert-type = false
+
+[[sub-config]]
+# apply this config to all files under `tests` dirs in `sub/`
+matches = "sub/**/tests/**"
+
+# any pytest imports will be typed as `typing.Any`
+replace-imports-with-any = ["pytest.*"]
+```
+
+- `sub/project/tests/file.py`
+  - `replace-imports-with-any`: `["unittest.*"]`
+  - `errors`: `{assert-type = true}`
+  - `ignore-errors-in-generated-code`: `true`
+  - `ignore-missing-source`: `true`
+- `sub/project/tests/another_file.py`
+  - `replace-imports-with-any`: `["pytest.*"]`
+  - `errors`: `{assert-type = true}`
+  - `ignore-errors-in-generated-code`: `true`
+  - `ignore-missing-source`: `true`
+- `sub/project/non_test_file.py`
+  - `replace-imports-with-any`: `["sympy.*", "*.series"]`
+  - `errors`: `{assert-type = true}`
+  - `ignore-errors-in-generated-code`: `true`
+  - `ignore-missing-source`: `true`
+- `sub/sub_file.py`
+  - `replace-imports-with-any`: `["sympy.*", "*.series"]`
+  - `errors`: `{assert-type = false}`
+  - `ignore-errors-in-generated-code`: `true`
+  - `ignore-missing-source`: `true`
+- `top_level_file.py`
+  - `replace-imports-with-any`: `["sympy.*", "*.series"]`
+  - `errors`: `{assert-type = true, bad-assignment = false, invalid-argument = false}`
+  - `ignore-errors-in-generated-code`: `true`
+  - `ignore-missing-source`: `true`
+
 ### Conda and Venv Support
 
 We plan on adding extra automatic support for [Conda](https://github.com/facebook/pyrefly/issues/2)
@@ -782,49 +855,7 @@ matches = "sub/project/**"
 # enable `assert-type` errors in `sub/project`
 [sub-config.errors]
 assert-type = true
-
-[[sub-config]]
-# apply this config to all files in `sub`
-matches = "sub/**`
-
-# disable `assert-type` errors in `sub`
-[sub-config.errors]
-assert-type = false
-
-[[sub-config]]
-# apply this config to all files under `tests` dirs in `sub/`
-matches = "sub/**/tests/**"
-
-# any pytest imports will be typed as `typing.Any`
-replace-imports-with-any = ["pytest.*"]
 ```
-
-With the above config, here are the actual config values some files would use:
-- `sub/project/tests/file.py`
-  - `replace-imports-with-any`: `["unittest.*"]`
-  - `errors`: `{assert-type = true}`
-  - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
-- `sub/project/tests/another_file.py`
-  - `replace-imports-with-any`: `["pytest.*"]`
-  - `errors`: `{assert-type = true}`
-  - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
-- `sub/project/non_test_file.py`
-  - `replace-imports-with-any`: `["sympy.*", "*.series"]`
-  - `errors`: `{assert-type = true}`
-  - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
-- `sub/sub_file.py`
-  - `replace-imports-with-any`: `["sympy.*", "*.series"]`
-  - `errors`: `{assert-type = false}`
-  - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
-- `top_level_file.py`
-  - `replace-imports-with-any`: `["sympy.*", "*.series"]`
-  - `errors`: `{assert-type = true, bad-assignment = false, invalid-argument = false}`
-  - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
 
 ### Example `pyproject.toml`
 
