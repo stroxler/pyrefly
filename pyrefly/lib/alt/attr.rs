@@ -1751,6 +1751,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 | SpecialForm::Protocol
                 | SpecialForm::Tuple,
             )) => Some(AttributeBase::TypeAny(AnyStyle::Implicit)),
+            Type::Type(box Type::SpecialForm(SpecialForm::Type)) => Some(
+                AttributeBase::ClassObject(self.stdlib.builtins_type().class_object().dupe()),
+            ),
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) | Type::Type(box Type::TypeVar(_)) => {
                 Some(AttributeBase::ClassInstance(self.stdlib.type_var().clone()))

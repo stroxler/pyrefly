@@ -1335,7 +1335,6 @@ type.mro()  # E: Missing argument `self`
 // some of the representations are stable across Python versions. In particular, user code
 // sometimes relies on some special forms being classes and Type behaving like builtins.type.
 testcase!(
-    bug = "There should be no errors",
     test_special_forms,
     r#"
 from typing import Callable, Generic, Protocol, Tuple, Type
@@ -1353,6 +1352,6 @@ def f4(cls):
         return cls.mro()
 def f5(cls, x: type):
     if cls is Type:
-        return cls.mro(x)  # E: attribute base undefined
+        return cls.mro(x)
     "#,
 );
