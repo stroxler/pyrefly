@@ -1247,14 +1247,13 @@ class C:
 );
 
 testcase!(
-    bug = "There should be no errors here.",
     test_attr_tuple,
     r#"
 from typing import Any, Tuple
 
 def g(ann) -> None:
     if ann is Tuple: ...
-    ann.__module__ # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[Tuple] | Unknown (trying to access __module__)
+    ann.__module__
     "#,
 );
 
@@ -1342,16 +1341,16 @@ testcase!(
 from typing import Callable, Generic, Protocol, Tuple, Type
 def f1(cls):
     if cls is Callable:
-        return cls.mro()  # E: attribute base undefined
+        return cls.mro()
 def f2(cls):
     if cls is Generic:
-        return cls.mro()  # E: attribute base undefined
+        return cls.mro()
 def f3(cls):
     if cls is Protocol:
-        return cls.mro()  # E: attribute base undefined
+        return cls.mro()
 def f4(cls):
     if cls is Tuple:
-        return cls.mro()  # E: attribute base undefined
+        return cls.mro()
 def f5(cls, x: type):
     if cls is Type:
         return cls.mro(x)  # E: attribute base undefined

@@ -11,6 +11,7 @@ use dupe::Dupe;
 use pyrefly_python::dunder;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::special_form::SpecialForm;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
@@ -1738,6 +1739,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             },
             Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(*q, None)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
+            // At runtime, these special forms are classes. This has been tested with Python
+            // versions 3.11-3.13. Note that other special forms are classes in some versions, but
+            // their representations aren't stable across versions.
+            //
+            // We don't have access to the class definitions, so the best we can do is model these
+            // as type[Any].
+            Type::Type(box Type::SpecialForm(
+                SpecialForm::Callable
+                | SpecialForm::Generic
+                | SpecialForm::Protocol
+                | SpecialForm::Tuple,
+            )) => Some(AttributeBase::TypeAny(AnyStyle::Implicit)),
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) | Type::Type(box Type::TypeVar(_)) => {
                 Some(AttributeBase::ClassInstance(self.stdlib.type_var().clone()))
