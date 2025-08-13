@@ -59,6 +59,38 @@ reveal_type(test(42))
         </textarea>
       </div>
       <div>
+        <button
+          aria-label="run Python code button"
+          id="run-python-button"
+        >
+          <span>
+            ▶️ Run
+          </span>
+        </button>
+        <button
+          aria-label="share URL button"
+          id="share-url-button"
+        >
+          <span>
+            📋 Share URL
+          </span>
+        </button>
+        <button
+          aria-label="reset to default code"
+          id="reset-button"
+        >
+          <span>
+            🔄 Reset
+          </span>
+        </button>
+        <button
+          aria-label="report issue on GitHub"
+          id="github-issues-button"
+        >
+          <span>
+            ⚠️ Report Issue
+          </span>
+        </button>
         <select
           aria-label="Select Python version"
         >
@@ -105,38 +137,6 @@ reveal_type(test(42))
             3.14
           </option>
         </select>
-        <button
-          aria-label="run Python code button"
-          id="run-python-button"
-        >
-          <span>
-            ▶️ Run
-          </span>
-        </button>
-        <button
-          aria-label="share URL button"
-          id="share-url-button"
-        >
-          <span>
-            📋 Share URL
-          </span>
-        </button>
-        <button
-          aria-label="reset to default code"
-          id="reset-button"
-        >
-          <span>
-            🔄 Reset
-          </span>
-        </button>
-        <button
-          aria-label="report issue on GitHub"
-          id="github-issues-button"
-        >
-          <span>
-            ⚠️ Report Issue
-          </span>
-        </button>
       </div>
     </div>
     <div

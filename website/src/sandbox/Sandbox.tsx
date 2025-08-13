@@ -484,11 +484,6 @@ function getMonacoButtons(
         ].filter(Boolean);
     } else {
         buttons = [
-            <PythonVersionSelector
-                selectedVersion={pythonVersion}
-                onVersionChange={handleVersionChange}
-                loading={loading}
-            />,
             getRunPythonButton(
                 runPythonCodeCallback,
                 pyodideStatus,
@@ -497,6 +492,11 @@ function getMonacoButtons(
             getShareUrlButton(),
             getResetButton(model, forceRecheck, codeSample, isCodeSnippet, pythonVersion),
             getGitHubIssuesButton(),
+            <PythonVersionSelector
+                selectedVersion={pythonVersion}
+                onVersionChange={handleVersionChange}
+                loading={loading}
+            />,
         ];
     }
 
