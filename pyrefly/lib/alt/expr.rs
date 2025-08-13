@@ -190,7 +190,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn expr_with_separate_check_errors(
         &self,
         x: &Expr,
-        check: Option<(HintRef, &dyn Fn() -> TypeCheckContext)>,
+        check: Option<(&Type, &ErrorCollector, &dyn Fn() -> TypeCheckContext)>,
         errors: &ErrorCollector,
     ) -> Type {
         self.expr_type_info_with_separate_check_errors(x, check, errors)
@@ -266,7 +266,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> TypeInfo {
         self.expr_type_info_with_separate_check_errors(
             x,
-            check.map(|(ty, tcc)| (HintRef::new(ty, errors), tcc)),
+            check.map(|(ty, tcc)| (ty, errors, tcc)),
             errors,
         )
     }
@@ -274,13 +274,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn expr_type_info_with_separate_check_errors(
         &self,
         x: &Expr,
-        check: Option<(HintRef, &dyn Fn() -> TypeCheckContext)>,
+        check: Option<(&Type, &ErrorCollector, &dyn Fn() -> TypeCheckContext)>,
         errors: &ErrorCollector,
     ) -> TypeInfo {
         match check {
-            Some((hint, tcc)) if !hint.ty().is_any() => {
-                let got = self.expr_infer_type_info_with_hint(x, Some(hint), errors);
-                self.check_and_return_type_info(hint.ty(), got, x.range(), hint.errors(), tcc)
+            Some((hint, hint_errors, tcc)) if !hint.is_any() => {
+                let got = self.expr_infer_type_info_with_hint(
+                    x,
+                    Some(HintRef::new(hint, Some(hint_errors))),
+                    errors,
+                );
+                self.check_and_return_type_info(hint, got, x.range(), hint_errors, tcc)
             }
             _ => self.expr_infer_type_info_with_hint(x, None, errors),
         }
@@ -777,9 +781,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &check_errors,
                 &item_errors,
             );
-            // We use the TypedDict hint if it is the only one or if it is successfully matched.
-            if hints.len() == 1 || check_errors.is_empty() {
-                hint.errors().extend(check_errors);
+
+            // We use the TypedDict hint if it successfully matched or if there is only one hint, unless
+            // this is a "soft" type hint, in which case we don't want to raise any check errors.
+            if check_errors.is_empty()
+                || hints.len() == 1
+                    && hint
+                        .errors()
+                        .inspect(|errors| errors.extend(check_errors))
+                        .is_some()
+            {
                 errors.extend(item_errors);
                 return (*hint.ty()).clone();
             }

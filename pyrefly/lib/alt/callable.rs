@@ -285,7 +285,7 @@ impl CallArgPreEval<'_> {
                 *done = true;
                 solver.expr_with_separate_check_errors(
                     x,
-                    Some((HintRef::new(hint, call_errors), tcc)),
+                    Some((hint, call_errors, tcc)),
                     arg_errors,
                 );
             }
@@ -798,7 +798,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         TypeOrExpr::Expr(x) => {
                             self.expr_with_separate_check_errors(
                                 x,
-                                hint.map(|ty| (HintRef::new(ty, call_errors), tcc)),
+                                hint.map(|ty| (ty, call_errors, tcc)),
                                 arg_errors,
                             );
                         }

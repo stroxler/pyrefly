@@ -17,10 +17,14 @@ use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
-pub struct Hint<'a>(Type, &'a ErrorCollector);
+// The error collector is None for a "soft" type hint, where we try to
+// match an expression against a hint, but fall back to the inferred type
+// without any errors if the hint is incompatible.
+// Soft type hints are used for `e1 or e1` expressions.
+pub struct Hint<'a>(Type, Option<&'a ErrorCollector>);
 
 #[derive(Clone, Copy)]
-pub struct HintRef<'a, 'b>(&'b Type, &'a ErrorCollector);
+pub struct HintRef<'a, 'b>(&'b Type, Option<&'a ErrorCollector>);
 
 impl<'a> Hint<'a> {
     pub fn as_ref<'b>(&'a self) -> HintRef<'a, 'b>
@@ -40,7 +44,7 @@ impl<'a> Hint<'a> {
 }
 
 impl<'a, 'b> HintRef<'a, 'b> {
-    pub fn new(hint: &'b Type, errors: &'a ErrorCollector) -> Self {
+    pub fn new(hint: &'b Type, errors: Option<&'a ErrorCollector>) -> Self {
         Self(hint, errors)
     }
 
@@ -48,7 +52,7 @@ impl<'a, 'b> HintRef<'a, 'b> {
         self.0
     }
 
-    pub fn errors(&self) -> &ErrorCollector {
+    pub fn errors(&self) -> Option<&ErrorCollector> {
         self.1
     }
 
