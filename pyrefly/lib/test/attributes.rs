@@ -1322,3 +1322,12 @@ class Singleton(Expr):
 assert_type(Singleton(Expr()).children, tuple[Expr, ...])
     "#,
 );
+
+testcase!(
+    test_mro_method,
+    r#"
+().mro()  # E: no attribute `mro`
+tuple.mro()
+type.mro()  # E: Missing argument `self`
+    "#,
+);
