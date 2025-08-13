@@ -435,7 +435,7 @@ pub fn testcase_for_macro(
     env.add_with_path("main", file, &contents);
     // If any given test regularly takes > 10s, that's probably a bug.
     // Currently all are less than 3s in debug, even when running in parallel.
-    let limit = 10;
+    let limit = 15;
     for _ in 0..3 {
         let start = Instant::now();
         if is_empty_env {

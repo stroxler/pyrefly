@@ -72,7 +72,7 @@ class Model(BaseModel):
     model_config = y
     x: int = 42
 
-m = Model() # E:  Missing argument `y` in function `Model.__init__`
+m = Model()
 m.x = 10
 
 "#,

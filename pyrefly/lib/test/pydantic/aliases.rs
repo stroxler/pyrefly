@@ -14,19 +14,18 @@ fn pydantic_env() -> TestEnv {
 }
 
 testcase!(
-    bug = "There should not be an error on Model(y=0) since y is an alias. There should be an error on m.y. ",
     test_alias,
     pydantic_env(),
     r#"
-from pydantic import BaseModel, Field # E: Could not import `Field` from `pydantic`
+from pydantic import BaseModel, Field
 
 class Model(BaseModel):
     x: int = Field(alias="y")
 
 
-m = Model(y=0) # E: Unexpected keyword argument `y` in function `Model.__init__`
+m = Model(y=0)
 m.x
-m.y 
+m.y # E: Object of class `Model` has no attribute `y`
 "#,
 );
 
@@ -35,16 +34,16 @@ testcase!(
     test_validation_alias,
     pydantic_env(),
     r#"
-from pydantic import BaseModel, Field # E: Could not import `Field` from `pydantic
+from pydantic import BaseModel, Field
 
 class Model(BaseModel):
     x: int = Field(validation_alias="y", alias="z")
 
-m = Model(y=0) # E: Unexpected keyword argument `y` in function `Model.__init__
-m = Model(z=0) # E: Unexpected keyword argument `z` in function `Model.__init__`
+m = Model(y=0) # E: Missing argument `z` in function `Model.__init__` # E: Unexpected keyword argument `y` in function `Model.__init__
+m = Model(z=0)
 
 m.x
-m.y
-m.z
+m.y  # E: Object of class `Model` has no attribute `y`
+m.z  # E: Object of class `Model` has no attribute `z`
 "#,
 );
