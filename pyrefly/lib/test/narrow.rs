@@ -1626,3 +1626,20 @@ class C:
         return isinstance(x, int)
 "#,
 );
+
+testcase!(
+    test_while_try_except,
+    r#"
+from typing import assert_type
+class Test:
+    x: dict[str, str] | None
+    def test(self) -> None:
+        assert self.x is not None
+        while True:
+            try:
+                assert_type(self.x, dict[str, str])
+                x = self.x.get("asdf")
+            except:
+                pass
+    "#,
+);
