@@ -206,13 +206,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let decorator = self.get_idx(*k);
                 let decorator_ty = decorator.ty();
                 if let Some(special_decorator) = self.get_special_decorator(decorator_ty) {
-                    !self.set_flag_from_special_decorator(
-                        &mut flags,
-                        &special_decorator,
-                        is_top_level_function,
-                        *range,
-                        errors,
-                    )
+                    if is_top_level_function {
+                        self.check_top_level_function_decorator(&special_decorator, *range, errors);
+                    }
+                    !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
                 } else {
                     true
                 }
@@ -514,58 +511,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         flags: &mut FuncFlags,
         decorator: &SpecialDecorator,
-        is_top_level_function: bool,
-        range: TextRange,
-        errors: &ErrorCollector,
     ) -> bool {
         match decorator {
             SpecialDecorator::Overload => {
                 flags.is_overload = true;
                 true
             }
-            SpecialDecorator::StaticMethod(name) => {
+            SpecialDecorator::StaticMethod(_) => {
                 flags.is_staticmethod = true;
-                self.check_top_level_function_decorator(name, is_top_level_function, range, errors);
                 true
             }
-            SpecialDecorator::ClassMethod(name) => {
+            SpecialDecorator::ClassMethod(_) => {
                 flags.is_classmethod = true;
-                self.check_top_level_function_decorator(name, is_top_level_function, range, errors);
                 true
             }
-            SpecialDecorator::Property(name) => {
+            SpecialDecorator::Property(_) => {
                 flags.is_property_getter = true;
-                self.check_top_level_function_decorator(name, is_top_level_function, range, errors);
                 true
             }
             SpecialDecorator::EnumMember => {
                 flags.has_enum_member_decoration = true;
-                self.check_top_level_function_decorator(
-                    "member",
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
                 true
             }
             SpecialDecorator::Override => {
                 flags.is_override = true;
-                self.check_top_level_function_decorator(
-                    "override",
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
                 true
             }
             SpecialDecorator::Final => {
                 flags.has_final_decoration = true;
-                self.check_top_level_function_decorator(
-                    "final",
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
                 true
             }
             SpecialDecorator::Deprecated => {
@@ -590,42 +563,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(DataclassTransformKeywords::from_type_map(kws));
                 true
             }
-            SpecialDecorator::EnumNonmember => {
-                self.check_top_level_function_decorator(
-                    "nonmember",
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
-                false
-            }
-            SpecialDecorator::AbstractMethod => {
-                self.check_top_level_function_decorator(
-                    "abstractmethod",
-                    is_top_level_function,
-                    range,
-                    errors,
-                );
-                false
-            }
+            _ => false,
         }
     }
 
     fn check_top_level_function_decorator(
         &self,
-        name: &str,
-        is_top_level_function: bool,
+        decorator: &SpecialDecorator,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        if is_top_level_function {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::Kind(ErrorKind::InvalidDecorator),
-                format!("Decorator `@{name}` can only be used on methods."),
-            );
-        }
+        let name = match decorator {
+            SpecialDecorator::StaticMethod(name) => name.as_str(),
+            SpecialDecorator::ClassMethod(name) => name.as_str(),
+            SpecialDecorator::Property(name) => name.as_str(),
+            SpecialDecorator::EnumMember => "member",
+            SpecialDecorator::Override => "override",
+            SpecialDecorator::Final => "final",
+            SpecialDecorator::EnumNonmember => "nonmember",
+            SpecialDecorator::AbstractMethod => "abstractmethod",
+            _ => return,
+        };
+        self.error(
+            errors,
+            range,
+            ErrorInfo::Kind(ErrorKind::InvalidDecorator),
+            format!("Decorator `@{name}` can only be used on methods."),
+        );
     }
 
     /// Check if `ty` is a generic function whose return type is a callable that contains type
