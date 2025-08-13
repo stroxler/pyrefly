@@ -6,7 +6,9 @@
  */
 
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::env::current_dir;
+use std::sync::Arc;
 
 use num_traits::ToPrimitive;
 use pyrefly_python::ast::Ast;
@@ -70,11 +72,9 @@ fn file_fact(module_info: &ModuleInfo) -> src::File {
     src::File::new(relative_path.to_owned())
 }
 
-fn gather_nonlocal_variables(
-    body: &[Stmt],
-    globals: &mut SmallSet<Name>,
-    nonlocals: &mut SmallSet<Name>,
-) {
+fn gather_nonlocal_variables(body: &[Stmt]) -> (Arc<SmallSet<Name>>, Arc<SmallSet<Name>>) {
+    let mut globals = SmallSet::new();
+    let mut nonlocals = SmallSet::new();
     for stmt in body {
         match stmt {
             Stmt::Global(stmt_global) => {
@@ -86,6 +86,8 @@ fn gather_nonlocal_variables(
             _ => {}
         }
     }
+
+    (Arc::new(globals), Arc::new(nonlocals))
 }
 enum ScopeType {
     Global,
@@ -114,6 +116,14 @@ struct Facts {
     xrefs_via_name: Vec<python::XRefViaName>,
     xrefs_by_target: HashMap<python::Name, Vec<src::ByteSpan>>,
     declaration_docstrings: Vec<python::DeclarationDocstring>,
+}
+
+#[derive(Clone)]
+struct NodeContext {
+    container: Arc<python::DeclarationContainer>,
+    top_level_decl: Arc<python::Declaration>,
+    globals: Arc<SmallSet<Name>>,
+    nonlocals: Arc<SmallSet<Name>>,
 }
 
 struct GleanState<'a> {
@@ -176,7 +186,7 @@ impl GleanState<'_> {
         digest::FileDigest::new(self.file_fact(), digest)
     }
 
-    fn module_facts(&mut self, range: TextRange, top_level_decl: &python::Declaration) {
+    fn module_facts(&mut self, range: TextRange) {
         let module_docstring_range = self.transaction.get_module_docstring_range(self.handle);
         let components = self.module_name.components();
         let mut module = None;
@@ -202,7 +212,8 @@ impl GleanState<'_> {
             docstring_range: module_docstring_range,
         };
 
-        self.declaration_facts(mod_decl_info, top_level_decl);
+        let top_level_decl = python::Declaration::module(self.module_fact());
+        self.declaration_facts(mod_decl_info, &top_level_decl);
     }
 
     fn file_lines_fact(&self) -> src::FileLines {
@@ -877,59 +888,73 @@ impl GleanState<'_> {
         node.visit(&mut |expr| self.generate_facts_from_exprs(expr, container));
     }
 
-    fn generate_facts(
-        &mut self,
-        stmt: &Stmt,
-        container: &python::DeclarationContainer,
-        top_level_decl: &python::Declaration,
-        globals: &SmallSet<Name>,
-        nonlocals: &SmallSet<Name>,
-    ) {
-        let mut new_container = None;
-        let mut new_top_level_decl = None;
-        let mut child_globals = SmallSet::new();
-        let mut child_nonlocals = SmallSet::new();
-        let mut is_new_local_scope = false;
+    fn generate_facts(&mut self, ast: &Vec<Stmt>) {
+        let mut nodes = VecDeque::new();
+
+        let root_context = NodeContext {
+            container: Arc::new(python::DeclarationContainer::module(self.module_fact())),
+            top_level_decl: Arc::new(python::Declaration::module(self.module_fact())),
+            globals: Arc::new(SmallSet::new()),
+            nonlocals: Arc::new(SmallSet::new()),
+        };
+        ast.visit(&mut |x| nodes.push_back((x, root_context.clone())));
+
+        while let Some((node, node_context)) = nodes.pop_front() {
+            let children_context = self.process_statement(node, &node_context);
+            node.recurse(&mut |x| nodes.push_back((x, children_context.clone())));
+        }
+    }
+
+    fn process_statement(&mut self, stmt: &Stmt, context: &NodeContext) -> NodeContext {
+        let container = &context.container;
+        let top_level_decl = &context.top_level_decl;
+        let globals = &context.globals;
+        let nonlocals = &context.nonlocals;
+
+        let mut this_ctx = context.clone();
+
         let mut decl_infos = vec![];
         match stmt {
             Stmt::ClassDef(cls) => {
                 let cls_fq_name =
                     self.make_fq_name_for_declaration(&cls.name, container, ScopeType::Local);
                 let cls_declaration = python::ClassDeclaration::new(cls_fq_name, None);
-                let decl_info = self.class_facts(cls, cls_declaration.clone(), container.clone());
+                let decl_info =
+                    self.class_facts(cls, cls_declaration.clone(), (**container).clone());
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
-                if let python::Declaration::module(_) = top_level_decl {
-                    new_top_level_decl = Some(decl_info.declaration.clone());
+                if let python::Declaration::module(_) = **top_level_decl {
+                    this_ctx.top_level_decl = Arc::new(decl_info.declaration.clone());
                 }
+                this_ctx.container = Arc::new(python::DeclarationContainer::cls(cls_declaration));
+                (this_ctx.globals, this_ctx.nonlocals) = gather_nonlocal_variables(&cls.body);
 
-                new_container = Some(python::DeclarationContainer::cls(cls_declaration));
                 decl_infos.push(decl_info);
-                is_new_local_scope = true;
-                gather_nonlocal_variables(&cls.body, &mut child_globals, &mut child_nonlocals);
             }
             Stmt::FunctionDef(func) => {
                 let func_fq_name =
                     self.make_fq_name_for_declaration(&func.name, container, ScopeType::Local);
                 let func_declaration = python::FunctionDeclaration::new(func_fq_name);
-                if let python::Declaration::module(_) = top_level_decl {
-                    new_top_level_decl = Some(python::Declaration::func(func_declaration.clone()));
+                if let python::Declaration::module(_) = **top_level_decl {
+                    this_ctx.top_level_decl =
+                        Arc::new(python::Declaration::func(func_declaration.clone()));
                 }
                 let mut func_decl_infos = self.function_facts(
                     func,
                     func_declaration.clone(),
                     container,
-                    new_top_level_decl.as_ref(),
+                    Some(&this_ctx.top_level_decl),
                 );
                 self.visit_exprs(&func.decorator_list, container);
                 self.visit_exprs(&func.type_params, container);
                 self.visit_exprs(&func.parameters, container);
                 self.visit_exprs(&func.returns, container);
-                new_container = Some(python::DeclarationContainer::func(func_declaration));
+
+                this_ctx.container = Arc::new(python::DeclarationContainer::func(func_declaration));
+                (this_ctx.globals, this_ctx.nonlocals) = gather_nonlocal_variables(&func.body);
+
                 decl_infos.append(&mut func_decl_infos);
-                is_new_local_scope = true;
-                gather_nonlocal_variables(&func.body, &mut child_globals, &mut child_nonlocals);
             }
             Stmt::Assign(assign) => {
                 assign.targets.visit(&mut |target| {
@@ -1038,21 +1063,7 @@ impl GleanState<'_> {
             self.declaration_facts(decl_info, top_level_decl);
         }
 
-        let mut new_scope_globals = globals;
-        let mut new_scope_locals = nonlocals;
-        if is_new_local_scope {
-            new_scope_globals = &child_globals;
-            new_scope_locals = &child_nonlocals;
-        }
-        stmt.recurse(&mut |x| {
-            self.generate_facts(
-                x,
-                new_container.as_ref().unwrap_or(container),
-                new_top_level_decl.as_ref().unwrap_or(top_level_decl),
-                new_scope_globals,
-                new_scope_locals,
-            )
-        });
+        this_ctx
     }
 }
 
@@ -1066,18 +1077,9 @@ impl Glean {
         let digest_fact = glean_state.digest_fact();
         let file_lines = glean_state.file_lines_fact();
 
-        let container = python::DeclarationContainer::module(glean_state.module_fact());
-        let top_level_decl = python::Declaration::module(glean_state.module_fact());
-        glean_state.module_facts(ast.range, &top_level_decl);
-        ast.body.visit(&mut |stmt: &Stmt| {
-            glean_state.generate_facts(
-                stmt,
-                &container,
-                &top_level_decl,
-                &SmallSet::new(),
-                &SmallSet::new(),
-            )
-        });
+        glean_state.module_facts(ast.range);
+
+        glean_state.generate_facts(&ast.body);
 
         let file_fact = glean_state.file_fact();
         let facts = glean_state.facts;
