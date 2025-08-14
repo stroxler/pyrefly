@@ -86,6 +86,9 @@ impl FindResult {
 }
 
 /// In the given root, attempt to find a match for the given [`Name`].
+///
+/// If `style_filter` is provided, only results matching that style will be returned.
+/// The function will check candidates in priority order and return the first match that satisfies the filter.
 fn find_one_part_in_root(
     name: &Name,
     root: &Path,
@@ -146,6 +149,9 @@ fn find_one_part_in_root(
 /// Finds the first package (regular, single file, or namespace) in all search roots.
 /// Returns None if no module is found. If `name` is `__pycache__`, we always
 /// return `None`.
+///
+/// If `style_filter` is provided, only results matching that style will be returned.
+/// The function will continue searching until it finds a result that matches the style.
 fn find_one_part<'a>(
     name: &Name,
     mut roots: impl Iterator<Item = &'a PathBuf>,
@@ -247,6 +253,9 @@ fn find_one_part_prefix<'a>(
 }
 
 /// Find a module from a single package. Returns None if no module is found.
+///
+/// If `style_filter` is provided, only results matching that style will be returned.
+/// The function will continue searching until it finds a result that matches the style.
 fn continue_find_module(
     start_result: FindResult,
     components_rest: &[Name],
@@ -281,6 +290,9 @@ fn continue_find_module(
 /// `-stubs` appended) and remaining components in the given `includes`.
 /// If a result is found that might have a more preferable option later in the
 /// includes, continue searching for it and return the best option.
+///
+/// If `style_filter` is provided, only modules matching that style will be returned.
+/// The function will continue searching until it finds a module that matches the style.
 fn find_module_components<'a, I>(
     first: &Name,
     components_rest: &[Name],
@@ -317,6 +329,9 @@ where
 /// searching should be discontinued because of a special condition, whereas
 /// an `Ok(None)` indicates the module wasn't found here, but could be found in another
 /// search location (`search_path`, `typeshed`, ...).
+///
+/// If `style_filter` is provided, only modules matching that style will be returned.
+/// Returns the first module found that matches the style, or `None` if no matching module is found.
 fn find_module<'a, I>(
     module: ModuleName,
     include: I,
