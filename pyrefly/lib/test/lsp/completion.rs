@@ -776,7 +776,6 @@ test(f.
 10 | test(f.
             ^
 Completion Results:
-- (Variable) abcdefg=: int
 - (Field) x: int
 "#
         .trim(),

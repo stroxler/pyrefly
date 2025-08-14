@@ -1771,7 +1771,6 @@ impl<'a> Transaction<'a> {
 
     fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut result = Vec::new();
-        self.add_kwargs_completions(handle, position, &mut result);
 
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
@@ -1837,6 +1836,7 @@ impl<'a> Transaction<'a> {
                 }
             }
             Some(IdentifierWithContext { identifier, .. }) => {
+                self.add_kwargs_completions(handle, position, &mut result);
                 self.add_keyword_completions(handle, &mut result);
                 if !self.add_local_variable_completions(
                     handle,
@@ -1849,6 +1849,7 @@ impl<'a> Transaction<'a> {
                 self.add_builtins_autoimport_completions(handle, Some(&identifier), &mut result);
             }
             None => {
+                self.add_kwargs_completions(handle, position, &mut result);
                 if self.empty_line_at(handle, position) {
                     self.add_keyword_completions(handle, &mut result);
                     self.add_local_variable_completions(handle, None, position, &mut result);
