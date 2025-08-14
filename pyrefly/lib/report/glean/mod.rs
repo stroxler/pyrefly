@@ -127,10 +127,16 @@ def process_files(paths: List[str]) -> int:
 greeting = hello_world()
 result = process_files(["/tmp", "/home"])"#;
 
+    let try_except_code = r#"try:
+    pass
+except Exception as ex:
+    pass"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
         ("imports", imports_code),
+        ("try_except", try_except_code),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
     let transaction = state.transaction();
