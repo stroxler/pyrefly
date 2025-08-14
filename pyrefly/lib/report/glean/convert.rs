@@ -100,7 +100,7 @@ struct DeclarationInfo {
     decl_span: src::ByteSpan,
     definition: Option<python::Definition>,
     def_span: Option<src::ByteSpan>,
-    top_level_decl: Option<python::Declaration>,
+    top_level_decl: python::Declaration,
     docstring_range: Option<TextRange>,
 }
 
@@ -209,12 +209,11 @@ impl GleanState<'_> {
                 self.module_fact(),
             ))),
             def_span: Some(to_span(range)),
-            top_level_decl: None,
+            top_level_decl: python::Declaration::module(self.module_fact()),
             docstring_range: module_docstring_range,
         };
 
-        let top_level_decl = python::Declaration::module(self.module_fact());
-        self.declaration_facts(mod_decl_info, &top_level_decl);
+        self.declaration_facts(mod_decl_info);
     }
 
     fn file_lines_fact(&self) -> src::FileLines {
@@ -232,17 +231,11 @@ impl GleanState<'_> {
         )
     }
 
-    fn declaration_facts(
-        &mut self,
-        decl_info: DeclarationInfo,
-        default_top_level_decl: &python::Declaration,
-    ) {
+    fn declaration_facts(&mut self, decl_info: DeclarationInfo) {
         self.facts.containing_top_level_declarations.push(
             python::ContainingTopLevelDeclaration::new(
                 decl_info.declaration.clone(),
-                decl_info
-                    .top_level_decl
-                    .unwrap_or(default_top_level_decl.clone()),
+                decl_info.top_level_decl,
             ),
         );
 
@@ -440,7 +433,7 @@ impl GleanState<'_> {
         &mut self,
         cls: &StmtClassDef,
         cls_declaration: python::ClassDeclaration,
-        container: python::DeclarationContainer,
+        context: &NodeContext,
     ) -> DeclarationInfo {
         let bases = if let Some(arguments) = &cls.arguments {
             arguments
@@ -453,25 +446,21 @@ impl GleanState<'_> {
             vec![]
         };
 
-        let declaration = python::Declaration::cls(cls_declaration.clone());
-
-        let cls_docstring_range = Docstring::range_from_stmts(&cls.body);
-
         let cls_definition = python::ClassDefinition::new(
             cls_declaration.clone(),
             Some(bases),
             None,
             Some(self.make_decorators(&cls.decorator_list)),
-            Some(container),
+            Some((*context.container).clone()),
         );
 
         DeclarationInfo {
-            declaration,
+            declaration: python::Declaration::cls(cls_declaration),
             decl_span: to_span(range_without_decorators(cls.range, &cls.decorator_list)),
             definition: Some(python::Definition::cls(cls_definition)),
             def_span: Some(to_span(cls.range)),
-            top_level_decl: None,
-            docstring_range: cls_docstring_range,
+            top_level_decl: (*context.top_level_decl).clone(),
+            docstring_range: Docstring::range_from_stmts(&cls.body),
         }
     }
 
@@ -557,7 +546,7 @@ impl GleanState<'_> {
             decl_span: to_span(range),
             definition: Some(python::Definition::variable(variable_definition)),
             def_span: Some(to_span(range)),
-            top_level_decl: Some((*ctx.top_level_decl).clone()),
+            top_level_decl: (*ctx.top_level_decl).clone(),
             docstring_range,
         }
     }
@@ -612,7 +601,6 @@ impl GleanState<'_> {
         parent_ctx: &NodeContext,
         func_ctx: &NodeContext,
     ) -> Vec<DeclarationInfo> {
-        let declaration = python::Declaration::func(func_declaration.clone());
         let params = &func.parameters;
 
         let mut decl_infos = vec![];
@@ -645,7 +633,7 @@ impl GleanState<'_> {
             .map(|x| self.parameter_info(x.as_ref(), None, func_ctx, &mut decl_infos));
 
         let func_definition = python::FunctionDefinition::new(
-            func_declaration,
+            func_declaration.clone(),
             func.is_async,
             self.type_info(func.returns.as_ref().map(|x| x.as_ref())),
             args,
@@ -658,11 +646,11 @@ impl GleanState<'_> {
         );
 
         decl_infos.push(DeclarationInfo {
-            declaration,
+            declaration: python::Declaration::func(func_declaration),
             decl_span: to_span(range_without_decorators(func.range, &func.decorator_list)),
             definition: Some(python::Definition::func(func_definition)),
             def_span: Some(to_span(func.range)),
-            top_level_decl: Some((*parent_ctx.top_level_decl).clone()),
+            top_level_decl: (*parent_ctx.top_level_decl).clone(),
             docstring_range: Docstring::range_from_stmts(&func.body),
         });
 
@@ -710,6 +698,7 @@ impl GleanState<'_> {
         range: TextRange,
         from_module_id: Option<&Identifier>,
         level: u32,
+        top_level_declaration: &python::Declaration,
     ) -> Vec<DeclarationInfo> {
         let from_module_name = from_module_id.map(|x| x.id());
         let from_module = if level > 0 {
@@ -771,7 +760,7 @@ impl GleanState<'_> {
                     decl_span: to_span(import.name.range),
                     definition: None,
                     def_span: None,
-                    top_level_decl: None,
+                    top_level_decl: top_level_declaration.clone(),
                     docstring_range: None,
                 });
             }
@@ -890,8 +879,7 @@ impl GleanState<'_> {
                 let cls_fq_name =
                     self.make_fq_name_for_declaration(&cls.name, container, ScopeType::Local);
                 let cls_declaration = python::ClassDeclaration::new(cls_fq_name, None);
-                let decl_info =
-                    self.class_facts(cls, cls_declaration.clone(), (**container).clone());
+                let decl_info = self.class_facts(cls, cls_declaration.clone(), context);
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
@@ -961,7 +949,8 @@ impl GleanState<'_> {
                 self.visit_exprs(&assign.value, container);
             }
             Stmt::Import(import) => {
-                let mut imp_decl_infos = self.import_facts(&import.names, import.range, None, 0);
+                let mut imp_decl_infos =
+                    self.import_facts(&import.names, import.range, None, 0, top_level_decl);
                 decl_infos.append(&mut imp_decl_infos);
             }
             Stmt::ImportFrom(import) => {
@@ -970,6 +959,7 @@ impl GleanState<'_> {
                     import.range,
                     import.module.as_ref(),
                     import.level,
+                    top_level_decl,
                 );
                 decl_infos.append(&mut imp_decl_infos);
             }
@@ -1023,7 +1013,7 @@ impl GleanState<'_> {
             _ => self.visit_exprs(stmt, container),
         }
         for decl_info in decl_infos {
-            self.declaration_facts(decl_info, top_level_decl);
+            self.declaration_facts(decl_info);
         }
 
         this_ctx
