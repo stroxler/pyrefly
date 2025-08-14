@@ -89,13 +89,15 @@ impl FindResult {
 fn find_one_part_in_root(
     name: &Name,
     root: &Path,
-    _style_filter: Option<ModuleStyle>,
+    style_filter: Option<ModuleStyle>,
 ) -> Option<FindResult> {
     let candidate_dir = root.join(name.as_str());
     // First check if `name` corresponds to a regular package.
     for candidate_init_suffix in ["__init__.pyi", "__init__.py"] {
         let init_path = candidate_dir.join(candidate_init_suffix);
         if init_path.exists() {
+            // Note: do not filter by style filter here since __init__.pyi could potentially have .py files covered under it
+            // todo(connernilsen): do we filter here?
             return Some(FindResult::RegularPackage(init_path, candidate_dir));
         }
     }
@@ -103,22 +105,40 @@ fn find_one_part_in_root(
     for candidate_file_suffix in ["pyi", "py"] {
         let candidate_path = root.join(format!("{name}.{candidate_file_suffix}"));
         if candidate_path.exists() {
-            return Some(FindResult::single_file(
-                candidate_path,
-                candidate_file_suffix,
-            ));
+            let result = FindResult::single_file(candidate_path.clone(), candidate_file_suffix);
+            if let Some(filter) = style_filter {
+                if let Ok(module_path) = result.clone().module_path()
+                    && module_path.style() == filter
+                {
+                    return Some(result);
+                }
+                // else, continue the search
+            } else {
+                return Some(result);
+            }
         }
     }
+
     // Check if `name` corresponds to a compiled module.
     for candidate_compiled_suffix in COMPILED_FILE_SUFFIXES {
         let candidate_path = root.join(format!("{name}.{candidate_compiled_suffix}"));
         if candidate_path.exists() {
-            return Some(FindResult::CompiledModule(candidate_path));
+            let result = FindResult::CompiledModule(candidate_path);
+            if let Some(filter) = style_filter {
+                // compiled files are considered executable
+                match filter {
+                    ModuleStyle::Executable => return Some(result),
+                    ModuleStyle::Interface => continue,
+                }
+            }
+            return Some(result);
         }
     }
     // Finally check if `name` corresponds to a namespace package.
     if candidate_dir.is_dir() {
-        return Some(FindResult::NamespacePackage(Vec1::new(candidate_dir)));
+        let result = FindResult::NamespacePackage(Vec1::new(candidate_dir));
+        // Namespace packages don't have a style in the same sense, so we return them regardless of filter
+        return Some(result);
     }
     None
 }
@@ -1368,5 +1388,160 @@ mod tests {
             continue_find_module(start_result, &[], None).unwrap(),
             FindResult::CompiledModule(_)
         ));
+    }
+
+    #[test]
+    fn test_find_module_filter_basic() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::file("bar.py"), TestPath::file("bar.pyi")],
+        );
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("bar"),
+                [root.to_path_buf()].iter(),
+                true,
+                Some(ModuleStyle::Executable),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(root.join("bar.py")))
+        );
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("bar"),
+                [root.to_path_buf()].iter(),
+                true,
+                Some(ModuleStyle::Interface),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(root.join("bar.pyi")))
+        );
+    }
+
+    #[test]
+    fn test_find_module_with_filter_pyc_treated_as_executable() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::file("bar.pyc"), TestPath::file("bar.pyi")],
+        );
+
+        assert!(matches!(
+            find_module(
+                ModuleName::from_str("bar"),
+                [root.to_path_buf()].iter(),
+                true,
+                Some(ModuleStyle::Executable),
+            ),
+            Err(FindError::Ignored)
+        ));
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("bar"),
+                [root.to_path_buf()].iter(),
+                true,
+                Some(ModuleStyle::Interface),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(root.join("bar.pyi")))
+        );
+    }
+
+    #[test]
+    fn test_find_module_with_filter_init_pyi() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "baz",
+                vec![TestPath::file("__init__.pyi"), TestPath::file("bar.py")],
+            )],
+        );
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("baz.bar"),
+                [root.to_path_buf()].iter(),
+                true,
+                Some(ModuleStyle::Executable),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(root.join("baz").join("bar.py")))
+        );
+    }
+
+    #[test]
+    fn test_find_module_with_style_filter_across_roots() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir("search_root1", vec![TestPath::file("standalone.pyi")]),
+                TestPath::dir(
+                    "search_root2",
+                    vec![
+                        TestPath::file("standalone.py"),
+                        TestPath::file("standalone2.py"),
+                    ],
+                ),
+            ],
+        );
+
+        let search_roots = [root.join("search_root1"), root.join("search_root2")];
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("standalone"),
+                search_roots.iter(),
+                true,
+                Some(ModuleStyle::Executable),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(
+                root.join("search_root2/standalone.py")
+            ))
+        );
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("standalone"),
+                search_roots.iter(),
+                true,
+                Some(ModuleStyle::Interface),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(
+                root.join("search_root1/standalone.pyi")
+            ))
+        );
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("standalone2"),
+                search_roots.iter(),
+                true,
+                Some(ModuleStyle::Interface),
+            )
+            .unwrap(),
+            None
+        );
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("standalone2"),
+                search_roots.iter(),
+                true,
+                Some(ModuleStyle::Executable),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(
+                root.join("search_root2/standalone2.py")
+            ))
+        );
     }
 }
