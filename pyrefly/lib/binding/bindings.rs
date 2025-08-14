@@ -1149,26 +1149,18 @@ impl<'a> BindingsBuilder<'a> {
                 BindingAnnotation::AnnotateExpr(target.clone(), x.clone(), class_key),
             )
         });
-        let (annot, def) = match annot {
-            Some(annot) => (annot, Either::Left(annot)),
-            None => {
-                let var = self.solver.fresh_contained(self.uniques);
-                let annot = self.insert_binding(
-                    KeyAnnotation::Annotation(ShortIdentifier::new(name)),
-                    BindingAnnotation::Type(target.clone(), var.to_type()),
-                );
-                (annot, Either::Right(var))
-            }
-        };
         let key = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
-            Binding::FunctionParameter(def),
+            Binding::FunctionParameter(match annot {
+                Some(annot) => Either::Left(annot),
+                None => Either::Right(self.solver.fresh_contained(self.uniques)),
+            }),
         );
         self.scopes.add_to_current_static(
             name.id.clone(),
             name.range,
             SymbolKind::Parameter,
-            Some(annot),
+            annot,
             false,
         );
         self.bind_name(&name.id, key, FlowStyle::Other);
