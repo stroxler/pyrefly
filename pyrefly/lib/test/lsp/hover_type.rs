@@ -100,6 +100,27 @@ Hover Result: None
     );
 }
 
+// TODO(kylei): redefinitions
+#[test]
+fn lhs_reassignment() {
+    let code = r#"
+xy = 5
+xy = xy + 1
+#^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 | xy = xy + 1
+     ^
+Hover Result: None
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
 #[test]
 fn import_test() {
     let code = r#"
