@@ -749,8 +749,10 @@ impl CheckArgs {
         if let Some(glean) = &self.output.report_glean {
             fs_anyhow::create_dir_all(glean)?;
             for (handle, _) in handles {
+                // Generate a safe filename using hash to avoid OS filename length limits
+                let module_hash = blake3::hash(handle.module().to_string().as_bytes());
                 fs_anyhow::write(
-                    &glean.join(format!("{}.json", handle.module())),
+                    &glean.join(format!("{}.json", &module_hash)),
                     report::glean::glean(transaction, handle),
                 )?;
             }
