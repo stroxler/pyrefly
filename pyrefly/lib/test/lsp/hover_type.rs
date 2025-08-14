@@ -415,7 +415,7 @@ foo(C)
 # main.py
 11 | foo(C)
        ^
-Hover Result: `(x: type[C]) -> C`
+Hover Result: `(x: type[T]) -> T`
 "#
         .trim(),
         report.trim(),
