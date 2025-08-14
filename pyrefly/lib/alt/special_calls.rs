@@ -11,6 +11,7 @@
  * file contains the implementations of a few special calls that need to be hard-coded.
  */
 
+use pyrefly_types::callable::FuncMetadata;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
@@ -21,6 +22,8 @@ use ruff_text_size::TextRange;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::callable::CallArg;
+use crate::alt::callable::CallKeyword;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
@@ -491,5 +494,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut res = Vec::new();
         f(self, ty, &mut res);
         res
+    }
+
+    pub fn maybe_apply_function_decorator(
+        &self,
+        callee: &Type,
+        args: &[CallArg],
+        kws: &[CallKeyword],
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        let special_decorator = self.get_special_decorator(callee)?;
+        // Does this call have a single positional argument?
+        // If not, it cannot be a decorator application.
+        if kws.is_empty()
+            && let [CallArg::Arg(arg)] = args
+        {
+            let mut arg_ty = arg.infer(self, errors);
+            // Try to apply the decorator to arg_ty. Does nothing if the decorator does not have known
+            // typing effects or if arg_ty is not a function.
+            let mut applied = false;
+            arg_ty.transform_toplevel_func_metadata(|meta: &mut FuncMetadata| {
+                applied |=
+                    self.set_flag_from_special_decorator(&mut meta.flags, &special_decorator);
+            });
+            if applied { Some(arg_ty) } else { None }
+        } else {
+            None
+        }
     }
 }

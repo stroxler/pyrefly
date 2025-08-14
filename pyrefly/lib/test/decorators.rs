@@ -558,7 +558,7 @@ from typing import assert_type
 class A:
     def f(cls):
         return cls
-    f = classmethod(f)  # E: not assignable
-assert_type(A.f(), type[A])  # E: assert_type(Any, type[A])
+    f = classmethod(f)
+assert_type(A.f(), type[A])  # E: assert_type(A, type[A])  # E: `type[A]` is not assignable to parameter `cls` with type `A`
     "#,
 );

@@ -666,6 +666,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let arg_ty = self.expr_infer(&x.arguments.args[0], errors);
                             self.type_of(arg_ty)
                         }
+                        // Decorators can be applied in two ways:
+                        //   - (common, idiomatic) via `@decorator`:
+                        //     @staticmethod
+                        //     def f(): ...
+                        //   - (uncommon, mostly seen in legacy code) via a function call:
+                        //     def f(): ...
+                        //     f = staticmethod(f)
+                        // Check if this call applies a decorator with known typing effects to a function.
+                        _ if let Some(ret) = self.maybe_apply_function_decorator(ty, &args, &kws, errors) => ret,
                         _ => {
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),

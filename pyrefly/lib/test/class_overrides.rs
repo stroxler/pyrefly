@@ -432,7 +432,6 @@ class B(A):
 );
 
 testcase!(
-    bug = "Derived.method should be allowed to override Base.method",
     test_staticmethod_can_override_staticmethod,
     r#"
 class Base:
@@ -444,6 +443,6 @@ def a_method() -> int:
     return 1
 
 class Derived(Base):
-    method = staticmethod(a_method)  # E: `Derived.method` and `Base.method` must both be descriptors
+    method = staticmethod(a_method)
     "#,
 );
