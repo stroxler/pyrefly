@@ -150,6 +150,18 @@ assert_type(B.x.y, int)
 );
 
 testcase!(
+    test_cast_self,
+    r#"
+from typing import cast, Self
+class Foo:
+    def hello(self): pass
+    def check(self, other):
+        other2 = cast(Self, other)
+        other2.hello()
+    "#,
+);
+
+testcase!(
     test_inherit_overloaded_dunder_new_with_self,
     r#"
 from typing import Self, overload

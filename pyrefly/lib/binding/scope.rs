@@ -681,6 +681,9 @@ impl Scopes {
         }
     }
 
+    // Is the immediate scope a class scope? If so, return the keys for the class and its metadata.
+    // This function only looks at the current scope, so it will return `None` if we're inside
+    // another scope, like a method.
     pub fn current_class_and_metadata_keys(
         &self,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
@@ -691,6 +694,25 @@ impl Scopes {
             )),
             _ => None,
         }
+    }
+
+    // Are we anywhere inside a class? If so, return the keys for the class and its metadata.
+    // This function looks at enclosing scopes, unlike `current_class_and_metadata_keys`.
+    pub fn enclosing_class_and_metadata_keys(
+        &self,
+    ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
+        for scope in self.iter_rev() {
+            match &scope.kind {
+                ScopeKind::Class(class_scope) => {
+                    return Some((
+                        class_scope.indices.class_idx,
+                        class_scope.indices.metadata_idx,
+                    ));
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     pub fn function_predecessor_indices(

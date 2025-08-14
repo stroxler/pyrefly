@@ -755,7 +755,8 @@ impl<'a> BindingsBuilder<'a> {
     fn track_potential_typing_self(&mut self, x: &Expr) {
         match self.as_special_export(x) {
             Some(SpecialExport::SelfType) => {
-                if let Some((current_class_idx, _)) = self.scopes.current_class_and_metadata_keys()
+                if let Some((current_class_idx, _)) =
+                    self.scopes.enclosing_class_and_metadata_keys()
                 {
                     self.insert_binding(
                         Key::SelfTypeLiteral(x.range()),
