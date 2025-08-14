@@ -605,10 +605,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
+        // TODO: add validation alias to metadata
         let pydantic_metadata = match pydantic_metadata_binding {
-            PydanticMetadataBinding { frozen } if is_pydantic_model => {
-                Some(PydanticMetadata { frozen: *frozen })
-            }
+            PydanticMetadataBinding {
+                frozen,
+                validation_alias: _,
+            } if is_pydantic_model => Some(PydanticMetadata { frozen: *frozen }),
             _ => None,
         };
 

@@ -14,15 +14,20 @@ use crate::export::special::SpecialExport;
 
 // special pydantic constants
 const FROZEN_DEFAULT: bool = false;
+const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
+const FROZEN: Name = Name::new_static("frozen");
 
 // Pydantic metadata that we will later extend to include more fields
 // This is different than the PydanticMetadata that goes into the class metadata itself.
 // TODO Zeina: look into if we want to store the expr itself or the boolean. Right now,
 // this maps 1:1 to PydanticMetadata structure we encounter in the answers phase,
 // but this will likely change as we add more fields.
+// TODO: populate Pydantic metadata with validation_alias
 #[derive(Debug, Clone, Default)]
 pub struct PydanticMetadataBinding {
     pub frozen: bool,
+    #[allow(dead_code)]
+    pub validation_alias: Option<Box<str>>,
 }
 
 impl<'a> BindingsBuilder<'a> {
@@ -42,7 +47,7 @@ impl<'a> BindingsBuilder<'a> {
         {
             for kw in &call.arguments.keywords {
                 if let Some(arg_name) = &kw.arg
-                    && arg_name.id.as_str() == "frozen"
+                    && arg_name.id == FROZEN
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
                     *pydantic_frozen = Some(bl.value);
@@ -51,10 +56,32 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    pub fn extract_validation_alias(&self, e: &Expr, validation_alias: &mut Option<Box<str>>) {
+        if let Some(call) = e.as_call_expr()
+            && let Some(special) = self.as_special_export(&call.func)
+            && special == SpecialExport::PydanticField
+        {
+            for kw in &call.arguments.keywords {
+                if let Some(arg_name) = &kw.arg
+                    && arg_name.id == VALIDATION_ALIAS
+                    && let Some(str_lit) = kw.value.as_string_literal_expr()
+                {
+                    let val = str_lit.value.to_str();
+                    *validation_alias = Some(val.to_owned().into_boxed_str());
+                }
+            }
+        }
+    }
+
     // TODO Zeina: We should expect to extend this beyond the frozen data.
-    pub fn make_pydantic_metadata(&self, frozen: Option<bool>) -> PydanticMetadataBinding {
+    pub fn make_pydantic_metadata(
+        &self,
+        frozen: Option<bool>,
+        validation_alias: Option<Box<str>>,
+    ) -> PydanticMetadataBinding {
         PydanticMetadataBinding {
             frozen: frozen.unwrap_or(FROZEN_DEFAULT),
+            validation_alias,
         }
     }
 }
