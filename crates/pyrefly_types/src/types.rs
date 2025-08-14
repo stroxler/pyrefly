@@ -543,6 +543,7 @@ impl Forall<Forallable> {
 pub enum Forallable {
     TypeAlias(TypeAlias),
     Function(Function),
+    Callable(Callable),
 }
 
 impl Forallable {
@@ -560,6 +561,7 @@ impl Forallable {
     pub fn name(&self) -> Name {
         match self {
             Self::Function(func) => func.metadata.kind.as_func_id().func,
+            Self::Callable(_) => Name::new_static("<callable>"),
             Self::TypeAlias(ta) => (*ta.name).clone(),
         }
     }
@@ -567,6 +569,7 @@ impl Forallable {
     pub fn as_type(self) -> Type {
         match self {
             Self::Function(func) => Type::Function(Box::new(func)),
+            Self::Callable(callable) => Type::Callable(Box::new(callable)),
             Self::TypeAlias(ta) => Type::TypeAlias(ta),
         }
     }
@@ -574,6 +577,7 @@ impl Forallable {
     fn is_typeguard(&self) -> bool {
         match self {
             Self::Function(func) => func.signature.is_typeguard(),
+            Self::Callable(callable) => callable.is_typeguard(),
             Self::TypeAlias(_) => false,
         }
     }
@@ -581,6 +585,7 @@ impl Forallable {
     fn is_typeis(&self) -> bool {
         match self {
             Self::Function(func) => func.signature.is_typeis(),
+            Self::Callable(callable) => callable.is_typeis(),
             Self::TypeAlias(_) => false,
         }
     }
@@ -1112,6 +1117,10 @@ impl Type {
     pub fn visit_toplevel_callable<'a>(&'a self, mut f: impl FnMut(&'a Callable)) {
         match self {
             Type::Callable(callable) => f(callable),
+            Type::Forall(box Forall {
+                body: Forallable::Callable(callable),
+                ..
+            }) => f(callable),
             Type::Function(box func)
             | Type::Forall(box Forall {
                 body: Forallable::Function(func),
@@ -1146,6 +1155,10 @@ impl Type {
     fn transform_toplevel_callable(&mut self, mut f: impl FnMut(&mut Callable)) {
         match self {
             Type::Callable(callable) => f(callable),
+            Type::Forall(box Forall {
+                body: Forallable::Callable(callable),
+                ..
+            }) => f(callable),
             Type::Function(box func)
             | Type::Forall(box Forall {
                 body: Forallable::Function(func),

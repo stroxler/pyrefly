@@ -332,7 +332,7 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Tuple(t) => t.fmt_with_type(f, |t| self.display_internal(t)),
             Type::Forall(box Forall {
                 tparams,
-                body: body @ Forallable::Function(_),
+                body: body @ (Forallable::Function(_) | Forallable::Callable(_)),
             }) => {
                 write!(
                     f,

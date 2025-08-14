@@ -828,6 +828,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Type::Function(function) => OverloadType::Function(*function),
                     Type::Forall(box Forall {
                         tparams,
+                        body: Forallable::Callable(callable),
+                    }) => OverloadType::Forall(Forall {
+                        tparams,
+                        body: Function {
+                            signature: callable,
+                            metadata,
+                        },
+                    }),
+                    Type::Forall(box Forall {
+                        tparams,
                         body: Forallable::Function(func),
                     }) => OverloadType::Forall(Forall {
                         tparams,
