@@ -1031,7 +1031,22 @@ impl GleanState<'_> {
             }
             Stmt::Try(stmt_try) => {
                 stmt_try.handlers.iter().for_each(|x| match x {
-                    ExceptHandler::ExceptHandler(x) => self.visit_exprs(&x.type_, container),
+                    ExceptHandler::ExceptHandler(x) => {
+                        if let Some(name) = &x.name {
+                            let fq_name = self.make_fq_name_for_declaration(
+                                name,
+                                container,
+                                ScopeType::Local,
+                            );
+                            decl_infos.push(self.variable_info(
+                                fq_name,
+                                name.range(),
+                                None,
+                                None,
+                                context,
+                            ));
+                        }
+                    }
                 });
             }
             _ => self.visit_exprs(stmt, container),
