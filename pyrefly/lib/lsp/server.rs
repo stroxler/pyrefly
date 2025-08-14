@@ -477,7 +477,7 @@ impl Server {
                 canceled_requests.insert(id);
             }
             LspEvent::DidOpenTextDocument(params) => {
-                self.did_open(ide_transaction_manager, subsequent_mutation, params);
+                self.did_open(ide_transaction_manager, subsequent_mutation, params)?;
             }
             LspEvent::DidChangeTextDocument(params) => {
                 self.did_change(ide_transaction_manager, subsequent_mutation, params)?;
@@ -1034,8 +1034,13 @@ impl Server {
         ide_transaction_manager: &mut TransactionManager<'a>,
         subsequent_mutation: bool,
         params: DidOpenTextDocumentParams,
-    ) {
-        let uri = params.text_document.uri.to_file_path().unwrap();
+    ) -> anyhow::Result<()> {
+        let uri = params.text_document.uri.to_file_path().map_err(|_| {
+            anyhow::anyhow!(
+                "Could not convert uri to filepath: {}",
+                params.text_document.uri
+            )
+        })?;
         let config_to_populate_files = if self.indexing_mode != IndexingMode::None
             && let Some(directory) = uri.as_path().parent()
         {
@@ -1055,6 +1060,7 @@ impl Server {
         self.populate_project_files_if_necessary(config_to_populate_files);
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
+        Ok(())
     }
 
     fn did_change<'a>(
@@ -1070,7 +1076,7 @@ impl Server {
         let old_version = version_info.get(&file_path).unwrap_or(&0);
         if version < *old_version {
             return Err(anyhow::anyhow!(
-                "Unexpected version in didChange notification: {version:?} is less than {old_version:?}"
+                "new_version < old_version in `textDocument/didChange` notification: new_version={version:?} old_version={old_version:?} text_document.uri={uri:?}"
             ));
         }
         version_info.insert(file_path.clone(), version);
