@@ -541,16 +541,15 @@ impl GleanState<'_> {
         &self,
         name: python::Name,
         range: TextRange,
-        container: Option<&python::DeclarationContainer>,
         type_info: Option<python::TypeInfo>,
-        top_level_decl: Option<python::Declaration>,
         docstring_range: Option<TextRange>,
+        ctx: &NodeContext,
     ) -> DeclarationInfo {
         let variable_declaration = python::VariableDeclaration::new(name);
         let variable_definition = python::VariableDefinition::new(
             variable_declaration.clone(),
             type_info,
-            container.cloned(),
+            Some((*ctx.container).clone()),
         );
 
         DeclarationInfo {
@@ -558,7 +557,7 @@ impl GleanState<'_> {
             decl_span: to_span(range),
             definition: Some(python::Definition::variable(variable_definition)),
             def_span: Some(to_span(range)),
-            top_level_decl,
+            top_level_decl: Some((*ctx.top_level_decl).clone()),
             docstring_range,
         }
     }
@@ -567,19 +566,18 @@ impl GleanState<'_> {
         &mut self,
         param: &Parameter,
         value: Option<String>,
-        container: &python::DeclarationContainer,
-        top_level_declaration: Option<&python::Declaration>,
+        context: &NodeContext,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
         let type_info: Option<python::TypeInfo> = self.type_info(param.annotation());
-        let fqname = self.make_fq_name_for_declaration(&param.name, container, ScopeType::Local);
+        let fqname =
+            self.make_fq_name_for_declaration(&param.name, &context.container, ScopeType::Local);
         decl_infos.push(self.variable_info(
             fqname,
             param.range(),
-            None,
             type_info.clone(),
-            top_level_declaration.cloned(),
             None,
+            context,
         ));
         python::Parameter {
             name: python::Name::new(param.name().to_string()),
@@ -591,8 +589,7 @@ impl GleanState<'_> {
     fn parameter_with_default_info(
         &mut self,
         parameter_with_default: &ParameterWithDefault,
-        top_level_declaration: Option<&python::Declaration>,
-        container: &python::DeclarationContainer,
+        context: &NodeContext,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
         let lined_buffer = self.module.lined_buffer();
@@ -603,8 +600,7 @@ impl GleanState<'_> {
         self.parameter_info(
             &parameter_with_default.parameter,
             value,
-            container,
-            top_level_declaration,
+            context,
             decl_infos,
         )
     }
@@ -613,8 +609,8 @@ impl GleanState<'_> {
         &mut self,
         func: &StmtFunctionDef,
         func_declaration: python::FunctionDeclaration,
-        container: &python::DeclarationContainer,
-        params_top_level_decl: Option<&python::Declaration>,
+        parent_ctx: &NodeContext,
+        func_ctx: &NodeContext,
     ) -> Vec<DeclarationInfo> {
         let declaration = python::Declaration::func(func_declaration.clone());
         let params = &func.parameters;
@@ -623,61 +619,30 @@ impl GleanState<'_> {
         let args = params
             .args
             .iter()
-            .map(|x| {
-                self.parameter_with_default_info(
-                    x,
-                    params_top_level_decl,
-                    container,
-                    &mut decl_infos,
-                )
-            })
+            .map(|x| self.parameter_with_default_info(x, func_ctx, &mut decl_infos))
             .collect();
 
         let pos_only_args = params
             .posonlyargs
             .iter()
-            .map(|x| {
-                self.parameter_with_default_info(
-                    x,
-                    params_top_level_decl,
-                    container,
-                    &mut decl_infos,
-                )
-            })
+            .map(|x| self.parameter_with_default_info(x, func_ctx, &mut decl_infos))
             .collect();
 
         let kwonly_args = params
             .kwonlyargs
             .iter()
-            .map(|x| {
-                self.parameter_with_default_info(
-                    x,
-                    params_top_level_decl,
-                    container,
-                    &mut decl_infos,
-                )
-            })
+            .map(|x| self.parameter_with_default_info(x, func_ctx, &mut decl_infos))
             .collect();
 
-        let star_arg = params.vararg.as_ref().map(|x| {
-            self.parameter_info(
-                x.as_ref(),
-                None,
-                container,
-                params_top_level_decl,
-                &mut decl_infos,
-            )
-        });
+        let star_arg = params
+            .vararg
+            .as_ref()
+            .map(|x| self.parameter_info(x.as_ref(), None, func_ctx, &mut decl_infos));
 
-        let star_kwarg = params.kwarg.as_ref().map(|x| {
-            self.parameter_info(
-                x.as_ref(),
-                None,
-                container,
-                params_top_level_decl,
-                &mut decl_infos,
-            )
-        });
+        let star_kwarg = params
+            .kwarg
+            .as_ref()
+            .map(|x| self.parameter_info(x.as_ref(), None, func_ctx, &mut decl_infos));
 
         let func_definition = python::FunctionDefinition::new(
             func_declaration,
@@ -689,7 +654,7 @@ impl GleanState<'_> {
             star_arg,
             star_kwarg,
             Some(self.make_decorators(&func.decorator_list)),
-            Some(container.clone()),
+            Some((*parent_ctx.container).clone()),
         );
 
         decl_infos.push(DeclarationInfo {
@@ -697,7 +662,7 @@ impl GleanState<'_> {
             decl_span: to_span(range_without_decorators(func.range, &func.decorator_list)),
             definition: Some(python::Definition::func(func_definition)),
             def_span: Some(to_span(func.range)),
-            top_level_decl: None,
+            top_level_decl: Some((*parent_ctx.top_level_decl).clone()),
             docstring_range: Docstring::range_from_stmts(&func.body),
         });
 
@@ -729,10 +694,9 @@ impl GleanState<'_> {
             def_infos.push(self.variable_info(
                 fqname,
                 range,
-                Some(&ctx.container),
                 self.type_info(annotation),
-                None,
                 docstring_range,
+                ctx,
             ));
         }
         expr.recurse(&mut |expr| {
@@ -916,7 +880,7 @@ impl GleanState<'_> {
         context: &NodeContext,
     ) -> NodeContext {
         let container = &context.container;
-        let top_level_decl = &context.top_level_decl;
+        let top_level_decl = &*context.top_level_decl;
 
         let mut this_ctx = context.clone();
 
@@ -931,7 +895,7 @@ impl GleanState<'_> {
                 self.visit_exprs(&cls.decorator_list, container);
                 self.visit_exprs(&cls.type_params, container);
                 self.visit_exprs(&cls.arguments, container);
-                if let python::Declaration::module(_) = **top_level_decl {
+                if let python::Declaration::module(_) = top_level_decl {
                     this_ctx.top_level_decl = Arc::new(decl_info.declaration.clone());
                 }
                 this_ctx.container = Arc::new(python::DeclarationContainer::cls(cls_declaration));
@@ -943,23 +907,20 @@ impl GleanState<'_> {
                 let func_fq_name =
                     self.make_fq_name_for_declaration(&func.name, container, ScopeType::Local);
                 let func_declaration = python::FunctionDeclaration::new(func_fq_name);
-                if let python::Declaration::module(_) = **top_level_decl {
+                if let python::Declaration::module(_) = top_level_decl {
                     this_ctx.top_level_decl =
                         Arc::new(python::Declaration::func(func_declaration.clone()));
                 }
-                let mut func_decl_infos = self.function_facts(
-                    func,
-                    func_declaration.clone(),
-                    container,
-                    Some(&this_ctx.top_level_decl),
-                );
+                this_ctx.container =
+                    Arc::new(python::DeclarationContainer::func(func_declaration.clone()));
+                (this_ctx.globals, this_ctx.nonlocals) = gather_nonlocal_variables(&func.body);
+                let mut func_decl_infos =
+                    self.function_facts(func, func_declaration, context, &this_ctx);
+
                 self.visit_exprs(&func.decorator_list, container);
                 self.visit_exprs(&func.type_params, container);
                 self.visit_exprs(&func.parameters, container);
                 self.visit_exprs(&func.returns, container);
-
-                this_ctx.container = Arc::new(python::DeclarationContainer::func(func_declaration));
-                (this_ctx.globals, this_ctx.nonlocals) = gather_nonlocal_variables(&func.body);
 
                 decl_infos.append(&mut func_decl_infos);
             }
