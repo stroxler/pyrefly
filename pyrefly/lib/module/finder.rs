@@ -54,21 +54,14 @@ impl FindResult {
     /// Compares the given `FindResult`s, taking the variant with the highest priority,
     /// and preferring variant `a` (the 'earlier' variant). The contents of the variants
     /// are not compared.
-    ///
-    /// `prefer_pyi` specifies whether a `SingleFilePyiModule` should be preferred
-    /// over a `SingleFilePyModule`, which is generally the default.
-    fn best_result(a: FindResult, b: FindResult, prefer_pyi: bool) -> Self {
+    fn best_result(a: FindResult, b: FindResult) -> Self {
         match (&a, &b) {
             (FindResult::RegularPackage(..), _) => a,
             (_, FindResult::RegularPackage(..)) => b,
-            // only select pyi first if `prefer_pyi`, otherwise, let py attempt to take precedence
-            (FindResult::SingleFilePyiModule(_), _) if prefer_pyi => a,
-            (_, FindResult::SingleFilePyiModule(_)) if prefer_pyi => b,
-            (FindResult::SingleFilePyModule(_), _) => a,
-            (_, FindResult::SingleFilePyModule(_)) => b,
-            // fallback to pyi if !prefer_pyi and py didn't match
             (FindResult::SingleFilePyiModule(_), _) => a,
             (_, FindResult::SingleFilePyiModule(_)) => b,
+            (FindResult::SingleFilePyModule(_), _) => a,
+            (_, FindResult::SingleFilePyModule(_)) => b,
             (FindResult::CompiledModule(_), _) => a,
             (_, FindResult::CompiledModule(_)) => b,
             (FindResult::NamespacePackage(_), _) => a,
@@ -258,14 +251,10 @@ fn continue_find_module(start_result: FindResult, components_rest: &[Name]) -> O
 /// `-stubs` appended) and remaining components in the given `includes`.
 /// If a result is found that might have a more preferable option later in the
 /// includes, continue searching for it and return the best option.
-///
-/// Use `prefer_pyi` to specify if fallback searching should prioritize finding `.pyi`
-/// files over `.py` files, which should generally be the default.
 fn find_module_components<'a, I>(
     first: &Name,
     components_rest: &[Name],
     include: I,
-    prefer_pyi: bool,
 ) -> Option<Result<ModulePath, FindError>>
 where
     I: Iterator<Item = &'a PathBuf> + Clone,
@@ -275,17 +264,13 @@ where
     let current_result = continue_find_module(first_component_result, components_rest)?;
 
     let final_result = match current_result {
-        FindResult::RegularPackage(..) => Some(current_result),
-        FindResult::SingleFilePyiModule(_) if prefer_pyi => Some(current_result),
-        FindResult::SingleFilePyModule(_) if !prefer_pyi => Some(current_result),
+        FindResult::SingleFilePyiModule(_) | FindResult::RegularPackage(..) => Some(current_result),
         _ => Some(
             fallback_search
                 .into_iter()
                 .filter_map(|s| Some(find_one_part(first, [s].iter())?.0))
                 .filter_map(|first| continue_find_module(first.clone(), components_rest))
-                .fold(current_result, |current, new| {
-                    FindResult::best_result(current, new, prefer_pyi)
-                }),
+                .fold(current_result, FindResult::best_result),
         ),
     };
 
@@ -301,7 +286,6 @@ fn find_module<'a, I>(
     module: ModuleName,
     include: I,
     ignore_missing_source: bool,
-    prefer_pyi: bool,
 ) -> Result<Option<ModulePath>, FindError>
 where
     I: Iterator<Item = &'a PathBuf> + Clone,
@@ -311,14 +295,13 @@ where
         [first, rest @ ..] => {
             // First try finding the module in `-stubs`.
             let stub_first = Name::new(format!("{first}-stubs"));
-            let stub_result =
-                find_module_components(&stub_first, rest, include.clone(), prefer_pyi);
+            let stub_result = find_module_components(&stub_first, rest, include.clone());
             if ignore_missing_source && let Some(Ok(stub_result)) = stub_result {
                 return Ok(Some(stub_result));
             }
 
             // If we couldn't find it in a `-stubs` module or we want to check for missing stubs, look normally.
-            let normal_result = find_module_components(first, rest, include, prefer_pyi);
+            let normal_result = find_module_components(first, rest, include);
 
             match (normal_result, stub_result) {
                 (None, Some(Ok(_))) if !ignore_missing_source => Err(FindError::NoSource(module)),
@@ -384,20 +367,18 @@ pub fn find_import(
     config: &ConfigFile,
     module: ModuleName,
     path: Option<&Path>,
-    prefer_pyi: bool,
 ) -> Result<ModulePath, FindError> {
     if let Some(path) = config.custom_module_paths.get(&module) {
         Ok(path.clone())
     } else if module != ModuleName::builtins() && config.replace_imports_with_any(path, module) {
         Err(FindError::Ignored)
-    } else if let Some(path) = find_module(module, config.search_path(), true, prefer_pyi)? {
+    } else if let Some(path) = find_module(module, config.search_path(), true)? {
         Ok(path)
     } else if let Some(custom_typeshed_path) = &config.typeshed_path
         && let Some(path) = find_module(
             module,
             std::iter::once(&custom_typeshed_path.join("stdlib")),
             true,
-            prefer_pyi,
         )?
     {
         Ok(path)
@@ -407,15 +388,13 @@ pub fn find_import(
     {
         Ok(path)
     } else if !config.disable_search_path_heuristics
-        && let Some(path) =
-            find_module(module, config.fallback_search_path.iter(), true, prefer_pyi)?
+        && let Some(path) = find_module(module, config.fallback_search_path.iter(), true)?
     {
         Ok(path)
     } else if let Some(path) = find_module(
         module,
         config.site_package_path(),
         config.ignore_missing_source,
-        prefer_pyi,
     )? {
         Ok(path)
     } else if config.ignore_missing_imports(path, module) {
@@ -474,7 +453,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 true,
-                true,
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("foo/bar.py")))
@@ -484,7 +462,6 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 [root.to_path_buf()].iter(),
                 true,
-                true,
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("foo/baz.pyi")))
@@ -493,7 +470,6 @@ mod tests {
             find_module(
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
-                true,
                 true,
             )
             .unwrap(),
@@ -521,7 +497,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 true,
-                true,
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
@@ -530,7 +505,6 @@ mod tests {
             find_module(
                 ModuleName::from_str("foo.baz"),
                 [root.to_path_buf()].iter(),
-                true,
                 true,
             )
             .unwrap(),
@@ -558,7 +532,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 true,
-                true,
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("foo/bar.pyi")))
@@ -585,7 +558,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 true,
-                true,
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
@@ -606,25 +578,19 @@ mod tests {
         );
         let search_roots = [root.to_path_buf()];
         assert_eq!(
-            find_module(ModuleName::from_str("a"), search_roots.iter(), true, true).unwrap(),
+            find_module(ModuleName::from_str("a"), search_roots.iter(), true).unwrap(),
             Some(ModulePath::namespace(root.join("a")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("b"), search_roots.iter(), true, true).unwrap(),
+            find_module(ModuleName::from_str("b"), search_roots.iter(), true).unwrap(),
             Some(ModulePath::namespace(root.join("b")))
         );
         assert_eq!(
-            find_module(ModuleName::from_str("c.d"), search_roots.iter(), true, true).unwrap(),
+            find_module(ModuleName::from_str("c.d"), search_roots.iter(), true).unwrap(),
             Some(ModulePath::namespace(root.join("c/d")))
         );
         assert_eq!(
-            find_module(
-                ModuleName::from_str("c.d.e"),
-                search_roots.iter(),
-                true,
-                true
-            )
-            .unwrap(),
+            find_module(ModuleName::from_str("c.d.e"), search_roots.iter(), true).unwrap(),
             Some(ModulePath::filesystem(root.join("c/d/e.py")))
         );
     }
@@ -657,7 +623,6 @@ mod tests {
                 ModuleName::from_str("a.c"),
                 [root.join("search_root0"), root.join("search_root1")].iter(),
                 true,
-                true,
             )
             .unwrap(),
             // We won't find `a.c` because when searching for package `a`, we've already
@@ -688,7 +653,6 @@ mod tests {
             find_module(
                 ModuleName::from_str("a.c"),
                 [root.join("search_root0"), root.join("search_root1")].iter(),
-                true,
                 true,
             )
             .unwrap(),
@@ -749,25 +713,10 @@ mod tests {
             Some(FindResult::SingleFilePyiModule(root.join("foo/baz.py")))
         );
         assert_eq!(
-            find_module_components(&Name::new("baz"), &[], roots.iter(), true)
+            find_module_components(&Name::new("baz"), &[], roots.iter(),)
                 .unwrap()
                 .unwrap(),
             ModulePath::filesystem(root.join("bar/baz.pyi"))
-        );
-
-        // py preferred over pyi if prefer_pyi is falsed
-        assert_eq!(
-            find_one_part(&Name::new("baz"), roots.iter().rev()),
-            Some((
-                FindResult::SingleFilePyiModule(root.join("bar/baz.pyi")),
-                vec![root.join("foo")]
-            ))
-        );
-        assert_eq!(
-            find_module_components(&Name::new("baz"), &[], roots.iter().rev(), false)
-                .unwrap()
-                .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz.py"))
         );
 
         // py preferred over pyc
@@ -793,14 +742,9 @@ mod tests {
             FindResult::CompiledModule(root.join("foo/compiled/a.pyc"))
         );
         assert_eq!(
-            find_module_components(
-                &Name::new("compiled"),
-                &[Name::new("a")],
-                roots.iter(),
-                true
-            )
-            .unwrap()
-            .unwrap(),
+            find_module_components(&Name::new("compiled"), &[Name::new("a")], roots.iter(),)
+                .unwrap()
+                .unwrap(),
             ModulePath::filesystem(root.join("bar/compiled/a.py"))
         );
     }
@@ -834,7 +778,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -845,7 +788,6 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -856,7 +798,6 @@ mod tests {
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .is_none()
@@ -882,8 +823,7 @@ mod tests {
             find_module(
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
-                false,
-                true,
+                false
             )
             .unwrap()
             .unwrap(),
@@ -894,7 +834,6 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -905,7 +844,6 @@ mod tests {
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             ),
             Ok(None)
         ));
@@ -937,7 +875,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -948,7 +885,6 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -959,7 +895,6 @@ mod tests {
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .is_none()
@@ -987,7 +922,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -998,7 +932,6 @@ mod tests {
                 ModuleName::from_str("foo.baz"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .unwrap(),
@@ -1009,7 +942,6 @@ mod tests {
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .unwrap()
             .is_none()
@@ -1045,7 +977,6 @@ mod tests {
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .is_err()
         );
@@ -1053,7 +984,6 @@ mod tests {
             find_module(
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
-                true,
                 true,
             )
             .unwrap()
@@ -1065,7 +995,6 @@ mod tests {
                 ModuleName::from_str("baz.qux"),
                 [root.to_path_buf()].iter(),
                 false,
-                true,
             )
             .is_err()
         );
@@ -1201,14 +1130,12 @@ mod tests {
             ModuleName::from_str("compiled_module"),
             [root.to_path_buf()].iter(),
             true,
-            true,
         );
         assert!(matches!(find_compiled_result, Err(FindError::Ignored)));
         assert_eq!(
             find_module(
                 ModuleName::from_str("compiled_module.nested"),
                 [root.to_path_buf()].iter(),
-                true,
                 true,
             )
             .unwrap(),
@@ -1229,8 +1156,7 @@ mod tests {
             find_module(
                 ModuleName::from_str("foo"),
                 [root.to_path_buf()].iter(),
-                true,
-                true,
+                true
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("foo.py")))
@@ -1256,7 +1182,6 @@ mod tests {
                 ModuleName::from_str("subdir.nested_import"),
                 [root.to_path_buf()].iter(),
                 true,
-                true,
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("subdir/nested_import.py")))
@@ -1264,7 +1189,6 @@ mod tests {
         let find_compiled_result = find_module(
             ModuleName::from_str("subdir.another_compiled_module"),
             [root.to_path_buf()].iter(),
-            true,
             true,
         );
         assert!(matches!(find_compiled_result, Err(FindError::Ignored)));
@@ -1335,7 +1259,6 @@ mod tests {
             &first,
             &[Name::new("nested_module")],
             [root.to_path_buf()].iter(),
-            true,
         )
         .unwrap();
         assert!(matches!(module_path, Err(FindError::Ignored)));
@@ -1343,7 +1266,6 @@ mod tests {
             &first,
             &[Name::new("another_nested_module")],
             [root.to_path_buf()].iter(),
-            true,
         )
         .unwrap()
         .unwrap();
