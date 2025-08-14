@@ -86,17 +86,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
-        let mut tuple_base = if is_new_type {
-            None
-        } else {
-            base_types_with_ranges.iter().find_map(|(ty, _)| {
-                if let Type::Tuple(tuple) = ty {
-                    Some(tuple.clone())
-                } else {
-                    None
-                }
-            })
-        };
+        let mut tuple_base = base_types_with_ranges.iter().find_map(|(ty, _)| {
+            if let Type::Tuple(tuple) = ty {
+                Some(tuple.clone())
+            } else {
+                None
+            }
+        });
 
         let base_type_base_and_range = base_types_with_ranges
             .into_iter()

@@ -127,3 +127,15 @@ x: type = Foo  # E: `type[Foo]` is not assignable to `type`
 y: type[Any] = Foo  # E: `type[Foo]` is not assignable to `type[Any]`
     "#,
 );
+
+testcase!(
+    test_tuple,
+    r#"
+from typing import NewType
+Inty = NewType("Inty", tuple[int, int])
+x = Inty((1,2))
+def f(v: tuple[int, int]):
+    pass
+f(x)
+    "#,
+);
