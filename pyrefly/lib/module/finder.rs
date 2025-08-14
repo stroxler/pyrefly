@@ -412,44 +412,47 @@ fn find_module_prefixes<'a>(
     results.iter().map(|(_, name)| *name).collect::<Vec<_>>()
 }
 
-/// Get the given [`ModuleName`] from this config's search and site package paths.
-/// We take the `path` of the file we're searching for the module from to determine if
-/// we should replace imports with `typing.Any`.
-/// Return `Err` when indicating the module could not be found.
-pub fn find_import(
+pub fn find_import_filtered(
     config: &ConfigFile,
     module: ModuleName,
     path: Option<&Path>,
+    style_filter: Option<ModuleStyle>,
 ) -> Result<ModulePath, FindError> {
     if let Some(path) = config.custom_module_paths.get(&module) {
         Ok(path.clone())
     } else if module != ModuleName::builtins() && config.replace_imports_with_any(path, module) {
         Err(FindError::Ignored)
-    } else if let Some(path) = find_module(module, config.search_path(), true, None)? {
+    } else if let Some(path) = find_module(module, config.search_path(), true, style_filter)? {
         Ok(path)
     } else if let Some(custom_typeshed_path) = &config.typeshed_path
         && let Some(path) = find_module(
             module,
             std::iter::once(&custom_typeshed_path.join("stdlib")),
             true,
-            None,
+            style_filter,
         )?
     {
         Ok(path)
-    } else if let Some(path) = typeshed()
-        .map_err(|err| FindError::not_found(err, module))?
-        .find(module)
+    } else if matches!(style_filter, Some(ModuleStyle::Interface) | None)
+        && let Some(path) = typeshed()
+            .map_err(|err| FindError::not_found(err, module))?
+            .find(module)
     {
         Ok(path)
     } else if !config.disable_search_path_heuristics
-        && let Some(path) = find_module(module, config.fallback_search_path.iter(), true, None)?
+        && let Some(path) = find_module(
+            module,
+            config.fallback_search_path.iter(),
+            true,
+            style_filter,
+        )?
     {
         Ok(path)
     } else if let Some(path) = find_module(
         module,
         config.site_package_path(),
         config.ignore_missing_source,
-        None,
+        style_filter,
     )? {
         Ok(path)
     } else if config.ignore_missing_imports(path, module) {
@@ -461,6 +464,18 @@ pub fn find_import(
             &config.source,
         ))
     }
+}
+
+/// Get the given [`ModuleName`] from this config's search and site package paths.
+/// We take the `path` of the file we're searching for the module from to determine if
+/// we should replace imports with `typing.Any`.
+/// Return `Err` when indicating the module could not be found.
+pub fn find_import(
+    config: &ConfigFile,
+    module: ModuleName,
+    path: Option<&Path>,
+) -> Result<ModulePath, FindError> {
+    find_import_filtered(config, module, path, None)
 }
 
 /// Find all legitimate imports that start with `module`
