@@ -604,16 +604,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 tparams,
                 body: Forallable::Function(func),
             }) => {
-                let (tparams, signature) = self.move_return_tparams_of_signature(
-                    tparams,
-                    func.signature,
-                    &func.metadata.kind,
-                );
+                let (tparams, signature) =
+                    self.move_return_tparams_of_signature(tparams, func.signature);
                 Forallable::Function(Function {
                     signature,
                     metadata: func.metadata,
                 })
                 .forall(tparams)
+            }
+            Type::Forall(box Forall {
+                tparams,
+                body: Forallable::Callable(signature),
+            }) => {
+                let (tparams, signature) =
+                    self.move_return_tparams_of_signature(tparams, signature);
+                Forallable::Callable(signature).forall(tparams)
             }
             _ => ty,
         }
@@ -623,7 +628,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         tparams: Arc<TParams>,
         mut signature: Callable,
-        kind: &FunctionKind,
     ) -> (Arc<TParams>, Callable) {
         let returns_callable = match &signature.ret {
             Type::Callable(_) => true,
@@ -642,11 +646,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             // Recursively move type parameters in the return type so that
             // things like `[T]() -> (() -> (T) -> T)` get rewritten properly.
-            let ret = self.move_return_tparams_of_type(self.make_generic_return(
-                signature.ret,
-                make_tparams(ret_tparams),
-                kind,
-            ));
+            let ret = self.move_return_tparams_of_type(
+                self.make_generic_return(signature.ret, make_tparams(ret_tparams)),
+            );
             signature.ret = ret;
             (make_tparams(param_tparams), signature)
         }
@@ -668,22 +670,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Turn any top-level Type::Callable(callable) in `ret` into Forall[tparams, callable].
-    fn make_generic_return(&self, ret: Type, tparams: Arc<TParams>, kind: &FunctionKind) -> Type {
+    fn make_generic_return(&self, ret: Type, tparams: Arc<TParams>) -> Type {
         self.distribute_over_union(&ret, |ret| match ret {
             Type::Callable(callable) => {
-                // Generate some dummy function metadata to turn this callable into a Forallable::Function.
-                // TODO(rechen): Add Forallable::Callable so we don't need dummy metadata.
-                let mut ret_id = kind.as_func_id();
-                ret_id.func = Name::new(format!("{}.<return>", ret_id.func));
-                let ret_metadata = FuncMetadata {
-                    kind: FunctionKind::Def(Box::new(ret_id)),
-                    flags: FuncFlags::default(),
-                };
-                Forallable::Function(Function {
-                    signature: (**callable).clone(),
-                    metadata: ret_metadata,
-                })
-                .forall(tparams.clone())
+                Forallable::Callable((**callable).clone()).forall(tparams.clone())
             }
             t => t.clone(),
         })
@@ -702,6 +692,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 signature: *c,
                 metadata: metadata.clone(),
             })),
+            Type::Forall(box Forall {
+                tparams,
+                body: Forallable::Callable(c),
+            }) => Forallable::Function(Function {
+                signature: c,
+                metadata: metadata.clone(),
+            })
+            .forall(tparams),
             // Callback protocol. We convert it to a function so we can add function metadata.
             Type::ClassType(cls)
                 if self
@@ -728,14 +726,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     cls.to_type()
                 }
             }
-            // See `make_generic_return` - sometimes we manually convert a Callable return type
-            // into a Function with dummy metadata, which we need to overwrite.
-            mut t => {
-                t.transform_toplevel_func_metadata(&mut |m: &mut FuncMetadata| {
-                    *m = metadata.clone();
-                });
-                t
-            }
+            t => t,
         }
     }
 
