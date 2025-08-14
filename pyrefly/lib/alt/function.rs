@@ -457,7 +457,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             TParamsSource::Function,
             errors,
         ));
-        ty = self.move_return_tparams(ty);
+        ty = self.move_return_tparams_of_type(ty);
         for (x, _) in decorators.into_iter().rev() {
             ty = self.apply_function_decorator(*x, ty, &metadata, errors);
         }
@@ -598,37 +598,57 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///   [T1, T2](x: T1, y: T1) -> ((T2) -> T2)
     /// into:
     ///   [T1](x: T1, y: T1) -> ([T2](T2) -> T2)
-    fn move_return_tparams(&self, ty: Type) -> Type {
-        let returns_callable = |func: &Function| match &func.signature.ret {
+    fn move_return_tparams_of_type(&self, ty: Type) -> Type {
+        match ty {
+            Type::Forall(box Forall {
+                tparams,
+                body: Forallable::Function(func),
+            }) => {
+                let (tparams, signature) = self.move_return_tparams_of_signature(
+                    tparams,
+                    func.signature,
+                    &func.metadata.kind,
+                );
+                Forallable::Function(Function {
+                    signature,
+                    metadata: func.metadata,
+                })
+                .forall(tparams)
+            }
+            _ => ty,
+        }
+    }
+
+    fn move_return_tparams_of_signature(
+        &self,
+        tparams: Arc<TParams>,
+        mut signature: Callable,
+        kind: &FunctionKind,
+    ) -> (Arc<TParams>, Callable) {
+        let returns_callable = match &signature.ret {
             Type::Callable(_) => true,
             Type::Union(ts) => ts.iter().any(|t| matches!(t, Type::Callable(_))),
             _ => false,
         };
-        match ty {
-            Type::Forall(box Forall {
-                tparams,
-                body: Forallable::Function(mut func),
-            }) if returns_callable(&func) => {
-                let (param_tparams, ret_tparams) =
-                    self.split_tparams(&tparams, &func.signature.params);
-                if ret_tparams.is_empty() {
-                    Forallable::Function(func).forall(tparams)
-                } else {
-                    let make_tparams = |tparams: Vec<&TParam>| {
-                        Arc::new(TParams::new(tparams.into_iter().cloned().collect()))
-                    };
-                    // Recursively move type parameters in the return type so that
-                    // things like `[T]() -> (() -> (T) -> T)` get rewritten properly.
-                    let ret = self.move_return_tparams(self.make_generic_return(
-                        func.signature.ret,
-                        make_tparams(ret_tparams),
-                        &func.metadata.kind,
-                    ));
-                    func.signature.ret = ret;
-                    Forallable::Function(func).forall(make_tparams(param_tparams))
-                }
-            }
-            _ => ty,
+        if !returns_callable {
+            return (tparams, signature);
+        }
+        let (param_tparams, ret_tparams) = self.split_tparams(&tparams, &signature.params);
+        if ret_tparams.is_empty() {
+            (tparams, signature)
+        } else {
+            let make_tparams = |tparams: Vec<&TParam>| {
+                Arc::new(TParams::new(tparams.into_iter().cloned().collect()))
+            };
+            // Recursively move type parameters in the return type so that
+            // things like `[T]() -> (() -> (T) -> T)` get rewritten properly.
+            let ret = self.move_return_tparams_of_type(self.make_generic_return(
+                signature.ret,
+                make_tparams(ret_tparams),
+                kind,
+            ));
+            signature.ret = ret;
+            (make_tparams(param_tparams), signature)
         }
     }
 
