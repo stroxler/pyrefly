@@ -22,11 +22,9 @@ const FROZEN: Name = Name::new_static("frozen");
 // TODO Zeina: look into if we want to store the expr itself or the boolean. Right now,
 // this maps 1:1 to PydanticMetadata structure we encounter in the answers phase,
 // but this will likely change as we add more fields.
-// TODO: populate Pydantic metadata with validation_alias
 #[derive(Debug, Clone, Default)]
 pub struct PydanticMetadataBinding {
     pub frozen: bool,
-    #[allow(dead_code)]
     pub validation_alias: Option<Box<str>>,
 }
 

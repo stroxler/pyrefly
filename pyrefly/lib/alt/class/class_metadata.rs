@@ -609,8 +609,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let pydantic_metadata = match pydantic_metadata_binding {
             PydanticMetadataBinding {
                 frozen,
-                validation_alias: _,
-            } if is_pydantic_model => Some(PydanticMetadata { frozen: *frozen }),
+                validation_alias,
+            } if is_pydantic_model => Some(PydanticMetadata {
+                frozen: *frozen,
+                validation_alias: validation_alias.clone(),
+            }),
             _ => None,
         };
 
