@@ -192,6 +192,33 @@ def f(b: B):
     "#,
 );
 
+testcase!(
+    test_pyo3_enum_pattern,
+    r#"
+# This pattern is not valid runtime Python as written because you cannot
+# use a class before its body has finished evaluating, the name isn't
+# defined.
+#
+# But it's possible for non-declarative Python code to behave like this,
+# which means it is useful if we recognize it in stubs. Perhaps more
+# importantly, this is how PyO3, the most popular rust-to-python conversion
+# tool, always represents Rust enums.
+#
+# // (In the rust code from which these stubs come):
+# #[pyclass]
+# #[derive(Serialize, Deserialize, Debug, Clone)]
+# pub enum PyO3Enum {
+#   Variant0 {},
+#   Variant1 {},
+# }
+class PyO3Enum:
+    class Variant0(PyO3Enum): ...
+    class Variant1(PyO3Enum): ...
+
+x: PyO3Enum = PyO3Enum.Variant0()
+    "#,
+);
+
 // See https://github.com/facebook/pyrefly/issues/622 for an example
 // of when it matters to have reasonable analysis of `type(...)` in
 // base classes; sometimes the runtime semantics require this, particularly
