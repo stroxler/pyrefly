@@ -625,9 +625,15 @@ impl<'a> Transaction<'a> {
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
-                context: IdentifierContext::Expr(_),
+                context: IdentifierContext::Expr(expr_context),
             }) => {
-                let key = Key::BoundName(ShortIdentifier::new(&id));
+                let key = match expr_context {
+                    ExprContext::Store => Key::Definition(ShortIdentifier::new(&id)),
+                    ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
+                        Key::BoundName(ShortIdentifier::new(&id))
+                    }
+                };
+
                 if self.get_bindings(handle)?.is_valid_key(&key) {
                     if let Some(ExprCall {
                         node_index: _,

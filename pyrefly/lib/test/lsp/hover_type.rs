@@ -100,7 +100,6 @@ Hover Result: None
     );
 }
 
-// TODO(kylei): redefinitions
 #[test]
 fn lhs_reassignment() {
     let code = r#"
@@ -114,14 +113,13 @@ xy = xy + 1
 # main.py
 3 | xy = xy + 1
      ^
-Hover Result: None
+Hover Result: `int`
 "#
         .trim(),
         report.trim(),
     );
 }
 
-// TODO(kylei): redefinitions when local variable scopes don't overlap
 #[test]
 fn reassignment_scopes_dont_overlap() {
     let code = r#"
@@ -142,7 +140,7 @@ async def test(vals: dict[int, str]) -> None:
 # main.py
 3 |     for k, v in vals.items(): # 1
             ^
-Hover Result: None
+Hover Result: `int`
 "#
         .trim(),
         report.trim(),
