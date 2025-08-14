@@ -681,13 +681,11 @@ impl Scopes {
         }
     }
 
-    // Is the immediate scope a class scope? If so, return the keys for the class and its metadata.
-    // This function only looks at the current scope, so it will return `None` if we're inside
-    // another scope, like a method.
-    pub fn current_class_and_metadata_keys(
-        &self,
+    // Is this scope a class scope? If so, return the keys for the class and its metadata.
+    pub fn get_class_and_metadata_keys(
+        scope: &Scope,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
-        match &self.current().kind {
+        match &scope.kind {
             ScopeKind::Class(class_scope) => Some((
                 class_scope.indices.class_idx,
                 class_scope.indices.metadata_idx,
@@ -702,14 +700,8 @@ impl Scopes {
         &self,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
         for scope in self.iter_rev() {
-            match &scope.kind {
-                ScopeKind::Class(class_scope) => {
-                    return Some((
-                        class_scope.indices.class_idx,
-                        class_scope.indices.metadata_idx,
-                    ));
-                }
-                _ => {}
+            if let Some(class_and_metadata) = Self::get_class_and_metadata_keys(scope) {
+                return Some(class_and_metadata);
             }
         }
         None
