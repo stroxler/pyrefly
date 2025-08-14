@@ -473,7 +473,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
     ) -> Type {
-        // We know `__init__` exists because we synthesize it.
         if let Some(hint) = hint {
             self.solver()
                 .freshen_class_targs(typed_dict.targs_mut(), self.uniques);
@@ -482,6 +481,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.solver().generalize_class_targs(typed_dict.targs_mut());
         }
         let hint = None; // discard hint
+        // We know `__init__` exists because we synthesize it.
         let init_method = self.get_typed_dict_dunder_init(&typed_dict).unwrap();
         self.call_infer(
             self.as_call_target_or_error(
