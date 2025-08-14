@@ -124,7 +124,7 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
-        let mut pydantic_frozen = false;
+        let mut pydantic_frozen = None;
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
@@ -238,11 +238,11 @@ impl<'a> BindingsBuilder<'a> {
                         match info.as_initial_value() {
                             ClassFieldInBody::InitializedByAssign(e) => {
                                 // TODO Zeina: This logic will need to be updated after we extract more data
-                                let curr_frozen_pydantic_info =
-                                    self.extract_frozen_pydantic_metadata(&e, name);
-                                if let Some(frozen) = curr_frozen_pydantic_info {
-                                    pydantic_frozen = frozen;
-                                }
+                                self.extract_frozen_pydantic_metadata(
+                                    &e,
+                                    name,
+                                    &mut pydantic_frozen,
+                                );
                                 (
                                     ClassFieldDefinition::AssignedInBody {
                                         value: ExprOrBinding::Expr(e.clone()),

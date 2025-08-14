@@ -12,6 +12,9 @@ use starlark_map::Hashed;
 use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
 
+// special pydantic constants
+const FROZEN_DEFAULT: bool = false;
+
 // Pydantic metadata that we will later extend to include more fields
 // This is different than the PydanticMetadata that goes into the class metadata itself.
 // TODO Zeina: look into if we want to store the expr itself or the boolean. Right now,
@@ -26,29 +29,32 @@ impl<'a> BindingsBuilder<'a> {
     // The goal of this function is to extract pydantic metadata (https://docs.pydantic.dev/latest/concepts/models/) from expressions.
     // TODO: Consider propagating the entire expression instead of the value
     // in case it is aliased.
-    pub fn extract_frozen_pydantic_metadata(&self, e: &Expr, name: Hashed<&Name>) -> Option<bool> {
+    pub fn extract_frozen_pydantic_metadata(
+        &self,
+        e: &Expr,
+        name: Hashed<&Name>,
+        pydantic_frozen: &mut Option<bool>,
+    ) {
         if name.as_str() == "model_config"
             && let Some(call) = e.as_call_expr()
             && let Some(special) = self.as_special_export(&call.func)
             && special == SpecialExport::PydanticConfigDict
         {
-            let mut frozen = false;
             for kw in &call.arguments.keywords {
                 if let Some(arg_name) = &kw.arg
                     && arg_name.id.as_str() == "frozen"
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
-                    frozen = bl.value;
-                    break;
+                    *pydantic_frozen = Some(bl.value);
                 }
             }
-            return Some(frozen);
         }
-        None
     }
 
     // TODO Zeina: We should expect to extend this beyond the frozen data.
-    pub fn make_pydantic_metadata(&self, frozen: bool) -> PydanticMetadataBinding {
-        PydanticMetadataBinding { frozen }
+    pub fn make_pydantic_metadata(&self, frozen: Option<bool>) -> PydanticMetadataBinding {
+        PydanticMetadataBinding {
+            frozen: frozen.unwrap_or(FROZEN_DEFAULT),
+        }
     }
 }
