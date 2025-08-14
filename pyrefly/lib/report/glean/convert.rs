@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::env::current_dir;
 use std::slice;
@@ -90,6 +91,19 @@ fn gather_nonlocal_variables(body: &[Stmt]) -> (Arc<SmallSet<Name>>, Arc<SmallSe
 
     (Arc::new(globals), Arc::new(nonlocals))
 }
+
+fn create_sname(name: &str) -> python::SName {
+    let parts = name.split(".");
+    let mut parent = None;
+
+    for local_name in parts {
+        let local_name_fact = python::Name::new(local_name.to_owned());
+        let sname = python::SName::new(local_name_fact, parent);
+        parent = Some(sname);
+    }
+
+    parent.unwrap()
+}
 enum ScopeType {
     Global,
     Nonlocal,
@@ -117,6 +131,7 @@ struct Facts {
     xrefs_via_name: Vec<python::XRefViaName>,
     xrefs_by_target: HashMap<python::Name, Vec<src::ByteSpan>>,
     declaration_docstrings: Vec<python::DeclarationDocstring>,
+    name_to_sname: Vec<python::NameToSName>,
 }
 
 #[derive(Clone)]
@@ -133,7 +148,8 @@ struct GleanState<'a> {
     module: ModuleInfo,
     module_name: ModuleName,
     facts: Facts,
-    locations_fqnames: HashMap<TextSize, String>,
+    names: HashSet<Arc<String>>,
+    locations_fqnames: HashMap<TextSize, Arc<String>>,
 }
 
 impl Facts {
@@ -151,6 +167,7 @@ impl Facts {
             xrefs_via_name: vec![],
             xrefs_by_target: HashMap::new(),
             declaration_docstrings: vec![],
+            name_to_sname: vec![],
         }
     }
 }
@@ -167,6 +184,7 @@ impl GleanState<'_> {
                 file_fact(module_info),
                 python::Module::new(python::Name::new(module_info.name().to_string())),
             ),
+            names: HashSet::new(),
             locations_fqnames: HashMap::new(),
         }
     }
@@ -196,6 +214,7 @@ impl GleanState<'_> {
             let name = module.map_or(ModuleName::from_name(&component), |x: ModuleName| {
                 x.append(&component)
             });
+            self.record_name(name.to_string(), None);
             self.facts
                 .modules
                 .push(python::Module::new(python::Name::new(name.to_string())));
@@ -280,6 +299,19 @@ impl GleanState<'_> {
         python::Name::new(fq_name)
     }
 
+    fn record_name(&mut self, name: String, position: Option<TextSize>) -> python::Name {
+        let arc_name = Arc::new(name.clone());
+        if self.names.insert(Arc::clone(&arc_name)) {
+            self.facts.name_to_sname.push(python::NameToSName::new(
+                python::Name::new(name.clone()),
+                create_sname(&name),
+            ));
+        }
+        position.map(|x| self.locations_fqnames.insert(x, Arc::clone(&arc_name)));
+
+        python::Name::new(name)
+    }
+
     fn make_fq_name_for_declaration(
         &mut self,
         name: &Identifier,
@@ -307,13 +339,7 @@ impl GleanState<'_> {
                 }
             }
         };
-
-        let fqname = scope.to_owned() + "." + name;
-
-        self.locations_fqnames
-            .insert(name.range.start(), fqname.clone());
-
-        python::Name::new(fqname)
+        self.record_name(scope.to_owned() + "." + name, Some(name.range.start()))
     }
 
     fn make_fq_names_for_expr(&self, expr: &Expr) -> Vec<python::Name> {
@@ -339,7 +365,7 @@ impl GleanState<'_> {
         } else if module_name == self.module_name {
             self.locations_fqnames
                 .get(&def_range.start())
-                .map_or(self.default_fq_name(name), |x| x.to_owned())
+                .map_or(self.default_fq_name(name), |x| (**x).clone())
         } else {
             let local_name = module.code_at(def_range);
             if local_name.is_empty() {
@@ -738,10 +764,7 @@ impl GleanState<'_> {
                 let as_name = import.asname.as_ref().unwrap_or(from_name);
                 let from_name_fact =
                     self.make_fq_name_with_optional_module(from_name.id(), from_module.as_deref());
-
-                self.locations_fqnames
-                    .insert(as_name.range.start(), *from_name_fact.key.clone());
-
+                self.record_name((*from_name_fact.key).clone(), Some(as_name.range.start()));
                 self.add_xref(python::XRefViaName {
                     target: from_name_fact.clone(),
                     source: to_span(import.name.range()),
@@ -840,7 +863,8 @@ impl GleanState<'_> {
         node.visit(&mut |expr| self.generate_facts_from_exprs(expr, container));
     }
 
-    fn generate_facts(&mut self, ast: &Vec<Stmt>) {
+    fn generate_facts(&mut self, ast: &Vec<Stmt>, range: TextRange) {
+        self.module_facts(range);
         let mut nodes = VecDeque::new();
 
         let root_context = NodeContext {
@@ -1029,10 +1053,7 @@ impl Glean {
             src::FileLanguage::new(glean_state.file_fact(), src::Language::Python);
         let digest_fact = glean_state.digest_fact();
         let file_lines = glean_state.file_lines_fact();
-
-        glean_state.module_facts(ast.range);
-
-        glean_state.generate_facts(&ast.body);
+        glean_state.generate_facts(&ast.body, ast.range());
 
         let file_fact = glean_state.file_fact();
         let facts = glean_state.facts;
@@ -1116,9 +1137,11 @@ impl Glean {
                 predicate: python::DeclarationDocstring::GLEAN_name(),
                 facts: facts.declaration_docstrings.into_iter().map(json).collect(),
             },
+            GleanEntry::Predicate {
+                predicate: python::NameToSName::GLEAN_name(),
+                facts: facts.name_to_sname.into_iter().map(json).collect(),
+            },
         ];
-        // TODO(@rubmary) Add SName and NameToSName predicates
-
         Glean { entries }
     }
 }
