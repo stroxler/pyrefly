@@ -115,6 +115,24 @@ impl TestServer {
         }));
     }
 
+    pub fn type_definition(&mut self, file: &'static str, line: u32, col: u32) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/typeDefinition".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                },
+                "position": {
+                    "line": line,
+                    "character": col,
+                },
+            }),
+        }));
+    }
+
     pub fn definition(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();

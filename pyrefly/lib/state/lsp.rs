@@ -1325,6 +1325,15 @@ impl<'a> Transaction<'a> {
             .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
+    pub fn goto_type_definition(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Vec<TextRangeWithModule> {
+        self.find_definition(handle, position, true)
+            .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
+    }
+
     /// This function should not be used for user-facing go-to-definition. However, it is exposed to
     /// tests so that we can test the behavior that's useful for find-refs.
     #[cfg(test)]

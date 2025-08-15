@@ -98,6 +98,7 @@ use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::TextEdit;
+use lsp_types::TypeDefinitionProviderCapability;
 use lsp_types::Unregistration;
 use lsp_types::UnregistrationParams;
 use lsp_types::Url;
@@ -125,6 +126,9 @@ use lsp_types::request::DocumentDiagnosticRequest;
 use lsp_types::request::DocumentHighlightRequest;
 use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::GotoDefinition;
+use lsp_types::request::GotoTypeDefinition;
+use lsp_types::request::GotoTypeDefinitionParams;
+use lsp_types::request::GotoTypeDefinitionResponse;
 use lsp_types::request::HoverRequest;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::PrepareRenameRequest;
@@ -322,6 +326,7 @@ pub fn capabilities(
             TextDocumentSyncKind::INCREMENTAL,
         )),
         definition_provider: Some(OneOf::Left(true)),
+        type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
         code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
             code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
             ..Default::default()
@@ -560,6 +565,23 @@ impl Server {
                             x.id,
                             Ok(self
                                 .goto_definition(&transaction, params)
+                                .unwrap_or(default_response)),
+                        ));
+                        ide_transaction_manager.save(transaction);
+                    }
+                } else if let Some(params) = as_request::<GotoTypeDefinition>(&x) {
+                    if let Some(params) = self
+                        .extract_request_params_or_send_err_response::<GotoTypeDefinition>(
+                            params, &x.id,
+                        )
+                    {
+                        let default_response = GotoTypeDefinitionResponse::Array(Vec::new());
+                        let transaction =
+                            ide_transaction_manager.non_committable_transaction(&self.state);
+                        self.send_response(new_response(
+                            x.id,
+                            Ok(self
+                                .goto_type_definition(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
                         ide_transaction_manager.save(transaction);
@@ -1229,6 +1251,32 @@ impl Server {
         }
     }
 
+    fn goto_type_definition(
+        &self,
+        transaction: &Transaction<'_>,
+        params: GotoTypeDefinitionParams,
+    ) -> Option<GotoTypeDefinitionResponse> {
+        let uri = &params.text_document_position_params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri)?;
+        let info = transaction.get_module_info(&handle)?;
+        let range = info
+            .lined_buffer()
+            .from_lsp_position(params.text_document_position_params.position);
+        let targets = transaction.goto_type_definition(&handle, range);
+        let mut lsp_targets = targets
+            .iter()
+            .filter_map(to_lsp_location)
+            .collect::<Vec<_>>();
+        if lsp_targets.is_empty() {
+            None
+        } else if lsp_targets.len() == 1 {
+            Some(GotoTypeDefinitionResponse::Scalar(
+                lsp_targets.pop().unwrap(),
+            ))
+        } else {
+            Some(GotoTypeDefinitionResponse::Array(lsp_targets))
+        }
+    }
     fn completion(
         &self,
         transaction: &Transaction<'_>,

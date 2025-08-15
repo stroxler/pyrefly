@@ -40,6 +40,7 @@ fn test_initialize_basic() {
                 "positionEncoding": "utf-16",
                 "textDocumentSync": 2,
                 "definitionProvider": true,
+                "typeDefinitionProvider": true,
                 "codeActionProvider": {
                     "codeActionKinds": ["quickfix"]
                 },
