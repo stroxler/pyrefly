@@ -63,6 +63,14 @@ fn to_span(range: TextRange) -> src::ByteSpan {
     }
 }
 
+fn to_span_with_offset(range: TextRange, offset: Option<TextSize>) -> src::ByteSpan {
+    let start = range.start();
+    src::ByteSpan {
+        start: offset.map_or(start, |x| start - x).to_u32().into(),
+        length: range.len().to_u32().into(),
+    }
+}
+
 fn file_fact(module_info: &ModuleInfo) -> src::File {
     let file_path = module_info.path().as_path();
     let relative_path = file_path
@@ -496,7 +504,7 @@ impl GleanState<'_> {
         }
     }
 
-    fn make_xrefs(&self, expr: &Expr) -> Vec<python::XRefViaName> {
+    fn make_xrefs(&self, expr: &Expr, offset: Option<TextSize>) -> Vec<python::XRefViaName> {
         let (names, range) = match expr {
             Expr::Attribute(attr) => {
                 let fq_names = if attr.ctx.is_load() {
@@ -522,7 +530,7 @@ impl GleanState<'_> {
             .into_iter()
             .map(|name| python::XRefViaName {
                 target: python::Name::new(name),
-                source: to_span(range),
+                source: to_span_with_offset(range, offset),
             })
             .collect()
     }
@@ -538,17 +546,24 @@ impl GleanState<'_> {
         self.facts.xrefs_via_name.push(xref);
     }
 
-    fn xrefs_for_type_info(&self, expr: &Expr, xrefs: &mut Vec<python::XRefViaName>) {
-        xrefs.extend(self.make_xrefs(expr));
+    fn xrefs_for_type_info(
+        &self,
+        expr: &Expr,
+        xrefs: &mut Vec<python::XRefViaName>,
+        offset: TextSize,
+    ) {
+        xrefs.extend(self.make_xrefs(expr, Some(offset)));
 
-        expr.recurse(&mut |x| self.xrefs_for_type_info(x, xrefs));
+        expr.recurse(&mut |x| self.xrefs_for_type_info(x, xrefs, offset));
     }
 
     fn type_info(&self, annotation: Option<&Expr>) -> Option<python::TypeInfo> {
         annotation.map(|type_annotation| {
             let lined_buffer = self.module.lined_buffer();
             let mut xrefs = vec![];
-            type_annotation.visit(&mut |expr| self.xrefs_for_type_info(expr, &mut xrefs));
+            let range = type_annotation.range();
+            type_annotation
+                .visit(&mut |expr| self.xrefs_for_type_info(expr, &mut xrefs, range.start()));
             python::TypeInfo {
                 displayType: python::Type::new(
                     lined_buffer.code_at(type_annotation.range()).to_owned(),
@@ -859,7 +874,7 @@ impl GleanState<'_> {
                 self.callee_to_caller_facts(call, caller);
             }
         };
-        for xref in self.make_xrefs(expr) {
+        for xref in self.make_xrefs(expr, None) {
             self.add_xref(xref);
         }
         expr.recurse(&mut |s| self.generate_facts_from_exprs(s, container));
