@@ -1585,6 +1585,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             name,
                         )
                         .filter(|field| !field.is_init_var())
+                        .map(|field| Arc::new(field.instantiate_for(&Instance::of_class(ancestor))))
                     })
             })
     }
