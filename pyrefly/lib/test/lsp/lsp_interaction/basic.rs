@@ -25,7 +25,7 @@ use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 #[test]
 fn test_initialize_basic() {
-    let interaction = LspInteraction::new();
+    let mut interaction = LspInteraction::new();
 
     interaction.server.send_initialize(
         interaction
@@ -69,7 +69,7 @@ fn test_initialize_basic() {
 
 #[test]
 fn test_shutdown() {
-    let interaction = LspInteraction::new();
+    let mut interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
     interaction.server.send_shutdown(RequestId::from(2));
@@ -88,7 +88,7 @@ fn test_shutdown() {
 
 #[test]
 fn test_exit_without_shutdown() {
-    let interaction = LspInteraction::new();
+    let mut interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
     interaction.server.send_exit();
@@ -183,7 +183,7 @@ fn test_nonexistent_file() {
 
 #[test]
 fn test_unknown_request() {
-    let interaction = LspInteraction::new();
+    let mut interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(1),

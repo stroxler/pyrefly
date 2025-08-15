@@ -8,6 +8,7 @@
 /// This file contains a new implementation of the lsp_interaction test suite. Soon it will replace the old one.
 use std::io;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::thread::{self};
 use std::time::Duration;
@@ -43,14 +44,17 @@ pub struct TestServer {
     timeout: Duration,
     /// Handle to the spawned server thread
     server_thread: Option<JoinHandle<Result<(), io::Error>>>,
+    /// Request ID for requests sent to the server
+    request_idx: Arc<Mutex<i32>>,
 }
 
 impl TestServer {
-    pub fn new(sender: crossbeam_channel::Sender<Message>) -> Self {
+    pub fn new(sender: crossbeam_channel::Sender<Message>, request_idx: Arc<Mutex<i32>>) -> Self {
         Self {
             sender,
             timeout: Duration::from_secs(25),
             server_thread: None,
+            request_idx,
         }
     }
 
@@ -76,9 +80,10 @@ impl TestServer {
             panic!("Failed to send message to language server: {err:?}");
         }
     }
-    pub fn send_initialize(&self, params: Value) {
+    pub fn send_initialize(&mut self, params: Value) {
+        let id = self.next_request_id();
         self.send_message(Message::Request(Request {
-            id: RequestId::from(1),
+            id,
             method: "initialize".to_owned(),
             params,
         }))
@@ -146,18 +151,29 @@ impl TestServer {
 
         params
     }
+
+    fn next_request_id(&mut self) -> RequestId {
+        let mut idx = self.request_idx.lock().unwrap();
+        *idx += 1;
+        RequestId::from(*idx)
+    }
 }
 
 pub struct TestClient {
     receiver: crossbeam_channel::Receiver<Message>,
     timeout: Duration,
+    _request_idx: Arc<Mutex<i32>>,
 }
 
 impl TestClient {
-    pub fn new(receiver: crossbeam_channel::Receiver<Message>) -> Self {
+    pub fn new(
+        receiver: crossbeam_channel::Receiver<Message>,
+        request_idx: Arc<Mutex<i32>>,
+    ) -> Self {
         Self {
             receiver,
             timeout: Duration::from_secs(25),
+            _request_idx: request_idx,
         }
     }
 
@@ -230,7 +246,9 @@ impl LspInteraction {
         let connection = Arc::new(connection);
         let args = args.clone();
 
-        let mut server = TestServer::new(language_server_sender);
+        let request_idx = Arc::new(Mutex::new(0));
+
+        let mut server = TestServer::new(language_server_sender, request_idx.clone());
 
         // Spawn the server thread and store its handle
         let thread_handle = thread::spawn(move || {
@@ -241,13 +259,12 @@ impl LspInteraction {
 
         server.server_thread = Some(thread_handle);
 
-        Self {
-            server,
-            client: TestClient::new(language_client_receiver),
-        }
+        let client = TestClient::new(language_client_receiver, request_idx.clone());
+
+        Self { server, client }
     }
 
-    pub fn initialize(&self, settings: InitializeSettings) {
+    pub fn initialize(&mut self, settings: InitializeSettings) {
         self.server
             .send_initialize(self.server.get_initialize_params(settings));
         self.client.expect_any_message();
