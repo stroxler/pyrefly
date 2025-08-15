@@ -9,7 +9,6 @@ use std::iter;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Either;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -64,6 +63,7 @@ use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FirstUse;
+use crate::binding::binding::FunctionParameter;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
@@ -2821,7 +2821,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::LambdaParameter(var) => var.to_type(),
             Binding::FunctionParameter(param) => {
                 match param {
-                    Either::Left(key) => {
+                    FunctionParameter::Annotated(key) => {
                         let annotation = self.get_idx(*key);
                         annotation.ty(self.stdlib).clone().unwrap_or_else(|| {
                             // This annotation isn't valid. It's something like `: Final` that doesn't
@@ -2829,8 +2829,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::any_implicit()
                         })
                     }
-                    Either::Right(var) => {
-                        // If the context hasn't already been filled in, just assume it is Unknown.
+                    FunctionParameter::Unannotated(var, function_idx) => {
+                        // It's important that we force the undecorated function binding before reading
+                        // from this var. Solving the undecorated function binding pins the type of the var,
+                        // either to a concrete type or to any. Without this we can have non-determinism
+                        // where the reader can observe an unresolved var or a resolved type, depending on
+                        // the order of solved bindings.
+                        self.get_idx(*function_idx);
                         self.solver().force_var(*var)
                     }
                 }

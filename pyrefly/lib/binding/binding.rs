@@ -11,7 +11,6 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use dupe::Dupe;
-use itertools::Either;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
@@ -922,6 +921,15 @@ impl IsAsync {
     }
 }
 
+/// A function parameter, either annotated or unannotated.
+/// Unannotated function params must be resolved to a type before they are used, when
+/// solving UndecoratedFunction, and will never resolve to a type based on their use.
+#[derive(Clone, Debug)]
+pub enum FunctionParameter {
+    Annotated(Idx<KeyAnnotation>),
+    Unannotated(Var, Idx<KeyUndecoratedFunction>),
+}
+
 /// Is the body of this function stubbed out (contains nothing but `...`)?
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TypeEq, VisitMut)]
 pub enum FunctionStubOrImpl {
@@ -1226,7 +1234,7 @@ pub enum Binding {
     LambdaParameter(Var),
     /// Binding for a function parameter. We either have an annotation, or we will determine the
     /// parameter type when solving the function type.
-    FunctionParameter(Either<Idx<KeyAnnotation>, Var>),
+    FunctionParameter(FunctionParameter),
     /// The result of a `super()` call.
     SuperInstance(SuperStyle, TextRange),
     /// The result of assigning to an attribute. This operation cannot change the *type* of the
@@ -1431,8 +1439,8 @@ impl DisplayWith<Bindings> for Binding {
                 f,
                 "FunctionParameter({})",
                 match x {
-                    Either::Left(k) => ctx.display(*k).to_string(),
-                    Either::Right(x) => x.to_string(),
+                    FunctionParameter::Annotated(k) => ctx.display(*k).to_string(),
+                    FunctionParameter::Unannotated(x, k) => format!("{x}, {}", ctx.display(*k)),
                 }
             ),
             Self::SuperInstance(SuperStyle::ExplicitArgs(cls, obj), _range) => {

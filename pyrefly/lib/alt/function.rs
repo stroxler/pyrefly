@@ -9,7 +9,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Either;
 use pyrefly_python::dunder;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -34,6 +33,7 @@ use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::decorated_function::SpecialDecorator;
 use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::binding::binding::Binding;
+use crate::binding::binding::FunctionParameter;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
@@ -248,9 +248,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Determine the type of the parameter based on its binding. Left is annotated parameter, right is unannotated
         let mut get_param_type_and_requiredness = |name: &Identifier, default: Option<&Expr>| {
             let (ty, required) = match self.bindings().get_function_param(name) {
-                Either::Left(idx) => {
+                FunctionParameter::Annotated(idx) => {
                     // If the parameter is annotated, we check the default value against the annotation
-                    let param_ty = self.get_idx(idx).annotation.get_type().clone();
+                    let param_ty = self.get_idx(*idx).annotation.get_type().clone();
                     let required = get_requiredness(
                         default,
                         Some((&param_ty, &|| {
@@ -261,7 +261,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     (param_ty, required)
                 }
-                Either::Right(var) => {
+                FunctionParameter::Unannotated(var, _) => {
                     let required = get_requiredness(default, None);
                     // If this is the first parameter and there is a self type, solve to `Self`.
                     // We only try to solve the first param for now. Other unannotated params
@@ -277,7 +277,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.type_order(),
                         );
                     }
-                    (self.solver().force_var(var), required)
+                    (self.solver().force_var(*var), required)
                 }
             };
             self_type = None; // Stop using `self` type solve Var params after the first param.
@@ -353,11 +353,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }));
         params.extend(def.parameters.kwarg.iter().map(|x| {
             let ty = match self.bindings().get_function_param(&x.name) {
-                Either::Left(idx) => {
-                    let annot = self.get_idx(idx);
+                FunctionParameter::Annotated(idx) => {
+                    let annot = self.get_idx(*idx);
                     annot.annotation.get_type().clone()
                 }
-                Either::Right(var) => self.solver().force_var(var),
+                FunctionParameter::Unannotated(var, _) => self.solver().force_var(*var),
             };
             if let Type::Kwargs(q) = &ty {
                 paramspec_kwargs = Some(q.clone());

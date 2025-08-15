@@ -43,12 +43,14 @@ use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::FirstUse;
+use crate::binding::binding::FunctionParameter;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyLegacyTypeParam;
+use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::TypeParameter;
@@ -246,13 +248,10 @@ impl Bindings {
         }
     }
 
-    pub fn get_function_param(&self, name: &Identifier) -> Either<Idx<KeyAnnotation>, Var> {
+    pub fn get_function_param(&self, name: &Identifier) -> &FunctionParameter {
         let b = self.get(self.key_to_idx(&Key::Definition(ShortIdentifier::new(name))));
         if let Binding::FunctionParameter(p) = b {
-            match p {
-                Either::Left(idx) => Either::Left(*idx),
-                Either::Right(var) => Either::Right(*var),
-            }
+            p
         } else {
             panic!(
                 "Internal error: unexpected binding for parameter `{}` @  {:?}: {}, module={}, path={}",
@@ -1145,6 +1144,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         target: AnnotationTarget,
         x: AnyParameterRef,
+        undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) {
         let name = x.name();
@@ -1157,8 +1157,11 @@ impl<'a> BindingsBuilder<'a> {
         let key = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::FunctionParameter(match annot {
-                Some(annot) => Either::Left(annot),
-                None => Either::Right(self.solver.fresh_contained(self.uniques)),
+                Some(annot) => FunctionParameter::Annotated(annot),
+                None => FunctionParameter::Unannotated(
+                    self.solver.fresh_contained(self.uniques),
+                    undecorated_idx,
+                ),
             }),
         );
         self.scopes.add_to_current_static(

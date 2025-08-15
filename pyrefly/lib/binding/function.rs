@@ -172,7 +172,12 @@ impl<'a> SelfAttrNames<'a> {
 }
 
 impl<'a> BindingsBuilder<'a> {
-    fn parameters(&mut self, x: &mut Parameters, class_key: Option<Idx<KeyClass>>) {
+    fn parameters(
+        &mut self,
+        x: &mut Parameters,
+        undecorated_idx: Idx<KeyUndecoratedFunction>,
+        class_key: Option<Idx<KeyClass>>,
+    ) {
         let mut self_name = None;
         for x in x.iter_non_variadic_params() {
             if class_key.is_some() && self_name.is_none() {
@@ -181,6 +186,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_function_param(
                 AnnotationTarget::Param(x.parameter.name.id.clone()),
                 AnyParameterRef::NonVariadic(x),
+                undecorated_idx,
                 class_key,
             );
         }
@@ -188,6 +194,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_function_param(
                 AnnotationTarget::ArgsParam(args.name.id.clone()),
                 AnyParameterRef::Variadic(args),
+                undecorated_idx,
                 class_key,
             );
         }
@@ -195,6 +202,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_function_param(
                 AnnotationTarget::KwargsParam(kwargs.name.id.clone()),
                 AnyParameterRef::Variadic(kwargs),
+                undecorated_idx,
                 class_key,
             );
         }
@@ -267,11 +275,12 @@ impl<'a> BindingsBuilder<'a> {
         body: Vec<Stmt>,
         range: TextRange,
         func_name: &Identifier,
+        undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (YieldsAndReturns, Option<SelfAssignments>) {
         self.scopes
             .push_function_scope(range, func_name, class_key.is_some());
-        self.parameters(parameters, class_key);
+        self.parameters(parameters, undecorated_idx, class_key);
         self.init_static_scope(&body, false);
         self.stmts(body);
         self.scopes.pop_function_scope()
@@ -283,12 +292,13 @@ impl<'a> BindingsBuilder<'a> {
         body: Vec<Stmt>,
         range: TextRange,
         func_name: &Identifier,
+        undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> Option<SelfAssignments> {
         // Push a scope to create the parameter keys (but do nothing else with it).
         self.scopes
             .push_function_scope(range, func_name, class_key.is_some());
-        self.parameters(parameters, class_key);
+        self.parameters(parameters, undecorated_idx, class_key);
         self.scopes.pop();
         // If we are in a class, use a simple visitor to find `self.<attr>` assignments.
         if class_key.is_some() {
@@ -453,6 +463,7 @@ impl<'a> BindingsBuilder<'a> {
         is_async: bool,
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
         func_name: &Identifier,
+        undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
         let stub_or_impl = if (body.first().is_some_and(is_docstring)
@@ -470,13 +481,26 @@ impl<'a> BindingsBuilder<'a> {
                 && !is_annotated(&return_ann_with_range, parameters))
         {
             self.mark_as_returns_any(func_name);
-            self.unchecked_function_body_scope(parameters, body, range, func_name, class_key)
+            self.unchecked_function_body_scope(
+                parameters,
+                body,
+                range,
+                func_name,
+                undecorated_idx,
+                class_key,
+            )
         } else {
             match self.untyped_def_behavior {
                 UntypedDefBehavior::SkipAndInferReturnAny
                 | UntypedDefBehavior::CheckAndInferReturnAny => {
-                    let (yields_and_returns, self_assignments) =
-                        self.function_body_scope(parameters, body, range, func_name, class_key);
+                    let (yields_and_returns, self_assignments) = self.function_body_scope(
+                        parameters,
+                        body,
+                        range,
+                        func_name,
+                        undecorated_idx,
+                        class_key,
+                    );
                     self.analyze_return_type(
                         func_name,
                         is_async,
@@ -490,8 +514,14 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 UntypedDefBehavior::CheckAndInferReturnType => {
                     let implicit_return = self.implicit_return(&body, func_name);
-                    let (yields_and_returns, self_assignments) =
-                        self.function_body_scope(parameters, body, range, func_name, class_key);
+                    let (yields_and_returns, self_assignments) = self.function_body_scope(
+                        parameters,
+                        body,
+                        range,
+                        func_name,
+                        undecorated_idx,
+                        class_key,
+                    );
                     self.analyze_return_type(
                         func_name,
                         is_async,
@@ -514,8 +544,11 @@ impl<'a> BindingsBuilder<'a> {
         let mut def_idx =
             self.declare_current_idx(Key::Definition(ShortIdentifier::new(&func_name)));
 
+        let undecorated_idx =
+            self.idx_for_promise(KeyUndecoratedFunction(ShortIdentifier::new(&func_name)));
+
         // Get preceding function definition, if any. Used for building an overload type.
-        let (function_idx, pred_idx) = self.create_function_index(&x.name);
+        let (function_idx, pred_idx) = self.create_function_index(&func_name);
 
         let (class_key, metadata_key) =
             match Scopes::get_class_and_metadata_keys(self.scopes.current()) {
@@ -538,6 +571,7 @@ impl<'a> BindingsBuilder<'a> {
             x.is_async,
             return_ann_with_range,
             &func_name,
+            undecorated_idx,
             class_key,
         );
 
@@ -547,8 +581,8 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes
             .record_self_assignments_if_applicable(self_assignments);
 
-        let undecorated_idx = self.insert_binding(
-            KeyUndecoratedFunction(ShortIdentifier::new(&func_name)),
+        let undecorated_idx = self.insert_binding_idx(
+            undecorated_idx,
             BindingUndecoratedFunction {
                 def: x,
                 stub_or_impl,
