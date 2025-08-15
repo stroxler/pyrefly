@@ -7,6 +7,7 @@
 
 /// This file contains a new implementation of the lsp_interaction test suite. Soon it will replace the old one.
 use std::io;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread::JoinHandle;
@@ -26,6 +27,7 @@ use lsp_types::notification::Exit;
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use pretty_assertions::assert_eq;
+use pyrefly_util::fs_anyhow::read_to_string;
 use serde_json::Value;
 
 use crate::commands::lsp::IndexingMode;
@@ -44,6 +46,7 @@ pub struct TestServer {
     timeout: Duration,
     /// Handle to the spawned server thread
     server_thread: Option<JoinHandle<Result<(), io::Error>>>,
+    root: Option<PathBuf>,
     /// Request ID for requests sent to the server
     request_idx: Arc<Mutex<i32>>,
 }
@@ -54,6 +57,7 @@ impl TestServer {
             sender,
             timeout: Duration::from_secs(25),
             server_thread: None,
+            root: None,
             request_idx,
         }
     }
@@ -111,6 +115,39 @@ impl TestServer {
         }));
     }
 
+    pub fn definition(&mut self, file: &'static str, line: u32, col: u32) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/definition".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                },
+                "position": {
+                    "line": line,
+                    "character": col,
+                },
+            }),
+        }));
+    }
+
+    pub fn did_open(&self, file: &'static str) {
+        let path = self.get_root_or_panic().join(file);
+        self.send_message(Message::Notification(Notification {
+            method: "textDocument/didOpen".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                    "languageId": "python",
+                    "version": 1,
+                    "text": read_to_string(&path).unwrap(),
+                },
+            }),
+        }));
+    }
+
     pub fn get_initialize_params(&self, settings: InitializeSettings) -> Value {
         let mut params = serde_json::json!({
             "rootPath": "/",
@@ -157,12 +194,19 @@ impl TestServer {
         *idx += 1;
         RequestId::from(*idx)
     }
+
+    fn get_root_or_panic(&self) -> PathBuf {
+        self.root
+            .clone()
+            .expect("Root not set, please call set_root")
+    }
 }
 
 pub struct TestClient {
     receiver: crossbeam_channel::Receiver<Message>,
     timeout: Duration,
-    _request_idx: Arc<Mutex<i32>>,
+    root: Option<PathBuf>,
+    request_idx: Arc<Mutex<i32>>,
 }
 
 impl TestClient {
@@ -173,7 +217,8 @@ impl TestClient {
         Self {
             receiver,
             timeout: Duration::from_secs(25),
-            _request_idx: request_idx,
+            root: None,
+            request_idx,
         }
     }
 
@@ -208,6 +253,53 @@ impl TestClient {
         self.expect_message_helper(self.receiver.recv_timeout(self.timeout), expected_message);
     }
 
+    pub fn expect_response(&self, expected_response: Response) {
+        loop {
+            match self.receiver.recv_timeout(self.timeout) {
+                Ok(Message::Notification(notification)) => {
+                    eprintln!("received notification, expecting response");
+                    eprintln!(
+                        "client<---server {}",
+                        serde_json::to_string(&notification).unwrap()
+                    );
+                }
+                Ok(Message::Request(request)) => {
+                    eprintln!("received request, expecting response");
+                    eprintln!(
+                        "client<---server {}",
+                        serde_json::to_string(&request).unwrap()
+                    );
+                }
+                result => {
+                    self.expect_message_helper(result, Message::Response(expected_response));
+                    return;
+                }
+            }
+        }
+    }
+
+    pub fn expect_definition_response_from_root(
+        &self,
+        file: &'static str,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.expect_response(Response {
+            id: RequestId::from(*self.request_idx.lock().unwrap()),
+            result: Some(serde_json::json!(
+            {
+                "uri": Url::from_file_path(self.get_root_or_panic().join(file)).unwrap().to_string(),
+                "range": {
+                    "start": {"line": line_start, "character": char_start},
+                    "end": {"line": line_end, "character": char_end}
+                },
+                })),
+            error: None,
+        })
+    }
+
     pub fn expect_any_message(&self) {
         match self.receiver.recv_timeout(self.timeout) {
             Ok(msg) => {
@@ -220,6 +312,12 @@ impl TestClient {
                 panic!("Channel disconnected");
             }
         }
+    }
+
+    fn get_root_or_panic(&self) -> PathBuf {
+        self.root
+            .clone()
+            .expect("Root not set, please call set_root")
     }
 }
 
@@ -282,5 +380,10 @@ impl LspInteraction {
         }));
 
         self.server.send_exit();
+    }
+
+    pub fn set_root(&mut self, root: PathBuf) {
+        self.server.root = Some(root.clone());
+        self.client.root = Some(root);
     }
 }

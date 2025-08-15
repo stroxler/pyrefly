@@ -16,6 +16,8 @@ use lsp_server::ResponseError;
 use lsp_types::Url;
 use tempfile::TempDir;
 
+use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
+use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
@@ -87,17 +89,30 @@ fn test_go_to_def(
 }
 
 fn test_go_to_def_basic(root: &TempDir, workspace_folders: Option<Vec<(String, Url)>>) {
-    test_go_to_def(
-        root,
-        workspace_folders,
-        "foo.py",
-        vec![
-            (5, 7, "bar.py".to_owned(), 0, 0, 0, 0),
-            (6, 16, "bar.py".to_owned(), 6, 6, 6, 9),
-            (8, 9, "bar.py".to_owned(), 7, 4, 7, 7),
-            (9, 7, "bar.py".to_owned(), 6, 6, 6, 9),
-        ],
-    );
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    let file = "foo.py";
+    interaction.initialize(InitializeSettings {
+        workspace_folders: workspace_folders.clone(),
+        ..Default::default()
+    });
+    interaction.server.did_open(file);
+    interaction.server.definition(file, 5, 7);
+    interaction
+        .client
+        .expect_definition_response_from_root("bar.py", 0, 0, 0, 0);
+    interaction.server.definition(file, 6, 16);
+    interaction
+        .client
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9);
+    interaction.server.definition(file, 8, 9);
+    interaction
+        .client
+        .expect_definition_response_from_root("bar.py", 7, 4, 7, 7);
+    interaction.server.definition(file, 9, 7);
+    interaction
+        .client
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9);
 }
 
 #[test]
