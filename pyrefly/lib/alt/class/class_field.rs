@@ -1089,16 +1089,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && dm.kws.frozen
             && dm.fields.contains(name)
         {
-            return Some(ReadOnlyReason::FrozenDataclass);
-        }
-
-        // all frozen pydantic fields are read-only
-        if let Some(pm) = metadata.pydantic_metadata()
-            && let Some(dm) = metadata.dataclass_metadata()
-            && dm.fields.contains(name)
-            && pm.frozen
-        {
-            return Some(ReadOnlyReason::PydanticFrozen);
+            let reason = if metadata.pydantic_metadata().is_some() {
+                ReadOnlyReason::PydanticFrozen
+            } else {
+                ReadOnlyReason::FrozenDataclass
+            };
+            return Some(reason);
         }
 
         // A nested class def is assumed to be ReadOnly. We distinguish a nested `class C: ...`

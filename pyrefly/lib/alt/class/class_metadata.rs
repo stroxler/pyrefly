@@ -346,6 +346,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "metaclass" => Either::Left(x),
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
+        let has_pydantic_base_model_base_class =
+            bases_with_metadata.iter().any(|(base_class_object, _)| {
+                base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
+            });
+
+        let is_pydantic_model = has_pydantic_base_model_base_class
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.is_pydantic_model());
+
+        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
+        let pydantic_metadata = match pydantic_metadata_binding {
+            PydanticMetadataBinding {
+                frozen,
+                validation_alias,
+            } if is_pydantic_model => Some(PydanticMetadata {
+                frozen: *frozen,
+                validation_alias: validation_alias.clone(),
+            }),
+            _ => None,
+        };
 
         // If this class inherits from a dataclass_transform-ed class, record the defaults that we
         // should use for dataclass parameters.
@@ -369,15 +390,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
         // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
         // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
+        // - is a Pydantic model
         let mut dataclass_from_dataclass_transform = None;
         if let Some(defaults) = dataclass_defaults_from_base_class {
             // This class inherits from a dataclass_transform-ed base class, so its keywords are
             // interpreted as dataclass keywords.
             let map = keywords.clone().into_iter().collect::<OrderedMap<_, _>>();
-            dataclass_from_dataclass_transform = Some((
-                DataclassKeywords::from_type_map(&TypeMap(map), &defaults),
-                defaults.field_specifiers,
-            ));
+            let mut kws = DataclassKeywords::from_type_map(&TypeMap(map), &defaults);
+
+            // Inject frozen data from pydantic model
+            if let Some(pydantic) = pydantic_metadata.clone() {
+                kws.frozen = pydantic.frozen || kws.frozen;
+            }
+
+            dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));
         }
         let is_typed_dict = has_typed_dict_base_class
             || bases_with_metadata
@@ -580,16 +606,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
 
-        let has_pydantic_base_model_base_class =
-            bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
-            });
-
-        let is_pydantic_model = has_pydantic_base_model_base_class
-            || bases_with_metadata
-                .iter()
-                .any(|(_, metadata)| metadata.is_pydantic_model());
-
         let bases = if is_typed_dict && bases_with_metadata.is_empty() {
             // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
             // Note that this also makes those attributes available on *instances* of said subclasses; this is
@@ -602,19 +618,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .into_iter()
                 .map(|(base, _)| base)
                 .collect::<Vec<_>>()
-        };
-
-        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
-        // TODO: add validation alias to metadata
-        let pydantic_metadata = match pydantic_metadata_binding {
-            PydanticMetadataBinding {
-                frozen,
-                validation_alias,
-            } if is_pydantic_model => Some(PydanticMetadata {
-                frozen: *frozen,
-                validation_alias: validation_alias.clone(),
-            }),
-            _ => None,
         };
 
         ClassMetadata::new(
