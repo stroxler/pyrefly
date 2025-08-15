@@ -1567,6 +1567,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn get_field_from_mro(
+        &self,
+        cls: &Class,
+        name: &Name,
+        get_field: &impl Fn(&Class, &Name) -> Option<Arc<ClassField>>,
+    ) -> Option<WithDefiningClass<Arc<ClassField>>> {
+        get_field(cls, name)
+            .map(|field| WithDefiningClass {
+                value: field,
+                defining_class: cls.dupe(),
+            })
+            .or_else(|| {
+                self.get_mro_for_class(cls)
+                    .ancestors(self.stdlib)
+                    .find_map(|ancestor| {
+                        get_field(ancestor.class_object(), name).map(|field| WithDefiningClass {
+                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                            defining_class: ancestor.class_object().dupe(),
+                        })
+                    })
+            })
+    }
+
     /// Only look up fields that are not synthesized. This is useful when synthesizing method signatures
     /// for typeddict, named tuple, etc.
     pub fn get_non_synthesized_class_member(
@@ -1574,20 +1597,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         name: &Name,
     ) -> Option<Arc<ClassField>> {
-        self.get_non_synthesized_field_from_current_class_only(cls, name)
-            .filter(|field| !field.is_init_var())
-            .or_else(|| {
-                self.get_mro_for_class(cls)
-                    .ancestors(self.stdlib)
-                    .find_map(|ancestor| {
-                        self.get_non_synthesized_field_from_current_class_only(
-                            ancestor.class_object(),
-                            name,
-                        )
-                        .filter(|field| !field.is_init_var())
-                        .map(|field| Arc::new(field.instantiate_for(&Instance::of_class(ancestor))))
-                    })
-            })
+        self.get_field_from_mro(cls, name, &|cls, name| {
+            self.get_non_synthesized_field_from_current_class_only(cls, name)
+                .filter(|field| !field.is_init_var())
+        })
+        .map(|x| x.value)
     }
 
     fn get_synthesized_field_from_current_class_only(
@@ -1618,22 +1632,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        if let Some(field) = self.get_field_from_current_class_only(cls, name) {
-            Some(WithDefiningClass {
-                value: field,
-                defining_class: cls.dupe(),
-            })
-        } else {
-            self.get_mro_for_class(cls)
-                .ancestors(self.stdlib)
-                .find_map(|ancestor| {
-                    self.get_field_from_current_class_only(ancestor.class_object(), name)
-                        .map(|field| WithDefiningClass {
-                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                            defining_class: ancestor.class_object().dupe(),
-                        })
-                })
-        }
+        self.get_field_from_mro(cls, name, &|cls, name| {
+            self.get_field_from_current_class_only(cls, name)
+        })
     }
 
     fn get_non_synthesized_dataclass_member_impl(
@@ -1641,25 +1642,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        if let Some(field) = self.get_non_synthesized_field_from_current_class_only(cls, name) {
-            Some(WithDefiningClass {
-                value: field,
-                defining_class: cls.dupe(),
-            })
-        } else {
-            self.get_mro_for_class(cls)
-                .ancestors(self.stdlib)
-                .find_map(|ancestor| {
-                    self.get_non_synthesized_field_from_current_class_only(
-                        ancestor.class_object(),
-                        name,
-                    )
-                    .map(|field| WithDefiningClass {
-                        value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                        defining_class: ancestor.class_object().dupe(),
-                    })
-                })
-        }
+        self.get_field_from_mro(cls, name, &|cls, name| {
+            self.get_non_synthesized_field_from_current_class_only(cls, name)
+        })
     }
 
     pub(in crate::alt::class) fn get_class_member(
