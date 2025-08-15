@@ -105,7 +105,14 @@ pub fn get_hover(
         module,
         docstring_range,
     }) = transaction
-        .find_definition(handle, position, &FindPreference::default())
+        .find_definition(
+            handle,
+            position,
+            &FindPreference {
+                prefer_pyi: false,
+                ..Default::default()
+            },
+        )
         // TODO: handle more than 1 definition
         .into_iter()
         .next()

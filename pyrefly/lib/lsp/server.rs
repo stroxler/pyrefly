@@ -1392,6 +1392,7 @@ impl Server {
                 position,
                 &FindPreference {
                     jump_through_renamed_import: false,
+                    ..Default::default()
                 },
             )
             // TODO: handle more than 1 definition

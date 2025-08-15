@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::env;
-
 use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
@@ -127,8 +125,6 @@ fn test_go_to_def_relative_path() {
 #[test]
 fn definition_in_builtins() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = env::temp_dir().join("pyrefly_bundled_typeshed");
-    let result_file = pyrefly_typeshed_materialized.join("typing.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
@@ -136,21 +132,15 @@ fn definition_in_builtins() {
     });
     interaction.server.did_open("imports_builtins.py");
     interaction.server.definition("imports_builtins.py", 7, 7);
-    interaction.client.expect_definition_response_absolute(
-        result_file.to_string_lossy().to_string(),
-        425,
-        0,
-        425,
-        4,
-    );
-    assert!(
-        pyrefly_typeshed_materialized.join("pyrefly.toml").exists(),
-        "Expected pyrefly.toml to exist at {:?}",
-        pyrefly_typeshed_materialized.to_str()
-    );
-    assert!(
-        result_file.exists(),
-        "Expected pyrefly.toml to exist at {result_file:?}",
+    interaction.client.expect_response_with(
+        |response| {
+            // expect typing.py, NOT typing.pyi
+            response.result.as_ref().is_some_and(|r| {
+                r.get("uri")
+                    .is_some_and(|uri| uri.as_str().is_some_and(|x| x.ends_with("typing.py")))
+            })
+        },
+        "response must return the file `typing.py` from a site package",
     );
 }
 

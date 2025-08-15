@@ -402,6 +402,7 @@ impl GleanState<'_> {
             &identifier,
             &FindPreference {
                 jump_through_renamed_import: false,
+                ..Default::default()
             },
         );
 

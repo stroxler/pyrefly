@@ -117,12 +117,16 @@ const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 #[derive(Clone, Debug)]
 pub struct FindPreference {
     pub jump_through_renamed_import: bool,
+    /// controls whether to prioritize finding pyi or py files. if false, we will search all search paths until a .py file is found before
+    /// falling back to a .pyi.
+    pub prefer_pyi: bool,
 }
 
 impl Default for FindPreference {
     fn default() -> Self {
         Self {
             jump_through_renamed_import: true,
+            prefer_pyi: true,
         }
     }
 }
@@ -879,12 +883,15 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module_name: ModuleName,
         name: Name,
-        _preference: &FindPreference,
+        preference: &FindPreference,
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
         let mut gas = RESOLVE_EXPORT_INITIAL_GAS;
         while !gas.stop() {
-            let handle = self.import_handle(handle, m, None).ok()?;
+            let handle = match preference.prefer_pyi {
+                true => self.import_handle(handle, m, None).ok()?,
+                false => self.import_handle_prefer_executable(handle, m, None).ok()?,
+            };
             match self.get_exports(&handle).get(&name) {
                 Some(ExportLocation::ThisModule(export)) => {
                     return Some((handle.clone(), export.clone()));
@@ -928,7 +935,12 @@ impl<'a> Transaction<'a> {
                 }
             }
             IntermediateDefinition::Module(name) => {
-                let handle = self.import_handle(handle, name, None).ok()?;
+                let handle = match preference.prefer_pyi {
+                    true => self.import_handle(handle, name, None).ok()?,
+                    false => self
+                        .import_handle_prefer_executable(handle, name, None)
+                        .ok()?,
+                };
                 let docstring_range = self.get_module_docstring_range(&handle);
                 Some((
                     handle,
@@ -1123,9 +1135,15 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         module_name: ModuleName,
+        preference: &FindPreference,
     ) -> Option<FindDefinitionItemWithDocstring> {
         // TODO: Handle relative import (via ModuleName::new_maybe_relative)
-        let handle = self.import_handle(handle, module_name, None).ok()?;
+        let handle = match preference.prefer_pyi {
+            true => self.import_handle(handle, module_name, None).ok()?,
+            false => self
+                .import_handle_prefer_executable(handle, module_name, None)
+                .ok()?,
+        };
         let module_info = self.get_module_info(&handle)?;
         Some(FindDefinitionItemWithDocstring {
             metadata: DefinitionMetadata::Module,
@@ -1242,7 +1260,7 @@ impl<'a> Transaction<'a> {
                         name: module_name, ..
                     },
             }) => self
-                .find_definition_for_imported_module(handle, module_name)
+                .find_definition_for_imported_module(handle, module_name, preference)
                 .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier: _,
@@ -1338,8 +1356,15 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn goto_definition(&self, handle: &Handle, position: TextSize) -> Vec<TextRangeWithModule> {
-        self.find_definition(handle, position, &FindPreference::default())
-            .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
+        self.find_definition(
+            handle,
+            position,
+            &FindPreference {
+                prefer_pyi: false,
+                ..Default::default()
+            },
+        )
+        .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
     pub fn goto_type_definition(
@@ -1364,6 +1389,7 @@ impl<'a> Transaction<'a> {
             position,
             &FindPreference {
                 jump_through_renamed_import: false,
+                ..Default::default()
             },
         )
         .into_iter()
@@ -1418,6 +1444,7 @@ impl<'a> Transaction<'a> {
             position,
             &FindPreference {
                 jump_through_renamed_import: false,
+                ..Default::default()
             },
         )
         .into_iter()
@@ -1604,6 +1631,7 @@ impl<'a> Transaction<'a> {
                 key,
                 &FindPreference {
                     jump_through_renamed_import: false,
+                    ..Default::default()
                 },
             ) {
                 named_bindings.push(NamedBinding {

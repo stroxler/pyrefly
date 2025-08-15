@@ -340,6 +340,48 @@ impl TestClient {
         })
     }
 
+    pub fn expect_response_with<F>(&self, validator: F, description: &str)
+    where
+        F: Fn(&Response) -> bool,
+    {
+        loop {
+            match self.receiver.recv_timeout(self.timeout) {
+                Ok(Message::Notification(notification)) => {
+                    eprintln!("received notification, expecting response");
+                    eprintln!(
+                        "client<---server {}",
+                        serde_json::to_string(&notification).unwrap()
+                    );
+                }
+                Ok(Message::Request(request)) => {
+                    eprintln!("received request, expecting response");
+                    eprintln!(
+                        "client<---server {}",
+                        serde_json::to_string(&request).unwrap()
+                    );
+                }
+                Ok(Message::Response(response)) => {
+                    eprintln!(
+                        "client<---server {}",
+                        serde_json::to_string(&response).unwrap()
+                    );
+
+                    if validator(&response) {
+                        return;
+                    } else {
+                        panic!("Response validation failed: {description}. Response: {response:?}");
+                    }
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    panic!("Timeout waiting for response. Expected: {description}");
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    panic!("Channel disconnected. Expected: {description}");
+                }
+            }
+        }
+    }
+
     pub fn expect_any_message(&self) {
         match self.receiver.recv_timeout(self.timeout) {
             Ok(msg) => {
