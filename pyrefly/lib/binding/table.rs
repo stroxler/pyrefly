@@ -29,6 +29,7 @@ macro_rules! table {
             $($vis)* consistent_override_checks: $t<$crate::binding::binding::KeyConsistentOverrideCheck>,
             $($vis)* exports: $t<$crate::binding::binding::KeyExport>,
             $($vis)* decorated_functions: $t<$crate::binding::binding::KeyDecoratedFunction>,
+            $($vis)* undecorated_functions: $t<$crate::binding::binding::KeyUndecoratedFunction>,
             $($vis)* classes: $t<$crate::binding::binding::KeyClass>,
             $($vis)* tparams: $t<$crate::binding::binding::KeyTParams>,
             $($vis)* class_base_types: $t<$crate::binding::binding::KeyClassBaseType>,
@@ -71,6 +72,12 @@ macro_rules! table {
             type Value = $t<$crate::binding::binding::KeyDecoratedFunction>;
             fn get(&self) -> &Self::Value { &self.decorated_functions }
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.decorated_functions }
+        }
+
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyUndecoratedFunction> for $name {
+            type Value = $t<$crate::binding::binding::KeyUndecoratedFunction>;
+            fn get(&self) -> &Self::Value { &self.undecorated_functions }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.undecorated_functions }
         }
 
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyClass> for $name {
@@ -173,6 +180,7 @@ macro_rules! table_for_each(
         $f(&($e).consistent_override_checks);
         $f(&($e).exports);
         $f(&($e).decorated_functions);
+        $f(&($e).undecorated_functions);
         $f(&($e).classes);
         $f(&($e).tparams);
         $f(&($e).class_base_types);
@@ -196,6 +204,7 @@ macro_rules! table_mut_for_each(
         $f(&mut ($e).consistent_override_checks);
         $f(&mut ($e).exports);
         $f(&mut ($e).decorated_functions);
+        $f(&mut ($e).undecorated_functions);
         $f(&mut ($e).classes);
         $f(&mut ($e).tparams);
         $f(&mut ($e).class_base_types);
@@ -219,6 +228,7 @@ macro_rules! table_try_for_each(
         $f(&($e).consistent_override_checks)?;
         $f(&($e).exports)?;
         $f(&($e).decorated_functions)?;
+        $f(&($e).undecorated_functions)?;
         $f(&($e).classes)?;
         $f(&($e).tparams)?;
         $f(&($e).class_base_types)?;

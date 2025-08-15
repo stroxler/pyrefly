@@ -55,7 +55,6 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
-use crate::graph::index::Idx;
 use crate::types::callable::Callable;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
@@ -1450,8 +1449,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Apply a decorator. This effectively synthesizes a function call.
     pub fn apply_decorator(
         &self,
-        decorator: Idx<Key>,
+        decorator: Type,
         decoratee: Type,
+        range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
         if matches!(&decoratee, Type::ClassDef(cls) if cls.has_qname("typing", "TypeVar")) {
@@ -1459,14 +1459,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // itself depends on a TypeVar.
             return decoratee;
         }
-        let ty_decorator = self.get_idx(decorator).arc_clone_ty();
         if matches!(&decoratee, Type::ClassDef(_)) {
             // TODO: don't blanket ignore class decorators.
             return decoratee;
         }
-        let range = self.bindings().idx_to_key(decorator).range();
-        let call_target =
-            self.as_call_target_or_error(ty_decorator, CallStyle::FreeForm, range, errors, None);
+        let call_target = self.as_call_target_or_error(
+            decorator.clone(),
+            CallStyle::FreeForm,
+            range,
+            errors,
+            None,
+        );
         let arg = CallArg::ty(&decoratee, range);
         self.call_infer(call_target, &[arg], &[], range, errors, None, None, None)
     }

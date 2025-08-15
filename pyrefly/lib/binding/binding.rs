@@ -50,7 +50,7 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
@@ -89,6 +89,7 @@ assert_words!(KeyLegacyTypeParam, 1);
 assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
 assert_words!(KeyDecoratedFunction, 1);
+assert_words!(KeyUndecoratedFunction, 1);
 
 assert_words!(Binding, 11);
 assert_words!(BindingExpect, 11);
@@ -103,7 +104,8 @@ assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
 assert_words!(BindingYield, 4);
 assert_words!(BindingYieldFrom, 4);
-assert_words!(BindingDecoratedFunction, 23);
+assert_bytes!(BindingDecoratedFunction, 20);
+assert_words!(BindingUndecoratedFunction, 21);
 
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnyIdx {
@@ -118,6 +120,7 @@ pub enum AnyIdx {
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
     KeyExport(Idx<KeyExport>),
     KeyDecoratedFunction(Idx<KeyDecoratedFunction>),
+    KeyUndecoratedFunction(Idx<KeyUndecoratedFunction>),
     KeyAnnotation(Idx<KeyAnnotation>),
     KeyClassMetadata(Idx<KeyClassMetadata>),
     KeyClassMro(Idx<KeyClassMro>),
@@ -140,6 +143,7 @@ impl DisplayWith<Bindings> for AnyIdx {
             Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyExport(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyDecoratedFunction(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyUndecoratedFunction(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyAnnotation(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassMetadata(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassMro(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -246,9 +250,16 @@ impl Keyed for KeyExport {
 impl Exported for KeyExport {}
 impl Keyed for KeyDecoratedFunction {
     type Value = BindingDecoratedFunction;
-    type Answer = DecoratedFunction;
+    type Answer = Type;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
         AnyIdx::KeyDecoratedFunction(idx)
+    }
+}
+impl Keyed for KeyUndecoratedFunction {
+    type Value = BindingUndecoratedFunction;
+    type Answer = UndecoratedFunction;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyUndecoratedFunction(idx)
     }
 }
 impl Keyed for KeyAnnotation {
@@ -607,6 +618,26 @@ impl DisplayWith<ModuleInfo> for KeyDecoratedFunction {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyUndecoratedFunction(pub ShortIdentifier);
+
+impl Ranged for KeyUndecoratedFunction {
+    fn range(&self) -> TextRange {
+        self.0.range()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyUndecoratedFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+        write!(
+            f,
+            "KeyUndecoratedFunction({} {})",
+            ctx.display(&self.0),
+            ctx.display(&self.0.range())
+        )
+    }
+}
+
 /// A reference to a class.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyClass(pub ShortIdentifier);
@@ -902,19 +933,31 @@ pub enum FunctionStubOrImpl {
 
 #[derive(Clone, Debug)]
 pub struct BindingDecoratedFunction {
-    /// A function definition, but with the return/body stripped out.
-    pub def: StmtFunctionDef,
-    pub stub_or_impl: FunctionStubOrImpl,
-    pub class_key: Option<Idx<KeyClass>>,
-    pub decorators: Box<[(Idx<Key>, TextRange)]>,
-    pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
+    pub undecorated_idx: Idx<KeyUndecoratedFunction>,
     pub successor: Option<Idx<KeyDecoratedFunction>>,
     pub docstring_range: Option<TextRange>,
 }
 
 impl DisplayWith<Bindings> for BindingDecoratedFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        let undecorated = ctx.get(self.undecorated_idx);
+        write!(f, "BindingDecoratedFunction({})", undecorated.def.name.id)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BindingUndecoratedFunction {
+    /// A function definition, but with the return/body stripped out.
+    pub def: StmtFunctionDef,
+    pub stub_or_impl: FunctionStubOrImpl,
+    pub class_key: Option<Idx<KeyClass>>,
+    pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
+    pub decorators: Box<[(Idx<Key>, TextRange)]>,
+}
+
+impl DisplayWith<Bindings> for BindingUndecoratedFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
-        write!(f, "BindingDecoratedFunction({})", self.def.name.id)
+        write!(f, "BindingUndecoratedFunction({})", self.def.name.id)
     }
 }
 

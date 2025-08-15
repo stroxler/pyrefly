@@ -31,6 +31,7 @@ use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingDecoratedFunction;
+use crate::binding::binding::BindingUndecoratedFunction;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::FunctionStubOrImpl;
@@ -39,6 +40,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyLegacyTypeParam;
+use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::ReturnExplicit;
 use crate::binding::binding::ReturnImplicit;
@@ -545,14 +547,21 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes
             .record_self_assignments_if_applicable(self_assignments);
 
-        self.insert_binding_idx(
-            function_idx,
-            BindingDecoratedFunction {
+        let undecorated_idx = self.insert_binding(
+            KeyUndecoratedFunction(ShortIdentifier::new(&func_name)),
+            BindingUndecoratedFunction {
                 def: x,
                 stub_or_impl,
                 class_key,
                 decorators: decorators.decorators,
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
+            },
+        );
+
+        self.insert_binding_idx(
+            function_idx,
+            BindingDecoratedFunction {
+                undecorated_idx,
                 successor: None,
                 docstring_range,
             },

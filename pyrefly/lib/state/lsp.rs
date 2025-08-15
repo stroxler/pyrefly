@@ -2079,7 +2079,8 @@ impl<'a> Transaction<'a> {
                     let binding = bindings.get(idx);
                     // Check if this binding is a function
                     if let Binding::Function(key_function, _, _) = binding {
-                        let binding_func = bindings.get(*key_function);
+                        let binding_func =
+                            bindings.get(bindings.get(*key_function).undecorated_idx);
                         let args = binding_func.def.parameters.args.clone();
                         let func_args: Vec<ParameterAnnotation> = args
                             .into_iter()
@@ -2124,7 +2125,7 @@ impl<'a> Transaction<'a> {
                                 && let Some(ty) = self.get_type(handle, key)
                                 && is_interesting_type(&ty)
                             {
-                                let fun = bindings.get(*x);
+                                let fun = bindings.get(bindings.get(*x).undecorated_idx);
                                 res.push((
                                     fun.def.parameters.range.end(),
                                     ty,
@@ -2192,7 +2193,7 @@ impl<'a> Transaction<'a> {
                                     && let Some(ty) = self.get_type(handle, key)
                                     && is_interesting_type(&ty)
                                 {
-                                    let fun = bindings.get(*x);
+                                    let fun = bindings.get(bindings.get(*x).undecorated_idx);
                                     res.push((fun.def.parameters.range.end(), format!(" -> {ty}")));
                                 }
                             }

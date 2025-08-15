@@ -44,7 +44,6 @@ use crate::alt::answers::Answers;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::BindingClass;
-use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -529,10 +528,10 @@ fn get_scope_parent(ast: &ModModule, module_info: &Module, range: TextRange) -> 
 fn get_all_functions(
     bindings: &Bindings,
     answers: &Answers,
-) -> impl Iterator<Item = Arc<DecoratedFunction>> {
+) -> impl Iterator<Item = DecoratedFunction> {
     bindings
         .keys::<KeyDecoratedFunction>()
-        .map(|idx| answers.get_idx(idx).unwrap().clone())
+        .map(|idx| DecoratedFunction::from_bindings_answers(idx, bindings, answers))
 }
 
 fn export_all_functions(
@@ -544,9 +543,9 @@ fn export_all_functions(
     let mut function_definitions = HashMap::new();
 
     for function in get_all_functions(bindings, answers) {
-        let display_range = module_info.display_range(function.id_range);
-        let name = function.metadata.kind.as_func_id().func.to_string();
-        let parent = get_scope_parent(ast, module_info, function.id_range);
+        let display_range = module_info.display_range(function.id_range());
+        let name = function.metadata().kind.as_func_id().func.to_string();
+        let parent = get_scope_parent(ast, module_info, function.id_range());
         assert!(
             function_definitions
                 .insert(
@@ -554,16 +553,16 @@ fn export_all_functions(
                     FunctionDefinition {
                         name,
                         parent,
-                        is_overload: function.metadata.flags.is_overload,
-                        is_staticmethod: function.metadata.flags.is_staticmethod,
-                        is_classmethod: function.metadata.flags.is_classmethod,
-                        is_property_getter: function.metadata.flags.is_property_getter,
+                        is_overload: function.metadata().flags.is_overload,
+                        is_staticmethod: function.metadata().flags.is_staticmethod,
+                        is_classmethod: function.metadata().flags.is_classmethod,
+                        is_property_getter: function.metadata().flags.is_property_getter,
                         is_property_setter: function
-                            .metadata
+                            .metadata()
                             .flags
                             .is_property_setter_with_getter
                             .is_some(),
-                        is_stub: function.stub_or_impl == FunctionStubOrImpl::Stub,
+                        is_stub: function.is_stub(),
                     }
                 )
                 .is_none(),
@@ -667,7 +666,7 @@ fn is_pytest_module(bindings: &Bindings, answers: &Answers, ast: &ModModule) -> 
     fn has_test_function(bindings: &Bindings, answers: &Answers) -> bool {
         get_all_functions(bindings, answers).any(|function| {
             function
-                .metadata
+                .metadata()
                 .kind
                 .as_func_id()
                 .func
