@@ -113,13 +113,7 @@ fn test_go_to_def_single_root() {
 }
 
 #[test]
-fn test_go_to_def_no_root() {
-    let root = get_test_files_root();
-    test_go_to_def_basic(&root, Some(vec![]));
-}
-
-#[test]
-fn test_go_to_def_no_root_uses_upwards_search() {
+fn test_go_to_def_no_workspace_folders() {
     let root = get_test_files_root();
     test_go_to_def_basic(&root, Some(vec![]));
 }
