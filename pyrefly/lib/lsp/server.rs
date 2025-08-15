@@ -176,7 +176,6 @@ use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::LspAnalysisConfig;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
-use crate::module::from_path::module_from_path;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::require::Require;
@@ -1006,10 +1005,8 @@ impl Server {
             if config != path_config {
                 continue;
             }
-            let module_name = module_from_path(&path, path_config.search_path())
-                .unwrap_or_else(ModuleName::unknown);
             handles.push((
-                Handle::new(module_name, module_path, path_config.get_sys_info()),
+                handle_from_module_path(&state, module_path),
                 Require::Indexing,
             ));
         }
