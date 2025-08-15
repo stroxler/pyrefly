@@ -236,7 +236,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     x.attr.id(),
                     x.attr.range,
                 );
-                self.attr_infer(&base, &x.attr.id, x.range, errors, None)
+                let attr_type = self.attr_infer(&base, &x.attr.id, x.range, errors, None);
+                if base.ty().is_literal_string() {
+                    match attr_type.ty() {
+                        Type::BoundMethod(method) => {
+                            return attr_type
+                                .clone()
+                                .with_ty(method.with_bound_object(base.ty().clone()).as_type());
+                        }
+                        _ => {}
+                    }
+                }
+                attr_type
             }
             Expr::Subscript(x) => {
                 // TODO: We don't deal properly with hint here, we should.
