@@ -40,6 +40,7 @@ use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
 use crate::report::glean::schema::*;
 use crate::state::handle::Handle;
+use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::types::Type;
 
@@ -396,9 +397,13 @@ impl GleanState<'_> {
         let name = expr_name.id();
         let identifier = Ast::expr_name_identifier(expr_name.clone());
 
-        let definition =
-            self.transaction
-                .find_definition_for_name_use(self.handle, &identifier, false);
+        let definition = self.transaction.find_definition_for_name_use(
+            self.handle,
+            &identifier,
+            &FindPreference {
+                jump_through_renamed_import: false,
+            },
+        );
 
         definition.map_or(self.default_fq_name(name), |def| {
             self.fq_name_for_xref_definition(name, def.definition_range, &def.module)

@@ -182,6 +182,7 @@ use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
 use crate::state::handle::Handle;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
+use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::State;
@@ -1386,7 +1387,13 @@ impl Server {
             module,
             docstring_range: _,
         }) = transaction
-            .find_definition(&handle, position, false)
+            .find_definition(
+                &handle,
+                position,
+                &FindPreference {
+                    jump_through_renamed_import: false,
+                },
+            )
             // TODO: handle more than 1 definition
             .into_iter()
             .next()

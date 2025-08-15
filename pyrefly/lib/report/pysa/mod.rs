@@ -55,6 +55,7 @@ use crate::module::typeshed::typeshed;
 use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
+use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::display::TypeDisplayContext;
 use crate::types::stdlib::Stdlib;
@@ -328,7 +329,11 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
 
             let definitions = context
                 .transaction
-                .find_definition_for_name_use(context.handle, &identifier, true)
+                .find_definition_for_name_use(
+                    context.handle,
+                    &identifier,
+                    &FindPreference::default(),
+                )
                 .map_or(vec![], |d| vec![d]);
 
             add_expression_definitions(&display_range, definitions, name.id.as_str(), context);
@@ -339,6 +344,7 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
                 context.handle,
                 attribute.value.range(),
                 &attribute.attr,
+                &FindPreference::default(),
             );
             add_expression_definitions(
                 &display_range,

@@ -50,6 +50,7 @@ use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
 use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
+use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
@@ -364,7 +365,7 @@ impl Query {
                         handle,
                         // take location of last included character in range (which should work for identifiers and attributes)
                         callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
-                        true,
+                        &FindPreference::default(),
                     );
                     if defs.len() == 1 {
                         // TODO: decide what do to with multiple definitions
