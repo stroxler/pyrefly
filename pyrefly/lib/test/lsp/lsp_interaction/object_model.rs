@@ -161,8 +161,12 @@ impl TestClient {
         }
     }
 
-    pub fn expect_message(&self, expected_message: Message) {
-        match self.receiver.recv_timeout(self.timeout) {
+    pub fn expect_message_helper(
+        &self,
+        message: Result<Message, RecvTimeoutError>,
+        expected_message: Message,
+    ) {
+        match message {
             Ok(msg) => {
                 eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
 
@@ -182,6 +186,10 @@ impl TestClient {
                 panic!("Channel disconnected. Expected: {expected_message:?}");
             }
         }
+    }
+
+    pub fn expect_message(&self, expected_message: Message) {
+        self.expect_message_helper(self.receiver.recv_timeout(self.timeout), expected_message);
     }
 
     pub fn expect_any_message(&self) {
