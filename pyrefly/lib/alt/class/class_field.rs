@@ -1569,12 +1569,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn get_field_from_ancestors(
         &self,
+        cls: &Class,
         mut ancestors: impl Iterator<Item = &'a ClassType>,
         name: &Name,
         get_field: &impl Fn(&Class, &Name) -> Option<Arc<ClassField>>,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         ancestors.find_map(|ancestor| {
-            get_field(ancestor.class_object(), name).map(|field| WithDefiningClass {
+            if ancestor.is_builtin("object")
+                && [dunder::NEW, dunder::INIT].contains(name)
+                && self.extends_any(cls)
+            {
+                // If this class has an `Any` ancestor, then we assume that `__new__` and `__init__`
+                // can be called with any arguments. These attributes are special because they are
+                // commonly overridden with incompatible type signatures. For most attributes, it's
+                // more helpful to return the attribute type from `object` because it's unlikely to
+                // have been changed by the unknown `Any` ancestor. Note that we put this check
+                // right before `object` in the MRO because we know that `object` is always last.
+                // While it would be safer to assume that the `Any` ancestor could appear first in
+                // the MRO, we choose to instead return a more precise attribute type if we can find
+                // one on a non-`Any` ancestor.
+                Some(Arc::new(ClassField::new_synthesized(Type::any_implicit())))
+            } else {
+                get_field(ancestor.class_object(), name)
+            }
+            .map(|field| WithDefiningClass {
                 value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                 defining_class: ancestor.class_object().dupe(),
             })
@@ -1594,6 +1612,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .or_else(|| {
                 self.get_field_from_ancestors(
+                    cls,
                     self.get_mro_for_class(cls).ancestors(self.stdlib),
                     name,
                     get_field,
@@ -1716,7 +1735,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ancestors = metadata
             .ancestors(self.stdlib)
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
-        self.get_field_from_ancestors(ancestors, name, &|cls, name| {
+        self.get_field_from_ancestors(cls, ancestors, name, &|cls, name| {
             self.get_field_from_current_class_only(cls, name)
                 .filter(|field| !field.is_init_var())
         })
