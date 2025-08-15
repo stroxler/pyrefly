@@ -1567,6 +1567,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn get_field_from_ancestors(
+        &self,
+        mut ancestors: impl Iterator<Item = &'a ClassType>,
+        name: &Name,
+        get_field: &impl Fn(&Class, &Name) -> Option<Arc<ClassField>>,
+    ) -> Option<WithDefiningClass<Arc<ClassField>>> {
+        ancestors.find_map(|ancestor| {
+            get_field(ancestor.class_object(), name).map(|field| WithDefiningClass {
+                value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                defining_class: ancestor.class_object().dupe(),
+            })
+        })
+    }
+
     fn get_field_from_mro(
         &self,
         cls: &Class,
@@ -1579,14 +1593,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 defining_class: cls.dupe(),
             })
             .or_else(|| {
-                self.get_mro_for_class(cls)
-                    .ancestors(self.stdlib)
-                    .find_map(|ancestor| {
-                        get_field(ancestor.class_object(), name).map(|field| WithDefiningClass {
-                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                            defining_class: ancestor.class_object().dupe(),
-                        })
-                    })
+                self.get_field_from_ancestors(
+                    self.get_mro_for_class(cls).ancestors(self.stdlib),
+                    name,
+                    get_field,
+                )
             })
     }
 
@@ -1705,18 +1716,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ancestors = metadata
             .ancestors(self.stdlib)
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
-        for ancestor in ancestors {
-            if let Some(field) =
-                self.get_field_from_current_class_only(ancestor.class_object(), name)
-                && !field.is_init_var()
-            {
-                return Some(WithDefiningClass {
-                    value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                    defining_class: ancestor.class_object().dupe(),
-                });
-            }
-        }
-        None
+        self.get_field_from_ancestors(ancestors, name, &|cls, name| {
+            self.get_field_from_current_class_only(cls, name)
+                .filter(|field| !field.is_init_var())
+        })
     }
 
     /// Looks up an attribute on a super instance.
