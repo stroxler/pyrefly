@@ -30,7 +30,7 @@ use starlark_map::small_map::SmallMap;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
-use crate::binding::binding::BindingFunction;
+use crate::binding::binding::BindingDecoratedFunction;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::FunctionStubOrImpl;
@@ -547,7 +547,7 @@ impl<'a> BindingsBuilder<'a> {
 
         self.insert_binding_idx(
             function_idx,
-            BindingFunction {
+            BindingDecoratedFunction {
                 def: x,
                 stub_or_impl,
                 class_key,

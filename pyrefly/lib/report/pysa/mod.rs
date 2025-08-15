@@ -48,7 +48,7 @@ use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
-use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
@@ -531,7 +531,7 @@ fn get_all_functions(
     answers: &Answers,
 ) -> impl Iterator<Item = Arc<DecoratedFunction>> {
     bindings
-        .keys::<KeyFunction>()
+        .keys::<KeyDecoratedFunction>()
         .map(|idx| answers.get_idx(idx).unwrap().clone())
 }
 

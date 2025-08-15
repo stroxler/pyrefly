@@ -33,9 +33,9 @@ use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingConsistentOverrideCheck;
+use crate::binding::binding::BindingDecoratedFunction;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingExport;
-use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
@@ -52,9 +52,9 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyConsistentOverrideCheck;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyExport;
-use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
@@ -186,13 +186,13 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyExport {
     }
 }
 
-impl<Ans: LookupAnswer> Solve<Ans> for KeyFunction {
+impl<Ans: LookupAnswer> Solve<Ans> for KeyDecoratedFunction {
     fn solve(
         answers: &AnswersSolver<Ans>,
-        binding: &BindingFunction,
+        binding: &BindingDecoratedFunction,
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
-        answers.solve_function(binding, errors)
+        answers.solve_decorated_function(binding, errors)
     }
 
     fn promote_recursive(_: Var) -> Self::Answer {

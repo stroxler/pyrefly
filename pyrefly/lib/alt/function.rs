@@ -36,7 +36,7 @@ use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
-use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -64,7 +64,7 @@ use crate::types::types::Type;
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn solve_function_binding(
         &self,
-        idx: Idx<KeyFunction>,
+        idx: Idx<KeyDecoratedFunction>,
         predecessor: &mut Option<Idx<Key>>,
         class_metadata: Option<&Idx<KeyClassMetadata>>,
         errors: &ErrorCollector,
@@ -174,7 +174,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn function_definition(
+    pub fn decorated_function(
         &self,
         def: &StmtFunctionDef,
         stub_or_impl: FunctionStubOrImpl,

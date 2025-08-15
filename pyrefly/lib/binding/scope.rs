@@ -43,7 +43,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyConsistentOverrideCheck;
-use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
@@ -247,7 +247,7 @@ pub enum FlowStyle {
     ImportAs(ModuleName),
     /// Am I a function definition? Used to chain overload definitions.
     /// If so, does my return type have an explicit annotation?
-    FunctionDef(Idx<KeyFunction>, bool),
+    FunctionDef(Idx<KeyDecoratedFunction>, bool),
     /// The name is possibly uninitialized (perhaps due to merging branches)
     PossiblyUninitialized,
     /// The name was in an annotated declaration like `x: int` but not initialized
@@ -710,7 +710,7 @@ impl Scopes {
     pub fn function_predecessor_indices(
         &self,
         name: &Name,
-    ) -> Option<(Idx<Key>, Idx<KeyFunction>)> {
+    ) -> Option<(Idx<Key>, Idx<KeyDecoratedFunction>)> {
         if let Some(flow) = self.current().flow.info.get(name)
             && let FlowStyle::FunctionDef(fidx, _) = flow.style
         {

@@ -88,7 +88,7 @@ assert_bytes!(KeyClassMro, 4);
 assert_words!(KeyLegacyTypeParam, 1);
 assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
-assert_words!(KeyFunction, 1);
+assert_words!(KeyDecoratedFunction, 1);
 
 assert_words!(Binding, 11);
 assert_words!(BindingExpect, 11);
@@ -103,7 +103,7 @@ assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
 assert_words!(BindingYield, 4);
 assert_words!(BindingYieldFrom, 4);
-assert_words!(BindingFunction, 23);
+assert_words!(BindingDecoratedFunction, 23);
 
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnyIdx {
@@ -117,7 +117,7 @@ pub enum AnyIdx {
     KeyVariance(Idx<KeyVariance>),
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
     KeyExport(Idx<KeyExport>),
-    KeyFunction(Idx<KeyFunction>),
+    KeyDecoratedFunction(Idx<KeyDecoratedFunction>),
     KeyAnnotation(Idx<KeyAnnotation>),
     KeyClassMetadata(Idx<KeyClassMetadata>),
     KeyClassMro(Idx<KeyClassMro>),
@@ -139,7 +139,7 @@ impl DisplayWith<Bindings> for AnyIdx {
             Self::KeyVariance(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyExport(idx) => write!(f, "{}", ctx.display(*idx)),
-            Self::KeyFunction(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyDecoratedFunction(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyAnnotation(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassMetadata(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassMro(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -244,11 +244,11 @@ impl Keyed for KeyExport {
     }
 }
 impl Exported for KeyExport {}
-impl Keyed for KeyFunction {
-    type Value = BindingFunction;
+impl Keyed for KeyDecoratedFunction {
+    type Value = BindingDecoratedFunction;
     type Answer = DecoratedFunction;
     fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
-        AnyIdx::KeyFunction(idx)
+        AnyIdx::KeyDecoratedFunction(idx)
     }
 }
 impl Keyed for KeyAnnotation {
@@ -588,19 +588,19 @@ impl DisplayWith<ModuleInfo> for KeyExport {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct KeyFunction(pub ShortIdentifier);
+pub struct KeyDecoratedFunction(pub ShortIdentifier);
 
-impl Ranged for KeyFunction {
+impl Ranged for KeyDecoratedFunction {
     fn range(&self) -> TextRange {
         self.0.range()
     }
 }
 
-impl DisplayWith<ModuleInfo> for KeyFunction {
+impl DisplayWith<ModuleInfo> for KeyDecoratedFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
         write!(
             f,
-            "KeyFunction({} {})",
+            "KeyDecoratedFunction({} {})",
             ctx.display(&self.0),
             ctx.display(&self.0.range())
         )
@@ -901,20 +901,20 @@ pub enum FunctionStubOrImpl {
 }
 
 #[derive(Clone, Debug)]
-pub struct BindingFunction {
+pub struct BindingDecoratedFunction {
     /// A function definition, but with the return/body stripped out.
     pub def: StmtFunctionDef,
     pub stub_or_impl: FunctionStubOrImpl,
     pub class_key: Option<Idx<KeyClass>>,
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
-    pub successor: Option<Idx<KeyFunction>>,
+    pub successor: Option<Idx<KeyDecoratedFunction>>,
     pub docstring_range: Option<TextRange>,
 }
 
-impl DisplayWith<Bindings> for BindingFunction {
+impl DisplayWith<Bindings> for BindingDecoratedFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
-        write!(f, "BindingFunction({})", self.def.name.id)
+        write!(f, "BindingDecoratedFunction({})", self.def.name.id)
     }
 }
 
@@ -1124,13 +1124,13 @@ pub enum Binding {
     /// A type parameter.
     TypeParameter(Box<TypeParameter>),
     /// The type of a function. The fields are:
-    /// - A reference to the KeyFunction that point to the def
+    /// - A reference to the KeyDecoratedFunction that point to the def
     /// - An optional reference to any previous function in the same flow by the same name;
     ///   this is needed to fold `@overload` decorated defs into a single type.
     /// - An optional reference to class metadata, which will be non-None when the function
     ///   is defined within a class scope.
     Function(
-        Idx<KeyFunction>,
+        Idx<KeyDecoratedFunction>,
         Option<Idx<Key>>,
         Option<Idx<KeyClassMetadata>>,
     ),

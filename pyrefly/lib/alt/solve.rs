@@ -53,8 +53,8 @@ use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingConsistentOverrideCheck;
+use crate::binding::binding::BindingDecoratedFunction;
 use crate::binding::binding::BindingExpect;
-use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
@@ -67,8 +67,8 @@ use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyExport;
-use crate::binding::binding::KeyFunction;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::NoneIfRecursive;
@@ -1546,7 +1546,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             // no-argument form of super is allowed.
                             SuperObj::Class(obj_cls.dupe())
                         } else {
-                            let method_ty = self.get(&KeyFunction(ShortIdentifier::new(method)));
+                            let method_ty =
+                                self.get(&KeyDecoratedFunction(ShortIdentifier::new(method)));
                             if method_ty.metadata.flags.is_staticmethod {
                                 return self.error(
                                     errors,
@@ -2851,12 +2852,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn solve_function(
+    pub fn solve_decorated_function(
         &self,
-        x: &BindingFunction,
+        x: &BindingDecoratedFunction,
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
-        self.function_definition(
+        self.decorated_function(
             &x.def,
             x.stub_or_impl,
             x.class_key.as_ref(),
