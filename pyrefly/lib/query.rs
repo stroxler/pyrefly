@@ -49,7 +49,6 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::Answers;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::binding::binding::Key;
-use crate::binding::bindings;
 use crate::binding::bindings::Bindings;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
