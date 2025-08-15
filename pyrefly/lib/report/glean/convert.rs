@@ -358,42 +358,39 @@ impl GleanState<'_> {
             .collect()
     }
 
-    fn default_fq_name(&self, name: &Name) -> String {
-        self.module_name.to_string() + "." + name
-    }
-
     fn fq_name_for_xref_definition(
         &self,
         name: &Name,
         def_range: TextRange,
         module: &ModuleInfo,
-    ) -> String {
+    ) -> Option<String> {
         let module_name = module.name();
         if module_name == ModuleName::builtins() {
-            name.to_string()
+            Some(name.to_string())
         } else if module_name == self.module_name {
             self.locations_fqnames
                 .get(&def_range.start())
-                .map_or(self.default_fq_name(name), |x| (**x).clone())
+                .map(|x| (**x).clone())
         } else {
             let local_name = module.code_at(def_range);
-            if local_name.is_empty() {
+            let fq_name = if local_name.is_empty() {
                 module_name.to_string()
             } else {
                 module_name.to_string() + "." + local_name
-            }
+            };
+            Some(fq_name)
         }
     }
 
     fn fq_names_for_name_or_attr(&self, expr: &Expr) -> Vec<String> {
         match expr {
             Expr::Attribute(attr) => self.fq_names_for_attribute(attr),
-            Expr::Name(name) => vec![self.fq_name_for_name_use(name)],
+            Expr::Name(name) => self.fq_name_for_name_use(name).map_or(vec![], |x| vec![x]),
             _ => vec![],
         }
     }
 
-    fn fq_name_for_name_use(&self, expr_name: &ExprName) -> String {
+    fn fq_name_for_name_use(&self, expr_name: &ExprName) -> Option<String> {
         let name = expr_name.id();
         let identifier = Ast::expr_name_identifier(expr_name.clone());
 
@@ -406,7 +403,7 @@ impl GleanState<'_> {
             },
         );
 
-        definition.map_or(self.default_fq_name(name), |def| {
+        definition.and_then(|def| {
             self.fq_name_for_xref_definition(name, def.definition_range, &def.module)
         })
     }
@@ -415,7 +412,7 @@ impl GleanState<'_> {
         if let Some(module) = ty.as_module() {
             Some(module.parts().join("."))
         } else {
-            ty.qname().map(|qname| {
+            ty.qname().and_then(|qname| {
                 self.fq_name_for_xref_definition(qname.id(), qname.range(), qname.module())
             })
         }
@@ -522,7 +519,7 @@ impl GleanState<'_> {
             }
             Expr::Name(name) => {
                 let fq_names = if name.ctx.is_load() {
-                    vec![self.fq_name_for_name_use(name)]
+                    self.fq_name_for_name_use(name).map_or(vec![], |x| vec![x])
                 } else {
                     vec![]
                 };
