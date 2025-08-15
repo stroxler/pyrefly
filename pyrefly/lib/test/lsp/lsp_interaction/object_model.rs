@@ -278,6 +278,28 @@ impl TestClient {
         }
     }
 
+    pub fn expect_definition_response_absolute(
+        &self,
+        file: String,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.expect_response(Response {
+            id: RequestId::from(*self.request_idx.lock().unwrap()),
+            result: Some(serde_json::json!(
+            {
+                "uri": Url::from_file_path(file).unwrap().to_string(),
+                "range": {
+                    "start": {"line": line_start, "character": char_start},
+                    "end": {"line": line_end, "character": char_end}
+                },
+                })),
+            error: None,
+        })
+    }
+
     pub fn expect_definition_response_from_root(
         &self,
         file: &'static str,
