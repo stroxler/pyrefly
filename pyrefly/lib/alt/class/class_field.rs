@@ -1414,6 +1414,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Some(bind_class_attribute(cls, foralled, &None))
     }
 
+    fn is_typed_dict_field(&self, metadata: &ClassMetadata, field_name: &Name) -> bool {
+        metadata
+            .typed_dict_metadata()
+            .is_some_and(|metadata| metadata.fields.contains_key(field_name))
+    }
+
     pub fn check_consistent_override_for_field(
         &self,
         cls: &Class,
@@ -1443,6 +1449,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut got_attr = None;
         let mut parent_attr_found = false;
         let mut parent_has_any = false;
+        let is_typed_dict_field =
+            self.is_typed_dict_field(&self.get_metadata_for_class(cls), field_name);
 
         for parent in bases.iter() {
             let parent_cls = parent.class_object();
@@ -1507,6 +1515,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     continue;
                 }
+            }
+            if is_typed_dict_field != self.is_typed_dict_field(&parent_metadata, field_name) {
+                // TypedDict fields are actually dict keys, so we want to check them against other
+                // keys but not regular fields.
+                continue;
             }
             let want_attr =
                 self.as_instance_attribute(&want_class_field, &Instance::of_class(parent));
