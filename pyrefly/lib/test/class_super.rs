@@ -283,3 +283,14 @@ class D(MixinC, B):
         super().method_c()
     "#,
 );
+
+testcase!(
+    bug = "The super().__init__ call should not error",
+    test_super_with_error_base,
+    r#"
+from nowhere import bob  # E: Could not find import
+class Foo(bob):
+    def __init__(self):
+        super().__init__(1)  # E: Expected 0 positional arguments, got 1
+    "#,
+);
