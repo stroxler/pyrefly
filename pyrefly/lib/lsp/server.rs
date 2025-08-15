@@ -994,7 +994,7 @@ impl Server {
     ) {
         let unknown = ModuleName::unknown();
 
-        eprintln!("Populating all files in the config ({:?}).", config.root);
+        eprintln!("Populating all files in the config ({:?}).", config.source);
         let mut transaction = state.new_committable_transaction(Require::Indexing, None);
 
         let project_path_blobs = config.get_filtered_globs(None);
