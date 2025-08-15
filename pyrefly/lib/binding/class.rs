@@ -786,7 +786,8 @@ impl<'a> BindingsBuilder<'a> {
                 }
             } else if let Some(name) = &kw.arg
                 && name.id == "defaults"
-                && let Expr::Tuple(ExprTuple { elts, .. }) = &kw.value
+                && let Expr::Tuple(ExprTuple { elts, .. }) | Expr::List(ExprList { elts, .. }) =
+                    &kw.value
             {
                 let n_defaults = elts.len();
                 if n_defaults > n_members {
@@ -806,7 +807,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.error(
                     kw.value.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Unrecognized argument for typed dictionary definition".to_owned(),
+                    "Unrecognized argument for named tuple definition".to_owned(),
                 );
             }
         }
