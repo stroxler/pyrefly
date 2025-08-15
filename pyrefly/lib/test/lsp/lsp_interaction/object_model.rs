@@ -31,6 +31,12 @@ use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::LspArgs;
 use crate::commands::lsp::run_lsp;
 use crate::test::util::init_test;
+#[derive(Default)]
+pub struct InitializeSettings {
+    pub workspace_folders: Option<Vec<(String, Url)>>,
+    pub configuration: bool,
+    pub file_watch: bool,
+}
 
 pub struct TestServer {
     sender: crossbeam_channel::Sender<Message>,
@@ -100,12 +106,7 @@ impl TestServer {
         }));
     }
 
-    pub fn get_initialize_params(
-        &self,
-        workspace_folders: Option<Vec<(String, Url)>>,
-        configuration: bool,
-        file_watch: bool,
-    ) -> Value {
+    pub fn get_initialize_params(&self, settings: InitializeSettings) -> Value {
         let mut params = serde_json::json!({
             "rootPath": "/",
             "processId": std::process::id(),
@@ -126,7 +127,7 @@ impl TestServer {
             },
         });
 
-        if let Some(folders) = workspace_folders {
+        if let Some(folders) = settings.workspace_folders {
             params["capabilities"]["workspace"]["workspaceFolders"] = serde_json::json!(true);
             params["workspaceFolders"] = serde_json::json!(
                 folders
@@ -135,11 +136,11 @@ impl TestServer {
                     .collect::<Vec<_>>()
             );
         }
-        if file_watch {
+        if settings.file_watch {
             params["capabilities"]["workspace"]["didChangeWatchedFiles"] =
                 serde_json::json!({"dynamicRegistration": true});
         }
-        if configuration {
+        if settings.configuration {
             params["capabilities"]["workspace"]["configuration"] = serde_json::json!(true);
         }
 
@@ -238,9 +239,9 @@ impl LspInteraction {
         }
     }
 
-    pub fn initialize(&self) {
+    pub fn initialize(&self, settings: InitializeSettings) {
         self.server
-            .send_initialize(self.server.get_initialize_params(None, false, false));
+            .send_initialize(self.server.get_initialize_params(settings));
         self.client.expect_any_message();
         self.server.send_initialized();
     }

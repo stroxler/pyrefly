@@ -17,6 +17,7 @@ use lsp_types::Url;
 use lsp_types::request::Request as _;
 use lsp_types::request::WorkspaceConfiguration;
 
+use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
@@ -26,9 +27,11 @@ use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 fn test_initialize_basic() {
     let interaction = LspInteraction::new();
 
-    interaction
-        .server
-        .send_initialize(interaction.server.get_initialize_params(None, false, false));
+    interaction.server.send_initialize(
+        interaction
+            .server
+            .get_initialize_params(InitializeSettings::default()),
+    );
     interaction
         .client
         .expect_message(Message::Response(Response {
@@ -67,7 +70,7 @@ fn test_initialize_basic() {
 #[test]
 fn test_shutdown() {
     let interaction = LspInteraction::new();
-    interaction.initialize();
+    interaction.initialize(InitializeSettings::default());
 
     interaction.server.send_shutdown(RequestId::from(2));
 
@@ -86,7 +89,7 @@ fn test_shutdown() {
 #[test]
 fn test_exit_without_shutdown() {
     let interaction = LspInteraction::new();
-    interaction.initialize();
+    interaction.initialize(InitializeSettings::default());
 
     interaction.server.send_exit();
     interaction.server.expect_stop();
@@ -181,7 +184,7 @@ fn test_nonexistent_file() {
 #[test]
 fn test_unknown_request() {
     let interaction = LspInteraction::new();
-    interaction.initialize();
+    interaction.initialize(InitializeSettings::default());
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(1),
         method: "fake-method".to_owned(),
