@@ -768,8 +768,7 @@
                       "key": "classes.Animal"
                     }
                   }
-                },
-                "decorators": []
+                }
               }
             }
           },
@@ -820,8 +819,7 @@
                       "key": "classes.Dog"
                     }
                   }
-                },
-                "decorators": []
+                }
               }
             }
           },
@@ -862,7 +860,6 @@
                     }
                   }
                 },
-                "decorators": [],
                 "is_async": false,
                 "kwonly_params": [],
                 "params": [
@@ -938,7 +935,6 @@
                     }
                   }
                 },
-                "decorators": [],
                 "is_async": false,
                 "kwonly_params": [],
                 "params": [
@@ -1008,7 +1004,6 @@
                     }
                   }
                 },
-                "decorators": [],
                 "is_async": false,
                 "kwonly_params": [],
                 "params": [

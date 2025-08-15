@@ -447,12 +447,18 @@ impl GleanState<'_> {
         }
     }
 
-    fn make_decorators(&self, decorators: &[Decorator]) -> Vec<String> {
+    fn make_decorators(&self, decorators: &[Decorator]) -> Option<Vec<String>> {
         let lined_buffer = self.module.lined_buffer();
-        decorators
+        let glean_decorators: Vec<String> = decorators
             .iter()
             .map(|x| lined_buffer.code_at(x.range()).to_owned())
-            .collect()
+            .collect();
+
+        if glean_decorators.is_empty() {
+            None
+        } else {
+            Some(glean_decorators)
+        }
     }
 
     fn class_facts(
@@ -476,7 +482,7 @@ impl GleanState<'_> {
             cls_declaration.clone(),
             Some(bases),
             None,
-            Some(self.make_decorators(&cls.decorator_list)),
+            self.make_decorators(&cls.decorator_list),
             Some((*context.container).clone()),
         );
 
@@ -667,7 +673,7 @@ impl GleanState<'_> {
             Some(kwonly_args),
             star_arg,
             star_kwarg,
-            Some(self.make_decorators(&func.decorator_list)),
+            self.make_decorators(&func.decorator_list),
             Some((*parent_ctx.container).clone()),
         );
 
