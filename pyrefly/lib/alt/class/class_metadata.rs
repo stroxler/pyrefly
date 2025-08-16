@@ -89,108 +89,6 @@ impl BaseClassParseResult {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
-        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
-            Some(ProtocolMetadata {
-                members: cls.fields().cloned().collect(),
-                is_runtime_checkable: false,
-            })
-        } else {
-            None
-        }
-    }
-
-    // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
-    // subset of syntactical forms, and does not look into any subscript of any expr
-    fn base_class_expr_infer(&self, expr: &Expr, errors: &ErrorCollector) -> Option<Type> {
-        match expr {
-            Expr::Name(x) => Some(
-                self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
-                    .arc_clone_ty(),
-            ),
-            Expr::Attribute(x) => {
-                let base = self.base_class_expr_infer(&x.value, errors)?;
-                Some(self.attr_infer_for_type(&base, &x.attr.id, x.range, errors, None))
-            }
-            Expr::Subscript(x) => self.base_class_expr_infer(&x.value, errors),
-            _ => None,
-        }
-    }
-
-    fn parse_base_class(&self, base: BaseClass, is_new_type: bool) -> BaseClassParseResult {
-        let range = base.range();
-        let parse_base_class_type = |ty| match ty {
-            Type::ClassType(c) => {
-                let base_cls = c.class_object();
-                let base_class_metadata = self.get_metadata_for_class(base_cls);
-                BaseClassParseResult::Parsed({
-                    ParsedBaseClass {
-                        class_object: base_cls.dupe(),
-                        range,
-                        metadata: base_class_metadata,
-                    }
-                })
-            }
-            Type::Tuple(_) => {
-                let tuple_obj = self.stdlib.tuple_object();
-                let metadata = self.get_metadata_for_class(tuple_obj);
-                BaseClassParseResult::Parsed({
-                    ParsedBaseClass {
-                        class_object: tuple_obj.dupe(),
-                        range,
-                        metadata,
-                    }
-                })
-            }
-            Type::TypedDict(typed_dict) => {
-                if is_new_type {
-                    BaseClassParseResult::InvalidType(typed_dict.to_type(), range)
-                } else {
-                    let class_object = typed_dict.class_object();
-                    let class_metadata = self.get_metadata_for_class(class_object);
-                    BaseClassParseResult::Parsed({
-                        ParsedBaseClass {
-                            class_object: class_object.dupe(),
-                            range,
-                            metadata: class_metadata,
-                        }
-                    })
-                }
-            }
-            _ => {
-                if is_new_type || !ty.is_any() {
-                    BaseClassParseResult::InvalidType(ty, range)
-                } else {
-                    BaseClassParseResult::AnyType
-                }
-            }
-        };
-
-        match base {
-            BaseClass::Expr(x) => {
-                // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
-                let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
-                match self.base_class_expr_infer(&x, &errors) {
-                    None => BaseClassParseResult::InvalidExpr(x),
-                    Some(ty) => match self.untype_opt(ty.clone(), x.range()) {
-                        None => BaseClassParseResult::InvalidType(ty, x.range()),
-                        Some(ty) => parse_base_class_type(ty),
-                    },
-                }
-            }
-            BaseClass::NamedTuple(..) => {
-                parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
-            }
-            BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
-                if is_new_type {
-                    BaseClassParseResult::InvalidBase(base.range())
-                } else {
-                    BaseClassParseResult::Ignored
-                }
-            }
-        }
-    }
-
     pub fn class_metadata_of(
         &self,
         cls: &Class,
@@ -542,6 +440,108 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             dataclass_transform_metadata,
             pydantic_metadata,
         )
+    }
+
+    fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
+        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
+            Some(ProtocolMetadata {
+                members: cls.fields().cloned().collect(),
+                is_runtime_checkable: false,
+            })
+        } else {
+            None
+        }
+    }
+
+    // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
+    // subset of syntactical forms, and does not look into any subscript of any expr
+    fn base_class_expr_infer(&self, expr: &Expr, errors: &ErrorCollector) -> Option<Type> {
+        match expr {
+            Expr::Name(x) => Some(
+                self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                    .arc_clone_ty(),
+            ),
+            Expr::Attribute(x) => {
+                let base = self.base_class_expr_infer(&x.value, errors)?;
+                Some(self.attr_infer_for_type(&base, &x.attr.id, x.range, errors, None))
+            }
+            Expr::Subscript(x) => self.base_class_expr_infer(&x.value, errors),
+            _ => None,
+        }
+    }
+
+    fn parse_base_class(&self, base: BaseClass, is_new_type: bool) -> BaseClassParseResult {
+        let range = base.range();
+        let parse_base_class_type = |ty| match ty {
+            Type::ClassType(c) => {
+                let base_cls = c.class_object();
+                let base_class_metadata = self.get_metadata_for_class(base_cls);
+                BaseClassParseResult::Parsed({
+                    ParsedBaseClass {
+                        class_object: base_cls.dupe(),
+                        range,
+                        metadata: base_class_metadata,
+                    }
+                })
+            }
+            Type::Tuple(_) => {
+                let tuple_obj = self.stdlib.tuple_object();
+                let metadata = self.get_metadata_for_class(tuple_obj);
+                BaseClassParseResult::Parsed({
+                    ParsedBaseClass {
+                        class_object: tuple_obj.dupe(),
+                        range,
+                        metadata,
+                    }
+                })
+            }
+            Type::TypedDict(typed_dict) => {
+                if is_new_type {
+                    BaseClassParseResult::InvalidType(typed_dict.to_type(), range)
+                } else {
+                    let class_object = typed_dict.class_object();
+                    let class_metadata = self.get_metadata_for_class(class_object);
+                    BaseClassParseResult::Parsed({
+                        ParsedBaseClass {
+                            class_object: class_object.dupe(),
+                            range,
+                            metadata: class_metadata,
+                        }
+                    })
+                }
+            }
+            _ => {
+                if is_new_type || !ty.is_any() {
+                    BaseClassParseResult::InvalidType(ty, range)
+                } else {
+                    BaseClassParseResult::AnyType
+                }
+            }
+        };
+
+        match base {
+            BaseClass::Expr(x) => {
+                // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
+                let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
+                match self.base_class_expr_infer(&x, &errors) {
+                    None => BaseClassParseResult::InvalidExpr(x),
+                    Some(ty) => match self.untype_opt(ty.clone(), x.range()) {
+                        None => BaseClassParseResult::InvalidType(ty, x.range()),
+                        Some(ty) => parse_base_class_type(ty),
+                    },
+                }
+            }
+            BaseClass::NamedTuple(..) => {
+                parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
+            }
+            BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
+                if is_new_type {
+                    BaseClassParseResult::InvalidBase(base.range())
+                } else {
+                    BaseClassParseResult::Ignored
+                }
+            }
+        }
     }
 
     fn bases_with_metadata(
