@@ -156,26 +156,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
         let mut dataclass_transform_metadata = dataclass_defaults_from_base_class.clone();
-        // This is set when we should apply dataclass-like transformations to the class. The class
-        // should be transformed if:
-        // - it inherits from a base class decorated with `dataclass_transform(...)`, or
-        // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
-        // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
-        // - is a Pydantic model
-        let mut dataclass_from_dataclass_transform = None;
-        if let Some(defaults) = dataclass_defaults_from_base_class {
-            // This class inherits from a dataclass_transform-ed base class, so its keywords are
-            // interpreted as dataclass keywords.
-            let map = keywords.clone().into_iter().collect::<OrderedMap<_, _>>();
-            let mut kws = DataclassKeywords::from_type_map(&TypeMap(map), &defaults);
-
-            // Inject frozen data from pydantic model
-            if let Some(pydantic) = pydantic_metadata.clone() {
-                kws.frozen = pydantic.frozen || kws.frozen;
-            }
-
-            dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));
-        }
         let is_typed_dict = has_typed_dict_base_class
             || bases_with_metadata
                 .iter()
@@ -256,26 +236,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     dataclass_transform_metadata =
                         Some(DataclassTransformKeywords::from_type_map(&call.keywords));
                 }
-                // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
-                _ if let Some(defaults) = decorator_ty.dataclass_transform_metadata() => {
-                    dataclass_from_dataclass_transform = Some((
-                        DataclassKeywords::from_type_map(&TypeMap::new(), &defaults),
-                        defaults.field_specifiers,
-                    ));
-                }
-                // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
-                _ if let Type::KwCall(call) = decorator_ty
-                    && let Some(defaults) =
-                        &call.func_metadata.flags.dataclass_transform_metadata =>
-                {
-                    dataclass_from_dataclass_transform = Some((
-                        DataclassKeywords::from_type_map(&call.keywords, defaults),
-                        defaults.field_specifiers.clone(),
-                    ));
-                }
                 _ => {}
             }
         }
+        let dataclass_from_dataclass_transform = self.dataclass_from_dataclass_transform(
+            &keywords,
+            &decorators,
+            dataclass_defaults_from_base_class,
+            pydantic_metadata.as_ref(),
+        );
         let dataclass_metadata = self.dataclass_metadata(
             cls,
             &decorators,
@@ -502,6 +471,55 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
+    }
+
+    fn dataclass_from_dataclass_transform(
+        &self,
+        keywords: &[(Name, Type)],
+        decorators: &[(Arc<TypeInfo>, TextRange)],
+        dataclass_defaults_from_base_class: Option<DataclassTransformKeywords>,
+        pydantic_metadata: Option<&PydanticMetadata>,
+    ) -> Option<(DataclassKeywords, Vec<CalleeKind>)> {
+        // This is set when we should apply dataclass-like transformations to the class. The class
+        // should be transformed if:
+        // - it inherits from a base class decorated with `dataclass_transform(...)`, or
+        // - it inherits from a base class whose metaclass is decorated with `dataclass_transform(...)`, or
+        // - it is decorated with a decorator that is decorated with `dataclass_transform(...)`.
+        // - is a Pydantic model
+        let mut dataclass_from_dataclass_transform = None;
+        if let Some(defaults) = dataclass_defaults_from_base_class {
+            // This class inherits from a dataclass_transform-ed base class, so its keywords are
+            // interpreted as dataclass keywords.
+            let map = keywords.iter().cloned().collect::<OrderedMap<_, _>>();
+            let mut kws = DataclassKeywords::from_type_map(&TypeMap(map), &defaults);
+
+            // Inject frozen data from pydantic model
+            if let Some(pydantic) = pydantic_metadata {
+                kws.frozen = pydantic.frozen || kws.frozen;
+            }
+
+            dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));
+        }
+        for (decorator, _) in decorators {
+            let decorator_ty = decorator.ty();
+            // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
+            if let Some(defaults) = decorator_ty.dataclass_transform_metadata() {
+                dataclass_from_dataclass_transform = Some((
+                    DataclassKeywords::from_type_map(&TypeMap::new(), &defaults),
+                    defaults.field_specifiers,
+                ));
+            }
+            // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
+            else if let Type::KwCall(call) = decorator_ty
+                && let Some(defaults) = &call.func_metadata.flags.dataclass_transform_metadata
+            {
+                dataclass_from_dataclass_transform = Some((
+                    DataclassKeywords::from_type_map(&call.keywords, defaults),
+                    defaults.field_specifiers.clone(),
+                ));
+            }
+        }
+        dataclass_from_dataclass_transform
     }
 
     fn dataclass_metadata(
