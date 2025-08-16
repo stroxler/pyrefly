@@ -114,8 +114,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|x| self.parse_base_class(x, is_new_type))
             .collect::<Vec<_>>();
         let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
-        let bases_with_metadata =
-            self.bases_with_metadata(parsed_results, is_new_type, &mut protocol_metadata, errors);
+        if let Some(proto) = &mut protocol_metadata {
+            for base in parsed_results.iter() {
+                if let BaseClassParseResult::Parsed(ParsedBaseClass {
+                    class_object: _,
+                    range,
+                    metadata,
+                }) = base
+                {
+                    if let Some(base_proto) = metadata.protocol_metadata() {
+                        proto.members.extend(base_proto.members.iter().cloned());
+                        if base_proto.is_runtime_checkable {
+                            proto.is_runtime_checkable = true;
+                        }
+                    } else {
+                        self.error(errors,
+                            *range,
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
+                        );
+                    }
+                }
+            }
+        }
+        let bases_with_metadata = self.bases_with_metadata(parsed_results, is_new_type, errors);
         let has_base_any = contains_base_class_any
             || bases_with_metadata
                 .iter()
@@ -548,105 +570,97 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         parsed_results: Vec<BaseClassParseResult>,
         is_new_type: bool,
-        mut protocol_metadata: &mut Option<ProtocolMetadata>,
         errors: &ErrorCollector,
     ) -> Vec<(Class, Arc<ClassMetadata>)> {
-        parsed_results.into_iter().filter_map(|x| match x {
-            BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
-            BaseClassParseResult::InvalidBase(range) => {
-                if is_new_type {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                        "Second argument to NewType is invalid".to_owned(),
-                    );
-                }
-                None
-            }
-            BaseClassParseResult::InvalidExpr(expr) => {
-                if is_new_type {
-                    self.error(
-                        errors,
-                        expr.range(),
-                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                        "Second argument to NewType is invalid".to_owned(),
-                    );
-                } else {
-                    self.error(
-                        errors,
-                        expr.range(),
-                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        format!(
-                            "Invalid expression form for base class: `{}`",
-                            expr.display_with(self.module())
-                        ),
-                    );
-                }
-                None
-            }
-            BaseClassParseResult::InvalidType(ty, range) => {
-                if is_new_type {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                        "Second argument to NewType is invalid".to_owned(),
-                    );
-                } else {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        format!("Invalid base class: `{}`", self.for_display(ty)),
-                    );
-                }
-                None
-            }
-            BaseClassParseResult::Parsed(ParsedBaseClass { class_object, range, metadata }) => {
-                if metadata.is_final() {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        format!("Cannot extend final class `{}`", class_object.name()),
-                    );
-                }
-                if is_new_type {
-                    // TODO: raise an error for generic classes and other forbidden types such as hashable
-                    if metadata.is_protocol() {
+        parsed_results
+            .into_iter()
+            .filter_map(|x| match x {
+                BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
+                BaseClassParseResult::InvalidBase(range) => {
+                    if is_new_type {
                         self.error(
                             errors,
                             range,
                             ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "Second argument to NewType cannot be a protocol".to_owned(),
+                            "Second argument to NewType is invalid".to_owned(),
                         );
                     }
-                } else if metadata.is_new_type() {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        "Subclassing a NewType not allowed".to_owned(),
-                    );
+                    None
                 }
-                if let Some(proto) = &mut protocol_metadata {
-                    if let Some(base_proto) = metadata.protocol_metadata() {
-                        proto.members.extend(base_proto.members.iter().cloned());
-                        if base_proto.is_runtime_checkable {
-                            proto.is_runtime_checkable = true;
-                        }
+                BaseClassParseResult::InvalidExpr(expr) => {
+                    if is_new_type {
+                        self.error(
+                            errors,
+                            expr.range(),
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "Second argument to NewType is invalid".to_owned(),
+                        );
                     } else {
-                        self.error(errors,
+                        self.error(
+                            errors,
+                            expr.range(),
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            format!(
+                                "Invalid expression form for base class: `{}`",
+                                expr.display_with(self.module())
+                            ),
+                        );
+                    }
+                    None
+                }
+                BaseClassParseResult::InvalidType(ty, range) => {
+                    if is_new_type {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "Second argument to NewType is invalid".to_owned(),
+                        );
+                    } else {
+                        self.error(
+                            errors,
                             range,
                             ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                            "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
+                            format!("Invalid base class: `{}`", self.for_display(ty)),
                         );
                     }
+                    None
                 }
-                Some((class_object, metadata))
-            }
-        }).collect::<Vec<_>>()
+                BaseClassParseResult::Parsed(ParsedBaseClass {
+                    class_object,
+                    range,
+                    metadata,
+                }) => {
+                    if metadata.is_final() {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            format!("Cannot extend final class `{}`", class_object.name()),
+                        );
+                    }
+                    if is_new_type {
+                        // TODO: raise an error for generic classes and other forbidden types such as hashable
+                        if metadata.is_protocol() {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                "Second argument to NewType cannot be a protocol".to_owned(),
+                            );
+                        }
+                    } else if metadata.is_new_type() {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            "Subclassing a NewType not allowed".to_owned(),
+                        );
+                    }
+                    Some((class_object, metadata))
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     fn calculate_typed_dict_metadata_fields(
