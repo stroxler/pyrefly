@@ -12,6 +12,7 @@ use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::type_info::TypeInfo;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
@@ -109,7 +110,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
         }
-        let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
+        let initial_protocol_metadata = Self::initial_protocol_metadata(cls, bases.as_slice());
         let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
@@ -118,29 +119,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|x| self.parse_base_class(x, is_new_type))
             .collect::<Vec<_>>();
         let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
-        if let Some(proto) = &mut protocol_metadata {
-            for base in parsed_results.iter() {
-                if let BaseClassParseResult::Parsed(ParsedBaseClass {
-                    class_object: _,
-                    range,
-                    metadata,
-                }) = base
-                {
-                    if let Some(base_proto) = metadata.protocol_metadata() {
-                        proto.members.extend(base_proto.members.iter().cloned());
-                        if base_proto.is_runtime_checkable {
-                            proto.is_runtime_checkable = true;
-                        }
-                    } else {
-                        self.error(errors,
-                            *range,
-                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                            "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
-                        );
-                    }
-                }
-            }
-        }
+        let protocol_metadata = self.final_protocol_metadata(
+            initial_protocol_metadata,
+            &decorators,
+            &parsed_results,
+            errors,
+        );
         let bases_with_metadata = self.bases_with_metadata(parsed_results, is_new_type, errors);
         let has_base_any = contains_base_class_any
             || bases_with_metadata
@@ -350,18 +334,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
                     is_final = true;
                 }
-                Some(CalleeKind::Function(FunctionKind::RuntimeCheckable)) => {
-                    if let Some(proto) = &mut protocol_metadata {
-                        proto.is_runtime_checkable = true;
-                    } else {
-                        self.error(
-                            errors,
-                            cls.range(),
-                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "@runtime_checkable can only be applied to Protocol classes".to_owned(),
-                        );
-                    }
-                }
                 Some(CalleeKind::Function(FunctionKind::TotalOrdering)) => {
                     total_ordering_metadata = Some(TotalOrderingMetadata {
                         location: decorator_range,
@@ -467,7 +439,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
+    fn initial_protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
         if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
             Some(ProtocolMetadata {
                 members: cls.fields().cloned().collect(),
@@ -476,6 +448,56 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
+    }
+
+    fn final_protocol_metadata(
+        &self,
+        mut protocol_metadata: Option<ProtocolMetadata>,
+        decorators: &[(Arc<TypeInfo>, TextRange)],
+        parsed_results: &[BaseClassParseResult],
+        errors: &ErrorCollector,
+    ) -> Option<ProtocolMetadata> {
+        if let Some(proto) = &mut protocol_metadata {
+            for base in parsed_results.iter() {
+                if let BaseClassParseResult::Parsed(ParsedBaseClass {
+                    class_object: _,
+                    range,
+                    metadata,
+                }) = base
+                {
+                    if let Some(base_proto) = metadata.protocol_metadata() {
+                        proto.members.extend(base_proto.members.iter().cloned());
+                        if base_proto.is_runtime_checkable {
+                            proto.is_runtime_checkable = true;
+                        }
+                    } else {
+                        self.error(errors,
+                            *range,
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            "If `Protocol` is included as a base class, all other bases must be protocols".to_owned(),
+                        );
+                    }
+                }
+            }
+        }
+        for (decorator, range) in decorators {
+            match decorator.ty().callee_kind() {
+                Some(CalleeKind::Function(FunctionKind::RuntimeCheckable)) => {
+                    if let Some(proto) = &mut protocol_metadata {
+                        proto.is_runtime_checkable = true;
+                    } else {
+                        self.error(
+                            errors,
+                            *range,
+                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                            "@runtime_checkable can only be applied to Protocol classes".to_owned(),
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+        protocol_metadata
     }
 
     // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
