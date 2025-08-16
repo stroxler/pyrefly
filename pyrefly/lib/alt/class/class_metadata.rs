@@ -130,21 +130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .any(|(_, metadata)| metadata.has_base_any());
 
-        let named_tuple_metadata =
-            bases_with_metadata
-                .iter()
-                .find_map(|(base_class_object, metadata)| {
-                    if base_class_object.has_qname(
-                        ModuleName::type_checker_internals().as_str(),
-                        "NamedTupleFallback",
-                    ) {
-                        Some(NamedTupleMetadata {
-                            elements: self.get_named_tuple_elements(cls, errors),
-                        })
-                    } else {
-                        metadata.named_tuple_metadata().cloned()
-                    }
-                });
+        let named_tuple_metadata = self.named_tuple_metadata(cls, &bases_with_metadata, errors);
         if named_tuple_metadata.is_some() && bases_with_metadata.len() > 1 {
             self.error(
                 errors,
@@ -471,6 +457,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         protocol_metadata
+    }
+
+    fn named_tuple_metadata(
+        &self,
+        cls: &Class,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        errors: &ErrorCollector,
+    ) -> Option<NamedTupleMetadata> {
+        bases_with_metadata
+            .iter()
+            .find_map(|(base_class_object, metadata)| {
+                if base_class_object.has_qname(
+                    ModuleName::type_checker_internals().as_str(),
+                    "NamedTupleFallback",
+                ) {
+                    Some(NamedTupleMetadata {
+                        elements: self.get_named_tuple_elements(cls, errors),
+                    })
+                } else {
+                    metadata.named_tuple_metadata().cloned()
+                }
+            })
     }
 
     fn enum_metadata(
