@@ -105,7 +105,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let decorators = decorators.map(|(decorator_key, decorator_range)| {
             (self.get_idx(*decorator_key), *decorator_range)
         });
-        let mut enum_metadata = None;
         let mut bases: Vec<BaseClass> = bases.to_vec();
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
@@ -272,36 +271,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             dataclass_transform_metadata = Some(m.clone());
         }
+        let enum_metadata =
+            self.enum_metadata(cls, metaclass.as_ref(), &bases_with_metadata, errors);
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
-            if self
-                .as_superclass(metaclass, self.stdlib.enum_meta().class_object())
-                .is_some()
-            {
-                // NOTE(grievejia): This may create potential cycle if metaclass is generic. Need to look into
-                // whether it can be removed or not.
-                if !self.get_class_tparams(cls).is_empty() {
-                    self.error(
-                        errors,
-                        cls.range(),
-                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        "Enums may not be generic".to_owned(),
-                    );
-                }
-                enum_metadata = Some(EnumMetadata {
-                    // A generic enum is an error, but we create Any type args anyway to handle it gracefully.
-                    cls: self.promote_nontypeddict_silently_to_classtype(cls),
-                    has_value: bases_with_metadata
-                        .iter()
-                        .any(|(base, _)| base.contains(&Name::new_static("_value_"))),
-                    is_flag: bases_with_metadata.iter().any(|(base, _)| {
-                        self.is_subset_eq(
-                            &Type::ClassType(self.promote_nontypeddict_silently_to_classtype(base)),
-                            &Type::ClassType(self.stdlib.enum_flag().clone()),
-                        )
-                    }),
-                })
-            }
             if is_typed_dict {
                 self.error(
                     errors,
@@ -498,6 +471,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         protocol_metadata
+    }
+
+    fn enum_metadata(
+        &self,
+        cls: &Class,
+        metaclass: Option<&ClassType>,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        errors: &ErrorCollector,
+    ) -> Option<EnumMetadata> {
+        if let Some(metaclass) = metaclass
+            && self
+                .as_superclass(metaclass, self.stdlib.enum_meta().class_object())
+                .is_some()
+        {
+            // NOTE(grievejia): This may create potential cycle if metaclass is generic. Need to look into
+            // whether it can be removed or not.
+            if !self.get_class_tparams(cls).is_empty() {
+                self.error(
+                    errors,
+                    cls.range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                    "Enums may not be generic".to_owned(),
+                );
+            }
+            Some(EnumMetadata {
+                // A generic enum is an error, but we create Any type args anyway to handle it gracefully.
+                cls: self.promote_nontypeddict_silently_to_classtype(cls),
+                has_value: bases_with_metadata
+                    .iter()
+                    .any(|(base, _)| base.contains(&Name::new_static("_value_"))),
+                is_flag: bases_with_metadata.iter().any(|(base, _)| {
+                    self.is_subset_eq(
+                        &Type::ClassType(self.promote_nontypeddict_silently_to_classtype(base)),
+                        &Type::ClassType(self.stdlib.enum_flag().clone()),
+                    )
+                }),
+            })
+        } else {
+            None
+        }
     }
 
     // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
