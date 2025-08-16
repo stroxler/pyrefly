@@ -13,6 +13,7 @@ use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -100,6 +101,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         pydantic_metadata_binding: &PydanticMetadataBinding,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
+        let decorators = decorators.map(|(decorator_key, decorator_range)| {
+            (self.get_idx(*decorator_key), *decorator_range)
+        });
         let mut enum_metadata = None;
         let mut bases: Vec<BaseClass> = bases.to_vec();
         if let Some(special_base) = special_base {
@@ -340,8 +344,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let mut is_final = false;
         let mut total_ordering_metadata = None;
-        for (decorator_key, decorator_range) in decorators {
-            let decorator = self.get_idx(*decorator_key);
+        for (decorator, decorator_range) in decorators {
             let decorator_ty = decorator.ty();
             match decorator_ty.callee_kind() {
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
@@ -361,7 +364,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Some(CalleeKind::Function(FunctionKind::TotalOrdering)) => {
                     total_ordering_metadata = Some(TotalOrderingMetadata {
-                        location: *decorator_range,
+                        location: decorator_range,
                     });
                 }
                 // `@dataclass`
