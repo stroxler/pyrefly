@@ -105,10 +105,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let decorators = decorators.map(|(decorator_key, decorator_range)| {
             (self.get_idx(*decorator_key), *decorator_range)
         });
-        let mut bases: Vec<BaseClass> = bases.to_vec();
-        if let Some(special_base) = special_base {
-            bases.push((**special_base).clone());
-        }
+        let bases = if let Some(special_base) = special_base {
+            bases
+                .iter()
+                .chain([(**special_base).clone()].iter())
+                .cloned()
+                .collect()
+        } else {
+            bases.to_vec()
+        };
         let initial_protocol_metadata = Self::initial_protocol_metadata(cls, bases.as_slice());
         let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
@@ -200,22 +205,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         }
-        let mut is_final = false;
-        let mut total_ordering_metadata = None;
-        for (decorator, decorator_range) in decorators.iter() {
-            let decorator_ty = decorator.ty();
-            match decorator_ty.callee_kind() {
-                Some(CalleeKind::Function(FunctionKind::Final)) => {
-                    is_final = true;
-                }
-                Some(CalleeKind::Function(FunctionKind::TotalOrdering)) => {
-                    total_ordering_metadata = Some(TotalOrderingMetadata {
+        let is_final = decorators.iter().any(|(decorator, _)| {
+            decorator.ty().callee_kind() == Some(CalleeKind::Function(FunctionKind::Final))
+        });
+        let total_ordering_metadata = decorators.iter().find_map(|(decorator, decorator_range)| {
+            decorator.ty().callee_kind().and_then(|kind| {
+                if kind == CalleeKind::Function(FunctionKind::TotalOrdering) {
+                    Some(TotalOrderingMetadata {
                         location: *decorator_range,
-                    });
+                    })
+                } else {
+                    None
                 }
-                _ => {}
-            }
-        }
+            })
+        });
         // If this class inherits from a dataclass_transform-ed class, record the defaults that we
         // should use for dataclass parameters.
         let dataclass_defaults_from_base_class = bases_with_metadata
