@@ -147,15 +147,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let pydantic_metadata =
             self.pydantic_metadata(&bases_with_metadata, pydantic_metadata_binding);
 
-        // If this class inherits from a dataclass_transform-ed class, record the defaults that we
-        // should use for dataclass parameters.
-        let dataclass_defaults_from_base_class = bases_with_metadata
-            .iter()
-            .find_map(|(_, metadata)| metadata.dataclass_transform_metadata().cloned());
-        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
-        // this does not turn the class into a dataclass! Instead, it becomes a special base class
-        // (or metaclass) that turns child classes into dataclasses.
-        let mut dataclass_transform_metadata = dataclass_defaults_from_base_class.clone();
         let is_typed_dict = has_typed_dict_base_class
             || bases_with_metadata
                 .iter()
@@ -181,13 +172,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &base_metaclasses,
             errors,
         );
-        if let Some(c) = &metaclass
-            && let Some(m) = self
-                .get_metadata_for_class(c.class_object())
-                .dataclass_transform_metadata()
-        {
-            dataclass_transform_metadata = Some(m.clone());
-        }
         let enum_metadata =
             self.enum_metadata(cls, metaclass.as_ref(), &bases_with_metadata, errors);
         if let Some(metaclass) = &metaclass {
@@ -229,16 +213,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         location: *decorator_range,
                     });
                 }
-                // `@dataclass_transform(...)`
-                _ if let Type::KwCall(call) = decorator_ty
-                    && call.has_function_kind(FunctionKind::DataclassTransform) =>
-                {
-                    dataclass_transform_metadata =
-                        Some(DataclassTransformKeywords::from_type_map(&call.keywords));
-                }
                 _ => {}
             }
         }
+        // If this class inherits from a dataclass_transform-ed class, record the defaults that we
+        // should use for dataclass parameters.
+        let dataclass_defaults_from_base_class = bases_with_metadata
+            .iter()
+            .find_map(|(_, metadata)| metadata.dataclass_transform_metadata().cloned());
+        let dataclass_transform_metadata = self.dataclass_transform_metadata(
+            &decorators,
+            metaclass.as_ref(),
+            dataclass_defaults_from_base_class.clone(),
+        );
         let dataclass_from_dataclass_transform = self.dataclass_from_dataclass_transform(
             &keywords,
             &decorators,
@@ -471,6 +458,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
+    }
+
+    fn dataclass_transform_metadata(
+        &self,
+        decorators: &[(Arc<TypeInfo>, TextRange)],
+        metaclass: Option<&ClassType>,
+        dataclass_defaults_from_base_class: Option<DataclassTransformKeywords>,
+    ) -> Option<DataclassTransformKeywords> {
+        // This is set when a class is decorated with `@typing.dataclass_transform(...)`. Note that
+        // this does not turn the class into a dataclass! Instead, it becomes a special base class
+        // (or metaclass) that turns child classes into dataclasses.
+        let mut dataclass_transform_metadata = dataclass_defaults_from_base_class;
+        if let Some(c) = metaclass
+            && let Some(m) = self
+                .get_metadata_for_class(c.class_object())
+                .dataclass_transform_metadata()
+        {
+            dataclass_transform_metadata = Some(m.clone());
+        }
+        for (decorator, _) in decorators {
+            // `@dataclass_transform(...)`
+            if let Type::KwCall(call) = decorator.ty()
+                && call.has_function_kind(FunctionKind::DataclassTransform)
+            {
+                dataclass_transform_metadata =
+                    Some(DataclassTransformKeywords::from_type_map(&call.keywords));
+            }
+        }
+        dataclass_transform_metadata
     }
 
     fn dataclass_from_dataclass_transform(
