@@ -102,9 +102,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         pydantic_metadata_binding: &PydanticMetadataBinding,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
+        // Get class decorators.
         let decorators = decorators.map(|(decorator_key, decorator_range)| {
             (self.get_idx(*decorator_key), *decorator_range)
         });
+
+        // Get full base class list and compute data that depends on the `BaseClass` representation
+        // of base classes.
         let bases = if let Some(special_base) = special_base {
             bases
                 .iter()
@@ -118,6 +122,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
+        // Parse base classes and compute data that depends on the `BaseClassParseResult`
+        // representation of base classes.
         let parsed_results = bases
             .into_iter()
             .map(|x| self.parse_base_class(x, is_new_type))
@@ -129,7 +135,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &parsed_results,
             errors,
         );
+
+        // Compute base classes with metadata.
         let bases_with_metadata = self.bases_with_metadata(parsed_results, is_new_type, errors);
+
+        // Compute class keywords, including the metaclass.
+        let (metaclasses, keywords): (Vec<_>, Vec<(_, _)>) =
+            keywords.iter().partition_map(|(n, x)| match n.as_str() {
+                "metaclass" => Either::Left(x),
+                _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
+            });
+        let base_metaclasses = bases_with_metadata
+            .iter()
+            .filter_map(|(b, metadata)| metadata.metaclass().map(|m| (b.name(), m)))
+            .collect::<Vec<_>>();
+        let metaclass = self.calculate_metaclass(
+            cls,
+            metaclasses.into_iter().next(),
+            &base_metaclasses,
+            errors,
+        );
+        if let Some(metaclass) = &metaclass {
+            self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
+            if metaclass.targs().as_slice().iter().any(|targ| {
+                targ.any(|ty| {
+                    matches!(
+                        ty,
+                        Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
+                    )
+                })
+            }) {
+                self.error(
+                    errors,
+                    cls.range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                    "Metaclass may not be an unbound generic".to_owned(),
+                );
+            }
+        }
+
+        // Compute various pieces of special metadata.
         let has_base_any = contains_base_class_any
             || bases_with_metadata
                 .iter()
@@ -144,11 +189,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Named tuples do not support multiple inheritance".to_owned(),
             );
         }
-        let (metaclasses, keywords): (Vec<_>, Vec<(_, _)>) =
-            keywords.iter().partition_map(|(n, x)| match n.as_str() {
-                "metaclass" => Either::Left(x),
-                _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
-            });
+
         let pydantic_metadata =
             self.pydantic_metadata(&bases_with_metadata, pydantic_metadata_binding);
 
@@ -167,47 +208,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let typed_dict_metadata =
             self.typed_dict_metadata(cls, &bases_with_metadata, &keywords, is_typed_dict, errors);
-        let base_metaclasses = bases_with_metadata
-            .iter()
-            .filter_map(|(b, metadata)| metadata.metaclass().map(|m| (b.name(), m)))
-            .collect::<Vec<_>>();
-        let metaclass = self.calculate_metaclass(
-            cls,
-            metaclasses.into_iter().next(),
-            &base_metaclasses,
-            errors,
-        );
+        if metaclass.is_some() && is_typed_dict {
+            self.error(
+                errors,
+                cls.range(),
+                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                "Typed dictionary definitions may not specify a metaclass".to_owned(),
+            );
+        }
+
         let enum_metadata =
             self.enum_metadata(cls, metaclass.as_ref(), &bases_with_metadata, errors);
-        if let Some(metaclass) = &metaclass {
-            self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
-            if is_typed_dict {
-                self.error(
-                    errors,
-                    cls.range(),
-                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                    "Typed dictionary definitions may not specify a metaclass".to_owned(),
-                );
-            }
-            if metaclass.targs().as_slice().iter().any(|targ| {
-                targ.any(|ty| {
-                    matches!(
-                        ty,
-                        Type::TypeVar(_) | Type::TypeVarTuple(_) | Type::ParamSpec(_)
-                    )
-                })
-            }) {
-                self.error(
-                    errors,
-                    cls.range(),
-                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                    "Metaclass may not be an unbound generic".to_owned(),
-                );
-            }
-        }
+
         let is_final = decorators.iter().any(|(decorator, _)| {
             decorator.ty().callee_kind() == Some(CalleeKind::Function(FunctionKind::Final))
         });
+
         let total_ordering_metadata = decorators.iter().find_map(|(decorator, decorator_range)| {
             decorator.ty().callee_kind().and_then(|kind| {
                 if kind == CalleeKind::Function(FunctionKind::TotalOrdering) {
@@ -219,6 +235,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             })
         });
+
         // If this class inherits from a dataclass_transform-ed class, record the defaults that we
         // should use for dataclass parameters.
         let dataclass_defaults_from_base_class = bases_with_metadata
@@ -245,6 +262,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
 
+        // Compute final base class list.
         let bases = if is_typed_dict && bases_with_metadata.is_empty() {
             // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
             // Note that this also makes those attributes available on *instances* of said subclasses; this is
