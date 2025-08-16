@@ -156,14 +156,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
         let mut dataclass_transform_metadata = dataclass_defaults_from_base_class.clone();
-        // If we inherit from a dataclass, inherit its metadata. Note that if this class is
-        // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
-        let mut dataclass_metadata = bases_with_metadata.iter().find_map(|(_, metadata)| {
-            let mut m = metadata.dataclass_metadata().cloned()?;
-            // Avoid accidentally overwriting a non-synthesized `__init__`.
-            m.kws.init = false;
-            Some(m)
-        });
         // This is set when we should apply dataclass-like transformations to the class. The class
         // should be transformed if:
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
@@ -246,7 +238,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let mut is_final = false;
         let mut total_ordering_metadata = None;
-        for (decorator, decorator_range) in decorators {
+        for (decorator, decorator_range) in decorators.iter() {
             let decorator_ty = decorator.ty();
             match decorator_ty.callee_kind() {
                 Some(CalleeKind::Function(FunctionKind::Final)) => {
@@ -254,36 +246,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Some(CalleeKind::Function(FunctionKind::TotalOrdering)) => {
                     total_ordering_metadata = Some(TotalOrderingMetadata {
-                        location: decorator_range,
-                    });
-                }
-                // `@dataclass`
-                Some(CalleeKind::Function(FunctionKind::Dataclass)) => {
-                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
-                    dataclass_metadata = Some(DataclassMetadata {
-                        fields: dataclass_fields,
-                        kws: DataclassKeywords::new(),
-                        field_specifiers: vec![
-                            CalleeKind::Function(FunctionKind::DataclassField),
-                            CalleeKind::Class(ClassKind::DataclassField),
-                        ],
-                    });
-                }
-                // `@dataclass(...)`
-                _ if let Type::KwCall(call) = decorator_ty
-                    && call.has_function_kind(FunctionKind::Dataclass) =>
-                {
-                    let dataclass_fields = self.get_dataclass_fields(cls, &bases_with_metadata);
-                    dataclass_metadata = Some(DataclassMetadata {
-                        fields: dataclass_fields,
-                        kws: DataclassKeywords::from_type_map(
-                            &call.keywords,
-                            &DataclassTransformKeywords::new(),
-                        ),
-                        field_specifiers: vec![
-                            CalleeKind::Function(FunctionKind::DataclassField),
-                            CalleeKind::Class(ClassKind::DataclassField),
-                        ],
+                        location: *decorator_range,
                     });
                 }
                 // `@dataclass_transform(...)`
@@ -313,13 +276,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => {}
             }
         }
-        if let Some((kws, field_specifiers)) = dataclass_from_dataclass_transform {
-            dataclass_metadata = Some(DataclassMetadata {
-                fields: self.get_dataclass_fields(cls, &bases_with_metadata),
-                kws,
-                field_specifiers,
-            });
-        }
+        let dataclass_metadata = self.dataclass_metadata(
+            cls,
+            &decorators,
+            &bases_with_metadata,
+            dataclass_from_dataclass_transform,
+        );
         if let Some(dm) = dataclass_metadata.as_ref() {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
@@ -540,6 +502,66 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
+    }
+
+    fn dataclass_metadata(
+        &self,
+        cls: &Class,
+        decorators: &[(Arc<TypeInfo>, TextRange)],
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        dataclass_from_dataclass_transform: Option<(DataclassKeywords, Vec<CalleeKind>)>,
+    ) -> Option<DataclassMetadata> {
+        // If we inherit from a dataclass, inherit its metadata. Note that if this class is
+        // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
+        let mut dataclass_metadata = bases_with_metadata.iter().find_map(|(_, metadata)| {
+            let mut m = metadata.dataclass_metadata().cloned()?;
+            // Avoid accidentally overwriting a non-synthesized `__init__`.
+            m.kws.init = false;
+            Some(m)
+        });
+        for (decorator, _) in decorators {
+            let decorator_ty = decorator.ty();
+            match decorator_ty.callee_kind() {
+                // `@dataclass`
+                Some(CalleeKind::Function(FunctionKind::Dataclass)) => {
+                    let dataclass_fields = self.get_dataclass_fields(cls, bases_with_metadata);
+                    dataclass_metadata = Some(DataclassMetadata {
+                        fields: dataclass_fields,
+                        kws: DataclassKeywords::new(),
+                        field_specifiers: vec![
+                            CalleeKind::Function(FunctionKind::DataclassField),
+                            CalleeKind::Class(ClassKind::DataclassField),
+                        ],
+                    });
+                }
+                // `@dataclass(...)`
+                _ if let Type::KwCall(call) = decorator_ty
+                    && call.has_function_kind(FunctionKind::Dataclass) =>
+                {
+                    let dataclass_fields = self.get_dataclass_fields(cls, bases_with_metadata);
+                    dataclass_metadata = Some(DataclassMetadata {
+                        fields: dataclass_fields,
+                        kws: DataclassKeywords::from_type_map(
+                            &call.keywords,
+                            &DataclassTransformKeywords::new(),
+                        ),
+                        field_specifiers: vec![
+                            CalleeKind::Function(FunctionKind::DataclassField),
+                            CalleeKind::Class(ClassKind::DataclassField),
+                        ],
+                    });
+                }
+                _ => {}
+            }
+        }
+        if let Some((kws, field_specifiers)) = dataclass_from_dataclass_transform {
+            dataclass_metadata = Some(DataclassMetadata {
+                fields: self.get_dataclass_fields(cls, bases_with_metadata),
+                kws,
+                field_specifiers,
+            });
+        }
+        dataclass_metadata
     }
 
     // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
