@@ -216,30 +216,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0.name()),
             );
         }
-        let typed_dict_metadata = if is_typed_dict {
-            // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
-            let mut is_total = true;
-            for (name, value) in &keywords {
-                if name.as_str() != "total" {
-                    self.error(
-                        errors,
-                        cls.range(),
-                        ErrorInfo::Kind(ErrorKind::BadTypedDict),
-                        format!(
-                            "TypedDict does not support keyword argument `{}`",
-                            name.as_str()
-                        ),
-                    );
-                } else if matches!(value, Type::Literal(Lit::Bool(false))) {
-                    is_total = false;
-                }
-            }
-            let fields =
-                self.calculate_typed_dict_metadata_fields(cls, &bases_with_metadata, is_total);
-            Some(TypedDictMetadata { fields })
-        } else {
-            None
-        };
+        let typed_dict_metadata =
+            self.typed_dict_metadata(cls, &bases_with_metadata, &keywords, is_typed_dict, errors);
         let base_metaclasses = bases_with_metadata
             .iter()
             .filter_map(|(b, metadata)| metadata.metaclass().map(|m| (b.name(), m)))
@@ -479,6 +457,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata.named_tuple_metadata().cloned()
                 }
             })
+    }
+
+    fn typed_dict_metadata(
+        &self,
+        cls: &Class,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        keywords: &[(Name, Type)],
+        is_typed_dict: bool,
+        errors: &ErrorCollector,
+    ) -> Option<TypedDictMetadata> {
+        if is_typed_dict {
+            // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
+            let mut is_total = true;
+            for (name, value) in keywords {
+                if name.as_str() != "total" {
+                    self.error(
+                        errors,
+                        cls.range(),
+                        ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                        format!(
+                            "TypedDict does not support keyword argument `{}`",
+                            name.as_str()
+                        ),
+                    );
+                } else if matches!(value, Type::Literal(Lit::Bool(false))) {
+                    is_total = false;
+                }
+            }
+            let fields =
+                self.calculate_typed_dict_metadata_fields(cls, bases_with_metadata, is_total);
+            Some(TypedDictMetadata { fields })
+        } else {
+            None
+        }
     }
 
     fn enum_metadata(
