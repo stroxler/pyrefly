@@ -144,27 +144,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "metaclass" => Either::Left(x),
                 _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
             });
-        let has_pydantic_base_model_base_class =
-            bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
-            });
-
-        let is_pydantic_model = has_pydantic_base_model_base_class
-            || bases_with_metadata
-                .iter()
-                .any(|(_, metadata)| metadata.is_pydantic_model());
-
-        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
-        let pydantic_metadata = match pydantic_metadata_binding {
-            PydanticMetadataBinding {
-                frozen,
-                validation_alias,
-            } if is_pydantic_model => Some(PydanticMetadata {
-                frozen: *frozen,
-                validation_alias: validation_alias.clone(),
-            }),
-            _ => None,
-        };
+        let pydantic_metadata =
+            self.pydantic_metadata(&bases_with_metadata, pydantic_metadata_binding);
 
         // If this class inherits from a dataclass_transform-ed class, record the defaults that we
         // should use for dataclass parameters.
@@ -457,6 +438,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata.named_tuple_metadata().cloned()
                 }
             })
+    }
+
+    fn pydantic_metadata(
+        &self,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        pydantic_metadata_binding: &PydanticMetadataBinding,
+    ) -> Option<PydanticMetadata> {
+        let has_pydantic_base_model_base_class =
+            bases_with_metadata.iter().any(|(base_class_object, _)| {
+                base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
+            });
+
+        let is_pydantic_model = has_pydantic_base_model_base_class
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.is_pydantic_model());
+
+        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
+        match pydantic_metadata_binding {
+            PydanticMetadataBinding {
+                frozen,
+                validation_alias,
+            } if is_pydantic_model => Some(PydanticMetadata {
+                frozen: *frozen,
+                validation_alias: validation_alias.clone(),
+            }),
+            _ => None,
+        }
     }
 
     fn typed_dict_metadata(
