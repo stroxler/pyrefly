@@ -358,7 +358,7 @@ impl Query {
                 class_name: Some(class_name),
             }]
         }
-        fn callee_for_type(
+        fn callee_from_type(
             ty: &Type,
             callee_range: TextRange,
             module_info: &ModuleInfo,
@@ -370,7 +370,7 @@ impl Query {
                     // get callee for each type
                     tys.iter()
                         .flat_map(|t| {
-                            callee_for_type(t, callee_range, module_info, transaction, handle)
+                            callee_from_type(t, callee_range, module_info, transaction, handle)
                         })
                         .unique()
                         // return sorted by target
@@ -475,7 +475,7 @@ impl Query {
                 (None, x.range())
             };
             if let Some(func_ty) = callee_ty {
-                callee_for_type(&func_ty, callee_range, module_info, transaction, handle)
+                callee_from_type(&func_ty, callee_range, module_info, transaction, handle)
                     .into_iter()
                     .for_each(|callee| {
                         res.push((module_info.display_range(callee_range), callee));
