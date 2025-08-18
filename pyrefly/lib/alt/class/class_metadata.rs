@@ -417,7 +417,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Option<TypedDictMetadata> {
         if is_typed_dict {
-            // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
+            // Validate and extract the values of class keywords.
             let mut is_total = true;
             let mut extra_items = None;
             for (name, value) in keywords {
