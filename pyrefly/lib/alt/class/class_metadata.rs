@@ -419,18 +419,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
             let mut is_total = true;
             for (name, value) in keywords {
-                if name.as_str() != "total" {
-                    self.error(
-                        errors,
-                        cls.range(),
-                        ErrorInfo::Kind(ErrorKind::BadTypedDict),
-                        format!(
-                            "TypedDict does not support keyword argument `{}`",
-                            name.as_str()
-                        ),
-                    );
-                } else if matches!(value, Type::Literal(Lit::Bool(false))) {
-                    is_total = false;
+                match (name.as_str(), value) {
+                    ("total", Type::Literal(Lit::Bool(false))) => {
+                        is_total = false;
+                    }
+                    ("total", _) => {}
+                    _ => {
+                        self.error(
+                            errors,
+                            cls.range(),
+                            ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                            format!(
+                                "TypedDict does not support keyword argument `{}`",
+                                name.as_str()
+                            ),
+                        );
+                    }
                 }
             }
             let fields =
