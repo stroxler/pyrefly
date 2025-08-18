@@ -1643,3 +1643,77 @@ class Test:
                 pass
     "#,
 );
+
+testcase!(
+    test_discriminated_union_key,
+    r#"
+from typing import TypedDict, assert_type, Literal
+
+class UserDict(TypedDict):
+    kind: Literal["user"]
+    is_admin: Literal[False]
+
+class AdminDict(TypedDict):
+    kind: Literal["admin"]
+    is_admin: Literal[True]
+
+def test(x: UserDict | AdminDict):
+    if x["kind"] == "user":
+        assert_type(x, UserDict)
+    else:
+        assert_type(x, AdminDict)
+    if x["is_admin"] is True:
+        assert_type(x, AdminDict)
+    else:
+        assert_type(x, UserDict)
+    "#,
+);
+
+testcase!(
+    test_discriminated_union_attr,
+    r#"
+from typing import assert_type, Literal
+
+class User:
+    kind: Literal["user"]
+    is_admin: Literal[False]
+
+class Admin:
+    kind: Literal["admin"]
+    is_admin: Literal[True]
+
+def test(x: User | Admin):
+    if x.kind == "user":
+        assert_type(x, User)
+    elif x.kind == "admin":
+        assert_type(x, Admin)
+
+    if x.is_admin is True:
+        assert_type(x, Admin)
+    else:
+        assert_type(x, User)
+    "#,
+);
+
+testcase!(
+    test_discriminated_union_index,
+    r#"
+from typing import assert_type, Literal
+
+def test(x: tuple[Literal["user"], Literal[None]] | tuple[Literal["admin"], int]):
+    if x[0] == "user":
+        assert_type(x, tuple[Literal["user"], Literal[None]])
+    else:
+        assert_type(x, tuple[Literal["admin"], int])
+
+    if x[1] is None:
+        assert_type(x, tuple[Literal["user"], Literal[None]])
+    else:
+        assert_type(x, tuple[Literal["admin"], int])
+
+    if x[1] is not None:
+        assert_type(x, tuple[Literal["admin"], int])
+    else:
+        assert_type(x, tuple[Literal["user"], Literal[None]])  
+    "#,
+);

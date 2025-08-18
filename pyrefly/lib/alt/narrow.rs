@@ -20,6 +20,7 @@ use ruff_python_ast::StringLiteralValue;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -238,6 +239,102 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             },
             _ => ty.clone(),
         })
+    }
+
+    // Try to narrow a type based on the type of its facet.
+    // For example, if we have a `x.y == 0` check and `x` is some union,
+    // we can eliminate cases from the union where `x.y` is some other
+    // literal.
+    pub fn atomic_narrow_for_facet(
+        &self,
+        base: &Type,
+        facet: &FacetKind,
+        op: &AtomicNarrowOp,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        match op {
+            AtomicNarrowOp::Is(v) => {
+                let right = self.expr_infer(v, errors);
+                Some(self.distribute_over_union(base, |t| {
+                    let base_info = TypeInfo::of_ty(t.clone());
+                    let facet_ty = self.get_facet_chain_type(
+                        &base_info,
+                        &FacetChain::new(Vec1::new(facet.clone())),
+                        range,
+                    );
+                    match right {
+                        Type::None | Type::Literal(Lit::Bool(_)) | Type::Literal(Lit::Enum(_)) => {
+                            if self.is_subset_eq(&right, &facet_ty) {
+                                t.clone()
+                            } else {
+                                Type::never()
+                            }
+                        }
+                        _ => t.clone(),
+                    }
+                }))
+            }
+            AtomicNarrowOp::IsNot(v) => {
+                let right = self.expr_infer(v, errors);
+                Some(self.distribute_over_union(base, |t| {
+                    let base_info = TypeInfo::of_ty(t.clone());
+                    let facet_ty = self.get_facet_chain_type(
+                        &base_info,
+                        &FacetChain::new(Vec1::new(facet.clone())),
+                        range,
+                    );
+                    match (&facet_ty, &right) {
+                        (
+                            Type::None | Type::Literal(Lit::Bool(_)) | Type::Literal(Lit::Enum(_)),
+                            Type::None | Type::Literal(Lit::Bool(_)) | Type::Literal(Lit::Enum(_)),
+                        ) if right == facet_ty => Type::never(),
+                        _ => t.clone(),
+                    }
+                }))
+            }
+            AtomicNarrowOp::Eq(v) => {
+                let right = self.expr_infer(v, errors);
+                Some(self.distribute_over_union(base, |t| {
+                    let base_info = TypeInfo::of_ty(t.clone());
+                    let facet_ty = self.get_facet_chain_type(
+                        &base_info,
+                        &FacetChain::new(Vec1::new(facet.clone())),
+                        range,
+                    );
+                    match right {
+                        Type::None | Type::Literal(_) => {
+                            if self.is_subset_eq(&right, &facet_ty) {
+                                t.clone()
+                            } else {
+                                Type::never()
+                            }
+                        }
+                        _ => t.clone(),
+                    }
+                }))
+            }
+            AtomicNarrowOp::NotEq(v) => {
+                let right = self.expr_infer(v, errors);
+                Some(self.distribute_over_union(base, |t| {
+                    let base_info = TypeInfo::of_ty(t.clone());
+                    let facet_ty = self.get_facet_chain_type(
+                        &base_info,
+                        &FacetChain::new(Vec1::new(facet.clone())),
+                        range,
+                    );
+                    match (&facet_ty, &right) {
+                        (Type::None | Type::Literal(_), Type::None | Type::Literal(_))
+                            if right == facet_ty =>
+                        {
+                            Type::never()
+                        }
+                        _ => t.clone(),
+                    }
+                }))
+            }
+            _ => None,
+        }
     }
 
     pub fn atomic_narrow(
@@ -709,7 +806,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     errors,
                 );
-                type_info.with_narrow(facet_chain.facets(), ty)
+                let mut narrowed = type_info.with_narrow(facet_chain.facets(), ty);
+                // For certain types of narrows, we can also narrow the parent of the current subject
+                if let Some((last, prefix)) = facet_chain.facets().split_last() {
+                    match Vec1::try_from(prefix) {
+                        Ok(prefix_facets) => {
+                            let prefix_chain = FacetChain::new(prefix_facets);
+                            let base_ty =
+                                self.get_facet_chain_type(type_info, &prefix_chain, range);
+                            if let Some(narrowed_ty) =
+                                self.atomic_narrow_for_facet(&base_ty, last, op, range, errors)
+                                && narrowed_ty != base_ty
+                            {
+                                narrowed = narrowed.with_narrow(prefix_chain.facets(), narrowed_ty);
+                            }
+                        }
+                        _ => {
+                            let base_ty = type_info.ty();
+                            if let Some(narrowed_ty) =
+                                self.atomic_narrow_for_facet(base_ty, last, op, range, errors)
+                                && narrowed_ty != *base_ty
+                            {
+                                narrowed = narrowed.clone().with_ty(narrowed_ty);
+                            }
+                        }
+                    };
+                }
+                narrowed
             }
             NarrowOp::And(ops) => {
                 let mut ops_iter = ops.iter();
