@@ -269,37 +269,32 @@ impl Query {
                 _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
             }
         }
-
-        fn target_from_function(f: &Function) -> String {
-            target_from_def_kind(&f.metadata.kind)
-        }
         fn callee_from_function(f: &Function) -> Callee {
             if f.metadata.flags.is_staticmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_STATICMETHOD),
-                    target: target_from_function(f),
+                    target: target_from_def_kind(&f.metadata.kind),
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
             } else if f.metadata.flags.is_classmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_CLASSMETHOD),
-                    target: target_from_function(f),
+                    target: target_from_def_kind(&f.metadata.kind),
                     // TODO: use type of receiver
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
             } else {
                 Callee {
                     kind: String::from(CALLEE_KIND_FUNCTION),
-                    target: target_from_function(f),
+                    target: target_from_def_kind(&f.metadata.kind),
                     class_name: None,
                 }
             }
         }
-
         fn target_from_bound_method_type(m: &BoundMethodType) -> String {
             match m {
-                BoundMethodType::Function(f) => target_from_function(f),
-                BoundMethodType::Forall(f) => target_from_function(&f.body),
+                BoundMethodType::Function(f) => target_from_def_kind(&f.metadata.kind),
+                BoundMethodType::Forall(f) => target_from_def_kind(&f.body.metadata.kind),
                 BoundMethodType::Overload(f) => target_from_def_kind(&f.metadata.kind),
             }
         }
@@ -312,7 +307,6 @@ impl Query {
                 String::from(CALLEE_KIND_METHOD)
             }
         }
-
         fn callee_method_kind_from_bound_method_type(m: &BoundMethodType) -> String {
             match m {
                 BoundMethodType::Function(f) => {
