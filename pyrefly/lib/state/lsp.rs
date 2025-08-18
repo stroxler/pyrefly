@@ -438,7 +438,7 @@ impl<'a> Transaction<'a> {
 
     fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
         let ans = self.get_answers(handle)?;
-        Some(ans.for_display(ans.get_type_trace(range)?.arc_clone()))
+        Some(ans.for_display(ans.get_type_trace(range)?))
     }
 
     fn get_chosen_overload_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
@@ -812,7 +812,7 @@ impl<'a> Transaction<'a> {
         } else {
             answers
                 .get_type_trace(callee_range)
-                .map(|t| (vec![t.arc_clone()], 0, arg_index))
+                .map(|t| (vec![t], 0, arg_index))
         }
     }
 
@@ -1117,7 +1117,7 @@ impl<'a> Transaction<'a> {
                             }
                         })
                 };
-                match base_type.arc_clone() {
+                match base_type {
                     Type::Union(tys) | Type::Intersect(tys) => tys
                         .into_iter()
                         .filter_map(&find_definition_for_base_type)
@@ -1568,7 +1568,7 @@ impl<'a> Transaction<'a> {
                         name,
                         ty: _,
                         definition: attribute_definition,
-                    } in solver.completions(base_type.arc_clone(), Some(expected_name), false)
+                    } in solver.completions(base_type, Some(expected_name), false)
                     {
                         if let Some((TextRangeWithModule { module, range }, _)) =
                             attribute_definition.and_then(|definition| {
@@ -1890,7 +1890,7 @@ impl<'a> Transaction<'a> {
                 {
                     self.ad_hoc_solve(handle, |solver| {
                         solver
-                            .completions(base_type.arc_clone(), None, true)
+                            .completions(base_type, None, true)
                             .iter()
                             .for_each(|x| {
                                 let kind = match x.ty {

@@ -426,7 +426,7 @@ impl GleanState<'_> {
             && let Some(base_type) = answers.get_type_trace(base_expr.range())
         {
             self.transaction
-                .ad_hoc_solve(self.handle, |solver| match base_type.arc_clone() {
+                .ad_hoc_solve(self.handle, |solver| match base_type {
                     Type::Union(tys) | Type::Intersect(tys) => tys
                         .into_iter()
                         .filter(|ty: &Type| {

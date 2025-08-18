@@ -12,7 +12,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -555,14 +554,14 @@ impl Answers {
         &self.solver
     }
 
-    pub fn get_type_trace(&self, range: TextRange) -> Option<Arc<Type>> {
+    pub fn get_type_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        lock.types.get(&range).duped()
+        Some(lock.types.get(&range)?.as_ref().clone())
     }
 
-    pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Arc<Type>> {
+    pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        lock.invoked_properties.get(&range).duped()
+        Some(lock.invoked_properties.get(&range)?.as_ref().clone())
     }
 
     pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Callable> {

@@ -296,7 +296,7 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
     // If the expression has a type, export it.
     if let Some(type_) = context.answers.get_type_trace(range) {
         // Promote `Literal[..]` into `str` or `int`.
-        let type_ = (*type_).clone().promote_literals(context.stdlib);
+        let type_ = type_.promote_literals(context.stdlib);
 
         let display_range = context.module_info.display_range(range);
 
