@@ -323,7 +323,7 @@ impl Query {
                 }
             }
         }
-        fn type_to_string(ty: &Type) -> String {
+        fn class_name_from_bound_obj(ty: &Type) -> String {
             match ty {
                 Type::ClassType(c) => qname_to_string(c.qname()),
                 Type::ClassDef(c) => qname_to_string(c.qname()),
@@ -380,7 +380,7 @@ impl Query {
                 Type::BoundMethod(m) => vec![Callee {
                     kind: callee_method_kind_from_bound_method_type(&m.func),
                     target: target_from_bound_method_type(&m.func),
-                    class_name: Some(type_to_string(&m.obj)),
+                    class_name: Some(class_name_from_bound_obj(&m.obj)),
                 }],
                 Type::Function(f) => vec![callee_from_function(f)],
                 Type::Overload(f) => vec![Callee {
