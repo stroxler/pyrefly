@@ -78,8 +78,11 @@ const CALLEE_KIND_STATICMETHOD: &str = "staticmethod";
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub struct Callee {
+    /// What kind of callable is this? Distinguishes various kinds of methods from normal functions.
     pub kind: String,
+    /// What's the qualified name of the callable. The name `target` is for Pyre compatibility and originates in Pysa vocabulary.
     pub target: String,
+    /// If this is a method, what class is it defined on?
     pub class_name: Option<String>,
 }
 
@@ -334,7 +337,7 @@ impl Query {
             c: &Class,
             transaction: &Transaction<'_>,
             handle: &Handle,
-            name: &str,
+            fallback_name: &str,
             callee_from_ancestor: F,
         ) -> Vec<Callee> {
             let call_target = transaction.ad_hoc_solve(handle, |solver| {
@@ -347,7 +350,7 @@ impl Query {
             let target = if let Some(Some(t)) = call_target {
                 t
             } else {
-                format!("{class_name}.{name}")
+                format!("{class_name}.{fallback_name}")
             };
             vec![Callee {
                 kind: String::from(CALLEE_KIND_METHOD),
