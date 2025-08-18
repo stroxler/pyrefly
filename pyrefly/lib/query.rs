@@ -623,9 +623,8 @@ impl Query {
             let imported = Query::find_imports(&Ast::parse(&types).0);
             let imports = imported.map(|x| format!("import {x}\n")).join("");
 
+            // First, make sure that the types are well-formed and importable, return `Err` if not
             let before = format!("{imports}\n{types}\n");
-            let after = format!("{imports}\n{types}\n{check}");
-
             t.set_memory(vec![(path.to_owned(), Some(Arc::new(before.clone())))]);
             t.run(&[(h.dupe(), Require::Everything)]);
             let errors = t.get_errors([&h]).collect_errors();
@@ -639,6 +638,9 @@ impl Query {
                     str::from_utf8(&res).unwrap_or("UTF8 error")
                 ));
             }
+
+            // Now that we know the types are valid, check a snippet to do the actual subtype test.
+            let after = format!("{imports}\n{types}\n{check}");
             t.set_memory(vec![(path.to_owned(), Some(Arc::new(after)))]);
             t.run(&[(h.dupe(), Require::Everything)]);
             let errors = t.get_errors([&h]).collect_errors();
@@ -648,18 +650,18 @@ impl Query {
         let mut t = self.state.transaction();
         let h = self.make_handle(name, ModulePath::memory(path.clone()));
 
-        // py2hack uses pyre1 fake type order for typed dicts
         if gt == "TypedDictionary" || gt == "NonTotalTypedDictionary" {
+            // For backward compatibility with Pyre, we allow `is_subset` comparison for checking if something
+            // is a TypedDict. That isn't actually a valid subtype relationship, so we look for magic
+            // attributes that in practice only exist on typed dicts.
             let types = format!("type pyrefly_lt = ({lt})");
-            // check if type has attributes specific to TypedDict
             let check =
                 "pyrefly_lt.__required_keys__, pyrefly_lt.__optional_keys__, pyrefly_lt.__total__";
-
             do_check(&mut t, h, &path, lt, gt, types, check)
         } else {
+            // In the normal case, synthesize a function whose return is a type error if the subset fails.
             let types = format!("type pyrefly_lt = ({lt})\ntype pyrefly_gt = ({gt})\n");
             let check = "def pyrefly_func(x: pyrefly_lt) -> pyrefly_gt:\n    return x";
-
             do_check(&mut t, h, &path, lt, gt, types, check)
         }
     }
