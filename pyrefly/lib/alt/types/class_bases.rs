@@ -10,14 +10,21 @@ use std::fmt;
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::ast::Ast;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::class::ClassType;
+use pyrefly_types::special_form::SpecialForm;
 use pyrefly_util::display::commas_iter;
+use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassExpr;
+use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -59,6 +66,91 @@ impl fmt::Display for ClassBases {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    // This is a version of `subscript_infer_for_type` with very restricted capability, in order to avoid cyclic dependencies
+    fn base_class_subscript_infer(
+        &self,
+        mut base: Type,
+        slice: &Expr,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        if let Type::Var(v) = base {
+            base = self.solver().force_var(v);
+        }
+        if matches!(&base, Type::ClassDef(t) if t.name() == "tuple") {
+            base = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
+        }
+        let arguments_untype = |slice: &Expr| {
+            Ast::unpack_slice(slice)
+                .iter()
+                .map(|x| match BaseClassExpr::from_expr(x) {
+                    Some(base_expr) => self.base_class_expr_untype(
+                        &base_expr,
+                        TypeFormContext::TypeArgument,
+                        errors,
+                    ),
+                    None => self.expr_untype(x, TypeFormContext::TypeArgument, errors),
+                })
+                .collect::<Vec<_>>()
+        };
+        match base {
+            Type::Forall(forall) => {
+                let tys = arguments_untype(slice);
+                self.specialize_forall_in_base_class(*forall, tys, range, errors)
+            }
+            Type::ClassDef(cls) => Type::type_form(self.specialize_in_base_class(
+                &cls,
+                arguments_untype(slice),
+                range,
+                errors,
+            )),
+            Type::Type(box Type::SpecialForm(special)) => {
+                self.apply_special_form(special, slice, range, errors)
+            }
+            Type::Any(style) => style.propagate(),
+            t => self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::UnsupportedOperation),
+                format!(
+                    "`{}` is not a subscriptable type on base class list",
+                    self.for_display(t)
+                ),
+            ),
+        }
+    }
+
+    fn base_class_expr_infer(&self, expr: &BaseClassExpr, errors: &ErrorCollector) -> Type {
+        match expr {
+            BaseClassExpr::Name(x) => self
+                .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                .arc_clone_ty(),
+            BaseClassExpr::Attribute { value, attr, range } => {
+                let base = self.base_class_expr_infer(value, errors);
+                self.attr_infer_for_type(&base, &attr.id, *range, errors, None)
+            }
+            BaseClassExpr::Subscript {
+                value,
+                slice,
+                range,
+            } => {
+                let base_ty = self.base_class_expr_infer(value, errors);
+                self.base_class_subscript_infer(base_ty, slice, *range, errors)
+            }
+        }
+    }
+
+    fn base_class_expr_untype(
+        &self,
+        base_expr: &BaseClassExpr,
+        type_form_context: TypeFormContext,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let range = base_expr.range();
+        let ty = self.untype(self.base_class_expr_infer(base_expr, errors), range, errors);
+        self.validate_type_form(ty, range, type_form_context, errors)
+    }
+
     pub fn class_bases_of(
         &self,
         cls: &Class,
@@ -75,7 +167,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .filter_map(|x| match x {
                 BaseClass::BaseClassExpr(x) => Some((
-                    self.expr_untype(&x.to_expr(), TypeFormContext::BaseClassList, errors),
+                    self.base_class_expr_untype(x, TypeFormContext::BaseClassList, errors),
                     x.range(),
                 )),
                 BaseClass::NamedTuple(..) => Some((

@@ -101,6 +101,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.specialize_impl(cls, targs, range, true, errors)
     }
 
+    pub fn specialize_in_base_class(
+        &self,
+        cls: &Class,
+        targs: Vec<Type>,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        self.specialize_impl(cls, targs, range, false, errors)
+    }
+
     fn specialize_forall_impl(
         &self,
         forall: Forall<Forallable>,
@@ -128,6 +138,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         self.specialize_forall_impl(forall, targs, range, true, errors)
+    }
+
+    pub fn specialize_forall_in_base_class(
+        &self,
+        forall: Forall<Forallable>,
+        targs: Vec<Type>,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        self.specialize_forall_impl(forall, targs, range, false, errors)
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents to an instance annotated

@@ -83,6 +83,23 @@ test(C())
 );
 
 testcase!(
+    bug = "Instantiation in base class list is not validated against bound",
+    test_base_class_bound,
+    r#"
+class A: pass
+class B: pass
+
+class Foo[T: B]:
+    pass
+
+class Bar(Foo[B]):  # OK
+    pass
+class Bar(Foo[A]):  # This should be an error
+    pass
+ "#,
+);
+
+testcase!(
     bug = "Instantiation is not validated against constraints, see https://github.com/facebook/pyrefly/issues/111",
     test_generic_constraints,
     r#"
@@ -101,6 +118,24 @@ test(A())  # Not OK
 test(B())
 test(C())
 test(D())
+ "#,
+);
+
+testcase!(
+    bug = "Instantiation in base class list is not validated against constraints",
+    test_base_class_constraint,
+    r#"
+class A: pass
+class B: pass
+class C: pass
+
+class Foo[T: (B, C)]:
+    pass
+
+class Bar(Foo[B]):  # OK
+    pass
+class Bar(Foo[A]):  # This should be an error
+    pass
  "#,
 );
 

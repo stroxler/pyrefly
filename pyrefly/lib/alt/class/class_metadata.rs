@@ -645,16 +645,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     // To avoid circular computation on targs, we have a special version of `expr_infer` that does not look into any subscript of any expr
-    fn base_class_expr_infer(&self, expr: &BaseClassExpr, errors: &ErrorCollector) -> Type {
+    fn base_class_expr_infer_for_metadata(
+        &self,
+        expr: &BaseClassExpr,
+        errors: &ErrorCollector,
+    ) -> Type {
         match expr {
             BaseClassExpr::Name(x) => self
                 .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
                 .arc_clone_ty(),
             BaseClassExpr::Attribute { value, attr, range } => {
-                let base = self.base_class_expr_infer(value, errors);
+                let base = self.base_class_expr_infer_for_metadata(value, errors);
                 self.attr_infer_for_type(&base, &attr.id, *range, errors, None)
             }
-            BaseClassExpr::Subscript { value, .. } => self.base_class_expr_infer(value, errors),
+            BaseClassExpr::Subscript { value, .. } => {
+                self.base_class_expr_infer_for_metadata(value, errors)
+            }
         }
     }
 
@@ -712,7 +718,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BaseClass::BaseClassExpr(x) => {
                 // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
                 let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
-                let ty = self.base_class_expr_infer(&x, &errors);
+                let ty = self.base_class_expr_infer_for_metadata(&x, &errors);
                 match self.untype_opt(ty.clone(), x.range()) {
                     None => BaseClassParseResult::InvalidType(ty, x.range()),
                     Some(ty) => parse_base_class_type(ty),

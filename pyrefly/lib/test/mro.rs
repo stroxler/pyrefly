@@ -213,6 +213,21 @@ class C(B): pass
     assert_eq!(mro_c.len(), 0);
 }
 
+#[test]
+fn test_mro_generic_bound() {
+    let (handle, driver) = mk_state(
+        r#"
+class A: pass
+class Foo[T: A]: pass
+class Bar(Foo['Baz']): pass
+class Baz(Bar, A): pass
+"#,
+    );
+    assert_no_errors(&handle, &driver);
+    let mro_baz = get_mro_names("Baz", &handle, &driver);
+    assert_eq!(mro_baz, vec!["Bar", "Foo", "A"]);
+}
+
 testcase!(
     test_class_is_object_instance,
     r#"

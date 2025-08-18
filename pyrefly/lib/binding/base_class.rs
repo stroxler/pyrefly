@@ -6,12 +6,8 @@
  */
 
 use pyrefly_python::ast::Ast;
-use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
-use ruff_python_ast::ExprAttribute;
-use ruff_python_ast::ExprContext;
 use ruff_python_ast::ExprName;
-use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -66,34 +62,6 @@ impl BaseClassExpr {
                 })
             }
             _ => None,
-        }
-    }
-
-    pub fn to_expr(&self) -> Expr {
-        match self {
-            Self::Name(x) => Expr::Name(x.clone()),
-            Self::Attribute { value, attr, range } => Expr::Attribute(ExprAttribute {
-                // We don't bother preserving node index since there's no downstream logic that needs to read from it
-                // at the moment.
-                node_index: AtomicNodeIndex::default(),
-                value: Box::new(value.to_expr()),
-                attr: attr.clone(),
-                ctx: ExprContext::Load,
-                range: *range,
-            }),
-            Self::Subscript {
-                value,
-                slice,
-                range,
-            } => Expr::Subscript(ExprSubscript {
-                // We don't bother preserving node index since there's no downstream logic that needs to read from it
-                // at the moment.
-                node_index: AtomicNodeIndex::default(),
-                value: Box::new(value.to_expr()),
-                slice: slice.clone(),
-                ctx: ExprContext::Load,
-                range: *range,
-            }),
         }
     }
 }
