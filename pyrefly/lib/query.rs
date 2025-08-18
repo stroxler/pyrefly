@@ -559,9 +559,8 @@ impl Query {
             let range = x.range();
             if let Expr::Name(name) = x
                 && let Some(key) = try_find_key_for_name(name, bindings)
-                && let Some(idx) = answers.get_idx(bindings.key_to_idx(&key))
+                && let Some(ty) = answers.get_type_at(bindings.key_to_idx(&key))
             {
-                let ty = answers.for_display(idx.arc_clone_ty());
                 add_type(&ty, x, range, module_info, res);
             } else if let Some(ty) = answers.get_type_trace(range) {
                 add_type(&ty, x, range, module_info, res);

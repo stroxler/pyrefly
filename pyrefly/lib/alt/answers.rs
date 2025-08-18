@@ -546,7 +546,7 @@ impl Answers {
         self.table.get::<K>().get(k)?.get()
     }
 
-    pub fn for_display(&self, t: Type) -> Type {
+    fn for_display(&self, t: Type) -> Type {
         self.solver.for_display(t)
     }
 
