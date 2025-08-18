@@ -327,7 +327,7 @@ impl Query {
             match ty {
                 Type::ClassType(c) => qname_to_string(c.qname()),
                 Type::ClassDef(c) => qname_to_string(c.qname()),
-                Type::Literal(Lit::Str(_)) => String::from("builtins.str"),
+                Type::Literal(Lit::Str(_)) | Type::LiteralString => String::from("builtins.str"),
                 Type::Literal(Lit::Int(_)) => String::from("builtins.int"),
                 Type::Literal(Lit::Bool(_)) => String::from("builtins.bool"),
                 _ => panic!("unexpected type: {ty:?}"),
@@ -366,6 +366,9 @@ impl Query {
             handle: &Handle,
         ) -> Vec<Callee> {
             match ty {
+                Type::Type(ty) => {
+                    callee_from_type(ty, callee_range, module_info, transaction, handle)
+                }
                 Type::Union(tys) => {
                     // get callee for each type
                     tys.iter()
