@@ -259,7 +259,7 @@ impl<'a> BindingsBuilder<'a> {
             };
             self.error(
                 oops_top_level.range,
-                ErrorInfo::Kind(ErrorKind::BadReturn),
+                ErrorInfo::Kind(ErrorKind::InvalidSyntax),
                 "Invalid `return` outside of a function".to_owned(),
             );
         }
