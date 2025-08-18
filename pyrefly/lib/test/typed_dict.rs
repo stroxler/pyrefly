@@ -1148,3 +1148,24 @@ class TD3(TypedDict, closed=True, extra_items=str):  # E: `closed` and `extra_it
     pass
     "#,
 );
+
+testcase!(
+    test_extra_items_requiredness,
+    r#"
+from typing import NotRequired, Required, TypedDict
+class TD1(TypedDict, extra_items=NotRequired[int]):  # E: not allowed in this context
+    pass
+class TD2(TypedDict, extra_items=Required[int]):  # E: not allowed in this context
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "Qualifying `extra_items` with `ReadOnly` should be allowed",
+    test_extra_items_readonly,
+    r#"
+from typing import ReadOnly, TypedDict
+class TD(TypedDict, extra_items=ReadOnly[int]):  # E: not allowed in this context
+    pass
+    "#,
+);
