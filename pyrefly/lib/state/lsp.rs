@@ -444,7 +444,7 @@ impl<'a> Transaction<'a> {
     fn get_chosen_overload_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
         let ans = self.get_answers(handle)?;
         let chosen_overload = ans.get_chosen_overload_trace(range)?;
-        Some(ans.for_display(Type::Callable(Box::new(chosen_overload))))
+        Some(ans.for_display(chosen_overload))
     }
 
     fn empty_line_at(&self, handle: &Handle, position: TextSize) -> bool {

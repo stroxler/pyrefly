@@ -564,11 +564,13 @@ impl Answers {
         Some(lock.invoked_properties.get(&range)?.as_ref().clone())
     }
 
-    pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Callable> {
+    pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
         let overloaded_callee = lock.overloaded_callees.get(&range)?;
         if overloaded_callee.is_closest_overload_chosen {
-            Some(overloaded_callee.closest_overload.clone())
+            Some(Type::Callable(Box::new(
+                overloaded_callee.closest_overload.clone(),
+            )))
         } else {
             None
         }
