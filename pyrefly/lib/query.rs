@@ -330,18 +330,18 @@ impl Query {
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
-        fn callee_in_mro<F: Fn(&AnswersSolver<TransactionHandle>, &Class) -> Option<String>>(
+        fn callee_from_mro<F: Fn(&AnswersSolver<TransactionHandle>, &Class) -> Option<String>>(
             c: &Class,
             transaction: &Transaction<'_>,
             handle: &Handle,
             name: &str,
-            f: F,
+            callee_from_ancestor: F,
         ) -> Vec<Callee> {
             let call_target = transaction.ad_hoc_solve(handle, |solver| {
                 let mro = solver.get_mro_for_class(c);
                 iter::once(c)
                     .chain(mro.ancestors(solver.stdlib).map(|x| x.class_object()))
-                    .find_map(|c| f(&solver, c))
+                    .find_map(|c| callee_from_ancestor(&solver, c))
             });
             let class_name = qname_to_string(c.qname());
             let target = if let Some(Some(t)) = call_target {
@@ -415,7 +415,7 @@ impl Query {
                     }
                 }
                 Type::ClassDef(cls) => {
-                    callee_in_mro(cls, transaction, handle, "__init__", |solver, c| {
+                    callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
                         // find first class that has __init__ or __new__
                         let class_metadata = solver.get_metadata_for_class(c);
                         if c.contains(&dunder::INIT)
@@ -437,7 +437,7 @@ impl Query {
                         panic!("unsupported forallable type")
                     }
                 }
-                Type::ClassType(c) => callee_in_mro(
+                Type::ClassType(c) => callee_from_mro(
                     c.class_object(),
                     transaction,
                     handle,
