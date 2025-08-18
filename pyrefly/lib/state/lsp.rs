@@ -438,13 +438,12 @@ impl<'a> Transaction<'a> {
 
     fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
         let ans = self.get_answers(handle)?;
-        Some(ans.for_display(ans.get_type_trace(range)?))
+        ans.get_type_trace(range)
     }
 
     fn get_chosen_overload_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
         let ans = self.get_answers(handle)?;
-        let chosen_overload = ans.get_chosen_overload_trace(range)?;
-        Some(ans.for_display(chosen_overload))
+        ans.get_chosen_overload_trace(range)
     }
 
     fn empty_line_at(&self, handle: &Handle, position: TextSize) -> bool {

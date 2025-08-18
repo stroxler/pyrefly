@@ -556,21 +556,21 @@ impl Answers {
 
     pub fn get_type_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(lock.types.get(&range)?.as_ref().clone())
+        Some(self.for_display(lock.types.get(&range)?.as_ref().clone()))
     }
 
     pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(lock.invoked_properties.get(&range)?.as_ref().clone())
+        Some(self.for_display(lock.invoked_properties.get(&range)?.as_ref().clone()))
     }
 
     pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
         let overloaded_callee = lock.overloaded_callees.get(&range)?;
         if overloaded_callee.is_closest_overload_chosen {
-            Some(Type::Callable(Box::new(
+            Some(self.for_display(Type::Callable(Box::new(
                 overloaded_callee.closest_overload.clone(),
-            )))
+            ))))
         } else {
             None
         }
