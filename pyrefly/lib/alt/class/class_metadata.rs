@@ -12,10 +12,12 @@ use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::annotation::Annotation;
 use pyrefly_types::type_info::TypeInfo;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -145,7 +147,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (metaclasses, keywords): (Vec<_>, Vec<(_, _)>) =
             keywords.iter().partition_map(|(n, x)| match n.as_str() {
                 "metaclass" => Either::Left(x),
-                _ => Either::Right((n.clone(), self.expr_infer(x, errors))),
+                _ => Either::Right((n.clone(), self.expr_class_keyword(x, errors))),
             });
         let base_metaclasses = bases_with_metadata
             .iter()
@@ -278,6 +280,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .map(|(base, _)| base)
                 .collect::<Vec<_>>()
         };
+
+        // Get types of class keywords.
+        let keywords =
+            keywords.into_map(|(name, annot)| (name, annot.ty.unwrap_or_else(Type::any_implicit)));
 
         ClassMetadata::new(
             bases,
@@ -413,7 +419,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
-        keywords: &[(Name, Type)],
+        keywords: &[(Name, Annotation)],
         is_typed_dict: bool,
         errors: &ErrorCollector,
     ) -> Option<TypedDictMetadata> {
@@ -422,6 +428,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut is_total = true;
             let mut extra_items = None;
             for (name, value) in keywords {
+                let value = value.get_type();
                 match (name.as_str(), value) {
                     ("total", Type::Literal(Lit::Bool(false))) => {
                         is_total = false;
@@ -537,7 +544,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn dataclass_from_dataclass_transform(
         &self,
-        keywords: &[(Name, Type)],
+        keywords: &[(Name, Annotation)],
         decorators: &[(Arc<TypeInfo>, TextRange)],
         dataclass_defaults_from_base_class: Option<DataclassTransformKeywords>,
         pydantic_metadata: Option<&PydanticMetadata>,
@@ -552,7 +559,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(defaults) = dataclass_defaults_from_base_class {
             // This class inherits from a dataclass_transform-ed base class, so its keywords are
             // interpreted as dataclass keywords.
-            let map = keywords.iter().cloned().collect::<OrderedMap<_, _>>();
+            let map = keywords
+                .iter()
+                .map(|(name, annot)| (name.clone(), annot.get_type().clone()))
+                .collect::<OrderedMap<_, _>>();
             let mut kws = DataclassKeywords::from_type_map(&TypeMap(map), &defaults);
 
             // Inject frozen data from pydantic model

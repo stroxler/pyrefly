@@ -319,6 +319,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().is_subset_eq(got, want, self.type_order())
     }
 
+    pub fn expr_class_keyword(&self, x: &Expr, errors: &ErrorCollector) -> Annotation {
+        Annotation::new_type(self.expr_infer(x, errors))
+    }
+
     fn expr_qualifier(
         &self,
         x: &Expr,
