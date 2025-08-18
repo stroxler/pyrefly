@@ -554,6 +554,10 @@ impl Answers {
         &self.solver
     }
 
+    pub fn get_type_at(&self, idx: Idx<Key>) -> Option<Type> {
+        Some(self.for_display(self.get_idx(idx)?.arc_clone_ty()))
+    }
+
     pub fn get_type_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
         Some(self.for_display(lock.types.get(&range)?.as_ref().clone()))

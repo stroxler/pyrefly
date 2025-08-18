@@ -432,8 +432,8 @@ pub struct FindDefinitionItem {
 impl<'a> Transaction<'a> {
     fn get_type(&self, handle: &Handle, key: &Key) -> Option<Type> {
         let idx = self.get_bindings(handle)?.key_to_idx(key);
-        let ans = self.get_answers(handle)?;
-        Some(ans.for_display(ans.get_idx(idx)?.arc_clone_ty()))
+        let answers = self.get_answers(handle)?;
+        answers.get_type_at(idx)
     }
 
     fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
