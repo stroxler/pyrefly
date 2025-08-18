@@ -50,18 +50,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    /// Given a class or typed dictionary and some (explicit) type arguments, construct a `Type`
-    /// that represents the type of an instance of the class or typed dictionary with those `targs`.
-    ///
-    /// Note how this differs from `promote` and `instantiate`:
-    /// specialize(list, [int]) == list[int]
-    /// promote(list) == list[Any]
-    /// instantiate(list) == list[T]
-    pub fn specialize(
+    fn specialize_impl(
         &self,
         cls: &Class,
         targs: Vec<Type>,
         range: TextRange,
+        validate_restriction: bool,
         errors: &ErrorCollector,
     ) -> Type {
         let metadata = self.get_metadata_for_class(cls);
@@ -78,9 +72,52 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
-            self.check_and_create_targs(cls.name(), tparams, targs, range, errors)
+            self.create_targs(
+                cls.name(),
+                tparams,
+                targs,
+                range,
+                validate_restriction,
+                errors,
+            )
         };
         self.type_of_instance(cls, targs)
+    }
+
+    /// Given a class or typed dictionary and some (explicit) type arguments, construct a `Type`
+    /// that represents the type of an instance of the class or typed dictionary with those `targs`.
+    ///
+    /// Note how this differs from `promote` and `instantiate`:
+    /// specialize(list, [int]) == list[int]
+    /// promote(list) == list[Any]
+    /// instantiate(list) == list[T]
+    pub fn specialize(
+        &self,
+        cls: &Class,
+        targs: Vec<Type>,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        self.specialize_impl(cls, targs, range, true, errors)
+    }
+
+    fn specialize_forall_impl(
+        &self,
+        forall: Forall<Forallable>,
+        targs: Vec<Type>,
+        range: TextRange,
+        validate_restriction: bool,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let targs = self.create_targs(
+            &forall.body.name(),
+            forall.tparams.dupe(),
+            targs,
+            range,
+            validate_restriction,
+            errors,
+        );
+        forall.apply_targs(targs)
     }
 
     pub fn specialize_forall(
@@ -90,14 +127,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let targs = self.check_and_create_targs(
-            &forall.body.name(),
-            forall.tparams.dupe(),
-            targs,
-            range,
-            errors,
-        );
-        forall.apply_targs(targs)
+        self.specialize_forall_impl(forall, targs, range, true, errors)
     }
 
     /// Given a class or typed dictionary, create a `Type` that represents to an instance annotated
@@ -244,12 +274,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn check_and_create_targs(
+    fn create_targs(
         &self,
         name: &Name,
         tparams: Arc<TParams>,
         targs: Vec<Type>,
         range: TextRange,
+        validate_restriction: bool,
         errors: &ErrorCollector,
     ) -> TArgs {
         let nparams = tparams.len();
@@ -295,7 +326,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         targ_idx += 1;
                     }
                     QuantifiedKind::TypeVar => {
-                        checked_targs.push(self.create_next_typevar_arg(param, arg, range, errors));
+                        checked_targs.push(self.create_next_typevar_arg(
+                            param,
+                            arg,
+                            range,
+                            validate_restriction,
+                            errors,
+                        ));
                         targ_idx += 1;
                     }
                 }
@@ -461,6 +498,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         param: &TParam,
         arg: &Type,
         range: TextRange,
+        validate_restriction: bool,
         errors: &ErrorCollector,
     ) -> Type {
         match arg {
@@ -490,7 +528,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 } else {
                     let restriction = param.restriction();
-                    if restriction.is_restricted() {
+                    if validate_restriction && restriction.is_restricted() {
                         let tcc = &|| {
                             TypeCheckContext::of_kind(TypeCheckKind::TypeVarSpecialization(
                                 param.name().clone(),
