@@ -126,6 +126,8 @@ use crate::types::types::Var;
 pub enum TypeFormContext {
     /// Expression in a base class list
     BaseClassList,
+    /// Keyword in a class definition - `class C(some_keyword=SomeValue): ...`
+    ClassKeyword,
     /// Variable annotation in a class
     ClassVarAnnotation,
     /// Argument to a function such as cast, assert_type, or TypeVar
@@ -320,7 +322,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn expr_class_keyword(&self, x: &Expr, errors: &ErrorCollector) -> Annotation {
-        Annotation::new_type(self.expr_infer(x, errors))
+        // For now, we happen to know that ReadOnly is the only qualifier we support here, so we can
+        // make some simplifying assumptions about what patterns we need to match. We swallow
+        // errors from expr_qualifier() because expr_infer will produce the same errors anyway.
+        match x {
+            Expr::Subscript(x)
+                if let Some(qualifier) = self.expr_qualifier(
+                    &x.value,
+                    TypeFormContext::ClassKeyword,
+                    &self.error_swallower(),
+                ) =>
+            {
+                Annotation {
+                    qualifiers: vec![qualifier],
+                    ty: Some(self.expr_infer(&x.slice, errors)),
+                }
+            }
+            _ => Annotation::new_type(self.expr_infer(x, errors)),
+        }
     }
 
     fn expr_qualifier(
@@ -336,17 +355,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(Type::Type(box Type::SpecialForm(special))) = ty {
             let qualifier = special.to_qualifier();
             match qualifier {
-                Some(
-                    Qualifier::ClassVar
-                    | Qualifier::ReadOnly
-                    | Qualifier::NotRequired
-                    | Qualifier::Required,
-                ) if type_form_context != TypeFormContext::ClassVarAnnotation => {
+                Some(Qualifier::ClassVar | Qualifier::NotRequired | Qualifier::Required)
+                    if type_form_context != TypeFormContext::ClassVarAnnotation =>
+                {
                     self.error(
                         errors,
                         x.range(),
                         ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
                         format!("`{special}` is only allowed inside a class body"),
+                    );
+                    None
+                }
+                Some(Qualifier::ReadOnly)
+                    if !matches!(
+                        type_form_context,
+                        TypeFormContext::ClassVarAnnotation | TypeFormContext::ClassKeyword
+                    ) =>
+                {
+                    self.error(
+                        errors,
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                        format!("`{special}` is only allowed inside a class body or class keyword"),
                     );
                     None
                 }

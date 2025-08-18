@@ -1161,11 +1161,10 @@ class TD2(TypedDict, extra_items=Required[int]):  # E: not allowed in this conte
 );
 
 testcase!(
-    bug = "Qualifying `extra_items` with `ReadOnly` should be allowed",
     test_extra_items_readonly,
     r#"
 from typing import ReadOnly, TypedDict
-class TD(TypedDict, extra_items=ReadOnly[int]):  # E: not allowed in this context
+class TD(TypedDict, extra_items=ReadOnly[int]):
     pass
     "#,
 );
