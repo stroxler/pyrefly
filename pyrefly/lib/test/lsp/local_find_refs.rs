@@ -260,3 +260,39 @@ References:
         report.trim(),
     );
 }
+
+// todo(kylei): self.f is a reference
+#[test]
+fn method() {
+    let code = r#"
+class C:
+    def f(self) -> str:
+    #   ^
+        ...
+
+    def g(self) -> str:
+        return self.f()
+        #           ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 |     def f(self) -> str:
+            ^
+References:
+3 |     def f(self) -> str:
+            ^
+
+8 |         return self.f()
+                        ^
+References:
+3 |     def f(self) -> str:
+            ^
+8 |         return self.f()
+                        ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
