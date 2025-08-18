@@ -225,6 +225,9 @@ enum IdentifierContext {
     /// An identifier appeared as the name of a function.
     /// ex: `x` in `def x(...): ...`
     FunctionDef { docstring_range: Option<TextRange> },
+    /// An identifier appeared as the name of a method.
+    /// ex: `x` in `def x(self, ...): ...` inside a class
+    MethodDef { docstring_range: Option<TextRange> },
     /// An identifier appeared as the name of a class.
     /// ex: `x` in `class x(...): ...`
     ClassDef { docstring_range: Option<TextRange> },
@@ -323,6 +326,13 @@ impl IdentifierWithContext {
         Self {
             identifier: id.clone(),
             context: IdentifierContext::FunctionDef { docstring_range },
+        }
+    }
+
+    fn from_stmt_method_def(id: &Identifier, docstring_range: Option<TextRange>) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::MethodDef { docstring_range },
         }
     }
 
@@ -496,6 +506,18 @@ impl<'a> Transaction<'a> {
                     id,
                     alias,
                     import_from,
+                ))
+            }
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::StmtFunctionDef(stmt)),
+                Some(AnyNodeRef::StmtClassDef(_)),
+                _,
+            ) => {
+                // def id(...): ...
+                Some(IdentifierWithContext::from_stmt_method_def(
+                    id,
+                    Docstring::range_from_stmts(&stmt.body),
                 ))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(stmt)), _, _) => {
@@ -690,7 +712,9 @@ impl<'a> Transaction<'a> {
             }
             Some(IdentifierWithContext {
                 identifier: _,
-                context: IdentifierContext::FunctionDef { docstring_range: _ },
+                context:
+                    IdentifierContext::FunctionDef { docstring_range: _ }
+                    | IdentifierContext::MethodDef { docstring_range: _ },
             }) => {
                 // TODO(grievejia): Handle definitions of functions
                 None
@@ -1270,6 +1294,17 @@ impl<'a> Transaction<'a> {
             }) => self
                 .find_definition_for_name_def(handle, &name_after_import, preference)
                 .map_or(vec![], |item| vec![item]),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::MethodDef { docstring_range },
+            }) => self.get_module_info(handle).map_or(vec![], |module| {
+                vec![FindDefinitionItemWithDocstring {
+                    metadata: DefinitionMetadata::Attribute(identifier.id().clone()),
+                    module,
+                    definition_range: identifier.range,
+                    docstring_range,
+                }]
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef { docstring_range },

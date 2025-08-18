@@ -283,6 +283,8 @@ class C:
 References:
 3 |     def f(self) -> str:
             ^
+8 |         return self.f()
+                        ^
 
 8 |         return self.f()
                         ^
