@@ -61,7 +61,13 @@ enum Variable {
     Recursive(Option<Type>),
     /// A variable that used to decompose a type, e.g. getting T from Awaitable[T]
     Unwrap,
-    /// A variable we have solved
+    /// A variable used for a parameter type (either a function or lambda parameter).
+    ///
+    /// These are created at binding time, and used so that two bindings (the parameter
+    /// and either the expression containing the lambda body or the function def)
+    /// can communicate out-of-band about the parameter type.
+    Parameter,
+    /// A variable whose answer has been determined
     Answer(Type),
 }
 
@@ -81,6 +87,7 @@ impl Display for Variable {
             }) => write!(f, "Quantified({k})"),
             Variable::Recursive(Some(t)) => write!(f, "Recursive(default={t})"),
             Variable::Recursive(None) => write!(f, "Recursive"),
+            Variable::Parameter => write!(f, "Parameter"),
             Variable::Unwrap => write!(f, "Unwrap"),
             Variable::Answer(t) => write!(f, "{t}"),
         }
@@ -92,7 +99,10 @@ impl Variable {
     /// E.g. `x = 1; while True: x = x` should be `Literal[1]` while
     /// `[1]` should be `List[int]`.
     fn promote<Ans: LookupAnswer>(&self, ty: Type, type_order: TypeOrder<Ans>) -> Type {
-        if matches!(self, Variable::Contained | Variable::Quantified(_)) {
+        if matches!(
+            self,
+            Variable::Contained | Variable::Parameter | Variable::Quantified(_)
+        ) {
             ty.promote_literals(type_order.stdlib())
         } else {
             ty
@@ -140,7 +150,7 @@ impl Solver {
                 Variable::Quantified(q) => {
                     *variable = Variable::Answer(q.as_gradual_type());
                 }
-                Variable::Contained | Variable::Unwrap => {
+                Variable::Contained | Variable::Unwrap | Variable::Parameter => {
                     *variable = Variable::Answer(Type::any_implicit());
                 }
             }
@@ -323,6 +333,18 @@ impl Solver {
     pub fn fresh_contained(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
         self.variables.write().insert(v, Variable::Contained);
+        v
+    }
+
+    /// Generate a fresh variable for out-of-band logic that allows two bindings to communicate
+    /// about a type without it being explicitly in a binding result. Used for parameters:
+    /// - function bindings pass information coming from context (like is this a class) and
+    ///   from parameter annotations to the parameter bindings out-of-band
+    /// - a lambda expression that appears in a contextual position passes down
+    ///   the context information to the parameter binding out-of-band.
+    pub fn fresh_parameter(&self, uniques: &UniqueFactory) -> Var {
+        let v = Var::new(uniques);
+        self.variables.write().insert(v, Variable::Parameter);
         v
     }
 
@@ -665,8 +687,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     fn is_subset_eq_var(&mut self, got: &Type, want: &Type) -> bool {
         // This function does two things: it checks that got <: want, and it solves free variables assuming that
         // got <: want. Most callers want both behaviors. The exception is that in a union, we call is_subset_eq
-        // for the sole purpose of solving contained variables, throwing away the check result.
-        let should_force = |v: &Variable| !self.union || matches!(v, Variable::Contained);
+        // for the sole purpose of solving contained and parameter variables, throwing away the check result.
+        let should_force =
+            |v: &Variable| !self.union || matches!(v, Variable::Contained | Variable::Parameter);
         match (got, want) {
             _ if got == want => true,
             (Type::Var(v1), Type::Var(v2)) => {

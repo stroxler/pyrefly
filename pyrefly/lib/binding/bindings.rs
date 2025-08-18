@@ -1125,7 +1125,10 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn bind_lambda_param(&mut self, name: &Identifier) {
-        let var = self.solver.fresh_contained(self.uniques);
+        // Create a parameter var; the binding for the lambda expr itself will use this to pass
+        // any contextual typing information as a side-effect to the parameter binding used in
+        // the lambda body.
+        let var = self.solver.fresh_parameter(self.uniques);
         let idx = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
@@ -1159,7 +1162,7 @@ impl<'a> BindingsBuilder<'a> {
             Binding::FunctionParameter(match annot {
                 Some(annot) => FunctionParameter::Annotated(annot),
                 None => FunctionParameter::Unannotated(
-                    self.solver.fresh_contained(self.uniques),
+                    self.solver.fresh_parameter(self.uniques),
                     undecorated_idx,
                 ),
             }),

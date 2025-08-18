@@ -339,6 +339,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     Vec::new()
                 };
+                // Pass any contextual information to the parameter bindings used in the lambda body as a side
+                // effect, by setting an answer for the vars created at binding time.
                 let return_hint = hint.and_then(|hint| self.decompose_lambda(hint, &param_vars));
 
                 let mut params = param_vars.into_map(|(name, var)| {
