@@ -96,7 +96,7 @@ impl ExtraItems {
     pub fn extra(annot: &Annotation) -> Self {
         let ty = annot.get_type();
         match ty {
-            Type::Never(_) => Self::Closed,
+            Type::Type(box Type::Never(_)) => Self::Closed,
             _ => Self::Extra(ExtraItem {
                 ty: ty.clone(),
                 read_only: annot.has_qualifier(&Qualifier::ReadOnly),
