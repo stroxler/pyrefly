@@ -74,15 +74,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let base_types_with_ranges = bases
             .iter()
             .filter_map(|x| match x {
-                BaseClass::Expr(x) => Some((
-                    self.expr_untype(x, TypeFormContext::BaseClassList, errors),
+                BaseClass::BaseClassExpr(x) => Some((
+                    self.expr_untype(&x.to_expr(), TypeFormContext::BaseClassList, errors),
                     x.range(),
                 )),
                 BaseClass::NamedTuple(..) => Some((
                     self.stdlib.named_tuple_fallback().clone().to_type(),
                     x.range(),
                 )),
-                BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => None,
+                BaseClass::InvalidExpr(..)
+                | BaseClass::TypedDict(..)
+                | BaseClass::Generic(..)
+                | BaseClass::Protocol(..) => None,
             })
             .collect::<Vec<_>>();
 

@@ -251,13 +251,13 @@ testcase!(
     bug = "We probably need to be able to handle `type(...)` as a base class better than we do.",
     test_type_function_in_base_class_list_v2,
     r#"
-from typing import assert_type, ClassVar
+from typing import assert_type, ClassVar, Any
 class M(type):
     x: ClassVar[int] = 42
 class A(metaclass=M):
     pass
 class B(type(A)):  # E: Invalid expression form for base class: `type(A)`
     pass
-assert_type(B.x, int)
+assert_type(B.x, Any)
     "#,
 );

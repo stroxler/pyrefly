@@ -36,6 +36,7 @@ use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::alt::types::pydantic::PydanticMetadata;
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassExpr;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::config::error_kind::ErrorKind;
@@ -643,20 +644,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         dataclass_metadata
     }
 
-    // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
-    // subset of syntactical forms, and does not look into any subscript of any expr
-    fn base_class_expr_infer(&self, expr: &Expr, errors: &ErrorCollector) -> Option<Type> {
+    // To avoid circular computation on targs, we have a special version of `expr_infer` that does not look into any subscript of any expr
+    fn base_class_expr_infer(&self, expr: &BaseClassExpr, errors: &ErrorCollector) -> Type {
         match expr {
-            Expr::Name(x) => Some(
-                self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
-                    .arc_clone_ty(),
-            ),
-            Expr::Attribute(x) => {
-                let base = self.base_class_expr_infer(&x.value, errors)?;
-                Some(self.attr_infer_for_type(&base, &x.attr.id, x.range, errors, None))
+            BaseClassExpr::Name(x) => self
+                .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                .arc_clone_ty(),
+            BaseClassExpr::Attribute { value, attr, range } => {
+                let base = self.base_class_expr_infer(value, errors);
+                self.attr_infer_for_type(&base, &attr.id, *range, errors, None)
             }
-            Expr::Subscript(x) => self.base_class_expr_infer(&x.value, errors),
-            _ => None,
+            BaseClassExpr::Subscript { value, .. } => self.base_class_expr_infer(value, errors),
         }
     }
 
@@ -710,15 +708,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         match base {
-            BaseClass::Expr(x) => {
+            BaseClass::InvalidExpr(x) => BaseClassParseResult::InvalidExpr(x),
+            BaseClass::BaseClassExpr(x) => {
                 // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
                 let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
-                match self.base_class_expr_infer(&x, &errors) {
-                    None => BaseClassParseResult::InvalidExpr(x),
-                    Some(ty) => match self.untype_opt(ty.clone(), x.range()) {
-                        None => BaseClassParseResult::InvalidType(ty, x.range()),
-                        Some(ty) => parse_base_class_type(ty),
-                    },
+                let ty = self.base_class_expr_infer(&x, &errors);
+                match self.untype_opt(ty.clone(), x.range()) {
+                    None => BaseClassParseResult::InvalidType(ty, x.range()),
+                    Some(ty) => parse_base_class_type(ty),
                 }
             }
             BaseClass::NamedTuple(..) => {

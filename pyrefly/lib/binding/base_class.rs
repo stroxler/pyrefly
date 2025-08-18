@@ -6,12 +6,97 @@
  */
 
 use pyrefly_python::ast::Ast;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprContext;
+use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprSubscript;
+use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
+
+/// We only recognize a small subset of syntactical forms for expression that may appear on base classes
+#[derive(Debug, Clone)]
+pub enum BaseClassExpr {
+    Name(ExprName),
+    Attribute {
+        value: Box<BaseClassExpr>,
+        attr: Identifier,
+        range: TextRange,
+    },
+    Subscript {
+        value: Box<BaseClassExpr>,
+        slice: Box<Expr>,
+        range: TextRange,
+    },
+}
+
+impl Ranged for BaseClassExpr {
+    fn range(&self) -> TextRange {
+        match self {
+            BaseClassExpr::Name(x) => x.range(),
+            BaseClassExpr::Attribute { range, .. } => *range,
+            BaseClassExpr::Subscript { range, .. } => *range,
+        }
+    }
+}
+
+impl BaseClassExpr {
+    pub fn from_expr(expr: &Expr) -> Option<Self> {
+        match expr {
+            Expr::Name(x) => Some(Self::Name(x.clone())),
+            Expr::Attribute(x) => {
+                let value = Box::new(Self::from_expr(&x.value)?);
+                let attr = x.attr.clone();
+                let range = x.range();
+                Some(Self::Attribute { value, attr, range })
+            }
+            Expr::Subscript(x) => {
+                let value = Box::new(Self::from_expr(x.value.as_ref())?);
+                let slice = x.slice.clone();
+                let range = x.range();
+                Some(Self::Subscript {
+                    value,
+                    slice,
+                    range,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    pub fn to_expr(&self) -> Expr {
+        match self {
+            Self::Name(x) => Expr::Name(x.clone()),
+            Self::Attribute { value, attr, range } => Expr::Attribute(ExprAttribute {
+                // We don't bother preserving node index since there's no downstream logic that needs to read from it
+                // at the moment.
+                node_index: AtomicNodeIndex::default(),
+                value: Box::new(value.to_expr()),
+                attr: attr.clone(),
+                ctx: ExprContext::Load,
+                range: *range,
+            }),
+            Self::Subscript {
+                value,
+                slice,
+                range,
+            } => Expr::Subscript(ExprSubscript {
+                // We don't bother preserving node index since there's no downstream logic that needs to read from it
+                // at the moment.
+                node_index: AtomicNodeIndex::default(),
+                value: Box::new(value.to_expr()),
+                slice: slice.clone(),
+                ctx: ExprContext::Load,
+                range: *range,
+            }),
+        }
+    }
+}
 
 /// Private helper type used to share part of the logic needed for the
 /// binding-level work of finding legacy type parameters versus the type-level
@@ -21,7 +106,8 @@ pub enum BaseClass {
     TypedDict(TextRange),
     Generic(Box<[Expr]>, TextRange),
     Protocol(Box<[Expr]>, TextRange),
-    Expr(Expr),
+    BaseClassExpr(BaseClassExpr),
+    InvalidExpr(Expr),
     NamedTuple(TextRange),
 }
 
@@ -47,7 +133,8 @@ impl Ranged for BaseClass {
             BaseClass::TypedDict(range) => *range,
             BaseClass::Generic(_, range) => *range,
             BaseClass::Protocol(_, range) => *range,
-            BaseClass::Expr(expr) => expr.range(),
+            BaseClass::BaseClassExpr(base_expr) => base_expr.range(),
+            BaseClass::InvalidExpr(expr) => expr.range(),
             BaseClass::NamedTuple(range) => *range,
         }
     }
@@ -80,7 +167,11 @@ impl<'a> BindingsBuilder<'a> {
                         _ => {}
                     }
                 }
-                BaseClass::Expr(base_expr)
+                if let Some(valid_expr) = BaseClassExpr::from_expr(&base_expr) {
+                    BaseClass::BaseClassExpr(valid_expr)
+                } else {
+                    BaseClass::InvalidExpr(base_expr)
+                }
             }
         }
     }
