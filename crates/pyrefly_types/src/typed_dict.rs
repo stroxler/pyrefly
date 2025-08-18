@@ -10,6 +10,8 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
 
+use crate::annotation::Annotation;
+use crate::annotation::Qualifier;
 use crate::class::Class;
 use crate::qname::QName;
 use crate::read_only::ReadOnlyReason;
@@ -82,19 +84,29 @@ impl TypedDict {
 pub enum ExtraItems {
     /// Default behavior when neither the `closed` nor `extra_items` keyword is specified.
     Default,
-    /// Closed TypedDict that does not allow extra items. This is equivalent to Extra(Never) but
-    /// is its own variant because of how common it is.
+    /// Closed TypedDict that does not allow extra items. This is equivalent to
+    /// Extra(ExtraItem {ty: Never, ..}) but is its own variant because of how common it is.
     Closed,
-    /// The TypedDict allows extra items of the specified type. Note that Extra(Never) (a closed
-    /// TypedDict) is represented with a separate Closed variant.
-    Extra(Type),
+    /// The TypedDict allows extra items of the specified type and read-only-ness. Note that
+    /// Extra(ExtraItem {ty: Never, ..}) (a closed TypedDict) is represented with a separate Closed variant.
+    Extra(ExtraItem),
 }
 
 impl ExtraItems {
-    pub fn extra(ty: &Type) -> Self {
+    pub fn extra(annot: &Annotation) -> Self {
+        let ty = annot.get_type();
         match ty {
             Type::Never(_) => Self::Closed,
-            _ => Self::Extra(ty.clone()),
+            _ => Self::Extra(ExtraItem {
+                ty: ty.clone(),
+                read_only: annot.has_qualifier(&Qualifier::ReadOnly),
+            }),
         }
     }
+}
+
+#[derive(Clone, Debug, TypeEq, PartialEq, Eq, Hash)]
+pub struct ExtraItem {
+    pub ty: Type,
+    pub read_only: bool,
 }

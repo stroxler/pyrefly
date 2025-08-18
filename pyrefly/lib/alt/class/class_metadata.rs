@@ -428,8 +428,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut is_total = true;
             let mut extra_items = None;
             for (name, value) in keywords {
-                let value = value.get_type();
-                match (name.as_str(), value) {
+                match (name.as_str(), value.get_type()) {
                     ("total", Type::Literal(Lit::Bool(false))) => {
                         is_total = false;
                     }
