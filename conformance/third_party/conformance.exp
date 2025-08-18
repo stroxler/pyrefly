@@ -9964,16 +9964,6 @@
   "typeddicts_extra_items.py": [
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 11,
-      "name": "bad-typed-dict",
-      "stop_column": 12,
-      "stop_line": 11
-    },
-    {
-      "code": -2,
       "column": 37,
       "concise_description": "Key `novel_adaptation` is not defined in TypedDict `Movie`",
       "description": "Key `novel_adaptation` is not defined in TypedDict `Movie`",
@@ -10044,16 +10034,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 33,
-      "name": "bad-typed-dict",
-      "stop_column": 16,
-      "stop_line": 33
-    },
-    {
-      "code": -2,
       "column": 40,
       "concise_description": "`ReadOnly` is not allowed in this context",
       "description": "`ReadOnly` is not allowed in this context",
@@ -10084,96 +10064,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 49,
-      "name": "bad-typed-dict",
-      "stop_column": 16,
-      "stop_line": 49
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 55,
-      "name": "bad-typed-dict",
-      "stop_column": 13,
-      "stop_line": 55
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 64,
-      "name": "bad-typed-dict",
-      "stop_column": 17,
-      "stop_line": 64
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 67,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 67
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 70,
-      "name": "bad-typed-dict",
-      "stop_column": 21,
-      "stop_line": 70
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 73,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 73
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 82,
-      "name": "bad-typed-dict",
-      "stop_column": 16,
-      "stop_line": 82
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 88,
-      "name": "bad-typed-dict",
-      "stop_column": 13,
-      "stop_line": 88
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 100,
-      "name": "bad-typed-dict",
-      "stop_column": 14,
-      "stop_line": 100
-    },
-    {
-      "code": -2,
       "column": 38,
       "concise_description": "`ReadOnly` is not allowed in this context",
       "description": "`ReadOnly` is not allowed in this context",
@@ -10181,36 +10071,6 @@
       "name": "invalid-annotation",
       "stop_column": 51,
       "stop_line": 100
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 103,
-      "name": "bad-typed-dict",
-      "stop_column": 18,
-      "stop_line": 103
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 106,
-      "name": "bad-typed-dict",
-      "stop_column": 17,
-      "stop_line": 106
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 111,
-      "name": "bad-typed-dict",
-      "stop_column": 26,
-      "stop_line": 111
     },
     {
       "code": -2,
@@ -10224,16 +10084,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 114,
-      "name": "bad-typed-dict",
-      "stop_column": 33,
-      "stop_line": 114
-    },
-    {
-      "code": -2,
       "column": 57,
       "concise_description": "`NotRequired` is not allowed in this context",
       "description": "`NotRequired` is not allowed in this context",
@@ -10241,16 +10091,6 @@
       "name": "invalid-annotation",
       "stop_column": 73,
       "stop_line": 114
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 121,
-      "name": "bad-typed-dict",
-      "stop_column": 14,
-      "stop_line": 121
     },
     {
       "code": -2,
@@ -10274,16 +10114,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 134,
-      "name": "bad-typed-dict",
-      "stop_column": 17,
-      "stop_line": 134
-    },
-    {
-      "code": -2,
       "column": 48,
       "concise_description": "Unexpected keyword argument `year` in function `unpack_no_extra`",
       "description": "Unexpected keyword argument `year` in function `unpack_no_extra`",
@@ -10304,16 +10134,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 146,
-      "name": "bad-typed-dict",
-      "stop_column": 19,
-      "stop_line": 146
-    },
-    {
-      "code": -2,
       "column": 43,
       "concise_description": "`ReadOnly` is not allowed in this context",
       "description": "`ReadOnly` is not allowed in this context",
@@ -10321,16 +10141,6 @@
       "name": "invalid-annotation",
       "stop_column": 56,
       "stop_line": 146
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 149,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 149
     },
     {
       "code": -2,
@@ -10344,86 +10154,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 152,
-      "name": "bad-typed-dict",
-      "stop_column": 19,
-      "stop_line": 152
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 162,
-      "name": "bad-typed-dict",
-      "stop_column": 25,
-      "stop_line": 162
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 168,
-      "name": "bad-typed-dict",
-      "stop_column": 13,
-      "stop_line": 168
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 171,
-      "name": "bad-typed-dict",
-      "stop_column": 12,
-      "stop_line": 171
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 178,
-      "name": "bad-typed-dict",
-      "stop_column": 17,
-      "stop_line": 178
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 201,
-      "name": "bad-typed-dict",
-      "stop_column": 19,
-      "stop_line": 201
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 208,
-      "name": "bad-typed-dict",
-      "stop_column": 21,
-      "stop_line": 208
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 219,
-      "name": "bad-typed-dict",
-      "stop_column": 14,
-      "stop_line": 219
-    },
-    {
-      "code": -2,
       "column": 38,
       "concise_description": "`ReadOnly` is not allowed in this context",
       "description": "`ReadOnly` is not allowed in this context",
@@ -10431,46 +10161,6 @@
       "name": "invalid-annotation",
       "stop_column": 57,
       "stop_line": 219
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 222,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 222
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 226,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 226
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 239,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 239
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 242,
-      "name": "bad-typed-dict",
-      "stop_column": 20,
-      "stop_line": 242
     },
     {
       "code": -2,
@@ -10514,16 +10204,6 @@
     },
     {
       "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 271,
-      "name": "bad-typed-dict",
-      "stop_column": 17,
-      "stop_line": 271
-    },
-    {
-      "code": -2,
       "column": 43,
       "concise_description": "Unexpected keyword argument `year` in function `ExtraMovie.__init__`",
       "description": "Unexpected keyword argument `year` in function `ExtraMovie.__init__`",
@@ -10541,16 +10221,6 @@
       "name": "unexpected-keyword",
       "stop_column": 51,
       "stop_line": 276
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `closed`",
-      "description": "TypedDict does not support keyword argument `closed`",
-      "line": 280,
-      "name": "bad-typed-dict",
-      "stop_column": 18,
-      "stop_line": 280
     },
     {
       "code": -2,
@@ -10631,16 +10301,6 @@
       "name": "assert-type",
       "stop_column": 55,
       "stop_line": 302
-    },
-    {
-      "code": -2,
-      "column": 7,
-      "concise_description": "TypedDict does not support keyword argument `extra_items`",
-      "description": "TypedDict does not support keyword argument `extra_items`",
-      "line": 310,
-      "name": "bad-typed-dict",
-      "stop_column": 14,
-      "stop_line": 310
     },
     {
       "code": -2,
