@@ -293,7 +293,9 @@ impl Workspaces {
                 self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
             }
         }
-        self.update_ide_settings(modified, scope_uri, config.analysis);
+        if let Some(analysis) = config.analysis {
+            self.update_ide_settings(modified, scope_uri, analysis);
+        }
     }
 
     /// Update disableLanguageServices setting for scope_uri, None if default workspace
@@ -339,19 +341,19 @@ impl Workspaces {
         &self,
         modified: &mut bool,
         scope_uri: &Option<Url>,
-        lsp_analysis_config: Option<LspAnalysisConfig>,
+        lsp_analysis_config: LspAnalysisConfig,
     ) {
         let mut workspaces = self.workspaces.write();
         match scope_uri {
             Some(scope_uri) => {
                 if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
                     *modified = true;
-                    workspace.lsp_analysis_config = lsp_analysis_config;
+                    workspace.lsp_analysis_config = Some(lsp_analysis_config);
                 }
             }
             None => {
                 *modified = true;
-                self.default.write().lsp_analysis_config = lsp_analysis_config;
+                self.default.write().lsp_analysis_config = Some(lsp_analysis_config);
             }
         }
     }
