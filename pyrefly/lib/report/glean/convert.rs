@@ -306,12 +306,13 @@ impl GleanState<'_> {
         }
 
         if let Some(docstring_range) = decl_info.docstring_range {
+            let docstring = Docstring::clean(self.module.code_at(docstring_range));
             self.facts
                 .declaration_docstrings
                 .push(python::DeclarationDocstring::new(
                     decl_info.declaration.clone(),
                     to_span(docstring_range),
-                    Docstring::clean(self.module.code_at(docstring_range)),
+                    docstring.trim().to_owned(),
                 ));
         }
     }
