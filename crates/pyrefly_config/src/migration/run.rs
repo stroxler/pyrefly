@@ -398,7 +398,7 @@ files = ["mypy.py"]
         fs_anyhow::write(&original_config_path, b"{}")?;
         config_migration(&original_config_path)?;
         let output = fs_anyhow::read_to_string(&pyrefly_config_path)?;
-        assert_eq!(output, "");
+        assert_eq!(output, "infer-with-first-use = false\n");
         Ok(())
     }
 }

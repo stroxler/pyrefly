@@ -102,6 +102,9 @@ impl PyrightConfig {
             let _ = option.migrate_from_pyright(&self, &mut cfg);
         }
 
+        // Pyright does not infer empty container types and unsolved type variables based on their first use.
+        cfg.root.infer_with_first_use = Some(false);
+
         cfg
     }
 }
@@ -266,6 +269,10 @@ mod tests {
                         .interpreter_site_package_path
                         .clone(),
                 },
+                root: ConfigBase {
+                    infer_with_first_use: Some(false),
+                    ..Default::default()
+                },
                 ..Default::default()
             }
         );
@@ -301,6 +308,10 @@ mod tests {
                         .python_environment
                         .interpreter_site_package_path
                         .clone(),
+                },
+                root: ConfigBase {
+                    infer_with_first_use: Some(false),
+                    ..Default::default()
                 },
                 ..Default::default()
             }
