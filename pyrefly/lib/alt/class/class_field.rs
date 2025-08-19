@@ -1168,7 +1168,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         && dm.field_specifiers.contains(&func_kind)
                     {
                         let flags =
-                            self.dataclass_field_keywords(&func_ty, arguments, &ignore_errors);
+                            self.dataclass_field_keywords(&func_ty, arguments, dm, &ignore_errors);
                         ClassFieldInitialization::ClassBody(Some(flags))
                     } else {
                         ClassFieldInitialization::ClassBody(None)

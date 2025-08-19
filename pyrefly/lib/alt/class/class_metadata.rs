@@ -43,6 +43,7 @@ use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -52,6 +53,7 @@ use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
+use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::keywords::DataclassKeywords;
 use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::keywords::TypeMap;
@@ -252,6 +254,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &decorators,
             &bases_with_metadata,
             dataclass_from_dataclass_transform,
+            pydantic_metadata.as_ref(),
         );
         if let Some(dm) = dataclass_metadata.as_ref() {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
@@ -618,6 +621,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[(Arc<TypeInfo>, TextRange)],
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         dataclass_from_dataclass_transform: Option<(DataclassKeywords, Vec<CalleeKind>)>,
+        pydantic_metadata: Option<&PydanticMetadata>,
     ) -> Option<DataclassMetadata> {
         // If we inherit from a dataclass, inherit its metadata. Note that if this class is
         // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
@@ -627,6 +631,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             m.kws.init = false;
             Some(m)
         });
+
+        let mut alias_keyword = DataclassFieldKeywords::ALIAS;
+        if pydantic_metadata.is_some() {
+            alias_keyword = VALIDATION_ALIAS;
+        }
         for (decorator, _) in decorators {
             let decorator_ty = decorator.ty();
             match decorator_ty.callee_kind() {
@@ -640,6 +649,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Function(FunctionKind::DataclassField),
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
+                        alias_keyword: alias_keyword.clone(),
                     });
                 }
                 // `@dataclass(...)`
@@ -657,6 +667,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Function(FunctionKind::DataclassField),
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
+                        alias_keyword: alias_keyword.clone(),
                     });
                 }
                 _ => {}
@@ -667,6 +678,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 fields: self.get_dataclass_fields(cls, bases_with_metadata),
                 kws,
                 field_specifiers,
+                alias_keyword: alias_keyword.clone(),
             });
         }
         dataclass_metadata

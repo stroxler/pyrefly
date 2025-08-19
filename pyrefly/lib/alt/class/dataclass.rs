@@ -196,9 +196,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         func: &Type,
         args: &Arguments,
+        dataclass_metadata: &DataclassMetadata,
         errors: &ErrorCollector,
     ) -> DataclassFieldKeywords {
         let mut map = TypeMap::new();
+        let alias_keyword = &dataclass_metadata.alias_keyword;
         for kw in args.keywords.iter() {
             if let Some(name) = &kw.arg {
                 map.0
@@ -215,7 +217,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         .any(|k| map.0.contains_key(*k));
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
         let mut alias = map
-            .get_string(&DataclassFieldKeywords::ALIAS)
+            .get_string(alias_keyword)
+            .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
             .map(Name::new);
         let mut converter_param = map
             .0
@@ -228,6 +231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 func,
                 args,
                 errors,
+                alias_keyword,
                 &mut init,
                 &mut kw_only,
                 &mut alias,
@@ -249,6 +253,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         func: &Type,
         args: &Arguments,
         errors: &ErrorCollector,
+        alias_key_to_use: &Name,
         init: &mut Option<bool>,
         kw_only: &mut Option<bool>,
         alias: &mut Option<Name>,
@@ -306,7 +311,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if name == &DataclassFieldKeywords::KW_ONLY {
                     self.fill_in_literal(kw_only, ty, default_ty, |ty| ty.as_bool());
                 }
-                if alias.is_none() && name == &DataclassFieldKeywords::ALIAS {
+                if alias.is_none() && name == alias_key_to_use {
                     self.fill_in_literal(alias, ty, default_ty, |ty| match ty {
                         Type::Literal(Lit::Str(s)) => Some(Name::new(s)),
                         _ => None,

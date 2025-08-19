@@ -348,6 +348,7 @@ pub struct DataclassMetadata {
     pub fields: SmallSet<Name>,
     pub kws: DataclassKeywords,
     pub field_specifiers: Vec<CalleeKind>,
+    pub alias_keyword: Name,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

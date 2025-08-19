@@ -30,7 +30,6 @@ m.y # E: Object of class `Model` has no attribute `y`
 );
 
 testcase!(
-    bug = "We only should error on Model(z=0) since validation_alias takes precedence. Only m.x should succeed.",
     test_validation_alias,
     pydantic_env(),
     r#"
@@ -39,8 +38,8 @@ from pydantic import BaseModel, Field
 class Model(BaseModel):
     x: int = Field(validation_alias="y", alias="z")
 
-m = Model(y=0) # E: Missing argument `z` in function `Model.__init__` # E: Unexpected keyword argument `y` in function `Model.__init__
-m = Model(z=0)
+m = Model(y=0) 
+m = Model(z=0) # E: Missing argument `y` in function `Model.__init__` # E: Unexpected keyword argument `z` in function `Model.__init__`
 
 m.x
 m.y  # E: Object of class `Model` has no attribute `y`
