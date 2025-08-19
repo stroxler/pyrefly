@@ -155,14 +155,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         bases: &[BaseClass],
-        special_base: &Option<Box<BaseClass>>,
         is_new_type: bool,
         errors: &ErrorCollector,
     ) -> ClassBases {
-        let mut bases: Vec<BaseClass> = bases.to_vec();
-        if let Some(special_base) = special_base {
-            bases.push((**special_base).clone());
-        }
         let base_types_with_ranges = bases
             .iter()
             .filter_map(|x| match x {

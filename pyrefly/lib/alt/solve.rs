@@ -255,7 +255,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             keywords,
             decorators,
             is_new_type,
-            special_base,
             pydantic_metadata,
         } = binding;
         let metadata = match &self.get_idx(*k).0 {
@@ -266,7 +265,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 keywords,
                 decorators,
                 *is_new_type,
-                special_base,
                 pydantic_metadata,
                 errors,
             ),
@@ -1415,13 +1413,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<ClassBases> {
         let class_bases = match &self.get_idx(binding.class_idx).0 {
             None => ClassBases::recursive(),
-            Some(cls) => self.class_bases_of(
-                cls,
-                &binding.bases,
-                &binding.special_base,
-                binding.is_new_type,
-                errors,
-            ),
+            Some(cls) => self.class_bases_of(cls, &binding.bases, binding.is_new_type, errors),
         };
         Arc::new(class_bases)
     }

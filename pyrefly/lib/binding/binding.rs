@@ -95,8 +95,8 @@ assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 22);
 assert_words!(BindingTParams, 10);
-assert_words!(BindingClassBaseType, 4);
-assert_words!(BindingClassMetadata, 11);
+assert_words!(BindingClassBaseType, 3);
+assert_words!(BindingClassMetadata, 10);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
@@ -1748,10 +1748,6 @@ pub struct BindingClassBaseType {
     pub class_idx: Idx<KeyClass>,
     /// The base class list, as expressions.
     pub bases: Box<[BaseClass]>,
-    /// May contain a base class to directly inject into the base class list. This is needed
-    /// for some synthesized classes, which have no actual class body and therefore usually have no
-    /// base class expressions, but may have a known base class for the synthesized class.
-    pub special_base: Option<Box<BaseClass>>,
     pub is_new_type: bool,
 }
 
@@ -1928,10 +1924,6 @@ pub struct BindingClassMetadata {
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
     /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
-    /// May contain a base class to directly inject into the base class list. This is needed
-    /// for some synthesized classes, which have no actual class body and therefore usually have no
-    /// base class expressions, but may have a known base class for the synthesized class.
-    pub special_base: Option<Box<BaseClass>>,
     pub pydantic_metadata: PydanticMetadataBinding,
 }
 

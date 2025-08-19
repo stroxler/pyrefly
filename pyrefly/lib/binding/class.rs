@@ -194,7 +194,6 @@ impl<'a> BindingsBuilder<'a> {
                 class_idx: class_indices.class_idx,
                 is_new_type: false,
                 bases: bases.clone().into_boxed_slice(),
-                special_base: None,
             },
         );
         self.insert_binding_idx(
@@ -378,7 +377,6 @@ impl<'a> BindingsBuilder<'a> {
                 keywords: keywords.into_boxed_slice(),
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
-                special_base: None,
                 pydantic_metadata: self
                     .make_pydantic_metadata(pydantic_frozen, pydantic_validation_alias),
             },
@@ -457,11 +455,12 @@ impl<'a> BindingsBuilder<'a> {
         illegal_identifier_handling: IllegalIdentifierHandling,
         force_class_initialization: bool,
         class_kind: SynthesizedClassKind,
-        special_base: Option<Box<BaseClass>>,
+        special_base: Option<BaseClass>,
     ) {
         let base_classes = base
             .into_iter()
             .map(|base| self.base_class_of(base))
+            .chain(special_base)
             .collect::<Vec<_>>();
         let is_new_type = class_kind == SynthesizedClassKind::NewType;
         self.insert_binding_idx(
@@ -470,7 +469,6 @@ impl<'a> BindingsBuilder<'a> {
                 class_idx: class_indices.class_idx,
                 is_new_type,
                 bases: base_classes.clone().into_boxed_slice(),
-                special_base: special_base.clone(),
             },
         );
         self.insert_binding_idx(
@@ -481,7 +479,6 @@ impl<'a> BindingsBuilder<'a> {
                 keywords,
                 decorators: Box::new([]),
                 is_new_type,
-                special_base,
                 pydantic_metadata: PydanticMetadataBinding::default(),
             },
         );
@@ -828,7 +825,7 @@ impl<'a> BindingsBuilder<'a> {
             illegal_identifier_handling,
             false,
             SynthesizedClassKind::NamedTuple,
-            Some(Box::new(BaseClass::NamedTuple(range))),
+            Some(BaseClass::NamedTuple(range)),
         );
     }
 

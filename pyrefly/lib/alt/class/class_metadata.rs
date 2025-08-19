@@ -102,7 +102,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         keywords: &[(Name, Expr)],
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
-        special_base: &Option<Box<BaseClass>>,
         pydantic_metadata_binding: &PydanticMetadataBinding,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
@@ -111,25 +110,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (self.get_idx(*decorator_key), *decorator_range)
         });
 
-        // Get full base class list and compute data that depends on the `BaseClass` representation
-        // of base classes.
-        let bases = if let Some(special_base) = special_base {
-            bases
-                .iter()
-                .chain([(**special_base).clone()].iter())
-                .cloned()
-                .collect()
-        } else {
-            bases.to_vec()
-        };
-        let initial_protocol_metadata = Self::initial_protocol_metadata(cls, bases.as_slice());
+        // Compute data that depends on the `BaseClass` representation of base classes.
+        let initial_protocol_metadata = Self::initial_protocol_metadata(cls, bases);
         let has_generic_base_class = bases.iter().any(|x| x.is_generic());
         let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
         // Parse base classes and compute data that depends on the `BaseClassParseResult`
         // representation of base classes.
         let parsed_results = bases
-            .into_iter()
+            .iter()
             .map(|x| self.parse_base_class(x, is_new_type))
             .collect::<Vec<_>>();
         let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
@@ -673,7 +662,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn parse_base_class(&self, base: BaseClass, is_new_type: bool) -> BaseClassParseResult {
+    fn parse_base_class(&self, base: &BaseClass, is_new_type: bool) -> BaseClassParseResult {
         let range = base.range();
         let parse_base_class_type = |ty| match ty {
             Type::ClassType(c) => {
@@ -723,11 +712,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         match base {
-            BaseClass::InvalidExpr(x) => BaseClassParseResult::InvalidExpr(x),
+            BaseClass::InvalidExpr(x) => BaseClassParseResult::InvalidExpr(x.clone()),
             BaseClass::BaseClassExpr(x) => {
                 // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
                 let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
-                let ty = self.base_class_expr_infer_for_metadata(&x, &errors);
+                let ty = self.base_class_expr_infer_for_metadata(x, &errors);
                 match self.untype_opt(ty.clone(), x.range()) {
                     None => BaseClassParseResult::InvalidType(ty, x.range()),
                     Some(ty) => parse_base_class_type(ty),

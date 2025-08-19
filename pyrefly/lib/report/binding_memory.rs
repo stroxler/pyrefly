@@ -162,7 +162,6 @@ mod tests {
             keywords: Default::default(),
             decorators: Default::default(),
             is_new_type: false,
-            special_base: None,
             pydantic_metadata: PydanticMetadataBinding::default(),
         };
         assert_eq!(
