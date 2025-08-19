@@ -618,7 +618,7 @@
                 "returnsInfo": {
                   "displayType": {
                     "id": 0,
-                    "key": "Union[\n        Union[FooClass, Callable[[int], bool], int | str | None],\n        List[int | str],\n        Dict[str, int | str],\n        Optional[int | str],\n        Set[List[str]],\n    ]"
+                    "key": "Union[Union[FooClass, Callable[[int], bool], int | str | None], List[int | str], Dict[str, int | str], Optional[int | str], Set[List[str]]]"
                   },
                   "xrefs": [
                     {

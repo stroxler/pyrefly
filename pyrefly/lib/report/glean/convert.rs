@@ -560,17 +560,58 @@ impl GleanState<'_> {
         expr.recurse(&mut |x| self.xrefs_for_type_info(x, xrefs, offset));
     }
 
+    fn display_type_info(&self, range: TextRange) -> python::Type {
+        let lined_buffer = self.module.lined_buffer();
+        let separators = [',', '|', '[', ']', '{', '}', '(', ')', '=', ':'];
+        let parts: Vec<&str> = lined_buffer
+            .code_at(range)
+            .split_whitespace()
+            .flat_map(|x| x.split_inclusive(separators))
+            .flat_map(|x| {
+                if x.ends_with(separators) {
+                    let (name, sep) = x.split_at(x.len() - 1);
+                    vec![name, sep].into_iter()
+                } else {
+                    vec![x].into_iter()
+                }
+            })
+            .filter(|x| !x.is_empty())
+            .map(|x| {
+                if x == "await" {
+                    "await "
+                } else if x == ":" {
+                    ": "
+                } else if x == "|" {
+                    " | "
+                } else {
+                    x
+                }
+            })
+            .collect();
+
+        let mut display = "".to_owned();
+        for i in 0..parts.len() {
+            let part = parts[i];
+            if part == "," {
+                let next = parts.get(i + 1);
+                if next.is_some_and(|x| !["]", ")", "}"].contains(x)) {
+                    display.push_str(", ");
+                }
+            } else {
+                display.push_str(part);
+            }
+        }
+        python::Type::new(display)
+    }
+
     fn type_info(&self, annotation: Option<&Expr>) -> Option<python::TypeInfo> {
         annotation.map(|type_annotation| {
-            let lined_buffer = self.module.lined_buffer();
             let mut xrefs = vec![];
             let range = type_annotation.range();
             type_annotation
                 .visit(&mut |expr| self.xrefs_for_type_info(expr, &mut xrefs, range.start()));
             python::TypeInfo {
-                displayType: python::Type::new(
-                    lined_buffer.code_at(type_annotation.range()).to_owned(),
-                ),
+                displayType: self.display_type_info(range),
                 xrefs,
             }
         })
