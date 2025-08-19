@@ -10114,22 +10114,12 @@
     },
     {
       "code": -2,
-      "column": 43,
-      "concise_description": "Unexpected keyword argument `year` in function `ExtraMovie.__init__`",
-      "description": "Unexpected keyword argument `year` in function `ExtraMovie.__init__`",
-      "line": 275,
-      "name": "unexpected-keyword",
-      "stop_column": 47,
-      "stop_line": 275
-    },
-    {
-      "code": -2,
-      "column": 43,
-      "concise_description": "Unexpected keyword argument `language` in function `ExtraMovie.__init__`",
-      "description": "Unexpected keyword argument `language` in function `ExtraMovie.__init__`",
+      "column": 52,
+      "concise_description": "Keyword argument `language` with type `Literal['English']` is not assignable to kwargs type `int` in function `ExtraMovie.__init__`",
+      "description": "Keyword argument `language` with type `Literal['English']` is not assignable to kwargs type `int` in function `ExtraMovie.__init__`",
       "line": 276,
-      "name": "unexpected-keyword",
-      "stop_column": 51,
+      "name": "bad-argument-type",
+      "stop_column": 61,
       "stop_line": 276
     },
     {

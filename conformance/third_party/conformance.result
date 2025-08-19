@@ -446,7 +446,6 @@
     "Line 43: Unexpected errors ['Key `other_extra_key` is not defined in TypedDict `InheritedMovie`']",
     "Line 126: Unexpected errors ['TypedDict `MovieEI` does not have key `year`']",
     "Line 141: Unexpected errors ['Unexpected keyword argument `year` in function `unpack_extra`']",
-    "Line 275: Unexpected errors ['Unexpected keyword argument `year` in function `ExtraMovie.__init__`']",
     "Line 291: Unexpected errors ['`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`']",
     "Line 295: Unexpected errors ['`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int | str]`']",
     "Line 301: Unexpected errors ['assert_type(list[tuple[str, object]], list[tuple[str, int | str]]) failed']",
