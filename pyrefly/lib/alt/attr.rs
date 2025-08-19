@@ -548,8 +548,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.unions(results)
     }
 
-    /// Compute the get (i.e., read) type of a magic dunder attribute, if it can be found. If reading is not
-    /// permitted, return an error and `Some(Any)`. If no attribute is found, return `None`.
+    /// Compute the get (i.e., read) type of a magic dunder attribute, if it can
+    /// be found. Handles distributing over unions.
+    /// - If we find it, return `Some(dunder_type)`
+    /// - If no attribute is found, return `None`.
+    /// - If we hit an internal error, record it in a type error so we can debug, and assume `Any`
     ///
     /// Note that this method is only expected to be used for magic attr lookups and is not expected to
     /// produce correct results for arbitrary kinds of attributes. If you don't know whether an attribute lookup
