@@ -240,60 +240,43 @@ impl TestClient {
         }
     }
 
-    pub fn expect_message_helper(
-        &self,
-        message: Result<Message, RecvTimeoutError>,
-        expected_message: Message,
-    ) {
-        match message {
-            Ok(msg) => {
-                eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
+    pub fn expect_message_helper<F>(&self, expected_message: Message, should_skip: F)
+    where
+        F: Fn(&Message) -> bool,
+    {
+        loop {
+            match self.receiver.recv_timeout(self.timeout) {
+                Ok(msg) => {
+                    eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
 
-                let assert_match = |expected: &str, actual: &str| {
-                    assert_eq!(actual, expected, "Response mismatch");
-                };
+                    if should_skip(&msg) {
+                        continue;
+                    }
 
-                let expected_str = serde_json::to_string(&expected_message).unwrap();
-                let actual_str = serde_json::to_string(&msg).unwrap();
+                    let expected_str = serde_json::to_string(&expected_message).unwrap();
+                    let actual_str = serde_json::to_string(&msg).unwrap();
 
-                assert_match(&expected_str, &actual_str);
-            }
-            Err(RecvTimeoutError::Timeout) => {
-                panic!("Timeout waiting for response. Expected: {expected_message:?}");
-            }
-            Err(RecvTimeoutError::Disconnected) => {
-                panic!("Channel disconnected. Expected: {expected_message:?}");
+                    assert_eq!(&expected_str, &actual_str, "Response mismatch");
+                    return;
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    panic!("Timeout waiting for response. Expected: {expected_message:?}");
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    panic!("Channel disconnected. Expected: {expected_message:?}");
+                }
             }
         }
     }
 
     pub fn expect_message(&self, expected_message: Message) {
-        self.expect_message_helper(self.receiver.recv_timeout(self.timeout), expected_message);
+        self.expect_message_helper(expected_message, |_| false);
     }
 
     pub fn expect_response(&self, expected_response: Response) {
-        loop {
-            match self.receiver.recv_timeout(self.timeout) {
-                Ok(Message::Notification(notification)) => {
-                    eprintln!("received notification, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&notification).unwrap()
-                    );
-                }
-                Ok(Message::Request(request)) => {
-                    eprintln!("received request, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&request).unwrap()
-                    );
-                }
-                result => {
-                    self.expect_message_helper(result, Message::Response(expected_response));
-                    return;
-                }
-            }
-        }
+        self.expect_message_helper(Message::Response(expected_response), |msg| {
+            matches!(msg, Message::Notification(_) | Message::Request(_))
+        });
     }
 
     pub fn expect_definition_response_absolute(
@@ -346,30 +329,22 @@ impl TestClient {
     {
         loop {
             match self.receiver.recv_timeout(self.timeout) {
-                Ok(Message::Notification(notification)) => {
-                    eprintln!("received notification, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&notification).unwrap()
-                    );
-                }
-                Ok(Message::Request(request)) => {
-                    eprintln!("received request, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&request).unwrap()
-                    );
-                }
-                Ok(Message::Response(response)) => {
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&response).unwrap()
-                    );
+                Ok(msg) => {
+                    eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
 
-                    if validator(&response) {
-                        return;
-                    } else {
-                        panic!("Response validation failed: {description}. Response: {response:?}");
+                    match &msg {
+                        Message::Notification(_) | Message::Request(_) => {
+                            continue;
+                        }
+                        Message::Response(response) => {
+                            if validator(response) {
+                                return;
+                            } else {
+                                panic!(
+                                    "Response validation failed: {description}. Response: {response:?}"
+                                );
+                            }
+                        }
                     }
                 }
                 Err(RecvTimeoutError::Timeout) => {
