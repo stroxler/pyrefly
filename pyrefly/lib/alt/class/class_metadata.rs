@@ -406,13 +406,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
         match pydantic_metadata_binding {
-            PydanticMetadataBinding {
-                frozen,
-                validation_alias,
-            } if is_pydantic_model => Some(PydanticMetadata {
-                frozen: *frozen,
-                validation_alias: validation_alias.clone(),
-            }),
+            PydanticMetadataBinding { frozen } if is_pydantic_model => {
+                Some(PydanticMetadata { frozen: *frozen })
+            }
             _ => None,
         }
     }

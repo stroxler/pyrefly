@@ -97,7 +97,7 @@ assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 22);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassBaseType, 3);
-assert_words!(BindingClassMetadata, 10);
+assert_words!(BindingClassMetadata, 7);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
