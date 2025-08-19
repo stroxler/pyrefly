@@ -1199,3 +1199,17 @@ good_movie = Movie(name='Toy Story', year=1995)
 bad_movie = Movie(name='Toy Story', studio='Pixar')  # E: `Literal['Pixar']` is not assignable to kwargs type `int`
     "#,
 );
+
+testcase!(
+    test_validate_bool_keyword,
+    r#"
+from typing import TypedDict
+class Ok(TypedDict, total=True, closed=False):
+    pass
+def f() -> bool: ...
+class Bad1(TypedDict, total=f()):  # E: Expected literal True or False for keyword `total`, got instance of `bool`
+    pass
+class Bad2(TypedDict, closed=f()):  # E: Expected literal True or False
+    pass
+    "#,
+);

@@ -454,7 +454,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         });
                         extra_items = Some(ExtraItems::extra(ty, &value.qualifiers));
                     }
-                    ("total" | "closed", _) => {}
+                    ("total" | "closed", Type::Literal(Lit::Bool(_))) => {}
+                    ("total" | "closed", value_ty) => {
+                        self.error(
+                            errors,
+                            cls.range(),
+                            ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                            format!(
+                                "Expected literal True or False for keyword `{}`, got instance of `{}`",
+                                name,
+                                self.for_display(value_ty.clone())
+                            ),
+                        );
+                    }
                     _ => {
                         self.error(
                             errors,

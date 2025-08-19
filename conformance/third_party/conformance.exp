@@ -10044,6 +10044,16 @@
     },
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Expected literal True or False for keyword `closed`, got instance of `bool`",
+      "description": "Expected literal True or False for keyword `closed`, got instance of `bool`",
+      "line": 49,
+      "name": "bad-typed-dict",
+      "stop_column": 16,
+      "stop_line": 49
+    },
+    {
+      "code": -2,
       "column": 50,
       "concise_description": "`Required` is not allowed in this context",
       "description": "`Required` is not allowed in this context",
