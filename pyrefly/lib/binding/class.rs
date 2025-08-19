@@ -28,6 +28,7 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
@@ -339,7 +340,14 @@ impl<'a> BindingsBuilder<'a> {
                 BindingTParams {
                     name: x.name.clone(),
                     scoped_type_params,
-                    bases: bases.clone().into_boxed_slice(),
+                    generic_bases: bases
+                        .iter()
+                        .filter_map(|base| match base {
+                            BaseClass::Generic(x) => Some(x),
+                            _ => None,
+                        })
+                        .cloned()
+                        .collect::<Box<[BaseClassGeneric]>>(),
                     legacy_tparams: legacy_tparams.into_boxed_slice(),
                 },
             );

@@ -54,6 +54,7 @@ use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::pydantic::PydanticMetadataBinding;
@@ -1732,7 +1733,7 @@ impl DisplayWith<Bindings> for BindingClass {
 pub struct BindingTParams {
     pub name: Identifier,
     pub scoped_type_params: Option<Box<TypeParams>>,
-    pub bases: Box<[BaseClass]>,
+    pub generic_bases: Box<[BaseClassGeneric]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
 }
 

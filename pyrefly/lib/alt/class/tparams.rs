@@ -18,7 +18,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
-use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyTParams;
@@ -48,7 +48,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         name: &Identifier,
         scoped_type_params: Option<&TypeParams>,
-        bases: &[BaseClass],
+        generic_bases: &[BaseClassGeneric],
         legacy: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
@@ -93,31 +93,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // validation step that validates all the bases. We are deferring these for now.
         let mut generic_tparams = SmallSet::new();
         let mut protocol_tparams = SmallSet::new();
-        for base in bases.iter() {
-            match base {
-                BaseClass::Generic(generic_base) => {
-                    for x in generic_base.args.iter() {
-                        let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                        if let Some(p) = lookup_tparam(&ty) {
-                            let inserted = match generic_base.kind {
-                                BaseClassGenericKind::Generic => generic_tparams.insert(p),
-                                BaseClassGenericKind::Protocol => protocol_tparams.insert(p),
-                            };
-                            if !inserted {
-                                self.error(
-                                    errors,
-                                    x.range(),
-                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    format!(
-                                        "Duplicated type parameter declaration `{}`",
-                                        self.module().display(x)
-                                    ),
-                                );
-                            }
-                        }
+        for generic_base in generic_bases.iter() {
+            for x in generic_base.args.iter() {
+                let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
+                if let Some(p) = lookup_tparam(&ty) {
+                    let inserted = match generic_base.kind {
+                        BaseClassGenericKind::Generic => generic_tparams.insert(p),
+                        BaseClassGenericKind::Protocol => protocol_tparams.insert(p),
+                    };
+                    if !inserted {
+                        self.error(
+                            errors,
+                            x.range(),
+                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                            format!(
+                                "Duplicated type parameter declaration `{}`",
+                                self.module().display(x)
+                            ),
+                        );
                     }
                 }
-                _ => {}
             }
         }
         if !generic_tparams.is_empty() && !protocol_tparams.is_empty() {

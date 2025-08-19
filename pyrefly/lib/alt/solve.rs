@@ -1400,7 +1400,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.calculate_class_tparams(
             &binding.name,
             binding.scoped_type_params.as_deref(),
-            &binding.bases,
+            &binding.generic_bases,
             &binding.legacy_tparams,
             errors,
         )
