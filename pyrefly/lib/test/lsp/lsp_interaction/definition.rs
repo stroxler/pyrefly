@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::env::temp_dir;
+
 use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
@@ -141,6 +143,28 @@ fn definition_in_builtins() {
             })
         },
         "response must return the file `typing.py` from a site package",
+    );
+}
+
+#[test]
+fn definition_in_builtins_without_interpreter_goes_to_stub() {
+    let root = get_test_files_root();
+    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let result_file = pyrefly_typeshed_materialized.join("typing.pyi");
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(serde_json::json!([{"pythonPath": "/fake/python/path"}])),
+        ..Default::default()
+    });
+    interaction.server.did_open("imports_builtins.py");
+    interaction.server.definition("imports_builtins.py", 7, 7);
+    interaction.client.expect_definition_response_absolute(
+        result_file.to_string_lossy().to_string(),
+        425,
+        0,
+        425,
+        4,
     );
 }
 

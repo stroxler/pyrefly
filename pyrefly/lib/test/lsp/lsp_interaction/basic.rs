@@ -30,7 +30,7 @@ fn test_initialize_basic() {
     interaction.server.send_initialize(
         interaction
             .server
-            .get_initialize_params(InitializeSettings::default()),
+            .get_initialize_params(&InitializeSettings::default()),
     );
     interaction
         .client

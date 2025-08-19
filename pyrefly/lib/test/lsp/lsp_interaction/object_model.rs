@@ -37,7 +37,7 @@ use crate::test::util::init_test;
 #[derive(Default)]
 pub struct InitializeSettings {
     pub workspace_folders: Option<Vec<(String, Url)>>,
-    pub configuration: bool,
+    pub configuration: Option<serde_json::Value>,
     pub file_watch: bool,
 }
 
@@ -166,8 +166,8 @@ impl TestServer {
         }));
     }
 
-    pub fn get_initialize_params(&self, settings: InitializeSettings) -> Value {
-        let mut params = serde_json::json!({
+    pub fn get_initialize_params(&self, settings: &InitializeSettings) -> Value {
+        let mut params: Value = serde_json::json!({
             "rootPath": "/",
             "processId": std::process::id(),
             "trace": "verbose",
@@ -187,7 +187,7 @@ impl TestServer {
             },
         });
 
-        if let Some(folders) = settings.workspace_folders {
+        if let Some(folders) = &settings.workspace_folders {
             params["capabilities"]["workspace"]["workspaceFolders"] = serde_json::json!(true);
             params["workspaceFolders"] = serde_json::json!(
                 folders
@@ -200,7 +200,7 @@ impl TestServer {
             params["capabilities"]["workspace"]["didChangeWatchedFiles"] =
                 serde_json::json!({"dynamicRegistration": true});
         }
-        if settings.configuration {
+        if settings.configuration.is_some() {
             params["capabilities"]["workspace"]["configuration"] = serde_json::json!(true);
         }
 
@@ -446,9 +446,17 @@ impl LspInteraction {
 
     pub fn initialize(&mut self, settings: InitializeSettings) {
         self.server
-            .send_initialize(self.server.get_initialize_params(settings));
+            .send_initialize(self.server.get_initialize_params(&settings));
         self.client.expect_any_message();
         self.server.send_initialized();
+        if let Some(settings) = settings.configuration {
+            self.client.expect_any_message();
+            self.server.send_message(Message::Response(Response {
+                id: RequestId::from(1),
+                result: Some(settings),
+                error: None,
+            }));
+        }
     }
 
     pub fn shutdown(&self) {
