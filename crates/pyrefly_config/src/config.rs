@@ -397,6 +397,9 @@ impl ConfigFile {
 
     pub fn default_project_excludes() -> Globs {
         Globs::new(vec![
+            // Align with https://code.visualstudio.com/docs/python/settings-reference#_pylance-language-server
+            "**/node_modules".to_owned(),
+            "**/__pycache__".to_owned(),
             // match any `.venv` or `venv` directory
             "**/*venv/**".to_owned(),
             // Note: dot files are now excluded at the Glob::files() level
@@ -1450,10 +1453,14 @@ mod tests {
             FilteredGlobs::new(
                 config.project_includes.clone(),
                 Globs::new(
-                    vec!["**/*venv/**".to_owned()]
-                        .into_iter()
-                        .chain(site_package_path.clone())
-                        .collect::<Vec<_>>()
+                    vec![
+                        "**/node_modules".to_owned(),
+                        "**/__pycache__".to_owned(),
+                        "**/*venv/**".to_owned()
+                    ]
+                    .into_iter()
+                    .chain(site_package_path.clone())
+                    .collect::<Vec<_>>()
                 )
                 .unwrap(),
                 None,
