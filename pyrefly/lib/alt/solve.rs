@@ -1197,6 +1197,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingExpect::TypeCheckExpr(x) => {
                 self.expr_infer(x, errors);
             }
+            BindingExpect::TypeCheckBaseClassExpr(x) => {
+                self.expr_untype(x, TypeFormContext::BaseClassList, errors);
+            }
             BindingExpect::Bool(x) => {
                 let ty = self.expr_infer(x, errors);
                 self.check_dunder_bool_is_callable(&ty, x.range(), errors);

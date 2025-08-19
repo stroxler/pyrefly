@@ -39,6 +39,7 @@ use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingConsistentOverrideCheck;
+use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
@@ -53,6 +54,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyConsistentOverrideCheck;
+use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
@@ -166,7 +168,25 @@ impl<'a> BindingsBuilder<'a> {
                 &mut legacy
             };
             self.ensure_type(&mut base, legacy);
-            self.base_class_of(base)
+
+            let base_class = self.base_class_of(base.clone());
+            // NOTE(grievejia): If any of the class base is a specialized generic class (e.g. `Foo[Bar]`), and if the tparam of the
+            // generic class has a bound or constraint, we won't be validating the type `Bar` against that bound/constraint of the
+            // tparam eagerly in order to avoid dependency cycle. But the validation needs to happen somewhere.
+            //
+            // Since we can't create "delayed" computations on-the-fly in the answer phase, we'll create a static computation here
+            // trying to type check all valid base class expressions. We are duplicating a lot of work with class base calculation,
+            // which is sad. Hence we were able to figure out a better places to insert those checks we should migrate.
+            //
+            // Also note that there's no risk of first-usage tracking issues here because `ensure_type` does not participate in first
+            // usage tracking.
+            if matches!(base_class, BaseClass::BaseClassExpr(..)) {
+                self.insert_binding(
+                    KeyExpect(base.range()),
+                    BindingExpect::TypeCheckBaseClassExpr(base),
+                );
+            }
+            base_class
         });
 
         let mut keywords = Vec::new();

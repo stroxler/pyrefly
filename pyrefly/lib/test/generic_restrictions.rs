@@ -83,7 +83,6 @@ test(C())
 );
 
 testcase!(
-    bug = "Instantiation in base class list is not validated against bound",
     test_base_class_bound,
     r#"
 class A: pass
@@ -94,7 +93,7 @@ class Foo[T: B]:
 
 class Bar(Foo[B]):  # OK
     pass
-class Bar(Foo[A]):  # This should be an error
+class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B` of type variable `T`
     pass
  "#,
 );
@@ -122,7 +121,6 @@ test(D())
 );
 
 testcase!(
-    bug = "Instantiation in base class list is not validated against constraints",
     test_base_class_constraint,
     r#"
 class A: pass
@@ -134,7 +132,7 @@ class Foo[T: (B, C)]:
 
 class Bar(Foo[B]):  # OK
     pass
-class Bar(Foo[A]):  # This should be an error
+class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B | C` of type variable `T`
     pass
  "#,
 );

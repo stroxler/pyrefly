@@ -488,6 +488,8 @@ impl DisplayWith<Bindings> for ExprOrBinding {
 pub enum BindingExpect {
     /// An expression where we need to check for type errors, but don't need the result type.
     TypeCheckExpr(Expr),
+    /// Same as `TypeCheckExpr` but more checks are needed for expressions that appear in base class list.
+    TypeCheckBaseClassExpr(Expr),
     /// The expected number of values in an unpacked iterable expression.
     UnpackedLength(Idx<Key>, TextRange, SizeExpectation),
     /// An exception and its cause from a raise statement.
@@ -511,6 +513,9 @@ impl DisplayWith<Bindings> for BindingExpect {
         match self {
             Self::TypeCheckExpr(x) => {
                 write!(f, "TypeCheckExpr({})", m.display(x))
+            }
+            Self::TypeCheckBaseClassExpr(x) => {
+                write!(f, "TypeCheckBaseClassExpr({})", m.display(x))
             }
             Self::Bool(x) => {
                 write!(f, "Bool({})", m.display(x))

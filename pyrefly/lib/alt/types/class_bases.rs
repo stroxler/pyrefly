@@ -28,6 +28,7 @@ use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::error::style::ErrorStyle;
 use crate::types::class::Class;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
@@ -158,11 +159,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         is_new_type: bool,
         errors: &ErrorCollector,
     ) -> ClassBases {
+        // Make sure errors in base class expr are not reported during expr_untype -- they'll be checked in
+        // another binding.
+        let fake_error_collector = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
         let base_types_with_ranges = bases
             .iter()
             .filter_map(|x| match x {
                 BaseClass::BaseClassExpr(x) => Some((
-                    self.base_class_expr_untype(x, TypeFormContext::BaseClassList, errors),
+                    self.base_class_expr_untype(
+                        x,
+                        TypeFormContext::BaseClassList,
+                        &fake_error_collector,
+                    ),
                     x.range(),
                 )),
                 BaseClass::NamedTuple(..) => Some((
