@@ -305,20 +305,19 @@ const config: Config = {
         footer: {
             links: [
                 {
-                    title: 'Community',
+                    title: 'Community & Support',
                     items: [
                         {
-                            label: 'Discord',
+                            label: 'Join Discord',
                             href: 'https://discord.gg/Cf7mFQtW7W',
                         },
-                    ],
-                },
-                {
-                    title: 'More',
-                    items: [
                         {
-                            label: 'Github',
+                            label: 'Open a Github issue',
                             href: 'https://github.com/facebook/pyrefly',
+                        },
+                        {
+                            label: 'Attend Office Hours',
+                            href: 'https://discord.gg/MuFSdD7uCr?event=1389635637090713672',
                         },
                     ],
                 },
