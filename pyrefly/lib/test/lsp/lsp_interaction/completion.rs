@@ -20,6 +20,7 @@ use crate::config::environment::environment::PythonEnvironment;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
+#[allow(deprecated)]
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 fn get_all_builtin_completions() -> Vec<CompletionItem> {
@@ -70,6 +71,7 @@ pub fn make_sorted_completion_result_with_all_keywords(
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_completion_basic() {
     let root = get_test_files_root();
 
@@ -131,6 +133,7 @@ fn test_completion_basic() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_completion_with_autoimport() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
@@ -198,6 +201,7 @@ fn test_completion_with_autoimport() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_completion_with_autoimport_in_defined_module() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
@@ -254,6 +258,7 @@ fn test_completion_with_autoimport_in_defined_module() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_completion_with_autoimport_duplicates() {
     let root = get_test_files_root();
     let root_path = root.path().join("duplicate_export_test");
@@ -356,6 +361,7 @@ fn test_completion_with_autoimport_duplicates() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_module_completion() {
     let root = get_test_files_root();
     let foo = root.path().join("tests_requiring_config").join("foo.py");
@@ -397,6 +403,7 @@ fn test_module_completion() {
 
 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
 #[test]
+#[allow(deprecated)]
 fn test_relative_module_completion() {
     let root = get_test_files_root();
     let foo = root.path().join("relative_test").join("relative_import.py");

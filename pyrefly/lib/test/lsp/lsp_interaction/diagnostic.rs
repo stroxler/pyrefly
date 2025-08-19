@@ -14,9 +14,11 @@ use lsp_types::Url;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
+#[allow(deprecated)]
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 #[test]
+#[allow(deprecated)]
 fn test_unexpected_keyword_range() {
     let root = get_test_files_root();
     let file_path = root.path().join("unexpected_keyword.py");

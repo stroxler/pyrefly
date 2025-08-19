@@ -21,9 +21,11 @@ use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
+#[allow(deprecated)]
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 #[test]
+#[allow(deprecated)]
 fn test_initialize_basic() {
     let mut interaction = LspInteraction::new();
 
@@ -97,6 +99,7 @@ fn test_exit_without_shutdown() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_initialize_with_python_path() {
     let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
     let python_path = "/path/to/python/interpreter";
@@ -133,6 +136,7 @@ fn test_initialize_with_python_path() {
 
 // This test exists as a regression test for certain notebooks that mock a fake file in /tmp/.
 #[test]
+#[allow(deprecated)]
 fn test_nonexistent_file() {
     let root = get_test_files_root();
     let nonexistent_filename = root.path().join("nonexistent_file.py");

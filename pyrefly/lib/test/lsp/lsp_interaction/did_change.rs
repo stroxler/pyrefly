@@ -15,9 +15,11 @@ use lsp_types::Url;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
+#[allow(deprecated)]
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 #[test]
+#[allow(deprecated)]
 fn test_text_document_did_change() {
     let root = get_test_files_root();
     let filepath = root.path().join("text_document.py");
@@ -77,6 +79,7 @@ fn test_text_document_did_change() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_text_document_did_change_unicode() {
     let root = get_test_files_root();
     let filepath = root.path().join("utf.py");

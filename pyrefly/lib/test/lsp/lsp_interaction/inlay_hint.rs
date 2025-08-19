@@ -21,9 +21,11 @@ use lsp_types::request::WorkspaceConfiguration;
 use crate::test::lsp::lsp_interaction::util::TestCase;
 use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
+#[allow(deprecated)]
 use crate::test::lsp::lsp_interaction::util::run_test_lsp;
 
 #[test]
+#[allow(deprecated)]
 fn test_inlay_hint_default_config() {
     let root = get_test_files_root();
     let request_file_name = root.path().join("inlay_hint_test.py");
@@ -73,6 +75,7 @@ fn test_inlay_hint_default_config() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_inlay_hint_disable_all() {
     let root = get_test_files_root();
     let request_file_name = root.path().join("inlay_hint_test.py");
@@ -153,6 +156,7 @@ fn test_inlay_hint_disable_all() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_inlay_hint_disable_variables() {
     let root = get_test_files_root();
     let request_file_name = root.path().join("inlay_hint_test.py");
@@ -237,6 +241,7 @@ fn test_inlay_hint_disable_variables() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_inlay_hint_disable_returns() {
     let root = get_test_files_root();
     let request_file_name = root.path().join("inlay_hint_test.py");

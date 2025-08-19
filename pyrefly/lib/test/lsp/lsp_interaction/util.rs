@@ -61,6 +61,7 @@ pub struct TestCase {
     pub(crate) file_watch: bool,
 }
 
+#[deprecated = "Use the test framework in object_model.rs instead"]
 pub fn run_test_lsp(test_case: TestCase) {
     init_test();
     let timeout = Duration::from_secs(25);
