@@ -10,7 +10,6 @@ use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::name::Name;
 
-use crate::annotation::Annotation;
 use crate::annotation::Qualifier;
 use crate::class::Class;
 use crate::qname::QName;
@@ -93,13 +92,12 @@ pub enum ExtraItems {
 }
 
 impl ExtraItems {
-    pub fn extra(annot: &Annotation) -> Self {
-        let ty = annot.get_type();
+    pub fn extra(ty: &Type, qualifiers: &[Qualifier]) -> Self {
         match ty {
             Type::Type(box Type::Never(_)) => Self::Closed,
             _ => Self::Extra(ExtraItem {
                 ty: ty.clone(),
-                read_only: annot.has_qualifier(&Qualifier::ReadOnly),
+                read_only: qualifiers.iter().any(|q| q == &Qualifier::ReadOnly),
             }),
         }
     }

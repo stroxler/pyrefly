@@ -444,7 +444,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         extra_items = Some(ExtraItems::Closed);
                     }
                     ("extra_items", _) => {
-                        extra_items = Some(ExtraItems::extra(value));
+                        extra_items = Some(ExtraItems::extra(value.get_type(), &value.qualifiers));
                     }
                     ("total" | "closed", _) => {}
                     _ => {
