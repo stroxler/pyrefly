@@ -300,8 +300,8 @@ impl Attribute {
         }
     }
 
-    pub fn read_only_equivalent(attr: Self, reason: ReadOnlyReason) -> Self {
-        match attr.inner {
+    pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
+        match self.inner {
             AttributeInner::Simple(ty, Visibility::ReadWrite) => Attribute::read_only(ty, reason),
             AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
             AttributeInner::Descriptor(descriptor) => Attribute::descriptor(
@@ -1383,10 +1383,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(&cls, &obj, attr_name) {
-                    Some(attr) => LookupResult::Found(Attribute::read_only_equivalent(
-                        attr,
-                        ReadOnlyReason::Super,
-                    )),
+                    Some(attr) => {
+                        LookupResult::Found(attr.read_only_equivalent(ReadOnlyReason::Super))
+                    }
                     None if let SuperObj::Instance(cls) = &obj
                         && self.extends_any(cls.class_object()) =>
                     {
