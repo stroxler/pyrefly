@@ -35,6 +35,15 @@ pub struct Quantified {
     pub restriction: Restriction,
 }
 
+impl Quantified {
+    pub fn with_restriction(self, restriction: Restriction) -> Self {
+        Self {
+            restriction,
+            ..self
+        }
+    }
+}
+
 impl PartialEq for Quantified {
     fn eq(&self, other: &Self) -> bool {
         self.unique == other.unique
