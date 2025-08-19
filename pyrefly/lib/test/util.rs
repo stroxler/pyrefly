@@ -91,11 +91,12 @@ fn default_path(module: ModuleName) -> PathBuf {
     PathBuf::from(format!("{}.py", module.as_str().replace('.', "/")))
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestEnv {
     modules: Vec<(ModuleName, ModulePath, Option<Arc<String>>)>,
     version: PythonVersion,
     untyped_def_behavior: UntypedDefBehavior,
+    infer_with_first_use: bool,
     site_package_path: Vec<PathBuf>,
 }
 
@@ -103,7 +104,13 @@ impl TestEnv {
     pub fn new() -> Self {
         // We aim to init the tracing before now, but if not, better now than never
         init_test();
-        Self::default()
+        TestEnv {
+            modules: Vec::new(),
+            version: PythonVersion::default(),
+            untyped_def_behavior: UntypedDefBehavior::default(),
+            infer_with_first_use: true,
+            site_package_path: Vec::new(),
+        }
     }
 
     pub fn new_with_site_package_path(path: &str) -> Self {
@@ -121,6 +128,12 @@ impl TestEnv {
     pub fn new_with_untyped_def_behavior(untyped_def_behavior: UntypedDefBehavior) -> Self {
         let mut res = Self::new();
         res.untyped_def_behavior = untyped_def_behavior;
+        res
+    }
+
+    pub fn new_with_infer_with_first_use(infer_with_first_use: bool) -> Self {
+        let mut res = Self::new();
+        res.infer_with_first_use = infer_with_first_use;
         res
     }
 
@@ -181,6 +194,7 @@ impl TestEnv {
         config.python_environment.python_platform = Some(PythonPlatform::linux());
         config.python_environment.site_package_path = Some(self.site_package_path.clone());
         config.root.untyped_def_behavior = Some(self.untyped_def_behavior);
+        config.root.infer_with_first_use = Some(self.infer_with_first_use);
         for (name, path, _) in self.modules.iter() {
             config.custom_module_paths.insert(*name, path.dupe());
         }
@@ -426,7 +440,7 @@ pub fn testcase_for_macro(
     line: u32,
 ) -> anyhow::Result<()> {
     init_test();
-    let is_empty_env = env == TestEnv::default();
+    let is_empty_env = env == TestEnv::new();
     let mut start_line = line as usize + 1;
     if !env.modules.is_empty() || !env.site_package_path.is_empty() {
         start_line += 1;

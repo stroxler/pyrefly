@@ -42,6 +42,7 @@ pub struct Context<'a, Lookup> {
     pub stdlib: &'a Stdlib,
     pub lookup: &'a Lookup,
     pub untyped_def_behavior: UntypedDefBehavior,
+    pub infer_with_first_use: bool,
 }
 
 #[derive(Debug, Default, Dupe, Clone)]
@@ -204,6 +205,7 @@ impl Step {
             ctx.require.compute_errors()
                 || ctx.require.keep_answers_trace()
                 || ctx.require.keep_answers(),
+            ctx.infer_with_first_use,
         );
         Arc::new(solutions)
     }

@@ -92,6 +92,12 @@ pub struct ConfigOverrideArgs {
     /// Whether to ignore type errors in generated code.
     #[arg(long)]
     ignore_errors_in_generated_code: Option<bool>,
+    /// If this is true, infer type variables not determined by a call or constructor based on their first usage.
+    /// For example, the type of an empty container would be determined by the first thing you put into it.
+    /// If this is false, any unsolved type variables at the end of a call or constructor will be replaced with `Any`.
+    /// Defaults to true.
+    #[arg(long)]
+    infer_with_first_use: Option<bool>,
     /// Whether to respect ignore files (.gitignore, .ignore, .git/exclude).
     #[arg(long)]
     use_ignore_files: Option<bool>,
@@ -215,6 +221,9 @@ impl ConfigOverrideArgs {
         }
         if let Some(x) = &self.ignore_errors_in_generated_code {
             config.root.ignore_errors_in_generated_code = Some(*x);
+        }
+        if let Some(x) = &self.infer_with_first_use {
+            config.root.infer_with_first_use = Some(*x);
         }
         let apply_error_settings = |error_config: &mut ErrorDisplayConfig| {
             for error_kind in &self.error {

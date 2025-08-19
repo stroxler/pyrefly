@@ -377,14 +377,20 @@ impl Solver {
     }
 
     /// Called after a quantified function has been called. Given `def f[T](x: int): list[T]`,
-    /// after the generic has completed, the variable `T` now behaves more like an empty container
-    /// than a generic. If it hasn't been solved, make that switch.
-    pub fn finish_quantified(&self, vs: &[Var]) {
+    /// after the generic has completed.
+    /// If `replace_quantified_with_contained` is true, the variable `T` will be have like an
+    /// empty container and get pinned by the first subsequent usage.
+    /// If `replace_quantified_with_contained` is false, the variable `T` will be replaced with `Any`
+    pub fn finish_quantified(&self, vs: &[Var], replace_quantified_with_contained: bool) {
         let mut lock = self.variables.write();
         for v in vs {
             let e = lock.get_mut(v).expect(VAR_LEAK);
             if matches!(*e, Variable::Quantified(_)) {
-                *e = Variable::Contained;
+                if replace_quantified_with_contained {
+                    *e = Variable::Contained;
+                } else {
+                    *e = Variable::Answer(Type::any_implicit())
+                }
             }
         }
     }

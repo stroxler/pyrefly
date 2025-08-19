@@ -762,6 +762,7 @@ impl<'a> Transaction<'a> {
             }
 
             let stdlib = self.get_stdlib(&module_data.handle);
+            let config = module_data.config.read();
             let set = compute(&Context {
                 require,
                 module: module_data.handle.module(),
@@ -771,10 +772,10 @@ impl<'a> Transaction<'a> {
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(module_data.dupe()),
-                untyped_def_behavior: module_data
-                    .config
-                    .read()
+                untyped_def_behavior: config
                     .untyped_def_behavior(module_data.handle.path().as_path()),
+                infer_with_first_use: config
+                    .infer_with_first_use(module_data.handle.path().as_path()),
             });
             {
                 let mut changed = false;
@@ -1005,6 +1006,10 @@ impl<'a> Transaction<'a> {
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
         let key = Hashed::new(key);
+        let infer_with_first_use = module_data
+            .config
+            .read()
+            .infer_with_first_use(module_data.handle.path().as_path());
 
         // Either: We have solutions (use that), or we have answers (calculate that), or we have none (demand and try again)
         // Check; demand; check - the second check is guaranteed to work.
@@ -1030,6 +1035,7 @@ impl<'a> Transaction<'a> {
                     &self.data.state.uniques,
                     key,
                     thread_state,
+                    infer_with_first_use,
                 );
             }
             drop(lock);
@@ -1209,6 +1215,7 @@ impl<'a> Transaction<'a> {
         let stdlib = self.get_stdlib(handle);
         let recurser = Recurser::new();
         let thread_state = ThreadState::new();
+        let config = module_data.config.read();
         let solver = AnswersSolver::new(
             &lookup,
             answers,
@@ -1219,6 +1226,7 @@ impl<'a> Transaction<'a> {
             &recurser,
             &stdlib,
             &thread_state,
+            config.infer_with_first_use(module_data.handle.path().as_path()),
         );
         let result = solve(solver);
         Some(result)
@@ -1380,6 +1388,7 @@ impl<'a> Transaction<'a> {
             let mut alt = Steps::default();
             let lock = m.state.read();
             let stdlib = self.get_stdlib(&m.handle);
+            let config = m.config.read();
             let ctx = Context {
                 require: lock.require.get(self.data.require),
                 module: m.handle.module(),
@@ -1389,10 +1398,8 @@ impl<'a> Transaction<'a> {
                 uniques: &self.data.state.uniques,
                 stdlib: &stdlib,
                 lookup: &self.lookup(m.dupe()),
-                untyped_def_behavior: m
-                    .config
-                    .read()
-                    .untyped_def_behavior(m.handle.path().as_path()),
+                untyped_def_behavior: config.untyped_def_behavior(m.handle.path().as_path()),
+                infer_with_first_use: config.infer_with_first_use(m.handle.path().as_path()),
             };
             let mut step = Step::Load; // Start at AST (Load.next)
             alt.load = lock.steps.load.dupe();

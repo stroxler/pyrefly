@@ -1063,7 +1063,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(targs) = ctor_targs {
             self.solver().generalize_class_targs(targs);
         }
-        self.solver().finish_quantified(&qs);
+        self.solver()
+            .finish_quantified(&qs, self.infer_with_first_use());
         self.solver().expand(callable.ret)
     }
 }

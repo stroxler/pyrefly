@@ -71,6 +71,11 @@ pub struct ConfigBase {
     )]
     pub ignore_errors_in_generated_code: Option<bool>,
 
+    /// Whether to infer empty container types as Any instead of creating type variables.
+    /// By default this is enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub infer_with_first_use: Option<bool>,
+
     /// Any unknown config items
     #[serde(default, flatten)]
     pub(crate) extras: ExtraConfigs,
@@ -108,5 +113,9 @@ impl ConfigBase {
 
     pub fn get_ignore_errors_in_generated_code(base: &Self) -> Option<bool> {
         base.ignore_errors_in_generated_code
+    }
+
+    pub fn get_infer_with_first_use(base: &Self) -> Option<bool> {
+        base.infer_with_first_use
     }
 }

@@ -400,6 +400,7 @@ impl Answers {
         stdlib: &Stdlib,
         uniques: &UniqueFactory,
         compute_everything: bool,
+        infer_with_first_use: bool,
     ) -> Solutions {
         let mut res = SolutionsTable::default();
 
@@ -441,6 +442,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
+            infer_with_first_use,
         );
         table_mut_for_each!(&mut res, |items| pre_solve(
             items,
@@ -516,6 +518,7 @@ impl Answers {
         uniques: &UniqueFactory,
         key: Hashed<&K>,
         thread_state: &ThreadState,
+        infer_with_first_use: bool,
     ) -> Option<Arc<K::Answer>>
     where
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
@@ -532,6 +535,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
+            infer_with_first_use,
         );
         let v = solver.get_hashed_opt(key)?;
         let mut vv = (*v).clone();
