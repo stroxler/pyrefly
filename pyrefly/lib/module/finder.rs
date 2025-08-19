@@ -1229,6 +1229,62 @@ mod tests {
     }
 
     #[test]
+    fn test_find_namespaces_with_nested_init_files() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::dir(
+                    "nampspace",
+                    vec![TestPath::dir("a", vec![TestPath::file("__init__.py")])],
+                ),
+                TestPath::dir(
+                    "namespace",
+                    vec![
+                        TestPath::dir("a", vec![TestPath::file("__init__.py")]),
+                        TestPath::dir("b", vec![TestPath::file("__init__.py")]),
+                    ],
+                ),
+            ],
+        );
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("namespace"),
+                [root.to_path_buf()].iter(),
+                true,
+                None,
+            )
+            .unwrap()
+            .unwrap(),
+            ModulePath::namespace(root.join("namespace"))
+        );
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("namespace.a"),
+                [root.to_path_buf()].iter(),
+                true,
+                None,
+            )
+            .unwrap()
+            .unwrap(),
+            ModulePath::filesystem(root.join("namespace/a/__init__.py"))
+        );
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("namespace.b"),
+                [root.to_path_buf()].iter(),
+                true,
+                None,
+            )
+            .unwrap()
+            .unwrap(),
+            ModulePath::filesystem(root.join("namespace/b/__init__.py"))
+        );
+    }
+
+    #[test]
     fn test_find_compiled_module() {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path();
