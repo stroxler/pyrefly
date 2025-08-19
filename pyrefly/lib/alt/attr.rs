@@ -280,28 +280,28 @@ enum InternalError {
 
 impl Attribute {
     fn new(inner: AttributeInner) -> Self {
-        Attribute { inner }
+        Self { inner }
     }
 
     pub fn no_access(reason: NoAccessReason) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::NoAccess(reason),
         }
     }
 
     pub fn read_write(ty: Type) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Simple(ty, Visibility::ReadWrite),
         }
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Simple(ty, Visibility::ReadOnly(reason)),
         }
     }
 
-    pub fn read_only_equivalent(attr: Attribute, reason: ReadOnlyReason) -> Self {
+    pub fn read_only_equivalent(attr: Self, reason: ReadOnlyReason) -> Self {
         match attr.inner {
             AttributeInner::Simple(ty, Visibility::ReadWrite) => Attribute::read_only(ty, reason),
             AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
@@ -316,7 +316,7 @@ impl Attribute {
     }
 
     pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Property(getter, setter, cls),
         }
     }
@@ -327,7 +327,7 @@ impl Attribute {
         getter: Option<Type>,
         setter: Option<Type>,
     ) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Descriptor(Descriptor {
                 descriptor_ty: ty,
                 base,
@@ -337,8 +337,8 @@ impl Attribute {
         }
     }
 
-    pub fn getattr(not_found: NotFound, getattr: Attribute, name: Name) -> Self {
-        Attribute {
+    pub fn getattr(not_found: NotFound, getattr: Self, name: Name) -> Self {
+        Self {
             inner: AttributeInner::GetAttr(not_found, Box::new(getattr.inner), name),
         }
     }
