@@ -17,7 +17,6 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::visit::Visit;
-use ruff_python_ast::Alias;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
@@ -30,6 +29,8 @@ use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::StmtImport;
+use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -47,6 +48,10 @@ use crate::types::types::Type;
 fn hash(x: &[u8]) -> String {
     // Glean uses blake3
     blake3::hash(x).to_string()
+}
+
+fn join_names(base_name: &str, name: &str) -> String {
+    base_name.to_owned() + "." + name
 }
 
 fn range_without_decorators(range: TextRange, decorators: &[Decorator]) -> TextRange {
@@ -295,19 +300,6 @@ impl GleanState<'_> {
         }
     }
 
-    fn make_fq_name_with_optional_module(
-        &self,
-        name: &Name,
-        module_name: Option<&str>,
-    ) -> python::Name {
-        let fq_name = if let Some(module) = module_name {
-            module.to_owned() + "." + name
-        } else {
-            name.to_string()
-        };
-        python::Name::new(fq_name)
-    }
-
     fn record_name(&mut self, name: String, position: Option<TextSize>) -> python::Name {
         let arc_name = Arc::new(name.clone());
         if self.names.insert(Arc::clone(&arc_name)) {
@@ -348,7 +340,7 @@ impl GleanState<'_> {
                 }
             }
         };
-        self.record_name(scope.to_owned() + "." + name, Some(name.range.start()))
+        self.record_name(join_names(&scope, name), Some(name.range.start()))
     }
 
     fn make_fq_names_for_expr(&self, expr: &Expr) -> Vec<python::Name> {
@@ -376,7 +368,7 @@ impl GleanState<'_> {
             let fq_name = if local_name.is_empty() {
                 module_name.to_string()
             } else {
-                module_name.to_string() + "." + local_name
+                join_names(module_name.as_str(), local_name)
             };
             Some(fq_name)
         }
@@ -453,7 +445,11 @@ impl GleanState<'_> {
         } else {
             base_types
                 .into_iter()
-                .filter_map(|ty| self.fq_name_for_type(ty).map(|base| base + "." + name))
+                .filter_map(|ty| {
+                    self.fq_name_for_type(ty)
+                        .as_deref()
+                        .map(|base| join_names(base, name))
+                })
                 .collect()
         }
     }
@@ -783,25 +779,78 @@ impl GleanState<'_> {
         });
     }
 
+    fn make_import_fact(
+        &mut self,
+        from_name: &str,
+        from_name_range: TextRange,
+        as_name: &str,
+        as_name_range: TextRange,
+        top_level_declaration: &python::Declaration,
+    ) -> DeclarationInfo {
+        let as_name_fqname = join_names(self.module_name.as_str(), as_name);
+        self.record_name(from_name.to_owned(), Some(as_name_range.start()));
+
+        let from_name_fact = python::Name::new(from_name.to_owned());
+        let as_name_fact = python::Name::new(as_name_fqname);
+        self.add_xref(python::XRefViaName {
+            target: from_name_fact.clone(),
+            source: to_span(from_name_range),
+        });
+        let import_fact = python::ImportStatement::new(from_name_fact, as_name_fact);
+
+        DeclarationInfo {
+            declaration: python::Declaration::imp(import_fact),
+            decl_span: to_span(from_name_range),
+            definition: None,
+            def_span: None,
+            top_level_decl: top_level_declaration.clone(),
+            docstring_range: None,
+        }
+    }
+
     fn import_facts(
         &mut self,
-        imports: &Vec<Alias>,
-        range: TextRange,
-        from_module_id: Option<&Identifier>,
-        level: u32,
+        import: &StmtImport,
         top_level_declaration: &python::Declaration,
     ) -> Vec<DeclarationInfo> {
-        let from_module_name = from_module_id.map(|x| x.id());
-        let from_module = if level > 0 {
+        import
+            .names
+            .iter()
+            .map(|import| {
+                let from_name = &import.name;
+                let as_name = import.asname.as_ref().unwrap_or(from_name);
+                self.make_import_fact(
+                    from_name.as_str(),
+                    from_name.range,
+                    as_name.as_str(),
+                    as_name.range,
+                    top_level_declaration,
+                )
+            })
+            .collect()
+    }
+
+    fn import_from_facts(
+        &mut self,
+        import_from: &StmtImportFrom,
+        top_level_declaration: &python::Declaration,
+    ) -> Vec<DeclarationInfo> {
+        let from_module_name = import_from.module.as_ref().map(|x| x.id());
+
+        let from_module = if import_from.level > 0 {
             self.module_name
-                .new_maybe_relative(self.module.path().is_init(), level, from_module_name)
+                .new_maybe_relative(
+                    self.module.path().is_init(),
+                    import_from.level,
+                    from_module_name,
+                )
                 .map(|x| x.to_string())
         } else {
             from_module_name.map(|x| x.to_string())
         };
 
         let from_module_fact = python::Name::new(from_module.clone().unwrap_or_default());
-        if let Some(module) = from_module_id {
+        if let Some(module) = &import_from.module {
             self.add_xref(python::XRefViaName {
                 target: from_module_fact.clone(),
                 source: to_span(module.range()),
@@ -809,7 +858,7 @@ impl GleanState<'_> {
         }
 
         let mut decl_infos = vec![];
-        for import in imports {
+        for import in &import_from.names {
             let from_name = &import.name;
             let star_import = "*";
 
@@ -823,34 +872,22 @@ impl GleanState<'_> {
                     .push(python::ImportStarLocation::new(
                         import_star,
                         self.facts.file.clone(),
-                        to_span(range),
+                        to_span(import.range),
                     ));
             } else {
+                let from_name_string = from_module
+                    .as_deref()
+                    .map_or(from_name.id().to_string(), |x| {
+                        join_names(x, from_name.id())
+                    });
                 let as_name = import.asname.as_ref().unwrap_or(from_name);
-                let from_name_fact =
-                    self.make_fq_name_with_optional_module(from_name.id(), from_module.as_deref());
-                self.record_name((*from_name_fact.key).clone(), Some(as_name.range.start()));
-                self.add_xref(python::XRefViaName {
-                    target: from_name_fact.clone(),
-                    source: to_span(import.name.range()),
-                });
-
-                let import_fact = python::ImportStatement::new(
-                    from_name_fact,
-                    self.make_fq_name_with_optional_module(
-                        as_name.id(),
-                        Some(&self.module_name.to_string()),
-                    ),
-                );
-
-                decl_infos.push(DeclarationInfo {
-                    declaration: python::Declaration::imp(import_fact),
-                    decl_span: to_span(import.name.range),
-                    definition: None,
-                    def_span: None,
-                    top_level_decl: top_level_declaration.clone(),
-                    docstring_range: None,
-                });
+                decl_infos.push(self.make_import_fact(
+                    &from_name_string,
+                    from_name.range,
+                    as_name.as_str(),
+                    as_name.range,
+                    top_level_declaration,
+                ));
             }
         }
 
@@ -1038,18 +1075,11 @@ impl GleanState<'_> {
                 self.visit_exprs(&assign.value, container);
             }
             Stmt::Import(import) => {
-                let mut imp_decl_infos =
-                    self.import_facts(&import.names, import.range, None, 0, top_level_decl);
+                let mut imp_decl_infos = self.import_facts(import, top_level_decl);
                 decl_infos.append(&mut imp_decl_infos);
             }
             Stmt::ImportFrom(import) => {
-                let mut imp_decl_infos = self.import_facts(
-                    &import.names,
-                    import.range,
-                    import.module.as_ref(),
-                    import.level,
-                    top_level_decl,
-                );
+                let mut imp_decl_infos = self.import_from_facts(import, top_level_decl);
                 decl_infos.append(&mut imp_decl_infos);
             }
             Stmt::For(stmt_for) => {
