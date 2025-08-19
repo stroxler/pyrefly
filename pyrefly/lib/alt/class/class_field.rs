@@ -1705,9 +1705,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(cls)))
     }
 
-    pub fn get_bounded_type_var_attribute(
+    pub fn get_bounded_quantified_attribute(
         &self,
-        type_var: Quantified,
+        quantified: Quantified,
         upper_bound: &ClassType,
         name: &Name,
     ) -> Option<Attribute> {
@@ -1715,7 +1715,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| {
                 self.as_instance_attribute(
                     &member.value,
-                    &Instance::of_type_var(type_var, upper_bound),
+                    &Instance::of_type_var(quantified, upper_bound),
                 )
             })
     }

@@ -196,7 +196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::TypeAlias(ta) => self.as_call_target_impl(ta.as_value(self.stdlib), quantified),
             Type::ClassType(cls) | Type::SelfType(cls) => {
                 if let Some(quantified) = quantified {
-                    self.type_var_instance_as_dunder_call(quantified.clone(), &cls)
+                    self.quantified_instance_as_dunder_call(quantified.clone(), &cls)
                         .and_then(|ty| self.as_call_target_impl(ty, Some(quantified)))
                 } else {
                     self.instance_as_dunder_call(&cls)

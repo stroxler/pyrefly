@@ -1451,7 +1451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     LookupResult::found_type(Type::type_form(Type::Kwargs(Box::new(q))))
                 }
                 (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
-                    match self.get_bounded_type_var_attribute(q, &upper_bound, attr_name) {
+                    match self.get_bounded_quantified_attribute(q, &upper_bound, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
                         None => LookupResult::NotFound(NotFound::Attribute(
                             upper_bound.class_object().dupe(),
@@ -1911,12 +1911,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
     /// We look up `__call__` from the upper bound of `type_var`, but `Self` is substituted with
     /// the `type_var` instead of the upper bound class.
-    pub fn type_var_instance_as_dunder_call(
+    pub fn quantified_instance_as_dunder_call(
         &self,
-        type_var: Quantified,
+        quantified: Quantified,
         upper_bound: &ClassType,
     ) -> Option<Type> {
-        self.get_bounded_type_var_attribute(type_var, upper_bound, &dunder::CALL)
+        self.get_bounded_quantified_attribute(quantified, upper_bound, &dunder::CALL)
             .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 }
