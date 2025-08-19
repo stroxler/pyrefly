@@ -300,12 +300,6 @@ impl Glob {
         let pattern_str = pattern.as_str().to_owned();
         let result = Self::resolve_pattern(&pattern_str, filter)
             .with_context(|| format!("When resolving pattern `{pattern_str}`"))?;
-        if result.is_empty() {
-            return Err(anyhow::anyhow!(
-                "No Python files matched pattern `{}`",
-                pattern_str
-            ));
-        }
         Ok(result)
     }
 }
@@ -454,6 +448,27 @@ impl Globs {
         let mut result = SmallSet::new();
         for pattern in &self.0 {
             result.extend(pattern.files(filter)?);
+        }
+        if result.is_empty() {
+            if self.0.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "There are no patterns to match Python files."
+                ));
+            }
+            if self.0.len() == 1 {
+                let pattern_str = self.0[0].as_str();
+                return Err(anyhow::anyhow!(
+                    "No Python files matched pattern `{}`",
+                    pattern_str
+                ));
+            }
+            return Err(anyhow::anyhow!(
+                "No Python files matched patterns {}",
+                self.0
+                    .iter()
+                    .map(|p| format!("`{}`", p.as_str()))
+                    .join(", "),
+            ));
         }
         Ok(result.into_iter().collect())
     }
@@ -956,9 +971,9 @@ mod tests {
         );
 
         let glob_files_match = |pattern: &str, expected: &[&str]| -> anyhow::Result<()> {
-            let glob_files = Glob::new_with_root(root, pattern.to_owned())
+            let glob_files = Globs::new_with_root(root, vec![pattern.to_owned()])
                 .unwrap()
-                .files(&GlobFilter::empty())?;
+                .files()?;
             let mut glob_files = glob_files
                 .iter()
                 .map(|p| p.strip_prefix(root))
@@ -1199,9 +1214,9 @@ mod tests {
         );
         // double check that <path>/** will also match <path>
         assert!(
-            Glob::new(root.to_string_lossy().to_string())
+            Globs::new(vec![root.to_string_lossy().to_string()])
                 .unwrap()
-                .files(&GlobFilter::new(
+                .filtered_files(&GlobFilter::new(
                     Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap(),
                     None
                 ))
