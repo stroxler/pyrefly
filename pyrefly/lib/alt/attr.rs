@@ -180,8 +180,8 @@ impl AttrSubsetError {
     }
 }
 
-/// The result of looking up an attribute. We can analyze get and set actions
-/// on an attribute, each of which can be allowed with some type or disallowed.
+/// The result of looking up an attribute, which can be used for structural
+/// subtyping checks or performing get / set / delete actions.
 #[derive(Debug)]
 pub struct Attribute {
     inner: AttributeInner,
@@ -193,10 +193,9 @@ enum Visibility {
     ReadWrite,
 }
 
-/// The result of an attempt to access an attribute (with a get or set operation).
-///
-/// The operation is either permitted with an attribute `Type`, or is not allowed
-/// and has a reason.
+/// The result of an attempt to access an attribute (which will eventually be
+/// used either for an action like get / set / delete, or in a structural subtype
+/// check).
 #[derive(Debug)]
 enum AttributeInner {
     /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
