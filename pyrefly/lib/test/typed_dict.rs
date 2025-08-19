@@ -1168,3 +1168,12 @@ class TD(TypedDict, extra_items=ReadOnly[int]):
     pass
     "#,
 );
+
+testcase!(
+    test_bad_extra_items,
+    r#"
+from typing import TypedDict
+class TD(TypedDict, extra_items=False):  # E: Expected `extra_items` to be a type form, got instance of `Literal[False]`
+    pass
+    "#,
+);

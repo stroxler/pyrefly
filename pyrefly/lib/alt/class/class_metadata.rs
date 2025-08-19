@@ -443,8 +443,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ("closed", Type::Literal(Lit::Bool(true))) => {
                         extra_items = Some(ExtraItems::Closed);
                     }
-                    ("extra_items", _) => {
-                        extra_items = Some(ExtraItems::extra(value.get_type(), &value.qualifiers));
+                    ("extra_items", value_ty) => {
+                        let ty = self.untype_opt(value_ty.clone(), cls.range()).unwrap_or_else(|| {
+                            self.error(
+                                errors,
+                                cls.range(),
+                                ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                                format!("Expected `extra_items` to be a type form, got instance of `{}`", self.for_display(value_ty.clone())),
+                            )
+                        });
+                        extra_items = Some(ExtraItems::extra(ty, &value.qualifiers));
                     }
                     ("total" | "closed", _) => {}
                     _ => {

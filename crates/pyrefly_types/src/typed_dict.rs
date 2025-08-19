@@ -92,11 +92,11 @@ pub enum ExtraItems {
 }
 
 impl ExtraItems {
-    pub fn extra(ty: &Type, qualifiers: &[Qualifier]) -> Self {
-        match ty {
+    pub fn extra(ty: Type, qualifiers: &[Qualifier]) -> Self {
+        match &ty {
             Type::Type(box Type::Never(_)) => Self::Closed,
             _ => Self::Extra(ExtraItem {
-                ty: ty.clone(),
+                ty,
                 read_only: qualifiers.iter().any(|q| q == &Qualifier::ReadOnly),
             }),
         }
