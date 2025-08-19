@@ -197,6 +197,27 @@ T = TypeVar('T', bound=Callable[[int], int])
 def func(a: T, b: int) -> T:
     assert_type(a(b), int)
     return a
+T2 = TypeVar('T2', Callable[[int], int], Callable[[int], bool])
+def func2(a: T2, b: int) -> T2:
+    assert_type(a(b), int | bool)
+    return a
+ "#,
+);
+
+testcase!(
+    test_bounded_callable_protocol,
+    r#"
+from typing import Protocol, TypeVar, Self, assert_type
+class A(Protocol):
+    def __call__(self) -> Self: ...
+class B(Protocol):
+    def __call__(self) -> Self: ...
+T = TypeVar('T', bound=A | B)
+def func(a: T) -> T:
+    return a()
+T2 = TypeVar('T2', A, B)
+def func2(a: T2) -> T2:
+    return a()
  "#,
 );
 

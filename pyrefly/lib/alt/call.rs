@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_python::dunder;
+use pyrefly_types::quantified::Quantified;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
 use pyrefly_util::prelude::SliceExt;
@@ -110,8 +111,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         CallTarget::Any(AnyStyle::Error)
     }
 
-    /// Return a pair of the quantified variables I had to instantiate, and the resulting call target.
     pub fn as_call_target(&self, ty: Type) -> Option<CallTarget> {
+        self.as_call_target_impl(ty, None)
+    }
+
+    fn as_call_target_impl(&self, ty: Type, quantified: Option<Quantified>) -> Option<CallTarget> {
         match ty {
             Type::Callable(c) => Some(CallTarget::Callable(TargetWithTParams(None, *c))),
             Type::Function(func) => Some(CallTarget::Function(TargetWithTParams(None, *func))),
@@ -133,7 +137,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &obj
                 };
                 func.subst_self_type_mut(self_replacement, &|a, b| self.is_subset_eq(a, b));
-                match self.as_call_target(func.as_type()) {
+                match self.as_call_target_impl(func.as_type(), quantified) {
                     Some(CallTarget::Function(func)) => Some(CallTarget::BoundMethod(obj, func)),
                     Some(CallTarget::FunctionOverload(overloads, meta)) => {
                         Some(CallTarget::BoundMethodOverload(obj, overloads, meta))
@@ -141,7 +145,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => None,
                 }
             }
-            Type::ClassDef(cls) => self.as_call_target(Type::type_form(self.instantiate(&cls))),
+            Type::ClassDef(cls) => {
+                self.as_call_target_impl(Type::type_form(self.instantiate(&cls)), quantified)
+            }
             Type::Type(box Type::ClassType(cls)) | Type::Type(box Type::SelfType(cls)) => {
                 Some(CallTarget::Class(cls))
             }
@@ -160,7 +166,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Type(box Type::Any(style)) => Some(CallTarget::Any(style)),
             Type::Forall(forall) => {
-                let mut target = self.as_call_target(forall.body.as_type());
+                let mut target = self.as_call_target_impl(forall.body.as_type(), quantified);
                 match &mut target {
                     Some(
                         CallTarget::Callable(TargetWithTParams(x, _))
@@ -173,12 +179,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 target
             }
             Type::Var(v) if let Some(_guard) = self.recurser.recurse(v) => {
-                self.as_call_target(self.solver().force_var(v))
+                self.as_call_target_impl(self.solver().force_var(v), quantified)
             }
             Type::Union(xs) => {
                 let targets = xs
                     .into_iter()
-                    .map(|x| self.as_call_target(x))
+                    .map(|x| self.as_call_target_impl(x, quantified.clone()))
                     .collect::<Option<Vec<_>>>()?;
                 if targets.len() == 1 {
                     Some(targets.into_iter().next().unwrap())
@@ -187,19 +193,57 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Type::Any(style) => Some(CallTarget::Any(style)),
-            Type::TypeAlias(ta) => self.as_call_target(ta.as_value(self.stdlib)),
-            Type::ClassType(cls) | Type::SelfType(cls) => self
-                .instance_as_dunder_call(&cls)
-                .and_then(|ty| self.as_call_target(ty)),
+            Type::TypeAlias(ta) => self.as_call_target_impl(ta.as_value(self.stdlib), quantified),
+            Type::ClassType(cls) | Type::SelfType(cls) => {
+                if let Some(quantified) = quantified {
+                    self.type_var_instance_as_dunder_call(quantified.clone(), &cls)
+                        .and_then(|ty| self.as_call_target_impl(ty, Some(quantified)))
+                } else {
+                    self.instance_as_dunder_call(&cls)
+                        .and_then(|ty| self.as_call_target_impl(ty, quantified))
+                }
+            }
             Type::Type(box Type::TypedDict(typed_dict)) => Some(CallTarget::TypedDict(typed_dict)),
-            // TODO: this is wrong, because we lose the information that this is a type variable
-            // TODO: handle type[T]
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
-                Restriction::Bound(bound) => self.as_call_target(bound.clone()),
-                // TODO: handle constraints
-                Restriction::Constraints(_) | Restriction::Unrestricted => None,
+                Restriction::Unrestricted => None,
+                Restriction::Bound(bound) => match bound {
+                    Type::Union(members) => {
+                        let mut targets = Vec::new();
+                        for member in members {
+                            if let Some(target) = self.as_call_target_impl(
+                                member.clone(),
+                                Some(
+                                    q.clone()
+                                        .with_restriction(Restriction::Bound(member.clone())),
+                                ),
+                            ) {
+                                targets.push(target);
+                            } else {
+                                return None;
+                            }
+                        }
+                        Some(CallTarget::Union(targets))
+                    }
+                    _ => self.as_call_target_impl(bound.clone(), Some(*q)),
+                },
+                Restriction::Constraints(constraints) => {
+                    let mut targets = Vec::new();
+                    for constraint in constraints {
+                        if let Some(target) = self.as_call_target_impl(
+                            constraint.clone(),
+                            Some(q.clone().with_restriction(Restriction::Constraints(vec![
+                                constraint.clone(),
+                            ]))),
+                        ) {
+                            targets.push(target);
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(CallTarget::Union(targets))
+                }
             },
-            Type::KwCall(call) => self.as_call_target(call.return_ty),
+            Type::KwCall(call) => self.as_call_target_impl(call.return_ty, quantified),
             _ => None,
         }
     }
