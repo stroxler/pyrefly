@@ -9964,22 +9964,12 @@
   "typeddicts_extra_items.py": [
     {
       "code": -2,
-      "column": 37,
-      "concise_description": "Key `novel_adaptation` is not defined in TypedDict `Movie`",
-      "description": "Key `novel_adaptation` is not defined in TypedDict `Movie`",
-      "line": 14,
-      "name": "typed-dict-key-error",
-      "stop_column": 55,
-      "stop_line": 14
-    },
-    {
-      "code": -2,
-      "column": 37,
-      "concise_description": "Key `year` is not defined in TypedDict `Movie`",
-      "description": "Key `year` is not defined in TypedDict `Movie`",
+      "column": 45,
+      "concise_description": "`Literal[1982]` is not assignable to TypedDict `extra_items` type `bool`",
+      "description": "`Literal[1982]` is not assignable to TypedDict `extra_items` type `bool`",
       "line": 15,
       "name": "typed-dict-key-error",
-      "stop_column": 43,
+      "stop_column": 49,
       "stop_line": 15
     },
     {
@@ -10114,36 +10104,6 @@
     },
     {
       "code": -2,
-      "column": 63,
-      "concise_description": "Key `year` is not defined in TypedDict `MovieExtraInt`",
-      "description": "Key `year` is not defined in TypedDict `MovieExtraInt`",
-      "line": 245,
-      "name": "typed-dict-key-error",
-      "stop_column": 69,
-      "stop_line": 245
-    },
-    {
-      "code": -2,
-      "column": 63,
-      "concise_description": "Key `description` is not defined in TypedDict `MovieExtraStr`",
-      "description": "Key `description` is not defined in TypedDict `MovieExtraStr`",
-      "line": 246,
-      "name": "typed-dict-key-error",
-      "stop_column": 76,
-      "stop_line": 246
-    },
-    {
-      "code": -2,
-      "column": 64,
-      "concise_description": "Key `year` is not defined in TypedDict `MovieExtraInt`",
-      "description": "Key `year` is not defined in TypedDict `MovieExtraInt`",
-      "line": 257,
-      "name": "typed-dict-key-error",
-      "stop_column": 70,
-      "stop_line": 257
-    },
-    {
-      "code": -2,
       "column": 47,
       "concise_description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
       "description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
@@ -10184,16 +10144,6 @@
     },
     {
       "code": -2,
-      "column": 54,
-      "concise_description": "Key `summary` is not defined in TypedDict `MovieExtraStr`",
-      "description": "Key `summary` is not defined in TypedDict `MovieExtraStr`",
-      "line": 290,
-      "name": "typed-dict-key-error",
-      "stop_column": 63,
-      "stop_line": 290
-    },
-    {
-      "code": -2,
       "column": 34,
       "concise_description": "`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`",
       "description": "`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`",
@@ -10201,16 +10151,6 @@
       "name": "bad-assignment",
       "stop_column": 44,
       "stop_line": 291
-    },
-    {
-      "code": -2,
-      "column": 54,
-      "concise_description": "Key `year` is not defined in TypedDict `MovieExtraInt`",
-      "description": "Key `year` is not defined in TypedDict `MovieExtraInt`",
-      "line": 293,
-      "name": "typed-dict-key-error",
-      "stop_column": 60,
-      "stop_line": 293
     },
     {
       "code": -2,

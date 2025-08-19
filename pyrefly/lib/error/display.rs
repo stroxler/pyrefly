@@ -162,6 +162,11 @@ impl TypeCheckKind {
                 param,
                 ctx.display(want),
             ),
+            Self::TypedDictExtra => format!(
+                "`{}` is not assignable to TypedDict `extra_items` type `{}`",
+                ctx.display(got),
+                ctx.display(want),
+            ),
             Self::TypedDictKey(key) => format!(
                 "`{}` is not assignable to TypedDict key `{}` with type `{}`",
                 ctx.display(got),

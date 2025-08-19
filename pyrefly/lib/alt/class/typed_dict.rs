@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use pyrefly_types::typed_dict::ExtraItems;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -67,6 +68,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         check_errors: &ErrorCollector,
         item_errors: &ErrorCollector,
     ) {
+        let class_metadata = self.get_metadata_for_class(typed_dict.class_object());
+        let metadata = class_metadata.typed_dict_metadata();
         let fields = self.typed_dict_fields(typed_dict);
         let mut has_expansion = false;
         let mut keys: SmallSet<Name> = SmallSet::new();
@@ -91,6 +94,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
                                         key_name.clone(),
                                     ))
+                                })),
+                                item_errors,
+                            );
+                        }
+                        None if let Some(m) = metadata
+                            && let ExtraItems::Extra(extra) = &m.extra_items =>
+                        {
+                            self.expr_with_separate_check_errors(
+                                &x.value,
+                                Some((&extra.ty, check_errors, &|| {
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictExtra)
                                 })),
                                 item_errors,
                             );

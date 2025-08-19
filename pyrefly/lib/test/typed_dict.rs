@@ -1177,3 +1177,14 @@ class TD(TypedDict, extra_items=False):  # E: Expected `extra_items` to be a typ
     pass
     "#,
 );
+
+testcase!(
+    test_construct_with_extra_items,
+    r#"
+from typing import TypedDict
+class Movie(TypedDict, extra_items=int):
+    name: str
+good_movie: Movie = {'name': 'Toy Story', 'year': 1995}
+bad_movie: Movie = {'name': 'Toy Story', 'studio': 'Pixar'}  # E: `Literal['Pixar']` is not assignable to TypedDict `extra_items` type `int`
+    "#,
+);
