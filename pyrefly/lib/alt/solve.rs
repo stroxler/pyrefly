@@ -1465,6 +1465,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         Arc::new(fields)
     }
+
     // TODO zeina: After doing the full implementation, look into extracting fields and
     // base types from existing bindings
     pub fn solve_variance_binding(&self, variance_info: &BindingVariance) -> Arc<VarianceMap> {
