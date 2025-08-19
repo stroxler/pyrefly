@@ -169,10 +169,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.named_tuple_fallback().clone().to_type(),
                     x.range(),
                 )),
-                BaseClass::InvalidExpr(..)
-                | BaseClass::TypedDict(..)
-                | BaseClass::Generic(..)
-                | BaseClass::Protocol(..) => None,
+                BaseClass::InvalidExpr(..) | BaseClass::TypedDict(..) | BaseClass::Generic(..) => {
+                    None
+                }
             })
             .collect::<Vec<_>>();
 

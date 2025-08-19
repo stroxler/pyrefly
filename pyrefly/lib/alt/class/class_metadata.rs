@@ -39,6 +39,8 @@ use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::alt::types::pydantic::PydanticMetadata;
 use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassExpr;
+use crate::binding::base_class::BaseClassGeneric;
+use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::config::error_kind::ErrorKind;
@@ -294,7 +296,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn initial_protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
-        if bases.iter().any(|x| matches!(x, BaseClass::Protocol(..))) {
+        if bases.iter().any(|x| {
+            matches!(
+                x,
+                BaseClass::Generic(BaseClassGeneric {
+                    kind: BaseClassGenericKind::Protocol,
+                    ..
+                })
+            )
+        }) {
             Some(ProtocolMetadata {
                 members: cls.fields().cloned().collect(),
                 is_runtime_checkable: false,
@@ -725,7 +735,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BaseClass::NamedTuple(..) => {
                 parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
             }
-            BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
+            BaseClass::TypedDict(..) | BaseClass::Generic(..) => {
                 if is_new_type {
                     BaseClassParseResult::InvalidBase(base.range())
                 } else {

@@ -19,6 +19,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyTParams;
 use crate::config::error_kind::ErrorKind;
@@ -94,39 +95,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut protocol_tparams = SmallSet::new();
         for base in bases.iter() {
             match base {
-                BaseClass::Generic(xs, ..) => {
-                    for x in xs {
+                BaseClass::Generic(generic_base) => {
+                    for x in generic_base.args.iter() {
                         let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                        if let Some(p) = lookup_tparam(&ty)
-                            && !generic_tparams.insert(p)
-                        {
-                            self.error(
-                                errors,
-                                x.range(),
-                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                format!(
-                                    "Duplicated type parameter declaration `{}`",
-                                    self.module().display(x)
-                                ),
-                            );
-                        }
-                    }
-                }
-                BaseClass::Protocol(xs, ..) => {
-                    for x in xs {
-                        let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                        if let Some(p) = lookup_tparam(&ty)
-                            && !protocol_tparams.insert(p)
-                        {
-                            self.error(
-                                errors,
-                                x.range(),
-                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                format!(
-                                    "Duplicated type parameter declaration `{}`",
-                                    self.module().display(x),
-                                ),
-                            );
+                        if let Some(p) = lookup_tparam(&ty) {
+                            let inserted = match generic_base.kind {
+                                BaseClassGenericKind::Generic => generic_tparams.insert(p),
+                                BaseClassGenericKind::Protocol => protocol_tparams.insert(p),
+                            };
+                            if !inserted {
+                                self.error(
+                                    errors,
+                                    x.range(),
+                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                    format!(
+                                        "Duplicated type parameter declaration `{}`",
+                                        self.module().display(x)
+                                    ),
+                                );
+                            }
                         }
                     }
                 }

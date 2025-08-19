@@ -66,14 +66,32 @@ impl BaseClassExpr {
     }
 }
 
-/// Private helper type used to share part of the logic needed for the
+#[derive(Debug, Clone)]
+pub enum BaseClassGenericKind {
+    Generic,
+    Protocol,
+}
+
+#[derive(Debug, Clone)]
+pub struct BaseClassGeneric {
+    pub kind: BaseClassGenericKind,
+    pub args: Box<[Expr]>,
+    pub range: TextRange,
+}
+
+impl Ranged for BaseClassGeneric {
+    fn range(&self) -> TextRange {
+        self.range
+    }
+}
+
+/// Helper type used to share part of the logic needed for the
 /// binding-level work of finding legacy type parameters versus the type-level
 /// work of computing inheritance information and the MRO.
 #[derive(Debug, Clone)]
 pub enum BaseClass {
     TypedDict(TextRange),
-    Generic(Box<[Expr]>, TextRange),
-    Protocol(Box<[Expr]>, TextRange),
+    Generic(BaseClassGeneric),
     BaseClassExpr(BaseClassExpr),
     InvalidExpr(Expr),
     NamedTuple(TextRange),
@@ -82,7 +100,7 @@ pub enum BaseClass {
 impl BaseClass {
     pub fn is_generic(&self) -> bool {
         match self {
-            BaseClass::Generic(ts, ..) | BaseClass::Protocol(ts, ..) if !ts.is_empty() => true,
+            BaseClass::Generic(x) if !x.args.is_empty() => true,
             _ => false,
         }
     }
@@ -99,8 +117,7 @@ impl Ranged for BaseClass {
     fn range(&self) -> TextRange {
         match self {
             BaseClass::TypedDict(range) => *range,
-            BaseClass::Generic(_, range) => *range,
-            BaseClass::Protocol(_, range) => *range,
+            BaseClass::Generic(x) => x.range(),
             BaseClass::BaseClassExpr(base_expr) => base_expr.range(),
             BaseClass::InvalidExpr(expr) => expr.range(),
             BaseClass::NamedTuple(range) => *range,
@@ -115,22 +132,32 @@ impl<'a> BindingsBuilder<'a> {
             Some(SpecialExport::TypingNamedTuple) | Some(SpecialExport::CollectionsNamedTuple) => {
                 BaseClass::NamedTuple(base_expr.range())
             }
-            Some(SpecialExport::Protocol) => BaseClass::Protocol(Box::new([]), base_expr.range()),
-            Some(SpecialExport::Generic) => BaseClass::Generic(Box::new([]), base_expr.range()),
+            Some(SpecialExport::Protocol) => BaseClass::Generic(BaseClassGeneric {
+                kind: BaseClassGenericKind::Protocol,
+                args: Box::new([]),
+                range: base_expr.range(),
+            }),
+            Some(SpecialExport::Generic) => BaseClass::Generic(BaseClassGeneric {
+                kind: BaseClassGenericKind::Generic,
+                args: Box::new([]),
+                range: base_expr.range(),
+            }),
             _ => {
                 if let Expr::Subscript(subscript) = &base_expr {
                     match self.as_special_export(&subscript.value) {
                         Some(SpecialExport::Protocol) => {
-                            return BaseClass::Protocol(
-                                Ast::unpack_slice(&subscript.slice).into(),
-                                base_expr.range(),
-                            );
+                            return BaseClass::Generic(BaseClassGeneric {
+                                kind: BaseClassGenericKind::Protocol,
+                                args: Ast::unpack_slice(&subscript.slice).into(),
+                                range: base_expr.range(),
+                            });
                         }
                         Some(SpecialExport::Generic) => {
-                            return BaseClass::Generic(
-                                Ast::unpack_slice(&subscript.slice).into(),
-                                base_expr.range(),
-                            );
+                            return BaseClass::Generic(BaseClassGeneric {
+                                kind: BaseClassGenericKind::Generic,
+                                args: Ast::unpack_slice(&subscript.slice).into(),
+                                range: base_expr.range(),
+                            });
                         }
                         _ => {}
                     }
