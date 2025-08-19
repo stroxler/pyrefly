@@ -328,7 +328,7 @@ testcase!(
 from typing import Final, assert_type, Literal, cast
 x: Final[int] = 1
 y: Final = "test"
-z: Final[str] = cast(str, "")
+z: Final[str] = cast(str, "")  # No warning - Literal[''] is not exactly the same as str
 w: Final[int] = "bad"  # E: `Literal['bad']` is not assignable to `int`
 
 assert_type(x, int)
