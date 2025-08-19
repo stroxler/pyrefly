@@ -219,6 +219,22 @@ impl GleanState<'_> {
         digest::FileDigest::new(self.file_fact(), digest)
     }
 
+    fn all_modules(&mut self, module_name: ModuleName) -> Vec<ModuleName> {
+        let mut module_names = vec![];
+        let components = module_name.components();
+        let mut module = None;
+        for component in components.into_iter() {
+            let name = module.map_or(ModuleName::from_name(&component), |x: ModuleName| {
+                x.append(&component)
+            });
+            self.record_name(name.to_string(), None);
+            module = Some(name);
+            module_names.push(name);
+        }
+
+        module_names
+    }
+
     fn module_facts(&mut self, range: TextRange) {
         let module_docstring_range = self.transaction.get_module_docstring_range(self.handle);
         let components = self.module_name.components();
@@ -789,6 +805,7 @@ impl GleanState<'_> {
     ) -> DeclarationInfo {
         let as_name_fqname = join_names(self.module_name.as_str(), as_name);
         self.record_name(from_name.to_owned(), Some(as_name_range.start()));
+        self.record_name(as_name_fqname.clone(), None);
 
         let from_name_fact = python::Name::new(from_name.to_owned());
         let as_name_fact = python::Name::new(as_name_fqname);
@@ -808,6 +825,46 @@ impl GleanState<'_> {
         }
     }
 
+    fn make_import_fact_with_alias(
+        &mut self,
+        from_name: &str,
+        from_name_range: TextRange,
+        as_name: &Identifier,
+        top_level_declaration: &python::Declaration,
+    ) -> DeclarationInfo {
+        self.make_import_fact(
+            from_name,
+            from_name_range,
+            as_name.as_str(),
+            as_name.range(),
+            top_level_declaration,
+        )
+    }
+
+    fn make_import_facts_for_module(
+        &mut self,
+        import_module: &Identifier,
+        top_level_declaration: &python::Declaration,
+    ) -> Vec<DeclarationInfo> {
+        let parts = import_module.id().split(".");
+
+        self.all_modules(ModuleName::from_parts(parts))
+            .into_iter()
+            .map(|module| {
+                let range = TextRange::empty(import_module.range().start())
+                    .add_end(TextSize::from(module.as_str().len().to_u32().unwrap()));
+
+                self.make_import_fact(
+                    module.as_str(),
+                    range,
+                    module.as_str(),
+                    range,
+                    top_level_declaration,
+                )
+            })
+            .collect()
+    }
+
     fn import_facts(
         &mut self,
         import: &StmtImport,
@@ -816,16 +873,18 @@ impl GleanState<'_> {
         import
             .names
             .iter()
-            .map(|import| {
+            .flat_map(|import| {
                 let from_name = &import.name;
-                let as_name = import.asname.as_ref().unwrap_or(from_name);
-                self.make_import_fact(
-                    from_name.as_str(),
-                    from_name.range,
-                    as_name.as_str(),
-                    as_name.range,
-                    top_level_declaration,
-                )
+                if let Some(as_name) = &import.asname {
+                    vec![self.make_import_fact_with_alias(
+                        from_name.as_str(),
+                        from_name.range,
+                        as_name,
+                        top_level_declaration,
+                    )]
+                } else {
+                    self.make_import_facts_for_module(&import.name, top_level_declaration)
+                }
             })
             .collect()
     }
@@ -1159,6 +1218,7 @@ impl Glean {
         let ast = &*transaction.get_ast(handle).unwrap();
         let mut glean_state = GleanState::new(transaction, handle);
 
+        glean_state.record_name("".to_owned(), None);
         let file_language_fact =
             src::FileLanguage::new(glean_state.file_fact(), src::Language::Python);
         let digest_fact = glean_state.digest_fact();
