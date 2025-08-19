@@ -166,6 +166,52 @@ impl TestServer {
         }));
     }
 
+    pub fn did_change_configuration(&self) {
+        self.send_message(Message::Notification(Notification {
+            method: lsp_types::notification::DidChangeConfiguration::METHOD.to_owned(),
+            params: serde_json::json!({"settings": {}}),
+        }));
+    }
+
+    pub fn diagnostic(&mut self, file: &'static str) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            }}),
+        }));
+    }
+
+    pub fn hover(&mut self, file: &'static str, line: u32, col: u32) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/hover".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string()
+                },
+                "position": {
+                    "line": line,
+                    "character": col
+                }
+            }),
+        }));
+    }
+
+    pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
+        self.send_message(Message::Response(Response {
+            id: RequestId::from(id),
+            result: Some(result),
+            error: None,
+        }));
+    }
+
     pub fn get_initialize_params(&self, settings: &InitializeSettings) -> Value {
         let mut params: Value = serde_json::json!({
             "rootPath": "/",
@@ -369,6 +415,39 @@ impl TestClient {
                 panic!("Channel disconnected");
             }
         }
+    }
+
+    pub fn expect_configuration_request(&self, id: i32, scope_uri: Option<&Url>) {
+        use lsp_types::ConfigurationItem;
+        use lsp_types::ConfigurationParams;
+        use lsp_types::request::WorkspaceConfiguration;
+
+        let items = if let Some(uri) = scope_uri {
+            Vec::from([
+                ConfigurationItem {
+                    scope_uri: Some(uri.clone()),
+                    section: Some("python".to_owned()),
+                },
+                ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("python".to_owned()),
+                },
+            ])
+        } else {
+            Vec::from([ConfigurationItem {
+                scope_uri: None,
+                section: Some("python".to_owned()),
+            }])
+        };
+
+        self.expect_message_helper(
+            Message::Request(Request {
+                id: RequestId::from(id),
+                method: WorkspaceConfiguration::METHOD.to_owned(),
+                params: serde_json::json!(ConfigurationParams { items }),
+            }),
+            |msg| matches!(msg, Message::Notification(_)),
+        );
     }
 
     fn get_root_or_panic(&self) -> PathBuf {
