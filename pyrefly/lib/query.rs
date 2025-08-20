@@ -603,7 +603,11 @@ impl Query {
 
         fn collect_attribute_prefixes(x: &Expr, res: &mut SmallSet<String>) {
             if let Expr::Attribute(attr) = x {
+                // `attr` is a qname of a type. Get its prefix, which is likely the
+                // module where it is defined.
                 if let Some(names) = compute_prefix(attr) {
+                    // Assume that the prefix is the module where it is defined.
+                    // Note: This will always fail if the type is actually a nested class.
                     res.insert(names.map(|name| name.as_str()).join("."));
                 }
             } else {
