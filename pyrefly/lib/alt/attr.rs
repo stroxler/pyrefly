@@ -52,14 +52,10 @@ use crate::types::types::SuperObj;
 use crate::types::types::Type;
 
 #[derive(Debug)]
-enum LookupResult {
-    /// The lookup succeeded, resulting in a type.
-    Found(Attribute),
-    /// The attribute was not found. Callers can use fallback behavior, for
-    /// example looking up a different attribute.
-    NotFound(NotFound),
-    /// There was a Pyrefly-internal error
-    InternalError(InternalError),
+struct LookupResult {
+    pub found: Vec<Attribute>,
+    pub not_found: Vec<NotFound>,
+    pub internal_error: Vec<InternalError>,
 }
 
 #[derive(Debug)]
@@ -246,7 +242,7 @@ pub enum DescriptorBase {
     ClassDef(Class),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum NotFound {
     Attribute(Class),
     ClassAttribute(Class),
@@ -387,11 +383,47 @@ impl LookupResult {
     /// TODO(stroxler) The uses of this eventually need to be audited, but we
     /// need to prioritize the class logic first.
     fn found_type(ty: Type) -> Self {
-        Self::Found(Attribute::read_write(ty))
+        Self {
+            found: vec![Attribute::read_write(ty)],
+            not_found: Vec::new(),
+            internal_error: Vec::new(),
+        }
     }
 
     fn found_type_read_only(ty: Type, reason: ReadOnlyReason) -> Self {
-        Self::Found(Attribute::read_only(ty, reason))
+        Self {
+            found: vec![Attribute::read_only(ty, reason)],
+            not_found: Vec::new(),
+            internal_error: Vec::new(),
+        }
+    }
+
+    fn found(attr: Attribute) -> Self {
+        Self {
+            found: vec![attr],
+            not_found: Vec::new(),
+            internal_error: Vec::new(),
+        }
+    }
+
+    fn not_found(not_found: NotFound) -> Self {
+        Self {
+            found: Vec::new(),
+            not_found: vec![not_found],
+            internal_error: Vec::new(),
+        }
+    }
+
+    fn internal_error(internal_error: InternalError) -> Self {
+        Self {
+            found: Vec::new(),
+            not_found: Vec::new(),
+            internal_error: vec![internal_error],
+        }
+    }
+
+    fn decompose(self) -> (Vec<Attribute>, Vec<NotFound>, Vec<InternalError>) {
+        (self.found, self.not_found, self.internal_error)
     }
 }
 
@@ -524,7 +556,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut results = Vec::with_capacity(bases.len());
         for attr_base in bases {
             let lookup_result = attr_base.map_or_else(
-                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+                || {
+                    LookupResult::internal_error(InternalError::AttributeBaseUndefined(
+                        base.clone(),
+                    ))
+                },
                 |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
             );
             match self.get_type_or_conflated_error_msg(
@@ -572,9 +608,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let attr_bases = self.get_possible_attribute_bases(base);
         for attr_base in attr_bases {
             let lookup_result = match attr_base {
-                None => {
-                    LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone()))
-                }
+                None => LookupResult::internal_error(InternalError::AttributeBaseUndefined(
+                    base.clone(),
+                )),
                 Some(base) => {
                     let direct_lookup_result =
                         self.lookup_magic_dunder_attr(base.clone(), attr_name);
@@ -585,8 +621,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             };
-            match lookup_result {
-                LookupResult::Found(attr) => attr_tys.push(
+            for attr in lookup_result.found {
+                attr_tys.push(
                     self.resolve_get_access(attr, range, errors, context)
                         .unwrap_or_else(|e| {
                             self.error(
@@ -596,16 +632,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 e.to_error_msg(attr_name),
                             )
                         }),
-                ),
-                LookupResult::InternalError(e) => attr_tys.push(self.error(
+                );
+            }
+            if !lookup_result.not_found.is_empty() {
+                not_found = true;
+            }
+            for internal_error in lookup_result.internal_error {
+                attr_tys.push(self.error(
                     errors,
                     range,
                     ErrorInfo::new(ErrorKind::InternalError, context),
-                    e.to_error_msg(attr_name, todo_ctx),
-                )),
-                LookupResult::NotFound(_) => {
-                    not_found = true;
-                }
+                    internal_error.to_error_msg(attr_name, todo_ctx),
+                ))
             }
         }
         if not_found {
@@ -656,41 +694,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) {
-        let setattr_lookup_result = self.lookup_magic_dunder_attr(attr_base, &dunder::SETATTR);
-        match setattr_lookup_result {
-            LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                    not_found.to_error_msg(attr_name),
-                );
-            }
-            LookupResult::Found(setattr_attr) => {
-                let result = self
-                    .resolve_get_access(setattr_attr, range, errors, context)
-                    .map(|setattr_ty| {
-                        self.call_setattr(
-                            setattr_ty,
-                            CallArg::Arg(got),
-                            attr_name.clone(),
-                            range,
-                            errors,
-                            context,
-                        )
-                    });
-                match result {
-                    Ok(_) => {}
-                    Err(no_access) => {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                            no_access.to_error_msg(attr_name),
-                        );
-                    }
+        let (setattr_found, setattr_not_found, setattr_error) = self
+            .lookup_magic_dunder_attr(attr_base, &dunder::SETATTR)
+            .decompose();
+        for setattr_attr in setattr_found {
+            let result = self
+                .resolve_get_access(setattr_attr, range, errors, context)
+                .map(|setattr_ty| {
+                    self.call_setattr(
+                        setattr_ty,
+                        CallArg::Arg(got),
+                        attr_name.clone(),
+                        range,
+                        errors,
+                        context,
+                    )
+                });
+            match result {
+                Ok(_) => {}
+                Err(no_access) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::MissingAttribute, context),
+                        no_access.to_error_msg(attr_name),
+                    );
                 }
             }
+        }
+        if !(setattr_not_found.is_empty() && setattr_error.is_empty()) {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::MissingAttribute, context),
+                not_found.to_error_msg(attr_name),
+            );
         }
     }
 
@@ -703,40 +741,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) {
-        let delattr_lookup_result = self.lookup_magic_dunder_attr(attr_base, &dunder::DELATTR);
-        match delattr_lookup_result {
-            LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                    not_found.to_error_msg(attr_name),
-                );
-            }
-            LookupResult::Found(delattr_attr) => {
-                let result = self
-                    .resolve_get_access(delattr_attr, range, errors, context)
-                    .map(|delattr_ty| {
-                        self.call_getattr_or_delattr(
-                            delattr_ty,
-                            attr_name.clone(),
-                            range,
-                            errors,
-                            context,
-                        )
-                    });
-                match result {
-                    Ok(_) => {}
-                    Err(no_access) => {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                            no_access.to_error_msg(attr_name),
-                        );
-                    }
+        let (delattr_found, delattr_not_found, delattr_error) = self
+            .lookup_magic_dunder_attr(attr_base, &dunder::DELATTR)
+            .decompose();
+        for delattr_attr in delattr_found {
+            let result = self
+                .resolve_get_access(delattr_attr, range, errors, context)
+                .map(|delattr_ty| {
+                    self.call_getattr_or_delattr(
+                        delattr_ty,
+                        attr_name.clone(),
+                        range,
+                        errors,
+                        context,
+                    )
+                });
+            match result {
+                Ok(_) => {}
+                Err(no_access) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::MissingAttribute, context),
+                        no_access.to_error_msg(attr_name),
+                    );
                 }
             }
+        }
+        if !(delattr_not_found.is_empty() && delattr_error.is_empty()) {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::MissingAttribute, context),
+                not_found.to_error_msg(attr_name),
+            );
         }
     }
 
@@ -750,7 +788,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
     ) -> Option<Type> {
-        let mut narrowed_types = Some(Vec::new());
+        // If we hit anything other than a simple, read-write attribute then we will not infer
+        // a type for narrowing.
+        let mut should_narrow = true;
+        let mut narrowed_types = Vec::new();
         let bases = self.get_possible_attribute_bases(base);
         for attr_base in bases {
             let Some(attr_base) = attr_base else {
@@ -761,140 +802,170 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     InternalError::AttributeBaseUndefined(base.clone())
                         .to_error_msg(attr_name, todo_ctx),
                 );
-                narrowed_types = None;
+                should_narrow = false;
                 continue;
             };
-            match self.lookup_attr_from_base_no_union(attr_base.clone(), attr_name) {
-                // Attribute setting bypasses `__getattr__` lookup and checks `__setattr__`
-                // If the attribute is not found, we fall back to `__setattr__`
-                LookupResult::NotFound(not_found)
-                | LookupResult::Found(Attribute {
-                    inner:
-                        AttributeInner::GetAttr(not_found, _, _)
-                        | AttributeInner::ModuleFallback(not_found, _, _),
-                }) => {
-                    self.check_setattr(
-                        attr_base, attr_name, got, not_found, range, errors, context,
-                    );
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::Simple(want, Visibility::ReadWrite),
-                }) => {
-                    // If the attribute has a converter, then `want` should be the type expected by the converter.
-                    let want = match attr_base {
-                        AttributeBase::ClassInstance(cls) => match self
-                            .get_dataclass_member(cls.class_object(), attr_name)
-                        {
-                            DataclassMember::Field(_, kws) => kws.converter_param.unwrap_or(want),
-                            _ => want,
-                        },
-                        _ => want,
-                    };
-                    let ty = match &got {
-                        TypeOrExpr::Expr(got) => self.expr(
+            let (lookup_found, lookup_not_found, lookup_error) = self
+                .lookup_attr_from_base_no_union(attr_base.clone(), attr_name)
+                .decompose();
+            for e in lookup_error {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::InternalError, context),
+                    e.to_error_msg(attr_name, todo_ctx),
+                );
+                should_narrow = false;
+            }
+            for not_found in lookup_not_found {
+                self.check_setattr(
+                    attr_base.clone(),
+                    attr_name,
+                    got,
+                    not_found,
+                    range,
+                    errors,
+                    context,
+                );
+                should_narrow = false;
+            }
+            for attr in lookup_found {
+                match attr {
+                    // Attribute setting bypasses `__getattr__` lookup and checks `__setattr__`
+                    // If the attribute is not found, we fall back to `__setattr__`
+                    Attribute {
+                        inner:
+                            AttributeInner::GetAttr(not_found, _, _)
+                            | AttributeInner::ModuleFallback(not_found, _, _),
+                    } => {
+                        self.check_setattr(
+                            attr_base.clone(),
+                            attr_name,
                             got,
-                            Some((&want, &|| TypeCheckContext {
-                                kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                context: context.map(|ctx| ctx()),
-                            })),
+                            not_found,
+                            range,
                             errors,
-                        ),
-                        TypeOrExpr::Type(got, _) => {
-                            self.check_type(&want, got, range, errors, &|| TypeCheckContext {
-                                kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                context: context.map(|ctx| ctx()),
-                            });
-                            (*got).clone()
-                        }
-                    };
-                    if let Some(narrowed_types) = &mut narrowed_types {
-                        narrowed_types.push(ty)
+                            context,
+                        );
+                        should_narrow = false;
                     }
-                    // Avoid the hook where we wipe `narrowed_types` in all other cases.
-                    continue;
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::NoAccess(e),
-                }) => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::NoAccess, context),
-                        e.to_error_msg(attr_name),
-                    );
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
-                }) => {
-                    let msg = vec1![
-                        format!("Cannot set field `{attr_name}`"),
-                        reason.error_message()
-                    ];
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::Property(_, None, cls),
-                }) => {
-                    let e = NoAccessReason::SettingReadOnlyProperty(cls);
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::ReadOnly, context),
-                        e.to_error_msg(attr_name),
-                    );
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::Property(_, Some(setter), _),
-                }) => {
-                    let got = CallArg::arg(got);
-                    self.call_property_setter(setter, got, range, errors, context);
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::Descriptor(d),
-                }) => {
-                    match (d.base, d.setter) {
-                        (DescriptorBase::Instance(class_type), Some(setter)) => {
-                            let got = CallArg::arg(got);
-                            self.call_descriptor_setter(
-                                setter, class_type, got, range, errors, context,
-                            );
-                        }
-                        (DescriptorBase::Instance(class_type), None) => {
-                            let e = NoAccessReason::SettingReadOnlyDescriptor(
-                                class_type.class_object().dupe(),
-                            );
-                            self.error(
+                    Attribute {
+                        inner: AttributeInner::Simple(want, Visibility::ReadWrite),
+                    } => {
+                        // If the attribute has a converter, then `want` should be the type expected by the converter.
+                        let want = match attr_base.clone() {
+                            AttributeBase::ClassInstance(cls) => {
+                                match self.get_dataclass_member(cls.class_object(), attr_name) {
+                                    DataclassMember::Field(_, kws) => {
+                                        kws.converter_param.unwrap_or(want)
+                                    }
+                                    _ => want,
+                                }
+                            }
+                            _ => want,
+                        };
+                        let ty = match &got {
+                            TypeOrExpr::Expr(got) => self.expr(
+                                got,
+                                Some((&want, &|| TypeCheckContext {
+                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
+                                    context: context.map(|ctx| ctx()),
+                                })),
                                 errors,
-                                range,
-                                ErrorInfo::new(ErrorKind::ReadOnly, context),
-                                e.to_error_msg(attr_name),
-                            );
+                            ),
+                            TypeOrExpr::Type(got, _) => {
+                                self.check_type(&want, got, range, errors, &|| TypeCheckContext {
+                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
+                                    context: context.map(|ctx| ctx()),
+                                });
+                                (*got).clone()
+                            }
+                        };
+                        if should_narrow {
+                            narrowed_types.push(ty);
                         }
-                        (DescriptorBase::ClassDef(class), _) => {
-                            let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::new(ErrorKind::NoAccess, context),
-                                e.to_error_msg(attr_name),
-                            );
-                        }
-                    };
-                }
-                LookupResult::InternalError(e) => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::InternalError, context),
-                        e.to_error_msg(attr_name, todo_ctx),
-                    );
+                    }
+                    Attribute {
+                        inner: AttributeInner::NoAccess(e),
+                    } => {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::NoAccess, context),
+                            e.to_error_msg(attr_name),
+                        );
+                        should_narrow = false;
+                    }
+                    Attribute {
+                        inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
+                    } => {
+                        let msg = vec1![
+                            format!("Cannot set field `{attr_name}`"),
+                            reason.error_message()
+                        ];
+                        errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                        should_narrow = false;
+                    }
+                    Attribute {
+                        inner: AttributeInner::Property(_, None, cls),
+                    } => {
+                        let e = NoAccessReason::SettingReadOnlyProperty(cls);
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::ReadOnly, context),
+                            e.to_error_msg(attr_name),
+                        );
+                        should_narrow = false;
+                    }
+                    Attribute {
+                        inner: AttributeInner::Property(_, Some(setter), _),
+                    } => {
+                        let got = CallArg::arg(got);
+                        self.call_property_setter(setter, got, range, errors, context);
+                        should_narrow = false;
+                    }
+                    Attribute {
+                        inner: AttributeInner::Descriptor(d),
+                    } => {
+                        should_narrow = false;
+                        match (d.base, d.setter) {
+                            (DescriptorBase::Instance(class_type), Some(setter)) => {
+                                let got = CallArg::arg(got);
+                                self.call_descriptor_setter(
+                                    setter, class_type, got, range, errors, context,
+                                );
+                            }
+                            (DescriptorBase::Instance(class_type), None) => {
+                                let e = NoAccessReason::SettingReadOnlyDescriptor(
+                                    class_type.class_object().dupe(),
+                                );
+                                self.error(
+                                    errors,
+                                    range,
+                                    ErrorInfo::new(ErrorKind::ReadOnly, context),
+                                    e.to_error_msg(attr_name),
+                                );
+                            }
+                            (DescriptorBase::ClassDef(class), _) => {
+                                let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
+                                self.error(
+                                    errors,
+                                    range,
+                                    ErrorInfo::new(ErrorKind::NoAccess, context),
+                                    e.to_error_msg(attr_name),
+                                );
+                            }
+                        };
+                    }
                 }
             }
-            // If we hit anything other than a simple, read-write attribute then we will not infer
-            // a type for narrowing.
-            narrowed_types = None;
         }
-        narrowed_types.map(|ts| self.unions(ts))
+        if should_narrow {
+            Some(self.unions(narrowed_types))
+        } else {
+            None
+        }
     }
 
     pub fn check_attr_delete(
@@ -918,51 +989,72 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 return;
             };
-            match self.lookup_attr_from_base_no_union(attr_base.clone(), attr_name) {
-                // Attribute deletion bypasses `__getattr__` lookup and checks `__delattr__`
-                // If the attribute is not found, we fall back to `__delattr__`
-                LookupResult::NotFound(not_found)
-                | LookupResult::Found(Attribute {
-                    inner:
-                        AttributeInner::GetAttr(not_found, _, _)
-                        | AttributeInner::ModuleFallback(not_found, _, _),
-                }) => {
-                    self.check_delattr(attr_base, attr_name, not_found, range, errors, context);
-                }
-                // TODO: deleting attributes is allowed at runtime, but is not type-safe
-                // except for descriptors that implement `__delete__`
-                LookupResult::Found(Attribute {
-                    inner:
-                        AttributeInner::Simple(_, Visibility::ReadWrite)
-                        | AttributeInner::Property(_, _, _)
-                        | AttributeInner::Descriptor(_),
-                }) => {}
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::NoAccess(e),
-                }) => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::NoAccess, context),
-                        e.to_error_msg(attr_name),
-                    );
-                }
-                LookupResult::Found(Attribute {
-                    inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
-                }) => {
-                    let msg = vec1![
-                        format!("Cannot delete field `{attr_name}`"),
-                        reason.error_message()
-                    ];
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
-                }
-                LookupResult::InternalError(e) => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::InternalError, context),
-                        e.to_error_msg(attr_name, todo_ctx),
-                    );
+            let (lookup_found, lookup_not_found, lookup_error) = self
+                .lookup_attr_from_base_no_union(attr_base.clone(), attr_name)
+                .decompose();
+            for not_found in lookup_not_found {
+                self.check_delattr(
+                    attr_base.clone(),
+                    attr_name,
+                    not_found,
+                    range,
+                    errors,
+                    context,
+                );
+            }
+            for error in lookup_error {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::InternalError, context),
+                    error.to_error_msg(attr_name, todo_ctx),
+                );
+            }
+            for attr in lookup_found {
+                match attr {
+                    // Attribute deletion bypasses `__getattr__` lookup and checks `__delattr__`
+                    // If the attribute is not found, we fall back to `__delattr__`
+                    Attribute {
+                        inner:
+                            AttributeInner::GetAttr(not_found, _, _)
+                            | AttributeInner::ModuleFallback(not_found, _, _),
+                    } => {
+                        self.check_delattr(
+                            attr_base.clone(),
+                            attr_name,
+                            not_found,
+                            range,
+                            errors,
+                            context,
+                        );
+                    }
+                    // TODO: deleting attributes is allowed at runtime, but is not type-safe
+                    // except for descriptors that implement `__delete__`
+                    Attribute {
+                        inner:
+                            AttributeInner::Simple(_, Visibility::ReadWrite)
+                            | AttributeInner::Property(_, _, _)
+                            | AttributeInner::Descriptor(_),
+                    } => {}
+                    Attribute {
+                        inner: AttributeInner::NoAccess(e),
+                    } => {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::NoAccess, context),
+                            e.to_error_msg(attr_name),
+                        );
+                    }
+                    Attribute {
+                        inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
+                    } => {
+                        let msg = vec1![
+                            format!("Cannot delete field `{attr_name}`"),
+                            reason.error_message()
+                        ];
+                        errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                    }
                 }
             }
         }
@@ -1269,15 +1361,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
     ) -> Result<Type, String> {
-        match lookup {
-            LookupResult::Found(attr) => {
-                match self.resolve_get_access(attr, range, errors, context) {
-                    Ok(ty) => Ok(ty.clone()),
-                    Err(err) => Err(err.to_error_msg(attr_name)),
-                }
+        let mut types = Vec::new();
+        let mut error_messages = Vec::new();
+        let (found, not_found, error) = lookup.decompose();
+        for attr in found {
+            match self.resolve_get_access(attr, range, errors, context) {
+                Ok(ty) => types.push(ty),
+                Err(err) => error_messages.push(err.to_error_msg(attr_name)),
             }
-            LookupResult::NotFound(err) => Err(err.to_error_msg(attr_name)),
-            LookupResult::InternalError(err) => Err(err.to_error_msg(attr_name, todo_ctx)),
+        }
+        for err in not_found {
+            error_messages.push(err.to_error_msg(attr_name))
+        }
+        for err in error {
+            error_messages.push(err.to_error_msg(attr_name, todo_ctx))
+        }
+        if error_messages.is_empty() {
+            Ok(self.unions(types))
+        } else {
+            Err(error_messages.join("\n"))
         }
     }
 
@@ -1337,19 +1439,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     attr_name = Name::new("_name_")
                 }
                 match self.get_instance_attribute(&class, &attr_name) {
-                    Some(attr) => LookupResult::Found(attr),
+                    Some(attr) => LookupResult::found(attr),
                     None if metadata.has_base_any() => {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
                     None => {
-                        LookupResult::NotFound(NotFound::Attribute(class.class_object().dupe()))
+                        LookupResult::not_found(NotFound::Attribute(class.class_object().dupe()))
                     }
                 }
             }
             AttributeBase::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(&cls, &obj, attr_name) {
                     Some(attr) => {
-                        LookupResult::Found(attr.read_only_equivalent(ReadOnlyReason::Super))
+                        LookupResult::found(attr.read_only_equivalent(ReadOnlyReason::Super))
                     }
                     None if let SuperObj::Instance(cls) = &obj
                         && self.extends_any(cls.class_object()) =>
@@ -1367,12 +1469,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ReadOnlyReason::Super,
                         )
                     }
-                    None => LookupResult::NotFound(NotFound::Attribute(cls.class_object().dupe())),
+                    None => LookupResult::not_found(NotFound::Attribute(cls.class_object().dupe())),
                 }
             }
             AttributeBase::ClassObject(class) => {
                 match self.get_class_attribute(&class, attr_name) {
-                    Some(attr) => LookupResult::Found(attr),
+                    Some(attr) => LookupResult::found(attr),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
                         // NOTE(grievejia): This lookup serves as fallback for normal class attribute lookup for regular
@@ -1386,7 +1488,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         };
                         match instance_attr {
-                            Some(attr) => LookupResult::Found(attr),
+                            Some(attr) => LookupResult::found(attr),
                             None if metadata.has_base_any() => {
                                 // We can't immediately fall back to Any in this case -- `type[Any]` is actually a special
                                 // AttributeBase which requires additional lookup on `type` itself before the Any fallback.
@@ -1395,15 +1497,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     attr_name,
                                 )
                             }
-                            None => LookupResult::NotFound(NotFound::ClassAttribute(class)),
+                            None => LookupResult::not_found(NotFound::ClassAttribute(class)),
                         }
                     }
                 }
             }
             AttributeBase::Module(module) => match self.get_module_attr(&module, attr_name) {
                 // TODO(samzhou19815): Support module attribute go-to-definition
-                Some(attr) => LookupResult::Found(attr),
-                None => LookupResult::NotFound(NotFound::ModuleExport(module)),
+                Some(attr) => LookupResult::found(attr),
+                None => LookupResult::not_found(NotFound::ModuleExport(module)),
             },
             AttributeBase::TypeVar(q, bound) => match (q.kind(), attr_name.as_str()) {
                 // Note that this is for cases like `P.args` where `P` is a param spec, or `T.x` where
@@ -1417,8 +1519,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
                     match self.get_bounded_quantified_attribute(q, &upper_bound, attr_name) {
-                        Some(attr) => LookupResult::Found(attr),
-                        None => LookupResult::NotFound(NotFound::Attribute(
+                        Some(attr) => LookupResult::found(attr),
+                        None => LookupResult::not_found(NotFound::Attribute(
                             upper_bound.class_object().dupe(),
                         )),
                     }
@@ -1426,10 +1528,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
-                        Some(attr) => LookupResult::Found(attr),
-                        None => {
-                            LookupResult::NotFound(NotFound::Attribute(class.class_object().dupe()))
-                        }
+                        Some(attr) => LookupResult::found(attr),
+                        None => LookupResult::not_found(NotFound::Attribute(
+                            class.class_object().dupe(),
+                        )),
                     }
                 }
             },
@@ -1458,20 +1560,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     let class = self.stdlib.property();
                     match self.get_instance_attribute(class, attr_name) {
-                        Some(attr) => LookupResult::Found(attr),
-                        None => {
-                            LookupResult::NotFound(NotFound::Attribute(class.class_object().dupe()))
-                        }
+                        Some(attr) => LookupResult::found(attr),
+                        None => LookupResult::not_found(NotFound::Attribute(
+                            class.class_object().dupe(),
+                        )),
                     }
                 }
             }
             AttributeBase::TypedDict(typed_dict) => {
                 match self.get_typed_dict_attribute(&typed_dict, attr_name) {
-                    Some(attr) => LookupResult::Found(attr),
+                    Some(attr) => LookupResult::found(attr),
                     None if self.extends_any(typed_dict.class_object()) => {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
-                    None => LookupResult::NotFound(NotFound::Attribute(
+                    None => LookupResult::not_found(NotFound::Attribute(
                         typed_dict.class_object().dupe(),
                     )),
                 }
@@ -1491,13 +1593,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if *dunder_name == dunder::GETATTRIBUTE
                     && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
                 {
-                    return LookupResult::NotFound(NotFound::Attribute(
+                    return LookupResult::not_found(NotFound::Attribute(
                         metaclass.class_object().clone(),
                     ));
                 }
                 match self.get_instance_attribute(metaclass, dunder_name) {
-                    Some(attr) => LookupResult::Found(attr),
-                    None => LookupResult::NotFound(NotFound::Attribute(
+                    Some(attr) => LookupResult::found(attr),
+                    None => LookupResult::not_found(NotFound::Attribute(
                         metaclass.class_object().clone(),
                     )),
                 }
@@ -1511,10 +1613,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     || *dunder_name == dunder::GETATTRIBUTE)
                     && self.field_is_inherited_from_object(cls.class_object(), dunder_name) =>
             {
-                LookupResult::NotFound(NotFound::Attribute(cls.class_object().clone()))
+                LookupResult::not_found(NotFound::Attribute(cls.class_object().clone()))
             }
             AttributeBase::TypedDict(typed_dict) if *dunder_name == dunder::GETATTRIBUTE => {
-                LookupResult::NotFound(NotFound::Attribute(typed_dict.class_object().clone()))
+                LookupResult::not_found(NotFound::Attribute(typed_dict.class_object().clone()))
             }
             _ => self.lookup_attr_from_attribute_base(base, dunder_name),
         }
@@ -1526,36 +1628,48 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
         direct_lookup_result: LookupResult,
     ) -> LookupResult {
-        match direct_lookup_result {
-            LookupResult::Found(_) | LookupResult::InternalError(_) => direct_lookup_result,
-            LookupResult::NotFound(not_found) => {
-                let getattr_lookup_result =
-                    self.lookup_magic_dunder_attr(base.clone(), &dunder::GETATTR);
-                match getattr_lookup_result {
-                    LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
-                        // If the `__getattr__` lookup fails, we fall back to `__getattribute__`
-                        // Note: at runtime, `__getattribute__` is checked BEFORE looking up the attribute by name,
-                        // but because the declaration is on `object` and returns `Any`, all attribute accesses
-                        // would return `Any`.
-                        let getattribute_lookup_result =
-                            self.lookup_magic_dunder_attr(base, &dunder::GETATTRIBUTE);
-                        match getattribute_lookup_result {
-                            LookupResult::NotFound(_) | LookupResult::InternalError(_) => {
-                                LookupResult::NotFound(not_found)
-                            }
-                            LookupResult::Found(attr) => LookupResult::Found(Attribute::getattr(
-                                not_found,
-                                attr,
-                                attr_name.clone(),
-                            )),
-                        }
-                    }
-                    LookupResult::Found(attr) => {
-                        LookupResult::Found(Attribute::getattr(not_found, attr, attr_name.clone()))
-                    }
+        let LookupResult {
+            found,
+            not_found: direct_lookup_not_found,
+            internal_error,
+        } = direct_lookup_result;
+        let mut result = LookupResult {
+            found,
+            internal_error,
+            not_found: Vec::new(),
+        };
+        for not_found in direct_lookup_not_found {
+            let (getattr_found, getattr_not_found, getattr_internal_error) = self
+                .lookup_magic_dunder_attr(base.clone(), &dunder::GETATTR)
+                .decompose();
+            for attr in getattr_found {
+                result.found.push(Attribute::getattr(
+                    not_found.clone(),
+                    attr,
+                    attr_name.clone(),
+                ));
+            }
+            if !(getattr_not_found.is_empty() && getattr_internal_error.is_empty()) {
+                // If the `__getattr__` lookup fails, we fall back to `__getattribute__`
+                // Note: at runtime, `__getattribute__` is checked BEFORE looking up the attribute by name,
+                // but because the declaration is on `object` and returns `Any`, all attribute accesses
+                // would return `Any`.
+                let (getattribute_found, getattribute_not_found, getattribute_internal_error) =
+                    self.lookup_magic_dunder_attr(base.clone(), &dunder::GETATTRIBUTE)
+                        .decompose();
+                for attr in getattribute_found {
+                    result.found.push(Attribute::getattr(
+                        not_found.clone(),
+                        attr,
+                        attr_name.clone(),
+                    ));
+                }
+                if !(getattribute_not_found.is_empty() && getattribute_internal_error.is_empty()) {
+                    result.not_found.push(not_found.clone())
                 }
             }
         }
+        result
     }
 
     fn lookup_attr_from_base_no_union(
@@ -1573,7 +1687,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(base) = self.as_attribute_base_no_union(base.clone()) {
             self.lookup_attr_from_base_no_union(base, attr_name)
         } else {
-            LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone()))
+            LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone()))
         }
     }
 
@@ -1582,10 +1696,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: ClassType,
         attr_name: &Name,
     ) -> Option<Attribute> {
-        match self.lookup_attr_from_base_no_union(AttributeBase::ClassInstance(cls), attr_name) {
-            LookupResult::Found(attr) => Some(attr),
-            _ => None,
-        }
+        // Looking something up from a `ClassInstance` should not yield multiple `Attribute`
+        self.lookup_attr_from_base_no_union(AttributeBase::ClassInstance(cls), attr_name)
+            .found
+            .into_iter()
+            .next()
     }
 
     fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
@@ -1593,13 +1708,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let bases = self.get_possible_attribute_bases(base);
         for attr_base in bases {
             let lookup_result = attr_base.map_or_else(
-                || LookupResult::InternalError(InternalError::AttributeBaseUndefined(base.clone())),
+                || {
+                    LookupResult::internal_error(InternalError::AttributeBaseUndefined(
+                        base.clone(),
+                    ))
+                },
                 |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
             );
-            match lookup_result {
-                LookupResult::Found(attr) => result.push(attr),
-                _ => {}
-            }
+            result.extend(lookup_result.found);
         }
         result
     }
@@ -1821,13 +1937,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let fall_back_to_object = || Type::ClassType(self.stdlib.object().clone());
-        match self.lookup_attr_no_union(base, attr_name) {
-            LookupResult::InternalError(..) | LookupResult::NotFound(..) => fall_back_to_object(),
-            LookupResult::Found(attr) => match self.resolve_get_access(attr, range, errors, None) {
+        let (found, not_found, internal_errors) =
+            self.lookup_attr_no_union(base, attr_name).decompose();
+        let mut results = Vec::new();
+        for attr in found {
+            let found_ty = match self.resolve_get_access(attr, range, errors, None) {
                 Err(..) => fall_back_to_object(),
                 Ok(ty) => ty,
-            },
+            };
+            results.push(found_ty);
         }
+        if !(not_found.is_empty() && internal_errors.is_empty()) {
+            results.push(fall_back_to_object());
+        }
+        self.unions(results)
     }
 
     // When coercing an instance of condition_type to bool, check that either it does not override
@@ -2043,19 +2166,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 for info in &mut res {
                     if let Some(definition) = &info.definition
                         && matches!(definition, AttrDefinition::FullyResolved(..))
-                        && let LookupResult::Found(attr) =
-                            self.lookup_attr_from_attribute_base(base.clone(), &info.name)
-                        && let Ok(ty) = self.resolve_get_access(
-                            attr,
-                            // Important we do not use the resolved TextRange, as it might be in a different module.
-                            // Whereas the empty TextRange is valid for all modules.
-                            TextRange::default(),
-                            &self.error_swallower(),
-                            None,
-                        )
-                        && !ty.is_error()
                     {
-                        info.ty = Some(ty);
+                        let found_attrs = self
+                            .lookup_attr_from_attribute_base(base.clone(), &info.name)
+                            .found;
+                        let found_types: Vec<_> = found_attrs
+                            .into_iter()
+                            .filter_map(|attr| {
+                                let result = self
+                                    .resolve_get_access(
+                                        attr,
+                                        // Important we do not use the resolved TextRange, as it might be in a different module.
+                                        // Whereas the empty TextRange is valid for all modules.
+                                        TextRange::default(),
+                                        &self.error_swallower(),
+                                        None,
+                                    )
+                                    .ok();
+                                if matches!(&result, Some(Type::Any(_))) {
+                                    None
+                                } else {
+                                    result
+                                }
+                            })
+                            .collect();
+                        if !found_types.is_empty() {
+                            info.ty = Some(self.unions(found_types));
+                        }
                     }
                 }
             }
