@@ -10054,6 +10054,16 @@
     },
     {
       "code": -2,
+      "column": 5,
+      "concise_description": "Cannot extend closed TypedDict `ClosedBase` with extra item `age`",
+      "description": "Cannot extend closed TypedDict `ClosedBase` with extra item `age`",
+      "line": 68,
+      "name": "typed-dict-key-error",
+      "stop_column": 8,
+      "stop_line": 68
+    },
+    {
+      "code": -2,
       "column": 7,
       "concise_description": "Non-closed TypedDict cannot inherit from TypedDict `ExtraItemsBase` with extra items",
       "description": "Non-closed TypedDict cannot inherit from TypedDict `ExtraItemsBase` with extra items",
@@ -10061,6 +10071,26 @@
       "name": "bad-typed-dict",
       "stop_column": 20,
       "stop_line": 73
+    },
+    {
+      "code": -2,
+      "column": 5,
+      "concise_description": "Cannot extend closed TypedDict `MovieA` with extra item `age`",
+      "description": "Cannot extend closed TypedDict `MovieA` with extra item `age`",
+      "line": 92,
+      "name": "typed-dict-key-error",
+      "stop_column": 8,
+      "stop_line": 92
+    },
+    {
+      "code": -2,
+      "column": 5,
+      "concise_description": "Cannot extend closed TypedDict `MovieB` with extra item `age`",
+      "description": "Cannot extend closed TypedDict `MovieB` with extra item `age`",
+      "line": 95,
+      "name": "typed-dict-key-error",
+      "stop_column": 8,
+      "stop_line": 95
     },
     {
       "code": -2,

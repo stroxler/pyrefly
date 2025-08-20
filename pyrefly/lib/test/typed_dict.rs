@@ -1331,7 +1331,7 @@ from typing import TypedDict
 class Parent(TypedDict, closed=True):
     x: int
 class Child(Parent):
-    y: str  # This should be an error
+    y: str  # E: Cannot extend closed TypedDict `Parent` with extra item `y`
     "#,
 );
 

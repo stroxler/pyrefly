@@ -16,6 +16,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Expr;
@@ -905,6 +906,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         format!("`{q}` may only be used for TypedDict members"),
                     );
                 }
+            }
+        }
+        if let Some(td) = metadata.typed_dict_metadata()
+            && td.fields.contains_key(name)
+        {
+            // If this is a TypedDict field, make sure it is compatible with any inherited metadata
+            // restricting extra items.
+            let inherited_extra = metadata.base_class_objects().iter().find_map(|base| {
+                self.get_metadata_for_class(base)
+                    .typed_dict_metadata()
+                    .map(|m| (base, m.extra_items.clone()))
+            });
+            match inherited_extra {
+                Some((base, ExtraItems::Closed)) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                        format!(
+                            "Cannot extend closed TypedDict `{}` with extra item `{}`",
+                            base.name(),
+                            name
+                        ),
+                    );
+                }
+                _ => {}
             }
         }
 
