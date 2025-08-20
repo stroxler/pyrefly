@@ -1257,7 +1257,6 @@ class BadOpenChild2(ExtraItemsParent, closed=False):  # Should be an error
 );
 
 testcase!(
-    bug = "Child should be considered closed",
     test_inherit_closed,
     r#"
 from typing import assert_type, TypedDict
@@ -1266,12 +1265,11 @@ class Parent(TypedDict, closed=True):
 class Child(Parent):
     pass
 def f(child: Child):
-    assert_type(list(child.values()), list[int])  # E: assert_type(list[object], list[int])
+    assert_type(list(child.values()), list[int])
     "#,
 );
 
 testcase!(
-    bug = "Constructing Child with extra int items should be allowed",
     test_inherit_extra_items,
     r#"
 from typing import TypedDict
@@ -1279,7 +1277,7 @@ class Parent(TypedDict, extra_items=int):
     x: str
 class Child(Parent):
     pass
-Child(x='ok', y=42)  # E: Unexpected keyword argument
+Child(x='ok', y=42)
     "#,
 );
 

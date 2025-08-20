@@ -10034,16 +10034,6 @@
     },
     {
       "code": -2,
-      "column": 5,
-      "concise_description": "Key `other_extra_key` is not defined in TypedDict `InheritedMovie`",
-      "description": "Key `other_extra_key` is not defined in TypedDict `InheritedMovie`",
-      "line": 43,
-      "name": "typed-dict-key-error",
-      "stop_column": 22,
-      "stop_line": 43
-    },
-    {
-      "code": -2,
       "column": 7,
       "concise_description": "Expected literal True or False for keyword `closed`, got instance of `bool`",
       "description": "Expected literal True or False for keyword `closed`, got instance of `bool`",
@@ -10181,16 +10171,6 @@
       "name": "bad-assignment",
       "stop_column": 26,
       "stop_line": 317
-    },
-    {
-      "code": -2,
-      "column": 52,
-      "concise_description": "Key `bar` is not defined in TypedDict `IntDictWithNum`",
-      "description": "Key `bar` is not defined in TypedDict `IntDictWithNum`",
-      "line": 320,
-      "name": "typed-dict-key-error",
-      "stop_column": 57,
-      "stop_line": 320
     },
     {
       "code": -2,

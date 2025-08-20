@@ -514,13 +514,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             let fields =
                 self.calculate_typed_dict_metadata_fields(cls, bases_with_metadata, is_total);
+            let extra_items =
+                self.calculate_typed_dict_extra_items(extra_items, bases_with_metadata);
             Some(TypedDictMetadata {
                 fields,
-                extra_items: extra_items.unwrap_or(ExtraItems::Default),
+                extra_items,
             })
         } else {
             None
         }
+    }
+
+    fn calculate_typed_dict_extra_items(
+        &self,
+        cur_extra_items: Option<ExtraItems>,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+    ) -> ExtraItems {
+        let inherited_extra_items = bases_with_metadata
+            .iter()
+            .find_map(|(_, metadata)| metadata.typed_dict_metadata().map(|td| &td.extra_items));
+        if cur_extra_items.is_none() || inherited_extra_items.is_none() {
+            return cur_extra_items.unwrap_or_else(|| {
+                inherited_extra_items
+                    .cloned()
+                    .unwrap_or(ExtraItems::Default)
+            });
+        }
+        // TODO(rechen): Check for incompatibilities with inherited_extra_items.
+        cur_extra_items.unwrap()
     }
 
     fn enum_metadata(
