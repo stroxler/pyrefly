@@ -97,21 +97,21 @@ impl<E, T> UpgradeLock<E, T> {
         }
     }
 
-    pub fn read(&self) -> UpgradeLockReadGuard<E, T> {
+    pub fn read(&self) -> UpgradeLockReadGuard<'_, E, T> {
         UpgradeLockReadGuard {
             read: self.value.read().unwrap(),
             inner: self,
         }
     }
 
-    pub fn exclusive(&self, value: E) -> Option<UpgradeLockExclusiveGuard<E, T>>
+    pub fn exclusive(&self, value: E) -> Option<UpgradeLockExclusiveGuard<'_, E, T>>
     where
         E: PartialEq,
     {
         self.read().exclusive(value)
     }
 
-    pub fn write(&self, value: E) -> Option<UpgradeLockWriteGuard<E, T>>
+    pub fn write(&self, value: E) -> Option<UpgradeLockWriteGuard<'_, E, T>>
     where
         E: PartialEq,
     {

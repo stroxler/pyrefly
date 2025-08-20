@@ -50,7 +50,7 @@ impl<T: PartialEq> ExclusiveLock<T> {
     /// If the lock is not held, take it and return a guard.
     /// If the lock is held, and the value matches, wait for the lock to be released then return None.
     /// If the lock is held, and the value does not match, return None immediately.
-    pub fn lock(&self, value: T) -> Option<ExclusiveLockGuard<T>> {
+    pub fn lock(&self, value: T) -> Option<ExclusiveLockGuard<'_, T>> {
         let mut exclusive = self.exclusive.lock();
         match &*exclusive {
             None => {
