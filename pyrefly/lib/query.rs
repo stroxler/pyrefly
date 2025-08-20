@@ -26,6 +26,7 @@ use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::literal::Lit;
 use pyrefly_types::qname::QName;
+use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
 use pyrefly_types::types::Type;
@@ -262,6 +263,7 @@ impl Query {
                 },
                 FunctionKind::IsInstance => String::from("isinstance"),
                 FunctionKind::IsSubclass => String::from("issubclass"),
+                FunctionKind::Cast => String::from("typing.cast"),
                 // should never see this in expression context
                 FunctionKind::Dataclass => String::from("dataclasses.dataclass"),
                 FunctionKind::DataclassField => String::from("dataclasses.field"),
@@ -330,6 +332,15 @@ impl Query {
                 Type::Literal(Lit::Str(_)) | Type::LiteralString => String::from("builtins.str"),
                 Type::Literal(Lit::Int(_)) => String::from("builtins.int"),
                 Type::Literal(Lit::Bool(_)) => String::from("builtins.bool"),
+                Type::Quantified(q) => match &q.restriction {
+                    // for explicit bound - use name of the type used as bound
+                    Restriction::Bound(b) => class_name_from_bound_obj(b),
+                    // no bound - use name of the type variable (not very useful but not worse than status quo)
+                    Restriction::Unrestricted => q.name().to_string(),
+                    Restriction::Constraints(_) => {
+                        panic!("unexpected restriction: {q:?}")
+                    }
+                },
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
@@ -369,6 +380,7 @@ impl Query {
                 Type::Type(ty) => {
                     callee_from_type(ty, callee_range, module_info, transaction, handle)
                 }
+                Type::Never(_) => vec![],
                 Type::Union(tys) => {
                     // get callee for each type
                     tys.iter()
