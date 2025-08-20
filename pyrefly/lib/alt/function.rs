@@ -268,8 +268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // are also Var. If a default value of type T is provided, it will resolve to Any | T.
                     // Otherwise, it will be forced to Any
                     if let Some(ty) = &self_type {
-                        self.solver()
-                            .is_subset_eq(&var.to_type(), ty, self.type_order());
+                        self.is_subset_eq(&var.to_type(), ty);
                     } else if let Required::Optional(Some(default_ty)) = &required {
                         self.solver().is_subset_eq(
                             &self.union(Type::any_implicit(), default_ty.clone()),

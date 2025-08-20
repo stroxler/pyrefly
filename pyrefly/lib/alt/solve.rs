@@ -315,8 +315,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Check that got is assignable to want
     pub fn is_subset_eq(&self, got: &Type, want: &Type) -> bool {
         self.solver().is_subset_eq(got, want, self.type_order())
+    }
+
+    /// Check that got and want are consistent with each other
+    pub fn is_equal(&self, got: &Type, want: &Type) -> bool {
+        self.solver().is_equal(got, want, self.type_order())
     }
 
     pub fn expr_class_keyword(&self, x: &Expr, errors: &ErrorCollector) -> Annotation {
@@ -1624,10 +1630,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match restriction {
             // Default must be a subtype of the upper bound
             Restriction::Bound(bound_ty) => {
-                if !self
-                    .solver()
-                    .is_subset_eq(default, bound_ty, self.type_order())
-                {
+                if !self.is_subset_eq(default, bound_ty) {
                     self.error(
                         errors,
                         range,
@@ -1641,10 +1644,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Restriction::Constraints(constraints) => {
                 // Default must exactly match one of the constraints
-                if !constraints
-                    .iter()
-                    .any(|c| self.is_subset_eq(c, default) && self.is_subset_eq(default, c))
-                {
+                if !constraints.iter().any(|c| self.is_equal(c, default)) {
                     let formatted_constraints = constraints
                         .iter()
                         .map(|x| format!("`{x}`"))

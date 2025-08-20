@@ -956,7 +956,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
                                 format!("TypedDict `{}` with non-read-only `extra_items` cannot be extended with required extra item `{}`", base.name(), name),
                             );
-                        } else if !self.solver().is_equal(field_ty, &ty, self.type_order()) {
+                        } else if !self.is_equal(field_ty, &ty) {
                             self.error(
                                 errors,
                                 range,
