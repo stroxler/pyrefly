@@ -1851,4 +1851,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .and_then(|ty| make_bound_method(Type::type_form(cls.clone().to_type()), ty).ok())
         }
     }
+
+    pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
+        let field = self.get_class_member(cls.class_object(), name)?.value;
+        match field.instantiate_for(&Instance::of_class(&cls)).0 {
+            ClassFieldInner::Simple {
+                ty,
+                read_only_reason: Some(_),
+                descriptor_getter: None,
+                descriptor_setter: None,
+                is_function_without_return_annotation: false,
+                ..
+            } => Some(ty),
+            _ => None,
+        }
+    }
 }

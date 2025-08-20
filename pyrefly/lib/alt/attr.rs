@@ -1278,24 +1278,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
-        match self
-            .try_lookup_attr_from_class_type(cls.clone(), name)?
-            .inner
-        {
-            // NamedTuples are immutable, so their attributes are always read-only
-            // NOTE(grievejia): We do not use `__getattr__` here because this lookup is expected to be invoked
-            // on NamedTuple attributes with known names.
-            AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Some(ty),
-            AttributeInner::Simple(_, Visibility::ReadWrite)
-            | AttributeInner::NoAccess(_)
-            | AttributeInner::Property(..)
-            | AttributeInner::Descriptor(..)
-            | AttributeInner::GetAttr(..)
-            | AttributeInner::ModuleFallback(..) => None,
-        }
-    }
-
     /// A convenience function for callers which want an error but do not need to distinguish
     /// between NotFound and Error results.
     fn get_type_or_conflated_error_msg(
