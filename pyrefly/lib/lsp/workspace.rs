@@ -229,6 +229,8 @@ impl Workspaces {
                         env.site_package_path = site_package_path;
                         config.interpreters.set_lsp_python_interpreter(interpreter);
                         config.python_environment = env;
+                        // skip interpreter query because we already have the interpreter from the workspace
+                        config.interpreters.skip_interpreter_query = true;
                     }
                 })
             };
