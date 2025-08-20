@@ -14,6 +14,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::annotation::Annotation;
 use pyrefly_types::type_info::TypeInfo;
+use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
@@ -567,6 +568,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorInfo::Kind(ErrorKind::BadTypedDict),
                     format!("Non-closed TypedDict cannot inherit from {base}"),
+                );
+            }
+            (
+                ExtraItems::Closed,
+                ExtraItems::Extra(ExtraItem {
+                    read_only: false, ..
+                }),
+            ) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                    format!("Closed TypedDict cannot inherit from TypedDict `{}` with non-read-only extra items", base_typed_dict.name()),
                 );
             }
             _ => {}

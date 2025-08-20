@@ -1281,13 +1281,12 @@ Child(x='ok', y=42)
 );
 
 testcase!(
-    bug = "We should not allow closing a TypedDict with non-ReadOnly extra items",
     test_can_close_if_readonly_extra,
     r#"
 from typing import ReadOnly, TypedDict
 class Parent1(TypedDict, extra_items=int):
     pass
-class BadChild(Parent1, closed=True):  # Should be an error
+class BadChild(Parent1, closed=True):  # E: Closed TypedDict cannot inherit from TypedDict `Parent1` with non-read-only extra items
     pass
 class Parent2(TypedDict, extra_items=ReadOnly[int]):
     pass
