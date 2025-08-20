@@ -955,9 +955,16 @@ impl GleanState<'_> {
     }
 
     fn arg_string_lit(&self, argument: &Expr) -> Option<python::Argument> {
-        argument.as_string_literal_expr().map(|str_lit| {
-            python::Argument::lit(python::StringLiteral::new(str_lit.value.to_string()))
-        })
+        let string_literal = match argument {
+            Expr::StringLiteral(expr) => Some(expr.value.to_string()),
+            Expr::BytesLiteral(expr) => {
+                let bytes_lit: Vec<u8> = expr.value.bytes().collect();
+                str::from_utf8(&bytes_lit).ok().map(|x| x.to_owned())
+            }
+            _ => None,
+        };
+
+        string_literal.map(|lit| python::Argument::lit(python::StringLiteral::new(lit)))
     }
 
     fn file_call_facts(&mut self, call: &ExprCall) {

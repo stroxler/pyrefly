@@ -54,6 +54,12 @@
         "key": {
           "call_args": [
             {
+              "argument": {
+                "lit": {
+                  "id": 0,
+                  "key": "world"
+                }
+              },
               "span": {
                 "length": 8,
                 "start": 98
