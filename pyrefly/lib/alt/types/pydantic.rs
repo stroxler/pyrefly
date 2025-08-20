@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::fmt;
-
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 
@@ -14,10 +12,6 @@ use pyrefly_derive::VisitMut;
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq, VisitMut, Default)]
 pub struct PydanticMetadata {
     pub frozen: bool,
-}
-
-impl fmt::Display for PydanticMetadata {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PydanticMetadata {{ frozen: {} }}", self.frozen)
-    }
+    pub class_validate_by_name: bool,
+    pub class_validate_by_alias: bool,
 }

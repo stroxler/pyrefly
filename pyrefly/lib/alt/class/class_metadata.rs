@@ -142,6 +142,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "metaclass" => Either::Left(x),
                 _ => Either::Right((n.clone(), self.expr_class_keyword(x, errors))),
             });
+
         let base_metaclasses = bases_with_metadata
             .iter()
             .filter_map(|(b, metadata)| metadata.metaclass().map(|m| (b.name(), m)))
@@ -186,9 +187,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Named tuples do not support multiple inheritance".to_owned(),
             );
         }
-
-        let pydantic_metadata =
-            self.pydantic_metadata(&bases_with_metadata, pydantic_metadata_binding);
+        // collect pydantic metadata
+        let (pydantic_validate_by_alias, pydantic_validate_by_name) =
+            self.extract_pydantic_validation_alias(&keywords);
+        let pydantic_metadata = self.pydantic_metadata(
+            &bases_with_metadata,
+            pydantic_metadata_binding,
+            pydantic_validate_by_alias,
+            pydantic_validate_by_name,
+        );
 
         let is_typed_dict = has_typed_dict_base_class
             || bases_with_metadata
@@ -279,6 +286,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let keywords =
             keywords.into_map(|(name, annot)| (name, annot.ty.unwrap_or_else(Type::any_implicit)));
 
+        // TODO Zeina: Consider not passing pydantic metadata here and only pass the info we need for downstream
         ClassMetadata::new(
             bases,
             metaclass,
@@ -367,6 +375,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         protocol_metadata
     }
 
+    fn extract_pydantic_validation_alias(
+        &self,
+        keywords: &Vec<(Name, Annotation)>,
+    ) -> (bool, bool) {
+        let mut pydantic_validate_by_alias = true;
+        let mut pydantic_validate_by_name = false;
+        // collect pydantic validation data from class keywords
+        for (name, ann) in keywords {
+            match name.as_str() {
+                "validate_by_alias" => {
+                    pydantic_validate_by_alias = ann.get_type().as_bool().unwrap_or(true);
+                }
+                "validate_by_name" => {
+                    pydantic_validate_by_name = ann.get_type().as_bool().unwrap_or(false);
+                }
+                _ => {}
+            }
+        }
+        (pydantic_validate_by_alias, pydantic_validate_by_name)
+    }
+
     fn named_tuple_metadata(
         &self,
         cls: &Class,
@@ -393,6 +422,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         pydantic_metadata_binding: &PydanticMetadataBinding,
+        class_validate_by_alias: bool,
+        class_validate_by_name: bool,
     ) -> Option<PydanticMetadata> {
         let has_pydantic_base_model_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
@@ -406,9 +437,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
         match pydantic_metadata_binding {
-            PydanticMetadataBinding { frozen } if is_pydantic_model => {
-                Some(PydanticMetadata { frozen: *frozen })
-            }
+            PydanticMetadataBinding { frozen } if is_pydantic_model => Some(PydanticMetadata {
+                frozen: *frozen,
+                class_validate_by_alias,
+                class_validate_by_name,
+            }),
             _ => None,
         }
     }
@@ -628,6 +661,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(m)
         });
 
+        // TODO Zeina: Upgrade this logic to include validate by name and alias
+        // specifically, a single name is not enough to determine the downstream behavior
         let mut alias_keyword = DataclassFieldKeywords::ALIAS;
         if pydantic_metadata.is_some() {
             alias_keyword = VALIDATION_ALIAS;
