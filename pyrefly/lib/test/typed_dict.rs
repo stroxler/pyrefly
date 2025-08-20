@@ -1336,7 +1336,6 @@ class Child(Parent):
 );
 
 testcase!(
-    bug = "You shouldn't be able to add items with the wrong type",
     test_add_items_with_readonly_extra_items,
     r#"
 from typing import NotRequired, ReadOnly, Required, TypedDict
@@ -1347,7 +1346,7 @@ class GoodChild(Parent):
     y: Required[int]
     z: NotRequired[bool]
 class BadChild(Parent):
-    x: str  # Should be an error because str is not assignable to int
+    x: str  # E: `str` is not assignable to `extra_items` type `int` of TypedDict `Parent`
     "#,
 );
 

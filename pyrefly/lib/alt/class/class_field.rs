@@ -16,6 +16,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
+use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
@@ -930,6 +931,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             name
                         ),
                     );
+                }
+                Some((base, ExtraItems::Extra(ExtraItem { ty, read_only })))
+                    if let Some(annot) = &direct_annotation =>
+                {
+                    let field_ty = annot.get_type();
+                    if read_only {
+                        // The field type needs to be assignable to the extra_items type.
+                        if !self.is_subset_eq(field_ty, &ty) {
+                            self.error(
+                                errors, range, ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                            format!(
+                                "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
+                                self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
+                        }
+                    }
                 }
                 _ => {}
             }
