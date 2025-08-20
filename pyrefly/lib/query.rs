@@ -443,7 +443,7 @@ impl Query {
                         panic!("unsupported forallable type")
                     }
                 }
-                Type::ClassType(c) => callee_from_mro(
+                Type::SelfType(c) | Type::ClassType(c) => callee_from_mro(
                     c.class_object(),
                     transaction,
                     handle,
