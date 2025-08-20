@@ -112,6 +112,34 @@
       }
     },
     {
+      "type": "shell",
+      "command": "cargo watch -x 'build --all-features --artifact-dir ../lsp/bin -Z unstable-options'",
+      "group": "build",
+      "isBackground": true,
+      "label": "cargo: watch debug pyrefly for extension",
+      "options": {
+        "shell": {
+          "args": ["-c", "-l"]
+        },
+        "cwd": "${workspaceFolder}/pyrefly"
+      },
+      "windows": {
+        "options": {
+          "shell": {
+            "args": ["-NonInteractive"]
+          }
+        }
+      },
+      "problemMatcher": {
+        "base": "$rustc",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^\\[Running\\]",
+          "endsPattern": "^\\[Finished running\\]"
+        }
+      }
+    },
+    {
       "type": "npm",
       "script": "watch:tsc",
       "group": "build",
