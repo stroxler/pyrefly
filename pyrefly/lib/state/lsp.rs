@@ -1185,6 +1185,11 @@ impl<'a> Transaction<'a> {
                 .import_handle_prefer_executable(handle, module_name, None)
                 .ok()?,
         };
+        // if the module is not yet loaded, force loading by asking for exports
+        // necessary for imports that are not in tdeps (e.g. .py when there is also a .pyi)
+        // todo(kylei): better solution
+        let _ = self.get_exports(&handle);
+
         let module_info = self.get_module_info(&handle)?;
         Some(FindDefinitionItemWithDocstring {
             metadata: DefinitionMetadata::Module,
