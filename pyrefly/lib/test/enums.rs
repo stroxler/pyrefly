@@ -319,6 +319,23 @@ MyEnum.__members__
 );
 
 testcase!(
+    test_enum_extend_final,
+    r#"
+from enum import Enum
+class A(Enum): pass
+
+class B(Enum):
+    X = 1
+
+class C(A):
+    X = 1
+
+class D(B): # E: Cannot extend final class `B`
+    pass
+"#,
+);
+
+testcase!(
     test_enum_name,
     r#"
 from typing import assert_type, Literal

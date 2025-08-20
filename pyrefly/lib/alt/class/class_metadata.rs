@@ -954,7 +954,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     metadata,
                 }) => {
-                    if metadata.is_final() {
+                    if metadata.is_final()
+                        || (metadata.is_enum() && !self.get_enum_members(&class_object).is_empty())
+                    {
                         self.error(
                             errors,
                             range,
