@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
-use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::name::Name;
@@ -98,7 +97,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 item_errors,
                             );
                         }
-                        None if let Some(extra) = &extra_items => {
+                        None if let Some(ExtraItems::Extra(extra)) = &extra_items => {
                             self.expr_with_separate_check_errors(
                                 &x.value,
                                 Some((&extra.ty, check_errors, &|| {
@@ -163,15 +162,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn typed_dict_extra_items(&self, cls: &Class) -> Option<ExtraItem> {
-        match &self
-            .get_metadata_for_class(cls)
-            .typed_dict_metadata()?
-            .extra_items
-        {
-            ExtraItems::Extra(extra) => Some(extra.clone()),
-            _ => None,
-        }
+    fn typed_dict_extra_items(&self, cls: &Class) -> Option<ExtraItems> {
+        self.get_metadata_for_class(cls)
+            .typed_dict_metadata()
+            .map(|m| m.extra_items.clone())
     }
 
     fn class_field_to_typed_dict_field(
@@ -258,7 +252,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             ));
         }
-        if let Some(extra) = self.typed_dict_extra_items(cls) {
+        if let Some(ExtraItems::Extra(extra)) = self.typed_dict_extra_items(cls) {
             params.push(Param::Kwargs(None, extra.ty));
         }
         let ty = Type::Function(Box::new(Function {
