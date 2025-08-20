@@ -1239,19 +1239,18 @@ def f(td: TD):
 );
 
 testcase!(
-    bug = "It should be an error to specify closed=False when inheriting from a closed TypedDict or one with extra items",
     test_cannot_unclose,
     r#"
 from typing import TypedDict
 
 class ClosedParent(TypedDict, closed=True):
     pass
-class BadOpenChild1(ClosedParent, closed=False):  # Should be an error
+class BadOpenChild1(ClosedParent, closed=False):  # E: Non-closed TypedDict cannot inherit from closed TypedDict `ClosedParent`
     pass
 
 class ExtraItemsParent(TypedDict, extra_items=int):
     pass
-class BadOpenChild2(ExtraItemsParent, closed=False):  # Should be an error
+class BadOpenChild2(ExtraItemsParent, closed=False):  # E: Non-closed TypedDict cannot inherit from TypedDict `ExtraItemsParent` with extra items
     pass
     "#,
 );

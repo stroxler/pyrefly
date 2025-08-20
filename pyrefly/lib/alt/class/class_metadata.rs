@@ -475,6 +475,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ("closed", Type::Literal(Lit::Bool(true))) => {
                         extra_items = Some(ExtraItems::Closed);
                     }
+                    ("closed", Type::Literal(Lit::Bool(false))) => {
+                        // Note that we need to distinguish between explicitly setting and
+                        // implicitly defaulting to `closed=False` in order to catch illegal
+                        // attempts to open a closed TypedDict.
+                        extra_items = Some(ExtraItems::Default);
+                    }
                     ("extra_items", value_ty) => {
                         let ty = self.untype_opt(value_ty.clone(), cls.range()).unwrap_or_else(|| {
                             self.error(
@@ -486,7 +492,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         });
                         extra_items = Some(ExtraItems::extra(ty, &value.qualifiers));
                     }
-                    ("total" | "closed", Type::Literal(Lit::Bool(_))) => {}
+                    ("total", Type::Literal(Lit::Bool(_))) => {}
                     ("total" | "closed", value_ty) => {
                         self.error(
                             errors,
@@ -514,8 +520,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             let fields =
                 self.calculate_typed_dict_metadata_fields(cls, bases_with_metadata, is_total);
-            let extra_items =
-                self.calculate_typed_dict_extra_items(extra_items, bases_with_metadata);
+            let extra_items = self.calculate_typed_dict_extra_items(
+                extra_items,
+                bases_with_metadata,
+                cls.range(),
+                errors,
+            );
             Some(TypedDictMetadata {
                 fields,
                 extra_items,
@@ -529,19 +539,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cur_extra_items: Option<ExtraItems>,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        range: TextRange,
+        errors: &ErrorCollector,
     ) -> ExtraItems {
-        let inherited_extra_items = bases_with_metadata
-            .iter()
-            .find_map(|(_, metadata)| metadata.typed_dict_metadata().map(|td| &td.extra_items));
+        let inherited_extra_items = bases_with_metadata.iter().find_map(|(base, metadata)| {
+            metadata
+                .typed_dict_metadata()
+                .map(|td| (base, &td.extra_items))
+        });
         if cur_extra_items.is_none() || inherited_extra_items.is_none() {
             return cur_extra_items.unwrap_or_else(|| {
-                inherited_extra_items
-                    .cloned()
-                    .unwrap_or(ExtraItems::Default)
+                inherited_extra_items.map_or(ExtraItems::Default, |(_, extra)| extra.clone())
             });
         }
         // TODO(rechen): Check for incompatibilities with inherited_extra_items.
-        cur_extra_items.unwrap()
+        let cur_extra_items = cur_extra_items.unwrap();
+        let (base_typed_dict, inherited_extra_items) = inherited_extra_items.unwrap();
+        match (&cur_extra_items, inherited_extra_items) {
+            (ExtraItems::Default, ExtraItems::Closed | ExtraItems::Extra(_)) => {
+                let base = if *inherited_extra_items == ExtraItems::Closed {
+                    format!("closed TypedDict `{}`", base_typed_dict.name())
+                } else {
+                    format!("TypedDict `{}` with extra items", base_typed_dict.name())
+                };
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                    format!("Non-closed TypedDict cannot inherit from {base}"),
+                );
+            }
+            _ => {}
+        }
+        cur_extra_items
     }
 
     fn enum_metadata(
