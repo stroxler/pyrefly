@@ -188,7 +188,7 @@ impl<'a> CallArg<'a> {
         &self,
         solver: &AnswersSolver<Ans>,
         arg_errors: &ErrorCollector,
-    ) -> CallArgPreEval {
+    ) -> CallArgPreEval<'_> {
         match self {
             Self::Arg(TypeOrExpr::Type(ty, _)) => CallArgPreEval::Type(ty, false),
             Self::Arg(TypeOrExpr::Expr(e)) => CallArgPreEval::Expr(e, false),

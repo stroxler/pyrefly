@@ -456,7 +456,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().for_display(t)
     }
 
-    pub fn type_order(&self) -> TypeOrder<Ans> {
+    pub fn type_order(&self) -> TypeOrder<'_, Ans> {
         TypeOrder::new(self)
     }
 
