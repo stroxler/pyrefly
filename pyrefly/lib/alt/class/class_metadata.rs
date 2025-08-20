@@ -553,7 +553,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 inherited_extra_items.map_or(ExtraItems::Default, |(_, extra)| extra.clone())
             });
         }
-        // TODO(rechen): Check for incompatibilities with inherited_extra_items.
         let cur_extra_items = cur_extra_items.unwrap();
         let (base_typed_dict, inherited_extra_items) = inherited_extra_items.unwrap();
         match (&cur_extra_items, inherited_extra_items) {
@@ -581,6 +580,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     range,
                     ErrorInfo::Kind(ErrorKind::BadTypedDict),
                     format!("Closed TypedDict cannot inherit from TypedDict `{}` with non-read-only extra items", base_typed_dict.name()),
+                );
+            }
+            (
+                ExtraItems::Extra(ExtraItem { ty: cur_ty, .. }),
+                ExtraItems::Extra(ExtraItem {
+                    ty: inherited_ty,
+                    read_only: false,
+                }),
+            ) if cur_ty != inherited_ty => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::BadTypedDict),
+                    format!(
+                        "Cannot change the non-read-only extra items type of TypedDict `{}`",
+                        base_typed_dict.name()
+                    ),
                 );
             }
             _ => {}

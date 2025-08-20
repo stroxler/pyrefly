@@ -10124,6 +10124,16 @@
     },
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Cannot change the non-read-only extra items type of TypedDict `Parent`",
+      "description": "Cannot change the non-read-only extra items type of TypedDict `Parent`",
+      "line": 171,
+      "name": "bad-typed-dict",
+      "stop_column": 12,
+      "stop_line": 171
+    },
+    {
+      "code": -2,
       "column": 47,
       "concise_description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
       "description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",

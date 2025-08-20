@@ -1305,13 +1305,12 @@ class GoodChild3(Parent4, closed=True):
 );
 
 testcase!(
-    bug = "We should allow changing the extra_items type only when it is read-only",
     test_change_extra_items,
     r#"
 from typing import ReadOnly, TypedDict
 class Parent1(TypedDict, extra_items=int):
     pass
-class BadChild(Parent1, extra_items=bool):  # Should be an error
+class BadChild(Parent1, extra_items=bool):  # E: Cannot change the non-read-only extra items type of TypedDict `Parent1`
     pass
 class Parent2(TypedDict, extra_items=ReadOnly[int]):
     pass
