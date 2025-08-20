@@ -327,6 +327,7 @@ impl Query {
             match ty {
                 Type::ClassType(c) => qname_to_string(c.qname()),
                 Type::ClassDef(c) => qname_to_string(c.qname()),
+                Type::TypedDict(d) => qname_to_string(d.qname()),
                 Type::Literal(Lit::Str(_)) | Type::LiteralString => String::from("builtins.str"),
                 Type::Literal(Lit::Int(_)) => String::from("builtins.int"),
                 Type::Literal(Lit::Bool(_)) => String::from("builtins.bool"),
@@ -403,18 +404,22 @@ impl Query {
                     );
                     if defs.len() == 1 {
                         // TODO: decide what do to with multiple definitions
-                        if let DefinitionMetadata::Variable(_) = defs[0].metadata {
-                            let name = module_info.code_at(defs[0].definition_range);
-                            vec![Callee {
-                                kind: String::from(CALLEE_KIND_FUNCTION),
-                                target: format!("$parameter${name}"),
-                                class_name: None,
-                            }]
-                        } else {
-                            panic!(
-                                "callable ty - unexpected metadata kind, {:?}",
-                                defs[0].metadata
-                            )
+                        match &defs[0].metadata {
+                            DefinitionMetadata::Variable(_) => {
+                                let name = module_info.code_at(defs[0].definition_range);
+                                vec![Callee {
+                                    kind: String::from(CALLEE_KIND_FUNCTION),
+                                    target: format!("$parameter${name}"),
+                                    class_name: None,
+                                }]
+                            }
+                            DefinitionMetadata::Attribute(_) => {
+                                // cannot determine callee for case a.b() when b is callable but not function
+                                // (i.e instance of the class defining __call__)
+                                // - return no results similar to pyre1
+                                vec![]
+                            }
+                            x => panic!("callable ty - unexpected metadata kind, {:?}", x),
                         }
                     } else {
                         panic!("callable ty not supported yet, {defs:?}")
@@ -457,7 +462,10 @@ impl Query {
                     },
                 ),
                 Type::Any(_) => vec![],
-                _ => panic!("unexpected type: {ty:?}"),
+                _ => panic!(
+                    "unexpected type at [{}]: {ty:?}",
+                    module_info.display_range(callee_range)
+                ),
             }
         }
 
