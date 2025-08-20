@@ -518,11 +518,11 @@ impl LspInteraction {
         let shutdown_id = RequestId::from(999);
         self.server.send_shutdown(shutdown_id.clone());
 
-        self.client.expect_message(Message::Response(Response {
+        self.client.expect_response(Response {
             id: shutdown_id,
             result: Some(serde_json::json!(null)),
             error: None,
-        }));
+        });
 
         self.server.send_exit();
     }
