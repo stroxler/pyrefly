@@ -1237,3 +1237,93 @@ def f(td: TD):
     assert_type(list(td.values()), list[int | str])
     "#,
 );
+
+testcase!(
+    bug = "It should be an error to specify closed=False when inheriting from a closed TypedDict or one with extra items",
+    test_cannot_unclose,
+    r#"
+from typing import TypedDict
+
+class ClosedParent(TypedDict, closed=True):
+    pass
+class BadOpenChild1(ClosedParent, closed=False):  # Should be an error
+    pass
+
+class ExtraItemsParent(TypedDict, extra_items=int):
+    pass
+class BadOpenChild2(ExtraItemsParent, closed=False):  # Should be an error
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "Child should be considered closed",
+    test_inherit_closed,
+    r#"
+from typing import assert_type, TypedDict
+class Parent(TypedDict, closed=True):
+    x: int
+class Child(Parent):
+    pass
+def f(child: Child):
+    assert_type(list(child.values()), list[int])  # E: assert_type(list[object], list[int])
+    "#,
+);
+
+testcase!(
+    bug = "Constructing Child with extra int items should be allowed",
+    test_inherit_extra_items,
+    r#"
+from typing import TypedDict
+class Parent(TypedDict, extra_items=int):
+    x: str
+class Child(Parent):
+    pass
+Child(x='ok', y=42)  # E: Unexpected keyword argument
+    "#,
+);
+
+testcase!(
+    bug = "We should not allow closing a TypedDict with non-ReadOnly extra items",
+    test_can_close_if_readonly_extra,
+    r#"
+from typing import ReadOnly, TypedDict
+class Parent1(TypedDict, extra_items=int):
+    pass
+class BadChild(Parent1, closed=True):  # Should be an error
+    pass
+class Parent2(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class GoodChild1(Parent2, closed=True):
+    pass
+# A closed=False TypedDict (the default) is considered to have extra items of type `ReadOnly[object]`.
+class Parent3(TypedDict):
+    pass
+class GoodChild2(Parent3, closed=True):
+    pass
+class Parent4(TypedDict, closed=False):
+    pass
+class GoodChild3(Parent4, closed=True):
+    pass
+    "#,
+);
+
+testcase!(
+    bug = "We should allow changing the extra_items type only when it is read-only",
+    test_change_extra_items,
+    r#"
+from typing import ReadOnly, TypedDict
+class Parent1(TypedDict, extra_items=int):
+    pass
+class BadChild(Parent1, extra_items=bool):  # Should be an error
+    pass
+class Parent2(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class GoodChild1(Parent2, extra_items=bool):  # ok because Parent2's extra_items is read-only
+    pass
+class Parent3(TypedDict):
+    pass
+class GoodChild2(Parent3, extra_items=bool):  # ok because Parent3 has extra items of type `ReadOnly[object]` by default
+    pass
+    "#,
+);
