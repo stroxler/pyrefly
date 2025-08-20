@@ -446,7 +446,7 @@ impl ConfigFile {
     }
 
     /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
-    pub fn structured_import_lookup_path(&self) -> Vec<ImportLookupPathPart> {
+    pub fn structured_import_lookup_path(&self) -> Vec<ImportLookupPathPart<'_>> {
         let mut result = vec![
             ImportLookupPathPart::SearchPathFromArgs(&self.search_path_from_args),
             ImportLookupPathPart::SearchPathFromFile(&self.search_path_from_file),
@@ -534,7 +534,7 @@ impl ConfigFile {
                 self.root.permissive_ignores.unwrap())
     }
 
-    pub fn get_error_config(&self, path: &Path) -> ErrorConfig {
+    pub fn get_error_config(&self, path: &Path) -> ErrorConfig<'_> {
         ErrorConfig::new(
             self.errors(path),
             self.ignore_errors_in_generated_code(path),
