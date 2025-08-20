@@ -202,6 +202,75 @@ fn test_completion_with_autoimport() {
 
 #[test]
 #[allow(deprecated)]
+fn test_completion_with_autoimport_without_config() {
+    let root = get_test_files_root();
+    let root_path = root.path();
+    let scope_uri = Url::from_file_path(root_path).unwrap();
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(root_path.join("foo.py"))),
+            Message::from(Notification {
+                method: "textDocument/didChange".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string(),
+                        "languageId": "python",
+                        "version": 2
+                    },
+                    "contentChanges": [{
+                        "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
+                    }],
+                }),
+            }),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/completion".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 0,
+                        "character": 43
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
+            2,
+            vec![
+                CompletionItem {
+                    label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
+                    detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
+                    kind: Some(CompletionItemKind::FUNCTION),
+                    sort_text: Some("3".to_owned()),
+                    additional_text_edits: Some(vec![lsp_types::TextEdit {
+                        range: lsp_types::Range {
+                            start: lsp_types::Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: lsp_types::Position {
+                                line: 0,
+                                character: 0,
+                            },
+                        },
+                        new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
+                    }]),
+                    ..Default::default()
+                },
+            ],
+        )],
+        indexing_mode: IndexingMode::LazyBlocking,
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        workspace_indexing_limit: 100,
+        ..Default::default()
+    });
+}
+
+#[test]
+#[allow(deprecated)]
 fn test_completion_with_autoimport_in_defined_module() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");

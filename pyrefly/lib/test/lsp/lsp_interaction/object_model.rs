@@ -471,6 +471,7 @@ impl LspInteraction {
 
         let args = LspArgs {
             indexing_mode: IndexingMode::None,
+            workspace_indexing_limit: 0,
         };
         let connection = Connection {
             sender: language_client_sender,

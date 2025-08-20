@@ -17,6 +17,7 @@ use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
 use dupe::Dupe;
+use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::ErrorCode;
 use lsp_server::Message;
@@ -148,6 +149,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
+use pyrefly_util::globs::Globs;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
@@ -226,10 +228,16 @@ struct Server {
     lsp_queue: LspQueue,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
+    workspace_indexing_limit: usize,
     state: Arc<State>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
     /// A set of configs where we have already indexed all the files within the config.
     indexed_configs: Mutex<HashSet<ArcId<ConfigFile>>>,
+    /// A set of workspaces where we have already performed best-effort indexing.
+    /// The user might open vscode at the root of the filesystem, so workspace indexing is
+    /// performed with best effort up to certain limit of user files. When the workspace changes,
+    /// we rely on file watchers to catch up.
+    indexed_workspaces: Mutex<HashSet<PathBuf>>,
     cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
     workspaces: Arc<Workspaces>,
     outgoing_request_id: AtomicI32,
@@ -400,6 +408,7 @@ pub fn lsp_loop(
     connection: Arc<Connection>,
     initialization_params: InitializeParams,
     indexing_mode: IndexingMode,
+    workspace_indexing_limit: usize,
 ) -> anyhow::Result<()> {
     eprintln!("Reading messages");
     let connection_for_dispatcher = connection.dupe();
@@ -409,6 +418,7 @@ pub fn lsp_loop(
         lsp_queue.dupe(),
         initialization_params,
         indexing_mode,
+        workspace_indexing_limit,
     );
     let lsp_queue2 = lsp_queue.dupe();
     std::thread::spawn(move || {
@@ -803,6 +813,7 @@ impl Server {
         lsp_queue: LspQueue,
         initialize_params: InitializeParams,
         indexing_mode: IndexingMode,
+        workspace_indexing_limit: usize,
     ) -> Self {
         let folders = if let Some(capability) = &initialize_params.capabilities.workspace
             && let Some(true) = capability.workspace_folders
@@ -827,9 +838,11 @@ impl Server {
             lsp_queue,
             initialize_params,
             indexing_mode,
+            workspace_indexing_limit,
             state: Arc::new(State::new(config_finder)),
             open_files: Arc::new(RwLock::new(HashMap::new())),
             indexed_configs: Mutex::new(HashSet::new()),
+            indexed_workspaces: Mutex::new(HashSet::new()),
             cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
             workspaces,
             outgoing_request_id: AtomicI32::new(1),
@@ -981,6 +994,47 @@ impl Server {
         }
     }
 
+    fn populate_workspace_files_if_necessary(&self) {
+        let mut indexed_workspaces = self.indexed_workspaces.lock();
+        let roots_to_populate_files = self
+            .workspaces
+            .roots()
+            .into_iter()
+            .filter(|root| !indexed_workspaces.contains(root))
+            .collect_vec();
+        let workspace_indexing_limit = self.workspace_indexing_limit;
+        if roots_to_populate_files.is_empty() || workspace_indexing_limit == 0 {
+            return;
+        }
+        match self.indexing_mode {
+            IndexingMode::None => {}
+            IndexingMode::LazyNonBlockingBackground => {
+                indexed_workspaces.extend(roots_to_populate_files.iter().cloned());
+                drop(indexed_workspaces);
+                let state = self.state.dupe();
+                let lsp_queue = self.lsp_queue.dupe();
+                std::thread::spawn(move || {
+                    Self::populate_all_workspaces_files(
+                        roots_to_populate_files,
+                        state,
+                        workspace_indexing_limit,
+                        lsp_queue,
+                    );
+                });
+            }
+            IndexingMode::LazyBlocking => {
+                indexed_workspaces.extend(roots_to_populate_files.iter().cloned());
+                drop(indexed_workspaces);
+                Self::populate_all_workspaces_files(
+                    roots_to_populate_files,
+                    self.state.dupe(),
+                    workspace_indexing_limit,
+                    self.lsp_queue.dupe(),
+                );
+            }
+        }
+    }
+
     /// Perform an invalidation of elements on `State` and commit them.
     /// Runs asynchronously. Returns immediately and may wait a while for a committable transaction.
     fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + 'static) {
@@ -1044,6 +1098,42 @@ impl Server {
         eprintln!("Populated all files in the project path.");
     }
 
+    fn populate_all_workspaces_files(
+        workspace_roots: Vec<PathBuf>,
+        state: Arc<State>,
+        workspace_indexing_limit: usize,
+        lsp_queue: LspQueue,
+    ) {
+        for workspace_root in workspace_roots {
+            eprintln!(
+                "Populating up to {workspace_indexing_limit} files in the workspace ({workspace_root:?}).",
+            );
+            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+
+            let globs = Globs::new_with_root(workspace_root.as_path(), vec!["**/*".to_owned()])
+                .unwrap_or_default();
+            let paths = globs
+                .files_with_limit(workspace_indexing_limit)
+                .unwrap_or_default();
+            let mut handles = Vec::new();
+            for path in paths {
+                handles.push((
+                    handle_from_module_path(&state, ModulePath::filesystem(path.clone())),
+                    Require::Indexing,
+                ));
+            }
+
+            eprintln!("Prepare to check {} files.", handles.len());
+            transaction.as_mut().run(&handles);
+            state.commit_transaction(transaction);
+            // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
+            // the main event loop of the server. As a result, the server can do a revalidation of
+            // all the in-memory files based on the fresh main State as soon as possible.
+            let _ = lsp_queue.send(LspEvent::RecheckFinished);
+            eprintln!("Populated all files in the workspace.");
+        }
+    }
+
     fn did_save(&self, params: DidSaveTextDocumentParams) {
         let file = params.text_document.uri.to_file_path().unwrap();
         self.invalidate(move |t| t.invalidate_disk(&[file]));
@@ -1078,6 +1168,7 @@ impl Server {
             self.validate_in_memory(ide_transaction_manager);
         }
         self.populate_project_files_if_necessary(config_to_populate_files);
+        self.populate_workspace_files_if_necessary();
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
         Ok(())

@@ -191,14 +191,28 @@ impl Glob {
         Ok(())
     }
 
-    fn resolve_pattern(pattern: &str, filter: &GlobFilter) -> anyhow::Result<Vec<PathBuf>> {
+    fn resolve_pattern_with_limit(
+        pattern: &str,
+        filter: &GlobFilter,
+        limit: Option<usize>,
+    ) -> anyhow::Result<Vec<PathBuf>> {
         let mut result = Vec::new();
         let paths = glob::glob(pattern)?;
-        for path in paths {
+        for (count, path) in paths.enumerate() {
+            if let Some(limit) = limit
+                && count >= limit
+            {
+                break;
+            }
             let path = path?;
             Self::resolve_path(path, &mut result, filter)?;
         }
         Ok(result)
+    }
+
+    #[cfg(test)]
+    fn resolve_pattern(pattern: &str, filter: &GlobFilter) -> anyhow::Result<Vec<PathBuf>> {
+        Self::resolve_pattern_with_limit(pattern, filter, None)
     }
 
     /// Returns true if the given file matches any of the contained globs.
@@ -288,7 +302,7 @@ impl PartialEq for Glob {
 }
 
 impl Glob {
-    fn files(&self, filter: &GlobFilter) -> anyhow::Result<Vec<PathBuf>> {
+    fn files(&self, filter: &GlobFilter, limit: Option<usize>) -> anyhow::Result<Vec<PathBuf>> {
         let pattern = &self.0;
         if filter.is_excluded(self.as_path()) {
             return Err(anyhow::anyhow!(
@@ -298,7 +312,7 @@ impl Glob {
             ));
         }
         let pattern_str = pattern.as_str().to_owned();
-        let result = Self::resolve_pattern(&pattern_str, filter)
+        let result = Self::resolve_pattern_with_limit(&pattern_str, filter, limit)
             .with_context(|| format!("When resolving pattern `{pattern_str}`"))?;
         Ok(result)
     }
@@ -431,8 +445,13 @@ impl Globs {
         Ok(result)
     }
 
-    fn filtered_files(&self, filter: &GlobFilter) -> anyhow::Result<Vec<PathBuf>> {
-        if USE_EDEN {
+    fn filtered_files(
+        &self,
+        filter: &GlobFilter,
+        limit: Option<usize>,
+    ) -> anyhow::Result<Vec<PathBuf>> {
+        // Eden glob returns all results. It doesn't provide an API to limit the number of results.
+        if USE_EDEN && limit.is_none() {
             match self.files_eden(filter) {
                 Ok(files) if files.is_empty() => {
                     return Err(anyhow::anyhow!(
@@ -447,7 +466,17 @@ impl Globs {
 
         let mut result = SmallSet::new();
         for pattern in &self.0 {
-            result.extend(pattern.files(filter)?);
+            let remaining_limit = if let Some(limit) = limit {
+                if limit > result.len() {
+                    Some(limit - result.len())
+                } else {
+                    break;
+                }
+            } else {
+                None
+            };
+            let files = pattern.files(filter, remaining_limit)?;
+            result.extend(files);
         }
         if result.is_empty() {
             if self.0.is_empty() {
@@ -474,7 +503,14 @@ impl Globs {
     }
 
     pub fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
-        self.filtered_files(&GlobFilter::empty())
+        self.filtered_files(&GlobFilter::empty(), None)
+    }
+
+    /// Same as `files`, but with an upper limit on the number of files returned.
+    /// This is useful for indexing of workspaces, where we don't want to index too many files
+    /// when the user decides to open VSCode at the root of the filesystem.
+    pub fn files_with_limit(&self, limit: usize) -> anyhow::Result<Vec<PathBuf>> {
+        self.filtered_files(&GlobFilter::empty(), Some(limit))
     }
 
     pub fn covers(&self, path: &Path) -> bool {
@@ -622,7 +658,7 @@ impl FilteredGlobs {
     }
 
     pub fn files(&self) -> anyhow::Result<Vec<PathBuf>> {
-        self.includes.filtered_files(&self.filter)
+        self.includes.filtered_files(&self.filter, None)
     }
 
     pub fn covers(&self, path: &Path) -> bool {
@@ -1139,7 +1175,7 @@ mod tests {
         let assert_empty_glob = |pattern_str: &str, description: &str| {
             let found_files = Glob::new_with_root(root, pattern_str.to_owned())
                 .unwrap()
-                .files(&GlobFilter::empty())
+                .files(&GlobFilter::empty(), None)
                 .unwrap_or_else(|_| Vec::new());
             assert!(
                 found_files.is_empty(),
@@ -1157,7 +1193,7 @@ mod tests {
         // Verify that normal files are still found
         let normal_files = Glob::new_with_root(root, "**/*.py".to_owned())
             .unwrap()
-            .files(&GlobFilter::empty())
+            .files(&GlobFilter::empty(), None)
             .unwrap();
         assert!(
             !normal_files.is_empty(),
@@ -1206,20 +1242,26 @@ mod tests {
         assert!(
             Glob::new(pattern.clone())
                 .unwrap()
-                .files(&GlobFilter::new(
-                    Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap(),
+                .files(
+                    &GlobFilter::new(
+                        Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap(),
+                        None
+                    ),
                     None
-                ))
+                )
                 .is_err()
         );
         // double check that <path>/** will also match <path>
         assert!(
             Globs::new(vec![root.to_string_lossy().to_string()])
                 .unwrap()
-                .filtered_files(&GlobFilter::new(
-                    Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap(),
+                .filtered_files(
+                    &GlobFilter::new(
+                        Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap(),
+                        None
+                    ),
                     None
-                ))
+                )
                 .is_err()
         );
         assert_eq!(

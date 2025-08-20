@@ -53,6 +53,7 @@ pub struct TestCase {
     pub(crate) messages_from_language_client: Vec<Message>,
     pub(crate) expected_messages_from_language_server: Vec<Message>,
     pub(crate) indexing_mode: IndexingMode,
+    pub(crate) workspace_indexing_limit: usize,
     /// workspace folders open in the client
     pub(crate) workspace_folders: Option<Vec<(String, Url)>>,
     /// if client has configuration capability
@@ -67,6 +68,7 @@ pub fn run_test_lsp(test_case: TestCase) {
     let timeout = Duration::from_secs(25);
     let args = LspArgs {
         indexing_mode: test_case.indexing_mode,
+        workspace_indexing_limit: test_case.workspace_indexing_limit,
     };
     // language_client_sender is used to send messages to the language client
     // language_client_receiver sees messages sent to the language client

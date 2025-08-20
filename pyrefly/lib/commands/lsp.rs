@@ -41,6 +41,10 @@ pub struct LspArgs {
     /// Find the struct that contains this field and add the indexing mode used by the language server
     #[arg(long, value_enum, default_value_t)]
     pub(crate) indexing_mode: IndexingMode,
+    /// Sets the maximum number of user files for Pyrefly to index in the workspace.
+    /// Note that indexing files is a performance-intensive task.
+    #[arg(long, default_value_t = if cfg!(fbcode_build) {0} else {2000})]
+    pub(crate) workspace_indexing_limit: usize,
 }
 
 pub fn run_lsp(connection: Arc<Connection>, args: LspArgs) -> anyhow::Result<()> {
@@ -54,7 +58,12 @@ pub fn run_lsp(connection: Arc<Connection>, args: LspArgs) -> anyhow::Result<()>
             return Err(e.into());
         }
     };
-    lsp_loop(connection, initialization_params, args.indexing_mode)?;
+    lsp_loop(
+        connection,
+        initialization_params,
+        args.indexing_mode,
+        args.workspace_indexing_limit,
+    )?;
     Ok(())
 }
 
