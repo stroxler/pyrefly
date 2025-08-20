@@ -306,7 +306,7 @@ fn test_parse_pylance_configs() {
                     "diagnosticMode": "workspace",
                     "importFormat": "relative",
                     "inlayHints": {
-                        "callArgumentNames": true,
+                        "callArgumentNames": "on",
                         "functionReturnTypes": true,
                         "pytestParameters": true,
                         "variableTypes": true

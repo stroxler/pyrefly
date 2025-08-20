@@ -273,8 +273,13 @@ impl Workspaces {
         scope_uri: &Option<Url>,
         config: Value,
     ) {
-        let config = match serde_json::from_value::<LspConfig>(config) {
-            Err(_) => return,
+        let config = match serde_json::from_value::<LspConfig>(config.clone()) {
+            Err(e) => {
+                eprintln!(
+                    "Could not decode `LspConfig` from {config:?}, skipping client configuration request: {e}."
+                );
+                return;
+            }
             Ok(x) => x,
         };
 
