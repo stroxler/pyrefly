@@ -447,8 +447,6 @@
     "Line 141: Unexpected errors ['Unexpected keyword argument `year` in function `unpack_extra`']",
     "Line 291: Unexpected errors ['`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`']",
     "Line 295: Unexpected errors ['`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int | str]`']",
-    "Line 301: Unexpected errors ['assert_type(list[tuple[str, object]], list[tuple[str, int | str]]) failed']",
-    "Line 302: Unexpected errors ['assert_type(list[object], list[int | str]) failed']",
     "Line 317: Unexpected errors ['`TypedDict[IntDict]` is not assignable to `dict[str, int]`']",
     "Line 320: Unexpected errors ['Key `bar` is not defined in TypedDict `IntDictWithNum`']",
     "Line 321: Unexpected errors ['`TypedDict[IntDictWithNum]` is not assignable to `dict[str, int]`']",

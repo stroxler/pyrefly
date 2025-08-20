@@ -10174,26 +10174,6 @@
     },
     {
       "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(list[tuple[str, object]], list[tuple[str, int | str]]) failed",
-      "description": "assert_type(list[tuple[str, object]], list[tuple[str, int | str]]) failed",
-      "line": 301,
-      "name": "assert-type",
-      "stop_column": 66,
-      "stop_line": 301
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(list[object], list[int | str]) failed",
-      "description": "assert_type(list[object], list[int | str]) failed",
-      "line": 302,
-      "name": "assert-type",
-      "stop_column": 55,
-      "stop_line": 302
-    },
-    {
-      "code": -2,
       "column": 25,
       "concise_description": "`TypedDict[IntDict]` is not assignable to `dict[str, int]`",
       "description": "`TypedDict[IntDict]` is not assignable to `dict[str, int]`",

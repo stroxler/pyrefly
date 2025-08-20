@@ -1213,3 +1213,27 @@ class Bad2(TypedDict, closed=f()):  # E: Expected literal True or False
     pass
     "#,
 );
+
+testcase!(
+    test_closed_items_and_values,
+    r#"
+from typing import assert_type, TypedDict
+class TD(TypedDict, closed=True):
+    x: int
+def f(td: TD):
+    assert_type(list(td.items()), list[tuple[str, int]])
+    assert_type(list(td.values()), list[int])
+    "#,
+);
+
+testcase!(
+    test_extra_items_and_values,
+    r#"
+from typing import assert_type, TypedDict
+class TD(TypedDict, extra_items=int):
+    x: str
+def f(td: TD):
+    assert_type(list(td.items()), list[tuple[str, int | str]])
+    assert_type(list(td.values()), list[int | str])
+    "#,
+);

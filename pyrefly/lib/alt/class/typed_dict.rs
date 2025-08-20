@@ -56,6 +56,8 @@ const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
 const KEY_PARAM: Name = Name::new_static("key");
 const DEFAULT_PARAM: Name = Name::new_static("default");
 const UPDATE_METHOD: Name = Name::new_static("update");
+const ITEMS_METHOD: Name = Name::new_static("items");
+const VALUES_METHOD: Name = Name::new_static("values");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_dict_items_against_typed_dict(
@@ -605,13 +607,72 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })))
     }
 
+    /// Get the type of a value in the TypedDict.
+    fn get_typed_dict_value_type(&self, cls: &Class, fields: &SmallMap<Name, bool>) -> Type {
+        let extra = match self.typed_dict_extra_items(cls) {
+            None | Some(ExtraItems::Default) => {
+                return self.stdlib.object().clone().to_type();
+            }
+            Some(ExtraItems::Closed) => Type::never(),
+            Some(ExtraItems::Extra(extra)) => extra.ty,
+        };
+        let mut values = self
+            .names_to_fields(cls, fields)
+            .map(|(_, field)| field.ty)
+            .collect::<Vec<_>>();
+        values.push(extra);
+        self.unions(values)
+    }
+
+    /// Synthesize an `items()` method.
+    fn get_typed_dict_items(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> ClassSynthesizedField {
+        let dict_items = self.stdlib.dict_items(
+            self.stdlib.str().clone().to_type(),
+            self.get_typed_dict_value_type(cls, fields),
+        );
+        let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), ITEMS_METHOD);
+        ClassSynthesizedField::new(Type::Function(Box::new(Function {
+            signature: Callable::list(
+                ParamList::new(vec![self.class_self_param(cls, false)]),
+                dict_items.to_type(),
+            ),
+            metadata,
+        })))
+    }
+
+    /// Synthesize a `values()` method.
+    fn get_typed_dict_values(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> ClassSynthesizedField {
+        let dict_values = self.stdlib.dict_values(
+            self.stdlib.str().clone().to_type(),
+            self.get_typed_dict_value_type(cls, fields),
+        );
+        let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), VALUES_METHOD);
+        ClassSynthesizedField::new(Type::Function(Box::new(Function {
+            signature: Callable::list(
+                ParamList::new(vec![self.class_self_param(cls, false)]),
+                dict_values.to_type(),
+            ),
+            metadata,
+        })))
+    }
+
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
         let mut fields = smallmap! {
             dunder::INIT => self.get_typed_dict_init(cls, &td.fields),
+            ITEMS_METHOD => self.get_typed_dict_items(cls, &td.fields),
             GET_METHOD => self.get_typed_dict_get(cls, &td.fields),
             UPDATE_METHOD => self.get_typed_dict_update(cls, &td.fields),
+            VALUES_METHOD => self.get_typed_dict_values(cls, &td.fields),
         };
         if let Some(m) = self.get_typed_dict_pop(cls, &td.fields) {
             fields.insert(POP_METHOD, m);
