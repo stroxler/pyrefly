@@ -52,7 +52,7 @@ impl ParamList {
     }
 
     /// Prepend some required position-only parameters.
-    pub fn prepend_types(&self, pre: &[Type]) -> Cow<ParamList> {
+    pub fn prepend_types(&self, pre: &[Type]) -> Cow<'_, ParamList> {
         if pre.is_empty() {
             Cow::Borrowed(self)
         } else {

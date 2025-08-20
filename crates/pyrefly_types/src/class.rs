@@ -333,7 +333,7 @@ impl ClassType {
         Self(self.0.dupe(), self.1.substitute_with(substitution))
     }
 
-    pub fn substitution(&self) -> Substitution {
+    pub fn substitution(&self) -> Substitution<'_> {
         self.targs().substitution()
     }
 
