@@ -25,6 +25,7 @@ interface ContentWithLinkProps {
     link?: LinkProps;
     beforeText?: string;
     afterText?: string;
+    onClick?: () => void;
 }
 
 interface WhyPyreflyGridItemProps {
@@ -100,6 +101,7 @@ export default function WhyPyreflyGridItem({
                                 <a
                                     href={contentWithLink.link.url}
                                     target="_blank"
+                                    onClick={contentWithLink.onClick}
                                     {...stylex.props(styles.link)}
                                 >
                                     {contentWithLink.link.text}

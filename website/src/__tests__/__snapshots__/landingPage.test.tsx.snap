@@ -156,16 +156,16 @@ exports[`Home page renders external site correctly 1`] = `
                     style="transition-delay: 0.1s;"
                   >
                     <h3>
-                      Easy Onboarding
+                      Support at your Fingertips
                     </h3>
                     <p>
+                      Have questions or feedback to share? Connect with us on 
                       <a
-                        href="/en/docs/installation/"
+                        href="https://discord.gg/Cf7mFQtW7W"
                         target="_blank"
                       >
-                        Start type checking
+                        Discord
                       </a>
-                       your code in minutes.
                     </p>
                   </div>
                 </div>
@@ -556,16 +556,16 @@ exports[`Home page renders internal site correctly 1`] = `
                     style="transition-delay: 0.1s;"
                   >
                     <h3>
-                      Easy Onboarding
+                      Support at your Fingertips
                     </h3>
                     <p>
+                      Have questions or feedback to share? Connect with us on 
                       <a
-                        href="/en/docs/installation/"
+                        href="https://discord.gg/Cf7mFQtW7W"
                         target="_blank"
                       >
-                        Start type checking
+                        Discord
                       </a>
-                       your code in minutes.
                     </p>
                   </div>
                 </div>

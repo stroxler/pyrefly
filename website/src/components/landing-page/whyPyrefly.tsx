@@ -11,12 +11,11 @@ import * as React from 'react';
 import * as stylex from '@stylexjs/stylex';
 import WhyPyreflyGridItem from './whyPyreflyGridItem';
 import Firefly from './firefly';
-import useBaseUrl from '@docusaurus/useBaseUrl';
 import DelayedComponent from '../../utils/DelayedComponent';
 import { animationDelaySeconds } from '../../utils/componentAnimationDelay';
+import { log, LoggingEvent } from '../../utils/LoggingUtils';
 
 export default function WhyPyrefly(): React.ReactElement {
-    const onboardingBaseURL = useBaseUrl('/en/docs/installation/');
 
     return (
         <DelayedComponent delayInSeconds={animationDelaySeconds['WhyPyrefly']}>
@@ -41,13 +40,16 @@ export default function WhyPyrefly(): React.ReactElement {
                             index={1}
                         />
                         <WhyPyreflyGridItem
-                            title="Easy Onboarding"
+                            title="Support at your Fingertips"
                             contentWithLink={{
+                                beforeText: 'Have questions or feedback to share? Connect with us on ',
                                 link: {
-                                    text: 'Start type checking',
-                                    url: `${onboardingBaseURL}`,
+                                    text: 'Discord',
+                                    url: 'https://discord.gg/Cf7mFQtW7W',
                                 },
-                                afterText: ' your code in minutes.',
+                                onClick: ()=> log(LoggingEvent.CLICK, {
+                                    button_id: 'join_discord_homepage',
+                                }),
                             }}
                             index={2}
                         />
