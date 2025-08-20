@@ -75,6 +75,31 @@
             "key": "calls.py"
           }
         }
+      },
+      {
+        "id": 0,
+        "key": {
+          "call_args": [
+            {
+              "label": {
+                "id": 0,
+                "key": "frozen"
+              },
+              "span": {
+                "length": 11,
+                "start": 45
+              }
+            }
+          ],
+          "callee_span": {
+            "length": 22,
+            "start": 35
+          },
+          "file": {
+            "id": 0,
+            "key": "calls.py"
+          }
+        }
       }
     ],
     "predicate": "python.FileCall.4"

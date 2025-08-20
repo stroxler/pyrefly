@@ -20,6 +20,7 @@ use ruff_python_ast::TStringPart;
 use ruff_python_ast::TypeParams;
 use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
 use ruff_python_ast::visitor::source_order::walk_arguments;
+use ruff_python_ast::visitor::source_order::walk_decorator;
 use ruff_python_ast::visitor::source_order::walk_parameters;
 use ruff_python_ast::visitor::source_order::walk_pattern;
 use ruff_python_ast::visitor::source_order::walk_stmt;
@@ -373,7 +374,13 @@ impl Visit for Pattern {
 
 impl Visit<Expr> for Decorator {
     fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Expr)) {
-        self.expression.recurse(f);
+        struct X<T>(T);
+        impl<'a, T: FnMut(&'a Expr)> SourceOrderVisitor<'a> for X<T> {
+            fn visit_expr(&mut self, x: &'a Expr) {
+                self.0(x);
+            }
+        }
+        walk_decorator(&mut X(f), self);
     }
 }
 
