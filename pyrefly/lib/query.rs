@@ -588,7 +588,7 @@ impl Query {
     ///
     /// The expression comes in as a module because we are parsing it from a raw string
     /// input; we expect it to actually be a type expression.
-    fn find_imports(module: &ModModule) -> Vec<String> {
+    fn find_imports(module: &ModModule, t: &Transaction, h: &Handle) -> Vec<String> {
         fn compute_prefix(attr: &ExprAttribute) -> Option<Vec<&Name>> {
             match &*attr.value {
                 Expr::Attribute(base) => {
@@ -601,21 +601,54 @@ impl Query {
             }
         }
 
-        fn collect_attribute_prefixes(x: &Expr, res: &mut SmallSet<String>) {
+        fn collect_attribute_prefixes(
+            x: &Expr,
+            res: &mut SmallSet<String>,
+            t: &Transaction,
+            h: &Handle,
+        ) {
             if let Expr::Attribute(attr) = x {
                 // `attr` is a qname of a type. Get its prefix, which is likely the
                 // module where it is defined.
-                if let Some(names) = compute_prefix(attr) {
-                    // Assume that the prefix is the module where it is defined.
-                    // Note: This will always fail if the type is actually a nested class.
-                    res.insert(names.map(|name| name.as_str()).join("."));
+                if let Some(mut names) = compute_prefix(attr) {
+                    // The initial prefix may not be an actual module, if the type in question
+                    // is a nested class. Search recursively for the longest part of the prefix
+                    // that is a module, and assume that is where the type is defined.
+                    //
+                    // Note: in messy codebases that include name collisions between submodules
+                    // and attributes of `__init__.py` modules, this rule can fail (in this
+                    // scenario it's also possible for the qname to be ambiguous, as in two
+                    // distinct types have the same qname). We do not support such codebases.
+                    loop {
+                        if !names.is_empty() {
+                            let module_name = names.map(|name| name.as_str()).join(".");
+                            if t.import_handle(
+                                h,
+                                ModuleName::from_string(module_name.clone()),
+                                None,
+                            )
+                            .is_ok()
+                            {
+                                // We found the longest matching prefix, assume this is the import.
+                                res.insert(names.map(|name| name.as_str()).join("."));
+                                break;
+                            } else {
+                                // No module at this prefix, keep looking.
+                                names.pop();
+                            }
+                        } else {
+                            // If we get here, either the name is undefined or it is is defined in `builtins`;
+                            // either way we can skip it.
+                            break;
+                        }
+                    }
                 }
             } else {
-                x.recurse(&mut |x| collect_attribute_prefixes(x, res));
+                x.recurse(&mut |x| collect_attribute_prefixes(x, res, t, h));
             }
         }
         let mut res = SmallSet::new();
-        module.visit(&mut |x| collect_attribute_prefixes(x, &mut res));
+        module.visit(&mut |x| collect_attribute_prefixes(x, &mut res, t, h));
         res.into_iter().collect()
     }
 
@@ -631,7 +664,7 @@ impl Query {
     ) -> Result<bool, String> {
         let mut t = self.state.transaction();
         let h = self.make_handle(name, ModulePath::memory(path.clone()));
-        let imported = Query::find_imports(&Ast::parse(&types).0);
+        let imported = Query::find_imports(&Ast::parse(&types).0, &t, &h);
         let imports = imported.map(|x| format!("import {x}\n")).join("");
 
         // First, make sure that the types are well-formed and importable, return `Err` if not
@@ -666,6 +699,7 @@ impl Query {
         lt: &str,
         gt: &str,
     ) -> Result<bool, String> {
+        println!("At is_subtype top level");
         if gt == "TypedDictionary" || gt == "NonTotalTypedDictionary" {
             // For backward compatibility with Pyre, we allow `is_subset` comparison for checking if something
             // is a TypedDict. That isn't actually a valid subtype relationship, so we look for magic
