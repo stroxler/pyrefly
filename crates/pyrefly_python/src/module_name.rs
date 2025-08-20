@@ -142,6 +142,10 @@ impl ModuleName {
         Self::from_str("_typeshed._type_checker_internals")
     }
 
+    pub fn collections_abc() -> Self {
+        Self::from_str("_collections_abc")
+    }
+
     pub fn pydantic() -> Self {
         Self::from_str("pydantic.main")
     }

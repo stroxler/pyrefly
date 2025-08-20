@@ -42,6 +42,8 @@ pub struct Stdlib {
     exception_group: Option<StdlibResult<(Class, Arc<TParams>)>>,
     list: StdlibResult<(Class, Arc<TParams>)>,
     dict: StdlibResult<(Class, Arc<TParams>)>,
+    dict_items: StdlibResult<(Class, Arc<TParams>)>,
+    dict_values: StdlibResult<(Class, Arc<TParams>)>,
     mapping: StdlibResult<(Class, Arc<TParams>)>,
     set: StdlibResult<(Class, Arc<TParams>)>,
     tuple: StdlibResult<(Class, Arc<TParams>)>,
@@ -111,6 +113,7 @@ impl Stdlib {
         let typing_extensions = ModuleName::typing_extensions();
         let enum_ = ModuleName::enum_();
         let type_checker_internals = ModuleName::type_checker_internals();
+        let collections_abc = ModuleName::collections_abc();
 
         let lookup_generic =
             |module: ModuleName, name: &'static str, args: usize| match lookup_class(
@@ -161,6 +164,8 @@ impl Stdlib {
                 .then(|| lookup_generic(builtins, "ExceptionGroup", 1)),
             list: lookup_generic(builtins, "list", 1),
             dict: lookup_generic(builtins, "dict", 2),
+            dict_items: lookup_generic(collections_abc, "dict_items", 2),
+            dict_values: lookup_generic(collections_abc, "dict_values", 2),
             set: lookup_generic(builtins, "set", 1),
             tuple: lookup_generic(builtins, "tuple", 1),
             builtins_type: lookup_concrete(builtins, "type"),
@@ -329,6 +334,14 @@ impl Stdlib {
 
     pub fn dict(&self, key: Type, value: Type) -> ClassType {
         Self::apply(&self.dict, vec![key, value])
+    }
+
+    pub fn dict_items(&self, key: Type, value: Type) -> ClassType {
+        Self::apply(&self.dict_items, vec![key, value])
+    }
+
+    pub fn dict_values(&self, key: Type, value: Type) -> ClassType {
+        Self::apply(&self.dict_values, vec![key, value])
     }
 
     pub fn mapping(&self, key: Type, value: Type) -> ClassType {
