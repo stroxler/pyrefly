@@ -349,6 +349,8 @@ pub struct DataclassMetadata {
     pub kws: DataclassKeywords,
     pub field_specifiers: Vec<CalleeKind>,
     pub alias_keyword: Name,
+    // a tuple to indicate whether we should validate by name or alias
+    pub class_validation_flags: (bool, bool),
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

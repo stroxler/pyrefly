@@ -742,8 +742,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(m)
         });
 
-        // TODO Zeina: Upgrade this logic to include validate by name and alias
-        // specifically, a single name is not enough to determine the downstream behavior
+        let class_validation_flags = pydantic_metadata.map_or((false, true), |pyd| {
+            (pyd.class_validate_by_name, pyd.class_validate_by_alias)
+        });
+
         let mut alias_keyword = DataclassFieldKeywords::ALIAS;
         if pydantic_metadata.is_some() {
             alias_keyword = VALIDATION_ALIAS;
@@ -762,6 +764,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
                         alias_keyword: alias_keyword.clone(),
+                        class_validation_flags,
                     });
                 }
                 // `@dataclass(...)`
@@ -780,6 +783,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
                         alias_keyword: alias_keyword.clone(),
+                        class_validation_flags,
                     });
                 }
                 _ => {}
@@ -791,6 +795,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 kws,
                 field_specifiers,
                 alias_keyword: alias_keyword.clone(),
+                class_validation_flags,
             });
         }
         dataclass_metadata
