@@ -586,30 +586,30 @@ impl Query {
     /// Given an expression, which contains qualified types, guess which imports to add.
     ///
     /// For example `foo.bar.baz` will return `[foo.bar]`.
-    fn find_imports(x: &ModModule) -> Vec<String> {
-        fn g(x: &ExprAttribute) -> Option<Vec<&Name>> {
-            match &*x.value {
-                Expr::Attribute(x) => {
-                    let mut res = g(x)?;
-                    res.push(&x.attr.id);
+    fn find_imports(module: &ModModule) -> Vec<String> {
+        fn g(attr: &ExprAttribute) -> Option<Vec<&Name>> {
+            match &*attr.value {
+                Expr::Attribute(base) => {
+                    let mut res = g(base)?;
+                    res.push(&base.attr.id);
                     Some(res)
                 }
-                Expr::Name(x) => Some(vec![&x.id]),
+                Expr::Name(base) => Some(vec![&base.id]),
                 _ => None,
             }
         }
 
         fn f(x: &Expr, res: &mut SmallSet<String>) {
-            if let Expr::Attribute(x) = x {
-                if let Some(module) = g(x) {
-                    res.insert(module.map(|x| x.as_str()).join("."));
+            if let Expr::Attribute(attr) = x {
+                if let Some(names) = g(attr) {
+                    res.insert(names.map(|name| name.as_str()).join("."));
                 }
             } else {
                 x.recurse(&mut |x| f(x, res));
             }
         }
         let mut res = SmallSet::new();
-        x.visit(&mut |x| f(x, &mut res));
+        module.visit(&mut |x| f(x, &mut res));
         res.into_iter().collect()
     }
 
