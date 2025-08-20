@@ -586,11 +586,14 @@ impl Query {
     /// Given an expression, which contains qualified types, guess which imports to add.
     ///
     /// For example `foo.bar.baz` will return `[foo.bar]`.
+    ///
+    /// The expression comes in as a module because we are parsing it from a raw string
+    /// input; we expect it to actually be a type expression.
     fn find_imports(module: &ModModule) -> Vec<String> {
-        fn g(attr: &ExprAttribute) -> Option<Vec<&Name>> {
+        fn compute_prefix(attr: &ExprAttribute) -> Option<Vec<&Name>> {
             match &*attr.value {
                 Expr::Attribute(base) => {
-                    let mut res = g(base)?;
+                    let mut res = compute_prefix(base)?;
                     res.push(&base.attr.id);
                     Some(res)
                 }
@@ -599,17 +602,17 @@ impl Query {
             }
         }
 
-        fn f(x: &Expr, res: &mut SmallSet<String>) {
+        fn collect_attribute_prefixes(x: &Expr, res: &mut SmallSet<String>) {
             if let Expr::Attribute(attr) = x {
-                if let Some(names) = g(attr) {
+                if let Some(names) = compute_prefix(attr) {
                     res.insert(names.map(|name| name.as_str()).join("."));
                 }
             } else {
-                x.recurse(&mut |x| f(x, res));
+                x.recurse(&mut |x| collect_attribute_prefixes(x, res));
             }
         }
         let mut res = SmallSet::new();
-        module.visit(&mut |x| f(x, &mut res));
+        module.visit(&mut |x| collect_attribute_prefixes(x, &mut res));
         res.into_iter().collect()
     }
 
