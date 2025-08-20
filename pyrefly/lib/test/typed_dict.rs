@@ -1322,3 +1322,47 @@ class GoodChild2(Parent3, extra_items=bool):  # ok because Parent3 has extra ite
     pass
     "#,
 );
+
+testcase!(
+    bug = "You shouldn't be able to add items to a closed TypedDict",
+    test_no_add_items_if_closed,
+    r#"
+from typing import TypedDict
+class Parent(TypedDict, closed=True):
+    x: int
+class Child(Parent):
+    y: str  # This should be an error
+    "#,
+);
+
+testcase!(
+    bug = "You shouldn't be able to add items with the wrong type",
+    test_add_items_with_readonly_extra_items,
+    r#"
+from typing import NotRequired, ReadOnly, Required, TypedDict
+class Parent(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class GoodChild(Parent):
+    x: int
+    y: Required[int]
+    z: NotRequired[bool]
+class BadChild(Parent):
+    x: str  # Should be an error because str is not assignable to int
+    "#,
+);
+
+testcase!(
+    bug = "You shouldn't be able to add required items or items with the wrong type",
+    test_add_items_with_readwrite_extra_items,
+    r#"
+from typing import NotRequired, Required, TypedDict
+class Parent(TypedDict, extra_items=int):
+    pass
+class GoodChild(Parent):
+    x: NotRequired[int]
+class BadChild1(Parent):
+    x: Required[int]  # Should be an error because x is required
+class BadChild2(Parent):
+    x: NotRequired[bool]  # Should be an error because bool is not consistent with int
+    "#,
+);
