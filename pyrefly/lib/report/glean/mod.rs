@@ -149,12 +149,23 @@ def complex_return() -> (
     return None
     "#;
 
+    let calls = r#"from dataclasses import dataclass
+@dataclass(frozen=True)
+class A:
+    pass
+
+print("hello")
+print(b"world")
+
+"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
         ("imports", imports_code),
         ("try_except", try_except_code),
         ("return_types", return_types),
+        ("calls", calls),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
     let transaction = state.transaction();
