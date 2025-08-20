@@ -1351,7 +1351,6 @@ class BadChild(Parent):
 );
 
 testcase!(
-    bug = "You shouldn't be able to add required items or items with the wrong type",
     test_add_items_with_readwrite_extra_items,
     r#"
 from typing import NotRequired, Required, TypedDict
@@ -1360,8 +1359,8 @@ class Parent(TypedDict, extra_items=int):
 class GoodChild(Parent):
     x: NotRequired[int]
 class BadChild1(Parent):
-    x: Required[int]  # Should be an error because x is required
+    x: Required[int]  # E: cannot be extended with required extra item `x`
 class BadChild2(Parent):
-    x: NotRequired[bool]  # Should be an error because bool is not consistent with int
+    x: NotRequired[bool]  # E: `bool` is not consistent with `extra_items` type `int`
     "#,
 );

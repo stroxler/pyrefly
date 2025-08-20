@@ -10075,6 +10075,16 @@
     {
       "code": -2,
       "column": 5,
+      "concise_description": "TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`",
+      "description": "TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`",
+      "line": 74,
+      "name": "typed-dict-key-error",
+      "stop_column": 8,
+      "stop_line": 74
+    },
+    {
+      "code": -2,
+      "column": 5,
       "concise_description": "Cannot extend closed TypedDict `MovieA` with extra item `age`",
       "description": "Cannot extend closed TypedDict `MovieA` with extra item `age`",
       "line": 92,
@@ -10161,6 +10171,26 @@
       "name": "bad-typed-dict",
       "stop_column": 12,
       "stop_line": 171
+    },
+    {
+      "code": -2,
+      "column": 5,
+      "concise_description": "TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`",
+      "description": "TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`",
+      "line": 182,
+      "name": "typed-dict-key-error",
+      "stop_column": 9,
+      "stop_line": 182
+    },
+    {
+      "code": -2,
+      "column": 5,
+      "concise_description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
+      "description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
+      "line": 185,
+      "name": "typed-dict-key-error",
+      "stop_column": 9,
+      "stop_line": 185
     },
     {
       "code": -2,

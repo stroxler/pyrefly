@@ -650,14 +650,32 @@ impl Solver {
         type_order: TypeOrder<Ans>,
         union: bool,
     ) -> bool {
-        let mut subset = Subset {
+        let mut subset = self.subset(type_order, union);
+        subset.is_subset_eq(got, want)
+    }
+
+    pub fn is_equal<Ans: LookupAnswer>(
+        &self,
+        got: &Type,
+        want: &Type,
+        type_order: TypeOrder<Ans>,
+    ) -> bool {
+        let mut subset = self.subset(type_order, false);
+        subset.is_equal(got, want)
+    }
+
+    fn subset<'a, Ans: LookupAnswer>(
+        &'a self,
+        type_order: TypeOrder<'a, Ans>,
+        union: bool,
+    ) -> Subset<'a, Ans> {
+        Subset {
             solver: self,
             type_order,
             union,
             gas: INITIAL_GAS,
             recursive_assumptions: SmallSet::new(),
-        };
-        subset.is_subset_eq(got, want)
+        }
     }
 }
 

@@ -910,7 +910,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         if let Some(td) = metadata.typed_dict_metadata()
-            && td.fields.contains_key(name)
+            && let Some(is_total) = td.fields.get(name)
         {
             // If this is a TypedDict field, make sure it is compatible with any inherited metadata
             // restricting extra items.
@@ -944,6 +944,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             format!(
                                 "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
                                 self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
+                        }
+                    } else {
+                        // The field needs to be non-required and its type consistent with the extra_items type.
+                        let required = annot.has_qualifier(&Qualifier::Required)
+                            || (*is_total && !annot.has_qualifier(&Qualifier::NotRequired));
+                        if required {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!("TypedDict `{}` with non-read-only `extra_items` cannot be extended with required extra item `{}`", base.name(), name),
+                            );
+                        } else if !self.solver().is_equal(field_ty, &ty, self.type_order()) {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!(
+                                    "`{}` is not consistent with `extra_items` type `{}` of TypedDict `{}`",
+                                    self.for_display(field_ty.clone()), self.for_display(ty), base.name()),
+                            );
                         }
                     }
                 }
