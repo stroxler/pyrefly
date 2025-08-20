@@ -33,6 +33,7 @@ use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
@@ -1863,6 +1864,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty),
+            _ => None,
+        }
+    }
+
+    /// Look up the `_value_` attribute of an enum class. This field has to be a plain instance
+    /// attribute annotated in the class body; it is used to validate enum member values, which are
+    /// supposed to all share this type.
+    ///
+    /// TODO(stroxler): We don't currently enforce in this function that it is
+    /// an instance attribute annotated in the class body. Should we? It is unclear; this helper
+    /// is only used to validate enum members, not to produce errors on invalid `_value_`
+    fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
+        let field = self
+            .get_class_member(enum_.cls.class_object(), &Name::new_static("_value_"))?
+            .value;
+        match &field.0 {
+            ClassFieldInner::Simple {
+                ty,
+                descriptor_getter: None,
+                descriptor_setter: None,
+                is_function_without_return_annotation: false,
+                ..
+            } => Some(ty.clone()),
             _ => None,
         }
     }

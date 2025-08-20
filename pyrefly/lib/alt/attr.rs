@@ -23,7 +23,6 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::DataclassMember;
 use crate::alt::expr::TypeOrExpr;
-use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyExport;
 use crate::config::error_kind::ErrorKind;
@@ -613,25 +612,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         Some(self.unions(attr_tys))
-    }
-
-    /// Look up the `_value_` attribute of an enum class. This field has to be a plain instance
-    /// attribute annotated in the class body; it is used to validate enum member values, which are
-    /// supposed to all share this type.
-    pub fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
-        let base = Type::ClassType(enum_.cls.clone());
-        match self.lookup_attr_no_union(&base, &Name::new_static("_value_")) {
-            LookupResult::Found(attr) => match attr.inner {
-                AttributeInner::Simple(ty, ..) => Some(ty),
-                // NOTE: We currently do not expect to use `__getattr__` for `_value_` annotation lookup.
-                AttributeInner::NoAccess(_)
-                | AttributeInner::Property(..)
-                | AttributeInner::Descriptor(..)
-                | AttributeInner::GetAttr(..)
-                | AttributeInner::ModuleFallback(..) => None,
-            },
-            _ => None,
-        }
     }
 
     /// Check whether a type or expression is assignable to an attribute, using contextual
