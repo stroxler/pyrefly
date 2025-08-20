@@ -9,7 +9,6 @@
 
 use std::io::Cursor;
 use std::iter;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -616,6 +615,45 @@ impl Query {
         res.into_iter().collect()
     }
 
+    /// Check a snippet of code; used as part of performing is_subtype checks via the query API.
+    fn check_code_snippet(
+        &self,
+        name: ModuleName,
+        path: PathBuf,
+        lt: &str,
+        gt: &str,
+        types: String,
+        check: &'static str,
+    ) -> Result<bool, String> {
+        let mut t = self.state.transaction();
+        let h = self.make_handle(name, ModulePath::memory(path.clone()));
+        let imported = Query::find_imports(&Ast::parse(&types).0);
+        let imports = imported.map(|x| format!("import {x}\n")).join("");
+
+        // First, make sure that the types are well-formed and importable, return `Err` if not
+        let before = format!("{imports}\n{types}\n");
+        t.set_memory(vec![(path.clone(), Some(Arc::new(before.clone())))]);
+        t.run(&[(h.dupe(), Require::Everything)]);
+        let errors = t.get_errors([&h]).collect_errors();
+        if !errors.shown.is_empty() {
+            let mut res = Vec::new();
+            for e in errors.shown {
+                e.write_line(&mut Cursor::new(&mut res), true).unwrap();
+            }
+            return Err(format!(
+                "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",
+                str::from_utf8(&res).unwrap_or("UTF8 error")
+            ));
+        }
+
+        // Now that we know the types are valid, check a snippet to do the actual subtype test.
+        let after = format!("{imports}\n{types}\n{check}");
+        t.set_memory(vec![(path, Some(Arc::new(after)))]);
+        t.run(&[(h.dupe(), Require::Everything)]);
+        let errors = t.get_errors([&h]).collect_errors();
+        Ok(errors.shown.is_empty())
+    }
+
     /// Return `Err` if you can't resolve them to types, otherwise return `lt <: gt`.
     pub fn is_subtype(
         &self,
@@ -624,45 +662,6 @@ impl Query {
         lt: &str,
         gt: &str,
     ) -> Result<bool, String> {
-        fn do_check(
-            t: &mut Transaction<'_>,
-            h: Handle,
-            path: &Path,
-            lt: &str,
-            gt: &str,
-            types: String,
-            check: &'static str,
-        ) -> Result<bool, String> {
-            let imported = Query::find_imports(&Ast::parse(&types).0);
-            let imports = imported.map(|x| format!("import {x}\n")).join("");
-
-            // First, make sure that the types are well-formed and importable, return `Err` if not
-            let before = format!("{imports}\n{types}\n");
-            t.set_memory(vec![(path.to_owned(), Some(Arc::new(before.clone())))]);
-            t.run(&[(h.dupe(), Require::Everything)]);
-            let errors = t.get_errors([&h]).collect_errors();
-            if !errors.shown.is_empty() {
-                let mut res = Vec::new();
-                for e in errors.shown {
-                    e.write_line(&mut Cursor::new(&mut res), true).unwrap();
-                }
-                return Err(format!(
-                    "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",
-                    str::from_utf8(&res).unwrap_or("UTF8 error")
-                ));
-            }
-
-            // Now that we know the types are valid, check a snippet to do the actual subtype test.
-            let after = format!("{imports}\n{types}\n{check}");
-            t.set_memory(vec![(path.to_owned(), Some(Arc::new(after)))]);
-            t.run(&[(h.dupe(), Require::Everything)]);
-            let errors = t.get_errors([&h]).collect_errors();
-            Ok(errors.shown.is_empty())
-        }
-
-        let mut t = self.state.transaction();
-        let h = self.make_handle(name, ModulePath::memory(path.clone()));
-
         if gt == "TypedDictionary" || gt == "NonTotalTypedDictionary" {
             // For backward compatibility with Pyre, we allow `is_subset` comparison for checking if something
             // is a TypedDict. That isn't actually a valid subtype relationship, so we look for magic
@@ -670,12 +669,12 @@ impl Query {
             let types = format!("type pyrefly_lt = ({lt})");
             let check =
                 "pyrefly_lt.__required_keys__, pyrefly_lt.__optional_keys__, pyrefly_lt.__total__";
-            do_check(&mut t, h, &path, lt, gt, types, check)
+            self.check_code_snippet(name, path, lt, gt, types, check)
         } else {
             // In the normal case, synthesize a function whose return is a type error if the subset fails.
             let types = format!("type pyrefly_lt = ({lt})\ntype pyrefly_gt = ({gt})\n");
             let check = "def pyrefly_func(x: pyrefly_lt) -> pyrefly_gt:\n    return x";
-            do_check(&mut t, h, &path, lt, gt, types, check)
+            self.check_code_snippet(name, path, lt, gt, types, check)
         }
     }
 }
