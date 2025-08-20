@@ -2,7 +2,7 @@
 title: Introducing Pyrefly - A new type checker and IDE experience for Python
 description: Today we are announcing an alpha version of Pyrefly, an open source Python typechecker and IDE extension crafted in Rust
 slug: introducing-pyrefly
-authors: [aaronp]
+authors: [pyreflyteam]
 tags: [typechecking, news]
 image: https://engineering.fb.com/wp-content/uploads/2025/05/Pyrefly-Feature-Image.jpg
 hide_table_of_contents: false
