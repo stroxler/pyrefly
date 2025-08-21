@@ -116,7 +116,7 @@ Color = Enum("C", 'RED', 'GREEN', 'BLUE')  # E: Expected string literal "Color"
 );
 
 testcase!(
-    bug = "Matching EnumMeta against Iterable is failing because Type::to_unbound_callable() doesn't support generic methods",
+    bug = "`e` is `Any` because we need to use the bound object to instantiate _EnumMemberT in EnumMeta.__iter__",
     test_iterate,
     r#"
 from typing import assert_type
@@ -124,7 +124,7 @@ from enum import Enum
 class E(Enum):
     X = 1
     Y = 2
-for e in E:  # E: Type `type[E]` is not iterable
+for e in E:
     assert_type(e, E)  # E: assert_type(Any, E)
     "#,
 );

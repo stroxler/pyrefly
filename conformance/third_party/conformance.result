@@ -115,9 +115,7 @@
     "Line 62: Unexpected errors ['Argument `type[Class3]` is not assignable to parameter `cb` with type `(*args: Unknown, **kwargs: Unknown) -> Class3` in function `accepts_callable`']",
     "Line 164: Unexpected errors ['assert_type(Class7[Any], Class7[int]) failed']",
     "Line 165: Unexpected errors ['assert_type(Class7[Any], Class7[str]) failed', \"Argument `Literal['']` is not assignable to parameter `x` with type `int`\"]",
-    "Line 183: Unexpected errors ['assert_type(Class8[Any], Class8[str]) failed']",
-    "Line 192: Unexpected errors ['Argument `type[Class9]` is not assignable to parameter `cb` with type `(ParamSpec(@_)) -> @_` in function `accepts_callable`']",
-    "Line 194: Unexpected errors ['assert_type(Any, Class9) failed']"
+    "Line 183: Unexpected errors ['assert_type(Class8[Any], Class8[str]) failed']"
   ],
   "constructors_consistency.py": [],
   "dataclasses_descriptors.py": [],
@@ -154,7 +152,6 @@
   "directives_type_ignore_file2.py": [],
   "directives_version_platform.py": [],
   "enums_behaviors.py": [
-    "Line 19: Unexpected errors ['Type `type[Color]` is not iterable\\n  Argument `int` is not assignable to parameter `name` with type `str` in function `enum.EnumMeta.__getitem__`']",
     "Line 20: Unexpected errors ['assert_type(Any, Color) failed']"
   ],
   "enums_definition.py": [],
@@ -358,8 +355,7 @@
     "Line 25: Unexpected errors ['`Module[_protocols_modules1]` is not assignable to `Options1`']"
   ],
   "protocols_recursive.py": [
-    "Line 80: Unexpected errors ['Argument `ImplB` is not assignable to parameter `x` with type `ProtoA[Never, @_]` in function `func1`']",
-    "Line 81: Unexpected errors ['assert_type(Any, list[int]) failed']"
+    "Line 81: Unexpected errors ['assert_type(list[Any], list[int]) failed']"
   ],
   "protocols_runtime_checkable.py": [
     "Line 88: Expected 1 errors",

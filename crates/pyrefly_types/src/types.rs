@@ -932,9 +932,26 @@ impl Type {
     }
 
     /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
-    /// TODO: Does not handle generics.
     pub fn drop_first_param_of_unbound_callable(&self) -> Option<Type> {
         match self {
+            Type::Forall(forall) => match &forall.body {
+                Forallable::Callable(c) => c.drop_first_param().map(|c| {
+                    Type::Forall(Box::new(Forall {
+                        tparams: forall.tparams.clone(),
+                        body: Forallable::Callable(c),
+                    }))
+                }),
+                Forallable::Function(f) => f.signature.drop_first_param().map(|c| {
+                    Type::Forall(Box::new(Forall {
+                        tparams: forall.tparams.clone(),
+                        body: Forallable::Function(Function {
+                            signature: c,
+                            metadata: f.metadata.clone(),
+                        }),
+                    }))
+                }),
+                Forallable::TypeAlias(_) => None,
+            },
             Type::Callable(callable) => callable
                 .drop_first_param()
                 .map(|callable| Type::Callable(Box::new(callable))),
@@ -947,18 +964,35 @@ impl Type {
             Type::Overload(overload) => overload
                 .signatures
                 .try_mapped_ref(|x| match x {
-                    OverloadType::Function(f) => {
-                        f.signature.drop_first_param().ok_or(()).map(|c| Function {
-                            signature: c,
-                            metadata: f.metadata.clone(),
+                    OverloadType::Function(f) => f
+                        .signature
+                        .drop_first_param()
+                        .map(|c| {
+                            OverloadType::Function(Function {
+                                signature: c,
+                                metadata: f.metadata.clone(),
+                            })
                         })
-                    }
-                    _ => Err(()),
+                        .ok_or(()),
+                    OverloadType::Forall(forall) => forall
+                        .body
+                        .signature
+                        .drop_first_param()
+                        .map(|c| {
+                            OverloadType::Forall(Forall {
+                                tparams: forall.tparams.clone(),
+                                body: Function {
+                                    signature: c,
+                                    metadata: forall.body.metadata.clone(),
+                                },
+                            })
+                        })
+                        .ok_or(()),
                 })
                 .ok()
                 .map(|signatures| {
                     Type::Overload(Overload {
-                        signatures: signatures.mapped(OverloadType::Function),
+                        signatures,
                         metadata: overload.metadata.clone(),
                     })
                 }),

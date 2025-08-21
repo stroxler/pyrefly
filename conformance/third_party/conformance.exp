@@ -3095,33 +3095,13 @@
     },
     {
       "code": -2,
-      "column": 23,
-      "concise_description": "Argument `type[Class9]` is not assignable to parameter `cb` with type `(ParamSpec(@_)) -> @_` in function `accepts_callable`",
-      "description": "Argument `type[Class9]` is not assignable to parameter `cb` with type `(ParamSpec(@_)) -> @_` in function `accepts_callable`",
-      "line": 192,
-      "name": "bad-argument-type",
-      "stop_column": 29,
-      "stop_line": 192
-    },
-    {
-      "code": -2,
       "column": 12,
-      "concise_description": "revealed type: (ParamSpec(@_)) -> @_",
-      "description": "revealed type: (ParamSpec(@_)) -> @_",
+      "concise_description": "revealed type: (x: list[@_], y: list[@_]) -> Class9",
+      "description": "revealed type: (x: list[@_], y: list[@_]) -> Class9",
       "line": 193,
       "name": "reveal-type",
       "stop_column": 16,
       "stop_line": 193
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, Class9) failed",
-      "description": "assert_type(Any, Class9) failed",
-      "line": 194,
-      "name": "assert-type",
-      "stop_column": 36,
-      "stop_line": 194
     }
   ],
   "constructors_consistency.py": [],
@@ -4234,16 +4214,6 @@
     }
   ],
   "enums_behaviors.py": [
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Type `type[Color]` is not iterable",
-      "description": "Type `type[Color]` is not iterable\n  Argument `int` is not assignable to parameter `name` with type `str` in function `enum.EnumMeta.__getitem__`",
-      "line": 19,
-      "name": "not-iterable",
-      "stop_column": 19,
-      "stop_line": 19
-    },
     {
       "code": -2,
       "column": 16,
@@ -8521,18 +8491,8 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "Argument `ImplB` is not assignable to parameter `x` with type `ProtoA[Never, @_]` in function `func1`",
-      "description": "Argument `ImplB` is not assignable to parameter `x` with type `ProtoA[Never, @_]` in function `func1`",
-      "line": 80,
-      "name": "bad-argument-type",
-      "stop_column": 19,
-      "stop_line": 80
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, list[int]) failed",
-      "description": "assert_type(Any, list[int]) failed",
+      "concise_description": "assert_type(list[Any], list[int]) failed",
+      "description": "assert_type(list[Any], list[int]) failed",
       "line": 81,
       "name": "assert-type",
       "stop_column": 27,
