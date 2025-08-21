@@ -513,52 +513,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// each member of the union
     /// If the type is a constrained type var, we will attempt to generate 1 base for each constraint
     fn get_possible_attribute_bases(&self, base: &Type) -> Vec<Option<AttributeBase>> {
-        let mut bases = Vec::new();
-        self.map_over_union(base, |base| {
-            match base {
-                Type::Quantified(quantified) => match quantified.restriction() {
-                    Restriction::Bound(upper_bound) => {
-                        let mut use_fallback = false;
-                        self.map_over_union(upper_bound, |bound| {
-                            let bound_attr_base = self.as_attribute_base(bound.clone());
-                            if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
-                                bases.push(Some(AttributeBase::TypeVar(
-                                    (**quantified).clone(),
-                                    Some(cls),
-                                )));
-                            } else {
-                                use_fallback = true;
-                            }
-                        });
-                        if use_fallback {
-                            bases.push(Some(AttributeBase::TypeVar((**quantified).clone(), None)));
-                        }
-                    }
-                    Restriction::Constraints(constraints) => {
-                        let mut use_fallback = false;
-                        for constraint in constraints {
-                            let constraint_attr_base = self.as_attribute_base(constraint.clone());
-                            if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
-                                bases.push(Some(AttributeBase::TypeVar(
-                                    (**quantified).clone(),
-                                    Some(cls),
-                                )));
-                            } else {
-                                use_fallback = true;
-                            }
-                        }
-                        if use_fallback {
-                            bases.push(Some(AttributeBase::TypeVar((**quantified).clone(), None)));
-                        }
-                    }
-                    Restriction::Unrestricted => bases.push(Some(AttributeBase::ClassInstance(
-                        self.stdlib.object().clone(),
-                    ))),
-                },
-                _ => bases.push(self.as_attribute_base(base.clone())),
-            };
-        });
-        bases
+        vec![self.as_attribute_base(base.clone())]
     }
 
     /// Compute the get (i.e. read) type of an attribute. If the attribute cannot be found or read,
@@ -1922,14 +1877,51 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Some(AttributeBase::Union(res))
             }
+            Type::Quantified(quantified) => match quantified.restriction() {
+                Restriction::Bound(upper_bound) => {
+                    let mut res = Vec::new();
+                    let mut use_fallback = false;
+                    self.map_over_union(upper_bound, |bound| {
+                        let bound_attr_base = self.as_attribute_base(bound.clone());
+                        if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
+                            res.push(AttributeBase::TypeVar((*quantified).clone(), Some(cls)));
+                        } else {
+                            use_fallback = true;
+                        }
+                    });
+                    if use_fallback {
+                        res.push(AttributeBase::TypeVar((*quantified).clone(), None));
+                    }
+                    Some(AttributeBase::Union(res))
+                }
+                Restriction::Constraints(constraints) => {
+                    let mut res = Vec::new();
+                    let mut use_fallback = false;
+                    for constraint in constraints {
+                        let constraint_attr_base = self.as_attribute_base(constraint.clone());
+                        if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
+                            res.push(AttributeBase::TypeVar((*quantified).clone(), Some(cls)));
+                        } else {
+                            use_fallback = true;
+                        }
+                    }
+                    if use_fallback {
+                        res.push(AttributeBase::TypeVar((*quantified).clone(), None));
+                    }
+                    Some(AttributeBase::Union(res))
+                }
+                Restriction::Unrestricted => Some(AttributeBase::TypeVar(
+                    (*quantified).clone(),
+                    Some(self.stdlib.object().clone()),
+                )),
+            },
             // TODO: check to see which ones should have class representations
             Type::SpecialForm(_)
             | Type::Type(_)
             | Type::Intersect(_)
             | Type::Unpack(_)
             | Type::Concatenate(_, _)
-            | Type::ParamSpecValue(_)
-            | Type::Quantified(_) => None,
+            | Type::ParamSpecValue(_) => None,
         }
     }
 

@@ -109,7 +109,7 @@ def f(foo: Foo):
         # Why `Foo | object`? Because the lookup on `None` fails, and we fall back to `object`
         # in that branch of the union.
         assert_type(foo.x.x, Foo | object)
-    if isinstance(foo.x.y, Foo) and foo.x.y.x is not None:  # E: Object of class `Foo` has no attribute `y`  # E: Object of class `NoneType` has no attribute `y`
+    if isinstance(foo.x.y, Foo) and foo.x.y.x is not None:  # E: Object of class `Foo` has no attribute `y`\nObject of class `NoneType` has no attribute `y`
         assert_type(foo.x, Foo | None)
         assert_type(foo.x.y, Foo)
         assert_type(foo.x.y.x, Foo)
