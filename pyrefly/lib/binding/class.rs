@@ -668,6 +668,11 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 // Enum('Color', 'RED', 'GREEN', 'BLUE')
                 [Expr::StringLiteral(_), ..] => self.extract_string_literals(members),
+                // Enum('Color', []), Enum('Color', ())
+                [
+                    Expr::List(ExprList { elts, .. }) | Expr::Tuple(ExprTuple { elts, .. }),
+                    ..,
+                ] if elts.is_empty() => Vec::new(),
                 // Enum('Color', ['RED', 'GREEN', 'BLUE'])
                 [Expr::List(ExprList { elts, .. })]
                     if matches!(elts.as_slice(), [Expr::StringLiteral(_), ..]) =>
@@ -773,6 +778,12 @@ impl<'a> BindingsBuilder<'a> {
                         .collect()
                 }
             }
+            // namedtuple('Point', []), namedtuple('Point', ())
+            [Expr::List(ExprList { elts, .. }) | Expr::Tuple(ExprTuple { elts, .. })]
+                if elts.is_empty() =>
+            {
+                Vec::new()
+            }
             // namedtuple('Point', ['x', 'y'])
             [Expr::List(ExprList { elts, .. })]
                 if matches!(elts.as_slice(), [Expr::StringLiteral(_), ..]) =>
@@ -873,6 +884,12 @@ impl<'a> BindingsBuilder<'a> {
         self.check_functional_definition_name(&name.id, arg_name);
         let member_definitions: Vec<(String, TextRange, Option<Expr>, Option<Expr>)> =
             match members {
+                // NamedTuple('Point', []), NamedTuple('Point', ())
+                [Expr::List(ExprList { elts, .. }) | Expr::Tuple(ExprTuple { elts, .. })]
+                    if elts.is_empty() =>
+                {
+                    Vec::new()
+                }
                 // NamedTuple('Point', [('x', int), ('y', int)])
                 [Expr::List(ExprList { elts, .. })]
                     if matches!(elts.as_slice(), [Expr::Tuple(_), ..]) =>

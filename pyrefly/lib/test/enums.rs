@@ -478,3 +478,11 @@ assert_type(py.Color.RED, Literal[py.Color.RED])
 assert_type(pyi.Color.RED, Literal[pyi.Color.RED])
 "#,
 );
+
+testcase!(
+    test_empty_functional_def,
+    r#"
+from enum import Enum
+E = Enum('E', [])
+    "#,
+);

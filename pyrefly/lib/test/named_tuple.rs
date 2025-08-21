@@ -363,12 +363,19 @@ for x in nt:
 );
 
 testcase!(
-    bug = "The 'Expected ... definition' errors are due to us not allowing a namedtuple with no members",
     test_collections_namedtuple_unexpected_keyword,
     r#"
 from collections import namedtuple
-X = namedtuple('X', [], nonsense=True)  # E: Expected valid functional named tuple definition  # E: Unrecognized argument `nonsense` for named tuple definition
+X = namedtuple('X', [], nonsense=True)  # E: Unrecognized argument `nonsense` for named tuple definition
 def f(kwargs):
-    Y = namedtuple('Y', [], **kwargs)  # E: Expected valid functional named tuple definition  # E: Unrecognized argument for named tuple definition
+    Y = namedtuple('Y', [], **kwargs)  # E: Unrecognized argument for named tuple definition
+    "#,
+);
+
+testcase!(
+    test_empty_functional_def,
+    r#"
+from typing import NamedTuple
+N = NamedTuple('N', ())
     "#,
 );
