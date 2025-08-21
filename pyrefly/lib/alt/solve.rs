@@ -1031,8 +1031,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let exit_type =
                 self.context_value_exit(context_manager_type, kind, range, errors, Some(&context));
             self.check_type(
-                &Type::optional(self.stdlib.bool().clone().to_type()),
                 &exit_type,
+                &Type::optional(self.stdlib.bool().clone().to_type()),
                 range,
                 errors,
                 &|| TypeCheckContext {
@@ -1858,8 +1858,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ExprOrBinding::Binding(b) => {
                                     let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
                                     self.check_and_return_type(
-                                        &field.ty,
                                         binding_ty,
+                                        &field.ty,
                                         subscript.range(),
                                         errors,
                                         context,
@@ -1934,7 +1934,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         } else if is_generator {
             if let Some((_, _, return_ty)) = self.decompose_generator(annotation) {
-                self.check_type(&return_ty, implicit_return.ty(), range, errors, &|| {
+                self.check_type(implicit_return.ty(), &return_ty, range, errors, &|| {
                     TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
                         has_explicit_returns,
                     ))
@@ -1948,7 +1948,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         } else {
-            self.check_type(annotation, implicit_return.ty(), range, errors, &|| {
+            self.check_type(implicit_return.ty(), annotation, range, errors, &|| {
                 TypeCheckContext::of_kind(TypeCheckKind::ImplicitFunctionReturn(
                     has_explicit_returns,
                 ))
@@ -2288,7 +2288,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(want, ty, x.range, errors, &|| {
+                    self.check_and_return_type(ty, want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                     })
                 } else {
@@ -2308,7 +2308,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(want, ty, x.range, errors, &|| {
+                    self.check_and_return_type(ty, want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                     })
                 } else {
@@ -2330,7 +2330,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(want, ty, x.range, errors, &|| {
+                    self.check_and_return_type(ty, want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                     })
                 } else {
@@ -2539,7 +2539,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 let check_exception_type = |exception_type: Type, range| {
                     let exception = self.untype(exception_type, range, errors);
-                    self.check_type(&base_exception_type, &exception, range, errors, &|| {
+                    self.check_type(&exception, &base_exception_type, range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::ExceptionClass)
                     });
                     if let Some(base_exception_group_any_type) =
@@ -2644,7 +2644,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .and_then(|x| x.ty(self.stdlib).map(|t| (t, &x.target)))
                 {
                     Some((ty, target)) => {
-                        self.check_and_return_type(&ty, context_value, *range, errors, &|| {
+                        self.check_and_return_type(context_value, &ty, *range, errors, &|| {
                             TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
                         })
                     }
@@ -2700,7 +2700,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .map(|idx| self.get_idx(idx))
                     .and_then(|ann| ann.ty(self.stdlib))
                 {
-                    self.check_type(&want, &got, *range, errors, &|| {
+                    self.check_type(&got, &want, *range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::UnpackedAssign)
                     });
                 }
@@ -2943,8 +2943,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )
                     } else {
                         self.check_and_return_type(
-                            &yield_hint,
                             Type::None,
+                            &yield_hint,
                             x.range,
                             errors,
                             &|| TypeCheckContext::of_kind(TypeCheckKind::UnexpectedBareYield),
@@ -3034,7 +3034,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .stdlib
                         .generator(want_yield, want_send, Type::any_implicit())
                         .to_type();
-                    self.check_type(&want, &ty, x.range, errors, &|| {
+                    self.check_type(&ty, &want, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::YieldFrom)
                     });
                 }

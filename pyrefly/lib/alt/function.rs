@@ -992,8 +992,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // to the return type of the implementation. (Note that the two assignability checks
             // are in opposite directions.)
             self.check_type(
-                &Type::Callable(Box::new(sig_for_input_check(&overload_func.signature))),
                 &Type::Callable(Box::new(sig_for_input_check(&impl_func.signature))),
+                &Type::Callable(Box::new(sig_for_input_check(&overload_func.signature))),
                 *range,
                 errors,
                 &|| {
@@ -1004,8 +1004,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             );
             self.check_type(
-                &impl_func.signature.ret,
                 &overload_func.signature.ret,
+                &impl_func.signature.ret,
                 *range,
                 errors,
                 &|| TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn),

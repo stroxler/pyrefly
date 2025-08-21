@@ -293,7 +293,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(HintRef::new(hint, Some(hint_errors))),
                     errors,
                 );
-                self.check_and_return_type_info(hint, got, x.range(), hint_errors, tcc)
+                self.check_and_return_type_info(got, hint, x.range(), hint_errors, tcc)
             }
             _ => self.expr_infer_type_info_with_hint(x, None, errors),
         }

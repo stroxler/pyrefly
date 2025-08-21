@@ -279,7 +279,7 @@ impl CallArgPreEval<'_> {
         match self {
             Self::Type(ty, done) => {
                 *done = true;
-                solver.check_type(hint, ty, range, call_errors, tcc);
+                solver.check_type(ty, hint, range, call_errors, tcc);
             }
             Self::Expr(x, done) => {
                 *done = true;
@@ -291,10 +291,10 @@ impl CallArgPreEval<'_> {
             }
             Self::Star(ty, done) => {
                 *done = vararg;
-                solver.check_type(hint, ty, range, call_errors, tcc);
+                solver.check_type(ty, hint, range, call_errors, tcc);
             }
             Self::Fixed(tys, i) => {
-                solver.check_type(hint, &tys[*i], range, call_errors, tcc);
+                solver.check_type(&tys[*i], hint, range, call_errors, tcc);
                 *i += 1;
             }
         }
@@ -591,8 +591,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )),
             };
             self.check_type(
-                unpacked_param_ty,
                 &unpacked_args_ty,
+                unpacked_param_ty,
                 range,
                 arg_errors,
                 &|| TypeCheckContext {
@@ -705,7 +705,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 unexpected_keyword_error(name, kw.range);
                             }
                             if let Some(want) = &hint {
-                                self.check_type(want, &field.ty, kw.range, call_errors, &|| {
+                                self.check_type(&field.ty, want, kw.range, call_errors, &|| {
                                     TypeCheckContext {
                                         kind: TypeCheckKind::CallArgument(
                                             Some(name.clone()),
@@ -722,8 +722,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 if self.is_subset_eq(&key, &self.stdlib.str().clone().to_type()) {
                                     if let Some((name, want)) = kwargs.as_ref() {
                                         self.check_type(
-                                            want,
                                             &value,
+                                            want,
                                             kw.range,
                                             call_errors,
                                             &|| TypeCheckContext {
@@ -806,7 +806,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             if let Some(hint) = &hint
                                 && !hint.is_any()
                             {
-                                self.check_type(hint, x, range, call_errors, tcc);
+                                self.check_type(x, hint, range, call_errors, tcc);
                             }
                         }
                     }
@@ -868,7 +868,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 for (ty, range) in &splat_kwargs {
-                    self.check_type(want, ty, *range, call_errors, &|| TypeCheckContext {
+                    self.check_type(ty, want, *range, call_errors, &|| TypeCheckContext {
                         kind: TypeCheckKind::CallUnpackKwArg(
                             (*name).clone(),
                             callable_name.clone(),

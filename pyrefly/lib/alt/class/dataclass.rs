@@ -187,7 +187,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ParamList::new(params),
             self.stdlib.object().clone().to_type(),
         )));
-        self.check_type(&want, &post_init, range, errors, &|| {
+        self.check_type(&post_init, &want, range, errors, &|| {
             TypeCheckContext::of_kind(TypeCheckKind::PostInit)
         });
     }

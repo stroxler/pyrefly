@@ -874,7 +874,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 errors,
                             ),
                             TypeOrExpr::Type(got, _) => {
-                                self.check_type(&want, got, range, errors, &|| TypeCheckContext {
+                                self.check_type(got, &want, range, errors, &|| TypeCheckContext {
                                     kind: TypeCheckKind::Attribute(attr_name.clone()),
                                     context: context.map(|ctx| ctx()),
                                 });

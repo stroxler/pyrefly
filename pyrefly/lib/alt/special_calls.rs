@@ -291,8 +291,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         // Verify that the `cls` argument has type `type`.
         self.check_type(
-            &self.stdlib.builtins_type().clone().to_type(),
             &self.expr_infer(cls, errors),
+            &self.stdlib.builtins_type().clone().to_type(),
             cls.range(),
             errors,
             &|| {
@@ -395,8 +395,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             } else {
                 self.check_type(
-                    &self.stdlib.builtins_type().clone().to_type(),
                     &ty,
+                    &self.stdlib.builtins_type().clone().to_type(),
                     range,
                     errors,
                     &|| {
