@@ -432,6 +432,12 @@ impl LookupResult {
     fn decompose(self) -> (Vec<Attribute>, Vec<NotFoundOn>, Vec<InternalError>) {
         (self.found, self.not_found, self.internal_error)
     }
+
+    fn merge(&mut self, other: LookupResult) {
+        self.found.extend(other.found);
+        self.not_found.extend(other.not_found);
+        self.internal_error.extend(other.internal_error);
+    }
 }
 
 impl NotFoundOn {
@@ -497,6 +503,7 @@ enum AttributeBase {
     SuperInstance(ClassType, SuperObj),
     /// Typed dictionaries have similar properties to dict and Mapping, with some exceptions
     TypedDict(TypedDict),
+    Union(Vec<AttributeBase>),
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -1375,6 +1382,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> LookupResult {
         let base_copy = base.clone();
         match base {
+            AttributeBase::Union(bases) => {
+                let mut bases_iter = bases.into_iter();
+                let first = bases_iter.next();
+                if let Some(first) = first {
+                    let mut result = self.lookup_attr_from_attribute_base(first, attr_name);
+                    for base in bases_iter {
+                        result.merge(self.lookup_attr_from_attribute_base(base, attr_name));
+                    }
+                    result
+                } else {
+                    LookupResult::found_type(Type::never())
+                }
+            }
             AttributeBase::Any(style) => LookupResult::found_type(style.propagate()),
             AttributeBase::TypeAny(style) => {
                 let builtins_type_classtype = self.stdlib.builtins_type();
@@ -2173,6 +2193,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::Module(module) => {
                     self.completions_module(module, expected_attribute_name, &mut res);
                 }
+                AttributeBase::Union(_) => {}
                 AttributeBase::Any(_) => {}
                 AttributeBase::Never => {}
                 AttributeBase::Property(_) => {
