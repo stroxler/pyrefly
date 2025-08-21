@@ -99,7 +99,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 item_errors,
                             );
                         }
-                        None if let Some(ExtraItems::Extra(extra)) = &extra_items => {
+                        None if let ExtraItems::Extra(extra) = &extra_items => {
                             self.expr_with_separate_check_errors(
                                 &x.value,
                                 Some((&extra.ty, check_errors, &|| {
@@ -164,10 +164,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn typed_dict_extra_items(&self, cls: &Class) -> Option<ExtraItems> {
+    pub fn typed_dict_extra_items(&self, cls: &Class) -> ExtraItems {
         self.get_metadata_for_class(cls)
             .typed_dict_metadata()
-            .map(|m| m.extra_items.clone())
+            .map_or(ExtraItems::Default, |m| m.extra_items.clone())
     }
 
     fn class_field_to_typed_dict_field(
@@ -254,7 +254,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             ));
         }
-        if let Some(ExtraItems::Extra(extra)) = self.typed_dict_extra_items(cls) {
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls) {
             params.push(Param::Kwargs(None, extra.ty));
         }
         let ty = Type::Function(Box::new(Function {
@@ -610,11 +610,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Get the type of a value in the TypedDict.
     fn get_typed_dict_value_type(&self, cls: &Class, fields: &SmallMap<Name, bool>) -> Type {
         let extra = match self.typed_dict_extra_items(cls) {
-            None | Some(ExtraItems::Default) => {
+            ExtraItems::Default => {
                 return self.stdlib.object().clone().to_type();
             }
-            Some(ExtraItems::Closed) => Type::never(),
-            Some(ExtraItems::Extra(extra)) => extra.ty,
+            ExtraItems::Closed => Type::never(),
+            ExtraItems::Extra(extra) => extra.ty,
         };
         let mut values = self
             .names_to_fields(cls, fields)

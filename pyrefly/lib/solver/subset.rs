@@ -629,25 +629,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    fn get_typed_dict_fields(
-        &self,
-        td: &TypedDict,
-        extra_items: Option<ExtraItems>,
-    ) -> SmallMap<TypedDictFieldId, TypedDictField> {
-        let mut fields = self
-            .type_order
+    fn get_typed_dict_fields(&self, td: &TypedDict) -> SmallMap<TypedDictFieldId, TypedDictField> {
+        self.type_order
             .typed_dict_fields(td)
             .into_iter()
             .map(|(name, field)| (TypedDictFieldId::Name(name), field))
-            .collect::<SmallMap<_, _>>();
-        if let Some(extra_items) = extra_items {
-            // For assignability checks, `extra_items` is treated as a non-required pseudo-field.
-            fields.insert(
-                TypedDictFieldId::ExtraItems,
-                self.typed_dict_extra_items_field(extra_items),
-            );
-        }
-        fields
+            .collect()
     }
 
     fn is_subset_typed_dict_field(
@@ -674,21 +661,28 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     }
 
     fn is_subset_typed_dict(&mut self, got: &TypedDict, want: &TypedDict) -> bool {
-        let (got_extra_items, want_extra_items) = {
+        let (got_fields, want_fields) = {
+            let mut got_fields = self.get_typed_dict_fields(got);
+            let mut want_fields = self.get_typed_dict_fields(want);
             let got_extra_items = self.type_order.typed_dict_extra_items(got.class_object());
             let want_extra_items = self.type_order.typed_dict_extra_items(want.class_object());
             if [&got_extra_items, &want_extra_items]
                 .iter()
-                .all(|extra| matches!(extra, None | Some(ExtraItems::Default)))
+                .any(|extra| !matches!(extra, ExtraItems::Default))
             {
-                // Neither TypedDict has any extra_items restrictions.
-                (None, None)
-            } else {
-                (got_extra_items, want_extra_items)
+                // If either TypedDict has extra_items restrictions, add extra_items as a
+                // non-required pseudo-field.
+                got_fields.insert(
+                    TypedDictFieldId::ExtraItems,
+                    self.typed_dict_extra_items_field(got_extra_items),
+                );
+                want_fields.insert(
+                    TypedDictFieldId::ExtraItems,
+                    self.typed_dict_extra_items_field(want_extra_items),
+                );
             }
+            (got_fields, want_fields)
         };
-        let got_fields = self.get_typed_dict_fields(got, got_extra_items);
-        let want_fields = self.get_typed_dict_fields(want, want_extra_items);
         want_fields.iter().all(|(k, want_v)| {
             got_fields
                 .get(k)
