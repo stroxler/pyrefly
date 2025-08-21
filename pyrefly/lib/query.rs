@@ -430,7 +430,7 @@ impl Query {
                                 // - return no results similar to pyre1
                                 vec![]
                             }
-                            x => panic!("callable ty - unexpected metadata kind, {:?}", x),
+                            x => panic!("callable ty - unexpected metadata kind, {x:?}"),
                         }
                     } else {
                         panic!("callable ty not supported yet, {defs:?}")
