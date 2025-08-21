@@ -51,10 +51,17 @@ use crate::types::types::Overload;
 use crate::types::types::SuperObj;
 use crate::types::types::Type;
 
+/// The result of looking up an attribute from a particular base.
+/// If the base is an `AttributeBase::Union`, multiple results can be
+/// returned since each union member is looked up separately.
 #[derive(Debug)]
 struct LookupResult {
+    /// The lookup was successful and an attribute was found.
     pub found: Vec<Attribute>,
+    /// The attribute was not found. Callers can use fallback behavior, for
+    /// example looking up a different attribute.
     pub not_found: Vec<NotFoundOn>,
+    /// There was a Pyrefly-internal error
     pub internal_error: Vec<InternalError>,
 }
 
@@ -175,7 +182,7 @@ impl AttrSubsetError {
     }
 }
 
-/// The result of looking up an attribute, which can be used for structural
+/// The result a successful attribute lookup, which can be used for structural
 /// subtyping checks or performing get / set / delete actions.
 #[derive(Debug)]
 pub struct Attribute {
