@@ -324,23 +324,29 @@ impl Query {
                 }
             }
         }
-        fn class_name_from_bound_obj(ty: &Type) -> String {
+        fn class_names_from_bound_obj(ty: &Type) -> Vec<String> {
             match ty {
-                Type::ClassType(c) => qname_to_string(c.qname()),
-                Type::ClassDef(c) => qname_to_string(c.qname()),
-                Type::TypedDict(d) => qname_to_string(d.qname()),
-                Type::Literal(Lit::Str(_)) | Type::LiteralString => String::from("builtins.str"),
-                Type::Literal(Lit::Int(_)) => String::from("builtins.int"),
-                Type::Literal(Lit::Bool(_)) => String::from("builtins.bool"),
+                Type::ClassType(c) => vec![qname_to_string(c.qname())],
+                Type::ClassDef(c) => vec![qname_to_string(c.qname())],
+                Type::TypedDict(d) => vec![qname_to_string(d.qname())],
+                Type::Literal(Lit::Str(_)) | Type::LiteralString => {
+                    vec![String::from("builtins.str")]
+                }
+                Type::Literal(Lit::Int(_)) => vec![String::from("builtins.int")],
+                Type::Literal(Lit::Bool(_)) => vec![String::from("builtins.bool")],
                 Type::Quantified(q) => match &q.restriction {
                     // for explicit bound - use name of the type used as bound
-                    Restriction::Bound(b) => class_name_from_bound_obj(b),
+                    Restriction::Bound(b) => class_names_from_bound_obj(b),
                     // no bound - use name of the type variable (not very useful but not worse than status quo)
-                    Restriction::Unrestricted => q.name().to_string(),
+                    Restriction::Unrestricted => vec![q.name().to_string()],
                     Restriction::Constraints(_) => {
                         panic!("unexpected restriction: {q:?}")
                     }
                 },
+                Type::Union(tys) => tys
+                    .iter()
+                    .flat_map(class_names_from_bound_obj)
+                    .collect_vec(),
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
@@ -392,11 +398,18 @@ impl Query {
                         .sorted_by(|a, b| a.target.cmp(&b.target))
                         .collect_vec()
                 }
-                Type::BoundMethod(m) => vec![Callee {
-                    kind: callee_method_kind_from_bound_method_type(&m.func),
-                    target: target_from_bound_method_type(&m.func),
-                    class_name: Some(class_name_from_bound_obj(&m.obj)),
-                }],
+                Type::BoundMethod(m) => class_names_from_bound_obj(&m.obj)
+                    .into_iter()
+                    .map(|c| Callee {
+                        kind: callee_method_kind_from_bound_method_type(&m.func),
+                        target: target_from_bound_method_type(&m.func),
+                        class_name: Some(c),
+                    })
+                    .unique()
+                    // return sorted by target
+                    .sorted_by(|a, b| a.target.cmp(&b.target))
+                    .collect_vec(),
+
                 Type::Function(f) => vec![callee_from_function(f)],
                 Type::Overload(f) => vec![Callee {
                     // assuming that overload represents function and method overloads
