@@ -520,7 +520,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Restriction::Bound(upper_bound) => {
                         let mut use_fallback = false;
                         self.map_over_union(upper_bound, |bound| {
-                            let bound_attr_base = self.as_attribute_base_no_union(bound.clone());
+                            let bound_attr_base = self.as_attribute_base(bound.clone());
                             if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
                                 bases.push(Some(AttributeBase::TypeVar(
                                     (**quantified).clone(),
@@ -537,8 +537,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Restriction::Constraints(constraints) => {
                         let mut use_fallback = false;
                         for constraint in constraints {
-                            let constraint_attr_base =
-                                self.as_attribute_base_no_union(constraint.clone());
+                            let constraint_attr_base = self.as_attribute_base(constraint.clone());
                             if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
                                 bases.push(Some(AttributeBase::TypeVar(
                                     (**quantified).clone(),
@@ -556,7 +555,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.stdlib.object().clone(),
                     ))),
                 },
-                _ => bases.push(self.as_attribute_base_no_union(base.clone())),
+                _ => bases.push(self.as_attribute_base(base.clone())),
             };
         });
         bases
@@ -1700,7 +1699,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
     fn lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
-        if let Some(base) = self.as_attribute_base_no_union(base.clone()) {
+        if let Some(base) = self.as_attribute_base(base.clone()) {
             self.lookup_attr_from_base_no_union(base, attr_name)
         } else {
             LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone()))
@@ -1799,9 +1798,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    // This function is intended as a low-level building block
-    // Unions or intersections should be handled by callers
-    fn as_attribute_base_no_union(&self, ty: Type) -> Option<AttributeBase> {
+    fn as_attribute_base(&self, ty: Type) -> Option<AttributeBase> {
         match ty {
             Type::ClassType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
             Type::ClassDef(cls) => Some(AttributeBase::ClassObject(cls)),
@@ -1826,7 +1823,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(AttributeBase::ClassInstance(self.stdlib.bool().clone()))
             }
             Type::Any(style) => Some(AttributeBase::Any(style)),
-            Type::TypeAlias(ta) => self.as_attribute_base_no_union(ta.as_value(self.stdlib)),
+            Type::TypeAlias(ta) => self.as_attribute_base(ta.as_value(self.stdlib)),
             Type::Type(box Type::Tuple(_)) => Some(AttributeBase::ClassObject(
                 self.stdlib.tuple_object().dupe(),
             )),
@@ -1836,9 +1833,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::Quantified(q)) if q.is_type_var() => match q.restriction() {
                 // TODO(https://github.com/facebook/pyrefly/issues/514)
                 // this is wrong, because we lose the information that this is a type var
-                Restriction::Bound(bound) => {
-                    self.as_attribute_base_no_union(Type::type_form(bound.clone()))
-                }
+                Restriction::Bound(bound) => self.as_attribute_base(Type::type_form(bound.clone())),
                 _ => Some(AttributeBase::TypeVar(*q, None)),
             },
             Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(*q, None)),
@@ -1882,7 +1877,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Callable(_) => Some(AttributeBase::ClassInstance(
                 self.stdlib.function_type().clone(),
             )),
-            Type::KwCall(call) => self.as_attribute_base_no_union(call.return_ty),
+            Type::KwCall(call) => self.as_attribute_base(call.return_ty),
             Type::Function(box Function {
                 signature: _,
                 metadata,
@@ -1903,14 +1898,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Ellipsis => Some(AttributeBase::ClassInstance(
                 self.stdlib.ellipsis_type()?.clone(),
             )),
-            Type::Forall(forall) => self.as_attribute_base_no_union(forall.body.as_type()),
-            Type::Var(v) => self.as_attribute_base_no_union(self.force_var_for_attribute_base(v)),
-            Type::Type(box Type::Var(v)) => self
-                .as_attribute_base_no_union(Type::type_form(self.force_var_for_attribute_base(v))),
+            Type::Forall(forall) => self.as_attribute_base(forall.body.as_type()),
+            Type::Var(v) => self.as_attribute_base(self.force_var_for_attribute_base(v)),
+            Type::Type(box Type::Var(v)) => {
+                self.as_attribute_base(Type::type_form(self.force_var_for_attribute_base(v)))
+            }
             Type::SuperInstance(box (cls, obj)) => Some(AttributeBase::SuperInstance(cls, obj)),
+            Type::Union(members) => {
+                let mut res = Vec::new();
+                for member in members {
+                    if let Some(attr_base) = self.as_attribute_base(member) {
+                        res.push(attr_base)
+                    } else {
+                        return None;
+                    }
+                }
+                Some(AttributeBase::Union(res))
+            }
+            Type::Type(box Type::Union(members)) => {
+                let mut res = Vec::new();
+                for member in members {
+                    if let Some(attr_base) = self.as_attribute_base(Type::type_form(member)) {
+                        res.push(attr_base)
+                    } else {
+                        return None;
+                    }
+                }
+                Some(AttributeBase::Union(res))
+            }
             // TODO: check to see which ones should have class representations
-            Type::Union(_)
-            | Type::SpecialForm(_)
+            Type::SpecialForm(_)
             | Type::Type(_)
             | Type::Intersect(_)
             | Type::Unpack(_)
@@ -2164,7 +2181,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         include_types: bool,
     ) -> Vec<AttrInfo> {
         let mut res = Vec::new();
-        if let Some(base) = self.as_attribute_base_no_union(base) {
+        if let Some(base) = self.as_attribute_base(base) {
             match &base {
                 AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
