@@ -243,9 +243,9 @@ pub enum DescriptorBase {
 }
 
 #[derive(Clone, Debug)]
-pub enum NotFoundOn {
-    ClassInstance(Class),
-    ClassObject(Class),
+enum NotFoundOn {
+    ClassInstance(Class, AttributeBase),
+    ClassObject(Class, AttributeBase),
     Module(ModuleType),
 }
 
@@ -331,7 +331,7 @@ impl Attribute {
         }
     }
 
-    pub fn getattr(not_found: NotFoundOn, getattr: Self, name: Name) -> Self {
+    fn getattr(not_found: NotFoundOn, getattr: Self, name: Name) -> Self {
         Self {
             inner: AttributeInner::GetAttr(not_found, Box::new(getattr.inner), name),
         }
@@ -430,17 +430,24 @@ impl LookupResult {
 impl NotFoundOn {
     pub fn to_error_msg(self, attr_name: &Name) -> String {
         match self {
-            NotFoundOn::ClassInstance(class) => {
+            NotFoundOn::ClassInstance(class, _) => {
                 let class_name = class.name();
                 format!("Object of class `{class_name}` has no attribute `{attr_name}`",)
             }
-            NotFoundOn::ClassObject(class) => {
+            NotFoundOn::ClassObject(class, _) => {
                 let class_name = class.name();
                 format!("Class `{class_name}` has no class attribute `{attr_name}`")
             }
             NotFoundOn::Module(module) => {
                 format!("No attribute `{attr_name}` in module `{module}`")
             }
+        }
+    }
+
+    fn attr_base(&self) -> AttributeBase {
+        match self {
+            NotFoundOn::ClassInstance(_, base) | NotFoundOn::ClassObject(_, base) => base.clone(),
+            NotFoundOn::Module(module) => AttributeBase::Module(module.clone()),
         }
     }
 }
@@ -614,11 +621,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(base) => {
                     let direct_lookup_result =
                         self.lookup_magic_dunder_attr(base.clone(), attr_name);
-                    self.lookup_attr_from_base_getattr_fallback(
-                        base,
-                        attr_name,
-                        direct_lookup_result,
-                    )
+                    self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
                 }
             };
             for attr in lookup_result.found {
@@ -1363,6 +1366,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         base: AttributeBase,
         attr_name: &Name,
     ) -> LookupResult {
+        let base_copy = base.clone();
         match base {
             AttributeBase::Any(style) => LookupResult::found_type(style.propagate()),
             AttributeBase::TypeAny(style) => {
@@ -1414,6 +1418,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     None => LookupResult::not_found(NotFoundOn::ClassInstance(
                         class.class_object().dupe(),
+                        base_copy,
                     )),
                 }
             }
@@ -1440,6 +1445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     None => LookupResult::not_found(NotFoundOn::ClassInstance(
                         cls.class_object().dupe(),
+                        base_copy,
                     )),
                 }
             }
@@ -1468,7 +1474,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     attr_name,
                                 )
                             }
-                            None => LookupResult::not_found(NotFoundOn::ClassObject(class)),
+                            None => {
+                                LookupResult::not_found(NotFoundOn::ClassObject(class, base_copy))
+                            }
                         }
                     }
                 }
@@ -1493,6 +1501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(attr) => LookupResult::found(attr),
                         None => LookupResult::not_found(NotFoundOn::ClassInstance(
                             upper_bound.class_object().dupe(),
+                            base_copy,
                         )),
                     }
                 }
@@ -1502,6 +1511,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(attr) => LookupResult::found(attr),
                         None => LookupResult::not_found(NotFoundOn::ClassInstance(
                             class.class_object().dupe(),
+                            base_copy,
                         )),
                     }
                 }
@@ -1534,6 +1544,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(attr) => LookupResult::found(attr),
                         None => LookupResult::not_found(NotFoundOn::ClassInstance(
                             class.class_object().dupe(),
+                            base_copy,
                         )),
                     }
                 }
@@ -1546,6 +1557,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     None => LookupResult::not_found(NotFoundOn::ClassInstance(
                         typed_dict.class_object().dupe(),
+                        base_copy,
                     )),
                 }
             }
@@ -1566,12 +1578,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     return LookupResult::not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
+                        base,
                     ));
                 }
                 match self.get_instance_attribute(metaclass, dunder_name) {
                     Some(attr) => LookupResult::found(attr),
                     None => LookupResult::not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
+                        base,
                     )),
                 }
             }
@@ -1584,11 +1598,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     || *dunder_name == dunder::GETATTRIBUTE)
                     && self.field_is_inherited_from_object(cls.class_object(), dunder_name) =>
             {
-                LookupResult::not_found(NotFoundOn::ClassInstance(cls.class_object().clone()))
+                LookupResult::not_found(NotFoundOn::ClassInstance(cls.class_object().clone(), base))
             }
             AttributeBase::TypedDict(typed_dict) if *dunder_name == dunder::GETATTRIBUTE => {
                 LookupResult::not_found(NotFoundOn::ClassInstance(
                     typed_dict.class_object().clone(),
+                    base,
                 ))
             }
             _ => self.lookup_attr_from_attribute_base(base, dunder_name),
@@ -1597,7 +1612,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn lookup_attr_from_base_getattr_fallback(
         &self,
-        base: AttributeBase,
         attr_name: &Name,
         direct_lookup_result: LookupResult,
     ) -> LookupResult {
@@ -1613,32 +1627,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         for not_found in direct_lookup_not_found {
             let (getattr_found, getattr_not_found, getattr_internal_error) = self
-                .lookup_magic_dunder_attr(base.clone(), &dunder::GETATTR)
+                .lookup_magic_dunder_attr(not_found.attr_base(), &dunder::GETATTR)
                 .decompose();
-            for attr in getattr_found {
-                result.found.push(Attribute::getattr(
-                    not_found.clone(),
-                    attr,
-                    attr_name.clone(),
-                ));
-            }
             if !(getattr_not_found.is_empty() && getattr_internal_error.is_empty()) {
                 // If the `__getattr__` lookup fails, we fall back to `__getattribute__`
                 // Note: at runtime, `__getattribute__` is checked BEFORE looking up the attribute by name,
                 // but because the declaration is on `object` and returns `Any`, all attribute accesses
                 // would return `Any`.
                 let (getattribute_found, getattribute_not_found, getattribute_internal_error) =
-                    self.lookup_magic_dunder_attr(base.clone(), &dunder::GETATTRIBUTE)
+                    self.lookup_magic_dunder_attr(not_found.attr_base(), &dunder::GETATTRIBUTE)
                         .decompose();
-                for attr in getattribute_found {
+                if !(getattribute_not_found.is_empty() && getattribute_internal_error.is_empty()) {
+                    result.not_found.push(not_found.clone())
+                } else {
+                    for attr in getattribute_found {
+                        result.found.push(Attribute::getattr(
+                            not_found.clone(),
+                            attr,
+                            attr_name.clone(),
+                        ));
+                    }
+                }
+            } else {
+                for attr in getattr_found {
                     result.found.push(Attribute::getattr(
                         not_found.clone(),
                         attr,
                         attr_name.clone(),
                     ));
-                }
-                if !(getattribute_not_found.is_empty() && getattribute_internal_error.is_empty()) {
-                    result.not_found.push(not_found.clone())
                 }
             }
         }
@@ -1651,7 +1667,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
     ) -> LookupResult {
         let direct_lookup_result = self.lookup_attr_from_attribute_base(base.clone(), attr_name);
-        self.lookup_attr_from_base_getattr_fallback(base, attr_name, direct_lookup_result)
+        self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
     }
 
     // This function is intended as a low-level building block
