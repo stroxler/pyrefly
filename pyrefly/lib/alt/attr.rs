@@ -510,15 +510,6 @@ enum AttributeBase {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    /// Gets the possible attribute bases for a type:
-    /// If the type is a union, we will attempt to generate bases for each member of the union
-    /// If the type is a bounded type var w/ a union upper bound, we will attempt to generate 1 base for
-    /// each member of the union
-    /// If the type is a constrained type var, we will attempt to generate 1 base for each constraint
-    fn get_possible_attribute_bases(&self, base: &Type) -> Vec<Option<AttributeBase>> {
-        vec![self.as_attribute_base(base.clone())]
-    }
-
     /// Compute the get (i.e. read) type of an attribute. If the attribute cannot be found or read,
     /// error and return `Any`. Use this to infer the type of a direct attribute fetch.
     pub fn type_of_attr_get(
@@ -530,35 +521,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
     ) -> Type {
-        let bases = self.get_possible_attribute_bases(base);
-        let mut results = Vec::with_capacity(bases.len());
-        for attr_base in bases {
-            let lookup_result = attr_base.map_or_else(
-                || {
-                    LookupResult::internal_error(InternalError::AttributeBaseUndefined(
-                        base.clone(),
-                    ))
-                },
-                |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
-            );
-            match self.get_type_or_conflated_error_msg(
-                lookup_result,
-                attr_name,
-                range,
+        let attr_base = self.as_attribute_base(base.clone());
+        let lookup_result = attr_base.map_or_else(
+            || LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone())),
+            |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
+        );
+        match self.get_type_or_conflated_error_msg(
+            lookup_result,
+            attr_name,
+            range,
+            errors,
+            context,
+            todo_ctx,
+        ) {
+            Ok(ty) => ty,
+            Err(msg) => self.error(
                 errors,
-                context,
-                todo_ctx,
-            ) {
-                Ok(ty) => results.push(ty),
-                Err(msg) => results.push(self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                    msg,
-                )),
-            }
+                range,
+                ErrorInfo::new(ErrorKind::MissingAttribute, context),
+                msg,
+            ),
         }
-        self.unions(results)
     }
 
     /// Compute the get (i.e., read) type of a magic dunder attribute, if it can
@@ -583,42 +566,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Type> {
         let mut not_found = false;
         let mut attr_tys = Vec::new();
-        let attr_bases = self.get_possible_attribute_bases(base);
-        for attr_base in attr_bases {
-            let lookup_result = match attr_base {
-                None => LookupResult::internal_error(InternalError::AttributeBaseUndefined(
-                    base.clone(),
-                )),
-                Some(base) => {
-                    let direct_lookup_result =
-                        self.lookup_magic_dunder_attr(base.clone(), attr_name);
-                    self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
-                }
-            };
-            for attr in lookup_result.found {
-                attr_tys.push(
-                    self.resolve_get_access(attr, range, errors, context)
-                        .unwrap_or_else(|e| {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                                e.to_error_msg(attr_name),
-                            )
-                        }),
-                );
+        let lookup_result = match self.as_attribute_base(base.clone()) {
+            None => {
+                LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone()))
             }
-            if !lookup_result.not_found.is_empty() {
-                not_found = true;
+            Some(base) => {
+                let direct_lookup_result = self.lookup_magic_dunder_attr(base.clone(), attr_name);
+                self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
             }
-            for internal_error in lookup_result.internal_error {
-                attr_tys.push(self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::InternalError, context),
-                    internal_error.to_error_msg(attr_name, todo_ctx),
-                ))
-            }
+        };
+        for attr in lookup_result.found {
+            attr_tys.push(
+                self.resolve_get_access(attr, range, errors, context)
+                    .unwrap_or_else(|e| {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::MissingAttribute, context),
+                            e.to_error_msg(attr_name),
+                        )
+                    }),
+            );
+        }
+        if !lookup_result.not_found.is_empty() {
+            not_found = true;
+        }
+        for internal_error in lookup_result.internal_error {
+            attr_tys.push(self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::InternalError, context),
+                internal_error.to_error_msg(attr_name, todo_ctx),
+            ))
         }
         if not_found {
             return None;
@@ -766,172 +745,168 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // a type for narrowing.
         let mut should_narrow = true;
         let mut narrowed_types = Vec::new();
-        let bases = self.get_possible_attribute_bases(base);
-        for attr_base in bases {
-            let Some(attr_base) = attr_base else {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::InternalError, context),
-                    InternalError::AttributeBaseUndefined(base.clone())
-                        .to_error_msg(attr_name, todo_ctx),
-                );
-                should_narrow = false;
-                continue;
-            };
-            let (lookup_found, lookup_not_found, lookup_error) = self
-                .lookup_attr_from_base(attr_base.clone(), attr_name)
-                .decompose();
-            for e in lookup_error {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::InternalError, context),
-                    e.to_error_msg(attr_name, todo_ctx),
-                );
-                should_narrow = false;
-            }
-            for not_found in lookup_not_found {
-                self.check_setattr(
-                    attr_base.clone(),
-                    attr_name,
-                    got,
-                    not_found,
-                    range,
-                    errors,
-                    context,
-                );
-                should_narrow = false;
-            }
-            for attr in lookup_found {
-                match attr {
-                    // Attribute setting bypasses `__getattr__` lookup and checks `__setattr__`
-                    // If the attribute is not found, we fall back to `__setattr__`
-                    Attribute {
-                        inner:
-                            AttributeInner::GetAttr(not_found, _, _)
-                            | AttributeInner::ModuleFallback(not_found, _, _),
-                    } => {
-                        self.check_setattr(
-                            attr_base.clone(),
-                            attr_name,
-                            got,
-                            not_found,
-                            range,
-                            errors,
-                            context,
-                        );
-                        should_narrow = false;
-                    }
-                    Attribute {
-                        inner: AttributeInner::Simple(want, Visibility::ReadWrite),
-                    } => {
-                        // If the attribute has a converter, then `want` should be the type expected by the converter.
-                        let want = match attr_base.clone() {
-                            AttributeBase::ClassInstance(cls) => {
-                                match self.get_dataclass_member(cls.class_object(), attr_name) {
-                                    DataclassMember::Field(_, kws) => {
-                                        kws.converter_param.unwrap_or(want)
-                                    }
-                                    _ => want,
+        let Some(attr_base) = self.as_attribute_base(base.clone()) else {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::InternalError, context),
+                InternalError::AttributeBaseUndefined(base.clone())
+                    .to_error_msg(attr_name, todo_ctx),
+            );
+            return None;
+        };
+        let (lookup_found, lookup_not_found, lookup_error) = self
+            .lookup_attr_from_base(attr_base.clone(), attr_name)
+            .decompose();
+        for e in lookup_error {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::InternalError, context),
+                e.to_error_msg(attr_name, todo_ctx),
+            );
+            should_narrow = false;
+        }
+        for not_found in lookup_not_found {
+            self.check_setattr(
+                attr_base.clone(),
+                attr_name,
+                got,
+                not_found,
+                range,
+                errors,
+                context,
+            );
+            should_narrow = false;
+        }
+        for attr in lookup_found {
+            match attr {
+                // Attribute setting bypasses `__getattr__` lookup and checks `__setattr__`
+                // If the attribute is not found, we fall back to `__setattr__`
+                Attribute {
+                    inner:
+                        AttributeInner::GetAttr(not_found, _, _)
+                        | AttributeInner::ModuleFallback(not_found, _, _),
+                } => {
+                    self.check_setattr(
+                        attr_base.clone(),
+                        attr_name,
+                        got,
+                        not_found,
+                        range,
+                        errors,
+                        context,
+                    );
+                    should_narrow = false;
+                }
+                Attribute {
+                    inner: AttributeInner::Simple(want, Visibility::ReadWrite),
+                } => {
+                    // If the attribute has a converter, then `want` should be the type expected by the converter.
+                    let want = match attr_base.clone() {
+                        AttributeBase::ClassInstance(cls) => {
+                            match self.get_dataclass_member(cls.class_object(), attr_name) {
+                                DataclassMember::Field(_, kws) => {
+                                    kws.converter_param.unwrap_or(want)
                                 }
+                                _ => want,
                             }
-                            _ => want,
-                        };
-                        let ty = match &got {
-                            TypeOrExpr::Expr(got) => self.expr(
-                                got,
-                                Some((&want, &|| TypeCheckContext {
-                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                    context: context.map(|ctx| ctx()),
-                                })),
-                                errors,
-                            ),
-                            TypeOrExpr::Type(got, _) => {
-                                self.check_type(got, &want, range, errors, &|| TypeCheckContext {
-                                    kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                    context: context.map(|ctx| ctx()),
-                                });
-                                (*got).clone()
-                            }
-                        };
-                        if should_narrow {
-                            narrowed_types.push(ty);
                         }
-                    }
-                    Attribute {
-                        inner: AttributeInner::NoAccess(e),
-                    } => {
-                        self.error(
+                        _ => want,
+                    };
+                    let ty = match &got {
+                        TypeOrExpr::Expr(got) => self.expr(
+                            got,
+                            Some((&want, &|| TypeCheckContext {
+                                kind: TypeCheckKind::Attribute(attr_name.clone()),
+                                context: context.map(|ctx| ctx()),
+                            })),
                             errors,
-                            range,
-                            ErrorInfo::new(ErrorKind::NoAccess, context),
-                            e.to_error_msg(attr_name),
-                        );
-                        should_narrow = false;
+                        ),
+                        TypeOrExpr::Type(got, _) => {
+                            self.check_type(got, &want, range, errors, &|| TypeCheckContext {
+                                kind: TypeCheckKind::Attribute(attr_name.clone()),
+                                context: context.map(|ctx| ctx()),
+                            });
+                            (*got).clone()
+                        }
+                    };
+                    if should_narrow {
+                        narrowed_types.push(ty);
                     }
-                    Attribute {
-                        inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
-                    } => {
-                        let msg = vec1![
-                            format!("Cannot set field `{attr_name}`"),
-                            reason.error_message()
-                        ];
-                        errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
-                        should_narrow = false;
-                    }
-                    Attribute {
-                        inner: AttributeInner::Property(_, None, cls),
-                    } => {
-                        let e = NoAccessReason::SettingReadOnlyProperty(cls);
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::new(ErrorKind::ReadOnly, context),
-                            e.to_error_msg(attr_name),
-                        );
-                        should_narrow = false;
-                    }
-                    Attribute {
-                        inner: AttributeInner::Property(_, Some(setter), _),
-                    } => {
-                        let got = CallArg::arg(got);
-                        self.call_property_setter(setter, got, range, errors, context);
-                        should_narrow = false;
-                    }
-                    Attribute {
-                        inner: AttributeInner::Descriptor(d),
-                    } => {
-                        should_narrow = false;
-                        match (d.base, d.setter) {
-                            (DescriptorBase::Instance(class_type), Some(setter)) => {
-                                let got = CallArg::arg(got);
-                                self.call_descriptor_setter(
-                                    setter, class_type, got, range, errors, context,
-                                );
-                            }
-                            (DescriptorBase::Instance(class_type), None) => {
-                                let e = NoAccessReason::SettingReadOnlyDescriptor(
-                                    class_type.class_object().dupe(),
-                                );
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorInfo::new(ErrorKind::ReadOnly, context),
-                                    e.to_error_msg(attr_name),
-                                );
-                            }
-                            (DescriptorBase::ClassDef(class), _) => {
-                                let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
-                                self.error(
-                                    errors,
-                                    range,
-                                    ErrorInfo::new(ErrorKind::NoAccess, context),
-                                    e.to_error_msg(attr_name),
-                                );
-                            }
-                        };
-                    }
+                }
+                Attribute {
+                    inner: AttributeInner::NoAccess(e),
+                } => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::NoAccess, context),
+                        e.to_error_msg(attr_name),
+                    );
+                    should_narrow = false;
+                }
+                Attribute {
+                    inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
+                } => {
+                    let msg = vec1![
+                        format!("Cannot set field `{attr_name}`"),
+                        reason.error_message()
+                    ];
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                    should_narrow = false;
+                }
+                Attribute {
+                    inner: AttributeInner::Property(_, None, cls),
+                } => {
+                    let e = NoAccessReason::SettingReadOnlyProperty(cls);
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::ReadOnly, context),
+                        e.to_error_msg(attr_name),
+                    );
+                    should_narrow = false;
+                }
+                Attribute {
+                    inner: AttributeInner::Property(_, Some(setter), _),
+                } => {
+                    let got = CallArg::arg(got);
+                    self.call_property_setter(setter, got, range, errors, context);
+                    should_narrow = false;
+                }
+                Attribute {
+                    inner: AttributeInner::Descriptor(d),
+                } => {
+                    should_narrow = false;
+                    match (d.base, d.setter) {
+                        (DescriptorBase::Instance(class_type), Some(setter)) => {
+                            let got = CallArg::arg(got);
+                            self.call_descriptor_setter(
+                                setter, class_type, got, range, errors, context,
+                            );
+                        }
+                        (DescriptorBase::Instance(class_type), None) => {
+                            let e = NoAccessReason::SettingReadOnlyDescriptor(
+                                class_type.class_object().dupe(),
+                            );
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::new(ErrorKind::ReadOnly, context),
+                                e.to_error_msg(attr_name),
+                            );
+                        }
+                        (DescriptorBase::ClassDef(class), _) => {
+                            let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::new(ErrorKind::NoAccess, context),
+                                e.to_error_msg(attr_name),
+                            );
+                        }
+                    };
                 }
             }
         }
@@ -951,84 +926,81 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
     ) {
-        let bases = self.get_possible_attribute_bases(base);
-        for attr_base in bases {
-            let Some(attr_base) = attr_base else {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::InternalError, context),
-                    InternalError::AttributeBaseUndefined(base.clone())
-                        .to_error_msg(attr_name, todo_ctx),
-                );
-                return;
-            };
-            let (lookup_found, lookup_not_found, lookup_error) = self
-                .lookup_attr_from_base(attr_base.clone(), attr_name)
-                .decompose();
-            for not_found in lookup_not_found {
-                self.check_delattr(
-                    attr_base.clone(),
-                    attr_name,
-                    not_found,
-                    range,
-                    errors,
-                    context,
-                );
-            }
-            for error in lookup_error {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::InternalError, context),
-                    error.to_error_msg(attr_name, todo_ctx),
-                );
-            }
-            for attr in lookup_found {
-                match attr {
-                    // Attribute deletion bypasses `__getattr__` lookup and checks `__delattr__`
-                    // If the attribute is not found, we fall back to `__delattr__`
-                    Attribute {
-                        inner:
-                            AttributeInner::GetAttr(not_found, _, _)
-                            | AttributeInner::ModuleFallback(not_found, _, _),
-                    } => {
-                        self.check_delattr(
-                            attr_base.clone(),
-                            attr_name,
-                            not_found,
-                            range,
-                            errors,
-                            context,
-                        );
-                    }
-                    // TODO: deleting attributes is allowed at runtime, but is not type-safe
-                    // except for descriptors that implement `__delete__`
-                    Attribute {
-                        inner:
-                            AttributeInner::Simple(_, Visibility::ReadWrite)
-                            | AttributeInner::Property(_, _, _)
-                            | AttributeInner::Descriptor(_),
-                    } => {}
-                    Attribute {
-                        inner: AttributeInner::NoAccess(e),
-                    } => {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::new(ErrorKind::NoAccess, context),
-                            e.to_error_msg(attr_name),
-                        );
-                    }
-                    Attribute {
-                        inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
-                    } => {
-                        let msg = vec1![
-                            format!("Cannot delete field `{attr_name}`"),
-                            reason.error_message()
-                        ];
-                        errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
-                    }
+        let Some(attr_base) = self.as_attribute_base(base.clone()) else {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::InternalError, context),
+                InternalError::AttributeBaseUndefined(base.clone())
+                    .to_error_msg(attr_name, todo_ctx),
+            );
+            return;
+        };
+        let (lookup_found, lookup_not_found, lookup_error) = self
+            .lookup_attr_from_base(attr_base.clone(), attr_name)
+            .decompose();
+        for not_found in lookup_not_found {
+            self.check_delattr(
+                attr_base.clone(),
+                attr_name,
+                not_found,
+                range,
+                errors,
+                context,
+            );
+        }
+        for error in lookup_error {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::InternalError, context),
+                error.to_error_msg(attr_name, todo_ctx),
+            );
+        }
+        for attr in lookup_found {
+            match attr {
+                // Attribute deletion bypasses `__getattr__` lookup and checks `__delattr__`
+                // If the attribute is not found, we fall back to `__delattr__`
+                Attribute {
+                    inner:
+                        AttributeInner::GetAttr(not_found, _, _)
+                        | AttributeInner::ModuleFallback(not_found, _, _),
+                } => {
+                    self.check_delattr(
+                        attr_base.clone(),
+                        attr_name,
+                        not_found,
+                        range,
+                        errors,
+                        context,
+                    );
+                }
+                // TODO: deleting attributes is allowed at runtime, but is not type-safe
+                // except for descriptors that implement `__delete__`
+                Attribute {
+                    inner:
+                        AttributeInner::Simple(_, Visibility::ReadWrite)
+                        | AttributeInner::Property(_, _, _)
+                        | AttributeInner::Descriptor(_),
+                } => {}
+                Attribute {
+                    inner: AttributeInner::NoAccess(e),
+                } => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::NoAccess, context),
+                        e.to_error_msg(attr_name),
+                    );
+                }
+                Attribute {
+                    inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
+                } => {
+                    let msg = vec1![
+                        format!("Cannot delete field `{attr_name}`"),
+                        reason.error_message()
+                    ];
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
                 }
             }
         }
@@ -1680,18 +1652,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
         let mut result = Vec::new();
-        let bases = self.get_possible_attribute_bases(base);
-        for attr_base in bases {
-            let lookup_result = attr_base.map_or_else(
-                || {
-                    LookupResult::internal_error(InternalError::AttributeBaseUndefined(
-                        base.clone(),
-                    ))
-                },
-                |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
-            );
-            result.extend(lookup_result.found);
-        }
+        let attr_base = self.as_attribute_base(base.clone());
+        let lookup_result = attr_base.map_or_else(
+            || LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone())),
+            |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
+        );
+        result.extend(lookup_result.found);
         result
     }
 
