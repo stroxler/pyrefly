@@ -2150,7 +2150,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut res = Vec::new();
         if let Some(base) = self.as_attribute_base(base) {
             match &base {
-                AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
+                AttributeBase::ClassInstance(class)
+                | AttributeBase::EnumLiteral(class, _, _)
+                | AttributeBase::TypeVar(_, Some(class)) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
                 AttributeBase::TypedDict(_) => self.completions_class_type(
