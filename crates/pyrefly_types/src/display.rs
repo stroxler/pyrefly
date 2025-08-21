@@ -22,6 +22,7 @@ use starlark_map::smallmap;
 
 use crate::callable::Function;
 use crate::class::Class;
+use crate::literal::Lit;
 use crate::qname::QName;
 use crate::tuple::Tuple;
 use crate::types::AnyStyle;
@@ -188,6 +189,16 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
+    fn fmt_lit(&self, lit: &Lit, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match lit {
+            Lit::Enum(e) => {
+                self.fmt_qname(e.class.qname(), f)?;
+                write!(f, ".{}", e.member)
+            }
+            _ => write!(f, "{lit}"),
+        }
+    }
+
     fn fmt<'b>(&self, t: &'b Type, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_helper(t, f, true)
     }
@@ -254,7 +265,11 @@ impl<'a> TypeDisplayContext<'a> {
             }
 
             // Other things
-            Type::Literal(lit) => write!(f, "Literal[{lit}]"),
+            Type::Literal(lit) => {
+                write!(f, "Literal[")?;
+                self.fmt_lit(lit, f)?;
+                write!(f, "]")
+            }
             Type::LiteralString => write!(f, "LiteralString"),
             Type::Callable(box c)
             | Type::Function(box Function {
@@ -705,7 +720,7 @@ pub mod tests {
         assert_eq!(ctx.display(&t).to_string(), "Literal[MyEnum.X]");
 
         ctx.always_display_module_name();
-        assert_eq!(ctx.display(&t).to_string(), "Literal[MyEnum.X]"); // This is a bug, we should get qualified names.
+        assert_eq!(ctx.display(&t).to_string(), "Literal[mod.ule.MyEnum.X]");
     }
 
     #[test]

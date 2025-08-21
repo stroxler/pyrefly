@@ -1402,6 +1402,7 @@ impl Type {
             Type::TypeVarTuple(t) => Some(t.qname()),
             Type::ParamSpec(t) => Some(t.qname()),
             Type::SelfType(cls) => Some(cls.qname()),
+            Type::Literal(Lit::Enum(e)) => Some(e.class.qname()),
             _ => None,
         }
     }
