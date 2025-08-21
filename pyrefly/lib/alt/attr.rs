@@ -581,7 +581,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         base.clone(),
                     ))
                 },
-                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
+                |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
             );
             match self.get_type_or_conflated_error_msg(
                 lookup_result,
@@ -822,7 +822,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 continue;
             };
             let (lookup_found, lookup_not_found, lookup_error) = self
-                .lookup_attr_from_base_no_union(attr_base.clone(), attr_name)
+                .lookup_attr_from_base(attr_base.clone(), attr_name)
                 .decompose();
             for e in lookup_error {
                 self.error(
@@ -1006,7 +1006,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return;
             };
             let (lookup_found, lookup_not_found, lookup_error) = self
-                .lookup_attr_from_base_no_union(attr_base.clone(), attr_name)
+                .lookup_attr_from_base(attr_base.clone(), attr_name)
                 .decompose();
             for not_found in lookup_not_found {
                 self.check_delattr(
@@ -1687,20 +1687,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         result
     }
 
-    fn lookup_attr_from_base_no_union(
-        &self,
-        base: AttributeBase,
-        attr_name: &Name,
-    ) -> LookupResult {
+    fn lookup_attr_from_base(&self, base: AttributeBase, attr_name: &Name) -> LookupResult {
         let direct_lookup_result = self.lookup_attr_from_attribute_base(base.clone(), attr_name);
         self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
     }
 
     // This function is intended as a low-level building block
     // Unions or intersections should be handled by callers
-    fn lookup_attr_no_union(&self, base: &Type, attr_name: &Name) -> LookupResult {
+    fn lookup_attr(&self, base: &Type, attr_name: &Name) -> LookupResult {
         if let Some(base) = self.as_attribute_base(base.clone()) {
-            self.lookup_attr_from_base_no_union(base, attr_name)
+            self.lookup_attr_from_base(base, attr_name)
         } else {
             LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone()))
         }
@@ -1712,7 +1708,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
     ) -> Option<Attribute> {
         // Looking something up from a `ClassInstance` should not yield multiple `Attribute`
-        self.lookup_attr_from_base_no_union(AttributeBase::ClassInstance(cls), attr_name)
+        self.lookup_attr_from_base(AttributeBase::ClassInstance(cls), attr_name)
             .found
             .into_iter()
             .next()
@@ -1728,7 +1724,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         base.clone(),
                     ))
                 },
-                |attr_base| self.lookup_attr_from_base_no_union(attr_base, attr_name),
+                |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
             );
             result.extend(lookup_result.found);
         }
@@ -1950,8 +1946,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let fall_back_to_object = || Type::ClassType(self.stdlib.object().clone());
-        let (found, not_found, internal_errors) =
-            self.lookup_attr_no_union(base, attr_name).decompose();
+        let (found, not_found, internal_errors) = self.lookup_attr(base, attr_name).decompose();
         let mut results = Vec::new();
         for attr in found {
             let found_ty = match self.resolve_get_access(attr, range, errors, None) {
@@ -2190,7 +2185,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::Module(module) => {
                     self.completions_module(module, expected_attribute_name, &mut res);
                 }
-                AttributeBase::Union(_) => {}
+                AttributeBase::Union(_) => {
+                    // TODO: handle unions
+                }
                 AttributeBase::Any(_) => {}
                 AttributeBase::Never => {}
                 AttributeBase::Property(_) => {
