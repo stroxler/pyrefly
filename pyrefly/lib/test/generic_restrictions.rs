@@ -342,6 +342,22 @@ class Foo[T: (A, B)]:
 );
 
 testcase!(
+    test_bounded_type_of_type_var_access,
+    r#"
+from typing import Self, TypeVar, Protocol
+
+class CustomCreation(Protocol):
+    @classmethod
+    def get_instance(cls) -> Self: ...
+
+T = TypeVar("T", bound=CustomCreation)
+
+def foo(val: type[T]) -> T:
+    return val.get_instance()
+    "#,
+);
+
+testcase!(
     test_constrained_typevar_protocol_subtype,
     r#"
 from typing import Protocol

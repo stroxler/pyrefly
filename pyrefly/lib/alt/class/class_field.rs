@@ -569,11 +569,11 @@ impl<'a> Instance<'a> {
 }
 
 fn bind_class_attribute(
-    cls: &Class,
+    obj: Type,
     attr: Type,
     read_only_reason: &Option<ReadOnlyReason>,
 ) -> Attribute {
-    let ty = make_bound_classmethod(cls, attr).into_inner();
+    let ty = make_bound_classmethod(obj, attr).into_inner();
     if let Some(reason) = read_only_reason {
         Attribute::read_only(ty, reason.clone())
     } else {
@@ -604,9 +604,9 @@ fn make_bound_method_helper(
     Ok(Type::BoundMethod(Box::new(BoundMethod { obj, func })))
 }
 
-fn make_bound_classmethod(cls: &Class, attr: Type) -> Result<Type, Type> {
+fn make_bound_classmethod(obj: Type, attr: Type) -> Result<Type, Type> {
     let should_bind = |meta: &FuncMetadata| meta.flags.is_classmethod;
-    make_bound_method_helper(Type::ClassDef(cls.dupe()), attr, &should_bind)
+    make_bound_method_helper(obj, attr, &should_bind)
 }
 
 fn make_bound_method(obj: Type, attr: Type) -> Result<Type, Type> {
@@ -651,8 +651,9 @@ fn bind_instance_attribute(
         )
     } else {
         Attribute::read_write(
-            make_bound_method(instance.to_type(), attr)
-                .unwrap_or_else(|attr| make_bound_classmethod(instance.class, attr).into_inner()),
+            make_bound_method(instance.to_type(), attr).unwrap_or_else(|attr| {
+                make_bound_classmethod(Type::ClassDef(instance.class.dupe()), attr).into_inner()
+            }),
         )
     }
 }
@@ -1381,6 +1382,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_class_attribute(&self, field: ClassField, cls: &Class) -> Attribute {
+        self.as_class_attribute_impl(field, cls, None, None)
+    }
+
+    fn as_class_attribute_impl(
+        &self,
+        field: ClassField,
+        cls: &Class,
+        bind_to_override: Option<Type>,
+        subst_self_type_override: Option<Type>,
+    ) -> Attribute {
+        let bind_to = bind_to_override.unwrap_or(Type::ClassDef(cls.dupe()));
         match &field.0 {
             ClassFieldInner::Simple {
                 ty,
@@ -1402,14 +1414,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(cls.dupe())),
             ClassFieldInner::Simple { ty, .. } => {
                 if self.depends_on_class_type_parameter(&field, cls) {
-                    self.get_function_depending_on_class_type_parameter(cls, ty)
-                        .unwrap_or_else(|| {
-                            Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
-                                cls.dupe(),
-                            ))
-                        })
+                    self.get_function_depending_on_class_type_parameter(
+                        cls,
+                        ty,
+                        bind_to,
+                        subst_self_type_override.unwrap_or_else(|| self.instantiate(cls)),
+                    )
+                    .unwrap_or_else(|| {
+                        Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(cls.dupe()))
+                    })
                 } else {
-                    bind_class_attribute(cls, ty.clone(), field.read_only_reason())
+                    let mut attr_ty = ty.clone();
+                    if let Some(subst_self_type) = subst_self_type_override {
+                        attr_ty
+                            .subst_self_type_mut(&subst_self_type, &|a, b| self.is_subset_eq(a, b));
+                    }
+                    bind_class_attribute(bind_to, attr_ty, field.read_only_reason())
                 }
             }
         }
@@ -1428,6 +1448,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         ty: &Type,
+        bind_to_cls: Type,
+        subst_self_type: Type,
     ) -> Option<Attribute> {
         let mut foralled = match ty {
             Type::Function(func) => Type::Forall(Box::new(Forall {
@@ -1475,8 +1497,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return None;
             }
         };
-        foralled.subst_self_type_mut(&self.instantiate(cls), &|a, b| self.is_subset_eq(a, b));
-        Some(bind_class_attribute(cls, foralled, &None))
+        foralled.subst_self_type_mut(&subst_self_type, &|a, b| self.is_subset_eq(a, b));
+        Some(bind_class_attribute(bind_to_cls, foralled, &None))
     }
 
     fn is_typed_dict_field(&self, metadata: &ClassMetadata, field_name: &Name) -> bool {
@@ -1842,6 +1864,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_class_attribute(&self, cls: &Class, name: &Name) -> Option<Attribute> {
         self.get_class_member(cls, name)
             .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
+    }
+
+    pub fn get_bounded_quantified_class_attribute(
+        &self,
+        quantified: Quantified,
+        class: &Class,
+        name: &Name,
+    ) -> Option<Attribute> {
+        self.get_class_member(class, name).map(|member| {
+            self.as_class_attribute_impl(
+                Arc::unwrap_or_clone(member.value),
+                class,
+                Some(Type::Type(Box::new(Type::Quantified(Box::new(
+                    quantified.clone(),
+                ))))),
+                Some(Type::Quantified(Box::new(quantified))),
+            )
+        })
     }
 
     pub fn field_is_inherited_from_object(&self, cls: &Class, name: &Name) -> bool {

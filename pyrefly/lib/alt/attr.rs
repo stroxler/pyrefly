@@ -491,6 +491,9 @@ enum AttributeBase {
     /// a term that *has* a quantified type.
     /// The second element is a bound or constraint for the type variable.
     TypeVar(Quantified, Option<ClassType>),
+    /// Attribute access on a `type[T]`.
+    /// The second element is a bound or constraint for the type variable.
+    TypeVarType(Quantified, Class),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
@@ -1430,6 +1433,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )),
                 }
             }
+            AttributeBase::TypeVarType(quantified, class) => {
+                match (quantified.kind(), attr_name.as_str()) {
+                    (QuantifiedKind::ParamSpec, "args") => {
+                        LookupResult::found_type(Type::type_form(Type::Args(Box::new(quantified))))
+                    }
+                    (QuantifiedKind::ParamSpec, "kwargs") => LookupResult::found_type(
+                        Type::type_form(Type::Kwargs(Box::new(quantified))),
+                    ),
+                    _ => match self
+                        .get_bounded_quantified_class_attribute(quantified, &class, attr_name)
+                    {
+                        Some(attr) => LookupResult::found(attr),
+                        None => LookupResult::not_found(NotFoundOn::ClassObject(class, base_copy)),
+                    },
+                }
+            }
             AttributeBase::ClassObject(class) => {
                 match self.get_class_attribute(&class, attr_name) {
                     Some(attr) => LookupResult::found(attr),
@@ -1467,17 +1486,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(attr) => LookupResult::found(attr),
                 None => LookupResult::not_found(NotFoundOn::Module(module)),
             },
-            AttributeBase::TypeVar(q, bound) => match (q.kind(), attr_name.as_str()) {
-                // Note that this is for cases like `P.args` where `P` is a param spec, or `T.x` where
-                // `T` is a type variable (the latter is illegal, but a user could write it). It is
-                // not for cases where `base` is a term with a quantified type.
-                (QuantifiedKind::ParamSpec, "args") => {
-                    LookupResult::found_type(Type::type_form(Type::Args(Box::new(q))))
-                }
-                (QuantifiedKind::ParamSpec, "kwargs") => {
-                    LookupResult::found_type(Type::type_form(Type::Kwargs(Box::new(q))))
-                }
-                (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
+            AttributeBase::TypeVar(q, bound) => {
+                if let Some(upper_bound) = bound {
                     match self.get_bounded_quantified_attribute(q, &upper_bound, attr_name) {
                         Some(attr) => LookupResult::found(attr),
                         None => LookupResult::not_found(NotFoundOn::ClassInstance(
@@ -1485,8 +1495,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             base_copy,
                         )),
                     }
-                }
-                _ => {
+                } else {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::found(attr),
@@ -1496,7 +1505,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )),
                     }
                 }
-            },
+            }
             AttributeBase::Property(mut getter) => {
                 if attr_name == "setter" {
                     // When given a decorator `@some_property.setter`, instead of modeling the setter
@@ -1781,13 +1790,56 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(class)) => {
                 Some(AttributeBase::ClassObject(class.class_object().dupe()))
             }
-            Type::Type(box Type::Quantified(q)) if q.is_type_var() => match q.restriction() {
-                // TODO(https://github.com/facebook/pyrefly/issues/514)
-                // this is wrong, because we lose the information that this is a type var
-                Restriction::Bound(bound) => self.as_attribute_base(Type::type_form(bound.clone())),
-                _ => Some(AttributeBase::TypeVar(*q, None)),
+            Type::Type(box Type::Quantified(quantified)) => match quantified.restriction() {
+                Restriction::Bound(upper_bound) => {
+                    let mut res = Vec::new();
+                    let mut use_fallback = false;
+                    self.map_over_union(upper_bound, |bound| {
+                        let bound_attr_base = self.as_attribute_base(bound.clone());
+                        if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
+                            res.push(AttributeBase::TypeVarType(
+                                (*quantified).clone(),
+                                cls.class_object().dupe(),
+                            ));
+                        } else {
+                            use_fallback = true;
+                        }
+                    });
+                    if use_fallback {
+                        res.push(AttributeBase::TypeVarType(
+                            (*quantified).clone(),
+                            self.stdlib.object().class_object().dupe(),
+                        ));
+                    }
+                    Some(AttributeBase::Union(res))
+                }
+                Restriction::Constraints(constraints) => {
+                    let mut res = Vec::new();
+                    let mut use_fallback = false;
+                    for constraint in constraints {
+                        let constraint_attr_base = self.as_attribute_base(constraint.clone());
+                        if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
+                            res.push(AttributeBase::TypeVarType(
+                                (*quantified).clone(),
+                                cls.class_object().dupe(),
+                            ));
+                        } else {
+                            use_fallback = true;
+                        }
+                    }
+                    if use_fallback {
+                        res.push(AttributeBase::TypeVarType(
+                            (*quantified).clone(),
+                            self.stdlib.object().class_object().dupe(),
+                        ));
+                    }
+                    Some(AttributeBase::Union(res))
+                }
+                Restriction::Unrestricted => Some(AttributeBase::TypeVarType(
+                    (*quantified).clone(),
+                    self.stdlib.object().class_object().dupe(),
+                )),
             },
-            Type::Type(box Type::Quantified(q)) => Some(AttributeBase::TypeVar(*q, None)),
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
             // At runtime, these special forms are classes. This has been tested with Python
             // versions 3.11-3.13. Note that other special forms are classes in some versions, but
@@ -2163,7 +2215,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::SuperInstance(class, _) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
-                AttributeBase::ClassObject(class) => {
+                AttributeBase::ClassObject(class) | AttributeBase::TypeVarType(_, class) => {
                     self.completions_class(class, expected_attribute_name, &mut res)
                 }
                 AttributeBase::TypeVar(q, _) => self.completions_class_type(
