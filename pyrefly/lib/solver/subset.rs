@@ -13,6 +13,9 @@ use itertools::EitherOrBoth;
 use itertools::Itertools;
 use itertools::izip;
 use pyrefly_python::dunder;
+use pyrefly_types::typed_dict::TypedDict;
+use pyrefly_types::typed_dict::TypedDictField;
+use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
@@ -31,6 +34,11 @@ use crate::types::type_var::Variance;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Type;
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum TypedDictFieldId {
+    Name(Name),
+}
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     /// Can a function with l_args be called as a function with u_args?
@@ -601,6 +609,14 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
+    fn get_typed_dict_fields(&self, td: &TypedDict) -> SmallMap<TypedDictFieldId, TypedDictField> {
+        self.type_order
+            .typed_dict_fields(td)
+            .into_iter()
+            .map(|(name, field)| (TypedDictFieldId::Name(name), field))
+            .collect()
+    }
+
     /// Implementation of subset equality for Type, other than Var.
     pub fn is_subset_eq_impl(&mut self, got: &Type, want: &Type) -> bool {
         match (got, want) {
@@ -730,9 +746,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 // and the corresponding value type in `got` is consistent with the value type in `want`.
                 // For each required key in `want`, the corresponding key is required in `got`.
                 // For each non-required, non-readonly key in `want`, the corresponding key is not required in `got`.
-                let got_fields = self.type_order.typed_dict_fields(got);
-                let want_fields = self.type_order.typed_dict_fields(want);
-
+                let got_fields = self.get_typed_dict_fields(got);
+                let want_fields = self.get_typed_dict_fields(want);
                 want_fields.iter().all(|(k, want_v)| {
                     got_fields.get(k).is_some_and(|got_v| {
                         match (got_v.is_read_only(), want_v.is_read_only()) {
