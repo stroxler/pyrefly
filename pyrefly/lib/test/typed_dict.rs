@@ -1408,3 +1408,35 @@ td5: TDReadOnly = B(x=0)
 td6: TDReadOnly = C(x=True)
     "#,
 );
+
+testcase!(
+    test_use_extra_items_for_readonly_missing_field,
+    r#"
+from typing import NotRequired, ReadOnly, TypedDict
+class A(TypedDict):
+    x: NotRequired[ReadOnly[int]]
+class B(TypedDict, extra_items=bool):
+    pass
+class C(TypedDict, extra_items=str):
+    pass
+a1: A = B()
+# Not ok because `str` is not assignable to `int`
+a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
+    "#,
+);
+
+testcase!(
+    test_use_extra_items_for_readwrite_missing_field,
+    r#"
+from typing import NotRequired, TypedDict
+class A(TypedDict):
+    x: NotRequired[int]
+class B(TypedDict, extra_items=int):
+    pass
+class C(TypedDict, extra_items=bool):
+    pass
+a1: A = B()
+# Not ok because `bool` is not consistent with `int`
+a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
+    "#,
+);

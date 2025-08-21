@@ -818,6 +818,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 want_fields.iter().all(|(k, want_v)| {
                     got_fields
                         .get(k)
+                        .or_else(|| got_fields.get(&TypedDictFieldId::ExtraItems))
                         .is_some_and(|got_v| self.is_subset_typed_dict_field(got_v, want_v))
                 }) && want_fields
                     .get(&TypedDictFieldId::ExtraItems)
