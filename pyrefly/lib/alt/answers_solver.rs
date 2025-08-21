@@ -743,7 +743,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if got.is_error() || self.is_subset_eq(got, want) {
             true
         } else {
-            self.solver().error(want, got, errors, loc, tcc);
+            self.solver().error(got, want, errors, loc, tcc);
             false
         }
     }

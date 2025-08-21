@@ -506,8 +506,8 @@ impl Solver {
     /// Generate an error message that `got <: want` failed.
     pub fn error(
         &self,
-        want: &Type,
         got: &Type,
+        want: &Type,
         errors: &ErrorCollector,
         loc: TextRange,
         tcc: &dyn Fn() -> TypeCheckContext,
@@ -614,7 +614,7 @@ impl Solver {
                 // is more restrictive (so the `forced` is an over-approximation).
                 if !self.is_subset_eq(&t, &forced, type_order) {
                     // Poor error message, but overall, this is a terrible experience for users.
-                    self.error(&forced, &t, errors, loc, &|| {
+                    self.error(&t, &forced, errors, loc, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking)
                     });
                 }
