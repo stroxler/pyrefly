@@ -1367,11 +1367,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::Any(style) => LookupResult::found_type(style.propagate()),
             AttributeBase::TypeAny(style) => {
                 let builtins_type_classtype = self.stdlib.builtins_type();
-                self.get_instance_attribute(builtins_type_classtype, attr_name)
-                    .and_then(|attr| {
-                        self.resolve_as_instance_method(attr)
-                            .map(LookupResult::found_type)
-                    })
+                self.resolve_instance_method(builtins_type_classtype, attr_name)
+                    .map(LookupResult::found_type)
                     .map_or_else(
                         || LookupResult::found_type(style.propagate()),
                         |result| result,
@@ -1964,9 +1961,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    /// A convenience function for callers who don't care about reasons a lookup failed and are
-    /// only interested in simple, read-write attributes (in particular, this covers instance access to
-    /// regular methods, and is useful for edge cases where we handle cases like `__call__` and `__new__`).
     fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
         match attr.inner {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
@@ -1982,11 +1976,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// A convenience helper for parts of the code where we have a class and we want to look up
+    /// a method if it exists (typically when handling special semantics around dunder methods
+    /// and metaclass behavior), without producing type errors on lookup failures.
+    pub fn resolve_instance_method(&self, cls: &ClassType, name: &Name) -> Option<Type> {
+        self.get_instance_attribute(cls, name)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
+    }
+
     /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
     /// This is what the runtime automatically does when we try to call an instance.
     pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
-        self.get_instance_attribute(cls, &dunder::CALL)
-            .and_then(|attr| self.resolve_as_instance_method(attr))
+        self.resolve_instance_method(cls, &dunder::CALL)
     }
 
     /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
