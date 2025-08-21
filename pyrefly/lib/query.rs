@@ -375,6 +375,47 @@ impl Query {
                 class_name: Some(class_name),
             }]
         }
+        fn for_callable(
+            callee_range: TextRange,
+            module_info: &ModuleInfo,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
+        ) -> Vec<Callee> {
+            // a bit unfortunate that we have to rely on LSP functionality to get the target
+            let defs = transaction.find_definition(
+                handle,
+                // take location of last included character in range (which should work for identifiers and attributes)
+                callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
+                &FindPreference::default(),
+            );
+            if defs.is_empty() {
+                vec![]
+            } else if defs.len() == 1 {
+                // TODO: decide what do to with multiple definitions
+                match &defs[0].metadata {
+                    DefinitionMetadata::Variable(_) => {
+                        let name = module_info.code_at(defs[0].definition_range);
+                        vec![Callee {
+                            kind: String::from(CALLEE_KIND_FUNCTION),
+                            target: format!("$parameter${name}"),
+                            class_name: None,
+                        }]
+                    }
+                    DefinitionMetadata::Attribute(_) => {
+                        // cannot determine callee for case a.b() when b is callable but not function
+                        // (i.e instance of the class defining __call__)
+                        // - return no results similar to pyre1
+                        vec![]
+                    }
+                    x => panic!("callable ty - unexpected metadata kind, {:?}", x),
+                }
+            } else {
+                panic!(
+                    "callable ty at [{}] not supported yet, {defs:?}",
+                    module_info.display_range(callee_range)
+                )
+            }
+        }
         fn callee_from_type(
             ty: &Type,
             callee_range: TextRange,
@@ -418,37 +459,7 @@ impl Query {
                     target: target_from_def_kind(&f.metadata.kind),
                     class_name: None,
                 }],
-                Type::Callable(_) => {
-                    // a bit unfortunate that we have to rely on LSP functionality to get the target
-                    let defs = transaction.find_definition(
-                        handle,
-                        // take location of last included character in range (which should work for identifiers and attributes)
-                        callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
-                        &FindPreference::default(),
-                    );
-                    if defs.len() == 1 {
-                        // TODO: decide what do to with multiple definitions
-                        match &defs[0].metadata {
-                            DefinitionMetadata::Variable(_) => {
-                                let name = module_info.code_at(defs[0].definition_range);
-                                vec![Callee {
-                                    kind: String::from(CALLEE_KIND_FUNCTION),
-                                    target: format!("$parameter${name}"),
-                                    class_name: None,
-                                }]
-                            }
-                            DefinitionMetadata::Attribute(_) => {
-                                // cannot determine callee for case a.b() when b is callable but not function
-                                // (i.e instance of the class defining __call__)
-                                // - return no results similar to pyre1
-                                vec![]
-                            }
-                            x => panic!("callable ty - unexpected metadata kind, {x:?}"),
-                        }
-                    } else {
-                        panic!("callable ty not supported yet, {defs:?}")
-                    }
-                }
+                Type::Callable(_) => for_callable(callee_range, module_info, transaction, handle),
                 Type::ClassDef(cls) => {
                     callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
                         // find first class that has __init__ or __new__
@@ -465,13 +476,13 @@ impl Query {
                         }
                     })
                 }
-                Type::Forall(v) => {
-                    if let Forallable::Function(func) = &v.body {
-                        vec![callee_from_function(func)]
-                    } else {
-                        panic!("unsupported forallable type")
+                Type::Forall(v) => match &v.body {
+                    Forallable::Function(func) => vec![callee_from_function(func)],
+                    Forallable::Callable(_) => {
+                        for_callable(callee_range, module_info, transaction, handle)
                     }
-                }
+                    _ => panic!("unsupported forallable type {:?}", v.body),
+                },
                 Type::SelfType(c) | Type::ClassType(c) => callee_from_mro(
                     c.class_object(),
                     transaction,
