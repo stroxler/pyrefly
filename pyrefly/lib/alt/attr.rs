@@ -1325,24 +1325,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    /// A convenience function for callers who don't care about reasons a lookup failed and are
-    /// only interested in simple, read-write attributes (in particular, this covers instance access to
-    /// regular methods, and is useful for edge cases where we handle cases like `__call__` and `__new__`).
-    fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
-        match attr.inner {
-            // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
-            // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
-            // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
-            AttributeInner::Simple(ty, Visibility::ReadOnly(_))
-            | AttributeInner::Simple(ty, Visibility::ReadWrite) => Some(ty),
-            AttributeInner::NoAccess(_)
-            | AttributeInner::Property(..)
-            | AttributeInner::Descriptor(..)
-            | AttributeInner::GetAttr(..)
-            | AttributeInner::ModuleFallback(..) => None,
-        }
-    }
-
     /// A convenience function for callers which want an error but do not need to distinguish
     /// between NotFound and Error results.
     fn get_type_or_conflated_error_msg(
@@ -1979,6 +1961,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.for_display(ty.clone()),
                 ),
             );
+        }
+    }
+
+    /// A convenience function for callers who don't care about reasons a lookup failed and are
+    /// only interested in simple, read-write attributes (in particular, this covers instance access to
+    /// regular methods, and is useful for edge cases where we handle cases like `__call__` and `__new__`).
+    fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
+        match attr.inner {
+            // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
+            // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
+            // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
+            AttributeInner::Simple(ty, Visibility::ReadOnly(_))
+            | AttributeInner::Simple(ty, Visibility::ReadWrite) => Some(ty),
+            AttributeInner::NoAccess(_)
+            | AttributeInner::Property(..)
+            | AttributeInner::Descriptor(..)
+            | AttributeInner::GetAttr(..)
+            | AttributeInner::ModuleFallback(..) => None,
         }
     }
 
