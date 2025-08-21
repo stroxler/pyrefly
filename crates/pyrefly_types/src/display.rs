@@ -446,6 +446,7 @@ pub mod tests {
     use crate::class::ClassDefIndex;
     use crate::class::ClassType;
     use crate::literal::Lit;
+    use crate::literal::LitEnum;
     use crate::quantified::Quantified;
     use crate::quantified::QuantifiedKind;
     use crate::tuple::Tuple;
@@ -685,11 +686,26 @@ pub mod tests {
 
     #[test]
     fn test_display_literal() {
+        // Simple literals
         assert_eq!(Type::Literal(Lit::Bool(true)).to_string(), "Literal[True]");
         assert_eq!(
             Type::Literal(Lit::Bool(false)).to_string(),
             "Literal[False]"
         );
+
+        // Enum literals (not all of these types make sense, we're only providing what's relevant)
+        let my_enum = ClassType::new(fake_class("MyEnum", "mod.ule", 5), TArgs::default());
+        let t = Type::Literal(Lit::Enum(Box::new(LitEnum {
+            class: my_enum,
+            member: Name::new_static("X"),
+            ty: Type::any_implicit(),
+        })));
+
+        let mut ctx = TypeDisplayContext::new(&[&t]);
+        assert_eq!(ctx.display(&t).to_string(), "Literal[MyEnum.X]");
+
+        ctx.always_display_module_name();
+        assert_eq!(ctx.display(&t).to_string(), "Literal[MyEnum.X]"); // This is a bug, we should get qualified names.
     }
 
     #[test]
