@@ -819,7 +819,15 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     got_fields
                         .get(k)
                         .is_some_and(|got_v| self.is_subset_typed_dict_field(got_v, want_v))
-                })
+                }) && want_fields
+                    .get(&TypedDictFieldId::ExtraItems)
+                    .is_none_or(|want_v| {
+                        // Make sure all fields in `got` that aren't on `want` match the latter's `extra_items` type.
+                        got_fields.iter().all(|(k, got_v)| {
+                            want_fields.contains_key(k)
+                                || self.is_subset_typed_dict_field(got_v, want_v)
+                        })
+                    })
             }
             (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
                 let got_fields = self.type_order.typed_dict_fields(got);

@@ -1381,3 +1381,30 @@ a1: A = B()
 a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
     "#,
 );
+
+testcase!(
+    test_extra_items_field_assignability,
+    r#"
+from typing import NotRequired, ReadOnly, TypedDict
+class TDReadWrite(TypedDict, extra_items=int):
+    pass
+class TDReadOnly(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class A(TypedDict, extra_items=int):
+    x: NotRequired[int]
+class B(TypedDict, extra_items=int):
+    x: int
+class C(TypedDict, extra_items=int):
+    x: NotRequired[bool]
+
+td1: TDReadWrite = A(x=0)
+# not ok because `x` is required
+td2: TDReadWrite = B(x=0)  # E: `TypedDict[B]` is not assignable to `TypedDict[TDReadWrite]`
+# not ok because `bool` is not consistent with `int`
+td3: TDReadWrite = C(x=True)  # E: `TypedDict[C]` is not assignable to `TypedDict[TDReadWrite]`
+
+td4: TDReadOnly = A(x=0)
+td5: TDReadOnly = B(x=0)
+td6: TDReadOnly = C(x=True)
+    "#,
+);

@@ -10204,6 +10204,36 @@
     },
     {
       "code": -2,
+      "column": 22,
+      "concise_description": "`TypedDict[MovieDetails]` is not assignable to `TypedDict[MovieBase2]`",
+      "description": "`TypedDict[MovieDetails]` is not assignable to `TypedDict[MovieBase2]`",
+      "line": 206,
+      "name": "bad-assignment",
+      "stop_column": 30,
+      "stop_line": 206
+    },
+    {
+      "code": -2,
+      "column": 22,
+      "concise_description": "`TypedDict[MovieWithYear2]` is not assignable to `TypedDict[MovieBase2]`",
+      "description": "`TypedDict[MovieWithYear2]` is not assignable to `TypedDict[MovieBase2]`",
+      "line": 213,
+      "name": "bad-assignment",
+      "stop_column": 30,
+      "stop_line": 213
+    },
+    {
+      "code": -2,
+      "column": 19,
+      "concise_description": "`TypedDict[MovieDetails5]` is not assignable to `TypedDict[MovieSI]`",
+      "description": "`TypedDict[MovieDetails5]` is not assignable to `TypedDict[MovieSI]`",
+      "line": 233,
+      "name": "bad-assignment",
+      "stop_column": 27,
+      "stop_line": 233
+    },
+    {
+      "code": -2,
       "column": 13,
       "concise_description": "`TypedDict[MovieExtraStr]` is not assignable to variable `extra_int` with type `TypedDict[MovieExtraInt]`",
       "description": "`TypedDict[MovieExtraStr]` is not assignable to variable `extra_int` with type `TypedDict[MovieExtraInt]`",
