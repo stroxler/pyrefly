@@ -54,7 +54,7 @@ use crate::types::types::Type;
 #[derive(Debug)]
 struct LookupResult {
     pub found: Vec<Attribute>,
-    pub not_found: Vec<NotFound>,
+    pub not_found: Vec<NotFoundOn>,
     pub internal_error: Vec<InternalError>,
 }
 
@@ -210,11 +210,11 @@ enum AttributeInner {
     /// better error reporting downstream. The `AttributeInner` field stores the (successful)
     /// lookup result of the `__getattr__`/`__getattribute__` function or method.
     /// The `Name` field stores the name of the original attribute being looked up.
-    GetAttr(NotFound, Box<AttributeInner>, Name),
+    GetAttr(NotFoundOn, Box<AttributeInner>, Name),
     /// We did `a.b`, which is a real module on the file system, but not one the user explicitly
     /// or implicitly imported. In some cases, treat this as NotFound. In others, emit an error
     /// but continue on with type.
-    ModuleFallback(NotFound, ModuleName, Type),
+    ModuleFallback(NotFoundOn, ModuleName, Type),
 }
 
 #[derive(Clone, Debug)]
@@ -243,10 +243,10 @@ pub enum DescriptorBase {
 }
 
 #[derive(Clone, Debug)]
-pub enum NotFound {
-    Attribute(Class),
-    ClassAttribute(Class),
-    ModuleExport(ModuleType),
+pub enum NotFoundOn {
+    ClassInstance(Class),
+    ClassObject(Class),
+    Module(ModuleType),
 }
 
 #[derive(Clone, Debug)]
@@ -331,7 +331,7 @@ impl Attribute {
         }
     }
 
-    pub fn getattr(not_found: NotFound, getattr: Self, name: Name) -> Self {
+    pub fn getattr(not_found: NotFoundOn, getattr: Self, name: Name) -> Self {
         Self {
             inner: AttributeInner::GetAttr(not_found, Box::new(getattr.inner), name),
         }
@@ -406,7 +406,7 @@ impl LookupResult {
         }
     }
 
-    fn not_found(not_found: NotFound) -> Self {
+    fn not_found(not_found: NotFoundOn) -> Self {
         Self {
             found: Vec::new(),
             not_found: vec![not_found],
@@ -422,23 +422,23 @@ impl LookupResult {
         }
     }
 
-    fn decompose(self) -> (Vec<Attribute>, Vec<NotFound>, Vec<InternalError>) {
+    fn decompose(self) -> (Vec<Attribute>, Vec<NotFoundOn>, Vec<InternalError>) {
         (self.found, self.not_found, self.internal_error)
     }
 }
 
-impl NotFound {
+impl NotFoundOn {
     pub fn to_error_msg(self, attr_name: &Name) -> String {
         match self {
-            NotFound::Attribute(class) => {
+            NotFoundOn::ClassInstance(class) => {
                 let class_name = class.name();
                 format!("Object of class `{class_name}` has no attribute `{attr_name}`",)
             }
-            NotFound::ClassAttribute(class) => {
+            NotFoundOn::ClassObject(class) => {
                 let class_name = class.name();
                 format!("Class `{class_name}` has no class attribute `{attr_name}`")
             }
-            NotFound::ModuleExport(module) => {
+            NotFoundOn::Module(module) => {
                 format!("No attribute `{attr_name}` in module `{module}`")
             }
         }
@@ -689,7 +689,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_base: AttributeBase,
         attr_name: &Name,
         got: TypeOrExpr,
-        not_found: NotFound,
+        not_found: NotFoundOn,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -736,7 +736,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         attr_base: AttributeBase,
         attr_name: &Name,
-        not_found: NotFound,
+        not_found: NotFoundOn,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -1415,9 +1415,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None if metadata.has_base_any() => {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
-                    None => {
-                        LookupResult::not_found(NotFound::Attribute(class.class_object().dupe()))
-                    }
+                    None => LookupResult::not_found(NotFoundOn::ClassInstance(
+                        class.class_object().dupe(),
+                    )),
                 }
             }
             AttributeBase::SuperInstance(cls, obj) => {
@@ -1441,7 +1441,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             ReadOnlyReason::Super,
                         )
                     }
-                    None => LookupResult::not_found(NotFound::Attribute(cls.class_object().dupe())),
+                    None => LookupResult::not_found(NotFoundOn::ClassInstance(
+                        cls.class_object().dupe(),
+                    )),
                 }
             }
             AttributeBase::ClassObject(class) => {
@@ -1469,7 +1471,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     attr_name,
                                 )
                             }
-                            None => LookupResult::not_found(NotFound::ClassAttribute(class)),
+                            None => LookupResult::not_found(NotFoundOn::ClassObject(class)),
                         }
                     }
                 }
@@ -1477,7 +1479,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::Module(module) => match self.get_module_attr(&module, attr_name) {
                 // TODO(samzhou19815): Support module attribute go-to-definition
                 Some(attr) => LookupResult::found(attr),
-                None => LookupResult::not_found(NotFound::ModuleExport(module)),
+                None => LookupResult::not_found(NotFoundOn::Module(module)),
             },
             AttributeBase::TypeVar(q, bound) => match (q.kind(), attr_name.as_str()) {
                 // Note that this is for cases like `P.args` where `P` is a param spec, or `T.x` where
@@ -1492,7 +1494,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
                     match self.get_bounded_quantified_attribute(q, &upper_bound, attr_name) {
                         Some(attr) => LookupResult::found(attr),
-                        None => LookupResult::not_found(NotFound::Attribute(
+                        None => LookupResult::not_found(NotFoundOn::ClassInstance(
                             upper_bound.class_object().dupe(),
                         )),
                     }
@@ -1501,7 +1503,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::found(attr),
-                        None => LookupResult::not_found(NotFound::Attribute(
+                        None => LookupResult::not_found(NotFoundOn::ClassInstance(
                             class.class_object().dupe(),
                         )),
                     }
@@ -1533,7 +1535,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let class = self.stdlib.property();
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => LookupResult::found(attr),
-                        None => LookupResult::not_found(NotFound::Attribute(
+                        None => LookupResult::not_found(NotFoundOn::ClassInstance(
                             class.class_object().dupe(),
                         )),
                     }
@@ -1545,7 +1547,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None if self.extends_any(typed_dict.class_object()) => {
                         LookupResult::found_type(Type::Any(AnyStyle::Implicit))
                     }
-                    None => LookupResult::not_found(NotFound::Attribute(
+                    None => LookupResult::not_found(NotFoundOn::ClassInstance(
                         typed_dict.class_object().dupe(),
                     )),
                 }
@@ -1565,13 +1567,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if *dunder_name == dunder::GETATTRIBUTE
                     && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
                 {
-                    return LookupResult::not_found(NotFound::Attribute(
+                    return LookupResult::not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
                     ));
                 }
                 match self.get_instance_attribute(metaclass, dunder_name) {
                     Some(attr) => LookupResult::found(attr),
-                    None => LookupResult::not_found(NotFound::Attribute(
+                    None => LookupResult::not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
                     )),
                 }
@@ -1585,10 +1587,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     || *dunder_name == dunder::GETATTRIBUTE)
                     && self.field_is_inherited_from_object(cls.class_object(), dunder_name) =>
             {
-                LookupResult::not_found(NotFound::Attribute(cls.class_object().clone()))
+                LookupResult::not_found(NotFoundOn::ClassInstance(cls.class_object().clone()))
             }
             AttributeBase::TypedDict(typed_dict) if *dunder_name == dunder::GETATTRIBUTE => {
-                LookupResult::not_found(NotFound::Attribute(typed_dict.class_object().clone()))
+                LookupResult::not_found(NotFoundOn::ClassInstance(
+                    typed_dict.class_object().clone(),
+                ))
             }
             _ => self.lookup_attr_from_attribute_base(base, dunder_name),
         }
@@ -1738,7 +1742,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // The module isn't imported, but does exist on disk, so user must
             // be observing someone else's import.
             Some(Attribute::new(AttributeInner::ModuleFallback(
-                NotFound::ModuleExport(module.clone()),
+                NotFoundOn::Module(module.clone()),
                 module_name.append(attr_name),
                 submodule.to_type(),
             )))
