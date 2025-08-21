@@ -1472,3 +1472,13 @@ def f(a: A, b: B, c: C):
     a.update(c)  # E: No matching overload
     "#,
 );
+
+testcase!(
+    test_functional_form_unexpected_keyword,
+    r#"
+from typing import TypedDict
+X = TypedDict('X', {}, nonsense=True)  # E: Unrecognized argument `nonsense` for typed dictionary definition
+def f(kwargs):
+    Y = TypedDict('Y', {}, **kwargs)  # E: Unrecognized argument for typed dictionary definition
+    "#,
+);

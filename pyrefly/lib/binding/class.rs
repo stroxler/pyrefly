@@ -826,10 +826,15 @@ impl<'a> BindingsBuilder<'a> {
                     defaults.splice(n_members - n_defaults.., elts.map(|x| Some(x.clone())));
                 }
             } else {
+                let maybe_name = if let Some(name) = &kw.arg {
+                    format!(" `{name}`")
+                } else {
+                    "".to_owned()
+                };
                 self.error(
-                    kw.value.range(),
+                    kw.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Unrecognized argument for named tuple definition".to_owned(),
+                    format!("Unrecognized argument{maybe_name} for named tuple definition"),
                 );
             }
         }
@@ -960,10 +965,15 @@ impl<'a> BindingsBuilder<'a> {
             {
                 base_class_keywords = Box::new([(name.id.clone(), kw.value.clone())])
             } else {
+                let maybe_name = if let Some(name) = &kw.arg {
+                    format!(" `{name}`")
+                } else {
+                    "".to_owned()
+                };
                 self.error(
-                    kw.value.range(),
+                    kw.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                    "Unrecognized argument for typed dictionary definition".to_owned(),
+                    format!("Unrecognized argument{maybe_name} for typed dictionary definition"),
                 );
             }
         }

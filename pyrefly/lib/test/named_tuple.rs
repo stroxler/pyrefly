@@ -361,3 +361,14 @@ for x in nt:
     assert_type(x, str)  # E: assert_type(int, str)
     "#,
 );
+
+testcase!(
+    bug = "The 'Expected ... definition' errors are due to us not allowing a namedtuple with no members",
+    test_collections_namedtuple_unexpected_keyword,
+    r#"
+from collections import namedtuple
+X = namedtuple('X', [], nonsense=True)  # E: Expected valid functional named tuple definition  # E: Unrecognized argument `nonsense` for named tuple definition
+def f(kwargs):
+    Y = namedtuple('Y', [], **kwargs)  # E: Expected valid functional named tuple definition  # E: Unrecognized argument for named tuple definition
+    "#,
+);
