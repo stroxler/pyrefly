@@ -392,7 +392,6 @@ assert_type(e.foo, str)
 );
 
 testcase!(
-    bug = "Something is causing us to get `Any` from the _magic_enum_attr descriptor in recent Python versions",
     test_magic_enum_attr_3_11,
     TestEnv::new_with_version(PythonVersion::new(3, 11, 0)),
     r#"
@@ -405,7 +404,7 @@ class E(enum.Enum):
     @enum._magic_enum_attr
     def foo(self) -> str: ...
 e = E.E0
-assert_type(e.foo, Any)
+assert_type(e.foo, str)
     "#,
 );
 
