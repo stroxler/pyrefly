@@ -2573,16 +2573,6 @@
     },
     {
       "code": -2,
-      "column": 14,
-      "concise_description": "Attribute `xx` is implicitly defined by assignment in method `method1`, which is not a constructor",
-      "description": "Attribute `xx` is implicitly defined by assignment in method `method1`, which is not a constructor",
-      "line": 71,
-      "name": "implicitly-defined-attribute",
-      "stop_column": 16,
-      "stop_line": 71
-    },
-    {
-      "code": -2,
       "column": 26,
       "concise_description": "`ClassVar` is only allowed inside a class body",
       "description": "`ClassVar` is only allowed inside a class body",
@@ -5613,16 +5603,6 @@
   "generics_self_basic.py": [
     {
       "code": -2,
-      "column": 14,
-      "concise_description": "Attribute `scale` is implicitly defined by assignment in method `set_scale`, which is not a constructor",
-      "description": "Attribute `scale` is implicitly defined by assignment in method `set_scale`, which is not a constructor",
-      "line": 15,
-      "name": "implicitly-defined-attribute",
-      "stop_column": 19,
-      "stop_line": 15
-    },
-    {
-      "code": -2,
       "column": 26,
       "concise_description": "`type[Self@Container]` is not subscriptable",
       "description": "`type[Self@Container]` is not subscriptable",
@@ -8090,16 +8070,6 @@
     },
     {
       "code": -2,
-      "column": 14,
-      "concise_description": "Attribute `temp` is implicitly defined by assignment in method `method`, which is not a constructor",
-      "description": "Attribute `temp` is implicitly defined by assignment in method `method`, which is not a constructor",
-      "line": 67,
-      "name": "implicitly-defined-attribute",
-      "stop_column": 18,
-      "stop_line": 67
-    },
-    {
-      "code": -2,
       "column": 17,
       "concise_description": "`Concrete` is not assignable to `Template`",
       "description": "`Concrete` is not assignable to `Template`",
@@ -8807,26 +8777,6 @@
       "name": "read-only",
       "stop_column": 17,
       "stop_line": 54
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Attribute `id3` is implicitly defined by assignment in method `method1`, which is not a constructor",
-      "description": "Attribute `id3` is implicitly defined by assignment in method `method1`, which is not a constructor",
-      "line": 62,
-      "name": "implicitly-defined-attribute",
-      "stop_column": 17,
-      "stop_line": 62
-    },
-    {
-      "code": -2,
-      "column": 14,
-      "concise_description": "Attribute `id4` is implicitly defined by assignment in method `method1`, which is not a constructor",
-      "description": "Attribute `id4` is implicitly defined by assignment in method `method1`, which is not a constructor",
-      "line": 63,
-      "name": "implicitly-defined-attribute",
-      "stop_column": 17,
-      "stop_line": 63
     },
     {
       "code": -2,

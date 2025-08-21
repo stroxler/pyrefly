@@ -214,8 +214,7 @@
   ],
   "generics_self_basic.py": [
     "Line 20: Expected 1 errors",
-    "Line 33: Expected 1 errors",
-    "Line 15: Unexpected errors ['Attribute `scale` is implicitly defined by assignment in method `set_scale`, which is not a constructor']"
+    "Line 33: Expected 1 errors"
   ],
   "generics_self_protocols.py": [
     "Line 58: Unexpected errors ['Argument `ReturnConcreteShape` is not assignable to parameter `shape` with type `ShapeProtocol` in function `accepts_shape`']"
@@ -333,6 +332,7 @@
     "Line 26: Unexpected errors ['Cannot instantiate `Proto` because it is a protocol']"
   ],
   "protocols_definition.py": [
+    "Line 67: Expected 1 errors",
     "Line 116: Expected 1 errors",
     "Line 117: Expected 1 errors",
     "Line 79: Unexpected errors ['`Concrete` is not assignable to `Template`']"
@@ -385,6 +385,8 @@
   "qualifiers_final_annotation.py": [
     "Line 34: Expected 1 errors",
     "Line 38: Expected 1 errors",
+    "Line 62: Expected 1 errors",
+    "Line 63: Expected 1 errors",
     "Line 107: Expected 1 errors",
     "Line 149: Expected 1 errors",
     "Line 152: Expected 1 errors",

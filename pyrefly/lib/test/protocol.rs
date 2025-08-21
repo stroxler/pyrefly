@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -357,6 +358,7 @@ assert_type(f.x, int)
 testcase!(
     bug = "According to the spec, should complain here specifically about implicit attribute definition in protocols. The current error is too general.",
     test_protocol_with_implicit_attr_assigned_in_method,
+    TestEnv::new().enable_implicitly_defined_attribute_error(),
     r#"
 from typing import Protocol
 class P(Protocol):

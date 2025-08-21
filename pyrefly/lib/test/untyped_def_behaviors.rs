@@ -154,7 +154,8 @@ async def async_generator_with_return():
 
 testcase!(
     test_self_attrs_with_mode_check_and_infer_return_any,
-    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::CheckAndInferReturnAny),
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::CheckAndInferReturnAny)
+        .enable_implicitly_defined_attribute_error(),
     r#"
 from typing import assert_type, Any
 class C:
@@ -171,7 +172,8 @@ assert_type(c.f(), Any)
 
 testcase!(
     test_self_attrs_with_mode_skip_and_infer_return_any,
-    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny),
+    TestEnv::new_with_untyped_def_behavior(UntypedDefBehavior::SkipAndInferReturnAny)
+        .enable_implicitly_defined_attribute_error(),
     r#"
 from typing import assert_type, Any
 class C:

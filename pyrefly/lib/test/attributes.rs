@@ -89,12 +89,25 @@ class A:
 );
 
 testcase!(
-    test_self_attribute_in_unrecognized_method,
+    test_self_attribute_in_unrecognized_method_enabled,
+    TestEnv::new().enable_implicitly_defined_attribute_error(),
     r#"
 from typing import assert_type
 class A:
     def f(self, x: int):
         self.x = x  # E: Attribute `x` is implicitly defined by assignment in method `f`, which is not a constructor
+def f(a: A):
+    assert_type(a.x, int)
+    "#,
+);
+
+testcase!(
+    test_self_attribute_in_unrecognized_method_default_disabled,
+    r#"
+from typing import assert_type
+class A:
+    def f(self, x: int):
+        self.x = x
 def f(a: A):
     assert_type(a.x, int)
     "#,
@@ -356,6 +369,7 @@ def f(c: C):
 // TODO: Should we implement simple control-flow heuristics so `C.x` is recognized here?
 testcase!(
     test_set_attribute_in_init_indirect,
+    TestEnv::new().enable_implicitly_defined_attribute_error(),
     r#"
 class C:
     def __init__(self):

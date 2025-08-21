@@ -17,6 +17,9 @@ use std::time::Instant;
 use anstream::ColorChoice;
 use anyhow::anyhow;
 use dupe::Dupe;
+use pyrefly_config::error::ErrorDisplayConfig;
+use pyrefly_config::error_kind::ErrorKind;
+use pyrefly_config::error_kind::Severity;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
@@ -98,6 +101,7 @@ pub struct TestEnv {
     untyped_def_behavior: UntypedDefBehavior,
     infer_with_first_use: bool,
     site_package_path: Vec<PathBuf>,
+    implicitly_defined_attribute_error: bool,
 }
 
 impl TestEnv {
@@ -110,6 +114,7 @@ impl TestEnv {
             untyped_def_behavior: UntypedDefBehavior::default(),
             infer_with_first_use: true,
             site_package_path: Vec::new(),
+            implicitly_defined_attribute_error: false,
         }
     }
 
@@ -135,6 +140,11 @@ impl TestEnv {
         let mut res = Self::new();
         res.infer_with_first_use = infer_with_first_use;
         res
+    }
+
+    pub fn enable_implicitly_defined_attribute_error(mut self) -> Self {
+        self.implicitly_defined_attribute_error = true;
+        self
     }
 
     pub fn add_with_path(&mut self, name: &str, path: &str, code: &str) {
@@ -195,6 +205,13 @@ impl TestEnv {
         config.python_environment.site_package_path = Some(self.site_package_path.clone());
         config.root.untyped_def_behavior = Some(self.untyped_def_behavior);
         config.root.infer_with_first_use = Some(self.infer_with_first_use);
+        if config.root.errors.is_none() {
+            config.root.errors = Some(ErrorDisplayConfig::new(HashMap::new()));
+        };
+        let errors = config.root.errors.as_mut().unwrap();
+        if self.implicitly_defined_attribute_error {
+            errors.set_error_severity(ErrorKind::ImplicitlyDefinedAttribute, Severity::Error);
+        }
         for (name, path, _) in self.modules.iter() {
             config.custom_module_paths.insert(*name, path.dupe());
         }

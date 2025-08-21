@@ -264,6 +264,7 @@ impl ErrorKind {
             ErrorKind::RevealType => Severity::Info,
             ErrorKind::Deprecated => Severity::Warn,
             ErrorKind::RedundantCast => Severity::Warn,
+            ErrorKind::ImplicitlyDefinedAttribute => Severity::Ignore,
             _ => Severity::Error,
         }
     }
