@@ -9883,32 +9883,12 @@
     },
     {
       "code": -2,
-      "column": 63,
-      "concise_description": "Unrecognized argument `extra_items` for typed dictionary definition",
-      "description": "Unrecognized argument `extra_items` for typed dictionary definition",
-      "line": 19,
-      "name": "invalid-argument",
-      "stop_column": 79,
-      "stop_line": 19
-    },
-    {
-      "code": -2,
-      "column": 47,
-      "concise_description": "Key `novel_adaptation` is not defined in TypedDict `MovieFunctional`",
-      "description": "Key `novel_adaptation` is not defined in TypedDict `MovieFunctional`",
-      "line": 21,
-      "name": "typed-dict-key-error",
-      "stop_column": 65,
-      "stop_line": 21
-    },
-    {
-      "code": -2,
-      "column": 47,
-      "concise_description": "Key `year` is not defined in TypedDict `MovieFunctional`",
-      "description": "Key `year` is not defined in TypedDict `MovieFunctional`",
+      "column": 55,
+      "concise_description": "`Literal[1982]` is not assignable to TypedDict `extra_items` type `bool`",
+      "description": "`Literal[1982]` is not assignable to TypedDict `extra_items` type `bool`",
       "line": 22,
       "name": "typed-dict-key-error",
-      "stop_column": 53,
+      "stop_column": 59,
       "stop_line": 22
     },
     {

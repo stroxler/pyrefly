@@ -973,14 +973,18 @@ impl<'a> BindingsBuilder<'a> {
         let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
         self.ensure_expr(func, class_object.usage());
         self.check_functional_definition_name(&name.id, arg_name);
-        let mut base_class_keywords: Box<[(Name, Expr)]> = Box::new([]);
+        let mut base_class_keywords = Vec::new();
         for kw in keywords {
             self.ensure_expr(&mut kw.value, class_object.usage());
-            if let Some(name) = &kw.arg
-                && name.id == "total"
-                && matches!(kw.value, Expr::BooleanLiteral(_))
-            {
-                base_class_keywords = Box::new([(name.id.clone(), kw.value.clone())])
+            let recognized_kw = match (kw.arg.as_ref().map(|id| &id.id), &kw.value) {
+                (Some(name), Expr::BooleanLiteral(_)) if name == "total" || name == "closed" => {
+                    Some(name)
+                }
+                (Some(name), _) if name == "extra_items" => Some(name),
+                _ => None,
+            };
+            if let Some(kw_name) = recognized_kw {
+                base_class_keywords.push((kw_name.clone(), kw.value.clone()));
             } else {
                 let maybe_name = if let Some(name) = &kw.arg {
                     format!(" `{name}`")
@@ -1040,7 +1044,7 @@ impl<'a> BindingsBuilder<'a> {
             class_object,
             class_indices,
             Some(func.clone()),
-            base_class_keywords,
+            base_class_keywords.into_boxed_slice(),
             member_definitions,
             IllegalIdentifierHandling::Allow,
             false,

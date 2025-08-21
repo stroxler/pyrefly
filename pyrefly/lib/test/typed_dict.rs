@@ -1482,3 +1482,23 @@ def f(kwargs):
     Y = TypedDict('Y', {}, **kwargs)  # E: Unrecognized argument for typed dictionary definition
     "#,
 );
+
+testcase!(
+    test_functional_extra_items,
+    r#"
+from typing import TypedDict
+X = TypedDict('X', {}, extra_items=int)
+x: X = {'x': 1}
+y: X = {'y': 'oops'}  # E: `Literal['oops']` is not assignable to TypedDict `extra_items` type `int`
+    "#,
+);
+
+testcase!(
+    test_functional_closed,
+    r#"
+from typing import assert_type, TypedDict
+X = TypedDict('X', {'x': int}, closed=True)
+def f(x: X):
+    assert_type(list(x.values()), list[int])
+    "#,
+);
