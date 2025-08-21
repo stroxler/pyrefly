@@ -1024,16 +1024,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
     /// If it is generic, we use the bound object to instantiate type variables in the first argument.
-    fn bind_function(&self, t: &Type, _obj: &Type) -> Option<Type> {
+    fn bind_function(&self, t: &Type, obj: &Type) -> Option<Type> {
         match t {
             Type::Forall(forall) => match &forall.body {
-                Forallable::Callable(c) => c.split_first_param().map(|(_, c)| {
+                Forallable::Callable(c) => c.split_first_param().map(|(param, c)| {
+                    let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
                     Type::Forall(Box::new(Forall {
                         tparams: forall.tparams.clone(),
                         body: Forallable::Callable(c),
                     }))
                 }),
-                Forallable::Function(f) => f.signature.split_first_param().map(|(_, c)| {
+                Forallable::Function(f) => f.signature.split_first_param().map(|(param, c)| {
+                    let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
                     Type::Forall(Box::new(Forall {
                         tparams: forall.tparams.clone(),
                         body: Forallable::Function(Function {
@@ -1070,7 +1072,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .body
                         .signature
                         .split_first_param()
-                        .map(|(_, c)| {
+                        .map(|(param, c)| {
+                            let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
                             OverloadType::Forall(Forall {
                                 tparams: forall.tparams.clone(),
                                 body: Function {
@@ -1090,5 +1093,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }),
             _ => None,
         }
+    }
+
+    fn instantiate_callable_self(
+        &self,
+        tparams: &TParams,
+        self_obj: &Type,
+        self_param: &Type,
+        callable: Callable,
+    ) -> Callable {
+        self.solver().instantiate_callable_self(
+            tparams,
+            self_obj,
+            self_param,
+            callable,
+            self.uniques,
+            self.type_order(),
+        )
     }
 }

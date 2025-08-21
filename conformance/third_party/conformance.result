@@ -354,9 +354,7 @@
   "protocols_modules.py": [
     "Line 25: Unexpected errors ['`Module[_protocols_modules1]` is not assignable to `Options1`']"
   ],
-  "protocols_recursive.py": [
-    "Line 81: Unexpected errors ['assert_type(list[Any], list[int]) failed']"
-  ],
+  "protocols_recursive.py": [],
   "protocols_runtime_checkable.py": [
     "Line 88: Expected 1 errors",
     "Line 92: Expected 1 errors",
