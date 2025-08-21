@@ -729,8 +729,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
                     if let Type::BoundMethod(m) = call_attr {
-                        let func = m.as_function();
-                        Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
+                        let func = m.func.as_type();
+                        Some(
+                            func.drop_first_param_of_unbound_callable(&m.obj)
+                                .unwrap_or(func),
+                        )
                     } else {
                         None
                     }

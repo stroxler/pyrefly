@@ -918,7 +918,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(_) => overload
                     .1
                     .signature
-                    .drop_first_param()
+                    .split_first_param()
+                    .map(|(_, signature)| signature)
                     .unwrap_or(overload.1.signature),
                 None => overload.1.signature,
             };
@@ -1098,10 +1099,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )))
         };
         // Check the __new__ method and whether it comes from object or has been overridden
-        let (new_attr_ty, overrides_new) = if let Some(mut t) = self
-            .get_dunder_new(cls)
-            .and_then(|t| t.drop_first_param_of_unbound_callable())
-        {
+        let (new_attr_ty, overrides_new) = if let Some(mut t) =
+            self.get_dunder_new(cls).and_then(|t| {
+                t.drop_first_param_of_unbound_callable(&Type::Type(Box::new(Type::SelfType(
+                    cls.clone(),
+                ))))
+            }) {
             t.subst_self_type_mut(&class_type, &|_, _| true);
             if t.callable_return_type()
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))

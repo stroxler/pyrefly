@@ -2610,21 +2610,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         x.ty(self.stdlib)
                             .map(|ty| self.stdlib.async_iterable(ty.clone()).to_type())
                     });
-                    self.async_iterate(
-                        &self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors),
-                        e.range(),
-                        errors,
-                    )
+                    let iterable = self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors);
+                    self.async_iterate(&iterable, e.range(), errors)
                 } else {
                     let hint = ty.clone().and_then(|x| {
                         x.ty(self.stdlib)
                             .map(|ty| self.stdlib.iterable(ty.clone()).to_type())
                     });
-                    self.iterate(
-                        &self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors),
-                        e.range(),
-                        errors,
-                    )
+                    let iterable = self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors);
+                    self.iterate(&iterable, e.range(), errors)
                 };
                 let mut values = Vec::new();
                 for iterable in iterables {

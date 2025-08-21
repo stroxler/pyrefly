@@ -392,11 +392,7 @@ impl BoundMethod {
         self.func
             .clone()
             .as_type()
-            .drop_first_param_of_unbound_callable()
-    }
-
-    pub fn as_function(self) -> Type {
-        self.func.as_type()
+            .drop_first_param_of_unbound_callable(&self.obj)
     }
 
     pub fn with_bound_object(&self, obj: Type) -> Self {
@@ -932,16 +928,17 @@ impl Type {
     }
 
     /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
-    pub fn drop_first_param_of_unbound_callable(&self) -> Option<Type> {
+    /// If it is generic, we use the bound object to instantiate type variables in the first argument.
+    pub fn drop_first_param_of_unbound_callable(&self, _obj: &Type) -> Option<Type> {
         match self {
             Type::Forall(forall) => match &forall.body {
-                Forallable::Callable(c) => c.drop_first_param().map(|c| {
+                Forallable::Callable(c) => c.split_first_param().map(|(_, c)| {
                     Type::Forall(Box::new(Forall {
                         tparams: forall.tparams.clone(),
                         body: Forallable::Callable(c),
                     }))
                 }),
-                Forallable::Function(f) => f.signature.drop_first_param().map(|c| {
+                Forallable::Function(f) => f.signature.split_first_param().map(|(_, c)| {
                     Type::Forall(Box::new(Forall {
                         tparams: forall.tparams.clone(),
                         body: Forallable::Function(Function {
@@ -953,11 +950,11 @@ impl Type {
                 Forallable::TypeAlias(_) => None,
             },
             Type::Callable(callable) => callable
-                .drop_first_param()
-                .map(|callable| Type::Callable(Box::new(callable))),
-            Type::Function(func) => func.signature.drop_first_param().map(|callable| {
+                .split_first_param()
+                .map(|(_, c)| Type::Callable(Box::new(c))),
+            Type::Function(func) => func.signature.split_first_param().map(|(_, c)| {
                 Type::Function(Box::new(Function {
-                    signature: callable,
+                    signature: c,
                     metadata: func.metadata.clone(),
                 }))
             }),
@@ -966,8 +963,8 @@ impl Type {
                 .try_mapped_ref(|x| match x {
                     OverloadType::Function(f) => f
                         .signature
-                        .drop_first_param()
-                        .map(|c| {
+                        .split_first_param()
+                        .map(|(_, c)| {
                             OverloadType::Function(Function {
                                 signature: c,
                                 metadata: f.metadata.clone(),
@@ -977,8 +974,8 @@ impl Type {
                     OverloadType::Forall(forall) => forall
                         .body
                         .signature
-                        .drop_first_param()
-                        .map(|c| {
+                        .split_first_param()
+                        .map(|(_, c)| {
                             OverloadType::Forall(Forall {
                                 tparams: forall.tparams.clone(),
                                 body: Function {

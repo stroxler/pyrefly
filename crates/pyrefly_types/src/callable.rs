@@ -153,8 +153,10 @@ impl ParamList {
         self.0.is_empty()
     }
 
-    pub fn tail(&self) -> ParamList {
-        Self(self.0[1..].to_vec())
+    pub fn split_first(&self) -> Option<(&Type, ParamList)> {
+        self.0
+            .split_first()
+            .map(|(first, rest)| (first.as_type(), ParamList(rest.to_vec())))
     }
 
     /// Type signature that permits everything, namely `*args, **kwargs`.
@@ -392,20 +394,25 @@ impl Callable {
         }
     }
 
-    pub fn drop_first_param(&self) -> Option<Self> {
+    pub fn split_first_param(&self) -> Option<(&Type, Self)> {
         match self {
             Self {
                 params: Params::List(params),
                 ret,
-            } if !params.is_empty() => Some(Self::list(params.tail(), ret.clone())),
+            } => {
+                let (first, rest) = params.split_first()?;
+                Some((first, Self::list(rest, ret.clone())))
+            }
             Self {
                 params: Params::ParamSpec(ts, p),
                 ret,
-            } if !ts.is_empty() => Some(Self::concatenate(
-                ts.iter().skip(1).cloned().collect(),
-                p.clone(),
-                ret.clone(),
-            )),
+            } => {
+                let (first, rest) = ts.split_first()?;
+                Some((
+                    first,
+                    Self::concatenate(rest.iter().cloned().collect(), p.clone(), ret.clone()),
+                ))
+            }
             _ => None,
         }
     }
