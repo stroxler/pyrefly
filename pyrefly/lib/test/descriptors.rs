@@ -286,3 +286,21 @@ class B(A):
         self.d = "ok"
     "#,
 );
+
+testcase!(
+    bug = "We fail to understand that D is a descriptor here",
+    test_descriptors_that_inherit,
+    r#"
+class DBase:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+class D(DBase):
+    pass
+class A:
+    d = D()
+    def f(self):
+        self.d = "ok"  # E: `Literal['ok']` is not assignable to attribute `d` with type `D`
+    def g(self) -> int:
+        return self.d  # E: Returned type `D` is not assignable to declared return type `int`
+    "#,
+);
