@@ -1949,26 +1949,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        match base {
-            Type::Union(base_tys) => self.unions(
-                base_tys
-                    .iter()
-                    .map(|base_ty| {
-                        self.narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
-                    })
-                    .collect(),
-            ),
-            _ => self.narrowable_for_attr_no_union(base, attr_name, range, errors),
-        }
-    }
-
-    fn narrowable_for_attr_no_union(
-        &self,
-        base: &Type,
-        attr_name: &Name,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
         let fall_back_to_object = || Type::ClassType(self.stdlib.object().clone());
         let (found, not_found, internal_errors) =
             self.lookup_attr_no_union(base, attr_name).decompose();
