@@ -58,6 +58,10 @@ def foo(member: str) -> None:
 
 def bar(member: int) -> None:
     MyEnum[member] # E: Enum `MyEnum` can only be indexed by strings
+
+def foo(member: MyEnum) -> None:
+    assert_type(member.name, str)
+    assert_type(member.value, int)
 "#,
 );
 
