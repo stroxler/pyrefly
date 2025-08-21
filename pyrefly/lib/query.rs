@@ -473,6 +473,9 @@ impl Query {
                     },
                 ),
                 Type::Any(_) => vec![],
+                Type::TypeAlias(t) => {
+                    callee_from_type(&t.as_type(), callee_range, module_info, transaction, handle)
+                }
                 _ => panic!(
                     "unexpected type at [{}]: {ty:?}",
                     module_info.display_range(callee_range)
