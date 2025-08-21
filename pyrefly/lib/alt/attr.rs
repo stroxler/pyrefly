@@ -1407,9 +1407,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         return LookupResult::found_type(self.unions(enum_value_types));
                     }
                 }
-                if metadata.is_enum() && attr_name.as_str() == "name" {
-                    attr_name = Name::new("_name_")
-                }
                 match self.get_instance_attribute(&class, &attr_name) {
                     Some(attr) => LookupResult::found(attr),
                     None if metadata.has_base_any() => {
