@@ -87,20 +87,11 @@ fn default_true() -> bool {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum OnOff {
+pub enum OnOffPartial {
     On,
     #[default]
     Off,
-}
-
-impl OnOff {
-    #[expect(unused)]
-    pub fn value(self) -> bool {
-        match self {
-            Self::On => true,
-            Self::Off => false,
-        }
-    }
+    Partial,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -108,7 +99,7 @@ impl OnOff {
 pub struct InlayHintConfig {
     #[serde(default)]
     #[expect(unused)]
-    pub call_argument_names: OnOff,
+    pub call_argument_names: OnOffPartial,
     #[serde(default = "default_true")]
     pub function_return_types: bool,
     #[serde(default)]
@@ -121,7 +112,7 @@ pub struct InlayHintConfig {
 impl Default for InlayHintConfig {
     fn default() -> Self {
         Self {
-            call_argument_names: OnOff::Off,
+            call_argument_names: OnOffPartial::Off,
             function_return_types: true,
             pytest_parameters: false,
             variable_types: true,
