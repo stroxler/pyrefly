@@ -14,6 +14,8 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
+use pyrefly_types::class::ClassType;
+use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
 use pyrefly_types::types::TParamsSource;
@@ -729,11 +731,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
                     if let Type::BoundMethod(m) = call_attr {
-                        let func = m.func.as_type();
-                        Some(
-                            func.drop_first_param_of_unbound_callable(&m.obj)
-                                .unwrap_or(func),
-                        )
+                        Some(self.bind_boundmethod(&m).unwrap_or(m.func.as_type()))
                     } else {
                         None
                     }
@@ -1013,6 +1011,84 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 &|| TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn),
             );
+        }
+    }
+
+    pub fn bind_boundmethod(&self, m: &BoundMethod) -> Option<Type> {
+        self.bind_function(&m.func.clone().as_type(), &m.obj)
+    }
+
+    pub fn bind_dunder_new(&self, t: &Type, cls: ClassType) -> Option<Type> {
+        self.bind_function(t, &Type::Type(Box::new(Type::SelfType(cls))))
+    }
+
+    /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
+    /// If it is generic, we use the bound object to instantiate type variables in the first argument.
+    fn bind_function(&self, t: &Type, _obj: &Type) -> Option<Type> {
+        match t {
+            Type::Forall(forall) => match &forall.body {
+                Forallable::Callable(c) => c.split_first_param().map(|(_, c)| {
+                    Type::Forall(Box::new(Forall {
+                        tparams: forall.tparams.clone(),
+                        body: Forallable::Callable(c),
+                    }))
+                }),
+                Forallable::Function(f) => f.signature.split_first_param().map(|(_, c)| {
+                    Type::Forall(Box::new(Forall {
+                        tparams: forall.tparams.clone(),
+                        body: Forallable::Function(Function {
+                            signature: c,
+                            metadata: f.metadata.clone(),
+                        }),
+                    }))
+                }),
+                Forallable::TypeAlias(_) => None,
+            },
+            Type::Callable(callable) => callable
+                .split_first_param()
+                .map(|(_, c)| Type::Callable(Box::new(c))),
+            Type::Function(func) => func.signature.split_first_param().map(|(_, c)| {
+                Type::Function(Box::new(Function {
+                    signature: c,
+                    metadata: func.metadata.clone(),
+                }))
+            }),
+            Type::Overload(overload) => overload
+                .signatures
+                .try_mapped_ref(|x| match x {
+                    OverloadType::Function(f) => f
+                        .signature
+                        .split_first_param()
+                        .map(|(_, c)| {
+                            OverloadType::Function(Function {
+                                signature: c,
+                                metadata: f.metadata.clone(),
+                            })
+                        })
+                        .ok_or(()),
+                    OverloadType::Forall(forall) => forall
+                        .body
+                        .signature
+                        .split_first_param()
+                        .map(|(_, c)| {
+                            OverloadType::Forall(Forall {
+                                tparams: forall.tparams.clone(),
+                                body: Function {
+                                    signature: c,
+                                    metadata: forall.body.metadata.clone(),
+                                },
+                            })
+                        })
+                        .ok_or(()),
+                })
+                .ok()
+                .map(|signatures| {
+                    Type::Overload(Overload {
+                        signatures,
+                        metadata: overload.metadata.clone(),
+                    })
+                }),
+            _ => None,
         }
     }
 }

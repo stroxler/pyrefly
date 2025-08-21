@@ -387,7 +387,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 && let Some(want) = self.type_order.instance_as_dunder_call(&protocol)
             {
                 if let Type::BoundMethod(method) = &want
-                    && let Some(want_no_self) = method.drop_self()
+                    && let Some(want_no_self) = self.type_order.bind_boundmethod(method)
                 {
                     if !self.is_subset_eq(&got, &want_no_self) {
                         return false;
@@ -747,18 +747,18 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 .iter()
                 .any(|l| self.is_subset_eq(&l.as_type(), u)),
             (Type::BoundMethod(method), Type::Callable(_) | Type::Function(_))
-                if let Some(l_no_self) = method.drop_self() =>
+                if let Some(l_no_self) = self.type_order.bind_boundmethod(method) =>
             {
                 self.is_subset_eq(&l_no_self, want)
             }
             (Type::Callable(_) | Type::Function(_), Type::BoundMethod(method))
-                if let Some(u_no_self) = method.drop_self() =>
+                if let Some(u_no_self) = self.type_order.bind_boundmethod(method) =>
             {
                 self.is_subset_eq(got, &u_no_self)
             }
             (Type::BoundMethod(l), Type::BoundMethod(u))
-                if let Some(l_no_self) = l.drop_self()
-                    && let Some(u_no_self) = u.drop_self() =>
+                if let Some(l_no_self) = self.type_order.bind_boundmethod(l)
+                    && let Some(u_no_self) = self.type_order.bind_boundmethod(u) =>
             {
                 self.is_subset_eq(&l_no_self, &u_no_self)
             }

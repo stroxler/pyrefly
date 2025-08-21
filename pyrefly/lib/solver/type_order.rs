@@ -11,6 +11,7 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::types::BoundMethod;
 use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -147,5 +148,9 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn instantiate_fresh_forall(self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
         self.0.instantiate_fresh_forall(forall)
+    }
+
+    pub fn bind_boundmethod(self, m: &BoundMethod) -> Option<Type> {
+        self.0.bind_boundmethod(m)
     }
 }

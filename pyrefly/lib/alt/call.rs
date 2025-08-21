@@ -1099,12 +1099,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )))
         };
         // Check the __new__ method and whether it comes from object or has been overridden
-        let (new_attr_ty, overrides_new) = if let Some(mut t) =
-            self.get_dunder_new(cls).and_then(|t| {
-                t.drop_first_param_of_unbound_callable(&Type::Type(Box::new(Type::SelfType(
-                    cls.clone(),
-                ))))
-            }) {
+        let (new_attr_ty, overrides_new) = if let Some(mut t) = self
+            .get_dunder_new(cls)
+            .and_then(|t| self.bind_dunder_new(&t, cls.clone()))
+        {
             t.subst_self_type_mut(&class_type, &|_, _| true);
             if t.callable_return_type()
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))

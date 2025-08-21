@@ -388,13 +388,6 @@ pub struct BoundMethod {
 }
 
 impl BoundMethod {
-    pub fn drop_self(&self) -> Option<Type> {
-        self.func
-            .clone()
-            .as_type()
-            .drop_first_param_of_unbound_callable(&self.obj)
-    }
-
     pub fn with_bound_object(&self, obj: Type) -> Self {
         Self {
             obj,
@@ -924,76 +917,6 @@ impl Type {
             Type::BoundMethod(method) => method.func.is_typeis(),
             Type::Overload(overload) => overload.is_typeis(),
             _ => false,
-        }
-    }
-
-    /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
-    /// If it is generic, we use the bound object to instantiate type variables in the first argument.
-    pub fn drop_first_param_of_unbound_callable(&self, _obj: &Type) -> Option<Type> {
-        match self {
-            Type::Forall(forall) => match &forall.body {
-                Forallable::Callable(c) => c.split_first_param().map(|(_, c)| {
-                    Type::Forall(Box::new(Forall {
-                        tparams: forall.tparams.clone(),
-                        body: Forallable::Callable(c),
-                    }))
-                }),
-                Forallable::Function(f) => f.signature.split_first_param().map(|(_, c)| {
-                    Type::Forall(Box::new(Forall {
-                        tparams: forall.tparams.clone(),
-                        body: Forallable::Function(Function {
-                            signature: c,
-                            metadata: f.metadata.clone(),
-                        }),
-                    }))
-                }),
-                Forallable::TypeAlias(_) => None,
-            },
-            Type::Callable(callable) => callable
-                .split_first_param()
-                .map(|(_, c)| Type::Callable(Box::new(c))),
-            Type::Function(func) => func.signature.split_first_param().map(|(_, c)| {
-                Type::Function(Box::new(Function {
-                    signature: c,
-                    metadata: func.metadata.clone(),
-                }))
-            }),
-            Type::Overload(overload) => overload
-                .signatures
-                .try_mapped_ref(|x| match x {
-                    OverloadType::Function(f) => f
-                        .signature
-                        .split_first_param()
-                        .map(|(_, c)| {
-                            OverloadType::Function(Function {
-                                signature: c,
-                                metadata: f.metadata.clone(),
-                            })
-                        })
-                        .ok_or(()),
-                    OverloadType::Forall(forall) => forall
-                        .body
-                        .signature
-                        .split_first_param()
-                        .map(|(_, c)| {
-                            OverloadType::Forall(Forall {
-                                tparams: forall.tparams.clone(),
-                                body: Function {
-                                    signature: c,
-                                    metadata: forall.body.metadata.clone(),
-                                },
-                            })
-                        })
-                        .ok_or(()),
-                })
-                .ok()
-                .map(|signatures| {
-                    Type::Overload(Overload {
-                        signatures,
-                        metadata: overload.metadata.clone(),
-                    })
-                }),
-            _ => None,
         }
     }
 
