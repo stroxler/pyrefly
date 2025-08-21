@@ -10,6 +10,7 @@ use std::sync::Arc;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
+use pyrefly_types::typed_dict::ExtraItems;
 use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -128,6 +129,10 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
 
     pub fn typed_dict_kw_param_info(self, typed_dict: &TypedDict) -> Vec<(Name, Type, Required)> {
         self.0.typed_dict_kw_param_info(typed_dict)
+    }
+
+    pub fn typed_dict_extra_items(self, cls: &Class) -> Option<ExtraItems> {
+        self.0.typed_dict_extra_items(cls)
     }
 
     pub fn get_variance_from_class(self, cls: &Class) -> Arc<VarianceMap> {

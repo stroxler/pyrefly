@@ -1364,3 +1364,20 @@ class BadChild2(Parent):
     x: NotRequired[bool]  # E: `bool` is not consistent with `extra_items` type `int`
     "#,
 );
+
+testcase!(
+    test_extra_items_assignability,
+    r#"
+from typing import ReadOnly, TypedDict
+class A(TypedDict, extra_items=ReadOnly[int]):
+    pass
+class B(TypedDict, extra_items=bool):
+    pass
+class C(TypedDict):
+    pass
+a1: A = B()
+# Not allowed because `C` implicitly has extra_items `ReadOnly[object]`, and `object` is not
+# assignable to `int`.
+a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
+    "#,
+);

@@ -13,6 +13,8 @@ use itertools::EitherOrBoth;
 use itertools::Itertools;
 use itertools::izip;
 use pyrefly_python::dunder;
+use pyrefly_types::read_only::ReadOnlyReason;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::typed_dict::TypedDictField;
 use ruff_python_ast::name::Name;
@@ -38,6 +40,7 @@ use crate::types::types::Type;
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum TypedDictFieldId {
     Name(Name),
+    ExtraItems,
 }
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
@@ -609,12 +612,42 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    fn get_typed_dict_fields(&self, td: &TypedDict) -> SmallMap<TypedDictFieldId, TypedDictField> {
-        self.type_order
+    fn typed_dict_extra_items_field(&self, extra_items: ExtraItems) -> TypedDictField {
+        let (ty, read_only) = match extra_items {
+            ExtraItems::Extra(extra) => (extra.ty, extra.read_only),
+            ExtraItems::Closed => (Type::never(), false),
+            ExtraItems::Default => (self.type_order.stdlib().object().clone().to_type(), true),
+        };
+        TypedDictField {
+            ty,
+            required: false,
+            read_only_reason: if read_only {
+                Some(ReadOnlyReason::ReadOnlyQualifier)
+            } else {
+                None
+            },
+        }
+    }
+
+    fn get_typed_dict_fields(
+        &self,
+        td: &TypedDict,
+        extra_items: Option<ExtraItems>,
+    ) -> SmallMap<TypedDictFieldId, TypedDictField> {
+        let mut fields = self
+            .type_order
             .typed_dict_fields(td)
             .into_iter()
             .map(|(name, field)| (TypedDictFieldId::Name(name), field))
-            .collect()
+            .collect::<SmallMap<_, _>>();
+        if let Some(extra_items) = extra_items {
+            // For assignability checks, `extra_items` is treated as a non-required pseudo-field.
+            fields.insert(
+                TypedDictFieldId::ExtraItems,
+                self.typed_dict_extra_items_field(extra_items),
+            );
+        }
+        fields
     }
 
     /// Implementation of subset equality for Type, other than Var.
@@ -746,8 +779,23 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 // and the corresponding value type in `got` is consistent with the value type in `want`.
                 // For each required key in `want`, the corresponding key is required in `got`.
                 // For each non-required, non-readonly key in `want`, the corresponding key is not required in `got`.
-                let got_fields = self.get_typed_dict_fields(got);
-                let want_fields = self.get_typed_dict_fields(want);
+                let (got_extra_items, want_extra_items) = {
+                    let got_extra_items =
+                        self.type_order.typed_dict_extra_items(got.class_object());
+                    let want_extra_items =
+                        self.type_order.typed_dict_extra_items(want.class_object());
+                    if [&got_extra_items, &want_extra_items]
+                        .iter()
+                        .all(|extra| matches!(extra, None | Some(ExtraItems::Default)))
+                    {
+                        // Neither TypedDict has any extra_items restrictions.
+                        (None, None)
+                    } else {
+                        (got_extra_items, want_extra_items)
+                    }
+                };
+                let got_fields = self.get_typed_dict_fields(got, got_extra_items);
+                let want_fields = self.get_typed_dict_fields(want, want_extra_items);
                 want_fields.iter().all(|(k, want_v)| {
                     got_fields.get(k).is_some_and(|got_v| {
                         match (got_v.is_read_only(), want_v.is_read_only()) {

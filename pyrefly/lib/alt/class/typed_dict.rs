@@ -164,7 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn typed_dict_extra_items(&self, cls: &Class) -> Option<ExtraItems> {
+    pub fn typed_dict_extra_items(&self, cls: &Class) -> Option<ExtraItems> {
         self.get_metadata_for_class(cls)
             .typed_dict_metadata()
             .map(|m| m.extra_items.clone())

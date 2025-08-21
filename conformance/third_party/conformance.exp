@@ -10204,6 +10204,36 @@
     },
     {
       "code": -2,
+      "column": 13,
+      "concise_description": "`TypedDict[MovieExtraStr]` is not assignable to variable `extra_int` with type `TypedDict[MovieExtraInt]`",
+      "description": "`TypedDict[MovieExtraStr]` is not assignable to variable `extra_int` with type `TypedDict[MovieExtraInt]`",
+      "line": 247,
+      "name": "bad-assignment",
+      "stop_column": 22,
+      "stop_line": 247
+    },
+    {
+      "code": -2,
+      "column": 13,
+      "concise_description": "`TypedDict[MovieExtraInt]` is not assignable to variable `extra_str` with type `TypedDict[MovieExtraStr]`",
+      "description": "`TypedDict[MovieExtraInt]` is not assignable to variable `extra_str` with type `TypedDict[MovieExtraStr]`",
+      "line": 248,
+      "name": "bad-assignment",
+      "stop_column": 22,
+      "stop_line": 248
+    },
+    {
+      "code": -2,
+      "column": 14,
+      "concise_description": "`TypedDict[MovieNotClosed]` is not assignable to variable `extra_int2` with type `TypedDict[MovieExtraInt]`",
+      "description": "`TypedDict[MovieNotClosed]` is not assignable to variable `extra_int2` with type `TypedDict[MovieExtraInt]`",
+      "line": 259,
+      "name": "bad-assignment",
+      "stop_column": 24,
+      "stop_line": 259
+    },
+    {
+      "code": -2,
       "column": 47,
       "concise_description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
       "description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
