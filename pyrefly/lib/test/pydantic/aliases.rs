@@ -85,14 +85,13 @@ Model(y=0)
 );
 
 testcase!(
-    bug = "Only Model(x=0) call should succeed.",
     test_validation_by_name_only,
     pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=False):
     x: int = Field(alias='y')
-Model(x=0) # E: Missing argument `y` in function `Model.__init__` # E: Unexpected keyword argument `x` in function `Model.__init__`
-Model(y=0)
+Model(x=0) 
+Model(y=0) # E: Missing argument `x` in function `Model.__init__` # E: Unexpected keyword argument `y` in function `Model.__init__`
 "#,
 );

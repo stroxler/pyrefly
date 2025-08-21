@@ -216,10 +216,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         .iter()
         .any(|k| map.0.contains_key(*k));
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
-        let mut alias = map
-            .get_string(alias_keyword)
-            .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
-            .map(Name::new);
+
+        let mut alias = if dataclass_metadata.class_validation_flags.1 {
+            map.get_string(alias_keyword)
+                .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
+                .map(Name::new)
+        } else {
+            None
+        };
+
         let mut converter_param = map
             .0
             .get(&DataclassFieldKeywords::CONVERTER)
@@ -232,6 +237,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 args,
                 errors,
                 alias_keyword,
+                dataclass_metadata.class_validation_flags,
                 &mut init,
                 &mut kw_only,
                 &mut alias,
@@ -254,6 +260,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &Arguments,
         errors: &ErrorCollector,
         alias_key_to_use: &Name,
+        validation_flags: (bool, bool),
         init: &mut Option<bool>,
         kw_only: &mut Option<bool>,
         alias: &mut Option<Name>,
@@ -311,7 +318,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if name == &DataclassFieldKeywords::KW_ONLY {
                     self.fill_in_literal(kw_only, ty, default_ty, |ty| ty.as_bool());
                 }
-                if alias.is_none() && name == alias_key_to_use {
+                if validation_flags.1 && alias.is_none() && name == alias_key_to_use {
                     self.fill_in_literal(alias, ty, default_ty, |ty| match ty {
                         Type::Literal(Lit::Str(s)) => Some(Name::new(s)),
                         _ => None,
