@@ -287,8 +287,9 @@ class B(A):
     "#,
 );
 
+// Regression test: at one point we were checking the raw class fields to
+// see if something is a descriptor, which missed inherited behavior.
 testcase!(
-    bug = "We fail to understand that D is a descriptor here",
     test_descriptors_that_inherit,
     r#"
 class DBase:
@@ -299,8 +300,8 @@ class D(DBase):
 class A:
     d = D()
     def f(self):
-        self.d = "ok"  # E: `Literal['ok']` is not assignable to attribute `d` with type `D`
+        self.d = "ok"
     def g(self) -> int:
-        return self.d  # E: Returned type `D` is not assignable to declared return type `int`
+        return self.d
     "#,
 );

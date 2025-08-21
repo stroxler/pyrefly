@@ -392,11 +392,11 @@ assert_type(e.foo, str)
 );
 
 testcase!(
-    bug = "We correctly understand that `foo` is a property but it isn't resolving at attribute access time",
+    bug = "Something is causing us to get `Any` from the _magic_enum_attr descriptor in recent Python versions",
     test_magic_enum_attr_3_11,
     TestEnv::new_with_version(PythonVersion::new(3, 11, 0)),
     r#"
-from typing_extensions import reveal_type
+from typing_extensions import assert_type, Any
 import enum
 class E(enum.Enum):
     _value_: int
@@ -405,7 +405,7 @@ class E(enum.Enum):
     @enum._magic_enum_attr
     def foo(self) -> str: ...
 e = E.E0
-reveal_type(e.foo)  # E: revealed type: property
+assert_type(e.foo, Any)
     "#,
 );
 

@@ -1060,11 +1060,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // - Do we care about distributing descriptor behavior over unions? If so, what about the case when
             //   the raw class field is a union of a descriptor and a non-descriptor? Do we want to allow this?
             Type::ClassType(c) => {
-                if c.class_object().contains(&dunder::GET) {
+                if self.get_instance_attribute(c, &dunder::GET).is_some() {
                     descriptor_getter =
                         Some(self.attr_infer_for_type(&ty, &dunder::GET, range, errors, None));
                 }
-                if c.class_object().contains(&dunder::SET) {
+                if self.get_instance_attribute(c, &dunder::SET).is_some() {
                     descriptor_setter =
                         Some(self.attr_infer_for_type(&ty, &dunder::SET, range, errors, None));
                 }
