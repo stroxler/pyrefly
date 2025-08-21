@@ -14,6 +14,7 @@ use crate::annotation::Qualifier;
 use crate::class::Class;
 use crate::qname::QName;
 use crate::read_only::ReadOnlyReason;
+use crate::stdlib::Stdlib;
 use crate::types::Substitution;
 use crate::types::TArgs;
 use crate::types::Type;
@@ -99,6 +100,20 @@ impl ExtraItems {
                 ty,
                 read_only: qualifiers.iter().any(|q| q == &Qualifier::ReadOnly),
             }),
+        }
+    }
+
+    pub fn extra_item(&self, stdlib: &Stdlib) -> ExtraItem {
+        match self {
+            Self::Extra(extra) => extra.clone(),
+            Self::Closed => ExtraItem {
+                ty: Type::never(),
+                read_only: false,
+            },
+            Self::Default => ExtraItem {
+                ty: stdlib.object().clone().to_type(),
+                read_only: true,
+            },
         }
     }
 }

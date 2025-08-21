@@ -609,13 +609,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Get the type of a value in the TypedDict.
     fn get_typed_dict_value_type(&self, cls: &Class, fields: &SmallMap<Name, bool>) -> Type {
-        let extra = match self.typed_dict_extra_items(cls) {
-            ExtraItems::Default => {
-                return self.stdlib.object().clone().to_type();
-            }
-            ExtraItems::Closed => Type::never(),
-            ExtraItems::Extra(extra) => extra.ty,
-        };
+        let extra = self.typed_dict_extra_items(cls).extra_item(self.stdlib).ty;
         let mut values = self
             .names_to_fields(cls, fields)
             .map(|(_, field)| field.ty)

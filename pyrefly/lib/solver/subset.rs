@@ -14,6 +14,7 @@ use itertools::Itertools;
 use itertools::izip;
 use pyrefly_python::dunder;
 use pyrefly_types::read_only::ReadOnlyReason;
+use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::typed_dict::TypedDictField;
@@ -613,11 +614,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     }
 
     fn typed_dict_extra_items_field(&self, extra_items: ExtraItems) -> TypedDictField {
-        let (ty, read_only) = match extra_items {
-            ExtraItems::Extra(extra) => (extra.ty, extra.read_only),
-            ExtraItems::Closed => (Type::never(), false),
-            ExtraItems::Default => (self.type_order.stdlib().object().clone().to_type(), true),
-        };
+        let ExtraItem { ty, read_only } = extra_items.extra_item(self.type_order.stdlib());
         TypedDictField {
             ty,
             required: false,
