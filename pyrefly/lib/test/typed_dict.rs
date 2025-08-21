@@ -1440,3 +1440,35 @@ a1: A = B()
 a2: A = C()  # E: `TypedDict[C]` is not assignable to `TypedDict[A]`
     "#,
 );
+
+testcase!(
+    test_update_with_extra_items,
+    r#"
+from typing import TypedDict
+class A(TypedDict, extra_items=str):
+    pass
+class B(TypedDict, extra_items=str):
+    pass
+class C(TypedDict, extra_items=int):
+    pass
+def f(a: A, b: B, c: C):
+    a.update(b)
+    a.update(c)  # E: No matching overload
+    "#,
+);
+
+testcase!(
+    test_use_extra_items_for_update_missing_item,
+    r#"
+from typing import TypedDict
+class A(TypedDict):
+    x: int
+class B(TypedDict, extra_items=int):
+    pass
+class C(TypedDict, extra_items=str):
+    pass
+def f(a: A, b: B, c: C):
+    a.update(b)
+    a.update(c)  # E: No matching overload
+    "#,
+);

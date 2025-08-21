@@ -699,16 +699,25 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     fn is_subset_partial_typed_dict(&mut self, got: &TypedDict, want: &TypedDict) -> bool {
         let got_fields = self.type_order.typed_dict_fields(got);
         let want_fields = self.type_order.typed_dict_fields(want);
+        let got_extra_item = self
+            .type_order
+            .typed_dict_extra_items(got.class_object())
+            .extra_item(self.type_order.stdlib())
+            .ty;
+        let want_extra_item = self
+            .type_order
+            .typed_dict_extra_items(want.class_object())
+            .extra_item(self.type_order.stdlib())
+            .ty;
         want_fields.iter().all(|(k, want_v)| {
-            got_fields.get(k).is_some_and(|got_v| {
-                if want_v.is_read_only() {
-                    // ReadOnly can only be updated with Never (i.e., no update)
-                    self.is_subset_eq(&got_v.ty, &Type::never())
-                } else {
-                    self.is_subset_eq(&got_v.ty, &want_v.ty)
-                }
-            })
-        })
+            let got_ty = got_fields.get(k).map_or(&got_extra_item, |got_v| &got_v.ty);
+            if want_v.is_read_only() {
+                // ReadOnly can only be updated with Never (i.e., no update)
+                self.is_subset_eq(got_ty, &Type::never())
+            } else {
+                self.is_subset_eq(got_ty, &want_v.ty)
+            }
+        }) && self.is_subset_eq(&got_extra_item, &want_extra_item)
     }
 
     /// Implementation of subset equality for Type, other than Var.
