@@ -673,6 +673,53 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         })
     }
 
+    fn is_subset_typed_dict(&mut self, got: &TypedDict, want: &TypedDict) -> bool {
+        let (got_extra_items, want_extra_items) = {
+            let got_extra_items = self.type_order.typed_dict_extra_items(got.class_object());
+            let want_extra_items = self.type_order.typed_dict_extra_items(want.class_object());
+            if [&got_extra_items, &want_extra_items]
+                .iter()
+                .all(|extra| matches!(extra, None | Some(ExtraItems::Default)))
+            {
+                // Neither TypedDict has any extra_items restrictions.
+                (None, None)
+            } else {
+                (got_extra_items, want_extra_items)
+            }
+        };
+        let got_fields = self.get_typed_dict_fields(got, got_extra_items);
+        let want_fields = self.get_typed_dict_fields(want, want_extra_items);
+        want_fields.iter().all(|(k, want_v)| {
+            got_fields
+                .get(k)
+                .or_else(|| got_fields.get(&TypedDictFieldId::ExtraItems))
+                .is_some_and(|got_v| self.is_subset_typed_dict_field(got_v, want_v))
+        }) && want_fields
+            .get(&TypedDictFieldId::ExtraItems)
+            .is_none_or(|want_v| {
+                // Make sure all fields in `got` that aren't on `want` match the latter's `extra_items` type.
+                got_fields.iter().all(|(k, got_v)| {
+                    want_fields.contains_key(k) || self.is_subset_typed_dict_field(got_v, want_v)
+                })
+            })
+    }
+
+    /// Check TypedDict[got] <: PartialTypedDict[want]
+    fn is_subset_partial_typed_dict(&mut self, got: &TypedDict, want: &TypedDict) -> bool {
+        let got_fields = self.type_order.typed_dict_fields(got);
+        let want_fields = self.type_order.typed_dict_fields(want);
+        want_fields.iter().all(|(k, want_v)| {
+            got_fields.get(k).is_some_and(|got_v| {
+                if want_v.is_read_only() {
+                    // ReadOnly can only be updated with Never (i.e., no update)
+                    self.is_subset_eq(&got_v.ty, &Type::never())
+                } else {
+                    self.is_subset_eq(&got_v.ty, &want_v.ty)
+                }
+            })
+        })
+    }
+
     /// Implementation of subset equality for Type, other than Var.
     pub fn is_subset_eq_impl(&mut self, got: &Type, want: &Type) -> bool {
         match (got, want) {
@@ -797,52 +844,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 };
                 args_subset && self.is_subset_eq(&l.ret, &u.ret)
             }
-            (Type::TypedDict(got), Type::TypedDict(want)) => {
-                let (got_extra_items, want_extra_items) = {
-                    let got_extra_items =
-                        self.type_order.typed_dict_extra_items(got.class_object());
-                    let want_extra_items =
-                        self.type_order.typed_dict_extra_items(want.class_object());
-                    if [&got_extra_items, &want_extra_items]
-                        .iter()
-                        .all(|extra| matches!(extra, None | Some(ExtraItems::Default)))
-                    {
-                        // Neither TypedDict has any extra_items restrictions.
-                        (None, None)
-                    } else {
-                        (got_extra_items, want_extra_items)
-                    }
-                };
-                let got_fields = self.get_typed_dict_fields(got, got_extra_items);
-                let want_fields = self.get_typed_dict_fields(want, want_extra_items);
-                want_fields.iter().all(|(k, want_v)| {
-                    got_fields
-                        .get(k)
-                        .or_else(|| got_fields.get(&TypedDictFieldId::ExtraItems))
-                        .is_some_and(|got_v| self.is_subset_typed_dict_field(got_v, want_v))
-                }) && want_fields
-                    .get(&TypedDictFieldId::ExtraItems)
-                    .is_none_or(|want_v| {
-                        // Make sure all fields in `got` that aren't on `want` match the latter's `extra_items` type.
-                        got_fields.iter().all(|(k, got_v)| {
-                            want_fields.contains_key(k)
-                                || self.is_subset_typed_dict_field(got_v, want_v)
-                        })
-                    })
-            }
+            (Type::TypedDict(got), Type::TypedDict(want)) => self.is_subset_typed_dict(got, want),
             (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
-                let got_fields = self.type_order.typed_dict_fields(got);
-                let want_fields = self.type_order.typed_dict_fields(want);
-                want_fields.iter().all(|(k, want_v)| {
-                    got_fields.get(k).is_some_and(|got_v| {
-                        if want_v.is_read_only() {
-                            // ReadOnly can only be updated with Never (i.e., no update)
-                            self.is_subset_eq(&got_v.ty, &Type::never())
-                        } else {
-                            self.is_subset_eq(&got_v.ty, &want_v.ty)
-                        }
-                    })
-                })
+                self.is_subset_partial_typed_dict(got, want)
             }
             (Type::TypedDict(_), Type::SelfType(cls))
                 if cls == self.type_order.stdlib().typed_dict_fallback() =>
