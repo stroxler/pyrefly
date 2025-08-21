@@ -1329,14 +1329,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// only interested in simple, read-write attributes (in particular, this covers instance access to
     /// regular methods, and is useful for edge cases where we handle cases like `__call__` and `__new__`).
     fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
-        self.resolve_as_instance_method_with_attribute_inner(attr.inner)
-    }
-
-    fn resolve_as_instance_method_with_attribute_inner(
-        &self,
-        inner: AttributeInner,
-    ) -> Option<Type> {
-        match inner {
+        match attr.inner {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
             // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
             // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
@@ -1393,8 +1386,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::TypeAny(style) => {
                 let builtins_type_classtype = self.stdlib.builtins_type();
                 self.get_instance_attribute(builtins_type_classtype, attr_name)
-                    .and_then(|Attribute { inner }| {
-                        self.resolve_as_instance_method_with_attribute_inner(inner)
+                    .and_then(|attr| {
+                        self.resolve_as_instance_method(attr)
                             .map(LookupResult::found_type)
                     })
                     .map_or_else(
