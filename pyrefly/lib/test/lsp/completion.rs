@@ -126,7 +126,7 @@ Completion Results:
 }
 
 #[test]
-fn dot_complete_rankded_test() {
+fn dot_complete_ranked_test() {
     let code = r#"
 class Foo:
     _private: bool
