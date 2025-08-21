@@ -650,6 +650,29 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         fields
     }
 
+    fn is_subset_typed_dict_field(
+        &mut self,
+        got_v: &TypedDictField,
+        want_v: &TypedDictField,
+    ) -> bool {
+        // For each key in `want`, `got` has the corresponding key
+        // and the corresponding value type in `got` is consistent with the value type in `want`.
+        // For each required key in `want`, the corresponding key is required in `got`.
+        // For each non-required, non-readonly key in `want`, the corresponding key is not required in `got`.
+        (match (got_v.is_read_only(), want_v.is_read_only()) {
+            // ReadOnly cannot be assigned to Non-ReadOnly
+            (true, false) => false,
+            // Non-ReadOnly fields are invariant
+            (false, false) => self.is_equal(&got_v.ty, &want_v.ty),
+            // ReadOnly `want` fields are covariant
+            (_, true) => self.is_subset_eq(&got_v.ty, &want_v.ty),
+        }) && (if want_v.required {
+            got_v.required
+        } else {
+            want_v.is_read_only() || !got_v.required
+        })
+    }
+
     /// Implementation of subset equality for Type, other than Var.
     pub fn is_subset_eq_impl(&mut self, got: &Type, want: &Type) -> bool {
         match (got, want) {
@@ -775,10 +798,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 args_subset && self.is_subset_eq(&l.ret, &u.ret)
             }
             (Type::TypedDict(got), Type::TypedDict(want)) => {
-                // For each key in `want`, `got` has the corresponding key
-                // and the corresponding value type in `got` is consistent with the value type in `want`.
-                // For each required key in `want`, the corresponding key is required in `got`.
-                // For each non-required, non-readonly key in `want`, the corresponding key is not required in `got`.
                 let (got_extra_items, want_extra_items) = {
                     let got_extra_items =
                         self.type_order.typed_dict_extra_items(got.class_object());
@@ -797,24 +816,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let got_fields = self.get_typed_dict_fields(got, got_extra_items);
                 let want_fields = self.get_typed_dict_fields(want, want_extra_items);
                 want_fields.iter().all(|(k, want_v)| {
-                    got_fields.get(k).is_some_and(|got_v| {
-                        match (got_v.is_read_only(), want_v.is_read_only()) {
-                            // ReadOnly cannot be assigned to Non-ReadOnly
-                            (true, false) => false,
-                            // Non-ReadOnly fields are invariant
-                            (false, false) => self.is_equal(&got_v.ty, &want_v.ty),
-                            // ReadOnly `want` fields are covariant
-                            (_, true) => self.is_subset_eq(&got_v.ty, &want_v.ty),
-                        }
-                    })
-                }) && got_fields.iter().all(|(k, got_v)| {
-                    want_fields.get(k).is_none_or(|want_v| {
-                        if want_v.required {
-                            got_v.required
-                        } else {
-                            want_v.is_read_only() || !got_v.required
-                        }
-                    })
+                    got_fields
+                        .get(k)
+                        .is_some_and(|got_v| self.is_subset_typed_dict_field(got_v, want_v))
                 })
             }
             (Type::TypedDict(got), Type::PartialTypedDict(want)) => {
