@@ -607,8 +607,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })))
     }
 
+    pub fn get_typed_dict_value_type(&self, typed_dict: &TypedDict) -> Type {
+        let cls = typed_dict.class_object();
+        if let Some(metadata) = self.get_metadata_for_class(cls).typed_dict_metadata() {
+            self.get_typed_dict_value_type_from_fields(cls, &metadata.fields)
+        } else {
+            self.stdlib.object().clone().to_type()
+        }
+    }
+
     /// Get the type of a value in the TypedDict.
-    fn get_typed_dict_value_type(&self, cls: &Class, fields: &SmallMap<Name, bool>) -> Type {
+    fn get_typed_dict_value_type_from_fields(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Type {
         let extra = self.typed_dict_extra_items(cls).extra_item(self.stdlib).ty;
         let mut values = self
             .names_to_fields(cls, fields)
@@ -626,7 +639,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassSynthesizedField {
         let dict_items = self.stdlib.dict_items(
             self.stdlib.str().clone().to_type(),
-            self.get_typed_dict_value_type(cls, fields),
+            self.get_typed_dict_value_type_from_fields(cls, fields),
         );
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), ITEMS_METHOD);
         ClassSynthesizedField::new(Type::Function(Box::new(Function {
@@ -646,7 +659,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ClassSynthesizedField {
         let dict_values = self.stdlib.dict_values(
             self.stdlib.str().clone().to_type(),
-            self.get_typed_dict_value_type(cls, fields),
+            self.get_typed_dict_value_type_from_fields(cls, fields),
         );
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), VALUES_METHOD);
         ClassSynthesizedField::new(Type::Function(Box::new(Function {

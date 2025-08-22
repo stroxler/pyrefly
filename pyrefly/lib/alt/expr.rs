@@ -1730,10 +1730,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         Type::ClassType(cls)
                             if cls.is_builtin("str")
-                                && let ExtraItems::Extra(extra) =
-                                    self.typed_dict_extra_items(typed_dict.class_object()) =>
+                                && !matches!(
+                                    self.typed_dict_extra_items(typed_dict.class_object()),
+                                    ExtraItems::Default
+                                ) =>
                         {
-                            extra.ty
+                            self.get_typed_dict_value_type(&typed_dict)
                         }
                         _ => self.error(
                             errors,

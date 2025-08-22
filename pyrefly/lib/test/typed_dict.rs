@@ -1508,10 +1508,21 @@ testcase!(
     r#"
 from typing import assert_type, TypedDict
 class A(TypedDict, extra_items=bool):
-    pass
+    a: str
 def f(a: A, k: str):
     assert_type(a['x'], bool)
-    assert_type(a[k], bool)
+    assert_type(a[k], str | bool)
+    "#,
+);
+
+testcase!(
+    test_get_closed,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, closed=True):
+    x: str
+def f(a: A, k: str):
+    assert_type(a[k], str)
     "#,
 );
 
