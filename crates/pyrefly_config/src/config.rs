@@ -375,6 +375,9 @@ impl ConfigFile {
     pub const PYREFLY_FILE_NAME: &str = "pyrefly.toml";
     pub const PYPROJECT_FILE_NAME: &str = "pyproject.toml";
     pub const CONFIG_FILE_NAMES: &[&str] = &[Self::PYREFLY_FILE_NAME, Self::PYPROJECT_FILE_NAME];
+    /// Files that don't contain pyrefly-specific config information but indicate that we're at the
+    /// root of a Python project, which should be added to the search path.
+    pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["mypy.ini", "pyrightconfig.json"];
 
     /// Writes the configuration to a file in the specified directory.
     /// TODO(connernilsen) relative these paths to the config file's directory
@@ -387,9 +390,6 @@ impl ConfigFile {
 
         Ok(())
     }
-    /// Files that don't contain pyrefly-specific config information but indicate that we're at the
-    /// root of a Python project, which should be added to the search path.
-    pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["setup.py", "mypy.ini", "pyrightconfig.json"];
 
     pub fn default_project_includes() -> Globs {
         Globs::new(vec!["**/*".to_owned()]).unwrap_or_else(|_| Globs::empty())
@@ -1352,16 +1352,6 @@ mod tests {
     fn test_pyproject_toml_no_pyrefly_search_path() {
         let root = TempDir::new().unwrap();
         let config = create_empty_file_and_parse_config(&root, ConfigFile::PYPROJECT_FILE_NAME);
-        assert_eq!(
-            config.search_path().cloned().collect::<Vec<_>>(),
-            vec![root.path().to_path_buf()]
-        );
-    }
-
-    #[test]
-    fn test_setup_py_search_path() {
-        let root = TempDir::new().unwrap();
-        let config = create_empty_file_and_parse_config(&root, "setup.py");
         assert_eq!(
             config.search_path().cloned().collect::<Vec<_>>(),
             vec![root.path().to_path_buf()]
