@@ -299,7 +299,7 @@ impl ClassField {
     }
 
     pub fn as_param(
-        self,
+        &self,
         name: &Name,
         default: bool,
         kw_only: bool,
@@ -313,9 +313,9 @@ impl ClassField {
         let param_ty = if let Some(converter_param) = converter_param {
             converter_param
         } else if let Some(descriptor_setter) = descriptor_setter {
-            Self::get_descriptor_setter_value(&descriptor_setter)
+            Self::get_descriptor_setter_value(descriptor_setter)
         } else {
-            ty
+            ty.clone()
         };
         let required = match default {
             true => Required::Optional(None),

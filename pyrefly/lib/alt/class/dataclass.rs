@@ -462,7 +462,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     || (dataclass.class_validation_flags.validate_by_alias
                         && field_flags.alias.is_none())
                 {
-                    params.push(field.clone().as_param(
+                    params.push(field.as_param(
                         &name,
                         has_default,
                         is_kw_only,
@@ -472,7 +472,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some(alias) = &field_flags.alias
                     && dataclass.class_validation_flags.validate_by_alias
                 {
-                    params.push(field.clone().as_param(
+                    params.push(field.as_param(
                         alias,
                         has_default,
                         is_kw_only,
