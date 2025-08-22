@@ -10233,16 +10233,6 @@
     },
     {
       "code": -2,
-      "column": 5,
-      "concise_description": "Cannot set item in `TypedDict[IntDictWithNum]`",
-      "description": "Cannot set item in `TypedDict[IntDictWithNum]`\n  Object of class `IntDictWithNum` has no attribute `__setitem__`",
-      "line": 333,
-      "name": "unsupported-operation",
-      "stop_column": 31,
-      "stop_line": 333
-    },
-    {
-      "code": -2,
       "column": 9,
       "concise_description": "Cannot delete item in `TypedDict[IntDictWithNum]`",
       "description": "Cannot delete item in `TypedDict[IntDictWithNum]`\n  No matching overload found for function `IntDictWithNum.__delitem__`\n  Possible overloads:\n  (key: Literal['num'], /) -> None [closest match]",

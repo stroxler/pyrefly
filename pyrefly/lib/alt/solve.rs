@@ -12,6 +12,7 @@ use dupe::Dupe;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -1824,7 +1825,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn check_assign_to_typed_dict_subscript(
         &self,
         typed_dict: &Name,
-        field_name: &Name,
+        field_name: Option<&Name>,
         field_ty: &Type,
         read_only: bool,
         value: &ExprOrBinding,
@@ -1832,15 +1833,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if read_only {
+            let key = if let Some(field_name) = field_name {
+                format!("Key `{field_name}`")
+            } else {
+                "`extra_items`".to_owned()
+            };
             self.error(
                 errors,
                 range,
                 ErrorInfo::Kind(ErrorKind::ReadOnly),
-                format!("Key `{field_name}` in TypedDict `{typed_dict}` is read-only"),
+                format!("{key} in TypedDict `{typed_dict}` is read-only"),
             )
         } else {
-            let context =
-                &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(field_name.clone()));
+            let context = &|| {
+                TypeCheckContext::of_kind(if let Some(field_name) = field_name {
+                    TypeCheckKind::TypedDictKey(field_name.clone())
+                } else {
+                    TypeCheckKind::TypedDictExtra
+                })
+            };
             match value {
                 ExprOrBinding::Expr(e) => self.expr(e, Some((field_ty, context)), errors),
                 ExprOrBinding::Binding(b) => {
@@ -1863,28 +1874,50 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match (base, &slice_ty) {
                 (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                     let field_name = Name::new(field_name);
-                    if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
-                        self.check_assign_to_typed_dict_subscript(
-                            typed_dict.name(),
-                            &field_name,
-                            &field.ty,
-                            field.is_read_only(),
-                            value,
-                            subscript.range(),
-                            errors,
-                        )
-                    } else {
-                        self.error(
-                            errors,
-                            subscript.slice.range(),
-                            ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                            format!(
-                                "TypedDict `{}` does not have key `{}`",
-                                typed_dict.name(),
-                                field_name
-                            ),
-                        )
-                    }
+                    let (field_ty, read_only) =
+                        if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
+                            let read_only = field.is_read_only();
+                            (field.ty, read_only)
+                        } else if let ExtraItems::Extra(extra) =
+                            self.typed_dict_extra_items(typed_dict.class_object())
+                        {
+                            (extra.ty, extra.read_only)
+                        } else {
+                            return self.error(
+                                errors,
+                                subscript.slice.range(),
+                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                format!(
+                                    "TypedDict `{}` does not have key `{}`",
+                                    typed_dict.name(),
+                                    field_name
+                                ),
+                            );
+                        };
+                    self.check_assign_to_typed_dict_subscript(
+                        typed_dict.name(),
+                        Some(&field_name),
+                        &field_ty,
+                        read_only,
+                        value,
+                        subscript.range(),
+                        errors,
+                    )
+                }
+                (Type::TypedDict(typed_dict), Type::ClassType(cls))
+                    if cls.is_builtin("str")
+                        && let ExtraItems::Extra(extra) =
+                            self.typed_dict_extra_items(typed_dict.class_object()) =>
+                {
+                    self.check_assign_to_typed_dict_subscript(
+                        typed_dict.name(),
+                        None,
+                        &extra.ty,
+                        extra.read_only,
+                        value,
+                        subscript.range(),
+                        errors,
+                    )
                 }
                 (_, _) => {
                     let call_setitem = |value_arg| {

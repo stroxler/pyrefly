@@ -435,7 +435,6 @@
     "Line 321: Unexpected errors ['`TypedDict[IntDictWithNum]` is not assignable to `dict[str, int]`']",
     "Line 328: Unexpected errors ['Object of class `IntDictWithNum` has no attribute `clear`']",
     "Line 330: Unexpected errors ['assert_type(Any, tuple[str, int]) failed', 'Object of class `IntDictWithNum` has no attribute `popitem`']",
-    "Line 333: Unexpected errors ['Cannot set item in `TypedDict[IntDictWithNum]`\\n  Object of class `IntDictWithNum` has no attribute `__setitem__`']",
     "Line 334: Unexpected errors [\"Cannot delete item in `TypedDict[IntDictWithNum]`\\n  No matching overload found for function `IntDictWithNum.__delitem__`\\n  Possible overloads:\\n  (key: Literal['num'], /) -> None [closest match]\"]"
   ],
   "typeddicts_final.py": [],

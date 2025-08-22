@@ -1514,3 +1514,16 @@ def f(a: A, k: str):
     assert_type(a[k], bool)
     "#,
 );
+
+testcase!(
+    test_set_extra_item,
+    r#"
+from typing import TypedDict
+class A(TypedDict, extra_items=bool):
+    pass
+def f(a: A, k: str):
+    a['x'] = True
+    a['y'] = 'oops'  # E: `Literal['oops']` is not assignable to TypedDict key `y` with type `bool`
+    a[k] = False
+    "#,
+);
