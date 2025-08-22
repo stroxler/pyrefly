@@ -190,6 +190,21 @@ use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 
+/// Interface exposed for TSP to interact with the LSP server
+pub trait TspInterface {
+    /// Send a response back to the LSP client
+    fn send_response(&self, response: Response);
+
+    /// Process an LSP event and return the next step
+    fn process_event<'a>(
+        &'a self,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+        canceled_requests: &mut HashSet<RequestId>,
+        subsequent_mutation: bool,
+        event: LspEvent,
+    ) -> anyhow::Result<ProcessEvent>;
+}
+
 #[derive(Clone, Dupe)]
 struct ServerConnection(Arc<Connection>);
 
@@ -221,7 +236,7 @@ impl ServerConnection {
     }
 }
 
-struct Server {
+pub struct Server {
     connection: ServerConnection,
     /// A thread pool of size one for heavy read operations on the State
     async_state_read_threads: ThreadPool,
@@ -255,7 +270,7 @@ struct Server {
 /// - priority_events includes those that should be handled as soon as possible (e.g. know that a
 ///   request is cancelled)
 /// - queued_events includes most of the other events.
-fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
+pub fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
     for msg in &connection.receiver {
         match msg {
             Message::Request(x) => {
@@ -397,7 +412,7 @@ pub fn capabilities(
     }
 }
 
-enum ProcessEvent {
+pub enum ProcessEvent {
     Continue,
     Exit,
 }
@@ -808,7 +823,7 @@ impl Server {
         Ok(ProcessEvent::Continue)
     }
 
-    fn new(
+    pub fn new(
         connection: Arc<Connection>,
         lsp_queue: LspQueue,
         initialize_params: InitializeParams,
@@ -1896,5 +1911,26 @@ impl Server {
 
     fn invalidate_config(&self) {
         self.invalidate(|t| t.invalidate_config());
+    }
+}
+
+impl TspInterface for Server {
+    fn send_response(&self, response: Response) {
+        self.send_response(response)
+    }
+
+    fn process_event<'a>(
+        &'a self,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+        canceled_requests: &mut HashSet<RequestId>,
+        subsequent_mutation: bool,
+        event: LspEvent,
+    ) -> anyhow::Result<ProcessEvent> {
+        self.process_event(
+            ide_transaction_manager,
+            canceled_requests,
+            subsequent_mutation,
+            event,
+        )
     }
 }

@@ -47,6 +47,8 @@ mod report;
 mod solver;
 mod state;
 mod test;
+#[cfg(not(target_arch = "wasm32"))]
+mod tsp;
 
 pub(crate) use compat::*;
 
