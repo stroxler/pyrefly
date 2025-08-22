@@ -598,7 +598,7 @@ impl Forallable {
 #[derive(Visit, VisitMut, TypeEq)]
 pub enum SuperObj {
     Instance(ClassType),
-    Class(Class),
+    Class(ClassType),
 }
 
 // Note: The fact that Literal and LiteralString are at the front is important for

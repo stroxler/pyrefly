@@ -253,7 +253,7 @@ impl ClassField {
         }
     }
 
-    fn instantiate_for(&self, instance: &Instance) -> Self {
+    fn instantiate_helper(&self, f: &mut dyn FnMut(&Type) -> Type) -> Self {
         match &self.0 {
             ClassFieldInner::Simple {
                 ty,
@@ -265,20 +265,27 @@ impl ClassField {
                 is_function_without_return_annotation,
                 name_might_exist_in_inherited,
             } => Self(ClassFieldInner::Simple {
-                ty: instance.instantiate_member(ty.clone()),
+                ty: f(ty),
                 annotation: annotation.clone(),
                 initialization: initialization.clone(),
                 read_only_reason: read_only_reason.clone(),
-                descriptor_getter: descriptor_getter
-                    .as_ref()
-                    .map(|ty| instance.instantiate_member(ty.clone())),
-                descriptor_setter: descriptor_setter
-                    .as_ref()
-                    .map(|ty| instance.instantiate_member(ty.clone())),
+                descriptor_getter: descriptor_getter.as_ref().map(&mut *f),
+                descriptor_setter: descriptor_setter.as_ref().map(&mut *f),
                 is_function_without_return_annotation: *is_function_without_return_annotation,
                 name_might_exist_in_inherited: *name_might_exist_in_inherited,
             }),
         }
+    }
+
+    fn instantiate_for(&self, instance: &Instance) -> Self {
+        self.instantiate_helper(&mut |ty| instance.instantiate_member(ty.clone()))
+    }
+
+    fn instantiate_for_class(&self, _cls: &Class, targs: Option<&TArgs>) -> Self {
+        self.instantiate_helper(&mut |ty| match targs {
+            Some(targs) => targs.substitute_into(ty.clone()),
+            None => ty.clone(), // TODO: transform to function depending on class param here
+        })
     }
 
     /// Given a `__set__(self, instance, value)` function, gets the type of `value`.
@@ -1385,19 +1392,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn as_class_attribute(&self, field: ClassField, cls: &Class) -> Attribute {
-        self.as_class_attribute_impl(field, cls, None, None)
+    fn as_class_attribute(
+        &self,
+        field: ClassField,
+        cls: &Class,
+        targs: Option<&TArgs>,
+    ) -> Attribute {
+        self.as_class_attribute_impl(field, cls, targs, None, None)
     }
 
     fn as_class_attribute_impl(
         &self,
         field: ClassField,
         cls: &Class,
+        targs: Option<&TArgs>,
         bind_to_override: Option<Type>,
         subst_self_type_override: Option<Type>,
     ) -> Attribute {
         let bind_to = bind_to_override.unwrap_or(Type::ClassDef(cls.dupe()));
-        match &field.0 {
+        match &field.instantiate_for_class(cls, targs).0 {
             ClassFieldInner::Simple {
                 ty,
                 descriptor_getter,
@@ -1853,8 +1866,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .get_super_class_member(obj.class_object(), start_lookup_cls, name)
                 .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(obj))),
             SuperObj::Class(obj) => self
-                .get_super_class_member(obj, start_lookup_cls, name)
-                .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), obj)),
+                .get_super_class_member(obj.class_object(), start_lookup_cls, name)
+                .map(|member| {
+                    self.as_class_attribute(
+                        Arc::unwrap_or_clone(member.value),
+                        obj.class_object(),
+                        Some(obj.targs()),
+                    )
+                }),
         }
     }
 
@@ -1865,9 +1884,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///
     /// Access is disallowed for instance-only attributes and for attributes whose
     /// type contains a class-scoped type parameter - e.g., `class A[T]: x: T`.
-    pub fn get_class_attribute(&self, cls: &Class, name: &Name) -> Option<Attribute> {
+    pub fn get_class_attribute(
+        &self,
+        cls: &Class,
+        targs: Option<&TArgs>,
+        name: &Name,
+    ) -> Option<Attribute> {
         self.get_class_member(cls, name)
-            .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
+            .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls, targs))
     }
 
     pub fn get_bounded_quantified_class_attribute(
@@ -1880,6 +1904,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.as_class_attribute_impl(
                 Arc::unwrap_or_clone(member.value),
                 class,
+                None, // TODO: type var bound can have targs
                 Some(Type::Type(Box::new(Type::Quantified(Box::new(
                     quantified.clone(),
                 ))))),

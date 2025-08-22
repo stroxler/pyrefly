@@ -12,6 +12,7 @@ use pyrefly_python::dunder;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::special_form::SpecialForm;
+use pyrefly_types::types::TArgs;
 use pyrefly_types::types::Var;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -484,7 +485,7 @@ impl InternalError {
 enum AttributeBase {
     EnumLiteral(ClassType, Name, Type),
     ClassInstance(ClassType),
-    ClassObject(Class),
+    ClassObject(Class, Option<TArgs>),
     Module(ModuleType),
     /// The attribute access is on a quantified type form (as in `args: P.args` - this
     /// is only used when the base *is* a quantified type, not when the base is
@@ -1392,7 +1393,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )
                     }
                     None if let SuperObj::Class(cls) = &obj
-                        && self.extends_any(cls) =>
+                        && self.extends_any(cls.class_object()) =>
                     {
                         LookupResult::found_type_read_only(
                             Type::Any(AnyStyle::Implicit),
@@ -1421,8 +1422,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     },
                 }
             }
-            AttributeBase::ClassObject(class) => {
-                match self.get_class_attribute(&class, attr_name) {
+            AttributeBase::ClassObject(class, targs) => {
+                match self.get_class_attribute(&class, targs.as_ref(), attr_name) {
                     Some(attr) => LookupResult::found(attr),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
@@ -1532,7 +1533,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// instead of `A.__magic_dunder_attr__`).
     fn lookup_magic_dunder_attr(&self, base: AttributeBase, dunder_name: &Name) -> LookupResult {
         match &base {
-            AttributeBase::ClassObject(class) => {
+            AttributeBase::ClassObject(class, _targs) => {
                 let metadata = self.get_metadata_for_class(class);
                 let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
                 if *dunder_name == dunder::GETATTRIBUTE
@@ -1727,11 +1728,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn as_attribute_base(&self, ty: Type) -> Option<AttributeBase> {
         match ty {
             Type::ClassType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
-            Type::ClassDef(cls) => Some(AttributeBase::ClassObject(cls)),
+            Type::ClassDef(cls) => Some(AttributeBase::ClassObject(cls, None)),
             Type::SelfType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
-            Type::Type(box Type::SelfType(class_type)) => {
-                Some(AttributeBase::ClassObject(class_type.class_object().dupe()))
-            }
+            Type::Type(box Type::SelfType(class_type)) => Some(AttributeBase::ClassObject(
+                class_type.class_object().dupe(),
+                Some(class_type.targs().clone()),
+            )),
             Type::TypedDict(td) | Type::PartialTypedDict(td) => {
                 Some(AttributeBase::TypedDict(td.clone()))
             }
@@ -1750,12 +1752,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Any(style) => Some(AttributeBase::Any(style)),
             Type::TypeAlias(ta) => self.as_attribute_base(ta.as_value(self.stdlib)),
-            Type::Type(box Type::Tuple(_)) => Some(AttributeBase::ClassObject(
-                self.stdlib.tuple_object().dupe(),
-            )),
-            Type::Type(box Type::ClassType(class)) => {
-                Some(AttributeBase::ClassObject(class.class_object().dupe()))
+            Type::Type(box Type::Tuple(tuple)) => {
+                self.as_attribute_base(Type::type_form(self.erase_tuple_type(tuple).to_type()))
             }
+            Type::Type(box Type::ClassType(class)) => Some(AttributeBase::ClassObject(
+                class.class_object().dupe(),
+                Some(class.targs().clone()),
+            )),
             Type::Type(box Type::Quantified(quantified)) => match quantified.restriction() {
                 Restriction::Bound(upper_bound) => {
                     let mut res = Vec::new();
@@ -1820,7 +1823,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 | SpecialForm::Tuple,
             )) => Some(AttributeBase::TypeAny(AnyStyle::Implicit)),
             Type::Type(box Type::SpecialForm(SpecialForm::Type)) => Some(
-                AttributeBase::ClassObject(self.stdlib.builtins_type().class_object().dupe()),
+                AttributeBase::ClassObject(self.stdlib.builtins_type().class_object().dupe(), None),
             ),
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) | Type::Type(box Type::TypeVar(_)) => {
@@ -2182,7 +2185,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::SuperInstance(class, _) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
-                AttributeBase::ClassObject(class) | AttributeBase::TypeVarType(_, class) => {
+                AttributeBase::ClassObject(class, _) | AttributeBase::TypeVarType(_, class) => {
                     self.completions_class(class, expected_attribute_name, &mut res)
                 }
                 AttributeBase::TypeVar(q, _) => self.completions_class_type(

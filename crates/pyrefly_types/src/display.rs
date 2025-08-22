@@ -397,8 +397,8 @@ impl<'a> TypeDisplayContext<'a> {
                         self.fmt_qname(obj.qname(), f)?;
                         self.fmt_targs(obj.targs(), f)?;
                     }
-                    SuperObj::Class(obj) => {
-                        self.fmt_qname(obj.qname(), f)?;
+                    SuperObj::Class(cls) => {
+                        self.fmt_qname(cls.qname(), f)?;
                     }
                 }
                 write!(f, "]")

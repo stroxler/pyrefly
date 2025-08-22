@@ -1542,16 +1542,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         match self.get_idx(*obj_binding).ty() {
                             Type::Any(style) => style.propagate(),
                             Type::ClassType(obj_cls) => make_super_instance(obj_cls, &|| SuperObj::Instance(obj_cls.clone())),
-                            Type::Type(box Type::ClassType(obj_cls)) => make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.class_object().dupe())),
+                            Type::Type(box Type::ClassType(obj_cls)) => {
+                                make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.clone()))
+                            }
                             Type::ClassDef(obj_cls) => {
                                 let obj_type = self.type_order().as_class_type_unchecked(obj_cls);
-                                make_super_instance(&obj_type, &|| SuperObj::Class(obj_cls.dupe()))
+                                make_super_instance(&obj_type, &|| SuperObj::Class(obj_type.clone()))
                             }
                             Type::SelfType(obj_cls) => {
                                 make_super_instance(obj_cls, &|| SuperObj::Instance(obj_cls.clone()))
                             }
                             Type::Type(box Type::SelfType(obj_cls)) => {
-                                make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.class_object().dupe()))
+                                make_super_instance(obj_cls, &|| SuperObj::Class(obj_cls.clone()))
                             }
                             t => {
                                 self.error(
@@ -1582,7 +1584,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let obj = if method.id == dunder::NEW {
                             // __new__ is special: it's the only static method in which the
                             // no-argument form of super is allowed.
-                            SuperObj::Class(obj_cls.dupe())
+                            SuperObj::Class(obj_type.clone())
                         } else {
                             let method_ty =
                                 self.get(&KeyUndecoratedFunction(ShortIdentifier::new(method)));
@@ -1594,7 +1596,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     "`super` call with no arguments is not valid inside a staticmethod".to_owned(),
                                 );
                             } else if method_ty.metadata.flags.is_classmethod {
-                                SuperObj::Class(obj_cls.dupe())
+                                SuperObj::Class(obj_type.clone())
                             } else {
                                 SuperObj::Instance(obj_type)
                             }

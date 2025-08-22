@@ -75,13 +75,13 @@ assert_type(C.__new__(C, ""), C)
 );
 
 testcase!(
-    bug = "We use the first argument to Self specialize, but we should use the receiver.",
     test_self_type_subst_use_receiver,
     r#"
 from typing import assert_type, Self
 class A[T]:
     def __new__(cls: type[Self], x: T) -> Self: ...
-A[int].__new__(A[str], "foo") # TODO: should error
+o = A[int].__new__(A[str], "foo") # E: Argument `Literal['foo']` is not assignable to parameter `x` with type `int` in function `A.__new__`
+assert_type(o, A[str]) # weird, but matches mypy and pyright :/
     "#,
 );
 
