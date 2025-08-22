@@ -382,12 +382,17 @@ impl Query {
             handle: &Handle,
         ) -> Vec<Callee> {
             // a bit unfortunate that we have to rely on LSP functionality to get the target
-            let defs = transaction.find_definition(
-                handle,
-                // take location of last included character in range (which should work for identifiers and attributes)
-                callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
-                &FindPreference::default(),
-            );
+            let defs = transaction
+                .find_definition(
+                    handle,
+                    // take location of last included character in range (which should work for identifiers and attributes)
+                    callee_range.end().checked_sub(TextSize::from(1)).unwrap(),
+                    &FindPreference::default(),
+                )
+                .into_iter()
+                // filter out attributes since we don't know how to handle them
+                .filter(|d| !matches!(d.metadata, DefinitionMetadata::Attribute(_)))
+                .collect_vec();
             if defs.is_empty() {
                 vec![]
             } else if defs.len() == 1 {
@@ -400,12 +405,6 @@ impl Query {
                             target: format!("$parameter${name}"),
                             class_name: None,
                         }]
-                    }
-                    DefinitionMetadata::Attribute(_) => {
-                        // cannot determine callee for case a.b() when b is callable but not function
-                        // (i.e instance of the class defining __call__)
-                        // - return no results similar to pyre1
-                        vec![]
                     }
                     x => panic!("callable ty - unexpected metadata kind, {:?}", x),
                 }
@@ -427,6 +426,15 @@ impl Query {
                 Type::Type(ty) => {
                     callee_from_type(ty, callee_range, module_info, transaction, handle)
                 }
+                Type::Quantified(q) => match &q.restriction {
+                    Restriction::Bound(b) => {
+                        callee_from_type(b, callee_range, module_info, transaction, handle)
+                    }
+                    x => panic!(
+                        "unexpected restriction {}: {x:?}",
+                        module_info.display_range(callee_range)
+                    ),
+                },
                 Type::Never(_) => vec![],
                 Type::Union(tys) => {
                     // get callee for each type
