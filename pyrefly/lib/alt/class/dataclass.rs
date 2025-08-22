@@ -26,6 +26,7 @@ use crate::alt::class::class_field::DataclassMember;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -217,7 +218,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         .any(|k| map.0.contains_key(*k));
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
 
-        let mut alias = if dataclass_metadata.class_validation_flags.1 {
+        let mut alias = if dataclass_metadata.class_validation_flags.validate_by_alias {
             map.get_string(alias_keyword)
                 .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
                 .map(Name::new)
@@ -237,7 +238,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 args,
                 errors,
                 alias_keyword,
-                dataclass_metadata.class_validation_flags,
+                dataclass_metadata.class_validation_flags.clone(),
                 &mut init,
                 &mut kw_only,
                 &mut alias,
@@ -260,7 +261,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &Arguments,
         errors: &ErrorCollector,
         alias_key_to_use: &Name,
-        validation_flags: (bool, bool),
+        validation_flags: ClassValidationFlags,
         init: &mut Option<bool>,
         kw_only: &mut Option<bool>,
         alias: &mut Option<Name>,
@@ -318,7 +319,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if name == &DataclassFieldKeywords::KW_ONLY {
                     self.fill_in_literal(kw_only, ty, default_ty, |ty| ty.as_bool());
                 }
-                if validation_flags.1 && alias.is_none() && name == alias_key_to_use {
+                if validation_flags.validate_by_alias && alias.is_none() && name == alias_key_to_use
+                {
                     self.fill_in_literal(alias, ty, default_ty, |ty| match ty {
                         Type::Literal(Lit::Str(s)) => Some(Name::new(s)),
                         _ => None,
@@ -428,7 +430,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
             if field_flags.init {
                 let has_default = field_flags.default
-                    || (dataclass.class_validation_flags.0 && dataclass.class_validation_flags.1);
+                    || (dataclass.class_validation_flags.validate_by_name
+                        && dataclass.class_validation_flags.validate_by_alias);
                 let is_kw_only = field_flags.is_kw_only();
                 if !is_kw_only {
                     if !has_default
@@ -448,8 +451,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_seen_default = true;
                     }
                 }
-                if dataclass.class_validation_flags.0
-                    || (dataclass.class_validation_flags.1 && field_flags.alias.is_none())
+                if dataclass.class_validation_flags.validate_by_name
+                    || (dataclass.class_validation_flags.validate_by_alias
+                        && field_flags.alias.is_none())
                 {
                     params.push(field.clone().as_param(
                         &name,
@@ -459,7 +463,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ));
                 }
                 if let Some(alias) = &field_flags.alias
-                    && dataclass.class_validation_flags.1
+                    && dataclass.class_validation_flags.validate_by_alias
                 {
                     params.push(field.clone().as_param(
                         alias,

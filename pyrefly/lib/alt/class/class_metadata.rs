@@ -31,6 +31,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
+use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::alt::types::class_metadata::NamedTupleMetadata;
@@ -742,9 +743,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(m)
         });
 
-        let class_validation_flags = pydantic_metadata.map_or((false, true), |pyd| {
-            (pyd.class_validate_by_name, pyd.class_validate_by_alias)
-        });
+        let class_validation_flags = pydantic_metadata.map_or(
+            ClassValidationFlags {
+                validate_by_name: false,
+                validate_by_alias: true,
+            },
+            |pyd| ClassValidationFlags {
+                validate_by_name: pyd.class_validate_by_name,
+                validate_by_alias: pyd.class_validate_by_alias,
+            },
+        );
 
         let mut alias_keyword = DataclassFieldKeywords::ALIAS;
         if pydantic_metadata.is_some() {
@@ -764,7 +772,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
                         alias_keyword: alias_keyword.clone(),
-                        class_validation_flags,
+                        class_validation_flags: class_validation_flags.clone(),
                     });
                 }
                 // `@dataclass(...)`
@@ -783,7 +791,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
                         alias_keyword: alias_keyword.clone(),
-                        class_validation_flags,
+                        class_validation_flags: class_validation_flags.clone(),
                     });
                 }
                 _ => {}

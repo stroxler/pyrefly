@@ -343,6 +343,12 @@ pub struct NamedTupleMetadata {
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
+pub struct ClassValidationFlags {
+    pub validate_by_name: bool,
+    pub validate_by_alias: bool,
+}
+
+#[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
 pub struct DataclassMetadata {
     /// The dataclass fields, e.g., `{'x'}` for `@dataclass class C: x: int`.
     pub fields: SmallSet<Name>,
@@ -350,7 +356,7 @@ pub struct DataclassMetadata {
     pub field_specifiers: Vec<CalleeKind>,
     pub alias_keyword: Name,
     // a tuple to indicate whether we should validate by name or alias
-    pub class_validation_flags: (bool, bool),
+    pub class_validation_flags: ClassValidationFlags,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
