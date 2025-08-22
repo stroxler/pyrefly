@@ -28,6 +28,8 @@ use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
+use crate::binding::pydantic::GT;
+use crate::binding::pydantic::LT;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -226,6 +228,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None
         };
 
+        let gt = map.0.get(&GT).cloned();
+        let lt = map.0.get(&LT).cloned();
+
         let mut converter_param = map
             .0
             .get(&DataclassFieldKeywords::CONVERTER)
@@ -250,6 +255,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             default,
             kw_only,
             alias,
+            lt,
+            gt,
             converter_param,
         }
     }

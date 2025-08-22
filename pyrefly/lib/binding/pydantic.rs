@@ -15,6 +15,8 @@ use crate::export::special::SpecialExport;
 // special pydantic constants
 const FROZEN_DEFAULT: bool = false;
 pub const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
+pub const GT: Name = Name::new_static("gt");
+pub const LT: Name = Name::new_static("lt");
 const FROZEN: Name = Name::new_static("frozen");
 
 // Pydantic metadata that we will later extend to include more fields

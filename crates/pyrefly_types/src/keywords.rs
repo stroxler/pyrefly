@@ -126,6 +126,9 @@ pub struct DataclassFieldKeywords {
     pub kw_only: Option<bool>,
     /// Alias that is used in `__init__` rather than the field name. None means no alias
     pub alias: Option<Name>,
+    /// gt and lt specify the range of values that the field can take. None means no constraint
+    pub lt: Option<Type>,
+    pub gt: Option<Type>,
     /// If a converter callable is passed in, its first positional parameter
     pub converter_param: Option<Type>,
 }
@@ -148,6 +151,8 @@ impl DataclassFieldKeywords {
             default: false,
             kw_only: None,
             alias: None,
+            lt: None,
+            gt: None,
             converter_param: None,
         }
     }
