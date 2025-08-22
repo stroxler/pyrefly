@@ -427,7 +427,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
             if field_flags.init {
-                let has_default = field_flags.default;
+                let has_default = field_flags.default
+                    || (dataclass.class_validation_flags.0 && dataclass.class_validation_flags.1);
                 let is_kw_only = field_flags.is_kw_only();
                 if !is_kw_only {
                     if !has_default
@@ -447,12 +448,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_seen_default = true;
                     }
                 }
-                params.push(field.as_param(
-                    &field_flags.alias.unwrap_or(name),
-                    has_default,
-                    is_kw_only,
-                    field_flags.converter_param,
-                ));
+                if dataclass.class_validation_flags.0
+                    || (dataclass.class_validation_flags.1 && field_flags.alias.is_none())
+                {
+                    params.push(field.clone().as_param(
+                        &name,
+                        has_default,
+                        is_kw_only,
+                        field_flags.converter_param.clone(),
+                    ));
+                }
+                if let Some(alias) = &field_flags.alias
+                    && dataclass.class_validation_flags.1
+                {
+                    params.push(field.clone().as_param(
+                        alias,
+                        has_default,
+                        is_kw_only,
+                        field_flags.converter_param.clone(),
+                    ));
+                }
             }
         }
 

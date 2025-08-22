@@ -47,14 +47,13 @@ m.z  # E: Object of class `Model` has no attribute `z`
 );
 
 testcase!(
-    bug = "should not error on any of these calls",
     test_validation_by_alias_and_name,
     pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=True):
     x: int = Field(alias='y')
-Model(x=0) # E: Missing argument `y` in function `Model.__init__` # E: Unexpected keyword argument `x` in function `Model.__init__`
+Model(x=0) 
 Model(y=0)
 "#,
 );
@@ -72,14 +71,13 @@ Model(y=0)
 );
 
 testcase!(
-    bug = "Validate by alias is true by default, so there should be no errors.",
     test_validation_by_name,
     pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True):
     x: int = Field(alias='y')
-Model(x=0) # E: Missing argument `y` in function `Model.__init__` # E: Unexpected keyword argument `x` in function `Model.__init__`
+Model(x=0)
 Model(y=0)
 "#,
 );
@@ -91,7 +89,7 @@ testcase!(
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=False):
     x: int = Field(alias='y')
-Model(x=0) 
+Model(x=0)
 Model(y=0) # E: Missing argument `x` in function `Model.__init__` # E: Unexpected keyword argument `y` in function `Model.__init__`
 "#,
 );
