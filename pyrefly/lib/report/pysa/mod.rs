@@ -41,6 +41,7 @@ use tracing::debug;
 use tracing::info;
 
 use crate::alt::answers::Answers;
+use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::BindingClass;
@@ -145,6 +146,7 @@ struct ClassDefinition {
     parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
+    fields: Vec<String>,
 }
 
 /// Format of a module file `my.module:id.json`
@@ -579,7 +581,22 @@ fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item
         .map(|idx| answers.get_idx(idx).unwrap().0.clone().unwrap())
 }
 
+fn get_class_field(
+    transaction: &Transaction,
+    handle: &Handle,
+    class: &Class,
+    field: &Name,
+) -> Option<Arc<ClassField>> {
+    transaction
+        .ad_hoc_solve(handle, |solver| {
+            solver.get_field_from_current_class_only(class, field)
+        })
+        .unwrap()
+}
+
 fn export_all_classes(
+    handle: &Handle,
+    transaction: &Transaction,
     ast: &ModModule,
     module_info: &Module,
     bindings: &Bindings,
@@ -602,6 +619,27 @@ fn export_all_classes(
             BindingClass::ClassDef(_) => false,
         };
 
+        let fields = class
+            .fields()
+            .filter_map(|field| {
+                match get_class_field(transaction, handle, &class, field) {
+                    // We want to exclude fields that are function definitions,
+                    // since those are exported in `definitions_of_expression`.
+                    // There is no easy way to know if a field matches a `def ..`
+                    // statement, so just use the type and explicit annotation
+                    // as a heuristic for now.
+                    Some(class_field)
+                        if class_field.ty().is_function_type()
+                            && !class_field.has_explicit_annotation() =>
+                    {
+                        None // This is a method.
+                    }
+                    Some(_) => Some(field.to_string()),
+                    _ => None,
+                }
+            })
+            .collect();
+
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
             name: class.qname().id().to_string(),
@@ -619,6 +657,7 @@ fn export_all_classes(
                 })
                 .collect::<Vec<_>>(),
             is_synthesized,
+            fields,
         };
 
         assert!(
@@ -723,7 +762,15 @@ fn get_module_file(
     }
 
     let function_definitions = export_all_functions(ast, module_info, bindings, answers);
-    let class_definitions = export_all_classes(ast, module_info, bindings, answers, module_ids);
+    let class_definitions = export_all_classes(
+        handle,
+        transaction,
+        ast,
+        module_info,
+        bindings,
+        answers,
+        module_ids,
+    );
 
     PysaModuleFile {
         format_version: 1,

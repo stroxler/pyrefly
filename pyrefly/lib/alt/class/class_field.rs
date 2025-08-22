@@ -344,10 +344,14 @@ impl ClassField {
             .and_then(|ty| make_bound_method(instance.to_type(), ty).ok())
     }
 
-    pub fn as_named_tuple_type(&self) -> Type {
+    pub fn ty(&self) -> Type {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.clone(),
         }
+    }
+
+    pub fn as_named_tuple_type(&self) -> Type {
+        self.ty()
     }
 
     pub fn as_named_tuple_requiredness(&self) -> Required {
@@ -470,7 +474,7 @@ impl ClassField {
         }
     }
 
-    fn has_explicit_annotation(&self) -> bool {
+    pub fn has_explicit_annotation(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => annotation.is_some(),
         }
