@@ -1717,3 +1717,37 @@ def test(x: tuple[Literal["user"], Literal[None]] | tuple[Literal["admin"], int]
         assert_type(x, tuple[Literal["user"], Literal[None]])  
     "#,
 );
+
+testcase!(
+    test_narrow_and_placeholder,
+    r#"
+from typing import assert_type
+
+class A: pass
+class B: pass
+
+def test1(flag: bool, x: A | B) -> None:
+    if isinstance(x, A) and flag:
+        pass
+    else:
+        assert_type(x, A | B)
+
+def test2(flag: bool, x: A | B) -> None:
+    if flag and isinstance(x, A):
+        pass
+    else:
+        assert_type(x, A | B)
+
+def test3(x: A | B, y: A | B):
+    if isinstance(x, A) and isinstance(y, B):
+        pass
+    else:
+        assert_type(x, A | B) 
+
+def foo() -> bool: ...
+def test4(x: int | None) -> None:
+    if x is not None and foo():
+        return
+    assert_type(x, int | None) 
+    "#,
+);

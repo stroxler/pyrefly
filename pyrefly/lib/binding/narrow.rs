@@ -281,8 +281,30 @@ impl NarrowOps {
     }
 
     pub fn and_all(&mut self, other: Self) {
+        let mut seen = SmallSet::new();
         for (name, (op, range)) in other.0 {
+            seen.insert(name.clone());
             self.and(name, op, range);
+        }
+        // For names present in `self` but not `other`, `And` their narrows with a placeholder
+        let unmerged_names: Vec<_> = self
+            .0
+            .keys()
+            .filter_map(|name| {
+                if seen.contains(name) {
+                    None
+                } else {
+                    Some(name.clone())
+                }
+            })
+            .collect();
+        for name in unmerged_names {
+            if let Entry::Occupied(mut entry) = self.0.entry(name) {
+                entry
+                    .get_mut()
+                    .0
+                    .and(NarrowOp::Atomic(None, AtomicNarrowOp::Placeholder));
+            }
         }
     }
 
