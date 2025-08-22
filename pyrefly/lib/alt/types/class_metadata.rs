@@ -25,7 +25,6 @@ use vec1::Vec1;
 use vec1::vec1;
 
 use crate::alt::class::class_field::ClassField;
-use crate::alt::types::pydantic::PydanticMetadata;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -56,7 +55,7 @@ pub struct ClassMetadata {
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
     dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-    pydantic_metadata: Option<PydanticMetadata>,
+    is_pydantic_model: bool,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -88,7 +87,7 @@ impl ClassMetadata {
         is_final: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-        pydantic_metadata: Option<PydanticMetadata>,
+        is_pydantic_model: bool,
     ) -> ClassMetadata {
         ClassMetadata {
             metaclass: Metaclass(metaclass),
@@ -105,7 +104,7 @@ impl ClassMetadata {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            pydantic_metadata,
+            is_pydantic_model,
         }
     }
 
@@ -125,7 +124,7 @@ impl ClassMetadata {
             is_final: false,
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
-            pydantic_metadata: None,
+            is_pydantic_model: false,
         }
     }
 
@@ -143,7 +142,7 @@ impl ClassMetadata {
     }
 
     pub fn is_pydantic_model(&self) -> bool {
-        self.pydantic_metadata.is_some()
+        self.is_pydantic_model
     }
 
     pub fn is_final(&self) -> bool {
@@ -206,10 +205,6 @@ impl ClassMetadata {
 
     pub fn dataclass_metadata(&self) -> Option<&DataclassMetadata> {
         self.dataclass_metadata.as_ref()
-    }
-
-    pub fn pydantic_metadata(&self) -> Option<&PydanticMetadata> {
-        self.pydantic_metadata.as_ref()
     }
 
     pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformKeywords> {

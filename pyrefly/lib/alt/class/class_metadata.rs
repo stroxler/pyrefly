@@ -288,7 +288,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let keywords =
             keywords.into_map(|(name, annot)| (name, annot.ty.unwrap_or_else(Type::any_implicit)));
 
-        // TODO Zeina: Consider not passing pydantic metadata here and only pass the info we need for downstream
         ClassMetadata::new(
             bases,
             metaclass,
@@ -304,7 +303,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            pydantic_metadata,
+            pydantic_metadata.is_some(),
         )
     }
 
