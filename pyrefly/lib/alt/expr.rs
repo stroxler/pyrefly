@@ -16,6 +16,7 @@ use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::FuncId;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
@@ -1710,6 +1711,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 self.typed_dict_field(&typed_dict, &Name::new(field_name))
                             {
                                 field.ty.clone()
+                            } else if let ExtraItems::Extra(extra) =
+                                self.typed_dict_extra_items(typed_dict.class_object())
+                            {
+                                extra.ty
                             } else {
                                 self.error(
                                     errors,
@@ -1722,6 +1727,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     ),
                                 )
                             }
+                        }
+                        Type::ClassType(cls)
+                            if cls.is_builtin("str")
+                                && let ExtraItems::Extra(extra) =
+                                    self.typed_dict_extra_items(typed_dict.class_object()) =>
+                        {
+                            extra.ty
                         }
                         _ => self.error(
                             errors,

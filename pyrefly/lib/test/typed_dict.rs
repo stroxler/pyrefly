@@ -1502,3 +1502,15 @@ def f(x: X):
     assert_type(list(x.values()), list[int])
     "#,
 );
+
+testcase!(
+    test_get_extra_item,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, extra_items=bool):
+    pass
+def f(a: A, k: str):
+    assert_type(a['x'], bool)
+    assert_type(a[k], bool)
+    "#,
+);

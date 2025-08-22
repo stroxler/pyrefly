@@ -9893,26 +9893,6 @@
     },
     {
       "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(Any, bool) failed",
-      "description": "assert_type(Any, bool) failed",
-      "line": 29,
-      "name": "assert-type",
-      "stop_column": 49,
-      "stop_line": 29
-    },
-    {
-      "code": -2,
-      "column": 23,
-      "concise_description": "TypedDict `Movie` does not have key `novel_adaptation`",
-      "description": "TypedDict `Movie` does not have key `novel_adaptation`",
-      "line": 29,
-      "name": "typed-dict-key-error",
-      "stop_column": 41,
-      "stop_line": 29
-    },
-    {
-      "code": -2,
       "column": 54,
       "concise_description": "`None` is not assignable to TypedDict key `year` with type `int`",
       "description": "`None` is not assignable to TypedDict key `year` with type `int`",
