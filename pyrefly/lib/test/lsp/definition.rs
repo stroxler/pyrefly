@@ -1308,3 +1308,35 @@ Definition Result: None
         report.trim(),
     );
 }
+
+#[test]
+fn module_attr_access_should_follow_exports_not_dunder_all_test() {
+    let code_name_provider = r#"
+__all__ = []
+x: int = 42
+"#;
+    let code = r#"
+import foo
+foo.x
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("foo", code_name_provider)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | foo.x
+        ^
+Definition Result:
+3 | x: int = 42
+    ^
+
+
+# foo.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}

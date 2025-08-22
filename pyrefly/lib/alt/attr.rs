@@ -2126,7 +2126,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(exports) = self.get_module_exports(module_name) {
             match expected_attribute_name {
                 None => {
-                    res.extend(exports.wildcard(self.exports).iter().map(|x| AttrInfo {
+                    res.extend(exports.exports(self.exports).iter().map(|(x, _)| AttrInfo {
                         name: x.clone(),
                         ty: None,
                         definition: Some(
@@ -2138,8 +2138,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Some(expected_attribute_name) => {
                     if exports
-                        .wildcard(self.exports)
-                        .contains(expected_attribute_name)
+                        .exports(self.exports)
+                        .get(expected_attribute_name)
+                        .is_some()
                     {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
