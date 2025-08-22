@@ -1821,6 +1821,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn check_assign_to_typed_dict_subscript(
+        &self,
+        typed_dict: &Name,
+        field_name: &Name,
+        field_ty: &Type,
+        read_only: bool,
+        value: &ExprOrBinding,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        if read_only {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::ReadOnly),
+                format!("Key `{field_name}` in TypedDict `{typed_dict}` is read-only"),
+            )
+        } else {
+            let context =
+                &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(field_name.clone()));
+            match value {
+                ExprOrBinding::Expr(e) => self.expr(e, Some((field_ty, context)), errors),
+                ExprOrBinding::Binding(b) => {
+                    let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
+                    self.check_and_return_type(binding_ty, field_ty, range, errors, context)
+                }
+            }
+        }
+    }
+
     fn check_assign_to_subscript(
         &self,
         subscript: &ExprSubscript,
@@ -1834,39 +1864,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                     let field_name = Name::new(field_name);
                     if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
-                        if field.is_read_only() {
-                            self.error(
-                                errors,
-                                subscript.slice.range(),
-                                ErrorInfo::Kind(ErrorKind::ReadOnly),
-                                format!(
-                                    "Key `{}` in TypedDict `{}` is read-only",
-                                    field_name,
-                                    typed_dict.name(),
-                                ),
-                            )
-                        } else {
-                            let context = &|| {
-                                TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
-                                    field_name.clone(),
-                                ))
-                            };
-                            match value {
-                                ExprOrBinding::Expr(e) => {
-                                    self.expr(e, Some((&field.ty, context)), errors)
-                                }
-                                ExprOrBinding::Binding(b) => {
-                                    let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
-                                    self.check_and_return_type(
-                                        binding_ty,
-                                        &field.ty,
-                                        subscript.range(),
-                                        errors,
-                                        context,
-                                    )
-                                }
-                            }
-                        }
+                        self.check_assign_to_typed_dict_subscript(
+                            typed_dict.name(),
+                            &field_name,
+                            &field.ty,
+                            field.is_read_only(),
+                            value,
+                            subscript.range(),
+                            errors,
+                        )
                     } else {
                         self.error(
                             errors,
