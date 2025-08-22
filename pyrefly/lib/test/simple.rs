@@ -772,6 +772,28 @@ def f(x: Annotated[int, "test"], y: Annotated[int, "test", "test"]):
 );
 
 testcase!(
+    test_nested_string_annotation,
+    r#"
+x: "'int'" = 1  # E: Expected a type form, got instance of `Literal['int']`
+y: "list['int']" = [1]  # E: Expected a type form, got instance of `Literal['int']`
+    "#,
+);
+
+testcase!(
+    test_nested_subscript_annotation,
+    r#"
+# we'll emit parse errors for invalid string literal annotations that aren't inside a subscript
+# for annotations inside a subscript, we already emit an "expected a type" annotation at solving time
+import typing
+# type: ignore
+PyTree: typing.TypeAlias = getattr(typing, "foo" + "bar")
+x: PyTree[int, " T"] = 1  # this is fine because the base of the subscript is some invalid type so it's all `Any`
+y: list[" T"] = []  # E: Expected a type form, got instance of `Literal[' T']
+z: " T" = 1  # E: Expected a type form, got instance of `Literal[' T']`
+    "#,
+);
+
+testcase!(
     test_no_backtracking,
     r#"
 from typing import assert_type

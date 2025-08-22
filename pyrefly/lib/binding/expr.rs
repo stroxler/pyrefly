@@ -698,6 +698,15 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
+        self.ensure_type_impl(x, tparams_builder, false);
+    }
+
+    fn ensure_type_impl(
+        &mut self,
+        x: &mut Expr,
+        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        in_string_literal: bool,
+    ) {
         self.track_potential_typing_self(x);
         // We do not treat static types as usage for the purpose of first-usage-based type inference.
         let static_type_usage = &mut Usage::StaticTypeInformation;
@@ -722,28 +731,28 @@ impl<'a> BindingsBuilder<'a> {
                     && matches!(&**slice, Expr::Tuple(tup) if !tup.is_empty()) =>
             {
                 // Only go inside the first argument to Annotated, the rest are non-type metadata.
-                self.ensure_type(&mut *value, tparams_builder);
+                self.ensure_type_impl(&mut *value, tparams_builder, in_string_literal);
                 // We can't bind a mut box in the guard (sadly), so force unwrapping it here
                 let tup = slice.as_tuple_expr_mut().unwrap();
-                self.ensure_type(&mut tup.elts[0], tparams_builder);
+                self.ensure_type_impl(&mut tup.elts[0], tparams_builder, in_string_literal);
                 for e in tup.elts[1..].iter_mut() {
                     self.ensure_expr(e, static_type_usage);
                 }
             }
-            Expr::StringLiteral(literal) if let Some(literal) = literal.as_single_part_string() => {
+            Expr::Subscript(ExprSubscript { value, slice, .. }) => {
+                self.ensure_type_impl(&mut *value, tparams_builder, in_string_literal);
+                self.ensure_type_impl(&mut *slice, tparams_builder, in_string_literal);
+            }
+            Expr::StringLiteral(literal)
+                if !in_string_literal && let Some(literal) = literal.as_single_part_string() =>
+            {
                 match Ast::parse_type_literal(literal) {
                     Ok(expr) => {
                         *x = expr;
-                        // TODO: Remember if we have already done a parse_type_literal, so we could properly
-                        // reject annotations of the form `"'T'"`.
-                        self.ensure_type(x, tparams_builder);
+                        self.ensure_type_impl(x, tparams_builder, true);
                     }
-                    Err(e) => {
-                        self.error(
-                            literal.range,
-                            ErrorInfo::Kind(ErrorKind::ParseError),
-                            format!("Could not parse type string: {}, got {e}", literal.value),
-                        );
+                    Err(_) => {
+                        // We don't need to emit errors here, because the solving logic expects the expression to resolve to a type, and it will fail.
                     }
                 }
             }
@@ -753,7 +762,9 @@ impl<'a> BindingsBuilder<'a> {
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
             Expr::Call(_) => self.ensure_expr(x, static_type_usage),
-            _ => x.recurse_mut(&mut |x| self.ensure_type(x, tparams_builder)),
+            _ => {
+                x.recurse_mut(&mut |x| self.ensure_type_impl(x, tparams_builder, in_string_literal))
+            }
         }
     }
 
