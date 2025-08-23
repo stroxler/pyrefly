@@ -20,6 +20,13 @@ use crate::types::class::Class;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
 
+/// The `_value_` attribute in enums is reserved, and can be annotated to
+/// indicate an explicit type restriction on enum members. Looking it up
+/// on an enum member will give the raw value of that member.
+pub const VALUE: Name = Name::new_static("_value_");
+/// The `value` attribute of an enum is a property that returns `_value_`.
+const VALUE_PROP: Name = Name::new_static("value");
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_enum_member(&self, cls: &Class, name: &Name) -> Option<Lit> {
         self.get_field_from_current_class_only(cls, name)
@@ -84,9 +91,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         metadata: &ClassMetadata,
         name: &Name,
     ) -> Option<Attribute> {
-        if metadata.is_enum() && matches!(name.as_str(), "value" | "_value_") {
-            let value = Name::new_static("_value_");
-            if self.field_is_inherited_from_enum(class.class_object(), &value) {
+        if metadata.is_enum() && (name == &VALUE || name == &VALUE_PROP) {
+            if self.field_is_inherited_from_enum(class.class_object(), &VALUE) {
                 // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
                 let enum_value_types: Vec<_> = self
                     .get_enum_members(class.class_object())
@@ -101,7 +107,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect();
                 Some(Attribute::read_write(self.unions(enum_value_types)))
             } else {
-                self.get_instance_attribute(class, &value)
+                self.get_instance_attribute(class, &VALUE)
             }
         } else {
             None
