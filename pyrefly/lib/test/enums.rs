@@ -167,7 +167,6 @@ def test(e: MyEnum):
 );
 
 testcase!(
-    bug = "We aren't restricting mutations of enum member values",
     test_mutate_value,
     r#"
 from enum import Enum
@@ -178,9 +177,9 @@ class MyEnumUnannotated(Enum):
     X = 1
 def mutate(ea: MyEnumAnnotated, eu: MyEnumUnannotated) -> None:
     ea._value_ = 2  # Allowed for now, because it must be permitted in `__init__`
-    ea.value = 2  # Should be an error
+    ea.value = 2  # E: Cannot set field `value`
     eu._value_ = 2  # Allowed for now, because it must be permitted in `__init__`
-    eu.value = 2  # Should be an error
+    eu.value = 2  # E: Cannot set field `value`
 "#,
 );
 

@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use pyrefly_types::class::ClassType;
+use pyrefly_types::read_only::ReadOnlyReason;
 use ruff_python_ast::name::Name;
 use starlark_map::small_set::SmallSet;
 
@@ -83,6 +84,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///   the `Any` annotation from `enum.Enum` we will compute the type based
     ///   on the observed types of members).
     ///
+    /// The resulting attribute is read-only if it is `value`, which is a property,
+    /// and read-write if it is `_value_`. Whether `_value_` should be considered
+    /// writable is unspecified, but we at least have to allow it in `__init__`.
+    ///
     /// Return None if either this is not an enum or this is not a special-case
     /// attribute.
     pub fn special_case_enum_attr_lookup(
@@ -105,9 +110,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     })
                     .collect();
-                Some(Attribute::read_write(self.unions(enum_value_types)))
+                let ty = self.unions(enum_value_types);
+                Some(if name == &VALUE_PROP {
+                    Attribute::read_only(ty, ReadOnlyReason::EnumMemberValue)
+                } else {
+                    Attribute::read_write(ty)
+                })
             } else {
-                self.get_instance_attribute(class, &VALUE)
+                self.get_instance_attribute(class, &VALUE).map(|attr| {
+                    // Do not allow writing `.value`, which is a property.
+                    if name == &VALUE_PROP {
+                        attr.read_only_equivalent(ReadOnlyReason::EnumMemberValue)
+                    } else {
+                        attr
+                    }
+                })
             }
         } else {
             None
