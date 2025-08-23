@@ -62,6 +62,7 @@ def bar(member: int) -> None:
 def foo(member: MyEnum) -> None:
     assert_type(member.name, str)
     assert_type(member.value, int)
+    assert_type(member._value_, int)
 "#,
 );
 
