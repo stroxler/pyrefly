@@ -486,7 +486,7 @@ impl InternalError {
 enum AttributeBase {
     EnumLiteral(LitEnum),
     ClassInstance(ClassType),
-    ClassObject(Class, Option<TArgs>),
+    ClassObject(ClassBase),
     Module(ModuleType),
     /// The attribute access is on a quantified type form (as in `args: P.args` - this
     /// is only used when the base *is* a quantified type, not when the base is
@@ -495,7 +495,7 @@ enum AttributeBase {
     TypeVar(Quantified, Option<ClassType>),
     /// Attribute access on a `type[T]`.
     /// The second element is a bound or constraint for the type variable.
-    TypeVarType(Quantified, Class),
+    TypeVarType(Quantified, ClassType),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
@@ -509,6 +509,42 @@ enum AttributeBase {
     /// Typed dictionaries have similar properties to dict and Mapping, with some exceptions
     TypedDict(TypedDict),
     Union(Vec<AttributeBase>),
+}
+
+/// A normalized type for attribute lookup which has "class-like" lookup behavior. For example,
+/// when we look up an instance method from a class base, we get the unbound function type.
+
+#[derive(Clone, Debug)]
+pub enum ClassBase {
+    ClassDef(Class),
+    ClassType(ClassType),
+    Quantified(Quantified, ClassType),
+}
+
+impl ClassBase {
+    pub fn class_object(&self) -> &Class {
+        match self {
+            ClassBase::ClassDef(c) => c,
+            ClassBase::ClassType(c) => c.class_object(),
+            ClassBase::Quantified(_, c) => c.class_object(),
+        }
+    }
+
+    pub fn targs(&self) -> Option<&TArgs> {
+        match self {
+            ClassBase::ClassDef(..) => None,
+            ClassBase::ClassType(c) => Some(c.targs()),
+            ClassBase::Quantified(_, c) => Some(c.targs()),
+        }
+    }
+
+    pub fn to_type(self) -> Type {
+        match self {
+            ClassBase::ClassDef(c) => Type::ClassDef(c),
+            ClassBase::ClassType(c) => Type::Type(Box::new(c.to_type())),
+            ClassBase::Quantified(q, _) => Type::type_form(q.to_type()),
+        }
+    }
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -1399,19 +1435,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .get_bounded_quantified_class_attribute(quantified, &class, attr_name)
                     {
                         Some(attr) => LookupResult::found(attr),
-                        None => LookupResult::not_found(NotFoundOn::ClassObject(class, base_copy)),
+                        None => LookupResult::not_found(NotFoundOn::ClassObject(
+                            class.class_object().dupe(),
+                            base_copy,
+                        )),
                     },
                 }
             }
-            AttributeBase::ClassObject(class, targs) => {
-                match self.get_class_attribute(&class, targs.as_ref(), attr_name) {
+            AttributeBase::ClassObject(class) => {
+                match self.get_class_attribute(&class, attr_name) {
                     Some(attr) => LookupResult::found(attr),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
                         // NOTE(grievejia): This lookup serves as fallback for normal class attribute lookup for regular
                         // attributes, but for magic dunder methods it needs to supersede normal class attribute lookup.
                         // See `lookup_magic_dunder_attr()`.
-                        let metadata = self.get_metadata_for_class(&class);
+                        let metadata = self.get_metadata_for_class(class.class_object());
                         let instance_attr = match metadata.metaclass() {
                             Some(meta) => self.get_instance_attribute(meta, attr_name),
                             None => {
@@ -1428,9 +1467,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     attr_name,
                                 )
                             }
-                            None => {
-                                LookupResult::not_found(NotFoundOn::ClassObject(class, base_copy))
-                            }
+                            None => LookupResult::not_found(NotFoundOn::ClassObject(
+                                class.class_object().dupe(),
+                                base_copy,
+                            )),
                         }
                     }
                 }
@@ -1514,8 +1554,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// instead of `A.__magic_dunder_attr__`).
     fn lookup_magic_dunder_attr(&self, base: AttributeBase, dunder_name: &Name) -> LookupResult {
         match &base {
-            AttributeBase::ClassObject(class, _targs) => {
-                let metadata = self.get_metadata_for_class(class);
+            AttributeBase::ClassObject(class) => {
+                let metadata = self.get_metadata_for_class(class.class_object());
                 let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
                 if *dunder_name == dunder::GETATTRIBUTE
                     && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
@@ -1709,11 +1749,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn as_attribute_base(&self, ty: Type) -> Option<AttributeBase> {
         match ty {
             Type::ClassType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
-            Type::ClassDef(cls) => Some(AttributeBase::ClassObject(cls, None)),
+            Type::ClassDef(cls) => Some(AttributeBase::ClassObject(ClassBase::ClassDef(cls))),
             Type::SelfType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
             Type::Type(box Type::SelfType(class_type)) => Some(AttributeBase::ClassObject(
-                class_type.class_object().dupe(),
-                Some(class_type.targs().clone()),
+                ClassBase::ClassType(class_type.clone()),
             )),
             Type::TypedDict(td) | Type::PartialTypedDict(td) => {
                 Some(AttributeBase::TypedDict(td.clone()))
@@ -1733,8 +1772,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.as_attribute_base(Type::type_form(self.erase_tuple_type(tuple).to_type()))
             }
             Type::Type(box Type::ClassType(class)) => Some(AttributeBase::ClassObject(
-                class.class_object().dupe(),
-                Some(class.targs().clone()),
+                ClassBase::ClassType(class.clone()),
             )),
             Type::Type(box Type::Quantified(quantified)) => match quantified.restriction() {
                 Restriction::Bound(upper_bound) => {
@@ -1743,10 +1781,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.map_over_union(upper_bound, |bound| {
                         let bound_attr_base = self.as_attribute_base(bound.clone());
                         if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
-                            res.push(AttributeBase::TypeVarType(
-                                (*quantified).clone(),
-                                cls.class_object().dupe(),
-                            ));
+                            res.push(AttributeBase::TypeVarType((*quantified).clone(), cls));
                         } else {
                             use_fallback = true;
                         }
@@ -1754,7 +1789,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if use_fallback {
                         res.push(AttributeBase::TypeVarType(
                             (*quantified).clone(),
-                            self.stdlib.object().class_object().dupe(),
+                            self.stdlib.object().clone(),
                         ));
                     }
                     Some(AttributeBase::Union(res))
@@ -1765,10 +1800,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     for constraint in constraints {
                         let constraint_attr_base = self.as_attribute_base(constraint.clone());
                         if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
-                            res.push(AttributeBase::TypeVarType(
-                                (*quantified).clone(),
-                                cls.class_object().dupe(),
-                            ));
+                            res.push(AttributeBase::TypeVarType((*quantified).clone(), cls));
                         } else {
                             use_fallback = true;
                         }
@@ -1776,14 +1808,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if use_fallback {
                         res.push(AttributeBase::TypeVarType(
                             (*quantified).clone(),
-                            self.stdlib.object().class_object().dupe(),
+                            self.stdlib.object().clone(),
                         ));
                     }
                     Some(AttributeBase::Union(res))
                 }
                 Restriction::Unrestricted => Some(AttributeBase::TypeVarType(
                     (*quantified).clone(),
-                    self.stdlib.object().class_object().dupe(),
+                    self.stdlib.object().clone(),
                 )),
             },
             Type::Type(box Type::Any(style)) => Some(AttributeBase::TypeAny(style)),
@@ -1799,9 +1831,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 | SpecialForm::Protocol
                 | SpecialForm::Tuple,
             )) => Some(AttributeBase::TypeAny(AnyStyle::Implicit)),
-            Type::Type(box Type::SpecialForm(SpecialForm::Type)) => Some(
-                AttributeBase::ClassObject(self.stdlib.builtins_type().class_object().dupe(), None),
-            ),
+            Type::Type(box Type::SpecialForm(SpecialForm::Type)) => {
+                Some(AttributeBase::ClassObject(ClassBase::ClassDef(
+                    self.stdlib.builtins_type().class_object().dupe(),
+                )))
+            }
             Type::Module(module) => Some(AttributeBase::Module(module)),
             Type::TypeVar(_) | Type::Type(box Type::TypeVar(_)) => {
                 Some(AttributeBase::ClassInstance(self.stdlib.type_var().clone()))
@@ -2162,8 +2196,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::SuperInstance(class, _) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
-                AttributeBase::ClassObject(class, _) | AttributeBase::TypeVarType(_, class) => {
-                    self.completions_class(class, expected_attribute_name, &mut res)
+                AttributeBase::ClassObject(class) => {
+                    self.completions_class(class.class_object(), expected_attribute_name, &mut res)
+                }
+                AttributeBase::TypeVarType(_, class) => {
+                    self.completions_class(class.class_object(), expected_attribute_name, &mut res)
                 }
                 AttributeBase::TypeVar(q, _) => self.completions_class_type(
                     q.as_value(self.stdlib),

@@ -129,10 +129,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(CallTarget::FunctionOverload(funcs, *overload.metadata))
             }
             Type::BoundMethod(box BoundMethod { obj, mut func }) => {
-                let self_replacement = if func.metadata().flags.is_classmethod
-                    && let Type::ClassDef(c) = &obj
-                {
-                    &self.instantiate(c)
+                let self_replacement = if func.metadata().flags.is_classmethod {
+                    match &obj {
+                        Type::ClassDef(c) => &self.instantiate(c),
+                        Type::Type(t) => t,
+                        _ => &obj,
+                    }
                 } else {
                     &obj
                 };

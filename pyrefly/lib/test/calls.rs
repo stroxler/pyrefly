@@ -80,8 +80,8 @@ testcase!(
 from typing import assert_type, Self
 class A[T]:
     def __new__(cls: type[Self], x: T) -> Self: ...
-o = A[int].__new__(A[str], "foo") # E: Argument `Literal['foo']` is not assignable to parameter `x` with type `int` in function `A.__new__`
-assert_type(o, A[str]) # weird, but matches mypy and pyright :/
+o = A[int].__new__(A[str], "foo") # E: `type[A[str]]` is not assignable to parameter `cls` with type `type[A[int]]` # E: Argument `Literal['foo']` is not assignable to parameter `x` with type `int` in function `A.__new__`
+assert_type(o, A[int])
     "#,
 );
 

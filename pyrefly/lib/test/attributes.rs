@@ -220,6 +220,27 @@ def foo(x: Callable[[int], str], c: C, c2: C2, c3: C3):
 );
 
 testcase!(
+    bug = "classmethod bound object w/o targs is default-instantiated, solves T to Any",
+    test_bound_classmethod_explicit_targs,
+    r#"
+from typing import assert_type
+class A[T]:
+    x: T
+    def __init__(self, x: T):
+        self.x = x
+    @classmethod
+    def m(cls: 'type[A[T]]', x: T) -> 'A[T]':
+        return cls(x)
+
+assert_type(A[int].m(0), A[int])
+assert_type(A.m(0), A[int]) # TODO # E: assert_type(A[Any], A[int]) failed
+
+def test_typevar_bounds[T: A[int]](x: type[T]):
+    assert_type(x.m(0), A[int])
+    "#,
+);
+
+testcase!(
     test_use_of_class_body_scope_in_class_body_statement,
     r#"
 class A:
