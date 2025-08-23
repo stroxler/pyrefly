@@ -870,6 +870,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let initialization =
             self.get_class_field_initialization(&metadata, initial_value, magically_initialized);
 
+        // Note: the subset check here is too conservative when it comes to modeling runtime behavior
+        // we want to check if the bound_val is coercible to the annotation type at runtime.
+        // statically, this could be a challenge, which is why we go with this more conservative approach for now.
+        if metadata.is_pydantic_model()
+            && let Some(annot) = &direct_annotation
+            && let ClassFieldInitialization::ClassBody(Some(DataclassFieldKeywords {
+                gt, lt, ..
+            })) = &initialization
+        {
+            let field_ty = annot.get_type();
+
+            for (bound_val, label) in [(gt, "gt"), (lt, "lt")] {
+                let Some(val) = bound_val else { continue };
+                if !self.is_subset_eq(val, field_ty) {
+                    self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::BadArgumentType),
+                format!(
+                    "Pydantic `{label}` value is of type `{}` but the field is annotated with `{}`",
+                    self.for_display(val.clone()),
+                    self.for_display(field_ty.clone())
+                ),
+            );
+                }
+            }
+        }
+
         // Ban typed dict from containing values; fields should be annotation-only.
         // TODO(stroxler): we ought to look into this more: class-level attributes make sense on a `TypedDict` class;
         // the typing spec does not explicitly define whether this is permitted.

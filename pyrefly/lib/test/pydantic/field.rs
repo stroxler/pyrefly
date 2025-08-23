@@ -29,14 +29,13 @@ Model(x=15)
 );
 
 testcase!(
-    bug = "gt/lt values should have types that are be coercible to an int in this case. So, we should raise an error",
     test_field_wrong_type,
     pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 
 class Model(BaseModel):
-    x: int = Field(gt="A", lt="B")
+    x: int = Field(gt="A", lt="B") # E:  Pydantic `gt` value is of type `Literal['A']` but the field is annotated with `int` # E: Pydantic `lt` value is of type `Literal['B']` but the field is annotated with `int`
 
 Model(x=5)
 "#,
