@@ -407,7 +407,7 @@ impl Query {
                             class_name: None,
                         }]
                     }
-                    x => panic!("callable ty - unexpected metadata kind, {:?}", x),
+                    x => panic!("callable ty - unexpected metadata kind, {x:?}"),
                 }
             } else {
                 panic!(
