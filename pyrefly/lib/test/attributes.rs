@@ -1072,6 +1072,154 @@ def f[T: Foo | Bar](y: T, z: Foo | Bar) -> T:
 );
 
 testcase!(
+    bug = "type[None] should be types.NoneType",
+    test_attribute_access_on_type_none,
+    r#"
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+ty(None).__bool__(None) # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
+    bug = "Self@int should not be exposed by the call to bit_length",
+    test_attribute_access_on_type_literal,
+    r#"
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+ty(0).bit_length(0) # TODO # E: `Literal[0]` is not assignable to parameter `self` with type `Self@int`
+"#,
+);
+
+testcase!(
+    test_attribute_access_on_type_literalstring,
+    r#"
+from typing import LiteralString
+
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+def test(x: LiteralString):
+    ty(x).upper(x)
+"#,
+);
+
+testcase!(
+    bug = "type[<<callable>>] should be... types.FunctionType, probably. type[object] if that's unagreeable",
+    test_attribute_access_on_type_callable,
+    r#"
+from typing import Callable
+
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+def test_callable(x: Callable[[], None]):
+    ty(x).__call__(x) # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
+    bug = "type[<<function>>] should be types.FunctionType",
+    test_attribute_access_on_type_function,
+    r#"
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+def foo(): ...
+
+ty(foo).__call__(foo) # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
+    bug = "type[<<boundmethod>>] should be types.FunctionType",
+    test_attribute_access_on_type_boundmethod,
+    r#"
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+class X:
+    def m(self): ...
+
+ty(X().m).__call__(X().m) # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
+    bug = "type[<<overload>>] should be types.FunctionType",
+    test_attribute_access_on_type_overload,
+    r#"
+from typing import overload
+
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+@overload
+def bar(x: int) -> int: ...
+@overload
+def bar(x: str) -> str: ...
+def bar(x: int | str) -> int | str: ...
+
+ty(bar).__call__(bar) # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
+    test_attribute_access_on_type_union,
+    r#"
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+class A:
+    x = 0
+class B:
+    x = "foo"
+
+def test_union(x: A  | B):
+    ty(x).x
+"#,
+);
+
+testcase!(
+    bug = "type[ClassDef(..)] and type[ClassType(..)] should be type (or the direct metaclass?)",
+    test_attribute_access_on_type_class,
+    r#"
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+class C:
+    @staticmethod
+    def m(x: int): ...
+
+class D[T]:
+    @classmethod
+    def m(cls, x: T): ...
+
+ty(C).m(0) # E: Expr::attr_infer_for_type attribute base undefined
+ty(D[int]).m(0) # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
+    bug = "type[TypedDict()] should be type",
+    test_attribute_access_on_type_typeddict,
+    r#"
+from typing import TypedDict
+
+# handy hack to get a type[X] for any X
+def ty[T](x: T) -> type[T]: ...
+
+class TD(TypedDict):
+    x: int
+
+ty(TD(x = 0))(x = 0)
+ty(TD).mro() # E: Expr::attr_infer_for_type attribute base undefined
+"#,
+);
+
+testcase!(
     test_type_magic_dunder_compare,
     r#"
 def test(x: type[int], y: type[int]) -> None:
