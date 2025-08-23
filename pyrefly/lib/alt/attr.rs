@@ -11,6 +11,7 @@ use dupe::Dupe;
 use pyrefly_python::dunder;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::literal::LitEnum;
 use pyrefly_types::special_form::SpecialForm;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::Var;
@@ -483,7 +484,7 @@ impl InternalError {
 /// it's corresponding class type.
 #[derive(Clone, Debug)]
 enum AttributeBase {
-    EnumLiteral(ClassType, Name, Type),
+    EnumLiteral(LitEnum),
     ClassInstance(ClassType),
     ClassObject(Class, Option<TArgs>),
     Module(ModuleType),
@@ -1336,17 +1337,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
             }
             AttributeBase::Never => LookupResult::found_type(Type::never()),
-            AttributeBase::EnumLiteral(_, member, _)
-                if matches!(attr_name.as_str(), "name" | "_name_") =>
-            {
-                LookupResult::found_type(Type::Literal(Lit::Str(member.as_str().into())))
+            AttributeBase::EnumLiteral(e) if matches!(attr_name.as_str(), "name" | "_name_") => {
+                LookupResult::found_type(Type::Literal(Lit::Str(e.member.as_str().into())))
             }
-            AttributeBase::EnumLiteral(_, _, raw_type)
-                if matches!(attr_name.as_str(), "value" | "_value_") =>
-            {
-                LookupResult::found_type(raw_type.clone())
+            AttributeBase::EnumLiteral(e) if matches!(attr_name.as_str(), "value" | "_value_") => {
+                LookupResult::found_type(e.ty)
             }
-            AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
+            AttributeBase::ClassInstance(class)
+            | AttributeBase::EnumLiteral(LitEnum { class, .. }) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let mut attr_name = attr_name.clone();
                 // Special case magic enum properties for `AttributeBase::ClassInstance`
@@ -1553,7 +1551,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AttributeBase::ClassInstance(cls)
-            | AttributeBase::EnumLiteral(cls, _, _)
+            | AttributeBase::EnumLiteral(LitEnum { class: cls, .. })
             | AttributeBase::TypeVar(_, Some(cls))
             | AttributeBase::SuperInstance(cls, _)
                 if (*dunder_name == dunder::SETATTR
@@ -1739,11 +1737,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Tuple(tuple) => Some(AttributeBase::ClassInstance(self.erase_tuple_type(tuple))),
             Type::LiteralString => Some(AttributeBase::ClassInstance(self.stdlib.str().clone())),
-            Type::Literal(Lit::Enum(lit_enum)) => Some(AttributeBase::EnumLiteral(
-                lit_enum.class,
-                lit_enum.member,
-                lit_enum.ty,
-            )),
+            Type::Literal(Lit::Enum(lit_enum)) => Some(AttributeBase::EnumLiteral(*lit_enum)),
             Type::Literal(lit) => Some(AttributeBase::ClassInstance(
                 lit.general_class_type(self.stdlib).clone(),
             )),
@@ -2173,7 +2167,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(base) = self.as_attribute_base(base) {
             match &base {
                 AttributeBase::ClassInstance(class)
-                | AttributeBase::EnumLiteral(class, _, _)
+                | AttributeBase::EnumLiteral(LitEnum { class, .. })
                 | AttributeBase::TypeVar(_, Some(class)) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
