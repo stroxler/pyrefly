@@ -7,12 +7,15 @@
 
 use std::sync::Arc;
 
+use pyrefly_types::class::ClassType;
 use ruff_python_ast::name::Name;
 use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::attr::Attribute;
 use crate::alt::class::class_field::ClassFieldInitialization;
+use crate::alt::types::class_metadata::ClassMetadata;
 use crate::types::class::Class;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
@@ -62,6 +65,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 false
             }
             _ => true,
+        }
+    }
+
+    /// Special-case enum attribute lookups:
+    /// - if this is an enum and the attribute is `value`, we'll redirect it to
+    ///   look up the type of `_value_` so that the `value` property understands
+    ///   annotated `_value_`.
+    /// - furthermore, if there is no annotation on `_value_` (meaning it inherits
+    ///   the `Any` annotation from `enum.Enum` we will compute the type based
+    ///   on the observed types of members).
+    ///
+    /// Return None if either this is not an enum or this is not a special-case
+    /// attribute.
+    pub fn special_case_enum_attr_lookup(
+        &self,
+        class: &ClassType,
+        metadata: &ClassMetadata,
+        name: &Name,
+    ) -> Option<Attribute> {
+        if metadata.is_enum() && matches!(name.as_str(), "value" | "_value_") {
+            let value = Name::new_static("_value_");
+            if self.field_is_inherited_from_enum(class.class_object(), &value) {
+                // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
+                let enum_value_types: Vec<_> = self
+                    .get_enum_members(class.class_object())
+                    .into_iter()
+                    .filter_map(|lit| {
+                        if let Lit::Enum(lit_enum) = lit {
+                            Some(lit_enum.ty)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                Some(Attribute::read_write(self.unions(enum_value_types)))
+            } else {
+                self.get_instance_attribute(class, &value)
+            }
+        } else {
+            None
         }
     }
 }

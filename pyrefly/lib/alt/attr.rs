@@ -1346,30 +1346,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase::ClassInstance(class)
             | AttributeBase::EnumLiteral(LitEnum { class, .. }) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
-                let attr_lookup_result =
-                    // Special case magic enum properties for `AttributeBase::ClassInstance`
-                    if metadata.is_enum() && matches!(attr_name.as_str(), "value" | "_value_") {
-                        let value = Name::new_static("_value_");
-                        if self.field_is_inherited_from_enum(class.class_object(), &value) {
-                            // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
-                            let enum_value_types: Vec<_> = self
-                                .get_enum_members(class.class_object())
-                                .into_iter()
-                                .filter_map(|lit| {
-                                    if let Lit::Enum(lit_enum) = lit {
-                                        Some(lit_enum.ty)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect();
-                            return LookupResult::found_type(self.unions(enum_value_types));
-                        } else {
-                            self.get_instance_attribute(&class, &value)
-                        }
-                    } else {
-                        self.get_instance_attribute(&class, attr_name)
-                    };
+                let attr_lookup_result = self
+                    .special_case_enum_attr_lookup(&class, &metadata, attr_name)
+                    .or_else(|| self.get_instance_attribute(&class, attr_name));
                 match attr_lookup_result {
                     Some(attr) => LookupResult::found(attr),
                     None if metadata.has_base_any() => {
