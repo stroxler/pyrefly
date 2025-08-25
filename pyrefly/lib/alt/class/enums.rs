@@ -110,7 +110,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     })
                     .collect();
-                let ty = self.unions(enum_value_types);
+                let ty = if enum_value_types.is_empty() {
+                    // Assume Any, rather than Never, if there are no members because they may
+                    // be created dynamically and we don't want downstream analysis to be incorrect.
+                    Type::any_implicit()
+                } else {
+                    self.unions(enum_value_types)
+                };
                 Some(if name == &VALUE_PROP {
                     Attribute::read_only(ty, ReadOnlyReason::EnumMemberValue)
                 } else {
