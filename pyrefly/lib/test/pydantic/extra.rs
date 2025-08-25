@@ -23,7 +23,7 @@ from pydantic import BaseModel
 class ModelAllow(BaseModel, extra="allow"):
     x: int 
 
-ModelAllow(x=1, y=2) # E: Unexpected keyword argument `y` in function `ModelAllow.__init__`
+ModelAllow(x=1, y=2) # E: Unexpected keyword argument `y` in function `ModelAllow.__init__` 
 
 "#,
 );
@@ -62,7 +62,33 @@ testcase!(
     r#"
 from pydantic import BaseModel
 
-class ModelForbid(BaseModel, extra="ignore"):
+class ModelForbid(BaseModel):
+    x: int
+
+ModelForbid(x=1, y=2) # E: Unexpected keyword argument `y` in function `ModelForbid.__init__`
+"#,
+);
+
+testcase!(
+    test_extra_wrong_type,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel
+
+class ModelForbid(BaseModel, extra=True): # E: Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'
+    x: int
+
+ModelForbid(x=1, y=2) # E: Unexpected keyword argument `y` in function `ModelForbid.__init__`
+"#,
+);
+
+testcase!(
+    test_extra_wrong_literal,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel
+
+class ModelForbid(BaseModel, extra="123"): # E: Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'
     x: int
 
 ModelForbid(x=1, y=2) # E: Unexpected keyword argument `y` in function `ModelForbid.__init__`

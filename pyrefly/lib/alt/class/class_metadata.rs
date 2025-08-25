@@ -192,11 +192,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // collect pydantic metadata
         let (pydantic_validate_by_alias, pydantic_validate_by_name) =
             self.extract_pydantic_validation_alias(&keywords);
+
         let pydantic_metadata = self.pydantic_metadata(
             &bases_with_metadata,
             pydantic_metadata_binding,
+            &keywords,
             pydantic_validate_by_alias,
             pydantic_validate_by_name,
+            errors,
+            cls.range(),
         );
 
         let is_typed_dict = has_typed_dict_base_class
@@ -376,6 +380,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         protocol_metadata
     }
 
+    // TODO Zeina: look into pushing this logic into pydantic_metadata, similar to the "extra" logic.
     fn extract_pydantic_validation_alias(
         &self,
         keywords: &Vec<(Name, Annotation)>,
@@ -423,8 +428,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         pydantic_metadata_binding: &PydanticMetadataBinding,
+        keywords: &[(Name, Annotation)],
         class_validate_by_alias: bool,
         class_validate_by_name: bool,
+        errors: &ErrorCollector,
+        range: TextRange,
     ) -> Option<PydanticMetadata> {
         let has_pydantic_base_model_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
@@ -436,15 +444,52 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .any(|(_, metadata)| metadata.is_pydantic_model());
 
-        // Determine final PydanticMetadata only if the class inherits from BaseModel in the MRO
-        match pydantic_metadata_binding {
-            PydanticMetadataBinding { frozen } if is_pydantic_model => Some(PydanticMetadata {
-                frozen: *frozen,
-                class_validate_by_alias,
-                class_validate_by_name,
-            }),
-            _ => None,
+        if !is_pydantic_model {
+            return None;
         }
+
+        // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
+        // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
+        // If we were to consider type narrowing in the "allow" case, we would need to propagate more data
+        // and narrow downstream. We are not following the narrowing approach in v1 though, but should discuss it
+        // for v2.
+        let extra = keywords
+            .iter()
+            .find(|(name, _)| name.as_str() == "extra")
+            .is_none_or(|(_, ann)| match ann.get_type() {
+                Type::Literal(Lit::Str(s)) => match s.as_str() {
+                    "allow" | "ignore" => true,
+                    "forbid" => false,
+                    _ => {
+                        self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidLiteral),
+                        "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
+                            .to_owned(),
+                    );
+                        false
+                    }
+                },
+                _ => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidLiteral),
+                        "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
+                            .to_owned(),
+                    );
+                    false
+                }
+            });
+
+        let PydanticMetadataBinding { frozen } = pydantic_metadata_binding;
+        Some(PydanticMetadata {
+            frozen: *frozen,
+            class_validate_by_alias,
+            class_validate_by_name,
+            extra,
+        })
     }
 
     fn typed_dict_metadata(

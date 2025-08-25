@@ -14,4 +14,5 @@ pub struct PydanticMetadata {
     pub frozen: bool,
     pub class_validate_by_name: bool,
     pub class_validate_by_alias: bool,
+    pub extra: bool,
 }
