@@ -984,6 +984,34 @@ Completion Results:
 }
 
 #[test]
+fn dot_compete_override() {
+    let code = r#"
+class A:
+    def foo(self) -> int | str: ...
+
+class B(A):
+    def foo(self) -> int: ...
+
+def foo(x: B) -> None:
+    x.
+#     ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+9 |     x.
+          ^
+Completion Results:
+- (Method) foo: (self: Self@B) -> int
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn import_completions_on_builtins() {
     let code = r#"
 import typ
