@@ -204,10 +204,8 @@
     "Line 96: Expected 1 errors"
   ],
   "generics_self_advanced.py": [
-    "Line 38: Unexpected errors ['assert_type(ChildB, Self) failed']",
     "Line 43: Unexpected errors ['assert_type(Any, list[Self]) failed', 'Instance-only attribute `a` of class `ChildB` is not visible on the class']",
-    "Line 44: Unexpected errors ['assert_type(Any, Self) failed', 'Instance-only attribute `a` of class `ChildB` is not visible on the class']",
-    "Line 45: Unexpected errors ['assert_type(ChildB, Self) failed']"
+    "Line 44: Unexpected errors ['assert_type(Any, Self) failed', 'Instance-only attribute `a` of class `ChildB` is not visible on the class']"
   ],
   "generics_self_attributes.py": [
     "Line 32: Expected 1 errors"

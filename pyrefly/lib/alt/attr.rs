@@ -509,6 +509,8 @@ enum AttributeBase {
     /// Properties are handled via a special case so that we can understand
     /// setter decorators.
     Property(Type),
+    /// Attribute access on `Self` from inside a class
+    SelfType(ClassType),
     /// Result of a super() call. See Type::SuperInstance for details on what these fields are.
     SuperInstance(ClassType, SuperObj),
     /// Typed dictionaries have similar properties to dict and Mapping, with some exceptions
@@ -524,6 +526,7 @@ pub enum ClassBase {
     ClassDef(Class),
     ClassType(ClassType),
     Quantified(Quantified, ClassType),
+    SelfType(ClassType),
 }
 
 impl ClassBase {
@@ -532,14 +535,16 @@ impl ClassBase {
             ClassBase::ClassDef(c) => c,
             ClassBase::ClassType(c) => c.class_object(),
             ClassBase::Quantified(_, c) => c.class_object(),
+            ClassBase::SelfType(c) => c.class_object(),
         }
     }
 
     pub fn targs(&self) -> Option<&TArgs> {
         match self {
             ClassBase::ClassDef(..) => None,
-            ClassBase::ClassType(c) => Some(c.targs()),
-            ClassBase::Quantified(_, c) => Some(c.targs()),
+            ClassBase::ClassType(c) | ClassBase::Quantified(_, c) | ClassBase::SelfType(c) => {
+                Some(c.targs())
+            }
         }
     }
 
@@ -548,6 +553,7 @@ impl ClassBase {
             ClassBase::ClassDef(c) => Type::ClassDef(c),
             ClassBase::ClassType(c) => Type::Type(Box::new(c.to_type())),
             ClassBase::Quantified(q, _) => Type::type_form(q.to_type()),
+            ClassBase::SelfType(c) => Type::type_form(Type::SelfType(c)),
         }
     }
 }
@@ -1550,6 +1556,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )),
                 }
             }
+            AttributeBase::SelfType(cls) => match self.get_self_attribute(&cls, attr_name) {
+                Some(attr) => LookupResult::found(attr),
+                None => LookupResult::not_found(NotFoundOn::ClassInstance(
+                    cls.class_object().dupe(),
+                    base_copy,
+                )),
+            },
         }
     }
 
@@ -1579,6 +1592,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AttributeBase::ClassInstance(cls)
+            | AttributeBase::SelfType(cls)
             | AttributeBase::EnumLiteral(LitEnum { class: cls, .. })
             | AttributeBase::Quantified(_, Some(cls))
             | AttributeBase::SuperInstance(cls, _)
@@ -1755,10 +1769,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match ty {
             Type::ClassType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
             Type::ClassDef(cls) => Some(AttributeBase::ClassObject(ClassBase::ClassDef(cls))),
-            Type::SelfType(class_type) => Some(AttributeBase::ClassInstance(class_type)),
-            Type::Type(box Type::SelfType(class_type)) => Some(AttributeBase::ClassObject(
-                ClassBase::ClassType(class_type.clone()),
-            )),
+            Type::SelfType(class_type) => Some(AttributeBase::SelfType(class_type)),
+            Type::Type(box Type::SelfType(class_type)) => {
+                Some(AttributeBase::ClassObject(ClassBase::SelfType(class_type)))
+            }
             Type::TypedDict(td) | Type::PartialTypedDict(td) => {
                 Some(AttributeBase::TypedDict(td.clone()))
             }
@@ -2210,6 +2224,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         match &base {
             AttributeBase::ClassInstance(class)
+            | AttributeBase::SelfType(class)
             | AttributeBase::EnumLiteral(LitEnum { class, .. })
             | AttributeBase::Quantified(_, Some(class)) => {
                 self.completions_class_type(class, expected_attribute_name, res)

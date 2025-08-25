@@ -527,6 +527,7 @@ enum InstanceKind {
     ClassType,
     TypedDict,
     TypeVar(Quantified),
+    SelfType,
 }
 
 /// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
@@ -561,6 +562,14 @@ impl<'a> Instance<'a> {
         }
     }
 
+    fn of_self_type(cls: &'a ClassType) -> Self {
+        Self {
+            kind: InstanceKind::SelfType,
+            class: cls.class_object(),
+            targs: cls.targs(),
+        }
+    }
+
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
@@ -576,13 +585,21 @@ impl<'a> Instance<'a> {
                 Type::TypedDict(TypedDict::new(self.class.dupe(), self.targs.clone()))
             }
             InstanceKind::TypeVar(q) => q.clone().to_type(),
+            InstanceKind::SelfType => {
+                Type::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
+            }
         }
     }
 
     /// Looking up a classmethod/staticmethod from an instance base has class-like
     /// lookup behavior. When this happens, we convert from an instance base to a class base.
     fn to_class_base(&self) -> ClassBase {
-        ClassBase::ClassType(ClassType::new(self.class.dupe(), self.targs.clone()))
+        match self.kind {
+            InstanceKind::SelfType => {
+                ClassBase::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
+            }
+            _ => ClassBase::ClassType(ClassType::new(self.class.dupe(), self.targs.clone())),
+        }
     }
 }
 
@@ -1381,7 +1398,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } if (descriptor_getter.is_some() || descriptor_setter.is_some())
                 // There's no situation in which you can stick a usable descriptor in a TypedDict.
                 // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
-                && instance.kind == InstanceKind::ClassType =>
+                && (instance.kind == InstanceKind::ClassType
+                || instance.kind == InstanceKind::SelfType) =>
             {
                 Attribute::descriptor(
                     ty,
@@ -1535,6 +1553,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassBase::ClassDef(c) => self.instantiate(c),
             ClassBase::ClassType(c) => c.clone().to_type(),
             ClassBase::Quantified(q, _) => q.clone().to_type(),
+            ClassBase::SelfType(c) => Type::SelfType(c.clone()),
         };
         foralled.subst_self_type_mut(&replacement, &|a, b| self.is_subset_eq(a, b));
         Some(bind_class_attribute(cls, foralled, &None))
@@ -1829,6 +1848,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
         self.get_class_member(cls.class_object(), name)
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(cls)))
+    }
+
+    pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
+        self.get_class_member(cls.class_object(), name)
+            .map(|member| self.as_instance_attribute(&member.value, &Instance::of_self_type(cls)))
     }
 
     pub fn get_bounded_quantified_attribute(

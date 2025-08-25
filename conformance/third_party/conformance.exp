@@ -5530,16 +5530,6 @@
     {
       "code": -2,
       "column": 20,
-      "concise_description": "assert_type(ChildB, Self) failed",
-      "description": "assert_type(ChildB, Self) failed",
-      "line": 38,
-      "name": "assert-type",
-      "stop_column": 42,
-      "stop_line": 38
-    },
-    {
-      "code": -2,
-      "column": 20,
       "concise_description": "assert_type(Any, list[Self]) failed",
       "description": "assert_type(Any, list[Self]) failed",
       "line": 43,
@@ -5576,16 +5566,6 @@
       "name": "missing-attribute",
       "stop_column": 26,
       "stop_line": 44
-    },
-    {
-      "code": -2,
-      "column": 20,
-      "concise_description": "assert_type(ChildB, Self) failed",
-      "description": "assert_type(ChildB, Self) failed",
-      "line": 45,
-      "name": "assert-type",
-      "stop_column": 41,
-      "stop_line": 45
     }
   ],
   "generics_self_attributes.py": [
