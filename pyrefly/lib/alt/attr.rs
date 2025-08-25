@@ -2135,6 +2135,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.completions_mro(mro, expected_attribute_name, res)
     }
 
+    fn completions_super(
+        &self,
+        cls: &Class,
+        start_lookup_cls: &ClassType,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
+        let mro = self.get_mro_for_class(cls);
+        let mro = mro
+            .ancestors_no_object()
+            .iter()
+            .skip_while(|ancestor| *ancestor != start_lookup_cls)
+            .map(|x| x.class_object());
+        self.completions_mro(mro, expected_attribute_name, res)
+    }
+
     fn completions_class_type(
         &self,
         cls: &ClassType,
@@ -2203,8 +2219,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 expected_attribute_name,
                 res,
             ),
-            AttributeBase::SuperInstance(class, _) => {
-                self.completions_class_type(class, expected_attribute_name, res)
+            AttributeBase::SuperInstance(start_lookup_cls, obj) => {
+                let cls = match obj {
+                    SuperObj::Instance(c) | SuperObj::Class(c) => c.class_object(),
+                };
+                self.completions_super(cls, start_lookup_cls, expected_attribute_name, res);
             }
             AttributeBase::ClassObject(class) => {
                 self.completions_class(class.class_object(), expected_attribute_name, res)

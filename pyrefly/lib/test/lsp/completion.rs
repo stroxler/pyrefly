@@ -1012,6 +1012,36 @@ Completion Results:
 }
 
 #[test]
+fn dot_complete_super() {
+    let code = r#"
+class A:
+    x: int
+
+class B:
+    y: str
+
+class C(A, B):
+    def foo(self):
+        super().
+#               ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+10 |         super().
+                     ^
+Completion Results:
+- (Field) x: int
+- (Field) y: str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn import_completions_on_builtins() {
     let code = r#"
 import typ
