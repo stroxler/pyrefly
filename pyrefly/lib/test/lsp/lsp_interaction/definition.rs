@@ -210,9 +210,7 @@ fn prefer_pyi_when_missing_in_py() {
     });
     interaction.server.did_open("main.py");
     interaction.server.definition("main.py", 5, 18);
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(serde_json::json!([])),
-        error: None,
-    });
+    interaction
+        .client
+        .expect_definition_response_from_root("foo.pyi", 5, 4, 5, 7);
 }

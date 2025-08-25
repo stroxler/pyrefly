@@ -1404,15 +1404,24 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn goto_definition(&self, handle: &Handle, position: TextSize) -> Vec<TextRangeWithModule> {
-        self.find_definition(
+        let mut definitions = self.find_definition(
             handle,
             position,
             &FindPreference {
                 prefer_pyi: false,
                 ..Default::default()
             },
-        )
-        .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
+        );
+        // Add pyi definitions if we haven't found any py definition
+        if definitions.is_empty() {
+            definitions.append(&mut self.find_definition(
+                handle,
+                position,
+                &FindPreference::default(),
+            ));
+        }
+
+        definitions.into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
     pub fn goto_type_definition(
