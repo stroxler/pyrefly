@@ -5,6 +5,7 @@
 
 
 def no_return_annot():
+    _ = (1, 2)  # no inlay hint here
     return (1, 2)
 
 

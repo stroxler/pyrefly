@@ -61,10 +61,10 @@ fn test_inlay_hint_default_config() {
                 },
                 {
                     "label":": tuple[Literal[1], Literal[2]]",
-                    "position":{"character":6,"line":10},
+                    "position":{"character":6,"line":11},
                     "textEdits":[{
                         "newText":": tuple[Literal[1], Literal[2]]",
-                        "range":{"end":{"character":6,"line":10},"start":{"character":6,"line":10}}
+                        "range":{"end":{"character":6,"line":11},"start":{"character":6,"line":11}}
                     }]
                 }
             ])),
@@ -311,10 +311,10 @@ fn test_inlay_hint_disable_returns() {
                 id: RequestId::from(3),
                 result: Some(serde_json::json!([{
                     "label":": tuple[Literal[1], Literal[2]]",
-                    "position":{"character":6,"line":10},
+                    "position":{"character":6,"line":11},
                     "textEdits":[{
                         "newText":": tuple[Literal[1], Literal[2]]",
-                        "range":{"end":{"character":6,"line":10},"start":{"character":6,"line":10}}
+                        "range":{"end":{"character":6,"line":11},"start":{"character":6,"line":11}}
                     }]
                 }])),
                 error: None,

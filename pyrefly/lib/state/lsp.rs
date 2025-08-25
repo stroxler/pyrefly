@@ -2227,8 +2227,12 @@ impl<'a> Transaction<'a> {
         inlay_hint_config: InlayHintConfig,
     ) -> Option<Vec<(TextSize, String)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
-        let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
-
+        let is_interesting_expr = |x: &Expr| match x {
+            Expr::Tuple(tuple) => {
+                !tuple.elts.is_empty() && tuple.elts.iter().all(|x| !Ast::is_literal(x))
+            }
+            _ => !Ast::is_literal(x),
+        };
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
         for idx in bindings.keys::<Key>() {
