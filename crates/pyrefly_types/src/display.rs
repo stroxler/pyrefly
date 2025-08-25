@@ -324,7 +324,7 @@ impl<'a> TypeDisplayContext<'a> {
                             if literal_idx.is_none() {
                                 literal_idx = Some(i);
                             }
-                            literals.push(lit)
+                            literals.push(format!("{}", Fmt(|f| self.fmt_lit(lit, f))))
                         }
                         Type::Callable(_) | Type::Function(_) => {
                             display_types.push(format!("({})", self.display_internal(t)))
