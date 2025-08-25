@@ -10,6 +10,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::path::Component;
 use std::path::Path;
 
 use dupe::Dupe;
@@ -172,17 +173,7 @@ impl ModuleName {
         Self::from_string(itertools::join(parts, "."))
     }
 
-    pub fn from_relative_path(path: &Path) -> anyhow::Result<Self> {
-        let mut components = Vec::new();
-        for raw_component in path.components() {
-            if let Some(component) = raw_component.as_os_str().to_str() {
-                components.push(component)
-            } else {
-                return Err(anyhow::anyhow!(PathConversionError::ComponentNotUTF8 {
-                    component: raw_component.as_os_str().to_owned(),
-                }));
-            }
-        }
+    fn from_relative_path_components(mut components: Vec<&str>) -> anyhow::Result<Self> {
         let last_element = components.pop();
         match last_element {
             None => {}
@@ -199,6 +190,39 @@ impl ModuleName {
             }
         }
         Ok(ModuleName::from_parts(components))
+    }
+
+    pub fn from_relative_path(path: &Path) -> anyhow::Result<Self> {
+        let mut components = Vec::new();
+        for raw_component in path.components() {
+            if let Some(component) = raw_component.as_os_str().to_str() {
+                components.push(component)
+            } else {
+                return Err(anyhow::anyhow!(PathConversionError::ComponentNotUTF8 {
+                    component: raw_component.as_os_str().to_owned(),
+                }));
+            }
+        }
+        Self::from_relative_path_components(components)
+    }
+
+    pub fn relative_module_name_between(from: &Path, to: &Path) -> Option<ModuleName> {
+        let relative_path = pathdiff::diff_paths(to, from.parent()?)?;
+        // In the following loop, we aim to generate a list of components that can be joined by `.`
+        // to form a correct relative import module name,
+        let mut components = vec![""];
+        for raw_component in relative_path.as_path().components() {
+            match &raw_component {
+                // For each parent, we should create a `.`.
+                // The `.` is already provided during the join, so we only need an empty component.
+                Component::ParentDir => components.push(""),
+                Component::CurDir => {}
+                Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                    components.push(raw_component.as_os_str().to_str()?);
+                }
+            };
+        }
+        Self::from_relative_path_components(components).ok()
     }
 
     pub fn append(self, name: &Name) -> Self {
@@ -333,5 +357,19 @@ mod tests {
         assert_conversion_error("foo/bar.derp");
         assert_conversion_error("foo/bar/baz");
         assert_conversion_error("foo/bar/__init__.derp");
+    }
+
+    #[test]
+    fn test_relative_module_name_between() {
+        fn assert_module_name(from: &str, to: &str, expected: &str) {
+            let from = Path::new(from);
+            let to = Path::new(to);
+            let actual = ModuleName::relative_module_name_between(from, to);
+            assert_eq!(Some(ModuleName::from_str(expected)), actual);
+        }
+        assert_module_name("foo/bar.py", "foo/baz.py", ".baz");
+        assert_module_name("bar.py", "foo/baz.py", ".foo.baz");
+        assert_module_name("foo/bar.py", "baz.py", "..baz");
+        assert_module_name("foo/bar/boz.py", "baz.py", "...baz");
     }
 }
