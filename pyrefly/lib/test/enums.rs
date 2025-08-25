@@ -504,3 +504,17 @@ from enum import Enum
 E = Enum('E', [])
     "#,
 );
+
+testcase!(
+    bug = "We shouldn't assume `value` is Never just because we can't statically analyze an enum's class body",
+    test_empty_enum,
+    r#"
+from typing import Any, assert_type
+from enum import Enum
+class EmptyEnum(Enum):
+    # in real code there might be dynamic logic here, e.g. `vars()[key] = value`.
+    pass
+def test(x: EmptyEnum):
+    assert_type(x.value, Any) # E: assert_type(Never, Any)
+    "#,
+);
