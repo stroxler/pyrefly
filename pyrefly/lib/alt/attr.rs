@@ -492,7 +492,7 @@ enum AttributeBase {
     /// some in-scope type variable `T`. The optional `ClassType` is an upper
     /// bound, which may be the original bound on `T` or a decomposition of
     /// it (e.g. if the original bound is a union).
-    TypeVar(Quantified, Option<ClassType>),
+    Quantified(Quantified, Option<ClassType>),
     /// Attribute access on a `Type::Type(Type::Quantified(...))`, which comes up in two cases:
     /// - attribute access on an actual type variable, which mainly comes up in
     ///   the case of ParamSpec, where `P.args` and `P.kwargs` are both valid
@@ -500,7 +500,7 @@ enum AttributeBase {
     /// - attribute access on a value explicitly typed as `type[T]` where `T` is
     ///   a type variable, in which case we'll resolve it as class object attribute
     ///   access against the bounds of `T`.
-    TypeVarType(Quantified, ClassType),
+    TypeQuantified(Quantified, ClassType),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
@@ -1428,7 +1428,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )),
                 }
             }
-            AttributeBase::TypeVarType(quantified, class) => {
+            AttributeBase::TypeQuantified(quantified, class) => {
                 match (quantified.kind(), attr_name.as_str()) {
                     (QuantifiedKind::ParamSpec, "args") => {
                         LookupResult::found_type(Type::type_form(Type::Args(Box::new(quantified))))
@@ -1485,7 +1485,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(attr) => LookupResult::found(attr),
                 None => LookupResult::not_found(NotFoundOn::Module(module)),
             },
-            AttributeBase::TypeVar(q, bound) => {
+            AttributeBase::Quantified(q, bound) => {
                 if let Some(upper_bound) = bound {
                     match self.get_bounded_quantified_attribute(q, &upper_bound, attr_name) {
                         Some(attr) => LookupResult::found(attr),
@@ -1580,7 +1580,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase::ClassInstance(cls)
             | AttributeBase::EnumLiteral(LitEnum { class: cls, .. })
-            | AttributeBase::TypeVar(_, Some(cls))
+            | AttributeBase::Quantified(_, Some(cls))
             | AttributeBase::SuperInstance(cls, _)
                 if (*dunder_name == dunder::SETATTR
                     || *dunder_name == dunder::DELATTR
@@ -1786,13 +1786,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.map_over_union(upper_bound, |bound| {
                         let bound_attr_base = self.as_attribute_base(bound.clone());
                         if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
-                            res.push(AttributeBase::TypeVarType((*quantified).clone(), cls));
+                            res.push(AttributeBase::TypeQuantified((*quantified).clone(), cls));
                         } else {
                             use_fallback = true;
                         }
                     });
                     if use_fallback {
-                        res.push(AttributeBase::TypeVarType(
+                        res.push(AttributeBase::TypeQuantified(
                             (*quantified).clone(),
                             self.stdlib.object().clone(),
                         ));
@@ -1805,20 +1805,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     for constraint in constraints {
                         let constraint_attr_base = self.as_attribute_base(constraint.clone());
                         if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
-                            res.push(AttributeBase::TypeVarType((*quantified).clone(), cls));
+                            res.push(AttributeBase::TypeQuantified((*quantified).clone(), cls));
                         } else {
                             use_fallback = true;
                         }
                     }
                     if use_fallback {
-                        res.push(AttributeBase::TypeVarType(
+                        res.push(AttributeBase::TypeQuantified(
                             (*quantified).clone(),
                             self.stdlib.object().clone(),
                         ));
                     }
                     Some(AttributeBase::Union(res))
                 }
-                Restriction::Unrestricted => Some(AttributeBase::TypeVarType(
+                Restriction::Unrestricted => Some(AttributeBase::TypeQuantified(
                     (*quantified).clone(),
                     self.stdlib.object().clone(),
                 )),
@@ -1921,13 +1921,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.map_over_union(upper_bound, |bound| {
                         let bound_attr_base = self.as_attribute_base(bound.clone());
                         if let Some(AttributeBase::ClassInstance(cls)) = bound_attr_base {
-                            res.push(AttributeBase::TypeVar((*quantified).clone(), Some(cls)));
+                            res.push(AttributeBase::Quantified((*quantified).clone(), Some(cls)));
                         } else {
                             use_fallback = true;
                         }
                     });
                     if use_fallback {
-                        res.push(AttributeBase::TypeVar((*quantified).clone(), None));
+                        res.push(AttributeBase::Quantified((*quantified).clone(), None));
                     }
                     Some(AttributeBase::Union(res))
                 }
@@ -1937,17 +1937,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     for constraint in constraints {
                         let constraint_attr_base = self.as_attribute_base(constraint.clone());
                         if let Some(AttributeBase::ClassInstance(cls)) = constraint_attr_base {
-                            res.push(AttributeBase::TypeVar((*quantified).clone(), Some(cls)));
+                            res.push(AttributeBase::Quantified((*quantified).clone(), Some(cls)));
                         } else {
                             use_fallback = true;
                         }
                     }
                     if use_fallback {
-                        res.push(AttributeBase::TypeVar((*quantified).clone(), None));
+                        res.push(AttributeBase::Quantified((*quantified).clone(), None));
                     }
                     Some(AttributeBase::Union(res))
                 }
-                Restriction::Unrestricted => Some(AttributeBase::TypeVar(
+                Restriction::Unrestricted => Some(AttributeBase::Quantified(
                     (*quantified).clone(),
                     Some(self.stdlib.object().clone()),
                 )),
@@ -2190,7 +2190,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match &base {
                 AttributeBase::ClassInstance(class)
                 | AttributeBase::EnumLiteral(LitEnum { class, .. })
-                | AttributeBase::TypeVar(_, Some(class)) => {
+                | AttributeBase::Quantified(_, Some(class)) => {
                     self.completions_class_type(class, expected_attribute_name, &mut res)
                 }
                 AttributeBase::TypedDict(_) => self.completions_class_type(
@@ -2204,10 +2204,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase::ClassObject(class) => {
                     self.completions_class(class.class_object(), expected_attribute_name, &mut res)
                 }
-                AttributeBase::TypeVarType(_, class) => {
+                AttributeBase::TypeQuantified(_, class) => {
                     self.completions_class(class.class_object(), expected_attribute_name, &mut res)
                 }
-                AttributeBase::TypeVar(q, _) => self.completions_class_type(
+                AttributeBase::Quantified(q, _) => self.completions_class_type(
                     q.as_value(self.stdlib),
                     expected_attribute_name,
                     &mut res,
