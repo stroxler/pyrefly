@@ -488,13 +488,18 @@ enum AttributeBase {
     ClassInstance(ClassType),
     ClassObject(ClassBase),
     Module(ModuleType),
-    /// The attribute access is on a quantified type form (as in `args: P.args` - this
-    /// is only used when the base *is* a quantified type, not when the base is
-    /// a term that *has* a quantified type.
-    /// The second element is a bound or constraint for the type variable.
+    /// Attribute access on a quantified value, i.e. a value with type `T` for
+    /// some in-scope type variable `T`. The optional `ClassType` is an upper
+    /// bound, which may be the original bound on `T` or a decomposition of
+    /// it (e.g. if the original bound is a union).
     TypeVar(Quantified, Option<ClassType>),
-    /// Attribute access on a `type[T]`.
-    /// The second element is a bound or constraint for the type variable.
+    /// Attribute access on a `Type::Type(Type::Quantified(...))`, which comes up in two cases:
+    /// - attribute access on an actual type variable, which mainly comes up in
+    ///   the case of ParamSpec, where `P.args` and `P.kwargs` are both valid
+    ///   annotations.
+    /// - attribute access on a value explicitly typed as `type[T]` where `T` is
+    ///   a type variable, in which case we'll resolve it as class object attribute
+    ///   access against the bounds of `T`.
     TypeVarType(Quantified, ClassType),
     Any(AnyStyle),
     Never,
