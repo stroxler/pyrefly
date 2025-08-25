@@ -2090,11 +2090,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         let mro = self.get_mro_for_class(cls);
         let mut seen = SmallSet::new();
-        for c in iter::once(cls).chain(mro.ancestors(self.stdlib).map(|x| x.class_object())) {
-            if c == self.stdlib.object().class_object() {
-                // Don't want to suggest `__hash__`
-                break;
-            }
+        // NOTE: We do not provide completions from object, to avoid noise like __hash__. Maybe we should?
+        for c in iter::once(cls).chain(mro.ancestors_no_object().iter().map(|x| x.class_object())) {
             match expected_attribute_name {
                 None => {
                     for fld in c.fields() {
