@@ -1185,7 +1185,7 @@ from typing import TypedDict
 class Movie(TypedDict, extra_items=int):
     name: str
 good_movie: Movie = {'name': 'Toy Story', 'year': 1995}
-bad_movie: Movie = {'name': 'Toy Story', 'studio': 'Pixar'}  # E: `Literal['Pixar']` is not assignable to TypedDict `extra_items` type `int`
+bad_movie: Movie = {'name': 'Toy Story', 'studio': 'Pixar'}  # E: `Literal['Pixar']` is not assignable to TypedDict key with type `int`
     "#,
 );
 
@@ -1489,7 +1489,7 @@ testcase!(
 from typing import TypedDict
 X = TypedDict('X', {}, extra_items=int)
 x: X = {'x': 1}
-y: X = {'y': 'oops'}  # E: `Literal['oops']` is not assignable to TypedDict `extra_items` type `int`
+y: X = {'y': 'oops'}  # E: `Literal['oops']` is not assignable to TypedDict key with type `int`
     "#,
 );
 

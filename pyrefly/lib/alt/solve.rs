@@ -1847,13 +1847,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("{key} in TypedDict `{typed_dict}` is read-only"),
             )
         } else {
-            let context = &|| {
-                TypeCheckContext::of_kind(if let Some(field_name) = field_name {
-                    TypeCheckKind::TypedDictKey(field_name.clone())
-                } else {
-                    TypeCheckKind::TypedDictExtra
-                })
-            };
+            let context =
+                &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(field_name.cloned()));
             match value {
                 ExprOrBinding::Expr(e) => self.expr(e, Some((field_ty, context)), errors),
                 ExprOrBinding::Binding(b) => {

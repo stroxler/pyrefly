@@ -92,9 +92,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.expr_with_separate_check_errors(
                                 &x.value,
                                 Some((&field.ty, check_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(Some(
                                         key_name.clone(),
-                                    ))
+                                    )))
                                 })),
                                 item_errors,
                             );
@@ -103,7 +103,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.expr_with_separate_check_errors(
                                 &x.value,
                                 Some((&extra.ty, check_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictExtra)
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(None))
                                 })),
                                 item_errors,
                             );
