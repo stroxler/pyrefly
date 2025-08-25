@@ -189,16 +189,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Named tuples do not support multiple inheritance".to_owned(),
             );
         }
-        // collect pydantic metadata
-        let (pydantic_validate_by_alias, pydantic_validate_by_name) =
-            self.extract_pydantic_validation_alias(&keywords);
 
         let pydantic_metadata = self.pydantic_metadata(
             &bases_with_metadata,
             pydantic_metadata_binding,
             &keywords,
-            pydantic_validate_by_alias,
-            pydantic_validate_by_name,
             errors,
             cls.range(),
         );
@@ -380,28 +375,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         protocol_metadata
     }
 
-    // TODO Zeina: look into pushing this logic into pydantic_metadata, similar to the "extra" logic.
-    fn extract_pydantic_validation_alias(
-        &self,
-        keywords: &Vec<(Name, Annotation)>,
-    ) -> (bool, bool) {
-        let mut pydantic_validate_by_alias = true;
-        let mut pydantic_validate_by_name = false;
-        // collect pydantic validation data from class keywords
-        for (name, ann) in keywords {
-            match name.as_str() {
-                "validate_by_alias" => {
-                    pydantic_validate_by_alias = ann.get_type().as_bool().unwrap_or(true);
-                }
-                "validate_by_name" => {
-                    pydantic_validate_by_name = ann.get_type().as_bool().unwrap_or(false);
-                }
-                _ => {}
-            }
-        }
-        (pydantic_validate_by_alias, pydantic_validate_by_name)
-    }
-
     fn named_tuple_metadata(
         &self,
         cls: &Class,
@@ -429,8 +402,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         pydantic_metadata_binding: &PydanticMetadataBinding,
         keywords: &[(Name, Annotation)],
-        class_validate_by_alias: bool,
-        class_validate_by_name: bool,
         errors: &ErrorCollector,
         range: TextRange,
     ) -> Option<PydanticMetadata> {
@@ -447,6 +418,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if !is_pydantic_model {
             return None;
         }
+
+        // Extract validate_by_alias & validate_by_name
+        let class_validate_by_alias = keywords
+            .iter()
+            .find(|(name, _)| name.as_str() == "validate_by_alias")
+            .is_none_or(|(_, ann)| ann.get_type().as_bool().unwrap_or(true));
+
+        let class_validate_by_name = keywords
+            .iter()
+            .find(|(name, _)| name.as_str() == "validate_by_name")
+            .is_some_and(|(_, ann)| ann.get_type().as_bool().unwrap_or(false));
 
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
