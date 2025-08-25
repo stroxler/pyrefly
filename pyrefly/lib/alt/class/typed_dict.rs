@@ -273,7 +273,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let self_param = self.class_self_param(cls, true);
 
-        // ---- Overload: def update(__m: Partial[C], /)
+        // ---- Overload: def update(m: Partial[C], /)
         let full_typed_dict = self.as_typed_dict_unchecked(cls);
         let partial_typed_dict_ty = Type::PartialTypedDict(full_typed_dict);
 
@@ -282,7 +282,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ParamList::new(vec![
                     self_param.clone(),
                     Param::PosOnly(
-                        Some(Name::new_static("__m")),
+                        Some(Name::new_static("m")),
                         partial_typed_dict_ty,
                         Required::Required,
                     ),
@@ -292,7 +292,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             metadata: metadata.clone(),
         });
 
-        // ---- Overload: update(__m: Iterable[tuple[Literal["key"], value]])
+        // ---- Overload: update(m: Iterable[tuple[Literal["key"], value]], /)
         let tuple_types: Vec<Type> = self
             .names_to_fields(cls, fields)
             .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
@@ -310,11 +310,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             signature: Callable::list(
                 ParamList::new(vec![
                     self_param.clone(),
-                    Param::PosOnly(
-                        Some(Name::new_static("__m")),
-                        iterable_ty,
-                        Required::Required,
-                    ),
+                    Param::PosOnly(Some(Name::new_static("m")), iterable_ty, Required::Required),
                 ]),
                 Type::None,
             ),

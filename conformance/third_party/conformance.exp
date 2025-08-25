@@ -10600,7 +10600,7 @@
       "code": -2,
       "column": 10,
       "concise_description": "No matching overload found for function `A.update`",
-      "description": "No matching overload found for function `A.update`\n  Possible overloads:\n  (__m: Partial[A], /) -> None [closest match]\n  (__m: Iterable[tuple[Literal['y'], int]], /) -> None\n  (*, y: int = ...) -> None",
+      "description": "No matching overload found for function `A.update`\n  Possible overloads:\n  (m: Partial[A], /) -> None [closest match]\n  (m: Iterable[tuple[Literal['y'], int]], /) -> None\n  (*, y: int = ...) -> None",
       "line": 23,
       "name": "no-matching-overload",
       "stop_column": 14,
