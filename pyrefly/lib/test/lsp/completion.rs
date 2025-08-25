@@ -952,6 +952,38 @@ Completion Results:
 }
 
 #[test]
+fn dot_compete_union() {
+    let code = r#"
+class A:
+    x: int
+    y: int
+
+class B:
+    y: str
+    z: str
+
+def foo(x: A | B) -> None:
+    x.
+#     ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+11 |     x.
+           ^
+Completion Results:
+- (Field) x: int
+- (Field) y: int | str
+- (Field) z: str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn import_completions_on_builtins() {
     let code = r#"
 import typ

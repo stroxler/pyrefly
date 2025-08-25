@@ -1127,7 +1127,7 @@ impl<'a> Transaction<'a> {
             self.ad_hoc_solve(handle, |solver| {
                 let find_definition_for_base_type = |ty: Type| {
                     solver
-                        .completions_no_union_intersection(ty, Some(name.id()), false)
+                        .completions(ty, Some(name.id()), false)
                         .into_iter()
                         .find_map(|x| {
                             if &x.name == name.id() {

@@ -2176,96 +2176,95 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    // `base` is expected to be neither a union nor an intersection type
-    // if this precondition doesn't hold, the function won't crash but it
-    // will also not find an answer.
-    pub fn completions_no_union_intersection(
+    fn completions_inner(
         &self,
-        base: Type,
+        base: AttributeBase,
         expected_attribute_name: Option<&Name>,
         include_types: bool,
-    ) -> Vec<AttrInfo> {
-        let mut res = Vec::new();
-        if let Some(base) = self.as_attribute_base(base) {
-            match &base {
-                AttributeBase::ClassInstance(class)
-                | AttributeBase::EnumLiteral(LitEnum { class, .. })
-                | AttributeBase::Quantified(_, Some(class)) => {
-                    self.completions_class_type(class, expected_attribute_name, &mut res)
-                }
-                AttributeBase::TypedDict(_) => self.completions_class_type(
-                    self.stdlib.typed_dict_fallback(),
-                    expected_attribute_name,
-                    &mut res,
-                ),
-                AttributeBase::SuperInstance(class, _) => {
-                    self.completions_class_type(class, expected_attribute_name, &mut res)
-                }
-                AttributeBase::ClassObject(class) => {
-                    self.completions_class(class.class_object(), expected_attribute_name, &mut res)
-                }
-                AttributeBase::TypeQuantified(_, class) => {
-                    self.completions_class(class.class_object(), expected_attribute_name, &mut res)
-                }
-                AttributeBase::Quantified(q, _) => self.completions_class_type(
-                    q.as_value(self.stdlib),
-                    expected_attribute_name,
-                    &mut res,
-                ),
-                AttributeBase::TypeAny(_) => self.completions_class_type(
-                    self.stdlib.builtins_type(),
-                    expected_attribute_name,
-                    &mut res,
-                ),
-                AttributeBase::Module(module) => {
-                    self.completions_module(module, expected_attribute_name, &mut res);
-                }
-                AttributeBase::Union(_) => {
-                    // TODO: handle unions
-                }
-                AttributeBase::Any(_) => {}
-                AttributeBase::Never => {}
-                AttributeBase::Property(_) => {
-                    // TODO(samzhou19815): Support autocomplete for properties
-                    {}
+        res: &mut Vec<AttrInfo>,
+    ) {
+        match &base {
+            AttributeBase::ClassInstance(class)
+            | AttributeBase::EnumLiteral(LitEnum { class, .. })
+            | AttributeBase::Quantified(_, Some(class)) => {
+                self.completions_class_type(class, expected_attribute_name, res)
+            }
+            AttributeBase::TypedDict(_) => self.completions_class_type(
+                self.stdlib.typed_dict_fallback(),
+                expected_attribute_name,
+                res,
+            ),
+            AttributeBase::SuperInstance(class, _) => {
+                self.completions_class_type(class, expected_attribute_name, res)
+            }
+            AttributeBase::ClassObject(class) => {
+                self.completions_class(class.class_object(), expected_attribute_name, res)
+            }
+            AttributeBase::TypeQuantified(_, class) => {
+                self.completions_class(class.class_object(), expected_attribute_name, res)
+            }
+            AttributeBase::Quantified(q, _) => {
+                self.completions_class_type(q.as_value(self.stdlib), expected_attribute_name, res)
+            }
+            AttributeBase::TypeAny(_) => self.completions_class_type(
+                self.stdlib.builtins_type(),
+                expected_attribute_name,
+                res,
+            ),
+            AttributeBase::Module(module) => {
+                self.completions_module(module, expected_attribute_name, res);
+            }
+            AttributeBase::Union(bases) => {
+                for base in bases {
+                    self.completions_inner(
+                        base.clone(),
+                        expected_attribute_name,
+                        include_types,
+                        res,
+                    );
                 }
             }
-            if include_types {
-                for info in &mut res {
-                    if let Some(definition) = &info.definition
-                        && matches!(definition, AttrDefinition::FullyResolved(..))
-                    {
-                        let found_attrs = self
-                            .lookup_attr_from_attribute_base(base.clone(), &info.name)
-                            .found;
-                        let found_types: Vec<_> = found_attrs
-                            .into_iter()
-                            .filter_map(|attr| {
-                                let result = self
-                                    .resolve_get_access(
-                                        attr,
-                                        // Important we do not use the resolved TextRange, as it might be in a different module.
-                                        // Whereas the empty TextRange is valid for all modules.
-                                        TextRange::default(),
-                                        &self.error_swallower(),
-                                        None,
-                                    )
-                                    .ok();
-                                if matches!(&result, Some(Type::Any(_))) {
-                                    None
-                                } else {
-                                    result
-                                }
-                            })
-                            .collect();
-                        if !found_types.is_empty() {
-                            info.ty = Some(self.unions(found_types));
-                        }
+            AttributeBase::Any(_) => {}
+            AttributeBase::Never => {}
+            AttributeBase::Property(_) => {
+                // TODO(samzhou19815): Support autocomplete for properties
+                {}
+            }
+        }
+        if include_types {
+            for info in res {
+                if let Some(definition) = &info.definition
+                    && matches!(definition, AttrDefinition::FullyResolved(..))
+                {
+                    let found_attrs = self
+                        .lookup_attr_from_attribute_base(base.clone(), &info.name)
+                        .found;
+                    let found_types: Vec<_> = found_attrs
+                        .into_iter()
+                        .filter_map(|attr| {
+                            let result = self
+                                .resolve_get_access(
+                                    attr,
+                                    // Important we do not use the resolved TextRange, as it might be in a different module.
+                                    // Whereas the empty TextRange is valid for all modules.
+                                    TextRange::default(),
+                                    &self.error_swallower(),
+                                    None,
+                                )
+                                .ok();
+                            if matches!(&result, Some(Type::Any(_))) {
+                                None
+                            } else {
+                                result
+                            }
+                        })
+                        .collect();
+                    if !found_types.is_empty() {
+                        info.ty = Some(self.unions(found_types));
                     }
                 }
             }
         }
-        res
     }
 
     /// List all the attributes available from a type. Used to power completion.
@@ -2276,9 +2275,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         expected_attribute_name: Option<&Name>,
         include_types: bool,
     ) -> Vec<AttrInfo> {
-        // TODO:
-        // - If `base` is a union, expose only attributes shared by all members
-        // - If `base` is an intersection, expose all possible attributes for any members
-        self.completions_no_union_intersection(base, expected_attribute_name, include_types)
+        let mut res = Vec::new();
+        if let Some(base) = self.as_attribute_base(base) {
+            self.completions_inner(base, expected_attribute_name, include_types, &mut res);
+        }
+        res
     }
 }

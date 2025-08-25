@@ -440,11 +440,7 @@ impl GleanState<'_> {
                         .into_iter()
                         .filter(|ty: &Type| {
                             solver
-                                .completions_no_union_intersection(
-                                    ty.clone(),
-                                    Some(name.id()),
-                                    false,
-                                )
+                                .completions(ty.clone(), Some(name.id()), false)
                                 .into_iter()
                                 .any(|attr| &attr.name == name.id())
                         })
