@@ -2082,16 +2082,16 @@ pub struct AttrInfo {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn completions_class(
+    fn completions_mro<T>(
         &self,
-        cls: &Class,
+        mro: T,
         expected_attribute_name: Option<&Name>,
         res: &mut Vec<AttrInfo>,
-    ) {
-        let mro = self.get_mro_for_class(cls);
+    ) where
+        T: Iterator<Item = &'a Class>,
+    {
         let mut seen = SmallSet::new();
-        // NOTE: We do not provide completions from object, to avoid noise like __hash__. Maybe we should?
-        for c in iter::once(cls).chain(mro.ancestors_no_object().iter().map(|x| x.class_object())) {
+        for c in mro {
             match expected_attribute_name {
                 None => {
                     for fld in c.fields() {
@@ -2121,6 +2121,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+    }
+
+    fn completions_class(
+        &self,
+        cls: &Class,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
+        // NOTE: We do not provide completions from object, to avoid noise like __hash__. Maybe we should?
+        let mro = self.get_mro_for_class(cls);
+        let mro = iter::once(cls).chain(mro.ancestors_no_object().iter().map(|x| x.class_object()));
+        self.completions_mro(mro, expected_attribute_name, res)
     }
 
     fn completions_class_type(
