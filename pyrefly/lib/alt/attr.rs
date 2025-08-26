@@ -192,12 +192,6 @@ pub struct Attribute {
     inner: AttributeInner,
 }
 
-#[derive(Debug)]
-enum Visibility {
-    ReadOnly(ReadOnlyReason),
-    ReadWrite,
-}
-
 /// The result of an attempt to access an attribute (which will eventually be
 /// used either for an action like get / set / delete, or in a structural subtype
 /// check).
@@ -207,7 +201,9 @@ enum AttributeInner {
     /// not allow the access pattern (for example class access on an instance-only attribute)
     NoAccess(NoAccessReason),
     /// A read-write attribute with a closed form type for both get and set actions.
-    Simple(Type, Visibility),
+    ReadWrite(Type),
+    /// A read-only attribute with a closed form type for get actions.
+    ReadOnly(Type, ReadOnlyReason),
     /// A property is a special attribute were regular access invokes a getter.
     /// It optionally might have a setter method; if not, trying to set it is an access error
     Property(Type, Option<Type>, Class),
@@ -295,19 +291,19 @@ impl Attribute {
 
     pub fn read_write(ty: Type) -> Self {
         Self {
-            inner: AttributeInner::Simple(ty, Visibility::ReadWrite),
+            inner: AttributeInner::ReadWrite(ty),
         }
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
         Self {
-            inner: AttributeInner::Simple(ty, Visibility::ReadOnly(reason)),
+            inner: AttributeInner::ReadOnly(ty, reason),
         }
     }
 
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self.inner {
-            AttributeInner::Simple(ty, Visibility::ReadWrite) => Attribute::read_only(ty, reason),
+            AttributeInner::ReadWrite(ty) => Attribute::read_only(ty, reason),
             AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
             AttributeInner::Descriptor(descriptor) => Attribute::descriptor(
                 descriptor.descriptor_ty,
@@ -854,7 +850,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::Simple(want, Visibility::ReadWrite),
+                    inner: AttributeInner::ReadWrite(want),
                 } => {
                     // If the attribute has a converter, then `want` should be the type expected by the converter.
                     let want = match found_on {
@@ -901,7 +897,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
+                    inner: AttributeInner::ReadOnly(_, reason),
                 } => {
                     let msg = vec1![
                         format!("Cannot set field `{attr_name}`"),
@@ -1033,7 +1029,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // except for descriptors that implement `__delete__`
                 Attribute {
                     inner:
-                        AttributeInner::Simple(_, Visibility::ReadWrite)
+                        AttributeInner::ReadWrite(_)
                         | AttributeInner::Property(_, _, _)
                         | AttributeInner::Descriptor(_),
                 } => {}
@@ -1048,7 +1044,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 Attribute {
-                    inner: AttributeInner::Simple(_, Visibility::ReadOnly(reason)),
+                    inner: AttributeInner::ReadOnly(_, reason),
                 } => {
                     let msg = vec1![
                         format!("Cannot delete field `{attr_name}`"),
@@ -1095,19 +1091,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match (&got.inner, &want.inner) {
             (_, AttributeInner::NoAccess(_)) => Ok(()),
             (AttributeInner::NoAccess(_), _) => Err(AttrSubsetError::NoAccess),
-            (AttributeInner::Property(_, _, _), AttributeInner::Simple(..)) => {
-                Err(AttrSubsetError::Property)
-            }
             (
-                AttributeInner::Simple(_, Visibility::ReadOnly(_)),
-                AttributeInner::Property(_, Some(_), _)
-                | AttributeInner::Simple(_, Visibility::ReadWrite),
+                AttributeInner::Property(_, _, _),
+                AttributeInner::ReadOnly(..) | AttributeInner::ReadWrite(..),
+            ) => Err(AttrSubsetError::Property),
+            (
+                AttributeInner::ReadOnly(..),
+                AttributeInner::Property(_, Some(_), _) | AttributeInner::ReadWrite(_),
             ) => Err(AttrSubsetError::ReadOnly),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
                 // in some cases for unknown reasons they wind up being ReadWrite.
-                AttributeInner::Simple(got @ Type::BoundMethod(_), Visibility::ReadWrite),
-                AttributeInner::Simple(want @ Type::BoundMethod(_), Visibility::ReadWrite),
+                AttributeInner::ReadWrite(got @ Type::BoundMethod(_)),
+                AttributeInner::ReadWrite(want @ Type::BoundMethod(_)),
             ) => {
                 if is_subset(got, want) {
                     Ok(())
@@ -1120,10 +1116,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (
-                AttributeInner::Simple(got, Visibility::ReadWrite),
-                AttributeInner::Simple(want, Visibility::ReadWrite),
-            ) => {
+            (AttributeInner::ReadWrite(got), AttributeInner::ReadWrite(want)) => {
                 if is_subset(got, want) && is_subset(want, got) {
                     Ok(())
                 } else {
@@ -1134,8 +1127,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::Simple(got, ..),
-                AttributeInner::Simple(want, Visibility::ReadOnly(_)),
+                AttributeInner::ReadWrite(got) | AttributeInner::ReadOnly(got, ..),
+                AttributeInner::ReadOnly(want, _),
             ) => {
                 if is_subset(got, want) {
                     Ok(())
@@ -1148,10 +1141,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (
-                AttributeInner::Simple(got, Visibility::ReadOnly(_)),
-                AttributeInner::Property(want, _, _),
-            ) => {
+            (AttributeInner::ReadOnly(got, _), AttributeInner::Property(want, _, _)) => {
                 if is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
@@ -1167,10 +1157,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (
-                AttributeInner::Simple(got, Visibility::ReadWrite),
-                AttributeInner::Property(want, want_setter, _),
-            ) => {
+            (AttributeInner::ReadWrite(got), AttributeInner::Property(want, want_setter, _)) => {
                 if !is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
@@ -1283,8 +1270,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Result<Type, NoAccessReason> {
         match attr.inner {
             AttributeInner::NoAccess(reason) => Err(reason),
-            AttributeInner::Simple(ty, Visibility::ReadWrite)
-            | AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Ok(ty),
+            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
             AttributeInner::Property(getter, ..) => {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
@@ -2062,8 +2048,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
             // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
             // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
-            AttributeInner::Simple(ty, Visibility::ReadOnly(_))
-            | AttributeInner::Simple(ty, Visibility::ReadWrite) => Some(ty),
+            AttributeInner::ReadOnly(ty, _) | AttributeInner::ReadWrite(ty) => Some(ty),
             AttributeInner::NoAccess(_)
             | AttributeInner::Property(..)
             | AttributeInner::Descriptor(..)
