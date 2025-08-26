@@ -31,6 +31,7 @@ use vec1::vec1;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::attr::Attribute;
+use crate::alt::attr::ClassAttribute;
 use crate::alt::attr::ClassBase;
 use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
@@ -607,12 +608,12 @@ fn bind_class_attribute(
     cls: &ClassBase,
     attr: Type,
     read_only_reason: &Option<ReadOnlyReason>,
-) -> Attribute {
+) -> ClassAttribute {
     let ty = make_bound_classmethod(cls, attr).into_inner();
     if let Some(reason) = read_only_reason {
-        Attribute::read_only(ty, reason.clone())
+        ClassAttribute::read_only(ty, reason.clone())
     } else {
-        Attribute::read_write(ty)
+        ClassAttribute::read_write(ty)
     }
 }
 
@@ -655,10 +656,10 @@ fn bind_instance_attribute(
     attr: Type,
     is_class_var: bool,
     read_only: Option<ReadOnlyReason>,
-) -> Attribute {
+) -> ClassAttribute {
     // Decorated objects are methods, so they can't be ClassVars
     if attr.is_property_getter() {
-        Attribute::property(
+        ClassAttribute::property(
             make_bound_method(instance.to_type(), attr).into_inner(),
             None,
             instance.class.dupe(),
@@ -669,27 +670,25 @@ fn bind_instance_attribute(
         // type, with function metadata that includes the raw getter function type.
         //
         // See the `attr.rs` and `function.rs` code for more details on how this works.
-        Attribute::property(
+        ClassAttribute::property(
             make_bound_method(instance.to_type(), getter).into_inner(),
             Some(make_bound_method(instance.to_type(), attr).into_inner()),
             instance.class.dupe(),
         )
     } else if is_class_var {
-        Attribute::read_only(
+        ClassAttribute::read_only(
             make_bound_method(instance.to_type(), attr).into_inner(),
             ReadOnlyReason::ClassVar,
         )
     } else if let Some(reason) = read_only {
-        Attribute::read_only(
+        ClassAttribute::read_only(
             make_bound_method(instance.to_type(), attr).into_inner(),
             reason,
         )
     } else {
-        Attribute::read_write(
-            make_bound_method(instance.to_type(), attr).unwrap_or_else(|attr| {
-                make_bound_classmethod(&instance.to_class_base(), attr).into_inner()
-            }),
-        )
+        ClassAttribute::read_write(make_bound_method(instance.to_type(), attr).unwrap_or_else(
+            |attr| make_bound_classmethod(&instance.to_class_base(), attr).into_inner(),
+        ))
     }
 }
 
@@ -1386,7 +1385,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ty.subst(&gradual_fallbacks)
     }
 
-    fn as_instance_attribute(&self, field: &ClassField, instance: &Instance) -> Attribute {
+    fn as_instance_attribute(&self, field: &ClassField, instance: &Instance) -> ClassAttribute {
         match field.instantiate_for(instance).0 {
             // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
             // enum; the match is messy
@@ -1401,7 +1400,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 && (instance.kind == InstanceKind::ClassType
                 || instance.kind == InstanceKind::SelfType) =>
             {
-                Attribute::descriptor(
+                ClassAttribute::descriptor(
                     ty,
                     DescriptorBase::Instance(ClassType::new(
                         instance.class.dupe(),
@@ -1428,24 +1427,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     | ClassFieldInitialization::Magic
                         if let Some(read_only_reason) = read_only_reason =>
                     {
-                        Attribute::read_only(ty, read_only_reason)
+                        ClassAttribute::read_only(ty, read_only_reason)
                     }
                     ClassFieldInitialization::Method
                     | ClassFieldInitialization::Uninitialized
                     | ClassFieldInitialization::Magic
                         if is_class_var =>
                     {
-                        Attribute::read_only(ty, ReadOnlyReason::ClassVar)
+                        ClassAttribute::read_only(ty, ReadOnlyReason::ClassVar)
                     }
                     ClassFieldInitialization::Method
                     | ClassFieldInitialization::Uninitialized
-                    | ClassFieldInitialization::Magic => Attribute::read_write(ty),
+                    | ClassFieldInitialization::Magic => ClassAttribute::read_write(ty),
                 }
             }
         }
     }
 
-    fn as_class_attribute(&self, field: ClassField, cls: &ClassBase) -> Attribute {
+    fn as_class_attribute(&self, field: ClassField, cls: &ClassBase) -> ClassAttribute {
         match &field.instantiate_for_class(cls).0 {
             ClassFieldInner::Simple {
                 ty,
@@ -1453,7 +1452,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 descriptor_setter,
                 ..
             } if descriptor_getter.is_some() || descriptor_setter.is_some() => {
-                Attribute::descriptor(
+                ClassAttribute::descriptor(
                     ty.clone(),
                     DescriptorBase::ClassDef(cls.class_object().dupe()),
                     descriptor_getter.clone(),
@@ -1464,14 +1463,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 initialization:
                     ClassFieldInitialization::Method | ClassFieldInitialization::Uninitialized,
                 ..
-            } => Attribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
+            } => ClassAttribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
                 cls.class_object().dupe(),
             )),
             ClassFieldInner::Simple { ty, .. } => {
                 if self.depends_on_class_type_parameter(&field, cls.class_object()) {
                     self.get_function_depending_on_class_type_parameter(cls, ty)
                         .unwrap_or_else(|| {
-                            Attribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
+                            ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
                                 cls.class_object().dupe(),
                             ))
                         })
@@ -1502,7 +1501,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &ClassBase,
         ty: &Type,
-    ) -> Option<Attribute> {
+    ) -> Option<ClassAttribute> {
         let mut foralled = match ty {
             Type::Function(func) => Type::Forall(Box::new(Forall {
                 tparams: self.get_class_tparams(cls.class_object()),
@@ -1591,7 +1590,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         };
 
-        let mut got_attr = None;
+        let mut got_attribute = None;
         let mut parent_attr_found = false;
         let mut parent_has_any = false;
         let is_typed_dict_field =
@@ -1666,18 +1665,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // keys but not regular fields.
                 continue;
             }
-            let want_attr =
-                self.as_instance_attribute(&want_class_field, &Instance::of_class(parent));
-            if got_attr.is_none() {
+            // TODO(stroxler): Clean this up once we have a class attribute subset helper,
+            // the fact that we're wrapping in Attribute is just an artifact of an incomplete
+            // refactor.
+            let want_attribute = Attribute::class_attribute(
+                self.as_instance_attribute(&want_class_field, &Instance::of_class(parent)),
+            );
+            if got_attribute.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
-                got_attr = Some(self.as_instance_attribute(
+                got_attribute = Some(Attribute::class_attribute(self.as_instance_attribute(
                     class_field,
                     &Instance::of_class(&self.as_class_type_unchecked(cls)),
-                ));
+                )));
             }
             let attr_check = self.is_attribute_subset(
-                got_attr.as_ref().unwrap(),
-                &want_attr,
+                got_attribute.as_ref().unwrap(),
+                &want_attribute,
                 &mut |got, want| self.is_subset_eq(got, want),
             );
             if let Err(error) = attr_check {
@@ -1845,12 +1848,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
+    pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(cls)))
     }
 
-    pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
+    pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_self_type(cls)))
     }
@@ -1860,7 +1863,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         quantified: Quantified,
         upper_bound: &ClassType,
         name: &Name,
-    ) -> Option<Attribute> {
+    ) -> Option<ClassAttribute> {
         self.get_class_member(upper_bound.class_object(), name)
             .map(|member| {
                 self.as_instance_attribute(
@@ -1870,7 +1873,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    pub fn get_typed_dict_attribute(&self, td: &TypedDict, name: &Name) -> Option<Attribute> {
+    pub fn get_typed_dict_attribute(&self, td: &TypedDict, name: &Name) -> Option<ClassAttribute> {
         if let Some(meta) = self
             .get_metadata_for_class(td.class_object())
             .typed_dict_metadata()
@@ -1906,7 +1909,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         start_lookup_cls: &ClassType,
         super_obj: &SuperObj,
         name: &Name,
-    ) -> Option<Attribute> {
+    ) -> Option<ClassAttribute> {
         match super_obj {
             SuperObj::Instance(obj) => self
                 .get_super_class_member(obj.class_object(), start_lookup_cls, name)
@@ -1929,7 +1932,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///
     /// Access is disallowed for instance-only attributes and for attributes whose
     /// type contains a class-scoped type parameter - e.g., `class A[T]: x: T`.
-    pub fn get_class_attribute(&self, cls: &ClassBase, name: &Name) -> Option<Attribute> {
+    pub fn get_class_attribute(&self, cls: &ClassBase, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
             .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
     }
@@ -1939,7 +1942,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         quantified: Quantified,
         class: &ClassType,
         name: &Name,
-    ) -> Option<Attribute> {
+    ) -> Option<ClassAttribute> {
         self.get_class_member(class.class_object(), name)
             .map(|member| {
                 self.as_class_attribute(

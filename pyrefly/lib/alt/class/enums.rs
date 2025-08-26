@@ -14,7 +14,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::attr::Attribute;
+use crate::alt::attr::ClassAttribute;
 use crate::alt::class::class_field::ClassFieldInitialization;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::types::class::Class;
@@ -95,7 +95,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         class: &ClassType,
         metadata: &ClassMetadata,
         name: &Name,
-    ) -> Option<Attribute> {
+    ) -> Option<ClassAttribute> {
         if metadata.is_enum() && (name == &VALUE || name == &VALUE_PROP) {
             if self.field_is_inherited_from_enum(class.class_object(), &VALUE) {
                 // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
@@ -118,9 +118,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unions(enum_value_types)
                 };
                 Some(if name == &VALUE_PROP {
-                    Attribute::read_only(ty, ReadOnlyReason::EnumMemberValue)
+                    ClassAttribute::read_only(ty, ReadOnlyReason::EnumMemberValue)
                 } else {
-                    Attribute::read_write(ty)
+                    ClassAttribute::read_write(ty)
                 })
             } else {
                 self.get_instance_attribute(class, &VALUE).map(|attr| {
