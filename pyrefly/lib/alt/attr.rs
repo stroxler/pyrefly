@@ -255,18 +255,11 @@ impl ClassAttribute {
     }
 }
 
-/// The result a successful attribute lookup, which can be used for structural
-/// subtyping checks or performing get / set / delete actions.
-#[derive(Debug)]
-struct Attribute {
-    inner: AttributeInner,
-}
-
 /// The result of an attempt to access an attribute (which will eventually be
 /// used either for an action like get / set / delete, or in a structural subtype
 /// check).
 #[derive(Debug)]
-enum AttributeInner {
+enum Attribute {
     /// An attribute resolved through a class field lookup.
     ClassAttribute(ClassAttribute),
     /// A read-write attribute with a closed form type for both get and set actions. Used
@@ -275,10 +268,10 @@ enum AttributeInner {
     /// The attribute being looked up is not defined explicitly, but it may be defined via a
     /// `__getattr__` or `__getattribute__` fallback.
     /// The `NotFound` field stores the (failed) lookup result on the original attribute for
-    /// better error reporting downstream. The `AttributeInner` field stores the (successful)
+    /// better error reporting downstream. The `Attribute` field stores the (successful)
     /// lookup result of the `__getattr__`/`__getattribute__` function or method.
     /// The `Name` field stores the name of the original attribute being looked up.
-    GetAttr(NotFoundOn, Box<AttributeInner>, Name),
+    GetAttr(NotFoundOn, Box<Attribute>, Name),
     /// We did `a.b`, which is a real module on the file system, but not one the user explicitly
     /// or implicitly imported. In some cases, treat this as NotFound. In others, emit an error
     /// but continue on with type.
@@ -341,14 +334,8 @@ enum InternalError {
 }
 
 impl Attribute {
-    fn new(inner: AttributeInner) -> Self {
-        Self { inner }
-    }
-
     pub fn simple(ty: Type) -> Self {
-        Self {
-            inner: AttributeInner::Simple(ty),
-        }
+        Self::Simple(ty)
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
@@ -356,15 +343,11 @@ impl Attribute {
     }
 
     pub fn class_attribute(class_attr: ClassAttribute) -> Self {
-        Self {
-            inner: AttributeInner::ClassAttribute(class_attr),
-        }
+        Self::ClassAttribute(class_attr)
     }
 
     fn getattr(not_found: NotFoundOn, getattr: Self, name: Name) -> Self {
-        Self {
-            inner: AttributeInner::GetAttr(not_found, Box::new(getattr.inner), name),
-        }
+        Self::GetAttr(not_found, Box::new(getattr), name)
     }
 }
 
@@ -866,11 +849,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match attr {
                 // Attribute setting bypasses `__getattr__` lookup and checks `__setattr__`
                 // If the attribute is not found, we fall back to `__setattr__`
-                Attribute {
-                    inner:
-                        AttributeInner::GetAttr(not_found, _, _)
-                        | AttributeInner::ModuleFallback(not_found, _, _),
-                } => {
+                Attribute::GetAttr(not_found, _, _)
+                | Attribute::ModuleFallback(not_found, _, _) => {
                     self.check_setattr(
                         attr_base.clone(),
                         attr_name,
@@ -882,9 +862,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     should_narrow = false;
                 }
-                Attribute {
-                    inner: AttributeInner::Simple(attr_ty),
-                } => {
+                Attribute::Simple(attr_ty) => {
                     self.check_set_read_write_and_infer_narrow(
                         attr_ty,
                         found_on,
@@ -897,9 +875,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &mut narrowed_types,
                     );
                 }
-                Attribute {
-                    inner: AttributeInner::ClassAttribute(class_attr),
-                } => {
+                Attribute::ClassAttribute(class_attr) => {
                     self.check_class_attr_set_and_infer_narrow(
                         class_attr,
                         found_on,
@@ -1101,11 +1077,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match attr {
                 // Attribute deletion bypasses `__getattr__` lookup and checks `__delattr__`
                 // If the attribute is not found, we fall back to `__delattr__`
-                Attribute {
-                    inner:
-                        AttributeInner::GetAttr(not_found, _, _)
-                        | AttributeInner::ModuleFallback(not_found, _, _),
-                } => {
+                Attribute::GetAttr(not_found, _, _)
+                | Attribute::ModuleFallback(not_found, _, _) => {
                     self.check_delattr(
                         attr_base.clone(),
                         attr_name,
@@ -1115,14 +1088,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         context,
                     );
                 }
-                Attribute {
-                    inner: AttributeInner::Simple(_),
-                } => {
+                Attribute::Simple(_) => {
                     // Allow deleting most attributes for now, for compatbility with mypy.
                 }
-                Attribute {
-                    inner: AttributeInner::ClassAttribute(class_attr),
-                } => {
+                Attribute::ClassAttribute(class_attr) => {
                     self.check_class_attr_delete(class_attr, attr_name, range, errors, context);
                 }
             }
@@ -1193,23 +1162,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         want: &ClassAttribute,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Result<(), AttrSubsetError> {
-        match &got.inner {
-            AttributeInner::ClassAttribute(got_class_attr) => {
+        match got {
+            Attribute::ClassAttribute(got_class_attr) => {
                 self.is_class_attribute_subset(got_class_attr, want, is_subset)
             }
-            AttributeInner::Simple(got_ty) => {
+            Attribute::Simple(got_ty) => {
                 // Treat Simple attributes (which come up for cases like attribute access
                 // on modules, Any, and Never) as if they were read-write class attributes
                 // for the purpose of protocol subtyping.
                 let synthetic_got = ClassAttribute::read_write(got_ty.clone());
                 self.is_class_attribute_subset(&synthetic_got, want, is_subset)
             }
-            AttributeInner::GetAttr(..) => {
+            Attribute::GetAttr(..) => {
                 // NOTE(grievejia): `__getattr__` does not participate in structural subtyping
                 // check for now. We may revisit this in the future if the need comes.
                 Err(AttrSubsetError::Getattr)
             }
-            AttributeInner::ModuleFallback(..) => Err(AttrSubsetError::ModuleFallback),
+            Attribute::ModuleFallback(..) => Err(AttrSubsetError::ModuleFallback),
         }
     }
 
@@ -1391,12 +1360,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Result<Type, NoAccessReason> {
-        match attr.inner {
-            AttributeInner::ClassAttribute(class_attr) => {
+        match attr {
+            Attribute::ClassAttribute(class_attr) => {
                 self.resolve_get_class_attr(class_attr, range, errors, context)
             }
-            AttributeInner::Simple(ty) => Ok(ty),
-            AttributeInner::ModuleFallback(_, name, ty) => {
+            Attribute::Simple(ty) => Ok(ty),
+            Attribute::ModuleFallback(_, name, ty) => {
                 self.error(
                     errors,
                     range,
@@ -1405,8 +1374,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Ok(ty)
             }
-            AttributeInner::GetAttr(_, getattr_attr, name) => self
-                .resolve_get_access(Attribute::new(*getattr_attr), range, errors, context)
+            Attribute::GetAttr(_, getattr_attr, name) => self
+                .resolve_get_access(*getattr_attr, range, errors, context)
                 .map(|getattr_ty| {
                     self.call_getattr_or_delattr(getattr_ty, name, range, errors, context)
                 }),
@@ -1835,11 +1804,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             // The module isn't imported, but does exist on disk, so user must
             // be observing someone else's import.
-            Some(Attribute::new(AttributeInner::ModuleFallback(
+            Some(Attribute::ModuleFallback(
                 NotFoundOn::Module(module.clone()),
                 module_name.append(attr_name),
                 submodule.to_type(),
-            )))
+            ))
         } else {
             None
         }
@@ -2150,8 +2119,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
-        match attr.inner {
-            AttributeInner::ClassAttribute(class_attr) => {
+        match attr {
+            Attribute::ClassAttribute(class_attr) => {
                 match class_attr {
                     // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
                     // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
