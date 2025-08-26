@@ -726,6 +726,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Inject frozen data from pydantic model
             if let Some(pydantic) = pydantic_metadata {
                 kws.frozen = pydantic.frozen || kws.frozen;
+                kws.extra = pydantic.extra;
             }
 
             dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));

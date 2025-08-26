@@ -175,6 +175,8 @@ pub struct DataclassKeywords {
     pub eq: bool,
     pub unsafe_hash: bool,
     pub slots: bool,
+    // are extra fields allowed? appears as an actual keyword in pydantic models, while implicitly false in dataclasses
+    pub extra: bool,
 }
 
 impl DataclassKeywords {
@@ -201,6 +203,7 @@ impl DataclassKeywords {
             eq: map.get_bool(&Self::EQ).unwrap_or(defaults.eq_default),
             unsafe_hash: map.get_bool(&Self::UNSAFE_HASH).unwrap_or(false),
             slots: map.get_bool(&Self::SLOTS).unwrap_or(false),
+            extra: false,
         }
     }
 
