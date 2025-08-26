@@ -889,40 +889,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::ReadWrite(want),
+                    inner: AttributeInner::ReadWrite(attr_ty),
                 } => {
-                    // If the attribute has a converter, then `want` should be the type expected by the converter.
-                    let want = match found_on {
-                        AttributeBase1::ClassInstance(cls) => {
-                            match self.get_dataclass_member(cls.class_object(), attr_name) {
-                                DataclassMember::Field(_, kws) => {
-                                    kws.converter_param.unwrap_or(want)
-                                }
-                                _ => want,
-                            }
-                        }
-                        _ => want,
-                    };
-                    let ty = match &got {
-                        TypeOrExpr::Expr(got) => self.expr(
-                            got,
-                            Some((&want, &|| TypeCheckContext {
-                                kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                context: context.map(|ctx| ctx()),
-                            })),
-                            errors,
-                        ),
-                        TypeOrExpr::Type(got, _) => {
-                            self.check_type(got, &want, range, errors, &|| TypeCheckContext {
-                                kind: TypeCheckKind::Attribute(attr_name.clone()),
-                                context: context.map(|ctx| ctx()),
-                            });
-                            (*got).clone()
-                        }
-                    };
-                    if should_narrow {
-                        narrowed_types.push(ty);
-                    }
+                    self.check_set_read_write_and_infer_narrow(
+                        attr_ty,
+                        found_on,
+                        attr_name,
+                        got,
+                        range,
+                        errors,
+                        context,
+                        should_narrow,
+                        &mut narrowed_types,
+                    );
                 }
                 Attribute {
                     inner: AttributeInner::ReadOnly(_, reason),
@@ -1012,6 +991,50 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 };
             }
+        }
+    }
+
+    fn check_set_read_write_and_infer_narrow(
+        &self,
+        attr_ty: Type,
+        found_on: AttributeBase1,
+        attr_name: &Name,
+        got: TypeOrExpr,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+        should_narrow: bool,
+        narrowed_types: &mut Vec<Type>,
+    ) {
+        // If the attribute has a converter, then `want` should be the type expected by the converter.
+        let want = match found_on {
+            AttributeBase1::ClassInstance(cls) => {
+                match self.get_dataclass_member(cls.class_object(), attr_name) {
+                    DataclassMember::Field(_, kws) => kws.converter_param.unwrap_or(attr_ty),
+                    _ => attr_ty,
+                }
+            }
+            _ => attr_ty,
+        };
+        let ty = match &got {
+            TypeOrExpr::Expr(got) => self.expr(
+                got,
+                Some((&want, &|| TypeCheckContext {
+                    kind: TypeCheckKind::Attribute(attr_name.clone()),
+                    context: context.map(|ctx| ctx()),
+                })),
+                errors,
+            ),
+            TypeOrExpr::Type(got, _) => {
+                self.check_type(got, &want, range, errors, &|| TypeCheckContext {
+                    kind: TypeCheckKind::Attribute(attr_name.clone()),
+                    context: context.map(|ctx| ctx()),
+                });
+                (*got).clone()
+            }
+        };
+        if should_narrow {
+            narrowed_types.push(ty);
         }
     }
 
