@@ -338,10 +338,6 @@ impl Attribute {
         Self::Simple(ty)
     }
 
-    pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
-        Self::class_attribute(ClassAttribute::read_only(ty, reason))
-    }
-
     pub fn class_attribute(class_attr: ClassAttribute) -> Self {
         Self::ClassAttribute(class_attr)
     }
@@ -407,12 +403,13 @@ impl LookupResult {
         self.found(Attribute::simple(ty), on)
     }
 
-    fn found_type_read_only(&mut self, ty: Type, reason: ReadOnlyReason, on: AttributeBase1) {
-        self.found(Attribute::read_only(ty, reason), on)
-    }
-
     fn found(&mut self, attr: Attribute, on: AttributeBase1) {
         self.found.push((attr, on))
+    }
+
+    fn found_class_attribute(&mut self, class_attr: ClassAttribute, on: AttributeBase1) {
+        self.found
+            .push((Attribute::class_attribute(class_attr), on))
     }
 
     fn not_found(&mut self, not_found: NotFoundOn) {
@@ -1456,10 +1453,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let attr_lookup_result = self
                     .special_case_enum_attr_lookup(class, &metadata, attr_name)
-                    .or_else(|| self.get_instance_attribute(class, attr_name))
-                    .map(Attribute::class_attribute);
+                    .or_else(|| self.get_instance_attribute(class, attr_name));
                 match attr_lookup_result {
-                    Some(attr) => acc.found(attr, base),
+                    Some(attr) => acc.found_class_attribute(attr, base),
                     None if metadata.has_base_any() => {
                         acc.found_type(Type::Any(AnyStyle::Implicit), base)
                     }
@@ -1470,27 +1466,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase1::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(cls, obj, attr_name) {
-                    Some(attr) => acc.found(
-                        Attribute::class_attribute(
-                            attr.read_only_equivalent(ReadOnlyReason::Super),
-                        ),
+                    Some(attr) => acc.found_class_attribute(
+                        attr.read_only_equivalent(ReadOnlyReason::Super),
                         base,
                     ),
                     None if let SuperObj::Instance(cls) = obj
                         && self.extends_any(cls.class_object()) =>
                     {
-                        acc.found_type_read_only(
-                            Type::Any(AnyStyle::Implicit),
-                            ReadOnlyReason::Super,
+                        acc.found_class_attribute(
+                            ClassAttribute::read_only(
+                                Type::Any(AnyStyle::Implicit),
+                                ReadOnlyReason::Super,
+                            ),
                             base,
                         )
                     }
                     None if let SuperObj::Class(cls) = obj
                         && self.extends_any(cls.class_object()) =>
                     {
-                        acc.found_type_read_only(
-                            Type::Any(AnyStyle::Implicit),
-                            ReadOnlyReason::Super,
+                        acc.found_class_attribute(
+                            ClassAttribute::read_only(
+                                Type::Any(AnyStyle::Implicit),
+                                ReadOnlyReason::Super,
+                            ),
                             base,
                         )
                     }
@@ -1514,7 +1512,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         class,
                         attr_name,
                     ) {
-                        Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                        Some(attr) => acc.found_class_attribute(attr, base),
                         None => acc
                             .not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base)),
                     },
@@ -1522,7 +1520,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase1::ClassObject(class) => {
                 match self.get_class_attribute(class, attr_name) {
-                    Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                    Some(attr) => acc.found_class_attribute(attr, base),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
                         // NOTE(grievejia): This lookup serves as fallback for normal class attribute lookup for regular
@@ -1530,15 +1528,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // See `lookup_magic_dunder_attr()`.
                         let metadata = self.get_metadata_for_class(class.class_object());
                         let instance_attr = match metadata.metaclass() {
-                            Some(meta) => self
-                                .get_instance_attribute(meta, attr_name)
-                                .map(Attribute::class_attribute),
-                            None => self
-                                .get_instance_attribute(self.stdlib.builtins_type(), attr_name)
-                                .map(Attribute::class_attribute),
+                            Some(meta) => self.get_instance_attribute(meta, attr_name),
+                            None => {
+                                self.get_instance_attribute(self.stdlib.builtins_type(), attr_name)
+                            }
                         };
                         match instance_attr {
-                            Some(attr) => acc.found(attr, base),
+                            Some(attr) => acc.found_class_attribute(attr, base),
                             None if metadata.has_base_any() => {
                                 // We can't immediately fall back to Any in this case -- `type[Any]` is actually a special
                                 // AttributeBase which requires additional lookup on `type` itself before the Any fallback.
@@ -1564,7 +1560,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::Quantified(q, bound) => {
                 if let Some(upper_bound) = bound {
                     match self.get_bounded_quantified_attribute(q.clone(), upper_bound, attr_name) {
-                        Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                        Some(attr) => acc.found_class_attribute(attr, base),
                         None => acc.not_found(NotFoundOn::ClassInstance(
                             upper_bound.class_object().dupe(),
                             base,
@@ -1573,7 +1569,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     let class = q.as_value(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
-                        Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                        Some(attr) => acc.found_class_attribute(attr, base),
                         None => acc.not_found(NotFoundOn::ClassInstance(
                             class.class_object().dupe(),
                             base,
@@ -1607,7 +1603,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     let class = self.stdlib.property();
                     match self.get_instance_attribute(class, attr_name) {
-                        Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                        Some(attr) => acc.found_class_attribute(attr, base),
                         None => acc.not_found(NotFoundOn::ClassInstance(
                             class.class_object().dupe(),
                             base,
@@ -1617,7 +1613,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase1::TypedDict(typed_dict) => {
                 match self.get_typed_dict_attribute(typed_dict, attr_name) {
-                    Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                    Some(attr) => acc.found_class_attribute(attr, base),
                     None => acc.not_found(NotFoundOn::ClassInstance(
                         typed_dict.class_object().dupe(),
                         base,
@@ -1625,7 +1621,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AttributeBase1::SelfType(cls) => match self.get_self_attribute(cls, attr_name) {
-                Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                Some(attr) => acc.found_class_attribute(attr, base),
                 None => acc.not_found(NotFoundOn::ClassInstance(cls.class_object().dupe(), base)),
             },
         }
@@ -1663,7 +1659,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     return;
                 }
                 match self.get_instance_attribute(metaclass, dunder_name) {
-                    Some(attr) => acc.found(Attribute::class_attribute(attr), base),
+                    Some(attr) => acc.found_class_attribute(attr, base),
                     None => acc.not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
                         base,
