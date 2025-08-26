@@ -30,7 +30,6 @@ use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::attr::Attribute;
 use crate::alt::attr::ClassAttribute;
 use crate::alt::attr::ClassBase;
 use crate::alt::attr::DescriptorBase;
@@ -1665,19 +1664,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // keys but not regular fields.
                 continue;
             }
-            // TODO(stroxler): Clean this up once we have a class attribute subset helper,
-            // the fact that we're wrapping in Attribute is just an artifact of an incomplete
-            // refactor.
             let want_attribute =
                 self.as_instance_attribute(&want_class_field, &Instance::of_class(parent));
             if got_attribute.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
-                got_attribute = Some(Attribute::class_attribute(self.as_instance_attribute(
+                got_attribute = Some(self.as_instance_attribute(
                     class_field,
                     &Instance::of_class(&self.as_class_type_unchecked(cls)),
-                )));
+                ));
             }
-            let attr_check = self.is_attribute_subset(
+            let attr_check = self.is_class_attribute_subset(
                 got_attribute.as_ref().unwrap(),
                 &want_attribute,
                 &mut |got, want| self.is_subset_eq(got, want),

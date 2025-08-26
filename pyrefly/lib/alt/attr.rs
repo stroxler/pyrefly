@@ -1213,7 +1213,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn is_class_attribute_subset(
+    pub fn is_class_attribute_subset(
         &self,
         got: &ClassAttribute,
         want: &ClassAttribute,
