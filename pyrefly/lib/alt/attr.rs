@@ -925,6 +925,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Attribute {
+                    inner: AttributeInner::ReadOnly(_, reason),
+                } => {
+                    let msg = vec1![
+                        format!("Cannot set field `{attr_name}`"),
+                        reason.error_message()
+                    ];
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                    should_narrow = false;
+                }
+                Attribute {
                     inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(e)),
                 } => {
                     self.error(
@@ -933,16 +943,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorInfo::new(ErrorKind::NoAccess, context),
                         e.to_error_msg(attr_name),
                     );
-                    should_narrow = false;
-                }
-                Attribute {
-                    inner: AttributeInner::ReadOnly(_, reason),
-                } => {
-                    let msg = vec1![
-                        format!("Cannot set field `{attr_name}`"),
-                        reason.error_message()
-                    ];
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
                     should_narrow = false;
                 }
                 Attribute {
