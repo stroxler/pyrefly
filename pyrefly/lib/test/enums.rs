@@ -517,3 +517,18 @@ def test(x: EmptyEnum):
     assert_type(x.value, Any)
     "#,
 );
+
+testcase!(
+    bug = "Our support for enum iteration is incomplete, the type is being downgraded to Any",
+    test_iterate_enum,
+    r#"
+import enum
+from typing import assert_type, Any
+class MyEnum(enum.Enum):
+    X = 'X'
+    Y = 'Y'
+def foo():
+    for e in MyEnum:
+        assert_type(e, MyEnum)  # E: assert_type(Any, MyEnum)
+    "#,
+);
