@@ -1193,26 +1193,47 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         want: &ClassAttribute,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Result<(), AttrSubsetError> {
-        match (&got.inner, want) {
-            (_, ClassAttribute::NoAccess(_)) => Ok(()),
-            (AttributeInner::ClassAttribute(ClassAttribute::NoAccess(_)), _) => {
-                Err(AttrSubsetError::NoAccess)
+        match &got.inner {
+            AttributeInner::ClassAttribute(got_class_attr) => {
+                self.is_class_attribute_subset(got_class_attr, want, is_subset)
             }
+            AttributeInner::Simple(got_ty) => {
+                // Treat Simple attributes (which come up for cases like attribute access
+                // on modules, Any, and Never) as if they were read-write class attributes
+                // for the purpose of protocol subtyping.
+                let synthetic_got = ClassAttribute::read_write(got_ty.clone());
+                self.is_class_attribute_subset(&synthetic_got, want, is_subset)
+            }
+            AttributeInner::GetAttr(..) => {
+                // NOTE(grievejia): `__getattr__` does not participate in structural subtyping
+                // check for now. We may revisit this in the future if the need comes.
+                Err(AttrSubsetError::Getattr)
+            }
+            AttributeInner::ModuleFallback(..) => Err(AttrSubsetError::ModuleFallback),
+        }
+    }
+
+    fn is_class_attribute_subset(
+        &self,
+        got: &ClassAttribute,
+        want: &ClassAttribute,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> Result<(), AttrSubsetError> {
+        match (got, want) {
+            (_, ClassAttribute::NoAccess(_)) => Ok(()),
+            (ClassAttribute::NoAccess(_), _) => Err(AttrSubsetError::NoAccess),
             (
-                AttributeInner::ClassAttribute(ClassAttribute::Property(_, _, _)),
+                ClassAttribute::Property(_, _, _),
                 ClassAttribute::ReadOnly(..) | ClassAttribute::ReadWrite(..),
             ) => Err(AttrSubsetError::Property),
             (
-                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(..)),
+                ClassAttribute::ReadOnly(..),
                 ClassAttribute::Property(_, Some(_), _) | ClassAttribute::ReadWrite(_),
             ) => Err(AttrSubsetError::ReadOnly),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
                 // in some cases for unknown reasons they wind up being ReadWrite.
-                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(
-                    got @ Type::BoundMethod(_),
-                ))
-                | AttributeInner::Simple(got @ Type::BoundMethod(_)),
+                ClassAttribute::ReadWrite(got @ Type::BoundMethod(_)),
                 ClassAttribute::ReadWrite(want @ Type::BoundMethod(_)),
             ) => {
                 if is_subset(got, want) {
@@ -1226,11 +1247,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (
-                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
-                | AttributeInner::Simple(got),
-                ClassAttribute::ReadWrite(want),
-            ) => {
+            (ClassAttribute::ReadWrite(got), ClassAttribute::ReadWrite(want)) => {
                 if is_subset(got, want) && is_subset(want, got) {
                     Ok(())
                 } else {
@@ -1241,9 +1258,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
-                | AttributeInner::Simple(got)
-                | AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(got, ..)),
+                ClassAttribute::ReadWrite(got) | ClassAttribute::ReadOnly(got, ..),
                 ClassAttribute::ReadOnly(want, _),
             ) => {
                 if is_subset(got, want) {
@@ -1257,10 +1272,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (
-                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(got, _)),
-                ClassAttribute::Property(want, _, _),
-            ) => {
+            (ClassAttribute::ReadOnly(got, _), ClassAttribute::Property(want, _, _)) => {
                 if is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
@@ -1276,11 +1288,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (
-                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
-                | AttributeInner::Simple(got),
-                ClassAttribute::Property(want, want_setter, _),
-            ) => {
+            (ClassAttribute::ReadWrite(got), ClassAttribute::Property(want, want_setter, _)) => {
                 if !is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
@@ -1315,7 +1323,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::ClassAttribute(ClassAttribute::Property(got_getter, got_setter, _)),
+                ClassAttribute::Property(got_getter, got_setter, _),
                 ClassAttribute::Property(want_getter, want_setter, _),
             ) => {
                 if !is_subset(got_getter, want_getter) {
@@ -1344,13 +1352,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::ClassAttribute(ClassAttribute::Descriptor(
+                ClassAttribute::Descriptor(
                     Descriptor {
                         descriptor_ty: got_ty,
                         ..
                     },
                     ..,
-                )),
+                ),
                 ClassAttribute::Descriptor(
                     Descriptor {
                         descriptor_ty: want_ty,
@@ -1370,14 +1378,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (AttributeInner::ClassAttribute(ClassAttribute::Descriptor(..)), _)
-            | (_, ClassAttribute::Descriptor(..)) => Err(AttrSubsetError::Descriptor),
-            (AttributeInner::GetAttr(..), _) => {
-                // NOTE(grievejia): `__getattr__` does not participate in structural subtyping
-                // check for now. We may revisit this in the future if the need comes.
-                Err(AttrSubsetError::Getattr)
+            (ClassAttribute::Descriptor(..), _) | (_, ClassAttribute::Descriptor(..)) => {
+                Err(AttrSubsetError::Descriptor)
             }
-            (AttributeInner::ModuleFallback(..), _) => Err(AttrSubsetError::ModuleFallback),
         }
     }
 
