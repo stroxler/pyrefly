@@ -43,14 +43,11 @@ const docsSidebar = [
         items: ['migrating-to-pyrefly', 'migrating-from-mypy',  'migrating-from-pyright']
     },
     {
-        type: 'doc' as const,
-        id: 'pyrefly-faq',
-        label: 'FAQ',
-    },
-    {
-        type: 'doc' as const,
-        id: 'IDE',
+        type: 'category' as const,
         label: 'IDE',
+        description: "Learn how to use Pyrefly in your IDE",
+        collapsed: false,
+        items: ['IDE', 'IDE-features']
     },
     {
         type: 'doc' as const,
@@ -71,6 +68,11 @@ const docsSidebar = [
         type: 'doc' as const,
         id: 'autotype',
         label: 'Automating Type Annotations',
+    },
+    {
+        type: 'doc' as const,
+        id: 'pyrefly-faq',
+        label: 'FAQ',
     },
 ];
 
