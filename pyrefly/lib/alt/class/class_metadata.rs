@@ -450,7 +450,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
                             .to_owned(),
                     );
-                        false
+                        true
                     }
                 },
                 _ => {
