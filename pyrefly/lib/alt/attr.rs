@@ -1154,21 +1154,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> bool {
-        let got_attrs = {
-            let attr_base = self.as_attribute_base(got.clone());
-            let lookup_result = attr_base.map_or_else(
-                || LookupResult::internal_error(InternalError::AttributeBaseUndefined(got.clone())),
-                |attr_base| self.lookup_attr_from_base(attr_base, name),
-            );
-            lookup_result.found
-        };
-        if (!got_attrs.is_empty())
-            && let Some(want) = self.get_instance_attribute(protocol, name)
-        {
-            got_attrs.iter().all(|(got_attr, _)| {
-                self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
-                    .is_ok()
+        if let Some(got_attrs) = self
+            .as_attribute_base(got.clone())
+            .map(|got_base| self.lookup_attr_from_base(got_base, name))
+            .map(|lookup_result| {
+                // TODO(stroxler): we probably shouldn't just ignore not-found here.
+                lookup_result.found
             })
+        {
+            if (!got_attrs.is_empty())
+                && let Some(want) = self.get_instance_attribute(protocol, name)
+            {
+                got_attrs.iter().all(|(got_attr, _)| {
+                    self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
+                        .is_ok()
+                })
+            } else {
+                false
+            }
         } else {
             false
         }
