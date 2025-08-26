@@ -2213,8 +2213,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         // NOTE: We do not provide completions from object, to avoid noise like __hash__. Maybe we should?
         let mro = self.get_mro_for_class(cls);
-        let mro = iter::once(cls).chain(mro.ancestors_no_object().iter().map(|x| x.class_object()));
-        self.completions_mro(mro, expected_attribute_name, res)
+        let ancestors =
+            iter::once(cls).chain(mro.ancestors_no_object().iter().map(|x| x.class_object()));
+        self.completions_mro(ancestors, expected_attribute_name, res)
     }
 
     fn completions_super(
