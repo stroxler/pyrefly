@@ -1176,7 +1176,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> bool {
         let got_attrs = self.try_lookup_attr(got, name);
         if (!got_attrs.is_empty())
-            && let Some(want) = self.try_lookup_attr_from_class_type(protocol.clone(), name)
+            && let Some(want) = self
+                .get_instance_attribute(protocol, name)
+                .map(Attribute::class_attribute)
         {
             got_attrs.iter().all(|(got_attr, _)| {
                 self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
@@ -1792,19 +1794,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone()))
         }
-    }
-
-    fn try_lookup_attr_from_class_type(
-        &self,
-        cls: ClassType,
-        attr_name: &Name,
-    ) -> Option<Attribute> {
-        // Looking something up from a `ClassInstance` should not yield multiple `Attribute`
-        self.lookup_attr_from_base(AttributeBase1::ClassInstance(cls).to_attr_base(), attr_name)
-            .found
-            .into_iter()
-            .next()
-            .map(|(attr, _)| attr)
     }
 
     fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<(Attribute, AttributeBase1)> {
