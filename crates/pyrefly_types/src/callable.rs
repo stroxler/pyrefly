@@ -521,7 +521,6 @@ impl Param {
         }
     }
 
-    #[allow(dead_code)]
     pub fn is_required(&self) -> bool {
         match self {
             Param::PosOnly(_, _, Required::Required)
