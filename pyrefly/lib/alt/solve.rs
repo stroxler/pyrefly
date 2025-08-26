@@ -207,7 +207,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         binding: &BindingLegacyTypeParam,
     ) -> Arc<LegacyTypeParameterLookup> {
         match self.get_idx(binding.0).ty() {
-            Type::Type(box Type::TypeVar(x)) => {
+            Type::TypeVar(x) => {
                 let q = Quantified::type_var(
                     x.qname().id().clone(),
                     self.uniques,
@@ -219,7 +219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     variance: x.variance(),
                 }))
             }
-            Type::Type(box Type::TypeVarTuple(x)) => {
+            Type::TypeVarTuple(x) => {
                 let q = Quantified::type_var_tuple(
                     x.qname().id().clone(),
                     self.uniques,
@@ -230,7 +230,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     variance: PreInferenceVariance::PInvariant,
                 }))
             }
-            Type::Type(box Type::ParamSpec(x)) => {
+            Type::ParamSpec(x) => {
                 let q = Quantified::param_spec(
                     x.qname().id().clone(),
                     self.uniques,
@@ -1998,7 +1998,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // when there is no annotation, so that `mylist = list` is treated
             // like a value assignment rather than a type alias?
             match ty {
-                Type::Type(_) => true,
+                Type::Type(_) | Type::TypeVar(_) | Type::ParamSpec(_) | Type::TypeVarTuple(_) => {
+                    true
+                }
                 Type::None if allow_none => true,
                 Type::Union(members) => {
                     for member in members {
@@ -2313,7 +2315,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::TypeVar(ann, name, x) => {
-                let ty = Type::type_form(self.typevar_from_call(name.clone(), x, errors).to_type());
+                let ty = self.typevar_from_call(name.clone(), x, errors).to_type();
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,
@@ -2332,8 +2334,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::ParamSpec(ann, name, x) => {
-                let ty =
-                    Type::type_form(self.paramspec_from_call(name.clone(), x, errors).to_type());
+                let ty = self.paramspec_from_call(name.clone(), x, errors).to_type();
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,
@@ -2352,10 +2353,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::TypeVarTuple(ann, name, x) => {
-                let ty = Type::type_form(
-                    self.typevartuple_from_call(name.clone(), x, errors)
-                        .to_type(),
-                );
+                let ty = self
+                    .typevartuple_from_call(name.clone(), x, errors)
+                    .to_type();
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,
@@ -3118,6 +3118,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Var(v) if let Some(_guard) = self.recurser.recurse(v) => {
                 self.untype_opt(self.solver().force_var(v), range)
             }
+            ty @ (Type::TypeVar(_) | Type::ParamSpec(_) | Type::TypeVarTuple(_)) => Some(ty),
             Type::Type(t) => Some(*t),
             Type::None => Some(Type::None), // Both a value and a type
             Type::Ellipsis => Some(Type::Ellipsis), // A bit weird because of tuples, so just promote it

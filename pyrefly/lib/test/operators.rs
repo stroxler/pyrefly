@@ -371,7 +371,7 @@ testcase!(
 from typing import TypeVar, reveal_type
 T_co = TypeVar("T_co", covariant=True)
 T_co == int 
-reveal_type(T_co) # E:  revealed type: type[TypeVar[T_co]]
+reveal_type(T_co) # E:  revealed type: TypeVar[T_co]
     "#,
 );
 

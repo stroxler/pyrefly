@@ -1836,14 +1836,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )))
             }
             Type::Module(module) => acc.push(AttributeBase1::Module(module)),
-            Type::TypeVar(_) | Type::Type(box Type::TypeVar(_)) => acc.push(
-                AttributeBase1::ClassInstance(self.stdlib.type_var().clone()),
-            ),
+            Type::TypeVar(_) => acc.push(AttributeBase1::ClassInstance(
+                self.stdlib.type_var().clone(),
+            )),
             Type::ParamSpec(_) => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.param_spec().clone(),
             )),
             Type::TypeVarTuple(_) => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.type_var_tuple().clone(),
+            )),
+            Type::Type(box Type::TypeVar(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.type_var().clone()),
+            )),
+            Type::Type(box Type::ParamSpec(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.param_spec().clone()),
+            )),
+            Type::Type(box Type::TypeVarTuple(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.type_var_tuple().clone()),
             )),
             Type::Args(_) => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.param_spec_args().clone(),

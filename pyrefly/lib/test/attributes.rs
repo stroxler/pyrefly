@@ -1549,3 +1549,25 @@ def foo[T](x: type[T]):
     reveal_type(get_type_t().__new__)  # E: Overload[(cls: type[Self@type], o: object, /) -> type, (cls: type[TypeVar[Self]], name: str, bases: tuple[type, ...], namespace: dict[str, Any], /, **kwds: Any) -> TypeVar[Self]]
     "#,
 );
+
+// T, P, and Ts are values of type TypeVar, ParamSpec, and TypeVarTuple respectively.
+// They should behave like values when we try to access attributes on them.
+testcase!(
+    test_typevar_value_lookups,
+    r#"
+from typing import TypeVar, ParamSpec, TypeVarTuple
+
+T = TypeVar("T")
+P = ParamSpec("P")
+Ts = TypeVarTuple("Ts")
+
+T.__name__
+P.__name__
+Ts.__name__
+
+def ty[T](x: T) -> type[T]: ...
+ty(T).__name__
+ty(P).__name__
+ty(Ts).__name__
+"#,
+);
