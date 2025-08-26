@@ -1338,12 +1338,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Result<Type, NoAccessReason> {
         match attr.inner {
-            AttributeInner::ClassAttribute(ClassAttribute::NoAccess(reason)) => Err(reason),
-            AttributeInner::ClassAttribute(ClassAttribute::Property(getter, ..)) => {
+            AttributeInner::ClassAttribute(class_attr) => {
+                self.resolve_get_class_attr(class_attr, range, errors, context)
+            }
+            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
+            AttributeInner::ModuleFallback(_, name, ty) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::ImplicitImport, context),
+                    format!("Module `{name}` exists, but was not imported explicitly. You are relying on other modules to load it."),
+                );
+                Ok(ty)
+            }
+            AttributeInner::GetAttr(_, getattr_attr, name) => self
+                .resolve_get_access(Attribute::new(*getattr_attr), range, errors, context)
+                .map(|getattr_ty| {
+                    self.call_getattr_or_delattr(getattr_ty, name, range, errors, context)
+                }),
+        }
+    }
+
+    fn resolve_get_class_attr(
+        &self,
+        class_attr: ClassAttribute,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> Result<Type, NoAccessReason> {
+        match class_attr {
+            ClassAttribute::NoAccess(reason) => Err(reason),
+            ClassAttribute::Property(getter, ..) => {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
             }
-            AttributeInner::ClassAttribute(ClassAttribute::Descriptor(d, ..)) => {
+            ClassAttribute::Descriptor(d, ..) => {
                 match d {
                     // Reading a descriptor with a getter resolves to a method call
                     //
@@ -1362,21 +1391,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } => Ok(descriptor_ty),
                 }
             }
-            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
-            AttributeInner::ModuleFallback(_, name, ty) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::ImplicitImport, context),
-                    format!("Module `{name}` exists, but was not imported explicitly. You are relying on other modules to load it."),
-                );
-                Ok(ty)
-            }
-            AttributeInner::GetAttr(_, getattr_attr, name) => self
-                .resolve_get_access(Attribute::new(*getattr_attr), range, errors, context)
-                .map(|getattr_ty| {
-                    self.call_getattr_or_delattr(getattr_ty, name, range, errors, context)
-                }),
         }
     }
 
