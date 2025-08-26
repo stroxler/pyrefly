@@ -1154,7 +1154,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> bool {
-        let got_attrs = self.try_lookup_attr(got, name);
+        let got_attrs = {
+            let attr_base = self.as_attribute_base(got.clone());
+            let lookup_result = attr_base.map_or_else(
+                || LookupResult::internal_error(InternalError::AttributeBaseUndefined(got.clone())),
+                |attr_base| self.lookup_attr_from_base(attr_base, name),
+            );
+            lookup_result.found
+        };
         if (!got_attrs.is_empty())
             && let Some(want) = self.get_instance_attribute(protocol, name)
         {
@@ -1759,15 +1766,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone()))
         }
-    }
-
-    fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<(Attribute, AttributeBase1)> {
-        let attr_base = self.as_attribute_base(base.clone());
-        let lookup_result = attr_base.map_or_else(
-            || LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone())),
-            |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
-        );
-        lookup_result.found
     }
 
     fn get_module_exports(&self, module_name: ModuleName) -> Option<Exports> {
