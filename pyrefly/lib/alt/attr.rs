@@ -1437,7 +1437,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::TypeAny(style) => {
                 let builtins_type_classtype = self.stdlib.builtins_type();
                 let ty = self
-                    .resolve_instance_method(builtins_type_classtype, attr_name)
+                    .get_instance_attribute(builtins_type_classtype, attr_name)
+                    .and_then(|attr| self.resolve_as_instance_method(attr))
                     .unwrap_or_else(|| style.propagate());
                 acc.found_type(ty, base);
             }
@@ -2113,6 +2114,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Given a `ClassAttribute`, try to unwrap it as a method type, assuming
+    /// that methods are always simple read-only or read-write attributes.
+    ///
+    /// If we encounter any other case, return `None`.
     fn resolve_as_instance_method(&self, class_attr: ClassAttribute) -> Option<Type> {
         match class_attr {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
@@ -2125,18 +2130,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    /// A convenience helper for parts of the code where we have a class and we want to look up
-    /// a method if it exists (typically when handling special semantics around dunder methods
-    /// and metaclass behavior), without producing type errors on lookup failures.
-    fn resolve_instance_method(&self, cls: &ClassType, name: &Name) -> Option<Type> {
-        self.get_instance_attribute(cls, name)
-            .and_then(|attr| self.resolve_as_instance_method(attr))
-    }
-
     /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
     /// This is what the runtime automatically does when we try to call an instance.
     pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
-        self.resolve_instance_method(cls, &dunder::CALL)
+        self.get_instance_attribute(cls, &dunder::CALL)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 
     /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
