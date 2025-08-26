@@ -149,6 +149,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.is_subset_eq(ty, &coroutine_ty)
     }
 
+    pub fn unwrap_coroutine(&self, ty: &Type) -> Option<(Type, Type, Type)> {
+        let yield_ty = self.fresh_var();
+        let send_ty = self.fresh_var();
+        let return_ty = self.fresh_var();
+        let coroutine_ty = self
+            .stdlib
+            .coroutine(yield_ty.to_type(), send_ty.to_type(), return_ty.to_type())
+            .to_type();
+        if self.is_subset_eq(ty, &coroutine_ty) {
+            let yield_ty: Type = self.resolve_var(ty, yield_ty);
+            let send_ty = self.resolve_var(ty, send_ty);
+            let return_ty = self.resolve_var(ty, return_ty);
+            Some((yield_ty, send_ty, return_ty))
+        } else {
+            None
+        }
+    }
+
     pub fn unwrap_generator(&self, ty: &Type) -> Option<(Type, Type, Type)> {
         let yield_ty = self.fresh_var();
         let send_ty = self.fresh_var();

@@ -10,3 +10,7 @@ def no_return_annot():
 
 
 result = no_return_annot()
+
+
+async def foo():
+    return 0

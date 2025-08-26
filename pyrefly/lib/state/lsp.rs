@@ -2251,10 +2251,18 @@ impl<'a> Transaction<'a> {
                         match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
                             Binding::Function(x, _pred, _class_meta) => {
                                 if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
-                                    && let Some(ty) = self.get_type(handle, key)
+                                    && let Some(mut ty) = self.get_type(handle, key)
                                     && is_interesting_type(&ty)
                                 {
                                     let fun = bindings.get(bindings.get(*x).undecorated_idx);
+                                    if fun.def.is_async
+                                        && let Some(Some((_, _, return_ty))) = self
+                                            .ad_hoc_solve(handle, |solver| {
+                                                solver.unwrap_coroutine(&ty)
+                                            })
+                                    {
+                                        ty = return_ty;
+                                    }
                                     res.push((fun.def.parameters.range.end(), format!(" -> {ty}")));
                                 }
                             }
