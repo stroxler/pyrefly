@@ -442,6 +442,7 @@ pub struct FindDefinitionItemWithDocstring {
     pub docstring_range: Option<TextRange>,
 }
 
+#[derive(Debug)]
 pub struct FindDefinitionItem {
     pub metadata: DefinitionMetadata,
     pub definition_range: TextRange,
