@@ -255,29 +255,6 @@ impl ClassAttribute {
     }
 }
 
-/// The result of an attempt to access an attribute (which will eventually be
-/// used either for an action like get / set / delete, or in a structural subtype
-/// check).
-#[derive(Debug)]
-enum Attribute {
-    /// An attribute resolved through a class field lookup.
-    ClassAttribute(ClassAttribute),
-    /// A read-write attribute with a closed form type for both get and set actions. Used
-    /// for non-class-attribute cases (for example, reads against Any, Never, or module objects)
-    Simple(Type),
-    /// The attribute being looked up is not defined explicitly, but it may be defined via a
-    /// `__getattr__` or `__getattribute__` fallback.
-    /// The `NotFound` field stores the (failed) lookup result on the original attribute for
-    /// better error reporting downstream. The `Attribute` field stores the (successful)
-    /// lookup result of the `__getattr__`/`__getattribute__` function or method.
-    /// The `Name` field stores the name of the original attribute being looked up.
-    GetAttr(NotFoundOn, Box<Attribute>, Name),
-    /// We did `a.b`, which is a real module on the file system, but not one the user explicitly
-    /// or implicitly imported. In some cases, treat this as NotFound. In others, emit an error
-    /// but continue on with type.
-    ModuleFallback(NotFoundOn, ModuleName, Type),
-}
-
 #[derive(Clone, Debug)]
 pub struct Descriptor {
     /// This is the raw type of the descriptor, which is needed both for attribute subtyping
@@ -301,6 +278,29 @@ pub struct Descriptor {
 pub enum DescriptorBase {
     Instance(ClassType),
     ClassDef(Class),
+}
+
+/// The result of an attempt to access an attribute (which will eventually be
+/// used either for an action like get / set / delete, or in a structural subtype
+/// check).
+#[derive(Debug)]
+enum Attribute {
+    /// An attribute resolved through a class field lookup.
+    ClassAttribute(ClassAttribute),
+    /// A read-write attribute with a closed form type for both get and set actions. Used
+    /// for non-class-attribute cases (for example, reads against Any, Never, or module objects)
+    Simple(Type),
+    /// The attribute being looked up is not defined explicitly, but it may be defined via a
+    /// `__getattr__` or `__getattribute__` fallback.
+    /// The `NotFound` field stores the (failed) lookup result on the original attribute for
+    /// better error reporting downstream. The `Attribute` field stores the (successful)
+    /// lookup result of the `__getattr__`/`__getattribute__` function or method.
+    /// The `Name` field stores the name of the original attribute being looked up.
+    GetAttr(NotFoundOn, Box<Attribute>, Name),
+    /// We did `a.b`, which is a real module on the file system, but not one the user explicitly
+    /// or implicitly imported. In some cases, treat this as NotFound. In others, emit an error
+    /// but continue on with type.
+    ModuleFallback(NotFoundOn, ModuleName, Type),
 }
 
 #[derive(Clone, Debug)]
