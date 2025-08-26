@@ -114,7 +114,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         self.error(
                             errors,
-                            first.id_range,
+                            (*first).id_range(),
                             ErrorInfo::Kind(ErrorKind::InvalidOverload),
                             "Overloaded function must have an implementation".to_owned(),
                         );
@@ -123,7 +123,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if acc.len() == 1 {
                     self.error(
                         errors,
-                        first.id_range,
+                        (*first).id_range(),
                         ErrorInfo::Kind(ErrorKind::InvalidOverload),
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
@@ -422,7 +422,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metadata = FuncMetadata { kind, flags };
 
         Arc::new(UndecoratedFunction {
-            id_range: def.name.range,
+            identifier: ShortIdentifier::new(&def.name),
             metadata,
             decorators,
             tparams,
@@ -446,7 +446,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if matches!(&ret, Type::TypeGuard(_) | Type::TypeIs(_)) {
             self.validate_type_guard_positional_argument_count(
                 &def.params,
-                def.id_range,
+                def.id_range(),
                 &def.defining_cls,
                 def.metadata.flags.is_staticmethod,
                 errors,

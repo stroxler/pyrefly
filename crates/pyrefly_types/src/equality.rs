@@ -11,6 +11,7 @@ use std::sync::Arc;
 use compact_str::CompactString;
 use dupe::Dupe;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::uniques::Unique;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -141,6 +142,7 @@ impl TypeEq for str {}
 impl TypeEq for Name {}
 impl TypeEq for ModuleName {}
 impl TypeEq for TextRange {}
+impl TypeEq for ShortIdentifier {}
 
 impl<T0: TypeEq, T1: TypeEq> TypeEq for (T0, T1) {
     fn type_eq(&self, other: &Self, ctx: &mut TypeEqCtx) -> bool {

@@ -8,6 +8,8 @@
 use std::fmt;
 
 use pyrefly_util::display::DisplayWith;
+use pyrefly_util::visit::Visit;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
@@ -40,6 +42,16 @@ impl DisplayWith<Module> for ShortIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Module) -> fmt::Result {
         write!(f, "{}", ctx.code_at(self.0))
     }
+}
+
+impl<To: 'static> Visit<To> for ShortIdentifier {
+    const RECURSE_CONTAINS: bool = false;
+    fn recurse<'a>(&'a self, _: &mut dyn FnMut(&'a To)) {}
+}
+
+impl<To: 'static> VisitMut<To> for ShortIdentifier {
+    const RECURSE_CONTAINS: bool = false;
+    fn recurse_mut(&mut self, _: &mut dyn FnMut(&mut To)) {}
 }
 
 #[cfg(test)]

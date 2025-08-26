@@ -22,7 +22,11 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::callable::Param;
+use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
+use pyrefly_types::types::Overload;
+use pyrefly_types::types::Type;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::visit::Visit;
@@ -45,6 +49,7 @@ use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
@@ -105,9 +110,50 @@ enum ScopeParent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+enum FunctionParameter {
+    PosOnly {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        annotation: String,
+        #[serde(skip_serializing_if = "<&bool>::not")]
+        required: bool,
+    },
+    Pos {
+        name: String,
+        annotation: String,
+        #[serde(skip_serializing_if = "<&bool>::not")]
+        required: bool,
+    },
+    VarArg {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        annotation: String,
+    },
+    KwOnly {
+        name: String,
+        annotation: String,
+        #[serde(skip_serializing_if = "<&bool>::not")]
+        required: bool,
+    },
+    Kwargs {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        annotation: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+enum FunctionParameters {
+    List(Vec<FunctionParameter>),
+    Ellipsis,
+    ParamSpec,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct FunctionDefinition {
     name: String,
     parent: ScopeParent,
+    undecorated_signatures: Vec<FunctionParameters>,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_overload: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -292,6 +338,54 @@ fn add_expression_definitions(
     );
 }
 
+fn string_for_type(type_: &Type) -> String {
+    let mut ctx = TypeDisplayContext::new(&[type_]);
+    ctx.always_display_module_name();
+    ctx.display(type_).to_string()
+}
+
+fn convert_param_to_function_parameter(param: &Param) -> FunctionParameter {
+    match param {
+        Param::PosOnly(name, ty, required) => FunctionParameter::PosOnly {
+            name: name.as_ref().map(|n| n.to_string()),
+            annotation: string_for_type(ty),
+            required: matches!(required, pyrefly_types::callable::Required::Required),
+        },
+        Param::Pos(name, ty, required) => FunctionParameter::Pos {
+            name: name.to_string(),
+            annotation: string_for_type(ty),
+            required: matches!(required, pyrefly_types::callable::Required::Required),
+        },
+        Param::VarArg(name, ty) => FunctionParameter::VarArg {
+            name: name.as_ref().map(|n| n.to_string()),
+            annotation: string_for_type(ty),
+        },
+        Param::KwOnly(name, ty, required) => FunctionParameter::KwOnly {
+            name: name.to_string(),
+            annotation: string_for_type(ty),
+            required: matches!(required, pyrefly_types::callable::Required::Required),
+        },
+        Param::Kwargs(name, ty) => FunctionParameter::Kwargs {
+            name: name.as_ref().map(|n| n.to_string()),
+            annotation: string_for_type(ty),
+        },
+    }
+}
+
+fn convert_params_to_function_parameters(params: &Params) -> FunctionParameters {
+    match params {
+        Params::List(params) => FunctionParameters::List(
+            params
+                .items()
+                .iter()
+                .map(convert_param_to_function_parameter)
+                .collect(),
+        ),
+        Params::Ellipsis => FunctionParameters::Ellipsis,
+        Params::ParamSpec(_, _) => FunctionParameters::ParamSpec,
+    }
+}
+
 fn visit_expression(e: &Expr, context: &mut VisitorContext) {
     let range = e.range();
 
@@ -302,16 +396,10 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
 
         let display_range = context.module_info.display_range(range);
 
-        let mut ctx = TypeDisplayContext::new(&[&type_]);
-        ctx.always_display_module_name();
-
         assert!(
             context
                 .type_of_expression
-                .insert(
-                    location_key(&display_range),
-                    ctx.display(&type_).to_string(),
-                )
+                .insert(location_key(&display_range), string_for_type(&type_),)
                 .is_none(),
             "Found expressions with the same location"
         );
@@ -536,6 +624,21 @@ fn get_all_functions(
         .map(|idx| DecoratedFunction::from_bindings_answers(idx, bindings, answers))
 }
 
+// Return the function type, considering decorators and overloads.
+fn get_function_type(bindings: &Bindings, answers: &Answers, function: &DecoratedFunction) -> Type {
+    let definition_binding = Key::Definition(function.undecorated.identifier.clone());
+    let idx = bindings.key_to_idx(&definition_binding);
+    answers.get_idx(idx).unwrap().arc_clone_ty()
+}
+
+fn should_export_function(bindings: &Bindings, function: &DecoratedFunction) -> bool {
+    // We only want to export one function when we have an @overload chain.
+    // If the function has no successor (function in the same scope with the same name), then we should export it.
+    // If the function has successors, but is not an overload, then we should export it. It probably means the successor is a redefinition.
+    let has_successor = bindings.get(function.idx).successor.is_some();
+    !has_successor || !function.is_overload()
+}
+
 fn export_all_functions(
     ast: &ModModule,
     module_info: &Module,
@@ -545,6 +648,36 @@ fn export_all_functions(
     let mut function_definitions = HashMap::new();
 
     for function in get_all_functions(bindings, answers) {
+        if !should_export_function(bindings, &function) {
+            continue;
+        }
+
+        // We need the list of raw parameters, ignoring decorators.
+        // For overloads, we need the list of all overloads, not just the current one.
+        // To get it, we check if `get_function_type` returns `Type::Overload`.
+        let decorated_type = get_function_type(bindings, answers, &function);
+        let undecorated_signatures = match decorated_type {
+            Type::Overload(Overload { signatures, .. }) => signatures
+                .iter()
+                .map(|overload_type| match overload_type {
+                    pyrefly_types::types::OverloadType::Function(f) => f,
+                    pyrefly_types::types::OverloadType::Forall(pyrefly_types::types::Forall {
+                        body,
+                        ..
+                    }) => body,
+                })
+                .map(|function| convert_params_to_function_parameters(&function.signature.params))
+                .collect::<Vec<_>>(),
+            _ => vec![FunctionParameters::List(
+                function
+                    .undecorated
+                    .params
+                    .iter()
+                    .map(convert_param_to_function_parameter)
+                    .collect(),
+            )],
+        };
+
         let display_range = module_info.display_range(function.id_range());
         let name = function.metadata().kind.as_func_id().func.to_string();
         let parent = get_scope_parent(ast, module_info, function.id_range());
@@ -555,6 +688,7 @@ fn export_all_functions(
                     FunctionDefinition {
                         name,
                         parent,
+                        undecorated_signatures,
                         is_overload: function.metadata().flags.is_overload,
                         is_staticmethod: function.metadata().flags.is_staticmethod,
                         is_classmethod: function.metadata().flags.is_classmethod,

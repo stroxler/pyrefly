@@ -14,6 +14,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::FuncFlags;
 use pyrefly_types::callable::FuncId;
 use pyrefly_types::callable::FunctionKind;
@@ -22,7 +23,9 @@ use pyrefly_types::class::Class;
 use pyrefly_types::keywords::TypeMap;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::types::TParams;
+use ruff_python_ast::Identifier;
 use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::alt::answers::Answers;
@@ -39,7 +42,7 @@ use crate::types::types::Type;
 /// includes information from decorators, like @classmethod.
 #[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
 pub struct UndecoratedFunction {
-    pub id_range: TextRange,
+    pub identifier: ShortIdentifier,
     pub metadata: FuncMetadata,
     pub decorators: Box<[(Type, TextRange)]>,
     pub tparams: Arc<TParams>,
@@ -53,7 +56,7 @@ pub struct UndecoratedFunction {
 /// after decorators are applied. Note that the type might not be a function at all, since
 /// decorators can produce any type.
 pub struct DecoratedFunction {
-    idx: Idx<KeyDecoratedFunction>,
+    pub idx: Idx<KeyDecoratedFunction>,
     pub ty: Arc<Type>,
     pub undecorated: Arc<UndecoratedFunction>,
 }
@@ -77,7 +80,10 @@ pub enum SpecialDecorator<'a> {
 impl UndecoratedFunction {
     pub fn recursive() -> Self {
         UndecoratedFunction {
-            id_range: TextRange::default(),
+            identifier: ShortIdentifier::new(&Identifier::new(
+                Name::default(),
+                TextRange::default(),
+            )),
             metadata: FuncMetadata {
                 kind: FunctionKind::Def(Box::new(FuncId {
                     module: ModuleName::from_str("__undecorated_function_recursive__"),
@@ -93,6 +99,10 @@ impl UndecoratedFunction {
             stub_or_impl: FunctionStubOrImpl::Stub,
             defining_cls: None,
         }
+    }
+
+    pub fn id_range(&self) -> TextRange {
+        self.identifier.range()
     }
 }
 
@@ -123,7 +133,7 @@ impl DecoratedFunction {
     }
 
     pub fn id_range(&self) -> TextRange {
-        self.undecorated.id_range
+        self.undecorated.identifier.range()
     }
 
     pub fn defining_cls(&self) -> Option<&Class> {
