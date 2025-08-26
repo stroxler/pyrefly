@@ -326,6 +326,7 @@ impl Query {
         }
         fn class_names_from_bound_obj(ty: &Type) -> Vec<String> {
             match ty {
+                Type::SelfType(c) => vec![qname_to_string(c.qname())],
                 Type::Type(t) => class_names_from_bound_obj(t),
                 Type::ClassType(c) => vec![qname_to_string(c.qname())],
                 Type::ClassDef(c) => vec![qname_to_string(c.qname())],
