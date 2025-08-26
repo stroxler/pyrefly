@@ -576,21 +576,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             || LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone())),
             |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
         );
-        match self.get_type_or_conflated_error_msg(
-            lookup_result,
-            attr_name,
-            range,
-            errors,
-            context,
-            todo_ctx,
-        ) {
-            Ok(ty) => ty,
-            Err(msg) => self.error(
+        let mut types = Vec::new();
+        let mut error_messages = Vec::new();
+        let (found, not_found, error) = lookup_result.decompose();
+        for (attr, _) in found {
+            match self.resolve_get_access(attr, range, errors, context) {
+                Ok(ty) => types.push(ty),
+                Err(err) => error_messages.push(err.to_error_msg(attr_name)),
+            }
+        }
+        for err in not_found {
+            error_messages.push(err.to_error_msg(attr_name))
+        }
+        for err in error {
+            error_messages.push(err.to_error_msg(attr_name, todo_ctx))
+        }
+        if error_messages.is_empty() {
+            self.unions(types)
+        } else {
+            self.error(
                 errors,
                 range,
                 ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                msg,
-            ),
+                error_messages.join("\n"),
+            )
         }
     }
 
@@ -1308,39 +1317,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .map(|getattr_ty| {
                     self.call_getattr_or_delattr(getattr_ty, name, range, errors, context)
                 }),
-        }
-    }
-
-    /// A convenience function for callers which want an error but do not need to distinguish
-    /// between NotFound and Error results.
-    fn get_type_or_conflated_error_msg(
-        &self,
-        lookup: LookupResult,
-        attr_name: &Name,
-        range: TextRange,
-        errors: &ErrorCollector,
-        context: Option<&dyn Fn() -> ErrorContext>,
-        todo_ctx: &str,
-    ) -> Result<Type, String> {
-        let mut types = Vec::new();
-        let mut error_messages = Vec::new();
-        let (found, not_found, error) = lookup.decompose();
-        for (attr, _) in found {
-            match self.resolve_get_access(attr, range, errors, context) {
-                Ok(ty) => types.push(ty),
-                Err(err) => error_messages.push(err.to_error_msg(attr_name)),
-            }
-        }
-        for err in not_found {
-            error_messages.push(err.to_error_msg(attr_name))
-        }
-        for err in error {
-            error_messages.push(err.to_error_msg(attr_name, todo_ctx))
-        }
-        if error_messages.is_empty() {
-            Ok(self.unions(types))
-        } else {
-            Err(error_messages.join("\n"))
         }
     }
 
