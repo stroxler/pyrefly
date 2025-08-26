@@ -30,10 +30,12 @@ use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::attr::ClassAttribute;
+use crate::alt::attr::AttrSubsetError;
+use crate::alt::attr::AttributeBase1;
 use crate::alt::attr::ClassBase;
-use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
+use crate::alt::callable::CallArg;
+use crate::alt::expr::TypeOrExpr;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
@@ -45,6 +47,7 @@ use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
+use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
@@ -72,6 +75,116 @@ use crate::types::types::OverloadType;
 use crate::types::types::SuperObj;
 use crate::types::types::TArgs;
 use crate::types::types::Type;
+
+/// The result of looking up an attribute access on a class (either as an instance or a
+/// class access, and possibly through a special case lookup such as a type var with a bound).
+#[derive(Debug)]
+pub enum ClassAttribute {
+    /// A read-write attribute with a closed form type for both get and set actions.
+    ReadWrite(Type),
+    /// A read-only attribute with a closed form type for get actions.
+    ReadOnly(Type, ReadOnlyReason),
+    /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
+    /// not allow the access pattern (for example class access on an instance-only attribute)
+    NoAccess(NoAccessReason),
+    /// A property is a special attribute were regular access invokes a getter.
+    /// It optionally might have a setter method; if not, trying to set it is an access error
+    Property(Type, Option<Type>, Class),
+    /// A descriptor is a user-defined type whose actions may dispatch to special method calls
+    /// for the get and set actions.
+    Descriptor(Descriptor),
+}
+
+impl ClassAttribute {
+    pub fn read_write(ty: Type) -> Self {
+        Self::ReadWrite(ty)
+    }
+
+    pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
+        Self::ReadOnly(ty, reason)
+    }
+
+    pub fn no_access(reason: NoAccessReason) -> Self {
+        Self::NoAccess(reason)
+    }
+
+    pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
+        Self::Property(getter, setter, cls)
+    }
+
+    pub fn descriptor(
+        ty: Type,
+        base: DescriptorBase,
+        getter: Option<Type>,
+        setter: Option<Type>,
+    ) -> Self {
+        Self::Descriptor(Descriptor {
+            descriptor_ty: ty,
+            base,
+            getter,
+            setter,
+        })
+    }
+
+    pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
+        match self {
+            Self::ReadWrite(ty) => Self::ReadOnly(ty, reason),
+            Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
+            Self::Descriptor(Descriptor {
+                descriptor_ty,
+                base,
+                getter,
+                ..
+            }) => Self::Descriptor(Descriptor {
+                base,
+                descriptor_ty,
+                getter,
+                setter: None,
+            }),
+            attr @ (Self::NoAccess(..) | Self::ReadOnly(..)) => attr,
+        }
+    }
+
+    /// Given a `ClassAttribute`, try to unwrap it as a method type, assuming
+    /// that methods are always simple read-only or read-write attributes.
+    ///
+    /// If we encounter any other case, return `None`.
+    pub fn as_instance_method(self) -> Option<Type> {
+        match self {
+            // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
+            // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
+            ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
+            ClassAttribute::NoAccess(..)
+            | ClassAttribute::Property(..)
+            | ClassAttribute::Descriptor(..) => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Descriptor {
+    /// This is the raw type of the descriptor, which is needed both for attribute subtyping
+    /// checks in structural types and in the case where there is no getter method.
+    descriptor_ty: Type,
+    /// Descriptor behavior depends on the base against which the attribute is resolved, so
+    /// we have to preserve information about whether it is a class instance or class def.
+    base: DescriptorBase,
+    /// If `__get__` exists on the descriptor, this is the type of `__get__`
+    /// method type (as resolved by accessing it on an instance of the
+    /// descriptor). It is typically a `BoundMethod` although it is possible for
+    /// a user to erroneously define a `__get__` with any type, including a
+    /// non-callable one.
+    getter: Option<Type>,
+    /// If `__set__` exists on the descriptor, this is the type of `__set__`. Similar considerations
+    /// to `getter` apply.
+    setter: Option<Type>,
+}
+
+#[derive(Clone, Debug)]
+pub enum DescriptorBase {
+    Instance(ClassType),
+    ClassDef(Class),
+}
 
 /// Helper type for going from binding information to the calculated class field.
 ///
@@ -2056,5 +2169,366 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } => Some(ty.clone()),
             _ => None,
         }
+    }
+
+    pub fn check_class_attr_set_and_infer_narrow(
+        &self,
+        class_attr: ClassAttribute,
+        found_on: AttributeBase1,
+        attr_name: &Name,
+        got: TypeOrExpr,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+        should_narrow: &mut bool,
+        narrowed_types: &mut Vec<Type>,
+    ) {
+        match class_attr {
+            ClassAttribute::NoAccess(e) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::NoAccess, context),
+                    e.to_error_msg(attr_name),
+                );
+                *should_narrow = false;
+            }
+            ClassAttribute::ReadOnly(_, reason) => {
+                let msg = vec1![
+                    format!("Cannot set field `{attr_name}`"),
+                    reason.error_message()
+                ];
+                errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                *should_narrow = false;
+            }
+            ClassAttribute::ReadWrite(attr_ty) => {
+                // If the attribute has a converter, then `want` should be the type expected by the converter.
+                let attr_ty = match found_on {
+                    AttributeBase1::ClassInstance(cls) => {
+                        match self.get_dataclass_member(cls.class_object(), attr_name) {
+                            DataclassMember::Field(_, kws) => {
+                                kws.converter_param.unwrap_or(attr_ty)
+                            }
+                            _ => attr_ty,
+                        }
+                    }
+                    _ => attr_ty,
+                };
+                self.check_set_read_write_and_infer_narrow(
+                    attr_ty,
+                    attr_name,
+                    got,
+                    range,
+                    errors,
+                    context,
+                    *should_narrow,
+                    narrowed_types,
+                );
+            }
+            ClassAttribute::Property(_, None, cls) => {
+                let e = NoAccessReason::SettingReadOnlyProperty(cls);
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::ReadOnly, context),
+                    e.to_error_msg(attr_name),
+                );
+                *should_narrow = false;
+            }
+            ClassAttribute::Property(_, Some(setter), _) => {
+                let got = CallArg::arg(got);
+                self.call_property_setter(setter, got, range, errors, context);
+                *should_narrow = false;
+            }
+            ClassAttribute::Descriptor(d) => {
+                match (d.base, d.setter) {
+                    (DescriptorBase::Instance(class_type), Some(setter)) => {
+                        let got = CallArg::arg(got);
+                        self.call_descriptor_setter(
+                            setter, class_type, got, range, errors, context,
+                        );
+                    }
+                    (DescriptorBase::Instance(class_type), None) => {
+                        let e = NoAccessReason::SettingReadOnlyDescriptor(
+                            class_type.class_object().dupe(),
+                        );
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::ReadOnly, context),
+                            e.to_error_msg(attr_name),
+                        );
+                    }
+                    (DescriptorBase::ClassDef(class), _) => {
+                        let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::NoAccess, context),
+                            e.to_error_msg(attr_name),
+                        );
+                    }
+                };
+                *should_narrow = false;
+            }
+        }
+    }
+
+    pub fn check_class_attr_delete(
+        &self,
+        class_attr: ClassAttribute,
+        attr_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) {
+        match class_attr {
+            ClassAttribute::NoAccess(reason) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::NoAccess, context),
+                    reason.to_error_msg(attr_name),
+                );
+            }
+            ClassAttribute::ReadOnly(_, reason) => {
+                let msg = vec1![
+                    format!("Cannot delete field `{attr_name}`"),
+                    reason.error_message()
+                ];
+                errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+            }
+            ClassAttribute::ReadWrite(..)
+            | ClassAttribute::Property(..)
+            | ClassAttribute::Descriptor(..) => {
+                // Allow deleting most attributes for now, for compatbility with mypy.
+            }
+        }
+    }
+
+    pub fn is_class_attribute_subset(
+        &self,
+        got: &ClassAttribute,
+        want: &ClassAttribute,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> Result<(), AttrSubsetError> {
+        match (got, want) {
+            (_, ClassAttribute::NoAccess(_)) => Ok(()),
+            (ClassAttribute::NoAccess(_), _) => Err(AttrSubsetError::NoAccess),
+            (
+                ClassAttribute::Property(_, _, _),
+                ClassAttribute::ReadOnly(..) | ClassAttribute::ReadWrite(..),
+            ) => Err(AttrSubsetError::Property),
+            (
+                ClassAttribute::ReadOnly(..),
+                ClassAttribute::Property(_, Some(_), _) | ClassAttribute::ReadWrite(_),
+            ) => Err(AttrSubsetError::ReadOnly),
+            (
+                // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
+                // in some cases for unknown reasons they wind up being ReadWrite.
+                ClassAttribute::ReadWrite(got @ Type::BoundMethod(_)),
+                ClassAttribute::ReadWrite(want @ Type::BoundMethod(_)),
+            ) => {
+                if is_subset(got, want) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                    })
+                }
+            }
+            (ClassAttribute::ReadWrite(got), ClassAttribute::ReadWrite(want)) => {
+                if is_subset(got, want) && is_subset(want, got) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Invariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                    })
+                }
+            }
+            (
+                ClassAttribute::ReadWrite(got) | ClassAttribute::ReadOnly(got, ..),
+                ClassAttribute::ReadOnly(want, _),
+            ) => {
+                if is_subset(got, want) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                    })
+                }
+            }
+            (ClassAttribute::ReadOnly(got, _), ClassAttribute::Property(want, _, _)) => {
+                if is_subset(
+                    // Synthesize a getter method
+                    &Type::callable_ellipsis(got.clone()),
+                    want,
+                ) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: true,
+                    })
+                }
+            }
+            (ClassAttribute::ReadWrite(got), ClassAttribute::Property(want, want_setter, _)) => {
+                if !is_subset(
+                    // Synthesize a getter method
+                    &Type::callable_ellipsis(got.clone()),
+                    want,
+                ) {
+                    return Err(AttrSubsetError::Covariant {
+                        got: got.clone(),
+                        want: want.clone(),
+                        got_is_property: false,
+                        want_is_property: true,
+                    });
+                }
+                if let Some(want_setter) = want_setter {
+                    // Synthesize a setter method
+                    if is_subset(
+                        want_setter,
+                        &Type::callable(
+                            vec![Param::PosOnly(None, got.clone(), Required::Required)],
+                            Type::None,
+                        ),
+                    ) {
+                        Ok(())
+                    } else {
+                        Err(AttrSubsetError::Contravariant {
+                            want: want_setter.clone(),
+                            got: got.clone(),
+                            got_is_property: true,
+                        })
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            (
+                ClassAttribute::Property(got_getter, got_setter, _),
+                ClassAttribute::Property(want_getter, want_setter, _),
+            ) => {
+                if !is_subset(got_getter, want_getter) {
+                    Err(AttrSubsetError::Covariant {
+                        got: got_getter.clone(),
+                        want: want_getter.clone(),
+                        got_is_property: true,
+                        want_is_property: true,
+                    })
+                } else {
+                    match (got_setter, want_setter) {
+                        (Some(got_setter), Some(want_setter)) => {
+                            if is_subset(got_setter, want_setter) {
+                                Ok(())
+                            } else {
+                                Err(AttrSubsetError::Contravariant {
+                                    want: want_setter.clone(),
+                                    got: got_setter.clone(),
+                                    got_is_property: true,
+                                })
+                            }
+                        }
+                        (None, Some(_)) => Err(AttrSubsetError::ReadOnly),
+                        (_, None) => Ok(()),
+                    }
+                }
+            }
+            (
+                ClassAttribute::Descriptor(
+                    Descriptor {
+                        descriptor_ty: got_ty,
+                        ..
+                    },
+                    ..,
+                ),
+                ClassAttribute::Descriptor(
+                    Descriptor {
+                        descriptor_ty: want_ty,
+                        ..
+                    },
+                    ..,
+                ),
+            ) => {
+                if is_subset(got_ty, want_ty) {
+                    Ok(())
+                } else {
+                    Err(AttrSubsetError::Covariant {
+                        got: got_ty.clone(),
+                        want: want_ty.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                    })
+                }
+            }
+            (ClassAttribute::Descriptor(..), _) | (_, ClassAttribute::Descriptor(..)) => {
+                Err(AttrSubsetError::Descriptor)
+            }
+        }
+    }
+
+    pub fn resolve_get_class_attr(
+        &self,
+        class_attr: ClassAttribute,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> Result<Type, NoAccessReason> {
+        match class_attr {
+            ClassAttribute::NoAccess(reason) => Err(reason),
+            ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Ok(ty),
+            ClassAttribute::Property(getter, ..) => {
+                self.record_property_getter(range, &getter);
+                Ok(self.call_property_getter(getter, range, errors, context))
+            }
+            ClassAttribute::Descriptor(d, ..) => {
+                match d {
+                    // Reading a descriptor with a getter resolves to a method call
+                    //
+                    // TODO(stroxler): Once we have more complex error traces, it would be good to pass
+                    // context down so that errors inside the call can mention that it was a descriptor read.
+                    Descriptor {
+                        base,
+                        getter: Some(getter),
+                        ..
+                    } => Ok(self.call_descriptor_getter(getter, base, range, errors, context)),
+                    // Reading descriptor with no getter resolves to the descriptor itself
+                    Descriptor {
+                        descriptor_ty,
+                        getter: None,
+                        ..
+                    } => Ok(descriptor_ty),
+                }
+            }
+        }
+    }
+
+    /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
+    /// This is what the runtime automatically does when we try to call an instance.
+    pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
+        self.get_instance_attribute(cls, &dunder::CALL)
+            .and_then(|attr| attr.as_instance_method())
+    }
+
+    /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
+    /// We look up `__call__` from the upper bound of `type_var`, but `Self` is substituted with
+    /// the `type_var` instead of the upper bound class.
+    pub fn quantified_instance_as_dunder_call(
+        &self,
+        quantified: Quantified,
+        upper_bound: &ClassType,
+    ) -> Option<Type> {
+        self.get_bounded_quantified_attribute(quantified, upper_bound, &dunder::CALL)
+            .and_then(|attr| attr.as_instance_method())
     }
 }

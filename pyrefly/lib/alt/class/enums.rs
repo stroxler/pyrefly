@@ -14,7 +14,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::attr::ClassAttribute;
+use crate::alt::class::class_field::ClassAttribute;
 use crate::alt::class::class_field::ClassFieldInitialization;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::types::class::Class;
