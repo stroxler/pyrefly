@@ -865,7 +865,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Attribute::Simple(attr_ty) => {
                     self.check_set_read_write_and_infer_narrow(
                         attr_ty,
-                        found_on,
                         attr_name,
                         got,
                         range,
@@ -928,9 +927,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 *should_narrow = false;
             }
             ClassAttribute::ReadWrite(attr_ty) => {
+                // If the attribute has a converter, then `want` should be the type expected by the converter.
+                let attr_ty = match found_on {
+                    AttributeBase1::ClassInstance(cls) => {
+                        match self.get_dataclass_member(cls.class_object(), attr_name) {
+                            DataclassMember::Field(_, kws) => {
+                                kws.converter_param.unwrap_or(attr_ty)
+                            }
+                            _ => attr_ty,
+                        }
+                    }
+                    _ => attr_ty,
+                };
                 self.check_set_read_write_and_infer_narrow(
                     attr_ty,
-                    found_on,
                     attr_name,
                     got,
                     range,
@@ -992,7 +1002,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn check_set_read_write_and_infer_narrow(
         &self,
         attr_ty: Type,
-        found_on: AttributeBase1,
         attr_name: &Name,
         got: TypeOrExpr,
         range: TextRange,
@@ -1001,27 +1010,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         should_narrow: bool,
         narrowed_types: &mut Vec<Type>,
     ) {
-        // If the attribute has a converter, then `want` should be the type expected by the converter.
-        let want = match found_on {
-            AttributeBase1::ClassInstance(cls) => {
-                match self.get_dataclass_member(cls.class_object(), attr_name) {
-                    DataclassMember::Field(_, kws) => kws.converter_param.unwrap_or(attr_ty),
-                    _ => attr_ty,
-                }
-            }
-            _ => attr_ty,
-        };
         let ty = match &got {
             TypeOrExpr::Expr(got) => self.expr(
                 got,
-                Some((&want, &|| TypeCheckContext {
+                Some((&attr_ty, &|| TypeCheckContext {
                     kind: TypeCheckKind::Attribute(attr_name.clone()),
                     context: context.map(|ctx| ctx()),
                 })),
                 errors,
             ),
             TypeOrExpr::Type(got, _) => {
-                self.check_type(got, &want, range, errors, &|| TypeCheckContext {
+                self.check_type(got, &attr_ty, range, errors, &|| TypeCheckContext {
                     kind: TypeCheckKind::Attribute(attr_name.clone()),
                     context: context.map(|ctx| ctx()),
                 });
