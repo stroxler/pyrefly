@@ -619,10 +619,13 @@ impl GlobFilter {
         }
 
         for ignore in &self.ignores {
-            match ignore.matched_path_or_any_parents(path, path.is_dir()) {
-                Match::None => (),
-                Match::Whitelist(_) => return false,
-                Match::Ignore(_) => return true,
+            let ignore_root = ignore.path();
+            if path.starts_with(ignore_root) {
+                match ignore.matched_path_or_any_parents(path, path.is_dir()) {
+                    Match::None => (),
+                    Match::Whitelist(_) => return false,
+                    Match::Ignore(_) => return true,
+                }
             }
         }
         false
@@ -1404,5 +1407,21 @@ mod tests {
 
         // test `.git/info/exclude`
         assert!(filter.is_excluded(&project_root.join("my_file.gitexclude")));
+    }
+
+    #[test]
+    fn test_is_excluded_on_file_outside_root() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![TestPath::dir(
+                "project",
+                vec![TestPath::file_with_contents(".ignore", "*.py")],
+            )],
+        );
+        let project_root = root.join("project");
+        let filter = GlobFilter::new(Globs::empty(), Some(&project_root));
+        assert!(!filter.is_excluded(&root.join("my_file.py")));
     }
 }
