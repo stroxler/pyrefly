@@ -1551,9 +1551,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::TypedDict(typed_dict) => {
                 match self.get_typed_dict_attribute(typed_dict, attr_name) {
                     Some(attr) => acc.found(attr, base),
-                    None if self.extends_any(typed_dict.class_object()) => {
-                        acc.found_type(Type::Any(AnyStyle::Implicit), base)
-                    }
                     None => acc.not_found(NotFoundOn::ClassInstance(
                         typed_dict.class_object().dupe(),
                         base,
