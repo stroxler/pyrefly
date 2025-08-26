@@ -384,12 +384,8 @@ struct AttributeBase(Vec1<AttributeBase1>);
 
 /// A single, "atomic" attribute base, not coming from a union or an intersection.
 /// An attribute is either found or not found by a search on this.
-///
-/// TODO(stroxler): This ideally should not be public, but for historical reasons
-/// at this point some of the class attribute logic requires this. We should clean
-/// this up.
 #[derive(Clone, Debug)]
-pub enum AttributeBase1 {
+enum AttributeBase1 {
     EnumLiteral(LitEnum),
     ClassInstance(ClassType),
     ClassObject(ClassBase),
@@ -778,9 +774,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 Attribute::ClassAttribute(class_attr) => {
+                    // If we are writing to an instance, we may need access to
+                    // the class to special-case dataclass converters.
+                    let instance_class = match found_on {
+                        AttributeBase1::ClassInstance(cls) => Some(cls),
+                        _ => None,
+                    };
                     self.check_class_attr_set_and_infer_narrow(
                         class_attr,
-                        found_on,
+                        instance_class,
                         attr_name,
                         got,
                         range,

@@ -31,7 +31,6 @@ use vec1::vec1;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::attr::AttrSubsetError;
-use crate::alt::attr::AttributeBase1;
 use crate::alt::attr::ClassBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::callable::CallArg;
@@ -2174,7 +2173,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn check_class_attr_set_and_infer_narrow(
         &self,
         class_attr: ClassAttribute,
-        found_on: AttributeBase1,
+        instance_class: Option<ClassType>,
         attr_name: &Name,
         got: TypeOrExpr,
         range: TextRange,
@@ -2203,15 +2202,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ClassAttribute::ReadWrite(attr_ty) => {
                 // If the attribute has a converter, then `want` should be the type expected by the converter.
-                let attr_ty = match found_on {
-                    AttributeBase1::ClassInstance(cls) => {
-                        match self.get_dataclass_member(cls.class_object(), attr_name) {
-                            DataclassMember::Field(_, kws) => {
-                                kws.converter_param.unwrap_or(attr_ty)
-                            }
-                            _ => attr_ty,
-                        }
-                    }
+                let attr_ty = match instance_class {
+                    Some(cls) => match self.get_dataclass_member(cls.class_object(), attr_name) {
+                        DataclassMember::Field(_, kws) => kws.converter_param.unwrap_or(attr_ty),
+                        _ => attr_ty,
+                    },
                     _ => attr_ty,
                 };
                 self.check_set_read_write_and_infer_narrow(
