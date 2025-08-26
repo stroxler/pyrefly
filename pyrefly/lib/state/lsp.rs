@@ -764,12 +764,20 @@ impl<'a> Transaction<'a> {
                 None
             }
             Some(IdentifierWithContext {
-                identifier: _,
-                context: IdentifierContext::KeywordArgument(_),
-            }) => {
-                // Keyword argument doesn't have a type by itself
-                None
-            }
+                identifier,
+                context: IdentifierContext::KeywordArgument(callee_kind),
+            }) => self
+                .find_definition_for_keyword_argument(
+                    handle,
+                    &identifier,
+                    &callee_kind,
+                    &FindPreference::default(),
+                )
+                .first()
+                .and_then(|item| {
+                    self.definition_at(handle, item.definition_range.start())
+                        .and_then(|key| self.get_type(handle, &key))
+                }),
             Some(IdentifierWithContext {
                 identifier: _,
                 context: IdentifierContext::Attribute { range, .. },

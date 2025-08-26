@@ -468,3 +468,58 @@ Hover Result: `(x: type[T]) -> T`
         report.trim(),
     );
 }
+
+#[test]
+fn kwarg_basic() {
+    let code = r#"
+def foo(xyz: int) -> None: ...
+foo(xyz=5)
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+3 | foo(xyz=5)
+        ^
+Hover Result: `int`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(kylei): go-to definition currently finds the implementation in case of overload. it needs to be made smarter
+// for us to know the hover type
+#[test]
+fn kwarg_with_overload() {
+    let code = r#"
+from typing import overload
+
+@overload
+def foo(x: int) -> str: ...
+@overload
+def foo(x: str) -> int: ...
+def foo(*args, **kwargs):
+    pass
+
+foo(x=42)
+#   ^
+foo(y="hello")
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+11 | foo(x=42)
+         ^
+Hover Result: None
+
+13 | foo(y="hello")
+         ^
+Hover Result: None"#
+            .trim(),
+        report.trim(),
+    );
+}
