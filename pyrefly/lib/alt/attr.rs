@@ -2113,20 +2113,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
-        match attr {
-            Attribute::ClassAttribute(class_attr) => {
-                match class_attr {
-                    // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
-                    // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
-                    // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
-                    ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
-                    ClassAttribute::NoAccess(..)
-                    | ClassAttribute::Property(..)
-                    | ClassAttribute::Descriptor(..) => None,
-                }
-            }
-            _ => None,
+    fn resolve_as_instance_method(&self, class_attr: ClassAttribute) -> Option<Type> {
+        match class_attr {
+            // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
+            // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
+            // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
+            ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
+            ClassAttribute::NoAccess(..)
+            | ClassAttribute::Property(..)
+            | ClassAttribute::Descriptor(..) => None,
         }
     }
 
@@ -2135,7 +2130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// and metaclass behavior), without producing type errors on lookup failures.
     pub fn resolve_instance_method(&self, cls: &ClassType, name: &Name) -> Option<Type> {
         self.get_instance_attribute(cls, name)
-            .and_then(|attr| self.resolve_as_instance_method(Attribute::class_attribute(attr)))
+            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 
     /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
@@ -2153,7 +2148,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         upper_bound: &ClassType,
     ) -> Option<Type> {
         self.get_bounded_quantified_attribute(quantified, upper_bound, &dunder::CALL)
-            .and_then(|attr| self.resolve_as_instance_method(Attribute::class_attribute(attr)))
+            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 }
 
