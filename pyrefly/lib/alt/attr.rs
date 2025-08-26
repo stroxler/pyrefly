@@ -258,7 +258,7 @@ impl ClassAttribute {
 /// The result a successful attribute lookup, which can be used for structural
 /// subtyping checks or performing get / set / delete actions.
 #[derive(Debug)]
-pub struct Attribute {
+struct Attribute {
     inner: AttributeInner,
 }
 
@@ -1187,7 +1187,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn is_attribute_subset(
+    fn is_attribute_subset(
         &self,
         got: &Attribute,
         want: &ClassAttribute,
