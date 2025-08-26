@@ -1065,23 +1065,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         context,
                     );
                 }
-                // TODO: deleting attributes is allowed at runtime, but is not type-safe
-                // except for descriptors that implement `__delete__`
                 Attribute {
-                    inner:
-                        AttributeInner::ReadWrite(_)
-                        | AttributeInner::ClassAttribute(ClassAttribute::Property(_, _, _))
-                        | AttributeInner::ClassAttribute(ClassAttribute::Descriptor(_)),
-                } => {}
-                Attribute {
-                    inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(e)),
+                    inner: AttributeInner::ReadWrite(_),
                 } => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::NoAccess, context),
-                        e.to_error_msg(attr_name),
-                    );
+                    // Allow deleting most attributes for now, for compatbility with mypy.
+                }
+                Attribute {
+                    inner: AttributeInner::ClassAttribute(class_attr),
+                } => {
+                    self.check_class_attr_delete(class_attr, attr_name, range, errors, context);
                 }
                 Attribute {
                     inner: AttributeInner::ReadOnly(_, reason),
@@ -1092,6 +1084,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ];
                     errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
                 }
+            }
+        }
+    }
+
+    fn check_class_attr_delete(
+        &self,
+        class_attr: ClassAttribute,
+        attr_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) {
+        match class_attr {
+            ClassAttribute::NoAccess(reason) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::NoAccess, context),
+                    reason.to_error_msg(attr_name),
+                );
+            }
+            ClassAttribute::Property(..) | ClassAttribute::Descriptor(..) => {
+                // Allow deleting most attributes for now, for compatbility with mypy.
             }
         }
     }
