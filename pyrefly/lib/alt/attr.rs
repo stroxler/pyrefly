@@ -188,7 +188,7 @@ impl AttrSubsetError {
 /// The result of looking up an attribute access on a class (either as an instance or a
 /// class access, and possibly through a special case lookup such as a type var with a bound).
 #[derive(Debug)]
-enum ClassAttribute {
+pub enum ClassAttribute {
     /// A read-write attribute with a closed form type for both get and set actions.
     ReadWrite(Type),
     /// A read-only attribute with a closed form type for get actions.
@@ -205,6 +205,36 @@ enum ClassAttribute {
 }
 
 impl ClassAttribute {
+    pub fn read_write(ty: Type) -> Self {
+        Self::ReadWrite(ty)
+    }
+
+    pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
+        Self::ReadOnly(ty, reason)
+    }
+
+    pub fn no_access(reason: NoAccessReason) -> Self {
+        Self::NoAccess(reason)
+    }
+
+    pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
+        Self::Property(getter, setter, cls)
+    }
+
+    pub fn descriptor(
+        ty: Type,
+        base: DescriptorBase,
+        getter: Option<Type>,
+        setter: Option<Type>,
+    ) -> Self {
+        Self::Descriptor(Descriptor {
+            descriptor_ty: ty,
+            base,
+            getter,
+            setter,
+        })
+    }
+
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self {
             Self::ReadWrite(ty) => Self::ReadOnly(ty, reason),
@@ -256,7 +286,7 @@ enum AttributeInner {
 }
 
 #[derive(Clone, Debug)]
-struct Descriptor {
+pub struct Descriptor {
     /// This is the raw type of the descriptor, which is needed both for attribute subtyping
     /// checks in structural types and in the case where there is no getter method.
     descriptor_ty: Type,
@@ -316,9 +346,7 @@ impl Attribute {
     }
 
     pub fn no_access(reason: NoAccessReason) -> Self {
-        Self {
-            inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(reason)),
-        }
+        Self::class_attribute(ClassAttribute::no_access(reason))
     }
 
     pub fn simple(ty: Type) -> Self {
@@ -328,18 +356,14 @@ impl Attribute {
     }
 
     pub fn read_write(ty: Type) -> Self {
-        Self {
-            inner: AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(ty)),
-        }
+        Self::class_attribute(ClassAttribute::read_write(ty))
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
-        Self {
-            inner: AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(ty, reason)),
-        }
+        Self::class_attribute(ClassAttribute::read_only(ty, reason))
     }
 
-    fn class_attribute(class_attr: ClassAttribute) -> Self {
+    pub fn class_attribute(class_attr: ClassAttribute) -> Self {
         Self {
             inner: AttributeInner::ClassAttribute(class_attr),
         }
@@ -355,9 +379,7 @@ impl Attribute {
     }
 
     pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
-        Self {
-            inner: AttributeInner::ClassAttribute(ClassAttribute::Property(getter, setter, cls)),
-        }
+        Self::class_attribute(ClassAttribute::property(getter, setter, cls))
     }
 
     pub fn descriptor(
@@ -366,14 +388,7 @@ impl Attribute {
         getter: Option<Type>,
         setter: Option<Type>,
     ) -> Self {
-        Self {
-            inner: AttributeInner::ClassAttribute(ClassAttribute::Descriptor(Descriptor {
-                descriptor_ty: ty,
-                base,
-                getter,
-                setter,
-            })),
-        }
+        Self::class_attribute(ClassAttribute::descriptor(ty, base, getter, setter))
     }
 
     fn getattr(not_found: NotFoundOn, getattr: Self, name: Name) -> Self {
