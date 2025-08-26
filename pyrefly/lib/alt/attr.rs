@@ -262,7 +262,6 @@ impl ClassAttribute {
         match self {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
             // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
-            // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
             ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
             ClassAttribute::NoAccess(..)
             | ClassAttribute::Property(..)
