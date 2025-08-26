@@ -935,68 +935,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(e)),
+                    inner: AttributeInner::ClassAttribute(class_attr),
                 } => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::NoAccess, context),
-                        e.to_error_msg(attr_name),
+                    self.check_class_attr_set_and_infer_narrow(
+                        class_attr, attr_name, got, range, errors, context,
                     );
                     should_narrow = false;
-                }
-                Attribute {
-                    inner: AttributeInner::ClassAttribute(ClassAttribute::Property(_, None, cls)),
-                } => {
-                    let e = NoAccessReason::SettingReadOnlyProperty(cls);
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::ReadOnly, context),
-                        e.to_error_msg(attr_name),
-                    );
-                    should_narrow = false;
-                }
-                Attribute {
-                    inner:
-                        AttributeInner::ClassAttribute(ClassAttribute::Property(_, Some(setter), _)),
-                } => {
-                    let got = CallArg::arg(got);
-                    self.call_property_setter(setter, got, range, errors, context);
-                    should_narrow = false;
-                }
-                Attribute {
-                    inner: AttributeInner::ClassAttribute(ClassAttribute::Descriptor(d)),
-                } => {
-                    should_narrow = false;
-                    match (d.base, d.setter) {
-                        (DescriptorBase::Instance(class_type), Some(setter)) => {
-                            let got = CallArg::arg(got);
-                            self.call_descriptor_setter(
-                                setter, class_type, got, range, errors, context,
-                            );
-                        }
-                        (DescriptorBase::Instance(class_type), None) => {
-                            let e = NoAccessReason::SettingReadOnlyDescriptor(
-                                class_type.class_object().dupe(),
-                            );
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::new(ErrorKind::ReadOnly, context),
-                                e.to_error_msg(attr_name),
-                            );
-                        }
-                        (DescriptorBase::ClassDef(class), _) => {
-                            let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::new(ErrorKind::NoAccess, context),
-                                e.to_error_msg(attr_name),
-                            );
-                        }
-                    };
                 }
             }
         }
@@ -1004,6 +948,70 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(self.unions(narrowed_types))
         } else {
             None
+        }
+    }
+
+    fn check_class_attr_set_and_infer_narrow(
+        &self,
+        class_attr: ClassAttribute,
+        attr_name: &Name,
+        got: TypeOrExpr,
+        range: TextRange,
+        errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) {
+        match class_attr {
+            ClassAttribute::NoAccess(e) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::NoAccess, context),
+                    e.to_error_msg(attr_name),
+                );
+            }
+            ClassAttribute::Property(_, None, cls) => {
+                let e = NoAccessReason::SettingReadOnlyProperty(cls);
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::ReadOnly, context),
+                    e.to_error_msg(attr_name),
+                );
+            }
+            ClassAttribute::Property(_, Some(setter), _) => {
+                let got = CallArg::arg(got);
+                self.call_property_setter(setter, got, range, errors, context);
+            }
+            ClassAttribute::Descriptor(d) => {
+                match (d.base, d.setter) {
+                    (DescriptorBase::Instance(class_type), Some(setter)) => {
+                        let got = CallArg::arg(got);
+                        self.call_descriptor_setter(
+                            setter, class_type, got, range, errors, context,
+                        );
+                    }
+                    (DescriptorBase::Instance(class_type), None) => {
+                        let e = NoAccessReason::SettingReadOnlyDescriptor(
+                            class_type.class_object().dupe(),
+                        );
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::ReadOnly, context),
+                            e.to_error_msg(attr_name),
+                        );
+                    }
+                    (DescriptorBase::ClassDef(class), _) => {
+                        let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::NoAccess, context),
+                            e.to_error_msg(attr_name),
+                        );
+                    }
+                };
+            }
         }
     }
 
