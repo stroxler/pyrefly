@@ -917,9 +917,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     inner: AttributeInner::ClassAttribute(class_attr),
                 } => {
                     self.check_class_attr_set_and_infer_narrow(
-                        class_attr, attr_name, got, range, errors, context,
+                        class_attr,
+                        attr_name,
+                        got,
+                        range,
+                        errors,
+                        context,
+                        &mut should_narrow,
+                        &mut narrowed_types,
                     );
-                    should_narrow = false;
                 }
             }
         }
@@ -938,6 +944,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        should_narrow: &mut bool,
+        _narrowed_types: &mut [Type],
     ) {
         match class_attr {
             ClassAttribute::NoAccess(e) => {
@@ -947,6 +955,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorInfo::new(ErrorKind::NoAccess, context),
                     e.to_error_msg(attr_name),
                 );
+                *should_narrow = false;
             }
             ClassAttribute::Property(_, None, cls) => {
                 let e = NoAccessReason::SettingReadOnlyProperty(cls);
@@ -956,10 +965,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorInfo::new(ErrorKind::ReadOnly, context),
                     e.to_error_msg(attr_name),
                 );
+                *should_narrow = false;
             }
             ClassAttribute::Property(_, Some(setter), _) => {
                 let got = CallArg::arg(got);
                 self.call_property_setter(setter, got, range, errors, context);
+                *should_narrow = false;
             }
             ClassAttribute::Descriptor(d) => {
                 match (d.base, d.setter) {
@@ -990,6 +1001,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                 };
+                *should_narrow = false;
             }
         }
     }
