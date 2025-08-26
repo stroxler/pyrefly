@@ -1565,9 +1565,14 @@ T.__name__
 P.__name__
 Ts.__name__
 
+P.args.__origin__
+P.kwargs.__origin__
+
 def ty[T](x: T) -> type[T]: ...
 ty(T).__name__
 ty(P).__name__
 ty(Ts).__name__
+ty(P).args.__origin__
+ty(P).kwargs.__origin__
 "#,
 );
