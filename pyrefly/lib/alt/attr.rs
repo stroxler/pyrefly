@@ -1804,11 +1804,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
     fn as_attribute_base(&self, ty: Type) -> Option<AttributeBase> {
         let mut acc = Vec::new();
-        self.as_attribute_base_inner(ty, &mut acc);
+        self.as_attribute_base1(ty, &mut acc);
         Vec1::try_from_vec(acc).map(AttributeBase).ok()
     }
 
-    fn as_attribute_base_inner(&self, ty: Type, acc: &mut Vec<AttributeBase1>) {
+    fn as_attribute_base1(&self, ty: Type, acc: &mut Vec<AttributeBase1>) {
         match ty {
             Type::ClassType(class_type) => acc.push(AttributeBase1::ClassInstance(class_type)),
             Type::ClassDef(cls) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(cls))),
@@ -1833,11 +1833,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 acc.push(AttributeBase1::ClassInstance(self.stdlib.bool().clone()))
             }
             Type::Any(style) => acc.push(AttributeBase1::Any(style)),
-            Type::TypeAlias(ta) => self.as_attribute_base_inner(ta.as_value(self.stdlib), acc),
-            Type::Type(box Type::Tuple(tuple)) => self.as_attribute_base_inner(
-                Type::type_form(self.erase_tuple_type(tuple).to_type()),
-                acc,
-            ),
+            Type::TypeAlias(ta) => self.as_attribute_base1(ta.as_value(self.stdlib), acc),
+            Type::Type(box Type::Tuple(tuple)) => self
+                .as_attribute_base1(Type::type_form(self.erase_tuple_type(tuple).to_type()), acc),
             Type::Type(box Type::ClassType(class)) => acc.push(AttributeBase1::ClassObject(
                 ClassBase::ClassType(class.clone()),
             )),
@@ -1942,7 +1940,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Callable(_) => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.function_type().clone(),
             )),
-            Type::KwCall(call) => self.as_attribute_base_inner(call.return_ty, acc),
+            Type::KwCall(call) => self.as_attribute_base1(call.return_ty, acc),
             Type::Function(box Function {
                 signature: _,
                 metadata,
@@ -1965,23 +1963,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     acc.push(AttributeBase1::ClassInstance(cls.clone()))
                 }
             }
-            Type::Forall(forall) => self.as_attribute_base_inner(forall.body.as_type(), acc),
-            Type::Var(v) => self.as_attribute_base_inner(self.force_var_for_attribute_base(v), acc),
-            Type::Type(box Type::Var(v)) => self.as_attribute_base_inner(
-                Type::type_form(self.force_var_for_attribute_base(v)),
-                acc,
-            ),
+            Type::Forall(forall) => self.as_attribute_base1(forall.body.as_type(), acc),
+            Type::Var(v) => self.as_attribute_base1(self.force_var_for_attribute_base(v), acc),
+            Type::Type(box Type::Var(v)) => {
+                self.as_attribute_base1(Type::type_form(self.force_var_for_attribute_base(v)), acc)
+            }
             Type::SuperInstance(box (cls, obj)) => {
                 acc.push(AttributeBase1::SuperInstance(cls, obj))
             }
             Type::Union(members) => {
                 for ty in members {
-                    self.as_attribute_base_inner(ty, acc)
+                    self.as_attribute_base1(ty, acc)
                 }
             }
             Type::Type(box Type::Union(members)) => {
                 for ty in members {
-                    self.as_attribute_base_inner(Type::type_form(ty), acc)
+                    self.as_attribute_base1(Type::type_form(ty), acc)
                 }
             }
             Type::Quantified(quantified) => match quantified.restriction() {
