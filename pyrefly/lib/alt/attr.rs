@@ -189,6 +189,10 @@ impl AttrSubsetError {
 /// class access, and possibly through a special case lookup such as a type var with a bound).
 #[derive(Debug)]
 enum ClassAttribute {
+    /// A read-write attribute with a closed form type for both get and set actions.
+    ReadWrite(Type),
+    /// A read-only attribute with a closed form type for get actions.
+    ReadOnly(Type, ReadOnlyReason),
     /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
     /// not allow the access pattern (for example class access on an instance-only attribute)
     NoAccess(NoAccessReason),
@@ -201,8 +205,9 @@ enum ClassAttribute {
 }
 
 impl ClassAttribute {
-    pub fn read_only_equivalent(self, _reason: ReadOnlyReason) -> Self {
+    pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self {
+            Self::ReadWrite(ty) => Self::ReadOnly(ty, reason),
             Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
             Self::Descriptor(Descriptor {
                 descriptor_ty,
@@ -215,7 +220,7 @@ impl ClassAttribute {
                 getter,
                 setter: None,
             }),
-            Self::NoAccess(reason) => Self::NoAccess(reason),
+            attr @ (Self::NoAccess(..) | Self::ReadOnly(..)) => attr,
         }
     }
 }
@@ -232,12 +237,11 @@ pub struct Attribute {
 /// check).
 #[derive(Debug)]
 enum AttributeInner {
-    /// A read-write attribute with a closed form type for both get and set actions.
-    ReadWrite(Type),
-    /// A read-only attribute with a closed form type for get actions.
-    ReadOnly(Type, ReadOnlyReason),
     /// An attribute resolved through a class field lookup.
     ClassAttribute(ClassAttribute),
+    /// A read-write attribute with a closed form type for both get and set actions. Used
+    /// for non-class-attribute cases (for example, reads against Any, Never, or module objects)
+    Simple(Type),
     /// The attribute being looked up is not defined explicitly, but it may be defined via a
     /// `__getattr__` or `__getattribute__` fallback.
     /// The `NotFound` field stores the (failed) lookup result on the original attribute for
@@ -317,15 +321,21 @@ impl Attribute {
         }
     }
 
+    pub fn simple(ty: Type) -> Self {
+        Self {
+            inner: AttributeInner::Simple(ty),
+        }
+    }
+
     pub fn read_write(ty: Type) -> Self {
         Self {
-            inner: AttributeInner::ReadWrite(ty),
+            inner: AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(ty)),
         }
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
         Self {
-            inner: AttributeInner::ReadOnly(ty, reason),
+            inner: AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(ty, reason)),
         }
     }
 
@@ -337,7 +347,6 @@ impl Attribute {
 
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self.inner {
-            AttributeInner::ReadWrite(ty) => Attribute::read_only(ty, reason),
             AttributeInner::ClassAttribute(class_attr) => {
                 Attribute::class_attribute(class_attr.read_only_equivalent(reason))
             }
@@ -427,7 +436,7 @@ impl LookupResult {
     /// TODO(stroxler) The uses of this eventually need to be audited, but we
     /// need to prioritize the class logic first.
     fn found_type(&mut self, ty: Type, on: AttributeBase1) {
-        self.found(Attribute::read_write(ty), on)
+        self.found(Attribute::simple(ty), on)
     }
 
     fn found_type_read_only(&mut self, ty: Type, reason: ReadOnlyReason, on: AttributeBase1) {
@@ -889,7 +898,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::ReadWrite(attr_ty),
+                    inner: AttributeInner::Simple(attr_ty),
                 } => {
                     self.check_set_read_write_and_infer_narrow(
                         attr_ty,
@@ -904,20 +913,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 Attribute {
-                    inner: AttributeInner::ReadOnly(_, reason),
-                } => {
-                    let msg = vec1![
-                        format!("Cannot set field `{attr_name}`"),
-                        reason.error_message()
-                    ];
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
-                    should_narrow = false;
-                }
-                Attribute {
                     inner: AttributeInner::ClassAttribute(class_attr),
                 } => {
                     self.check_class_attr_set_and_infer_narrow(
                         class_attr,
+                        found_on,
                         attr_name,
                         got,
                         range,
@@ -939,13 +939,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn check_class_attr_set_and_infer_narrow(
         &self,
         class_attr: ClassAttribute,
+        found_on: AttributeBase1,
         attr_name: &Name,
         got: TypeOrExpr,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         should_narrow: &mut bool,
-        _narrowed_types: &mut [Type],
+        narrowed_types: &mut Vec<Type>,
     ) {
         match class_attr {
             ClassAttribute::NoAccess(e) => {
@@ -956,6 +957,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     e.to_error_msg(attr_name),
                 );
                 *should_narrow = false;
+            }
+            ClassAttribute::ReadOnly(_, reason) => {
+                let msg = vec1![
+                    format!("Cannot set field `{attr_name}`"),
+                    reason.error_message()
+                ];
+                errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                *should_narrow = false;
+            }
+            ClassAttribute::ReadWrite(attr_ty) => {
+                self.check_set_read_write_and_infer_narrow(
+                    attr_ty,
+                    found_on,
+                    attr_name,
+                    got,
+                    range,
+                    errors,
+                    context,
+                    *should_narrow,
+                    narrowed_types,
+                );
             }
             ClassAttribute::Property(_, None, cls) => {
                 let e = NoAccessReason::SettingReadOnlyProperty(cls);
@@ -1109,7 +1131,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 Attribute {
-                    inner: AttributeInner::ReadWrite(_),
+                    inner: AttributeInner::Simple(_),
                 } => {
                     // Allow deleting most attributes for now, for compatbility with mypy.
                 }
@@ -1117,15 +1139,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     inner: AttributeInner::ClassAttribute(class_attr),
                 } => {
                     self.check_class_attr_delete(class_attr, attr_name, range, errors, context);
-                }
-                Attribute {
-                    inner: AttributeInner::ReadOnly(_, reason),
-                } => {
-                    let msg = vec1![
-                        format!("Cannot delete field `{attr_name}`"),
-                        reason.error_message()
-                    ];
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
                 }
             }
         }
@@ -1148,7 +1161,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     reason.to_error_msg(attr_name),
                 );
             }
-            ClassAttribute::Property(..) | ClassAttribute::Descriptor(..) => {
+            ClassAttribute::ReadOnly(_, reason) => {
+                let msg = vec1![
+                    format!("Cannot delete field `{attr_name}`"),
+                    reason.error_message()
+                ];
+                errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+            }
+            ClassAttribute::ReadWrite(..)
+            | ClassAttribute::Property(..)
+            | ClassAttribute::Descriptor(..) => {
                 // Allow deleting most attributes for now, for compatbility with mypy.
             }
         }
@@ -1193,18 +1215,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             (
                 AttributeInner::ClassAttribute(ClassAttribute::Property(_, _, _)),
-                AttributeInner::ReadOnly(..) | AttributeInner::ReadWrite(..),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(..))
+                | AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(..))
+                | AttributeInner::Simple(..),
             ) => Err(AttrSubsetError::Property),
             (
-                AttributeInner::ReadOnly(..),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(..)),
                 AttributeInner::ClassAttribute(ClassAttribute::Property(_, Some(_), _))
-                | AttributeInner::ReadWrite(_),
+                | AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(_))
+                | AttributeInner::Simple(_),
             ) => Err(AttrSubsetError::ReadOnly),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
                 // in some cases for unknown reasons they wind up being ReadWrite.
-                AttributeInner::ReadWrite(got @ Type::BoundMethod(_)),
-                AttributeInner::ReadWrite(want @ Type::BoundMethod(_)),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(
+                    got @ Type::BoundMethod(_),
+                ))
+                | AttributeInner::Simple(got @ Type::BoundMethod(_)),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(
+                    want @ Type::BoundMethod(_),
+                ))
+                | AttributeInner::Simple(want @ Type::BoundMethod(_)),
             ) => {
                 if is_subset(got, want) {
                     Ok(())
@@ -1217,7 +1248,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (AttributeInner::ReadWrite(got), AttributeInner::ReadWrite(want)) => {
+            (
+                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
+                | AttributeInner::Simple(got),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(want))
+                | AttributeInner::Simple(want),
+            ) => {
                 if is_subset(got, want) && is_subset(want, got) {
                     Ok(())
                 } else {
@@ -1228,8 +1264,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::ReadWrite(got) | AttributeInner::ReadOnly(got, ..),
-                AttributeInner::ReadOnly(want, _),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
+                | AttributeInner::Simple(got)
+                | AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(got, ..)),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(want, _)),
             ) => {
                 if is_subset(got, want) {
                     Ok(())
@@ -1243,7 +1281,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::ReadOnly(got, _),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(got, _)),
                 AttributeInner::ClassAttribute(ClassAttribute::Property(want, _, _)),
             ) => {
                 if is_subset(
@@ -1262,7 +1300,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::ReadWrite(got),
+                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
+                | AttributeInner::Simple(got),
                 AttributeInner::ClassAttribute(ClassAttribute::Property(want, want_setter, _)),
             ) => {
                 if !is_subset(
@@ -1384,7 +1423,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeInner::ClassAttribute(class_attr) => {
                 self.resolve_get_class_attr(class_attr, range, errors, context)
             }
-            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
+            AttributeInner::Simple(ty) => Ok(ty),
             AttributeInner::ModuleFallback(_, name, ty) => {
                 self.error(
                     errors,
@@ -1411,6 +1450,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Result<Type, NoAccessReason> {
         match class_attr {
             ClassAttribute::NoAccess(reason) => Err(reason),
+            ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Ok(ty),
             ClassAttribute::Property(getter, ..) => {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
@@ -1802,13 +1842,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // toplevel of `module_name` has been executed.
         let submodule = module.push_part(attr_name.clone());
         if submodule.is_submodules_imported_directly() {
-            return Some(Attribute::read_write(submodule.to_type()));
+            return Some(Attribute::simple(submodule.to_type()));
         }
 
         let module_name = ModuleName::from_parts(module.parts());
         let module_exports = match self.get_module_exports(module_name) {
             Some(x) => x,
-            None => return Some(Attribute::read_write(Type::any_error())), // This module doesn't exist, we must have already errored
+            None => return Some(Attribute::simple(Type::any_error())), // This module doesn't exist, we must have already errored
         };
 
         if module_exports.is_submodule_imported_implicitly(attr_name)
@@ -1816,9 +1856,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .get_module_exports(module_name.append(attr_name))
                 .is_some()
         {
-            Some(Attribute::read_write(submodule.to_type()))
+            Some(Attribute::simple(submodule.to_type()))
         } else if module_exports.exports(self.exports).contains_key(attr_name) {
-            Some(Attribute::read_write(
+            Some(Attribute::simple(
                 self.get_from_export(module_name, None, &KeyExport(attr_name.clone()))
                     .arc_clone(),
             ))
@@ -2144,13 +2184,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn resolve_as_instance_method(&self, attr: Attribute) -> Option<Type> {
         match attr.inner {
-            // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
-            // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
-            // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
-            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Some(ty),
-            AttributeInner::ClassAttribute(_)
-            | AttributeInner::GetAttr(..)
-            | AttributeInner::ModuleFallback(..) => None,
+            AttributeInner::ClassAttribute(class_attr) => {
+                match class_attr {
+                    // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
+                    // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
+                    // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
+                    ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
+                    ClassAttribute::NoAccess(..)
+                    | ClassAttribute::Property(..)
+                    | ClassAttribute::Descriptor(..) => None,
+                }
+            }
+            _ => None,
         }
     }
 
