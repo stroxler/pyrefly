@@ -2128,7 +2128,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// A convenience helper for parts of the code where we have a class and we want to look up
     /// a method if it exists (typically when handling special semantics around dunder methods
     /// and metaclass behavior), without producing type errors on lookup failures.
-    pub fn resolve_instance_method(&self, cls: &ClassType, name: &Name) -> Option<Type> {
+    fn resolve_instance_method(&self, cls: &ClassType, name: &Name) -> Option<Type> {
         self.get_instance_attribute(cls, name)
             .and_then(|attr| self.resolve_as_instance_method(attr))
     }
