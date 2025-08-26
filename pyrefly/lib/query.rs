@@ -89,6 +89,7 @@ pub struct Callee {
 pub struct Attribute {
     pub name: String,
     pub kind: Option<String>,
+    pub annotation: String,
 }
 
 fn display_range_for_expr(
@@ -115,6 +116,33 @@ fn display_range_for_expr(
         original_range
     };
     module_info.display_range(expression_range)
+}
+
+fn is_static_method(ty: &Type) -> bool {
+    match ty {
+        Type::Union(tys) => tys.iter().all(is_static_method),
+        Type::BoundMethod(m) => m.func.metadata().flags.is_staticmethod,
+        Type::Function(f) => f.metadata.flags.is_staticmethod,
+        Type::Forall(f) => {
+            if let Forallable::Function(func) = &f.body {
+                func.metadata.flags.is_staticmethod
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
+fn type_to_string(ty: &Type) -> String {
+    let mut ctx = TypeDisplayContext::new(&[ty]);
+    ctx.always_display_module_name();
+    let text = ctx.display(ty).to_string();
+    if is_static_method(ty) {
+        format!("typing.StaticMethod[{text}]")
+    } else {
+        text
+    }
 }
 
 impl Query {
@@ -218,6 +246,7 @@ impl Query {
                     Some(Attribute {
                         name: n.to_string(),
                         kind,
+                        annotation: type_to_string(&field_ty),
                     })
                 })
                 .collect_vec();
@@ -563,22 +592,6 @@ impl Query {
 
         let mut res = Vec::new();
 
-        fn is_static_method(ty: &Type) -> bool {
-            match ty {
-                Type::Union(tys) => tys.iter().all(is_static_method),
-                Type::BoundMethod(m) => m.func.metadata().flags.is_staticmethod,
-                Type::Function(f) => f.metadata.flags.is_staticmethod,
-                Type::Forall(f) => {
-                    if let Forallable::Function(func) = &f.body {
-                        func.metadata.flags.is_staticmethod
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            }
-        }
-
         fn add_type(
             ty: &Type,
             e: &Expr,
@@ -586,15 +599,10 @@ impl Query {
             module_info: &ModuleInfo,
             res: &mut Vec<(DisplayRange, String)>,
         ) {
-            let mut ctx = TypeDisplayContext::new(&[ty]);
-            ctx.always_display_module_name();
-            let text = ctx.display(ty).to_string();
-            let text = if is_static_method(ty) {
-                format!("typing.StaticMethod[{text}]")
-            } else {
-                text
-            };
-            res.push((display_range_for_expr(module_info, range, e), text));
+            res.push((
+                display_range_for_expr(module_info, range, e),
+                type_to_string(ty),
+            ));
         }
         fn try_find_key_for_name(name: &ExprName, bindings: &Bindings) -> Option<Key> {
             let key = Key::BoundName(ShortIdentifier::expr_name(name));
