@@ -1668,9 +1668,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // TODO(stroxler): Clean this up once we have a class attribute subset helper,
             // the fact that we're wrapping in Attribute is just an artifact of an incomplete
             // refactor.
-            let want_attribute = Attribute::class_attribute(
-                self.as_instance_attribute(&want_class_field, &Instance::of_class(parent)),
-            );
+            let want_attribute =
+                self.as_instance_attribute(&want_class_field, &Instance::of_class(parent));
             if got_attribute.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
                 got_attribute = Some(Attribute::class_attribute(self.as_instance_attribute(

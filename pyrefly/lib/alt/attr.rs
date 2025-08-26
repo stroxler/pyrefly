@@ -1176,9 +1176,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> bool {
         let got_attrs = self.try_lookup_attr(got, name);
         if (!got_attrs.is_empty())
-            && let Some(want) = self
-                .get_instance_attribute(protocol, name)
-                .map(Attribute::class_attribute)
+            && let Some(want) = self.get_instance_attribute(protocol, name)
         {
             got_attrs.iter().all(|(got_attr, _)| {
                 self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
@@ -1192,25 +1190,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn is_attribute_subset(
         &self,
         got: &Attribute,
-        want: &Attribute,
+        want: &ClassAttribute,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Result<(), AttrSubsetError> {
-        match (&got.inner, &want.inner) {
-            (_, AttributeInner::ClassAttribute(ClassAttribute::NoAccess(_))) => Ok(()),
+        match (&got.inner, want) {
+            (_, ClassAttribute::NoAccess(_)) => Ok(()),
             (AttributeInner::ClassAttribute(ClassAttribute::NoAccess(_)), _) => {
                 Err(AttrSubsetError::NoAccess)
             }
             (
                 AttributeInner::ClassAttribute(ClassAttribute::Property(_, _, _)),
-                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(..))
-                | AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(..))
-                | AttributeInner::Simple(..),
+                ClassAttribute::ReadOnly(..) | ClassAttribute::ReadWrite(..),
             ) => Err(AttrSubsetError::Property),
             (
                 AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(..)),
-                AttributeInner::ClassAttribute(ClassAttribute::Property(_, Some(_), _))
-                | AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(_))
-                | AttributeInner::Simple(_),
+                ClassAttribute::Property(_, Some(_), _) | ClassAttribute::ReadWrite(_),
             ) => Err(AttrSubsetError::ReadOnly),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
@@ -1219,10 +1213,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     got @ Type::BoundMethod(_),
                 ))
                 | AttributeInner::Simple(got @ Type::BoundMethod(_)),
-                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(
-                    want @ Type::BoundMethod(_),
-                ))
-                | AttributeInner::Simple(want @ Type::BoundMethod(_)),
+                ClassAttribute::ReadWrite(want @ Type::BoundMethod(_)),
             ) => {
                 if is_subset(got, want) {
                     Ok(())
@@ -1238,8 +1229,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (
                 AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
                 | AttributeInner::Simple(got),
-                AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(want))
-                | AttributeInner::Simple(want),
+                ClassAttribute::ReadWrite(want),
             ) => {
                 if is_subset(got, want) && is_subset(want, got) {
                     Ok(())
@@ -1254,7 +1244,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
                 | AttributeInner::Simple(got)
                 | AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(got, ..)),
-                AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(want, _)),
+                ClassAttribute::ReadOnly(want, _),
             ) => {
                 if is_subset(got, want) {
                     Ok(())
@@ -1269,7 +1259,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             (
                 AttributeInner::ClassAttribute(ClassAttribute::ReadOnly(got, _)),
-                AttributeInner::ClassAttribute(ClassAttribute::Property(want, _, _)),
+                ClassAttribute::Property(want, _, _),
             ) => {
                 if is_subset(
                     // Synthesize a getter method
@@ -1289,7 +1279,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (
                 AttributeInner::ClassAttribute(ClassAttribute::ReadWrite(got))
                 | AttributeInner::Simple(got),
-                AttributeInner::ClassAttribute(ClassAttribute::Property(want, want_setter, _)),
+                ClassAttribute::Property(want, want_setter, _),
             ) => {
                 if !is_subset(
                     // Synthesize a getter method
@@ -1326,11 +1316,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             (
                 AttributeInner::ClassAttribute(ClassAttribute::Property(got_getter, got_setter, _)),
-                AttributeInner::ClassAttribute(ClassAttribute::Property(
-                    want_getter,
-                    want_setter,
-                    _,
-                )),
+                ClassAttribute::Property(want_getter, want_setter, _),
             ) => {
                 if !is_subset(got_getter, want_getter) {
                     Err(AttrSubsetError::Covariant {
@@ -1365,13 +1351,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     },
                     ..,
                 )),
-                AttributeInner::ClassAttribute(ClassAttribute::Descriptor(
+                ClassAttribute::Descriptor(
                     Descriptor {
                         descriptor_ty: want_ty,
                         ..
                     },
                     ..,
-                )),
+                ),
             ) => {
                 if is_subset(got_ty, want_ty) {
                     Ok(())
@@ -1385,17 +1371,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (AttributeInner::ClassAttribute(ClassAttribute::Descriptor(..)), _)
-            | (_, AttributeInner::ClassAttribute(ClassAttribute::Descriptor(..))) => {
-                Err(AttrSubsetError::Descriptor)
-            }
-            (AttributeInner::GetAttr(..), _) | (_, AttributeInner::GetAttr(..)) => {
+            | (_, ClassAttribute::Descriptor(..)) => Err(AttrSubsetError::Descriptor),
+            (AttributeInner::GetAttr(..), _) => {
                 // NOTE(grievejia): `__getattr__` does not participate in structural subtyping
                 // check for now. We may revisit this in the future if the need comes.
                 Err(AttrSubsetError::Getattr)
             }
-            (AttributeInner::ModuleFallback(..), _) | (_, AttributeInner::ModuleFallback(..)) => {
-                Err(AttrSubsetError::ModuleFallback)
-            }
+            (AttributeInner::ModuleFallback(..), _) => Err(AttrSubsetError::ModuleFallback),
         }
     }
 
