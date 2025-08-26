@@ -185,6 +185,41 @@ impl AttrSubsetError {
     }
 }
 
+/// The result of looking up an attribute access on a class (either as an instance or a
+/// class access, and possibly through a special case lookup such as a type var with a bound).
+#[derive(Debug)]
+enum ClassAttribute {
+    /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
+    /// not allow the access pattern (for example class access on an instance-only attribute)
+    NoAccess(NoAccessReason),
+    /// A property is a special attribute were regular access invokes a getter.
+    /// It optionally might have a setter method; if not, trying to set it is an access error
+    Property(Type, Option<Type>, Class),
+    /// A descriptor is a user-defined type whose actions may dispatch to special method calls
+    /// for the get and set actions.
+    Descriptor(Descriptor),
+}
+
+impl ClassAttribute {
+    pub fn read_only_equivalent(self, _reason: ReadOnlyReason) -> Self {
+        match self {
+            Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
+            Self::Descriptor(Descriptor {
+                descriptor_ty,
+                base,
+                getter,
+                ..
+            }) => Self::Descriptor(Descriptor {
+                base,
+                descriptor_ty,
+                getter,
+                setter: None,
+            }),
+            Self::NoAccess(reason) => Self::NoAccess(reason),
+        }
+    }
+}
+
 /// The result a successful attribute lookup, which can be used for structural
 /// subtyping checks or performing get / set / delete actions.
 #[derive(Debug)]
@@ -197,19 +232,12 @@ pub struct Attribute {
 /// check).
 #[derive(Debug)]
 enum AttributeInner {
-    /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
-    /// not allow the access pattern (for example class access on an instance-only attribute)
-    NoAccess(NoAccessReason),
     /// A read-write attribute with a closed form type for both get and set actions.
     ReadWrite(Type),
     /// A read-only attribute with a closed form type for get actions.
     ReadOnly(Type, ReadOnlyReason),
-    /// A property is a special attribute were regular access invokes a getter.
-    /// It optionally might have a setter method; if not, trying to set it is an access error
-    Property(Type, Option<Type>, Class),
-    /// A descriptor is a user-defined type whose actions may dispatch to special method calls
-    /// for the get and set actions.
-    Descriptor(Descriptor),
+    /// An attribute resolved through a class field lookup.
+    ClassAttribute(ClassAttribute),
     /// The attribute being looked up is not defined explicitly, but it may be defined via a
     /// `__getattr__` or `__getattribute__` fallback.
     /// The `NotFound` field stores the (failed) lookup result on the original attribute for
@@ -285,7 +313,7 @@ impl Attribute {
 
     pub fn no_access(reason: NoAccessReason) -> Self {
         Self {
-            inner: AttributeInner::NoAccess(reason),
+            inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(reason)),
         }
     }
 
@@ -301,23 +329,25 @@ impl Attribute {
         }
     }
 
+    fn class_attribute(class_attr: ClassAttribute) -> Self {
+        Self {
+            inner: AttributeInner::ClassAttribute(class_attr),
+        }
+    }
+
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self.inner {
             AttributeInner::ReadWrite(ty) => Attribute::read_only(ty, reason),
-            AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
-            AttributeInner::Descriptor(descriptor) => Attribute::descriptor(
-                descriptor.descriptor_ty,
-                descriptor.base,
-                descriptor.getter,
-                None,
-            ),
+            AttributeInner::ClassAttribute(class_attr) => {
+                Attribute::class_attribute(class_attr.read_only_equivalent(reason))
+            }
             inner => Attribute { inner },
         }
     }
 
     pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
         Self {
-            inner: AttributeInner::Property(getter, setter, cls),
+            inner: AttributeInner::ClassAttribute(ClassAttribute::Property(getter, setter, cls)),
         }
     }
 
@@ -328,12 +358,12 @@ impl Attribute {
         setter: Option<Type>,
     ) -> Self {
         Self {
-            inner: AttributeInner::Descriptor(Descriptor {
+            inner: AttributeInner::ClassAttribute(ClassAttribute::Descriptor(Descriptor {
                 descriptor_ty: ty,
                 base,
                 getter,
                 setter,
-            }),
+            })),
         }
     }
 
@@ -895,7 +925,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Attribute {
-                    inner: AttributeInner::NoAccess(e),
+                    inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(e)),
                 } => {
                     self.error(
                         errors,
@@ -916,7 +946,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::Property(_, None, cls),
+                    inner: AttributeInner::ClassAttribute(ClassAttribute::Property(_, None, cls)),
                 } => {
                     let e = NoAccessReason::SettingReadOnlyProperty(cls);
                     self.error(
@@ -928,14 +958,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::Property(_, Some(setter), _),
+                    inner:
+                        AttributeInner::ClassAttribute(ClassAttribute::Property(_, Some(setter), _)),
                 } => {
                     let got = CallArg::arg(got);
                     self.call_property_setter(setter, got, range, errors, context);
                     should_narrow = false;
                 }
                 Attribute {
-                    inner: AttributeInner::Descriptor(d),
+                    inner: AttributeInner::ClassAttribute(ClassAttribute::Descriptor(d)),
                 } => {
                     should_narrow = false;
                     match (d.base, d.setter) {
@@ -1039,11 +1070,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Attribute {
                     inner:
                         AttributeInner::ReadWrite(_)
-                        | AttributeInner::Property(_, _, _)
-                        | AttributeInner::Descriptor(_),
+                        | AttributeInner::ClassAttribute(ClassAttribute::Property(_, _, _))
+                        | AttributeInner::ClassAttribute(ClassAttribute::Descriptor(_)),
                 } => {}
                 Attribute {
-                    inner: AttributeInner::NoAccess(e),
+                    inner: AttributeInner::ClassAttribute(ClassAttribute::NoAccess(e)),
                 } => {
                     self.error(
                         errors,
@@ -1098,15 +1129,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Result<(), AttrSubsetError> {
         match (&got.inner, &want.inner) {
-            (_, AttributeInner::NoAccess(_)) => Ok(()),
-            (AttributeInner::NoAccess(_), _) => Err(AttrSubsetError::NoAccess),
+            (_, AttributeInner::ClassAttribute(ClassAttribute::NoAccess(_))) => Ok(()),
+            (AttributeInner::ClassAttribute(ClassAttribute::NoAccess(_)), _) => {
+                Err(AttrSubsetError::NoAccess)
+            }
             (
-                AttributeInner::Property(_, _, _),
+                AttributeInner::ClassAttribute(ClassAttribute::Property(_, _, _)),
                 AttributeInner::ReadOnly(..) | AttributeInner::ReadWrite(..),
             ) => Err(AttrSubsetError::Property),
             (
                 AttributeInner::ReadOnly(..),
-                AttributeInner::Property(_, Some(_), _) | AttributeInner::ReadWrite(_),
+                AttributeInner::ClassAttribute(ClassAttribute::Property(_, Some(_), _))
+                | AttributeInner::ReadWrite(_),
             ) => Err(AttrSubsetError::ReadOnly),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
@@ -1150,7 +1184,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (AttributeInner::ReadOnly(got, _), AttributeInner::Property(want, _, _)) => {
+            (
+                AttributeInner::ReadOnly(got, _),
+                AttributeInner::ClassAttribute(ClassAttribute::Property(want, _, _)),
+            ) => {
                 if is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
@@ -1166,7 +1203,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (AttributeInner::ReadWrite(got), AttributeInner::Property(want, want_setter, _)) => {
+            (
+                AttributeInner::ReadWrite(got),
+                AttributeInner::ClassAttribute(ClassAttribute::Property(want, want_setter, _)),
+            ) => {
                 if !is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
@@ -1201,8 +1241,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::Property(got_getter, got_setter, _),
-                AttributeInner::Property(want_getter, want_setter, _),
+                AttributeInner::ClassAttribute(ClassAttribute::Property(got_getter, got_setter, _)),
+                AttributeInner::ClassAttribute(ClassAttribute::Property(
+                    want_getter,
+                    want_setter,
+                    _,
+                )),
             ) => {
                 if !is_subset(got_getter, want_getter) {
                     Err(AttrSubsetError::Covariant {
@@ -1230,20 +1274,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                AttributeInner::Descriptor(
+                AttributeInner::ClassAttribute(ClassAttribute::Descriptor(
                     Descriptor {
                         descriptor_ty: got_ty,
                         ..
                     },
                     ..,
-                ),
-                AttributeInner::Descriptor(
+                )),
+                AttributeInner::ClassAttribute(ClassAttribute::Descriptor(
                     Descriptor {
                         descriptor_ty: want_ty,
                         ..
                     },
                     ..,
-                ),
+                )),
             ) => {
                 if is_subset(got_ty, want_ty) {
                     Ok(())
@@ -1256,7 +1300,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             }
-            (AttributeInner::Descriptor(..), _) | (_, AttributeInner::Descriptor(..)) => {
+            (AttributeInner::ClassAttribute(ClassAttribute::Descriptor(..)), _)
+            | (_, AttributeInner::ClassAttribute(ClassAttribute::Descriptor(..))) => {
                 Err(AttrSubsetError::Descriptor)
             }
             (AttributeInner::GetAttr(..), _) | (_, AttributeInner::GetAttr(..)) => {
@@ -1278,9 +1323,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Result<Type, NoAccessReason> {
         match attr.inner {
-            AttributeInner::NoAccess(reason) => Err(reason),
+            AttributeInner::ClassAttribute(ClassAttribute::NoAccess(reason)) => Err(reason),
             AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
-            AttributeInner::Property(getter, ..) => {
+            AttributeInner::ClassAttribute(ClassAttribute::Property(getter, ..)) => {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
             }
@@ -1293,7 +1338,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Ok(ty)
             }
-            AttributeInner::Descriptor(d, ..) => {
+            AttributeInner::ClassAttribute(ClassAttribute::Descriptor(d, ..)) => {
                 match d {
                     // Reading a descriptor with a getter resolves to a method call
                     //
@@ -2033,10 +2078,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
             // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
             // NOTE(grievejia): We currently do not expect to use `__getattr__` for this lookup.
-            AttributeInner::ReadOnly(ty, _) | AttributeInner::ReadWrite(ty) => Some(ty),
-            AttributeInner::NoAccess(_)
-            | AttributeInner::Property(..)
-            | AttributeInner::Descriptor(..)
+            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Some(ty),
+            AttributeInner::ClassAttribute(_)
             | AttributeInner::GetAttr(..)
             | AttributeInner::ModuleFallback(..) => None,
         }
