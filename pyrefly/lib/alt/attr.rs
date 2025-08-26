@@ -361,15 +361,6 @@ impl Attribute {
         }
     }
 
-    pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
-        match self.inner {
-            AttributeInner::ClassAttribute(class_attr) => {
-                Attribute::class_attribute(class_attr.read_only_equivalent(reason))
-            }
-            inner => Attribute { inner },
-        }
-    }
-
     fn getattr(not_found: NotFoundOn, getattr: Self, name: Name) -> Self {
         Self {
             inner: AttributeInner::GetAttr(not_found, Box::new(getattr.inner), name),
@@ -1525,8 +1516,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(cls, obj, attr_name) {
                     Some(attr) => acc.found(
-                        Attribute::class_attribute(attr)
-                            .read_only_equivalent(ReadOnlyReason::Super),
+                        Attribute::class_attribute(
+                            attr.read_only_equivalent(ReadOnlyReason::Super),
+                        ),
                         base,
                     ),
                     None if let SuperObj::Instance(cls) = obj
