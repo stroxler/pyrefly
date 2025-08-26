@@ -1339,19 +1339,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Result<Type, NoAccessReason> {
         match attr.inner {
             AttributeInner::ClassAttribute(ClassAttribute::NoAccess(reason)) => Err(reason),
-            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
             AttributeInner::ClassAttribute(ClassAttribute::Property(getter, ..)) => {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
-            }
-            AttributeInner::ModuleFallback(_, name, ty) => {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::ImplicitImport, context),
-                    format!("Module `{name}` exists, but was not imported explicitly. You are relying on other modules to load it."),
-                );
-                Ok(ty)
             }
             AttributeInner::ClassAttribute(ClassAttribute::Descriptor(d, ..)) => {
                 match d {
@@ -1371,6 +1361,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ..
                     } => Ok(descriptor_ty),
                 }
+            }
+            AttributeInner::ReadWrite(ty) | AttributeInner::ReadOnly(ty, _) => Ok(ty),
+            AttributeInner::ModuleFallback(_, name, ty) => {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::ImplicitImport, context),
+                    format!("Module `{name}` exists, but was not imported explicitly. You are relying on other modules to load it."),
+                );
+                Ok(ty)
             }
             AttributeInner::GetAttr(_, getattr_attr, name) => self
                 .resolve_get_access(Attribute::new(*getattr_attr), range, errors, context)
