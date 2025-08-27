@@ -347,6 +347,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    /// Get a (key, default: T) -> ValueType | T overload.
+    fn get_overload_with_default(
+        &self,
+        metadata: &FuncMetadata,
+        self_param: &Param,
+        name: Option<&Name>,
+        ty: Type,
+    ) -> OverloadType {
+        let q = Quantified::type_var(
+            Name::new("_T"),
+            self.uniques,
+            None,
+            Restriction::Unrestricted,
+        );
+        let tparams = vec![TParam {
+            quantified: q.clone(),
+            variance: PreInferenceVariance::PInvariant,
+        }];
+        OverloadType::Forall(Forall {
+            tparams: Arc::new(TParams::new(tparams)),
+            body: Function {
+                signature: Callable::list(
+                    ParamList::new(vec![
+                        self_param.clone(),
+                        self.key_param(name),
+                        Param::PosOnly(
+                            Some(DEFAULT_PARAM.clone()),
+                            q.clone().to_type(),
+                            Required::Required,
+                        ),
+                    ]),
+                    self.union(ty, q.to_type()),
+                ),
+                metadata: metadata.clone(),
+            },
+        })
+    }
+
     fn get_typed_dict_get(
         &self,
         cls: &Class,
@@ -390,36 +428,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     metadata: metadata.clone(),
                 }));
                 // (self, key: Literal["key"], default: T) -> ValueType | T
-                let q = Quantified::type_var(
-                    Name::new("_T"),
-                    self.uniques,
-                    None,
-                    Restriction::Unrestricted,
-                );
-
-                let tparams = vec![TParam {
-                    quantified: q.clone(),
-                    variance: PreInferenceVariance::PInvariant,
-                }];
-
-                literal_signatures.push(OverloadType::Forall(Forall {
-                    tparams: Arc::new(TParams::new(tparams)),
-                    body: Function {
-                        signature: Callable::list(
-                            ParamList::new(vec![
-                                self_param.clone(),
-                                key_param.clone(),
-                                Param::PosOnly(
-                                    Some(DEFAULT_PARAM.clone()),
-                                    q.clone().to_type(),
-                                    Required::Required,
-                                ),
-                            ]),
-                            self.union(field.ty.clone(), q.to_type()),
-                        ),
-                        metadata: metadata.clone(),
-                    },
-                }));
+                literal_signatures.push(self.get_overload_with_default(
+                    &metadata,
+                    &self_param,
+                    Some(name),
+                    field.ty,
+                ));
             }
         }
         let signatures = Vec1::from_vec_push(
@@ -476,47 +490,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // do not pop required or read-only keys
             return;
         }
-        let key_param = self.key_param(name);
-
-        let q = Quantified::type_var(
-            Name::new("_T"),
-            self.uniques,
-            None,
-            Restriction::Unrestricted,
-        );
-        let tparams = vec![TParam {
-            quantified: q.clone(),
-            variance: PreInferenceVariance::PInvariant,
-        }];
 
         // 1) no default: (self, key: Literal["field_name"]) -> FieldType
         overloads.push(OverloadType::Function(Function {
             signature: Callable::list(
-                ParamList::new(vec![self_param.clone(), key_param.clone()]),
+                ParamList::new(vec![self_param.clone(), self.key_param(name)]),
                 ty.clone(),
             ),
             metadata: metadata.clone(),
         }));
 
         // 2) default: (self, key: Literal["field_name"], default: _T) -> FieldType | _T
-        overloads.push(OverloadType::Forall(Forall {
-            tparams: Arc::new(TParams::new(tparams.clone())),
-            body: Function {
-                signature: Callable::list(
-                    ParamList::new(vec![
-                        self_param.clone(),
-                        key_param.clone(),
-                        Param::PosOnly(
-                            Some(DEFAULT_PARAM.clone()),
-                            q.clone().to_type(),
-                            Required::Required,
-                        ),
-                    ]),
-                    self.union(ty, q.clone().to_type()),
-                ),
-                metadata: metadata.clone(),
-            },
-        }));
+        overloads.push(self.get_overload_with_default(metadata, self_param, name, ty));
     }
 
     /// Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
