@@ -170,6 +170,7 @@ struct NamedBinding {
     key: Key,
 }
 
+#[derive(Debug)]
 enum CalleeKind {
     // Function name
     Function(Identifier),
@@ -178,6 +179,7 @@ enum CalleeKind {
     Unknown,
 }
 
+#[derive(Debug)]
 enum PatternMatchParameterKind {
     // Name defined using `as`
     // ex: `x` in `case ... as x: ...`, or `x` in `case x: ...`
@@ -193,6 +195,7 @@ enum PatternMatchParameterKind {
     RestName,
 }
 
+#[derive(Debug)]
 enum IdentifierContext {
     /// An identifier appeared in an expression. ex: `x` in `x + 1`
     Expr(ExprContext),
@@ -256,6 +259,7 @@ enum IdentifierContext {
     PatternMatch(PatternMatchParameterKind),
 }
 
+#[derive(Debug)]
 struct IdentifierWithContext {
     identifier: Identifier,
     context: IdentifierContext,
@@ -1916,14 +1920,22 @@ impl<'a> Transaction<'a> {
 
     fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut result = Vec::new();
-
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
-                identifier: _,
+                identifier,
                 context: IdentifierContext::ImportedName { module_name, .. },
             }) => {
                 // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 if let Ok(handle) = self.import_handle(handle, module_name, None) {
+                    // Because of parser error recovery, `from x impo...` looks like `from x import impo...`
+                    // If the user might be typing the `import` keyword, add that as an autocomplete option.
+                    if "import".starts_with(identifier.as_str()) {
+                        result.push(CompletionItem {
+                            label: "import".to_owned(),
+                            kind: Some(CompletionItemKind::KEYWORD),
+                            ..Default::default()
+                        })
+                    }
                     let exports = self.get_exports(&handle);
                     for name in exports.keys() {
                         result.push(CompletionItem {
