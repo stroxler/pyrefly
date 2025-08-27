@@ -436,7 +436,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ));
             }
         }
-        let signatures = Vec1::from_vec_push(
+        let value_ty = self.get_typed_dict_value_type_from_fields(cls, fields);
+        let mut signatures = Vec1::from_vec_push(
             literal_signatures,
             OverloadType::Function(Function {
                 signature: Callable::list(
@@ -447,17 +448,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.stdlib.str().clone().to_type(),
                             Required::Required,
                         ),
-                        Param::PosOnly(
-                            Some(DEFAULT_PARAM.clone()),
-                            object_ty.clone(),
-                            Required::Optional(None),
-                        ),
                     ]),
-                    object_ty.clone(),
+                    Type::optional(value_ty.clone()),
                 ),
                 metadata: metadata.clone(),
             }),
         );
+        signatures.push(self.get_overload_with_default(&metadata, &self_param, None, value_ty));
         ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
             metadata: Box::new(metadata),

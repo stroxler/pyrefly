@@ -784,8 +784,8 @@ class C(TypedDict):
     y: str
 def f(c: C, k1: str, k2: int):
     assert_type(c.get("x"), int)
-    assert_type(c.get(k1), object)
-    assert_type(c.get(k1, 0), object)
+    assert_type(c.get(k1), object | None)
+    assert_type(c.get(k1, 0), int | object)
     c.get(k2)  # E: No matching overload
     "#,
 );
@@ -1511,7 +1511,7 @@ def f(x: X):
 );
 
 testcase!(
-    test_get_extra_item,
+    test_getitem_extra_items,
     r#"
 from typing import assert_type, TypedDict
 class A(TypedDict, extra_items=bool):
@@ -1679,5 +1679,17 @@ class A(TypedDict, extra_items=int):
 def f(a: A, k: str):
     assert_type(a.setdefault('x', ''), str)
     assert_type(a.setdefault(k, 0), int | str)
+    "#,
+);
+
+testcase!(
+    test_get_extra_items,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, extra_items=int):
+    x: str
+def f(a: A, k: str):
+    assert_type(a.get(k), str | int | None)
+    assert_type(a.get(k, b'hello world'), str | int | bytes)
     "#,
 );
