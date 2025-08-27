@@ -1198,18 +1198,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn check_del_typed_dict_item(
         &self,
         typed_dict: &Name,
-        field_name: &Name,
+        field_name: Option<&Name>,
         read_only: bool,
         required: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
         if read_only || required {
+            let maybe_field_name = if let Some(field_name) = field_name {
+                format!(" `{field_name}`")
+            } else {
+                "".to_owned()
+            };
             self.error(
                 errors,
                 range,
                 ErrorInfo::Kind(ErrorKind::DeleteError),
-                format!("Key `{field_name}` in TypedDict `{typed_dict}` may not be deleted"),
+                format!("Key{maybe_field_name} in TypedDict `{typed_dict}` may not be deleted"),
             );
         }
     }
@@ -1251,17 +1256,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let slice_ty = self.expr_infer(&x.slice, errors);
                     match (&base, &slice_ty) {
                         (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                            if let Some(field) =
-                                self.typed_dict_field(typed_dict, &Name::new(field_name))
+                            let field_name = Name::new(field_name);
+                            let (read_only, required) = if let Some(field) =
+                                self.typed_dict_field(typed_dict, &field_name)
                             {
-                                self.check_del_typed_dict_item(
-                                    typed_dict.name(),
-                                    &Name::new(field_name),
-                                    field.is_read_only(),
-                                    field.required,
-                                    x.slice.range(),
-                                    errors,
-                                )
+                                (field.is_read_only(), field.required)
+                            } else if let ExtraItems::Extra(extra) =
+                                self.typed_dict_extra_items(typed_dict.class_object())
+                            {
+                                (extra.read_only, false)
                             } else {
                                 self.error(
                                     errors,
@@ -1273,7 +1276,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         field_name
                                     ),
                                 );
-                            }
+                                return Arc::new(EmptyAnswer);
+                            };
+                            self.check_del_typed_dict_item(
+                                typed_dict.name(),
+                                Some(&field_name),
+                                read_only,
+                                required,
+                                x.slice.range(),
+                                errors,
+                            )
+                        }
+                        (Type::TypedDict(typed_dict), Type::ClassType(cls))
+                            if cls.is_builtin("str")
+                                && self
+                                    .get_typed_dict_value_type_as_builtins_dict(typed_dict)
+                                    .is_some() =>
+                        {
+                            self.check_del_typed_dict_item(
+                                typed_dict.name(),
+                                None,
+                                false,
+                                false,
+                                x.slice.range(),
+                                errors,
+                            )
                         }
                         (_, _) => {
                             self.call_method_or_error(

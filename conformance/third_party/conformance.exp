@@ -9983,16 +9983,6 @@
     },
     {
       "code": -2,
-      "column": 15,
-      "concise_description": "TypedDict `MovieEI` does not have key `year`",
-      "description": "TypedDict `MovieEI` does not have key `year`",
-      "line": 126,
-      "name": "typed-dict-key-error",
-      "stop_column": 21,
-      "stop_line": 126
-    },
-    {
-      "code": -2,
       "column": 48,
       "concise_description": "Unexpected keyword argument `year` in function `unpack_no_extra`",
       "description": "Unexpected keyword argument `year` in function `unpack_no_extra`",
@@ -10210,16 +10200,6 @@
       "name": "missing-attribute",
       "stop_column": 42,
       "stop_line": 330
-    },
-    {
-      "code": -2,
-      "column": 31,
-      "concise_description": "Cannot delete item in `TypedDict[IntDictWithNum]`",
-      "description": "Cannot delete item in `TypedDict[IntDictWithNum]`\n  Argument `str` is not assignable to parameter `k` with type `Never` in function `_typeshed._type_checker_internals.TypedDictFallback.__delitem__`",
-      "line": 334,
-      "name": "unsupported-operation",
-      "stop_column": 34,
-      "stop_line": 334
     },
     {
       "code": -2,

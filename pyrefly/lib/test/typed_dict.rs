@@ -1566,3 +1566,34 @@ def f(a: A, k: str):
     a[k] = 'oops'  # E: Cannot set item
     "#,
 );
+
+testcase!(
+    test_del_extra_items,
+    r#"
+from typing import NotRequired, TypedDict
+
+class A(TypedDict, closed=True):
+    x: NotRequired[str]
+def f(a: A, k: str):
+    del a['x']
+    del a['y']  # E: `A` does not have key `y`
+    # This is not allowed because a closed TypedDict is not assignable to a `dict` type.
+    del a[k]  # E: Cannot delete item
+
+class B(TypedDict, extra_items=int):
+    x: NotRequired[str]
+def f(b: B, k: str):
+    del b['x']
+    del b['y']
+    # This is not allowed because `B` is not assignable to a `dict` type: `extra_items` type `int`
+    # is not consistent with type `str` of field `x`.
+    del b[k]  # E: Cannot delete item
+
+class C(TypedDict, extra_items=int):
+    x: NotRequired[int]
+def f(c: C, k: str):
+    del c['x']
+    del c['y']
+    del c[k]
+    "#,
+);
