@@ -146,6 +146,31 @@ f("foo") # No error
 );
 
 testcase!(
+    test_deprecated_overloaded_signature_no_impl,
+    r#"
+from typing import overload
+from warnings import deprecated
+
+@deprecated("DEPRECATED")
+@overload
+def f(x: int) -> int: ...  # E: Overloaded function must have an implementation
+@overload
+def f(x: str) -> str: ...
+
+f(0)  # E: Call to deprecated overload `f`
+f("foo") # No error
+    "#,
+);
+
+testcase!(
+    test_deprecated_overload_shutil,
+    r#"
+import shutil
+shutil.rmtree("/tmp")
+    "#,
+);
+
+testcase!(
     test_reduce_call,
     r#"
 from functools import reduce

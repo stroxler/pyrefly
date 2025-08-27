@@ -130,13 +130,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     acc.split_off_first().0.1
                 } else {
                     acc.reverse();
+                    // When an overloaded function doesn't have a implementation, decorators like `@override` and `@final` should be applied
+                    // on the first overload: https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
+                    let mut metadata = first.metadata.clone();
+                    // This does not apply to `@deprecated` - some overloads can be deprecated while others are fine.
+                    metadata.flags.is_deprecated = false;
                     Type::Overload(Overload {
                         signatures: self
                             .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
                             .mapped(|(_, sig)| sig),
-                        // When an overloaded function doesn't have a implementation, all decorators are present on the first overload:
-                        // https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
-                        metadata: Box::new(first.metadata.clone()),
+                        metadata: Box::new(metadata.clone()),
                     })
                 }
             } else {
