@@ -482,6 +482,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
+        if dataclass.kws.extra {
+            params.push(Param::Kwargs(None, Type::Any(AnyStyle::Implicit)));
+        }
+
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), Type::None),
             metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::INIT),

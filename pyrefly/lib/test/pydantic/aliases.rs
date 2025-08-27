@@ -38,7 +38,7 @@ class Model(BaseModel):
     x: int = Field(validation_alias="y", alias="z")
 
 m = Model(y=0)
-m = Model(z=0) # E: Missing argument `y` in function `Model.__init__` # E: Unexpected keyword argument `z` in function `Model.__init__`
+m = Model(z=0) # E: Missing argument `y` in function `Model.__init__`
 
 m.x
 m.y  # E: Object of class `Model` has no attribute `y`
@@ -65,7 +65,7 @@ testcase!(
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_alias=True):
     x: int = Field(alias='y')
-Model(x=0) # E: Missing argument `y` in function `Model.__init__` # E: Unexpected keyword argument `x` in function `Model.__init__`
+Model(x=0) # E: Missing argument `y` in function `Model.__init__` 
 Model(y=0)
 "#,
 );
@@ -90,7 +90,7 @@ from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=False):
     x: int = Field(alias='y')
 Model(x=0)
-Model(y=0) # E: Missing argument `x` in function `Model.__init__` # E: Unexpected keyword argument `y` in function `Model.__init__`
+Model(y=0) # E: Missing argument `x` in function `Model.__init__` 
 "#,
 );
 
