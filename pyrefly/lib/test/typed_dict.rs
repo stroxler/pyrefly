@@ -1529,12 +1529,33 @@ def f(a: A, k: str):
 testcase!(
     test_set_extra_item,
     r#"
-from typing import TypedDict
+from typing import NotRequired, TypedDict
+
 class A(TypedDict, extra_items=bool):
-    pass
+    a: NotRequired[bool]
 def f(a: A, k: str):
     a['x'] = True
     a['y'] = 'oops'  # E: `Literal['oops']` is not assignable to TypedDict key `y` with type `bool`
+    # This is allowed because `A` is assignable to `dict[str, bool]`.
     a[k] = False
+
+class B(TypedDict, extra_items=bool):
+    a: NotRequired[str]
+def f(b: B, k: str):
+    # This is not allowed because `B` is not assignable to a `dict` type: the `extra_items` type
+    # `bool` is not consistent with type `str` of field `a`.
+    b[k] = False  # E: Cannot set item
+    "#,
+);
+
+testcase!(
+    test_set_closed,
+    r#"
+from typing import TypedDict
+class A(TypedDict, closed=True):
+    x: str
+def f(a: A, k: str):
+    # This is not allowed because a closed TypedDict is not assignable to a `dict` type.
+    a[k] = 'oops'  # E: Cannot set item
     "#,
 );

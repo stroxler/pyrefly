@@ -612,6 +612,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// If the TypedDict is assignable to `dict[str, VT]`, return `VT`.
+    pub fn get_typed_dict_value_type_as_builtins_dict(
+        &self,
+        typed_dict: &TypedDict,
+    ) -> Option<Type> {
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(typed_dict.class_object())
+            && !extra.read_only
+            && self.typed_dict_fields(typed_dict).values().all(|field| {
+                !field.is_read_only() && !field.required && self.is_equal(&field.ty, &extra.ty)
+            })
+        {
+            Some(extra.ty)
+        } else {
+            None
+        }
+    }
+
     /// Get the type of a value in the TypedDict.
     fn get_typed_dict_value_type_from_fields(
         &self,

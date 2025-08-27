@@ -1903,14 +1903,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 (Type::TypedDict(typed_dict), Type::ClassType(cls))
                     if cls.is_builtin("str")
-                        && let ExtraItems::Extra(extra) =
-                            self.typed_dict_extra_items(typed_dict.class_object()) =>
+                        && let Some(field_ty) =
+                            self.get_typed_dict_value_type_as_builtins_dict(typed_dict) =>
                 {
                     self.check_assign_to_typed_dict_subscript(
                         typed_dict.name(),
                         None,
-                        &extra.ty,
-                        extra.read_only,
+                        &field_ty,
+                        false,
                         value,
                         subscript.range(),
                         errors,
