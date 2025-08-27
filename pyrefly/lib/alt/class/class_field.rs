@@ -16,6 +16,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
+use pyrefly_types::type_var::Restriction;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::owner::Owner;
@@ -1971,11 +1972,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         upper_bound: &ClassType,
         name: &Name,
     ) -> Option<ClassAttribute> {
+        let quantified_with_specific_upper_bound = match quantified.restriction() {
+            Restriction::Constraints(_) => {
+                quantified.with_restriction(Restriction::Constraints(vec![
+                    upper_bound.clone().to_type(),
+                ]))
+            }
+            Restriction::Bound(_) => {
+                quantified.with_restriction(Restriction::Bound(upper_bound.clone().to_type()))
+            }
+            Restriction::Unrestricted => quantified,
+        };
         self.get_class_member(upper_bound.class_object(), name)
             .map(|member| {
                 self.as_instance_attribute(
                     &member.value,
-                    &Instance::of_type_var(quantified, upper_bound),
+                    &Instance::of_type_var(quantified_with_specific_upper_bound, upper_bound),
                 )
             })
     }
