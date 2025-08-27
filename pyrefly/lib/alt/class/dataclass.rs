@@ -30,6 +30,7 @@ use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::binding::pydantic::GT;
 use crate::binding::pydantic::LT;
+use crate::binding::pydantic::STRICT;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -231,6 +232,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let gt = map.0.get(&GT).cloned();
         let lt = map.0.get(&LT).cloned();
 
+        let strict: Option<bool> = map.0.get(&STRICT).and_then(|v| v.as_bool());
+
         let mut converter_param = map
             .0
             .get(&DataclassFieldKeywords::CONVERTER)
@@ -257,6 +260,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             alias,
             lt,
             gt,
+            strict,
             converter_param,
         }
     }

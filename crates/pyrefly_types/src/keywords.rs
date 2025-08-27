@@ -129,6 +129,8 @@ pub struct DataclassFieldKeywords {
     /// gt and lt specify the range of values that the field can take. None means no constraint
     pub lt: Option<Type>,
     pub gt: Option<Type>,
+    /// Whether we should strictly evaluate the type of the field
+    pub strict: Option<bool>,
     /// If a converter callable is passed in, its first positional parameter
     pub converter_param: Option<Type>,
 }
@@ -154,6 +156,7 @@ impl DataclassFieldKeywords {
             lt: None,
             gt: None,
             converter_param: None,
+            strict: None,
         }
     }
 
