@@ -380,7 +380,7 @@ impl<'a> Transaction<'a> {
                     // because the original export in from_module will show it.
                     // The current strategy will prevent intended re-exports from showing up in
                     // result list, but it's better than showing thousands of likely bad results.
-                    ExportLocation::OtherModule(_) => Vec::new(),
+                    ExportLocation::OtherModule(..) => Vec::new(),
                 }
             } else {
                 Vec::new()
@@ -396,7 +396,7 @@ impl<'a> Transaction<'a> {
                 let name = name.as_str();
                 if let Some(score) = matcher.fuzzy_match(name, pattern) {
                     match location {
-                        ExportLocation::OtherModule(_) => {}
+                        ExportLocation::OtherModule(..) => {}
                         ExportLocation::ThisModule(export) => {
                             results.push((score, handle.dupe(), name.to_owned(), export.clone()));
                         }

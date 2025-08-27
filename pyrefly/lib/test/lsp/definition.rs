@@ -1363,8 +1363,44 @@ from lib import foo_renamed
 2 | from lib import foo_renamed
                          ^
 Definition Result:
-2 | from lib2 import foo as foo_renamed
-                            ^^^^^^^^^^^
+2 | def foo() -> None: ...
+        ^^^
+
+
+# lib.py
+
+# lib2.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn renamed_assignment_reexport() {
+    let lib2 = r#"
+def foo() -> None: ...
+"#;
+    let lib = r#"
+from lib2 import foo
+foo_renamed = foo
+"#;
+    let code = r#"
+from lib import foo_renamed
+#                    ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("lib", lib), ("lib2", lib2)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib import foo_renamed
+                         ^
+Definition Result:
+3 | foo_renamed = foo
+    ^^^^^^^^^^^
 
 
 # lib.py

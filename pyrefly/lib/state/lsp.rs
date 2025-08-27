@@ -928,6 +928,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
         let mut gas = RESOLVE_EXPORT_INITIAL_GAS;
+        let mut name = name;
         while !gas.stop() {
             let handle = match preference.prefer_pyi {
                 true => self.import_handle(handle, m, None).ok()?,
@@ -937,7 +938,12 @@ impl<'a> Transaction<'a> {
                 Some(ExportLocation::ThisModule(export)) => {
                     return Some((handle.clone(), export.clone()));
                 }
-                Some(ExportLocation::OtherModule(module)) => m = *module,
+                Some(ExportLocation::OtherModule(module, aliased_name)) => {
+                    if let Some(aliased_name) = aliased_name {
+                        name = aliased_name.clone();
+                    }
+                    m = *module;
+                }
                 None => return None,
             }
         }
@@ -1759,7 +1765,7 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let kind = match location {
-                    ExportLocation::OtherModule(_) => continue,
+                    ExportLocation::OtherModule(..) => continue,
                     ExportLocation::ThisModule(export) => export
                         .symbol_kind
                         .map_or(Some(CompletionItemKind::VARIABLE), |k| {

@@ -47,9 +47,8 @@ pub struct Export {
 pub enum ExportLocation {
     // This export is defined in this module.
     ThisModule(Export),
-    // Exported from another module. Module optional in case
-    // we could not find it.
-    OtherModule(ModuleName),
+    // Export from another module ModuleName. If it's alised, the old name (before the alias) is provided.
+    OtherModule(ModuleName, Option<Name>),
 }
 
 #[derive(Debug, Default, Clone, Dupe)]
@@ -160,10 +159,10 @@ impl Exports {
             let mut result: SmallMap<Name, ExportLocation> = SmallMap::new();
             for (name, definition) in self.0.definitions.definitions.iter_hashed() {
                 let is_deprecated = self.0.definitions.deprecated.contains_hashed(name);
-                let export = match definition.style {
+                let export = match &definition.style {
                     DefinitionStyle::Local(symbol_kind) => ExportLocation::ThisModule(Export {
                         location: definition.range,
-                        symbol_kind: Some(symbol_kind),
+                        symbol_kind: Some(*symbol_kind),
                         docstring_range: definition.docstring_range,
                         is_deprecated,
                     }),
@@ -180,22 +179,21 @@ impl Exports {
                         docstring_range: None,
                         is_deprecated,
                     }),
-                    DefinitionStyle::ImportAs(_from) => ExportLocation::ThisModule(Export {
-                        location: definition.range,
-                        symbol_kind: Some(SymbolKind::Module),
-                        docstring_range: definition.docstring_range,
-                        is_deprecated,
-                    }),
+                    DefinitionStyle::ImportAs(from, name) => {
+                        ExportLocation::OtherModule(*from, Some(name.clone()))
+                    }
                     DefinitionStyle::ImportAsEq(from)
                     | DefinitionStyle::Import(from)
-                    | DefinitionStyle::ImportModule(from) => ExportLocation::OtherModule(from),
+                    | DefinitionStyle::ImportModule(from) => {
+                        ExportLocation::OtherModule(*from, None)
+                    }
                 };
                 result.insert_hashed(name.cloned(), export);
             }
             for m in self.0.definitions.import_all.keys() {
                 if let Ok(exports) = lookup.get(*m) {
                     for name in exports.wildcard(lookup).iter_hashed() {
-                        result.insert_hashed(name.cloned(), ExportLocation::OtherModule(*m));
+                        result.insert_hashed(name.cloned(), ExportLocation::OtherModule(*m, None));
                     }
                 }
             }

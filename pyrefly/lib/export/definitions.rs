@@ -39,7 +39,7 @@ use crate::types::globals::Global;
 
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DefinitionStyle {
     /// Defined in this module, e.g. `x = 1` or `def x(): ...`
     /// We also store what kind of symbol it is
@@ -47,7 +47,9 @@ pub enum DefinitionStyle {
     /// Defined as an implicit global like `__name__`.
     Global,
     /// Imported with an alias, e.g. `from x import y as z`
-    ImportAs(ModuleName),
+    /// Name is the previous name before the alias
+    ImportAs(ModuleName, Name),
+
     /// Imported with an alias, where the alias is identical, e.g. `from x import y as y`
     ImportAsEq(ModuleName),
     /// Imported from another module, e.g. `from x import y`
@@ -259,7 +261,8 @@ impl<'a> DefinitionsBuilder<'a> {
     ) {
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
-                e.get_mut().style = cmp::min(e.get().style, style);
+                let style = cmp::min(&e.get().style, &style);
+                e.get_mut().style = style.clone();
                 if e.get().annot.is_none() {
                     e.get_mut().annot = annot;
                 }
@@ -342,7 +345,7 @@ impl<'a> DefinitionsBuilder<'a> {
                             if alias.id == a.name.id {
                                 DefinitionStyle::ImportAsEq(imported_module)
                             } else {
-                                DefinitionStyle::ImportAs(imported_module)
+                                DefinitionStyle::ImportAs(imported_module, a.name.id.clone())
                             },
                         ),
                     };
@@ -373,19 +376,19 @@ impl<'a> DefinitionsBuilder<'a> {
                                 if a.asname.as_ref().map(|x| &x.id) == Some(&a.name.id) {
                                     DefinitionStyle::ImportAsEq(name)
                                 } else if a.asname.is_some() {
-                                    DefinitionStyle::ImportAs(name)
+                                    DefinitionStyle::ImportAs(name, a.name.id.clone())
                                 } else {
                                     DefinitionStyle::Import(name)
                                 }
                             }
                         };
-                        self.add_identifier(a.asname.as_ref().unwrap_or(&a.name), style);
-                        if matches!(style, DefinitionStyle::ImportAsEq(_))
+                        if matches!(&style, &DefinitionStyle::ImportAsEq(_))
                             && a.name.id == dunder::ALL
                             && let Some(module) = name
                         {
                             self.inner.dunder_all = vec![DunderAllEntry::Module(x.range, module)]
                         }
+                        self.add_identifier(a.asname.as_ref().unwrap_or(&a.name), style);
                     }
                 }
             }

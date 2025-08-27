@@ -59,7 +59,6 @@ xyz = [foo.meth]
     );
 }
 
-// todo(kylei): show name + type
 #[test]
 fn renamed_reexport_shows_original_name() {
     let lib2 = r#"
@@ -82,7 +81,7 @@ from lib import foo_renamed
 2 | from lib import foo_renamed
                          ^
 ```python
-(module) foo_renamed: () -> None
+(function) foo: () -> None
 ```
 
 
