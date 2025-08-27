@@ -12,6 +12,7 @@ use std::str::FromStr;
 use anyhow::Context as _;
 use clap::Parser;
 use dupe::Dupe;
+use pyrefly_build::buck::source_db::BuckSourceDatabase;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
@@ -22,7 +23,6 @@ use pyrefly_util::prelude::VecExt;
 use serde::Deserialize;
 use tracing::info;
 
-use crate::buck::source_db::BuckSourceDatabase;
 use crate::commands::util::CommandExitStatus;
 use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;

@@ -2083,6 +2083,7 @@ dependencies = [
  "parse-display",
  "paste",
  "pretty_assertions",
+ "pyrefly_build",
  "pyrefly_bundled",
  "pyrefly_config",
  "pyrefly_derive",
@@ -2108,6 +2109,21 @@ dependencies = [
  "tracing",
  "vec1",
  "yansi 1.0.1",
+]
+
+[[package]]
+name = "pyrefly_build"
+version = "0.30.0"
+dependencies = [
+ "anyhow",
+ "dupe",
+ "pyrefly_python",
+ "pyrefly_util",
+ "serde",
+ "serde_json",
+ "starlark_map",
+ "tracing",
+ "vec1",
 ]
 
 [[package]]
