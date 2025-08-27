@@ -8,7 +8,11 @@
 use std::ops::Deref;
 use std::path::PathBuf;
 
+use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::sys_info::PythonPlatform;
+use pyrefly_python::sys_info::PythonVersion;
+use pyrefly_python::sys_info::SysInfo;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -19,12 +23,23 @@ use crate::source_db::Target;
 pub(crate) struct TargetManifest {
     deps: SmallSet<Target>,
     srcs: SmallMap<ModuleName, Vec1<PathBuf>>,
+    python_version: PythonVersion,
+    python_platform: PythonPlatform,
 }
 
 impl TargetManifest {
     #[expect(unused)]
-    pub fn new(srcs: SmallMap<ModuleName, Vec1<PathBuf>>, deps: SmallSet<Target>) -> Self {
-        Self { srcs, deps }
+    pub fn new(
+        srcs: SmallMap<ModuleName, Vec1<PathBuf>>,
+        deps: SmallSet<Target>,
+        sys_info: SysInfo,
+    ) -> Self {
+        Self {
+            srcs,
+            deps,
+            python_version: sys_info.version().dupe(),
+            python_platform: sys_info.platform().clone(),
+        }
     }
 
     pub(crate) fn iter_srcs<'a>(

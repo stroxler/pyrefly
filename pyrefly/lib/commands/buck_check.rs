@@ -51,6 +51,7 @@ struct InputFile {
     py_version: String,
     sources: Vec<PathBuf>,
     typeshed: Option<PathBuf>,
+    system_platform: String,
 }
 
 fn read_input_file(path: &Path) -> anyhow::Result<InputFile> {
@@ -113,7 +114,8 @@ impl BuckCheckArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         let input_file = read_input_file(self.input_path.as_path())?;
         let python_version = PythonVersion::from_str(&input_file.py_version)?;
-        let sys_info = SysInfo::new(python_version, PythonPlatform::linux());
+        let python_platform = PythonPlatform::new(&input_file.system_platform);
+        let sys_info = SysInfo::new(python_version, python_platform);
         let sourcedb = BuckCheckSourceDatabase::from_manifest_files(
             input_file.sources.as_slice(),
             input_file.dependencies.as_slice(),
