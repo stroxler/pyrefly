@@ -203,22 +203,42 @@ foo.f("",3,True)
 6 | foo.f()
           ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 0
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 0
 
 8 | foo.f("", )
              ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 1
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 1
 
 10 | foo.f("",3, )
                 ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
 
 12 | foo.f("",3,True)
                 ^
 Signature Help Result: active=0
-- (self: Self@Foo, a: str, b: int, c: bool) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
+- (
+    self: Self@Foo,
+    a: str,
+    b: int,
+    c: bool
+) -> None, parameters=[a: str, b: int, c: bool], active parameter = 2
 "#
         .trim(),
         report.trim(),

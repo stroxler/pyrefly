@@ -27,6 +27,7 @@ use crate::qname::QName;
 use crate::tuple::Tuple;
 use crate::types::AnyStyle;
 use crate::types::BoundMethod;
+use crate::types::BoundMethodType;
 use crate::types::Forall;
 use crate::types::Forallable;
 use crate::types::NeverStyle;
@@ -279,7 +280,7 @@ impl<'a> TypeDisplayContext<'a> {
                 if self.hover && is_toplevel {
                     c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                 } else {
-                    c.fmt_with_type(f, &|t| self.display(t))
+                    c.fmt_with_type(f, &|t| self.display_internal(t))
                 }
             }
             Type::Overload(overload) => {
@@ -299,7 +300,19 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(f, "]")
             }
             Type::BoundMethod(box BoundMethod { obj, func }) => {
-                if self.hover {
+                if self.hover && is_toplevel {
+                    match func {
+                        BoundMethodType::Function(func) => func
+                            .signature
+                            .fmt_with_type_with_newlines(f, &|t| self.display_internal(t)),
+                        BoundMethodType::Forall(_) => {
+                            write!(f, "{}", self.display_internal(&func.clone().as_type()))
+                        }
+                        BoundMethodType::Overload(_) => {
+                            write!(f, "{}", self.display_internal(&func.clone().as_type()))
+                        }
+                    }
+                } else if self.hover {
                     write!(f, "{}", self.display_internal(&func.clone().as_type()))
                 } else {
                     write!(
@@ -525,11 +538,23 @@ pub mod tests {
         let module_name = ModuleName::from_str(module_name_str);
         let class = fake_class(class_name, module_name_str, 10);
         let method = Callable::list(
-            ParamList::new(vec![Param::Pos(
-                Name::new_static("self"),
-                Type::any_explicit(),
-                Required::Required,
-            )]),
+            ParamList::new(vec![
+                Param::Pos(
+                    Name::new_static("self"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new_static("x"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new_static("y"),
+                    Type::any_explicit(),
+                    Required::Required,
+                ),
+            ]),
             Type::None,
         );
         Type::BoundMethod(Box::new(BoundMethod {
@@ -928,15 +953,18 @@ pub mod tests {
     fn test_display_bound_method_for_hover() {
         let bound_method = fake_bound_method("foo", "MyClass", "my.module");
         let mut ctx = TypeDisplayContext::new(&[&bound_method]);
-
         assert_eq!(
             ctx.display(&bound_method).to_string(),
-            "BoundMethod[type[MyClass], (self: Any) -> None]"
+            "BoundMethod[type[MyClass], (self: Any, x: Any, y: Any) -> None]"
         );
         ctx.set_display_mode_to_hover();
         assert_eq!(
             ctx.display(&bound_method).to_string(),
-            "(self: Any) -> None"
+            r#"(
+    self: Any,
+    x: Any,
+    y: Any
+) -> None"#
         );
     }
 }
