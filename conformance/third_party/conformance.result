@@ -296,11 +296,7 @@
   "overloads_basic.py": [],
   "overloads_consistency.py": [],
   "overloads_definitions.py": [
-    "Lines 71, 73, 78, 81: Expected error (tag 'func5')",
-    "Lines 121, 122, 123, 127: Expected error (tag 'invalid_final')",
-    "Lines 135, 136, 137, 141, 142: Expected error (tag 'invalid_final_2+')",
     "Lines 170, 175, 181, 183: Expected error (tag 'override-final')",
-    "Lines 220, 221, 222, 225, 226: Expected error (tag 'override_impl+')",
     "Line 49: Unexpected errors ['Overloaded function must have an implementation']",
     "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
   ],
@@ -394,9 +390,7 @@
     "Line 131: Unexpected errors ['Expected first item to be a string literal', 'Expected first item to be a string literal']",
     "Line 133: Unexpected errors ['Unexpected keyword argument `x` in function `N.__new__`', 'Unexpected keyword argument `y` in function `N.__new__`']"
   ],
-  "qualifiers_final_decorator.py": [
-    "Lines 84, 85, 86: Expected error (tag 'Derived3-2')"
-  ],
+  "qualifiers_final_decorator.py": [],
   "specialtypes_any.py": [],
   "specialtypes_never.py": [
     "Line 32: Unexpected errors [\"Returned type `Literal['whatever works']` is not assignable to declared return type `int`\"]"

@@ -7785,12 +7785,62 @@
     {
       "code": -2,
       "column": 9,
+      "concise_description": "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.",
+      "description": "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.",
+      "line": 81,
+      "name": "invalid-overload",
+      "stop_column": 14,
+      "stop_line": 81
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.",
+      "description": "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.",
+      "line": 90,
+      "name": "invalid-overload",
+      "stop_column": 14,
+      "stop_line": 90
+    },
+    {
+      "code": -2,
+      "column": 9,
       "concise_description": "Implementation signature `(cls: type[Self@C], *args: int | str) -> int | str` does not accept all arguments that overload signature `(self: Self@C, x: str, /) -> str` accepts",
       "description": "Implementation signature `(cls: type[Self@C], *args: int | str) -> int | str` does not accept all arguments that overload signature `(self: Self@C, x: str, /) -> str` accepts",
       "line": 90,
       "name": "invalid-overload",
       "stop_column": 14,
       "stop_line": 90
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "line": 123,
+      "name": "invalid-overload",
+      "stop_column": 22,
+      "stop_line": 123
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "line": 137,
+      "name": "invalid-overload",
+      "stop_column": 24,
+      "stop_line": 137
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "line": 142,
+      "name": "invalid-overload",
+      "stop_column": 24,
+      "stop_line": 142
     },
     {
       "code": -2,
@@ -7811,6 +7861,26 @@
       "name": "bad-override",
       "stop_column": 21,
       "stop_line": 191
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`@override` should only be applied to the implementation of an overloaded function.",
+      "description": "`@override` should only be applied to the implementation of an overloaded function.",
+      "line": 222,
+      "name": "invalid-overload",
+      "stop_column": 20,
+      "stop_line": 222
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`@override` should only be applied to the implementation of an overloaded function.",
+      "description": "`@override` should only be applied to the implementation of an overloaded function.",
+      "line": 226,
+      "name": "invalid-overload",
+      "stop_column": 20,
+      "stop_line": 226
     }
   ],
   "overloads_evaluation.py": [
@@ -8999,6 +9069,16 @@
       "name": "bad-override",
       "stop_column": 15,
       "stop_line": 81
+    },
+    {
+      "code": -2,
+      "column": 9,
+      "concise_description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "description": "`@final` should only be applied to the implementation of an overloaded function.",
+      "line": 86,
+      "name": "invalid-overload",
+      "stop_column": 15,
+      "stop_line": 86
     },
     {
       "code": -2,

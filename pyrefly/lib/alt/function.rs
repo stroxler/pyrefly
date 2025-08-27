@@ -130,6 +130,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     acc.split_off_first().0.1
                 } else {
                     acc.reverse();
+                    let is_static_method = acc.iter().any(|x| x.2.flags.is_staticmethod);
+                    let is_class_method = acc.iter().any(|x| x.2.flags.is_classmethod);
+                    for (overload_range, _, overload_metadata) in acc.iter().skip(1) {
+                        if overload_metadata.flags.has_final_decoration {
+                            self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If an overloaded function has no implementation, `@final` should be applied to the first overload only.".to_owned(),
+                            );
+                        }
+                        if overload_metadata.flags.is_override {
+                            self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If an overloaded function has no implementation, `@override` should be applied to the first overload only.".to_owned(),
+                            );
+                        }
+                    }
+                    for (overload_range, _, overload_metadata) in acc.iter() {
+                        if overload_metadata.flags.is_staticmethod != is_static_method {
+                            self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If `@staticmethod` is present on one overload, all overloads must have that decorator.".to_owned(),
+                            );
+                        }
+                        if overload_metadata.flags.is_classmethod != is_class_method {
+                            self.error(
+                                errors,
+                                *overload_range,
+                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                "If `@classmethod` is present on one overload, all overloads must have that decorator.".to_owned(),
+                            );
+                        }
+                    }
                     // When an overloaded function doesn't have a implementation, decorators like `@override` and `@final` should be applied
                     // on the first overload: https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
                     let mut metadata = first.metadata.clone();
@@ -153,6 +191,60 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 acc.push((def.id_range(), (*def.ty).clone(), def.metadata().clone()));
             }
             acc.reverse();
+            let is_static_method = def.metadata().flags.is_staticmethod
+                || acc.iter().any(|x| x.2.flags.is_staticmethod);
+            let is_class_method =
+                def.metadata().flags.is_classmethod || acc.iter().any(|x| x.2.flags.is_classmethod);
+            for (overload_range, _, overload_metadata) in acc.iter() {
+                if overload_metadata.flags.has_final_decoration {
+                    self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "`@final` should only be applied to the implementation of an overloaded function.".to_owned(),
+                    );
+                }
+                if overload_metadata.flags.is_override {
+                    self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "`@override` should only be applied to the implementation of an overloaded function.".to_owned(),
+                    );
+                }
+                if overload_metadata.flags.is_staticmethod != is_static_method {
+                    self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                    );
+                }
+                if overload_metadata.flags.is_classmethod != is_class_method {
+                    self.error(
+                        errors,
+                        *overload_range,
+                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                    );
+                }
+            }
+            if def.metadata().flags.is_staticmethod != is_static_method {
+                self.error(
+                    errors,
+                    def.id_range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                );
+            }
+            if def.metadata().flags.is_classmethod != is_class_method {
+                self.error(
+                    errors,
+                    def.id_range(),
+                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
+                );
+            }
             if let Ok(defs) = Vec1::try_from_vec(acc) {
                 if defs.len() == 1 {
                     self.error(

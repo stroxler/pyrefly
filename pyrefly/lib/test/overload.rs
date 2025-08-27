@@ -306,21 +306,117 @@ f(b"")  # E: No matching overload found for function `f`
 );
 
 testcase!(
-    test_final_decoration,
+    test_final_decoration_on_top_level_function,
     r#"
 from typing import assert_type, final, overload
 
 @overload
-@final  # E: `@final` can only be used on methods
 def f(x: int) -> int: ...
-
 @overload
 def f(x: str) -> str: ...
-
+@final  # E: `@final` can only be used on methods
 def f(x: int | str) -> int | str:
     return x
 
 assert_type(f(0), int)
+    "#,
+);
+
+testcase!(
+    test_overload_inconsistent_override_final,
+    r#"
+from typing import overload, override, Any, final
+
+class Base:
+    def f(x: Any) -> Any: pass
+    def f2(x: Any) -> Any: pass
+
+class C(Base):
+    # OK
+    @override
+    @overload
+    def f(x: int) -> int: ...  # E: Overloaded function must have an implementation 
+    @overload
+    def f(x: str) -> str: ...
+
+    # not on the first overload
+    @overload
+    def f2(x: int) -> int: ...  # E: Overloaded function must have an implementation
+    @overload
+    @override
+    def f2(x: str) -> str: ...  # E: `@override` should be applied to the first overload only.
+
+    # OK
+    @overload
+    def f3(x: int) -> int: ...
+    @overload
+    def f3(x: str) -> str: ...
+    @final
+    def f3(x: int | str):
+        return x
+
+    # not on the implementation
+    @final
+    @overload
+    def f3(x: int) -> int: ...  # E: `@final` should only be applied to the implementation of an overloaded function
+    @overload
+    def f3(x: str) -> str: ...
+    def f3(x: int | str):
+        return x
+    "#,
+);
+
+testcase!(
+    test_overload_inconsistent_staticmethod_classmethod,
+    r#"
+from typing import overload
+
+class C:
+    # missing from an overload
+    @overload
+    def f(x: int) -> int: ...  # E: Overloaded function must have an implementation  # E: If `@staticmethod` is present on one overload, all overloads must have that decorator
+    @staticmethod
+    @overload
+    def f(x: str) -> str: ...
+
+    # OK
+    @staticmethod
+    @overload
+    def f2(x: int) -> int: ...  # E: Overloaded function must have an implementation
+    @staticmethod
+    @overload
+    def f2(x: str) -> str: ...
+
+    # OK
+    @classmethod
+    @overload
+    def f3(x: int) -> int: ...
+    @classmethod
+    @overload
+    def f3(x: str) -> str: ...
+    @classmethod
+    def f3(x: int | str):
+        return x
+
+    # missing from implementation
+    @classmethod
+    @overload
+    def f4(x: int) -> int: ...
+    @classmethod
+    @overload
+    def f4(x: str) -> str: ...
+    def f4(x: int | str):  # E: If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation
+        return x
+
+    # missing from an overload
+    @classmethod
+    @overload
+    def f5(x: int) -> int: ...
+    @overload
+    def f5(x: str) -> str: ...  # E: If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation
+    @classmethod
+    def f5(x: int | str):
+        return x
     "#,
 );
 
