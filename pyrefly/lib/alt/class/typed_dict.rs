@@ -461,8 +461,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut literal_signatures: Vec<OverloadType> = Vec::new();
         for (name, field) in self.names_to_fields(cls, fields) {
-            if field.required {
-                // do not pop required keys
+            if field.required || field.is_read_only() {
+                // do not pop required or read-only keys
                 continue;
             } else {
                 let key_param = Param::PosOnly(
@@ -482,11 +482,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     variance: PreInferenceVariance::PInvariant,
                 }];
 
-                // 1) no default: (self, key: Literal["field_name"]) -> Optional[FieldType]
+                // 1) no default: (self, key: Literal["field_name"]) -> FieldType
                 literal_signatures.push(OverloadType::Function(Function {
                     signature: Callable::list(
                         ParamList::new(vec![self_param.clone(), key_param.clone()]),
-                        Type::optional(field.ty.clone()),
+                        field.ty.clone(),
                     ),
                     metadata: metadata.clone(),
                 }));

@@ -322,7 +322,7 @@ v2 = td_r.pop("a", 3.14) # E:
 assert_type(v2, object)
 
 v3 = td_o.pop("x")
-assert_type(v3, int | None)
+assert_type(v3, int)
 
 v4 = td_o.pop("x", -1)
 assert_type(v4, int)
@@ -334,7 +334,7 @@ v6 = td_m.pop("a") # E:
 assert_type(v6, Any)
 
 v7 = td_m.pop("x")
-assert_type(v7, int | None)
+assert_type(v7, int)
 
 v8 = td_m.pop("x", 0)
 assert_type(v8, int)
@@ -1643,5 +1643,16 @@ class A(TypedDict, extra_items=bool):
     x: NotRequired[bool]
 d1: dict[str, bool] = A(x=True)
 d2: dict[str, int] = A(x=False)  # E: `TypedDict[A]` is not assignable to `dict[str, int]`
+    "#,
+);
+
+testcase!(
+    test_pop_readonly,
+    r#"
+from typing import NotRequired, ReadOnly, TypedDict
+class A(TypedDict):
+    x: NotRequired[ReadOnly[int]]
+def f(a: A):
+    a.pop('x')  # E: `Literal['x']` is not assignable to parameter `k` with type `Never`
     "#,
 );
