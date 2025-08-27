@@ -1195,6 +1195,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().expand_mut(ty);
     }
 
+    fn check_del_typed_dict_item(
+        &self,
+        typed_dict: &Name,
+        field_name: &Name,
+        read_only: bool,
+        required: bool,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        if read_only || required {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::DeleteError),
+                format!("Key `{field_name}` in TypedDict `{typed_dict}` may not be deleted"),
+            );
+        }
+    }
+
     pub fn solve_expectation(
         &self,
         binding: &BindingExpect,
@@ -1235,18 +1254,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             if let Some(field) =
                                 self.typed_dict_field(typed_dict, &Name::new(field_name))
                             {
-                                if field.is_read_only() || field.required {
-                                    self.error(
-                                        errors,
-                                        x.slice.range(),
-                                        ErrorInfo::Kind(ErrorKind::DeleteError),
-                                        format!(
-                                            "Key `{}` in TypedDict `{}` may not be deleted",
-                                            field_name,
-                                            typed_dict.name(),
-                                        ),
-                                    );
-                                }
+                                self.check_del_typed_dict_item(
+                                    typed_dict.name(),
+                                    &Name::new(field_name),
+                                    field.is_read_only(),
+                                    field.required,
+                                    x.slice.range(),
+                                    errors,
+                                )
                             } else {
                                 self.error(
                                     errors,
