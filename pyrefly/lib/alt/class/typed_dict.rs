@@ -273,8 +273,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), UPDATE_METHOD);
-
         let self_param = self.class_self_param(cls, true);
+        let extra = if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls) {
+            Some(extra.ty)
+        } else {
+            None
+        };
 
         // ---- Overload: def update(m: Partial[C], /)
         let full_typed_dict = self.as_typed_dict_unchecked(cls);
@@ -296,16 +300,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         });
 
         // ---- Overload: update(m: Iterable[tuple[Literal["key"], value]], /)
-        let tuple_types: Vec<Type> = self
+        let get_tuple = |name, ty| Type::Tuple(Tuple::Concrete(vec![self.name_or_str(name), ty]));
+        let mut tuple_types: Vec<Type> = self
             .names_to_fields(cls, fields)
             .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
-            .map(|(name, field)| {
-                Type::Tuple(Tuple::Concrete(vec![
-                    name_to_literal_type(name),
-                    field.ty.clone(),
-                ]))
-            })
+            .map(|(name, field)| get_tuple(Some(name), field.ty))
             .collect();
+        if let Some(extra) = &extra {
+            tuple_types.push(get_tuple(None, extra.clone()));
+        }
 
         let iterable_ty = self.stdlib.iterable(self.unions(tuple_types)).to_type();
 
@@ -321,13 +324,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         });
 
         // ---- Overload: update(*, x=..., y=...)
-        let keyword_params: Vec<_> = self
+        let mut keyword_params = self
             .names_to_fields(cls, fields)
             .filter(|(_, field)| !field.is_read_only()) // filter read-only fields
             .map(|(name, field)| {
                 Param::KwOnly(name.clone(), field.ty.clone(), Required::Optional(None))
             })
-            .collect();
+            .collect::<Vec<_>>();
+        if let Some(extra) = extra {
+            keyword_params.push(Param::Kwargs(None, extra));
+        }
 
         let overload_kwargs = OverloadType::Function(Function {
             signature: Callable::list(
@@ -463,14 +469,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    fn name_or_str(&self, name: Option<&Name>) -> Type {
+        if let Some(name) = name {
+            name_to_literal_type(name)
+        } else {
+            self.stdlib.str().clone().to_type()
+        }
+    }
+
     fn key_param(&self, name: Option<&Name>) -> Param {
         Param::PosOnly(
             Some(KEY_PARAM.clone()),
-            if let Some(name) = name {
-                name_to_literal_type(name)
-            } else {
-                self.stdlib.str().clone().to_type()
-            },
+            self.name_or_str(name),
             Required::Required,
         )
     }

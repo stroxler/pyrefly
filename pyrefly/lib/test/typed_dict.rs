@@ -1461,6 +1461,8 @@ class C(TypedDict, extra_items=int):
 def f(a: A, b: B, c: C):
     a.update(b)
     a.update(c)  # E: No matching overload
+    a.update(x='ok')
+    a.update([('x', 'ok')])
     "#,
 );
 
