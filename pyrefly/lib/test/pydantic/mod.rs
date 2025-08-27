@@ -10,3 +10,4 @@ mod aliases;
 mod config;
 mod extra;
 mod field;
+mod strict;
