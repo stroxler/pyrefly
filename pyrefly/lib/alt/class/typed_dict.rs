@@ -51,8 +51,10 @@ use crate::types::types::TParam;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 
+const CLEAR_METHOD: Name = Name::new_static("clear");
 const GET_METHOD: Name = Name::new_static("get");
 const POP_METHOD: Name = Name::new_static("pop");
+const POPITEM_METHOD: Name = Name::new_static("popitem");
 const SETDEFAULT_METHOD: Name = Name::new_static("setdefault");
 const KEY_PARAM: Name = Name::new_static("key");
 const DEFAULT_PARAM: Name = Name::new_static("default");
@@ -681,6 +683,61 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })))
     }
 
+    fn all_items_are_removable(&self, cls: &Class, fields: &SmallMap<Name, bool>) -> bool {
+        !self
+            .typed_dict_extra_items(cls)
+            .extra_item(self.stdlib)
+            .read_only
+            && self
+                .names_to_fields(cls, fields)
+                .all(|(_, field)| !field.is_read_only() && !field.required)
+    }
+
+    fn get_typed_dict_clear(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        if !self.all_items_are_removable(cls, fields) {
+            return None;
+        }
+        Some(ClassSynthesizedField::new(Type::Function(Box::new(
+            Function {
+                signature: Callable::list(
+                    ParamList::new(vec![self.class_self_param(cls, true)]),
+                    Type::None,
+                ),
+                metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), CLEAR_METHOD),
+            },
+        ))))
+    }
+
+    fn get_typed_dict_popitem(
+        &self,
+        cls: &Class,
+        fields: &SmallMap<Name, bool>,
+    ) -> Option<ClassSynthesizedField> {
+        if !self.all_items_are_removable(cls, fields) {
+            return None;
+        }
+        Some(ClassSynthesizedField::new(Type::Function(Box::new(
+            Function {
+                signature: Callable::list(
+                    ParamList::new(vec![self.class_self_param(cls, true)]),
+                    Type::Tuple(Tuple::Concrete(vec![
+                        self.stdlib.str().clone().to_type(),
+                        self.get_typed_dict_value_type_from_fields(cls, fields),
+                    ])),
+                ),
+                metadata: FuncMetadata::def(
+                    self.module().name(),
+                    cls.name().clone(),
+                    POPITEM_METHOD,
+                ),
+            },
+        ))))
+    }
+
     pub fn get_typed_dict_synthesized_fields(&self, cls: &Class) -> Option<ClassSynthesizedFields> {
         let metadata = self.get_metadata_for_class(cls);
         let td = metadata.typed_dict_metadata()?;
@@ -691,8 +748,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             UPDATE_METHOD => self.get_typed_dict_update(cls, &td.fields),
             VALUES_METHOD => self.get_typed_dict_values(cls, &td.fields),
         };
+        if let Some(m) = self.get_typed_dict_clear(cls, &td.fields) {
+            fields.insert(CLEAR_METHOD, m);
+        }
         if let Some(m) = self.get_typed_dict_pop(cls, &td.fields) {
             fields.insert(POP_METHOD, m);
+        }
+        if let Some(m) = self.get_typed_dict_popitem(cls, &td.fields) {
+            fields.insert(POPITEM_METHOD, m);
         }
         if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
             fields.insert(SETDEFAULT_METHOD, m);

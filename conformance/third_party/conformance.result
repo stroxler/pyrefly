@@ -424,9 +424,7 @@
     "Line 68: Unexpected errors ['Cannot extend closed TypedDict `ClosedBase` with extra item `age`']",
     "Line 74: Unexpected errors ['TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`']",
     "Line 182: Unexpected errors ['TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`']",
-    "Line 185: Unexpected errors ['`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`']",
-    "Line 328: Unexpected errors ['Object of class `IntDictWithNum` has no attribute `clear`']",
-    "Line 330: Unexpected errors ['assert_type(Any, tuple[str, int]) failed', 'Object of class `IntDictWithNum` has no attribute `popitem`']"
+    "Line 185: Unexpected errors ['`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`']"
   ],
   "typeddicts_final.py": [],
   "typeddicts_inheritance.py": [

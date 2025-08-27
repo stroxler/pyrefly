@@ -1693,3 +1693,19 @@ def f(a: A, k: str):
     assert_type(a.get(k, b'hello world'), str | int | bytes)
     "#,
 );
+
+testcase!(
+    test_remove_arbitrary_items,
+    r#"
+from typing import assert_type, NotRequired, TypedDict
+class A(TypedDict, extra_items=int):
+    x: NotRequired[str]
+class B(TypedDict, extra_items=int):
+    x: str
+def f(a: A, b: B):
+    assert_type(a.popitem(), tuple[str, int | str])
+    a.clear()
+    b.popitem()  # E: `B` has no attribute `popitem`
+    b.clear()  # E: `B` has no attribute `clear`
+    "#,
+);

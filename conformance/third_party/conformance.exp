@@ -10123,36 +10123,6 @@
     },
     {
       "code": -2,
-      "column": 1,
-      "concise_description": "Object of class `IntDictWithNum` has no attribute `clear`",
-      "description": "Object of class `IntDictWithNum` has no attribute `clear`",
-      "line": 328,
-      "name": "missing-attribute",
-      "stop_column": 28,
-      "stop_line": 328
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, tuple[str, int]) failed",
-      "description": "assert_type(Any, tuple[str, int]) failed",
-      "line": 330,
-      "name": "assert-type",
-      "stop_column": 62,
-      "stop_line": 330
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Object of class `IntDictWithNum` has no attribute `popitem`",
-      "description": "Object of class `IntDictWithNum` has no attribute `popitem`",
-      "line": 330,
-      "name": "missing-attribute",
-      "stop_column": 42,
-      "stop_line": 330
-    },
-    {
-      "code": -2,
       "column": 25,
       "concise_description": "`dict[str, int]` is not assignable to `TypedDict[IntDict]`",
       "description": "`dict[str, int]` is not assignable to `TypedDict[IntDict]`",
