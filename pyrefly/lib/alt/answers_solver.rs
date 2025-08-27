@@ -374,6 +374,8 @@ impl Cycles {
 pub struct ThreadState {
     cycles: Cycles,
     stack: CalcStack,
+    /// For debugging only: thread-global that allows us to control debug logging across components.
+    debug: RefCell<bool>,
 }
 
 impl ThreadState {
@@ -381,6 +383,7 @@ impl ThreadState {
         Self {
             cycles: Cycles::new(),
             stack: CalcStack::new(),
+            debug: RefCell::new(false),
         }
     }
 }
@@ -426,6 +429,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             thread_state,
             infer_with_first_use,
         }
+    }
+
+    /// Is the debug flag set? Intended to support print debugging.
+    pub fn is_debug(&self) -> bool {
+        *self.thread_state.debug.borrow()
+    }
+
+    /// Set the debug flag. Intended to support print debugging.
+    #[allow(dead_code)]
+    pub fn set_debug(&self, value: bool) {
+        *self.thread_state.debug.borrow_mut() = value;
     }
 
     pub fn current(&self) -> &Answers {

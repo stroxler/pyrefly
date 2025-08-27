@@ -45,6 +45,11 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         Self(solver)
     }
 
+    #[allow(dead_code)]
+    pub fn is_debug(self) -> bool {
+        self.0.is_debug()
+    }
+
     pub fn stdlib(self) -> &'a Stdlib {
         self.0.stdlib
     }
