@@ -2244,12 +2244,27 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         inlay_hint_config: InlayHintConfig,
     ) -> Option<Vec<(TextSize, String)>> {
-        let is_interesting_type = |x: &Type| !x.is_error();
-        let is_interesting_expr = |x: &Expr| match x {
-            Expr::Tuple(tuple) => {
-                !tuple.elts.is_empty() && tuple.elts.iter().all(|x| !Ast::is_literal(x))
-            }
-            _ => !Ast::is_literal(x),
+        let is_interesting = |e: &Expr, ty: &Type, class_name: Option<&Name>| {
+            !ty.is_error()
+                && match e {
+                    Expr::Tuple(tuple) => {
+                        !tuple.elts.is_empty() && tuple.elts.iter().all(|x| !Ast::is_literal(x))
+                    }
+                    Expr::Call(ExprCall { func, .. }) => {
+                        if let Expr::Name(name) = &**func
+                            && let Some(class_name) = class_name
+                        {
+                            *name.id() != *class_name
+                        } else if let Expr::Attribute(attr) = &**func
+                            && let Some(class_name) = class_name
+                        {
+                            *attr.attr.id() != *class_name
+                        } else {
+                            true
+                        }
+                    }
+                    _ => !Ast::is_literal(e),
+                }
         };
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
@@ -2261,7 +2276,7 @@ impl<'a> Transaction<'a> {
                             Binding::Function(x, _pred, _class_meta) => {
                                 if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
                                     && let Some(mut ty) = self.get_type(handle, key)
-                                    && is_interesting_type(&ty)
+                                    && !ty.is_error()
                                 {
                                     let fun = bindings.get(bindings.get(*x).undecorated_idx);
                                     if fun.def.is_async
@@ -2288,9 +2303,18 @@ impl<'a> Transaction<'a> {
                         Binding::Expr(None, e) => Some(e),
                         _ => None,
                     };
+                    // If the inferred type is a class type w/ no type arguments and the
+                    // RHS is a call to a function that's the same name as the inferred class,
+                    // we assume it's a constructor and do not display an inlay hint
+                    let class_name = if let Type::ClassType(cls) = &ty
+                        && cls.targs().is_empty()
+                    {
+                        Some(cls.name())
+                    } else {
+                        None
+                    };
                     if let Some(e) = e
-                        && is_interesting_expr(e)
-                        && is_interesting_type(&ty)
+                        && is_interesting(e, &ty, class_name)
                     {
                         let ty = format!(": {ty}");
                         res.push((key.range().end(), ty));

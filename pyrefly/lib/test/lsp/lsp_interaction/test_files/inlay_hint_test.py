@@ -14,3 +14,7 @@ result = no_return_annot()
 
 async def foo():
     return 0
+
+
+i = int()
+lst = list([1, 2, 3])
