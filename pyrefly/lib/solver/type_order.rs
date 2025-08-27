@@ -140,6 +140,14 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.get_typed_dict_value_type(typed_dict)
     }
 
+    pub fn get_typed_dict_value_type_as_builtins_dict(
+        self,
+        typed_dict: &TypedDict,
+    ) -> Option<Type> {
+        self.0
+            .get_typed_dict_value_type_as_builtins_dict(typed_dict)
+    }
+
     pub fn get_variance_from_class(self, cls: &Class) -> Arc<VarianceMap> {
         self.0
             .get_from_class(cls, &KeyVariance(cls.index()))

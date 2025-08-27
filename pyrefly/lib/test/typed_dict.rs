@@ -1634,3 +1634,14 @@ def g(a: A):
     f(a)
     "#,
 );
+
+testcase!(
+    test_dict_assignability,
+    r#"
+from typing import NotRequired, TypedDict
+class A(TypedDict, extra_items=bool):
+    x: NotRequired[bool]
+d1: dict[str, bool] = A(x=True)
+d2: dict[str, int] = A(x=False)  # E: `TypedDict[A]` is not assignable to `dict[str, int]`
+    "#,
+);
