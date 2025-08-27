@@ -81,6 +81,7 @@ pub struct Stdlib {
     method_type: StdlibResult<ClassType>,
     enum_meta: StdlibResult<ClassType>,
     enum_flag: StdlibResult<ClassType>,
+    enum_class: StdlibResult<ClassType>,
     /// A fallback class that contains attributes that all NamedTuple subclasses share. Note that
     /// this class has no direct runtime equivalent; typing.NamedTuple is a class in some Python
     /// versions and a function in others.
@@ -192,6 +193,7 @@ impl Stdlib {
             mapping: lookup_generic(typing, "Mapping", 2),
             enum_meta: lookup_concrete(enum_, "EnumMeta"),
             enum_flag: lookup_concrete(enum_, "Flag"),
+            enum_class: lookup_concrete(enum_, "Enum"),
             named_tuple_fallback: lookup_concrete(type_checker_internals, "NamedTupleFallback"),
             typed_dict_fallback: lookup_concrete(type_checker_internals, "TypedDictFallback"),
             property: lookup_concrete(builtins, "property"),
@@ -252,6 +254,10 @@ impl Stdlib {
 
     pub fn enum_flag(&self) -> &ClassType {
         Self::primitive(&self.enum_flag)
+    }
+
+    pub fn enum_class(&self) -> &ClassType {
+        Self::primitive(&self.enum_class)
     }
 
     pub fn named_tuple_fallback(&self) -> &ClassType {
@@ -376,8 +382,16 @@ impl Stdlib {
         Self::apply(&self.awaitable, vec![x])
     }
 
+    pub fn awaitable_object(&self) -> &Class {
+        &Self::unwrap(&self.awaitable).0
+    }
+
     pub fn coroutine(&self, yield_ty: Type, send_ty: Type, return_ty: Type) -> ClassType {
         Self::apply(&self.coroutine, vec![yield_ty, send_ty, return_ty])
+    }
+
+    pub fn coroutine_object(&self) -> &Class {
+        &Self::unwrap(&self.coroutine).0
     }
 
     pub fn type_var(&self) -> &ClassType {
