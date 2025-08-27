@@ -433,7 +433,7 @@
     "Line 321: Unexpected errors ['`TypedDict[IntDictWithNum]` is not assignable to `dict[str, int]`']",
     "Line 328: Unexpected errors ['Object of class `IntDictWithNum` has no attribute `clear`']",
     "Line 330: Unexpected errors ['assert_type(Any, tuple[str, int]) failed', 'Object of class `IntDictWithNum` has no attribute `popitem`']",
-    "Line 334: Unexpected errors [\"Cannot delete item in `TypedDict[IntDictWithNum]`\\n  No matching overload found for function `IntDictWithNum.__delitem__`\\n  Possible overloads:\\n  (key: Literal['num'], /) -> None [closest match]\"]"
+    "Line 334: Unexpected errors ['Cannot delete item in `TypedDict[IntDictWithNum]`\\n  Argument `str` is not assignable to parameter `k` with type `Never` in function `_typeshed._type_checker_internals.TypedDictFallback.__delitem__`']"
   ],
   "typeddicts_final.py": [],
   "typeddicts_inheritance.py": [

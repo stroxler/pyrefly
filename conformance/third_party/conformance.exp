@@ -10213,12 +10213,12 @@
     },
     {
       "code": -2,
-      "column": 9,
+      "column": 31,
       "concise_description": "Cannot delete item in `TypedDict[IntDictWithNum]`",
-      "description": "Cannot delete item in `TypedDict[IntDictWithNum]`\n  No matching overload found for function `IntDictWithNum.__delitem__`\n  Possible overloads:\n  (key: Literal['num'], /) -> None [closest match]",
+      "description": "Cannot delete item in `TypedDict[IntDictWithNum]`\n  Argument `str` is not assignable to parameter `k` with type `Never` in function `_typeshed._type_checker_internals.TypedDictFallback.__delitem__`",
       "line": 334,
       "name": "unsupported-operation",
-      "stop_column": 35,
+      "stop_column": 34,
       "stop_line": 334
     },
     {

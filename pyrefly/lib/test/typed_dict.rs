@@ -394,16 +394,23 @@ del td_m[unknown_key]  # E:
 td_r: TDRequired = {"a": 10, "b": "hi"}
 td_o: TDOptional = {"x": 42}
 td_m: TDMixed = {"a": 1, "x": 99}
+    "#,
+);
 
-td_r.__delitem__("a") # E: Argument `Literal['a']` is not assignable to parameter `k` with type `Never`
-td_o.__delitem__("x")
-td_o.__delitem__("y")
-td_m.__delitem__("x")
-td_m.__delitem__("a") # E: No matching overload found for function `TDMixed.__delitem__`
+testcase!(
+    bug = "These don't work because we special-case some operations on TypedDict rather than going through a magic method call",
+    test_typed_dict_dunder_methods,
+    r#"
+from typing import assert_type, TypedDict, NotRequired
 
-td_r.__delitem__("nonexistent") # E: Argument `Literal['nonexistent']` is not assignable to parameter `k` with type `Never`
-td_r.__delitem__("unknown") # E:  Argument `Literal['unknown']` is not assignable to parameter `k` with type `Never
+class TDOptional(TypedDict):
+    x: NotRequired[int]
+    y: NotRequired[str]
 
+td_o: TDOptional = {"x": 42}
+assert_type(td_o.__getitem__("x"), int)  # E: assert_type(object, int)
+td_o.__setitem__("x", 42)  # E: no attribute `__setitem__`
+td_o.__delitem__("x")  # E: not assignable to parameter `k` with type `Never`
     "#,
 );
 

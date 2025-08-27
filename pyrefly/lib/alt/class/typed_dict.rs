@@ -520,47 +520,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })))
     }
 
-    fn get_typed_dict_delitem(
-        &self,
-        cls: &Class,
-        fields: &SmallMap<Name, bool>,
-    ) -> Option<ClassSynthesizedField> {
-        let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::DELITEM);
-
-        let self_param = self.class_self_param(cls, true);
-
-        let mut literal_signatures: Vec<OverloadType> = Vec::new();
-        for (name, field) in self.names_to_fields(cls, fields) {
-            if field.required {
-                // Do not allow deletion of required keys
-                // Call resolution will fall back to typeshed
-                continue;
-            }
-
-            let key_param = Param::PosOnly(
-                Some(KEY_PARAM.clone()),
-                name_to_literal_type(name),
-                Required::Required,
-            );
-
-            // Construct an overload of the form: (self, key: Literal["field_name"]) -> None
-            literal_signatures.push(OverloadType::Function(Function {
-                signature: Callable::list(
-                    ParamList::new(vec![self_param.clone(), key_param]),
-                    Type::None,
-                ),
-                metadata: metadata.clone(),
-            }));
-        }
-
-        let signatures = Vec1::try_from_vec(literal_signatures).ok()?;
-
-        Some(ClassSynthesizedField::new(Type::Overload(Overload {
-            signatures,
-            metadata: Box::new(metadata),
-        })))
-    }
-
     fn get_typed_dict_setdefault(
         &self,
         cls: &Class,
@@ -696,9 +655,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         if let Some(m) = self.get_typed_dict_pop(cls, &td.fields) {
             fields.insert(POP_METHOD, m);
-        }
-        if let Some(m) = self.get_typed_dict_delitem(cls, &td.fields) {
-            fields.insert(dunder::DELITEM, m);
         }
         if let Some(m) = self.get_typed_dict_setdefault(cls, &td.fields) {
             fields.insert(SETDEFAULT_METHOD, m);
