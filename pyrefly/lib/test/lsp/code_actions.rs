@@ -6,11 +6,11 @@
  */
 
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
 use crate::module::module_info::ModuleInfo;
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 

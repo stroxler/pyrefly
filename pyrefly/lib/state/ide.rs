@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
@@ -24,7 +25,6 @@ use crate::binding::bindings::Bindings;
 use crate::binding::narrow::identifier_and_chain_for_expr;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::export::exports::Export;
-use crate::state::handle::Handle;
 
 const KEY_TO_DEFINITION_INITIAL_GAS: Gas = Gas::new(100);
 

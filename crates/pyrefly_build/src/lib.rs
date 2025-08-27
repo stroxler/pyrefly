@@ -28,4 +28,5 @@
 #![feature(let_chains)]
 
 pub mod buck;
+pub mod handle;
 pub mod source_db;

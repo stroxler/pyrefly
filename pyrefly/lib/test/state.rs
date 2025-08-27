@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::PythonPlatform;
@@ -23,7 +24,6 @@ use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::module::finder::find_import;
-use crate::state::handle::Handle;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::test::util::TestEnv;

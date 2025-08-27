@@ -7,10 +7,10 @@
 
 use itertools::Itertools as _;
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::docstring::Docstring;
 use ruff_text_size::TextSize;
 
-use crate::state::handle::Handle;
 use crate::state::lsp::FindPreference;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report;

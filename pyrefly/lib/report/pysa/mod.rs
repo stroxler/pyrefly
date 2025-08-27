@@ -16,6 +16,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 
 use itertools::Itertools;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
@@ -57,7 +58,6 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
-use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;

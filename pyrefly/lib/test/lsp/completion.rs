@@ -8,9 +8,9 @@
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 use ruff_text_size::TextSize;
 
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 

@@ -5,11 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::fs_anyhow;
 
-use crate::state::handle::Handle;
 use crate::test::util::TestEnv;
 use crate::testcase;
 

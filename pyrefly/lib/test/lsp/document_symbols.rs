@@ -6,8 +6,8 @@
  */
 
 use pretty_assertions::assert_eq;
+use pyrefly_build::handle::Handle;
 
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_no_cursor;
 

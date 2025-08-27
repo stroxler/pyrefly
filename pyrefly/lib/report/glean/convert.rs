@@ -13,6 +13,7 @@ use std::slice;
 use std::sync::Arc;
 
 use num_traits::ToPrimitive;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
@@ -40,7 +41,6 @@ use starlark_map::small_set::SmallSet;
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
 use crate::report::glean::schema::*;
-use crate::state::handle::Handle;
 use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::types::Type;

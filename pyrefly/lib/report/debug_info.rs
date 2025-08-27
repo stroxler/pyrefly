@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::display::DisplayWithCtx;
@@ -27,7 +28,6 @@ use crate::binding::table::TableKeyed;
 use crate::config::config::ConfigFile;
 use crate::error::collector::ErrorCollector;
 use crate::module::module_info::ModuleInfo;
-use crate::state::handle::Handle;
 use crate::state::load::Load;
 use crate::state::state::Transaction;
 use crate::table_for_each;

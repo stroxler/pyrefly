@@ -8,10 +8,10 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_build::handle::Handle;
 
 use crate::alt::types::class_metadata::ClassMro;
 use crate::binding::binding::KeyClassMro;
-use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_class;
 use crate::test::util::mk_state;

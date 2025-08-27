@@ -5,8 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_build::handle::Handle;
+
 use crate::report::glean::facts::Glean;
-use crate::state::handle::Handle;
 use crate::state::state::Transaction;
 
 pub mod convert;

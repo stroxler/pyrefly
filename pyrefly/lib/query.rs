@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Itertools;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
@@ -53,7 +54,6 @@ use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
-use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindPreference;
 use crate::state::require::Require;

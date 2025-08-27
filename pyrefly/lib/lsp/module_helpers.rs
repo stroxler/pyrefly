@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use lsp_types::Location;
 use lsp_types::Url;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -20,7 +21,6 @@ use tracing::warn;
 use crate::module::from_path::module_from_path;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
-use crate::state::handle::Handle;
 use crate::state::state::State;
 
 /// Convert to a path we can show to the user. The contents may not match the disk, but it has
