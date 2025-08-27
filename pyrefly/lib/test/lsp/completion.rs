@@ -1090,6 +1090,7 @@ def test():
 4 |     
         ^
 Completion Results:
+- (Module) AbstractSet
 - (Class) ArithmeticError
 - (Class) AssertionError
 - (Class) AttributeError

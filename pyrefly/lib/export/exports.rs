@@ -180,8 +180,13 @@ impl Exports {
                         docstring_range: None,
                         is_deprecated,
                     }),
-                    DefinitionStyle::ImportAs(from)
-                    | DefinitionStyle::ImportAsEq(from)
+                    DefinitionStyle::ImportAs(_from) => ExportLocation::ThisModule(Export {
+                        location: definition.range,
+                        symbol_kind: Some(SymbolKind::Module),
+                        docstring_range: definition.docstring_range,
+                        is_deprecated,
+                    }),
+                    DefinitionStyle::ImportAsEq(from)
                     | DefinitionStyle::Import(from)
                     | DefinitionStyle::ImportModule(from) => ExportLocation::OtherModule(from),
                 };

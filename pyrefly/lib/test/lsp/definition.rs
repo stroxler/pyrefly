@@ -1341,7 +1341,6 @@ Definition Result:
     );
 }
 
-// todo(kylei): renamed re-exports should resolve to the defiiniion
 #[test]
 fn renamed_reexport() {
     let lib2 = r#"
@@ -1363,7 +1362,9 @@ from lib import foo_renamed
 # main.py
 2 | from lib import foo_renamed
                          ^
-Definition Result: None
+Definition Result:
+2 | from lib2 import foo as foo_renamed
+                            ^^^^^^^^^^^
 
 
 # lib.py

@@ -82,7 +82,7 @@ from lib import foo_renamed
 2 | from lib import foo_renamed
                          ^
 ```python
-() -> None
+(module) foo_renamed: () -> None
 ```
 
 
