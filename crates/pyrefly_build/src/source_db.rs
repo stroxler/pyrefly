@@ -21,7 +21,7 @@ use static_interner::Interner;
 // with the same data (especially when deserialied) point to the same value.
 static TARGET_INTERNER: Interner<String> = Interner::new();
 
-#[derive(Clone, Dupe, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Dupe, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Target(Intern<String>);
 impl Serialize for Target {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
