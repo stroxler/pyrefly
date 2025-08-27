@@ -12,6 +12,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::fs_anyhow;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
@@ -22,7 +23,7 @@ use crate::buck::source_db::BuckSourceDatabase;
 #[derive(Debug, PartialEq, Eq)]
 struct ManifestItem {
     module_name: ModuleName,
-    relative_path: PathBuf,
+    absolute_path: PathBuf,
 }
 
 fn read_manifest_file_data(data: &[u8]) -> anyhow::Result<Vec<ManifestItem>> {
@@ -31,10 +32,12 @@ fn read_manifest_file_data(data: &[u8]) -> anyhow::Result<Vec<ManifestItem>> {
     for raw_item in raw_items {
         match ModuleName::from_relative_path(Path::new(raw_item[0].as_str())) {
             Ok(module_name) => {
-                let relative_path = PathBuf::from(raw_item[1].clone());
+                // absolutize should be fine here to get absolute path, since Pyrefly
+                // will be run from Buck root.
+                let absolute_path = PathBuf::from(raw_item[1].clone()).absolutize();
                 results.push(ManifestItem {
                     module_name,
-                    relative_path,
+                    absolute_path,
                 });
             }
             Err(error) => {
@@ -82,7 +85,7 @@ fn create_manifest_item_index(
         accumulated
             .entry(item.module_name)
             .or_default()
-            .push(item.relative_path);
+            .push(item.absolute_path);
     }
     accumulated
         .into_iter()
@@ -157,7 +160,7 @@ mod tests {
                 .unwrap(),
             vec![ManifestItem {
                 module_name: ModuleName::from_str("foo.bar"),
-                relative_path: PathBuf::from_str("root/foo/bar.py").unwrap()
+                absolute_path: PathBuf::from_str("root/foo/bar.py").unwrap().absolutize()
             }]
         );
         assert_eq!(
@@ -177,15 +180,15 @@ mod tests {
         let source_db = BuckSourceDatabase::from_manifest_items(
             vec![ManifestItem {
                 module_name: ModuleName::from_str("foo"),
-                relative_path: foo_path.clone(),
+                absolute_path: foo_path.clone(),
             }],
             vec![ManifestItem {
                 module_name: ModuleName::from_str("bar"),
-                relative_path: bar_path.clone(),
+                absolute_path: bar_path.clone(),
             }],
             vec![ManifestItem {
                 module_name: ModuleName::from_str("baz"),
-                relative_path: baz_path.clone(),
+                absolute_path: baz_path.clone(),
             }],
         );
         assert_eq!(
@@ -218,21 +221,21 @@ mod tests {
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    relative_path: src_foo_path.clone(),
+                    absolute_path: src_foo_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    relative_path: src_bar_path.clone(),
+                    absolute_path: src_bar_path.clone(),
                 },
             ],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    relative_path: dep_foo_path.clone(),
+                    absolute_path: dep_foo_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    relative_path: dep_bar_path.clone(),
+                    absolute_path: dep_bar_path.clone(),
                 },
             ],
             vec![],
@@ -258,21 +261,21 @@ mod tests {
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    relative_path: foo_py_path.clone(),
+                    absolute_path: foo_py_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    relative_path: foo_pyi_path.clone(),
+                    absolute_path: foo_pyi_path.clone(),
                 },
             ],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    relative_path: bar_py_path.clone(),
+                    absolute_path: bar_py_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    relative_path: bar_pyi_path.clone(),
+                    absolute_path: bar_pyi_path.clone(),
                 },
             ],
             vec![],
@@ -304,37 +307,37 @@ mod tests {
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("a"),
-                    relative_path: dep_a_path.clone(),
+                    absolute_path: dep_a_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("b"),
-                    relative_path: dep_b_path.clone(),
+                    absolute_path: dep_b_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("c"),
-                    relative_path: dep_c_path.clone(),
+                    absolute_path: dep_c_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("d"),
-                    relative_path: dep_d_path.clone(),
+                    absolute_path: dep_d_path.clone(),
                 },
             ],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("a"),
-                    relative_path: typeshed_a_path.clone(),
+                    absolute_path: typeshed_a_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("b"),
-                    relative_path: typeshed_b_path.clone(),
+                    absolute_path: typeshed_b_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("c"),
-                    relative_path: typeshed_c_path.clone(),
+                    absolute_path: typeshed_c_path.clone(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("d"),
-                    relative_path: typeshed_d_path.clone(),
+                    absolute_path: typeshed_d_path.clone(),
                 },
             ],
         );
