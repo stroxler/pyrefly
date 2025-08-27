@@ -450,6 +450,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    fn key_param(&self, name: Option<&Name>) -> Param {
+        Param::PosOnly(
+            Some(KEY_PARAM.clone()),
+            if let Some(name) = name {
+                name_to_literal_type(name)
+            } else {
+                self.stdlib.str().clone().to_type()
+            },
+            Required::Required,
+        )
+    }
+
     fn gen_pop_overloads_for_field(
         &self,
         metadata: &FuncMetadata,
@@ -464,15 +476,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // do not pop required or read-only keys
             return;
         }
-        let key_param = Param::PosOnly(
-            Some(KEY_PARAM.clone()),
-            if let Some(name) = name {
-                name_to_literal_type(name)
-            } else {
-                self.stdlib.str().clone().to_type()
-            },
-            Required::Required,
-        );
+        let key_param = self.key_param(name);
 
         let q = Quantified::type_var(
             Name::new("_T"),
@@ -571,15 +575,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     signature: Callable::list(
                         ParamList::new(vec![
                             self_param.clone(),
-                            Param::PosOnly(
-                                Some(KEY_PARAM.clone()),
-                                if let Some(name) = name {
-                                    name_to_literal_type(name)
-                                } else {
-                                    self.stdlib.str().clone().to_type()
-                                },
-                                Required::Required,
-                            ),
+                            self.key_param(name),
                             Param::PosOnly(
                                 Some(DEFAULT_PARAM.clone()),
                                 field_ty.clone(),
