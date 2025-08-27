@@ -99,7 +99,7 @@ testcase!(
 from pydantic import BaseModel, ConfigDict
 
 class ModelAllow(BaseModel):
-    ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow")
     x: int 
 
 ModelAllow(x=1, y=2) 
@@ -108,17 +108,16 @@ ModelAllow(x=1, y=2)
 );
 
 testcase!(
-    bug = "should raise an error once we start processing ConfigDict",
     test_extra_forbid_config_dict,
     pydantic_env(),
     r#"
 from pydantic import BaseModel, ConfigDict
 
 class ModelForbid(BaseModel):
-    ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
     x: int
 
-ModelForbid(x=1, y=2)
+ModelForbid(x=1, y=2) # E: Unexpected keyword argument `y` in function `ModelForbid.__init__`
 "#,
 );
 
@@ -129,7 +128,7 @@ testcase!(
 from pydantic import BaseModel, ConfigDict
 
 class ModelForbid(BaseModel):
-    ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore")
     x: int
 
 ModelForbid(x=1, y=2)
@@ -143,7 +142,7 @@ testcase!(
 from pydantic import BaseModel, ConfigDict
 
 class ModelForbid(BaseModel):
-    ConfigDict()
+    model_config = ConfigDict()
     x: int
 
 ModelForbid(x=1, y=2) 
@@ -161,7 +160,7 @@ testcase!(
 from pydantic import BaseModel, ConfigDict
 
 class ModelForbid(BaseModel):
-    ConfigDict(extra=False) # E: Argument `Literal[False]` is not assignable to parameter `extra` with type `Literal['allow', 'forbid', 'ignore'] | None`
+    model_config = ConfigDict(extra=False) # E: Argument `Literal[False]` is not assignable to parameter `extra` with type `Literal['allow', 'forbid', 'ignore'] | None`
     x: int
 
 ModelForbid(x=1, y=2) 
@@ -175,7 +174,7 @@ testcase!(
 from pydantic import BaseModel, ConfigDict
 
 class ModelForbid(BaseModel):
-    ConfigDict(extra="123") # E: Argument `Literal['123']` is not assignable to parameter `extra` with type `Literal['allow', 'forbid', 'ignore'] | None`
+    model_config = ConfigDict(extra="123") # E: Argument `Literal['123']` is not assignable to parameter `extra` with type `Literal['allow', 'forbid', 'ignore'] | None`
     x: int
 
 ModelForbid(x=1, y=2) 

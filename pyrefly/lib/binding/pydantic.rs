@@ -18,6 +18,7 @@ pub const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
 pub const GT: Name = Name::new_static("gt");
 pub const LT: Name = Name::new_static("lt");
 const FROZEN: Name = Name::new_static("frozen");
+const EXTRA: Name = Name::new_static("extra");
 
 // Pydantic metadata that we will later extend to include more fields
 // This is different than the PydanticMetadata that goes into the class metadata itself.
@@ -27,17 +28,19 @@ const FROZEN: Name = Name::new_static("frozen");
 #[derive(Debug, Clone, Default)]
 pub struct PydanticMetadataBinding {
     pub frozen: bool,
+    pub extra: Option<bool>,
 }
 
 impl<'a> BindingsBuilder<'a> {
     // The goal of this function is to extract pydantic metadata (https://docs.pydantic.dev/latest/concepts/models/) from expressions.
     // TODO: Consider propagating the entire expression instead of the value
     // in case it is aliased.
-    pub fn extract_frozen_pydantic_metadata(
+    pub fn extract_pydantic_config_dict_metadata(
         &self,
         e: &Expr,
         name: Hashed<&Name>,
         pydantic_frozen: &mut Option<bool>,
+        pydantic_extra: &mut Option<bool>,
     ) {
         if name.as_str() == "model_config"
             && let Some(call) = e.as_call_expr()
@@ -51,14 +54,38 @@ impl<'a> BindingsBuilder<'a> {
                 {
                     *pydantic_frozen = Some(bl.value);
                 }
+
+                if let Some(arg_name) = &kw.arg
+                    && arg_name.id == EXTRA
+                {
+                    let config_dict_extra = kw.value.clone().string_literal_expr();
+                    *pydantic_extra = match config_dict_extra {
+                        Some(extra) => {
+                            let val = extra.value.to_str();
+
+                            if val == "allow" || val == "ignore" {
+                                Some(true)
+                            } else if val == "forbid" {
+                                Some(false)
+                            } else {
+                                None
+                            }
+                        }
+                        None => None,
+                    };
+                }
             }
         }
     }
 
-    // TODO Zeina: We should expect to extend this beyond the frozen data.
-    pub fn make_pydantic_metadata(&self, frozen: Option<bool>) -> PydanticMetadataBinding {
+    pub fn make_pydantic_metadata(
+        &self,
+        frozen: Option<bool>,
+        extra: Option<bool>,
+    ) -> PydanticMetadataBinding {
         PydanticMetadataBinding {
             frozen: frozen.unwrap_or(FROZEN_DEFAULT),
+            extra,
         }
     }
 }

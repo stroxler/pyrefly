@@ -430,26 +430,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .find(|(name, _)| name.as_str() == "validate_by_name")
             .is_some_and(|(_, ann)| ann.get_type().as_bool().unwrap_or(false));
 
+        let PydanticMetadataBinding { frozen, extra } = pydantic_metadata_binding;
+
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
         // If we were to consider type narrowing in the "allow" case, we would need to propagate more data
         // and narrow downstream. We are not following the narrowing approach in v1 though, but should discuss it
         // for v2.
-        let extra = keywords
-            .iter()
-            .find(|(name, _)| name.as_str() == "extra")
-            .is_none_or(|(_, ann)| match ann.get_type() {
+        let extra = match keywords.iter().find(|(name, _)| name.as_str() == "extra") {
+            Some((_, ann)) => match ann.get_type() {
                 Type::Literal(Lit::Str(s)) => match s.as_str() {
                     "allow" | "ignore" => true,
                     "forbid" => false,
                     _ => {
                         self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidLiteral),
-                        "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
-                            .to_owned(),
-                    );
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidLiteral),
+                    "Invalid value for `extra`. Expected one of 'allow', 'ignore', or 'forbid'"
+                        .to_owned(),
+                );
                         true
                     }
                 },
@@ -463,9 +463,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     true
                 }
-            });
+            },
+            None => {
+                // No "extra" keyword in the class-level keywords,
+                // so fallback to configdict
+                if let Some(configdict_extra) = extra {
+                    *configdict_extra
+                } else {
+                    true
+                }
+            }
+        };
 
-        let PydanticMetadataBinding { frozen } = pydantic_metadata_binding;
         Some(PydanticMetadata {
             frozen: *frozen,
             class_validate_by_alias,
