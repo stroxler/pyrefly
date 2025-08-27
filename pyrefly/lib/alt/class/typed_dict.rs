@@ -623,7 +623,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> Type {
-        let extra = self.typed_dict_extra_items(cls).extra_item(self.stdlib).ty;
+        let extra_items = self.typed_dict_extra_items(cls);
+        if matches!(extra_items, ExtraItems::Default) {
+            // extra_items defaults to `ReadOnly[object]`, and `object | ...` simplifies to `object`.
+            return self.stdlib.object().clone().to_type();
+        }
+        let extra = extra_items.extra_item(self.stdlib).ty;
         let mut values = self
             .names_to_fields(cls, fields)
             .map(|(_, field)| field.ty)
