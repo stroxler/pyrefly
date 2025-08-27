@@ -67,6 +67,8 @@ fn compute_errors(sys_info: SysInfo, sourcedb: BuckSourceDatabase) -> Vec<Error>
     config.python_environment.python_version = Some(sys_info.version());
     config.python_environment.site_package_path = Some(Vec::new());
     config.custom_module_paths = sourcedb.list();
+    config.interpreters.skip_interpreter_query = true;
+    config.disable_search_path_heuristics = true;
     config.configure();
     let config = ArcId::new(config);
 
