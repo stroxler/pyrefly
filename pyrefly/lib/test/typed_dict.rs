@@ -1656,3 +1656,16 @@ def f(a: A):
     a.pop('x')  # E: `Literal['x']` is not assignable to parameter `k` with type `Never`
     "#,
 );
+
+testcase!(
+    test_pop_extra_items,
+    r#"
+from typing import assert_type, NotRequired, TypedDict
+class A(TypedDict, extra_items=int):
+    x: NotRequired[str]
+def f(a: A, k: str):
+    assert_type(a.pop('x'), str)
+    assert_type(a.pop(k), str | int)
+    assert_type(a.pop(k, b'default'), str | int | bytes)
+    "#,
+);

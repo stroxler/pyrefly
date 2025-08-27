@@ -454,17 +454,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         metadata: &FuncMetadata,
         self_param: &Param,
-        name: &Name,
-        field: TypedDictField,
+        name: Option<&Name>,
+        read_only: bool,
+        required: bool,
+        ty: Type,
         overloads: &mut Vec<OverloadType>,
     ) {
-        if field.required || field.is_read_only() {
+        if required || read_only {
             // do not pop required or read-only keys
             return;
         }
         let key_param = Param::PosOnly(
             Some(KEY_PARAM.clone()),
-            name_to_literal_type(name),
+            if let Some(name) = name {
+                name_to_literal_type(name)
+            } else {
+                self.stdlib.str().clone().to_type()
+            },
             Required::Required,
         );
 
@@ -483,7 +489,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         overloads.push(OverloadType::Function(Function {
             signature: Callable::list(
                 ParamList::new(vec![self_param.clone(), key_param.clone()]),
-                field.ty.clone(),
+                ty.clone(),
             ),
             metadata: metadata.clone(),
         }));
@@ -502,7 +508,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Required::Required,
                         ),
                     ]),
-                    self.union(field.ty.clone(), q.clone().to_type()),
+                    self.union(ty, q.clone().to_type()),
                 ),
                 metadata: metadata.clone(),
             },
@@ -522,8 +528,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.gen_pop_overloads_for_field(
                 &metadata,
                 &self_param,
-                name,
-                field,
+                Some(name),
+                field.is_read_only(),
+                field.required,
+                field.ty,
+                &mut literal_signatures,
+            );
+        }
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls) {
+            self.gen_pop_overloads_for_field(
+                &metadata,
+                &self_param,
+                None,
+                extra.read_only,
+                false,
+                self.get_typed_dict_value_type_from_fields(cls, fields),
                 &mut literal_signatures,
             );
         }
