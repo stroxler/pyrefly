@@ -1597,3 +1597,16 @@ def f(c: C, k: str):
     del c[k]
     "#,
 );
+
+testcase!(
+    test_unpack_with_extra_items,
+    r#"
+from typing import TypedDict, Unpack
+class A(TypedDict, extra_items=int):
+    x: str
+def f(**kwargs: Unpack[A]):
+    pass
+f(x='ok', y=42)
+f(x='no', y='oops')  # E: `Literal['oops']` is not assignable to parameter `**kwargs` with type `int`
+    "#,
+);

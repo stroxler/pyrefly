@@ -9993,16 +9993,6 @@
     },
     {
       "code": -2,
-      "column": 45,
-      "concise_description": "Unexpected keyword argument `year` in function `unpack_extra`",
-      "description": "Unexpected keyword argument `year` in function `unpack_extra`",
-      "line": 141,
-      "name": "unexpected-keyword",
-      "stop_column": 49,
-      "stop_line": 141
-    },
-    {
-      "code": -2,
       "column": 7,
       "concise_description": "Cannot change the non-read-only extra items type of TypedDict `Parent`",
       "description": "Cannot change the non-read-only extra items type of TypedDict `Parent`",

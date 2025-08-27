@@ -423,7 +423,6 @@
     "Line 184: Expected 1 errors",
     "Line 68: Unexpected errors ['Cannot extend closed TypedDict `ClosedBase` with extra item `age`']",
     "Line 74: Unexpected errors ['TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`']",
-    "Line 141: Unexpected errors ['Unexpected keyword argument `year` in function `unpack_extra`']",
     "Line 182: Unexpected errors ['TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`']",
     "Line 185: Unexpected errors ['`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`']",
     "Line 291: Unexpected errors ['`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`']",

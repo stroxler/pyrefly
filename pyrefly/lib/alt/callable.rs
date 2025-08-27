@@ -7,6 +7,7 @@
 
 use itertools::Itertools;
 use pyrefly_python::dunder;
+use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
 use pyrefly_util::display::count;
@@ -640,7 +641,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
                     kwparams.insert(name, (ty, required == &Required::Required));
                 }
-                Param::Kwargs(_, Type::Unpack(box Type::TypedDict(typed_dict))) => {
+                Param::Kwargs(name, Type::Unpack(box Type::TypedDict(typed_dict))) => {
                     self.typed_dict_fields(typed_dict)
                         .into_iter()
                         .for_each(|(name, field)| {
@@ -649,6 +650,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 (type_owner.push(field.ty), field.required),
                             );
                         });
+                    if let ExtraItems::Extra(extra) =
+                        self.typed_dict_extra_items(typed_dict.class_object())
+                    {
+                        kwargs = Some((name.as_ref(), type_owner.push(extra.ty)))
+                    }
                     kwargs_is_unpack = true;
                 }
                 Param::Kwargs(name, ty) => {
