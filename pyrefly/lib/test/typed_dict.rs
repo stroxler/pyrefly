@@ -1669,3 +1669,15 @@ def f(a: A, k: str):
     assert_type(a.pop(k, b'default'), str | int | bytes)
     "#,
 );
+
+testcase!(
+    test_setdefault_extra_items,
+    r#"
+from typing import assert_type, TypedDict
+class A(TypedDict, extra_items=int):
+    x: str
+def f(a: A, k: str):
+    assert_type(a.setdefault('x', ''), str)
+    assert_type(a.setdefault(k, 0), int | str)
+    "#,
+);

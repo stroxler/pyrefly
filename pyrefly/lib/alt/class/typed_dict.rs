@@ -563,8 +563,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let self_param = self.class_self_param(cls, true);
         let metadata =
             FuncMetadata::def(self.module().name(), cls.name().clone(), SETDEFAULT_METHOD);
-        let make_overload = |(name, field): (&Name, TypedDictField)| {
-            if field.is_read_only() {
+        let make_overload = |name: Option<&Name>, read_only: bool, field_ty: Type| {
+            if read_only {
                 None
             } else {
                 Some(OverloadType::Function(Function {
@@ -573,22 +573,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self_param.clone(),
                             Param::PosOnly(
                                 Some(KEY_PARAM.clone()),
-                                name_to_literal_type(name),
+                                if let Some(name) = name {
+                                    name_to_literal_type(name)
+                                } else {
+                                    self.stdlib.str().clone().to_type()
+                                },
                                 Required::Required,
                             ),
                             Param::PosOnly(
                                 Some(DEFAULT_PARAM.clone()),
-                                field.ty.clone(),
+                                field_ty.clone(),
                                 Required::Required,
                             ),
                         ]),
-                        field.ty.clone(),
+                        field_ty,
                     ),
                     metadata: metadata.clone(),
                 }))
             }
         };
-        let overloads = fields_iter.filter_map(make_overload).collect::<Vec<_>>();
+        let mut overloads = fields_iter
+            .filter_map(|(name, field)| make_overload(Some(name), field.is_read_only(), field.ty))
+            .collect::<Vec<_>>();
+        if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(cls)
+            && let Some(overload) = make_overload(
+                None,
+                extra.read_only,
+                self.get_typed_dict_value_type_from_fields(cls, fields),
+            )
+        {
+            overloads.push(overload);
+        }
         Some(ClassSynthesizedField::new(Type::Overload(Overload {
             signatures: Vec1::try_from_vec(overloads).ok()?,
             metadata: Box::new(metadata),
