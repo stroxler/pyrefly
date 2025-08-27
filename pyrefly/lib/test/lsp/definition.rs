@@ -1340,3 +1340,37 @@ Definition Result:
         report.trim(),
     );
 }
+
+// todo(kylei): renamed re-exports should resolve to the defiiniion
+#[test]
+fn renamed_reexport() {
+    let lib2 = r#"
+def foo() -> None: ...
+"#;
+    let lib = r#"
+from lib2 import foo as foo_renamed
+"#;
+    let code = r#"
+from lib import foo_renamed
+#                    ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code), ("lib", lib), ("lib2", lib2)],
+        get_test_report,
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib import foo_renamed
+                         ^
+Definition Result: None
+
+
+# lib.py
+
+# lib2.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
