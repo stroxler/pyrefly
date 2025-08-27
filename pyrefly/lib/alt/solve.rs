@@ -13,6 +13,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -1195,7 +1196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().expand_mut(ty);
     }
 
-    fn check_del_typed_dict_item(
+    fn check_del_typed_dict_field(
         &self,
         typed_dict: &Name,
         field_name: Option<&Name>,
@@ -1217,6 +1218,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("Key{maybe_field_name} in TypedDict `{typed_dict}` may not be deleted"),
             );
         }
+    }
+
+    fn check_del_typed_dict_literal_key(
+        &self,
+        typed_dict: &TypedDict,
+        field_name: &Name,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        let (read_only, required) =
+            if let Some(field) = self.typed_dict_field(typed_dict, field_name) {
+                (field.is_read_only(), field.required)
+            } else if let ExtraItems::Extra(extra) =
+                self.typed_dict_extra_items(typed_dict.class_object())
+            {
+                (extra.read_only, false)
+            } else {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                    format!(
+                        "TypedDict `{}` does not have key `{}`",
+                        typed_dict.name(),
+                        field_name
+                    ),
+                );
+                return;
+            };
+        self.check_del_typed_dict_field(
+            typed_dict.name(),
+            Some(field_name),
+            read_only,
+            required,
+            range,
+            errors,
+        )
     }
 
     pub fn solve_expectation(
@@ -1257,35 +1295,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     match (&base, &slice_ty) {
                         (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                             let field_name = Name::new(field_name);
-                            let (read_only, required) = if let Some(field) =
-                                self.typed_dict_field(typed_dict, &field_name)
-                            {
-                                (field.is_read_only(), field.required)
-                            } else if let ExtraItems::Extra(extra) =
-                                self.typed_dict_extra_items(typed_dict.class_object())
-                            {
-                                (extra.read_only, false)
-                            } else {
-                                self.error(
-                                    errors,
-                                    x.slice.range(),
-                                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                                    format!(
-                                        "TypedDict `{}` does not have key `{}`",
-                                        typed_dict.name(),
-                                        field_name
-                                    ),
-                                );
-                                return Arc::new(EmptyAnswer);
-                            };
-                            self.check_del_typed_dict_item(
-                                typed_dict.name(),
-                                Some(&field_name),
-                                read_only,
-                                required,
+                            self.check_del_typed_dict_literal_key(
+                                typed_dict,
+                                &field_name,
                                 x.slice.range(),
                                 errors,
-                            )
+                            );
                         }
                         (Type::TypedDict(typed_dict), Type::ClassType(cls))
                             if cls.is_builtin("str")
@@ -1293,7 +1308,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     .get_typed_dict_value_type_as_builtins_dict(typed_dict)
                                     .is_some() =>
                         {
-                            self.check_del_typed_dict_item(
+                            self.check_del_typed_dict_field(
                                 typed_dict.name(),
                                 None,
                                 false,
@@ -1866,7 +1881,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn check_assign_to_typed_dict_subscript(
+    fn check_assign_to_typed_dict_field(
         &self,
         typed_dict: &Name,
         field_name: Option<&Name>,
@@ -1902,6 +1917,47 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn check_assign_to_typed_dict_literal_subscript(
+        &self,
+        typed_dict: &TypedDict,
+        field_name: &Name,
+        value: &ExprOrBinding,
+        key_range: TextRange,
+        assign_range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let (field_ty, read_only) =
+            if let Some(field) = self.typed_dict_field(typed_dict, field_name) {
+                let read_only = field.is_read_only();
+                (field.ty, read_only)
+            } else if let ExtraItems::Extra(extra) =
+                self.typed_dict_extra_items(typed_dict.class_object())
+            {
+                (extra.ty, extra.read_only)
+            } else {
+                return self.error(
+                    errors,
+                    key_range,
+                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                    format!(
+                        "TypedDict `{}` does not have key `{}`",
+                        typed_dict.name(),
+                        field_name
+                    ),
+                );
+            };
+        self.check_assign_to_typed_dict_field(
+            typed_dict.name(),
+            Some(field_name),
+            &field_ty,
+            read_only,
+            value,
+            key_range,
+            assign_range,
+            errors,
+        )
+    }
+
     fn check_assign_to_subscript(
         &self,
         subscript: &ExprSubscript,
@@ -1914,31 +1970,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match (base, &slice_ty) {
                 (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
                     let field_name = Name::new(field_name);
-                    let (field_ty, read_only) =
-                        if let Some(field) = self.typed_dict_field(typed_dict, &field_name) {
-                            let read_only = field.is_read_only();
-                            (field.ty, read_only)
-                        } else if let ExtraItems::Extra(extra) =
-                            self.typed_dict_extra_items(typed_dict.class_object())
-                        {
-                            (extra.ty, extra.read_only)
-                        } else {
-                            return self.error(
-                                errors,
-                                subscript.slice.range(),
-                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
-                                format!(
-                                    "TypedDict `{}` does not have key `{}`",
-                                    typed_dict.name(),
-                                    field_name
-                                ),
-                            );
-                        };
-                    self.check_assign_to_typed_dict_subscript(
-                        typed_dict.name(),
-                        Some(&field_name),
-                        &field_ty,
-                        read_only,
+                    self.check_assign_to_typed_dict_literal_subscript(
+                        typed_dict,
+                        &field_name,
                         value,
                         subscript.slice.range(),
                         subscript.range(),
@@ -1950,7 +1984,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         && let Some(field_ty) =
                             self.get_typed_dict_value_type_as_builtins_dict(typed_dict) =>
                 {
-                    self.check_assign_to_typed_dict_subscript(
+                    self.check_assign_to_typed_dict_field(
                         typed_dict.name(),
                         None,
                         &field_ty,
