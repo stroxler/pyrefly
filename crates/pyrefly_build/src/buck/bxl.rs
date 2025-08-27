@@ -35,30 +35,34 @@ impl TargetManifest {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct TargetManifestDatabase(SmallMap<Target, TargetManifest>);
+pub(crate) struct TargetManifestDatabase {
+    db: SmallMap<Target, TargetManifest>,
+    root: PathBuf,
+}
 
 impl Deref for TargetManifestDatabase {
     type Target = SmallMap<Target, TargetManifest>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.db
     }
 }
 
 impl TargetManifestDatabase {
     #[expect(unused)]
-    pub fn new(database: SmallMap<Target, TargetManifest>) -> Self {
-        Self(database)
+    pub fn new(db: SmallMap<Target, TargetManifest>, root: PathBuf) -> Self {
+        Self { db, root }
     }
 
     #[allow(unused)]
     pub(crate) fn iter_srcs<'a>(
         &'a self,
-    ) -> impl Iterator<Item = (&'a Target, &'a ModuleName, &'a Vec1<PathBuf>)> + 'a {
-        self.0.iter().flat_map(|(target, manifest)| {
+    ) -> impl Iterator<Item = (&'a Target, &'a ModuleName, Vec1<PathBuf>)> + 'a {
+        let root = &self.root;
+        self.db.iter().flat_map(move |(target, manifest)| {
             manifest
                 .iter_srcs()
-                .map(move |(module, paths)| (target, module, paths))
+                .map(move |(module, paths)| (target, module, paths.mapped_ref(|p| root.join(p))))
         })
     }
 }
