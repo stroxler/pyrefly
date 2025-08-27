@@ -12,15 +12,16 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::fs_anyhow;
 use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use vec1::Vec1;
 
-use crate::buck::source_db::BuckSourceDatabase;
+use crate::source_db::SourceDatabase;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct ManifestItem {
     module_name: ModuleName,
     absolute_path: PathBuf,
@@ -96,7 +97,30 @@ fn create_manifest_item_index(
         .collect()
 }
 
-impl BuckSourceDatabase {
+pub struct BuckCheckSourceDatabase {
+    sources: SmallMap<ModuleName, Vec1<PathBuf>>,
+    dependencies: SmallMap<ModuleName, Vec1<PathBuf>>,
+}
+
+impl SourceDatabase for BuckCheckSourceDatabase {
+    fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)> {
+        self.sources
+            .iter()
+            .flat_map(|(name, paths)| paths.iter().map(|path| (*name, path.clone())))
+            .collect()
+    }
+
+    fn list(&self) -> SmallMap<ModuleName, pyrefly_python::module_path::ModulePath> {
+        // Iterate the sources second so if there are any conflicts the source wins.
+        self.dependencies
+            .iter()
+            .chain(self.sources.iter())
+            .map(|(name, paths)| (*name, ModulePath::filesystem(paths.first().clone())))
+            .collect()
+    }
+}
+
+impl BuckCheckSourceDatabase {
     pub fn from_manifest_files(
         source_manifests: &[PathBuf],
         dependency_manifests: &[PathBuf],
@@ -113,7 +137,7 @@ impl BuckSourceDatabase {
         dependency_items: Vec<ManifestItem>,
         typeshed_items: Vec<ManifestItem>,
     ) -> Self {
-        BuckSourceDatabase {
+        Self {
             sources: create_manifest_item_index(source_items.into_iter()),
             dependencies: create_manifest_item_index(
                 dependency_items.into_iter().chain(typeshed_items),
@@ -128,7 +152,7 @@ mod tests {
 
     use super::*;
 
-    /// Return type from `BuckSourceDatabase::lookup`
+    /// Return type from `BuckCheckSourceDatabase::lookup`
     #[derive(Debug, PartialEq, Eq)]
     enum LookupResult {
         /// Source file of this module is owned by the current target.
@@ -141,7 +165,7 @@ mod tests {
         NoSource,
     }
 
-    impl BuckSourceDatabase {
+    impl BuckCheckSourceDatabase {
         fn lookup(&self, module: ModuleName) -> LookupResult {
             match self.sources.get(&module) {
                 Some(paths) => LookupResult::OwningSource(paths.first().clone()),
@@ -177,7 +201,7 @@ mod tests {
         let foo_path = PathBuf::from_str("/root/foo.py").unwrap();
         let bar_path = PathBuf::from_str("/root/bar.py").unwrap();
         let baz_path = PathBuf::from_str("/root/baz.py").unwrap();
-        let source_db = BuckSourceDatabase::from_manifest_items(
+        let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![ManifestItem {
                 module_name: ModuleName::from_str("foo"),
                 absolute_path: foo_path.clone(),
@@ -217,7 +241,7 @@ mod tests {
         let src_bar_path = PathBuf::from_str("/src/bar.py").unwrap();
         let dep_bar_path = PathBuf::from_str("/dep/bar.pyi").unwrap();
 
-        let source_db = BuckSourceDatabase::from_manifest_items(
+        let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
@@ -257,7 +281,7 @@ mod tests {
         let bar_py_path = PathBuf::from_str("/root/bar.py").unwrap();
         let bar_pyi_path = PathBuf::from_str("/root/bar.pyi").unwrap();
 
-        let source_db = BuckSourceDatabase::from_manifest_items(
+        let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
@@ -302,7 +326,7 @@ mod tests {
         let typeshed_c_path = PathBuf::from_str("/typeshed/c.pyi").unwrap();
         let typeshed_d_path = PathBuf::from_str("/typeshed/d.pyi").unwrap();
 
-        let source_db = BuckSourceDatabase::from_manifest_items(
+        let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![],
             vec![
                 ManifestItem {

@@ -5,5 +5,5 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-mod buck_check_deserializer;
-pub mod source_db;
+pub mod buck_check;
+pub mod bxl;

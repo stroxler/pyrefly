@@ -9,7 +9,6 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use pyrefly_python::module_name::ModuleName;
-use pyrefly_python::module_path::ModulePath;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -28,7 +27,9 @@ impl TargetManifest {
         Self { srcs, deps }
     }
 
-    fn iter_srcs<'a>(&'a self) -> impl Iterator<Item = (&'a ModuleName, &'a Vec1<PathBuf>)> + 'a {
+    pub(crate) fn iter_srcs<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a ModuleName, &'a Vec1<PathBuf>)> + 'a {
         self.srcs.iter()
     }
 }
@@ -50,8 +51,8 @@ impl TargetManifestDatabase {
         Self(database)
     }
 
-    #[expect(unused)]
-    fn iter_srcs<'a>(
+    #[allow(unused)]
+    pub(crate) fn iter_srcs<'a>(
         &'a self,
     ) -> impl Iterator<Item = (&'a Target, &'a ModuleName, &'a Vec1<PathBuf>)> + 'a {
         self.0.iter().flat_map(|(target, manifest)| {
@@ -59,29 +60,5 @@ impl TargetManifestDatabase {
                 .iter_srcs()
                 .map(move |(module, paths)| (target, module, paths))
         })
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct BuckSourceDatabase {
-    pub(crate) sources: SmallMap<ModuleName, Vec1<PathBuf>>,
-    pub(crate) dependencies: SmallMap<ModuleName, Vec1<PathBuf>>,
-}
-
-impl BuckSourceDatabase {
-    pub fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)> {
-        self.sources
-            .iter()
-            .flat_map(|(name, paths)| paths.iter().map(|path| (*name, path.clone())))
-            .collect()
-    }
-
-    pub fn list(&self) -> SmallMap<ModuleName, ModulePath> {
-        // Iterate the sources second so if there are any conflicts the source wins.
-        self.dependencies
-            .iter()
-            .chain(self.sources.iter())
-            .map(|(name, paths)| (*name, ModulePath::filesystem(paths.first().clone())))
-            .collect()
     }
 }

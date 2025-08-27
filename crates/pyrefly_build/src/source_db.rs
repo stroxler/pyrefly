@@ -6,12 +6,16 @@
  */
 
 use std::fmt;
+use std::path::PathBuf;
 
 use dupe::Dupe;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePath;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::small_map::SmallMap;
 use static_interner::Intern;
 use static_interner::Interner;
 
@@ -47,4 +51,12 @@ impl Target {
     pub fn from_string(x: String) -> Self {
         Target(TARGET_INTERNER.intern(x))
     }
+}
+
+/// Represents a virtual filesystem provided by a build system. A build system
+/// should understand the relationship between targets and importable qualified
+/// paths to the files contained in the build system.
+pub trait SourceDatabase {
+    fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)>;
+    fn list(&self) -> SmallMap<ModuleName, ModulePath>;
 }

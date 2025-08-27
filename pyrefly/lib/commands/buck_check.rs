@@ -12,7 +12,8 @@ use std::str::FromStr;
 use anyhow::Context as _;
 use clap::Parser;
 use dupe::Dupe;
-use pyrefly_build::buck::source_db::BuckSourceDatabase;
+use pyrefly_build::buck::buck_check::BuckCheckSourceDatabase;
+use pyrefly_build::source_db::SourceDatabase;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
@@ -59,7 +60,7 @@ fn read_input_file(path: &Path) -> anyhow::Result<InputFile> {
     Ok(input_file)
 }
 
-fn compute_errors(sys_info: SysInfo, sourcedb: BuckSourceDatabase) -> Vec<Error> {
+fn compute_errors(sys_info: SysInfo, sourcedb: impl SourceDatabase) -> Vec<Error> {
     let modules = sourcedb.modules_to_check();
 
     let mut config = ConfigFile::default();
@@ -113,7 +114,7 @@ impl BuckCheckArgs {
         let input_file = read_input_file(self.input_path.as_path())?;
         let python_version = PythonVersion::from_str(&input_file.py_version)?;
         let sys_info = SysInfo::new(python_version, PythonPlatform::linux());
-        let sourcedb = BuckSourceDatabase::from_manifest_files(
+        let sourcedb = BuckCheckSourceDatabase::from_manifest_files(
             input_file.sources.as_slice(),
             input_file.dependencies.as_slice(),
             input_file.typeshed.as_slice(),
