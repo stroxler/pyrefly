@@ -10114,32 +10114,12 @@
     {
       "code": -2,
       "column": 34,
-      "concise_description": "`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`",
-      "description": "`TypedDict[MovieExtraStr]` is not assignable to `Mapping[str, str]`",
-      "line": 291,
-      "name": "bad-assignment",
-      "stop_column": 44,
-      "stop_line": 291
-    },
-    {
-      "code": -2,
-      "column": 34,
       "concise_description": "`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int]`",
       "description": "`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int]`",
       "line": 294,
       "name": "bad-assignment",
       "stop_column": 44,
       "stop_line": 294
-    },
-    {
-      "code": -2,
-      "column": 44,
-      "concise_description": "`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int | str]`",
-      "description": "`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int | str]`",
-      "line": 295,
-      "name": "bad-assignment",
-      "stop_column": 54,
-      "stop_line": 295
     },
     {
       "code": -2,

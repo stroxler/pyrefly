@@ -136,4 +136,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None
         }
     }
+
+    pub fn get_enum_member_count(&self, cls: &Class) -> Option<usize> {
+        let meta = self.get_metadata_for_class(cls);
+        if meta.is_enum() {
+            Some(self.get_enum_members(cls).len())
+        } else {
+            None
+        }
+    }
 }

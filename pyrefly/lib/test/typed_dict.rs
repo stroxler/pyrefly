@@ -1610,3 +1610,27 @@ f(x='ok', y=42)
 f(x='no', y='oops')  # E: `Literal['oops']` is not assignable to parameter `**kwargs` with type `int`
     "#,
 );
+
+testcase!(
+    test_mapping_assignability,
+    r#"
+from typing import Mapping, TypedDict
+class A(TypedDict, extra_items=int):
+    x: str
+m1: Mapping[str, str | int] = A(x='')
+m2: Mapping[str, int] = A(x='')  # E: `TypedDict[A]` is not assignable to `Mapping[str, int]`
+    "#,
+);
+
+testcase!(
+    test_typed_dict_contains_itself,
+    r#"
+from typing import Mapping, TypedDict
+class A(TypedDict, extra_items=int):
+    x: "A"
+def f(m: Mapping[str, A | int]):
+    pass
+def g(a: A):
+    f(a)
+    "#,
+);

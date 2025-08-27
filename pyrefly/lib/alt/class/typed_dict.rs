@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use pyrefly_types::simplify::unions_with_literals;
 use pyrefly_types::typed_dict::ExtraItems;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::name::Name;
@@ -599,8 +600,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .names_to_fields(cls, fields)
             .map(|(_, field)| field.ty)
             .collect::<Vec<_>>();
-        values.push(extra);
-        self.unions(values)
+        // We can't use self.unions(...) here because it calls is_subset_eq, which may need to get
+        // a TypedDict's value type, which would lead to infinite recursion if the TypedDict
+        // contains itself.
+        if values.is_empty() {
+            extra
+        } else {
+            values.push(extra);
+            unions_with_literals(values, self.stdlib, &|cls| self.get_enum_member_count(cls))
+        }
     }
 
     /// Synthesize an `items()` method.

@@ -854,13 +854,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 // Allow substituting a TypedDict for Self when we call methods
                 true
             }
-            (Type::TypedDict(_), _) => {
+            (Type::TypedDict(td), _) => {
                 let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
                     &stdlib
                         .mapping(
                             stdlib.str().clone().to_type(),
-                            stdlib.object().clone().to_type(),
+                            self.type_order.get_typed_dict_value_type(td),
                         )
                         .to_type(),
                     want,
