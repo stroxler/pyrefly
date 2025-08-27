@@ -450,6 +450,65 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    fn gen_pop_overloads_for_field(
+        &self,
+        metadata: &FuncMetadata,
+        self_param: &Param,
+        name: &Name,
+        field: TypedDictField,
+        overloads: &mut Vec<OverloadType>,
+    ) {
+        if field.required || field.is_read_only() {
+            // do not pop required or read-only keys
+            return;
+        }
+        let key_param = Param::PosOnly(
+            Some(KEY_PARAM.clone()),
+            name_to_literal_type(name),
+            Required::Required,
+        );
+
+        let q = Quantified::type_var(
+            Name::new("_T"),
+            self.uniques,
+            None,
+            Restriction::Unrestricted,
+        );
+        let tparams = vec![TParam {
+            quantified: q.clone(),
+            variance: PreInferenceVariance::PInvariant,
+        }];
+
+        // 1) no default: (self, key: Literal["field_name"]) -> FieldType
+        overloads.push(OverloadType::Function(Function {
+            signature: Callable::list(
+                ParamList::new(vec![self_param.clone(), key_param.clone()]),
+                field.ty.clone(),
+            ),
+            metadata: metadata.clone(),
+        }));
+
+        // 2) default: (self, key: Literal["field_name"], default: _T) -> FieldType | _T
+        overloads.push(OverloadType::Forall(Forall {
+            tparams: Arc::new(TParams::new(tparams.clone())),
+            body: Function {
+                signature: Callable::list(
+                    ParamList::new(vec![
+                        self_param.clone(),
+                        key_param.clone(),
+                        Param::PosOnly(
+                            Some(DEFAULT_PARAM.clone()),
+                            q.clone().to_type(),
+                            Required::Required,
+                        ),
+                    ]),
+                    self.union(field.ty.clone(), q.clone().to_type()),
+                ),
+                metadata: metadata.clone(),
+            },
+        }));
+    }
+
     /// Synthesize a method for every non-required field. Thus, this method returns None if all fields are required since no methods are synthesized
     fn get_typed_dict_pop(
         &self,
@@ -458,63 +517,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<ClassSynthesizedField> {
         let metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), POP_METHOD);
         let self_param = self.class_self_param(cls, true);
-
         let mut literal_signatures: Vec<OverloadType> = Vec::new();
         for (name, field) in self.names_to_fields(cls, fields) {
-            if field.required || field.is_read_only() {
-                // do not pop required or read-only keys
-                continue;
-            } else {
-                let key_param = Param::PosOnly(
-                    Some(KEY_PARAM.clone()),
-                    name_to_literal_type(name),
-                    Required::Required,
-                );
-
-                let q = Quantified::type_var(
-                    Name::new("_T"),
-                    self.uniques,
-                    None,
-                    Restriction::Unrestricted,
-                );
-                let tparams = vec![TParam {
-                    quantified: q.clone(),
-                    variance: PreInferenceVariance::PInvariant,
-                }];
-
-                // 1) no default: (self, key: Literal["field_name"]) -> FieldType
-                literal_signatures.push(OverloadType::Function(Function {
-                    signature: Callable::list(
-                        ParamList::new(vec![self_param.clone(), key_param.clone()]),
-                        field.ty.clone(),
-                    ),
-                    metadata: metadata.clone(),
-                }));
-
-                // 2) default: (self, key: Literal["field_name"], default: _T) -> Union[FieldType, _T]
-                literal_signatures.push(OverloadType::Forall(Forall {
-                    tparams: Arc::new(TParams::new(tparams.clone())),
-                    body: Function {
-                        signature: Callable::list(
-                            ParamList::new(vec![
-                                self_param.clone(),
-                                key_param.clone(),
-                                Param::PosOnly(
-                                    Some(DEFAULT_PARAM.clone()),
-                                    q.clone().to_type(),
-                                    Required::Required,
-                                ),
-                            ]),
-                            self.union(field.ty.clone(), q.clone().to_type()),
-                        ),
-                        metadata: metadata.clone(),
-                    },
-                }));
-            }
+            self.gen_pop_overloads_for_field(
+                &metadata,
+                &self_param,
+                name,
+                field,
+                &mut literal_signatures,
+            );
         }
-
         let signatures = Vec1::try_from_vec(literal_signatures).ok()?;
-
         Some(ClassSynthesizedField::new(Type::Overload(Overload {
             signatures,
             metadata: Box::new(metadata),
