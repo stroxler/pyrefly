@@ -10360,62 +10360,62 @@
   "typeddicts_readonly.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `members` in TypedDict `Band` is read-only",
       "description": "Key `members` in TypedDict `Band` is read-only",
       "line": 24,
       "name": "read-only",
-      "stop_column": 14,
+      "stop_column": 13,
       "stop_line": 24
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `members` in TypedDict `Band2` is read-only",
       "description": "Key `members` in TypedDict `Band2` is read-only",
       "line": 36,
       "name": "read-only",
-      "stop_column": 14,
+      "stop_column": 13,
       "stop_line": 36
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `title` in TypedDict `Movie1` is read-only",
       "description": "Key `title` in TypedDict `Movie1` is read-only",
       "line": 50,
       "name": "read-only",
-      "stop_column": 12,
+      "stop_column": 11,
       "stop_line": 50
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `year` in TypedDict `Movie1` is read-only",
       "description": "Key `year` in TypedDict `Movie1` is read-only",
       "line": 51,
       "name": "read-only",
-      "stop_column": 11,
+      "stop_column": 10,
       "stop_line": 51
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `title` in TypedDict `Movie2` is read-only",
       "description": "Key `title` in TypedDict `Movie2` is read-only",
       "line": 60,
       "name": "read-only",
-      "stop_column": 12,
+      "stop_column": 11,
       "stop_line": 60
     },
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `year` in TypedDict `Movie2` is read-only",
       "description": "Key `year` in TypedDict `Movie2` is read-only",
       "line": 61,
       "name": "read-only",
-      "stop_column": 11,
+      "stop_column": 10,
       "stop_line": 61
     }
   ],
@@ -10494,12 +10494,12 @@
   "typeddicts_readonly_inheritance.py": [
     {
       "code": -2,
-      "column": 1,
+      "column": 4,
       "concise_description": "Key `name` in TypedDict `Album2` is read-only",
       "description": "Key `name` in TypedDict `Album2` is read-only",
       "line": 36,
       "name": "read-only",
-      "stop_column": 11,
+      "stop_column": 10,
       "stop_line": 36
     },
     {
@@ -10566,12 +10566,12 @@
   "typeddicts_readonly_kwargs.py": [
     {
       "code": -2,
-      "column": 5,
+      "column": 12,
       "concise_description": "Key `key1` in TypedDict `ReadOnlyArgs` is read-only",
       "description": "Key `key1` in TypedDict `ReadOnlyArgs` is read-only",
       "line": 33,
       "name": "read-only",
-      "stop_column": 19,
+      "stop_column": 18,
       "stop_line": 33
     }
   ],

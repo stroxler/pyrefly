@@ -1873,7 +1873,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         field_ty: &Type,
         read_only: bool,
         value: &ExprOrBinding,
-        range: TextRange,
+        key_range: TextRange,
+        assign_range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
         if read_only {
@@ -1884,7 +1885,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             self.error(
                 errors,
-                range,
+                key_range,
                 ErrorInfo::Kind(ErrorKind::ReadOnly),
                 format!("{key} in TypedDict `{typed_dict}` is read-only"),
             )
@@ -1895,7 +1896,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ExprOrBinding::Expr(e) => self.expr(e, Some((field_ty, context)), errors),
                 ExprOrBinding::Binding(b) => {
                     let binding_ty = self.solve_binding(b, errors).arc_clone_ty();
-                    self.check_and_return_type(binding_ty, field_ty, range, errors, context)
+                    self.check_and_return_type(binding_ty, field_ty, assign_range, errors, context)
                 }
             }
         }
@@ -1939,6 +1940,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &field_ty,
                         read_only,
                         value,
+                        subscript.slice.range(),
                         subscript.range(),
                         errors,
                     )
@@ -1954,6 +1956,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &field_ty,
                         false,
                         value,
+                        subscript.slice.range(),
                         subscript.range(),
                         errors,
                     )
