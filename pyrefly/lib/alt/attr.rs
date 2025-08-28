@@ -397,7 +397,7 @@ enum AttributeBase1 {
     /// some in-scope type variable `T`. The optional `ClassType` is an upper
     /// bound, which may be the original bound on `T` or a decomposition of
     /// it (e.g. if the original bound is a union).
-    Quantified(Quantified, Option<ClassType>),
+    Quantified(Quantified, ClassType),
     /// Attribute access on a value explicitly typed as `type[T]` where `T` is
     /// an in-scope type variable. We will resolve it as class object attribute
     /// access against the bounds of `T`.
@@ -1141,22 +1141,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => acc.not_found(NotFoundOn::Module(module.clone())),
             },
             AttributeBase1::Quantified(q, bound) => {
-                if let Some(upper_bound) = bound {
-                    match self.get_bounded_quantified_attribute(q.clone(), upper_bound, attr_name) {
-                        Some(attr) => acc.found_class_attribute(attr, base),
-                        None => acc.not_found(NotFoundOn::ClassInstance(
-                            upper_bound.class_object().dupe(),
-                            base,
-                        )),
-                    }
-                } else {
-                    let class = q.class_type(self.stdlib);
-                    match self.get_instance_attribute(class, attr_name) {
-                        Some(attr) => acc.found_class_attribute(attr, base),
-                        None => acc.not_found(NotFoundOn::ClassInstance(
-                            class.class_object().dupe(),
-                            base,
-                        )),
+                match self.get_bounded_quantified_attribute(q.clone(), bound, attr_name) {
+                    Some(attr) => acc.found_class_attribute(attr, base),
+                    None => {
+                        acc.not_found(NotFoundOn::ClassInstance(bound.class_object().dupe(), base))
                     }
                 }
             }
@@ -1252,7 +1240,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::ClassInstance(cls)
             | AttributeBase1::SelfType(cls)
             | AttributeBase1::EnumLiteral(LitEnum { class: cls, .. })
-            | AttributeBase1::Quantified(_, Some(cls))
+            | AttributeBase1::Quantified(_, cls)
             | AttributeBase1::SuperInstance(cls, _)
                 if (*dunder_name == dunder::SETATTR
                     || *dunder_name == dunder::DELATTR
@@ -1597,17 +1585,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some(base) = self.as_attribute_base(ty.clone()) {
                         for base1 in base.0 {
                             if let AttributeBase1::ClassInstance(cls) = base1 {
-                                acc.push(AttributeBase1::Quantified(
-                                    (*quantified).clone(),
-                                    Some(cls),
-                                ));
+                                acc.push(AttributeBase1::Quantified((*quantified).clone(), cls));
                             } else {
                                 use_fallback = true;
                             }
                         }
                     }
                     if use_fallback {
-                        acc.push(AttributeBase1::Quantified((*quantified).clone(), None));
+                        acc.push(AttributeBase1::Quantified(
+                            (*quantified).clone(),
+                            self.stdlib.object().clone(),
+                        ));
                     }
                 }
                 Restriction::Constraints(constraints) => {
@@ -1618,7 +1606,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 if let AttributeBase1::ClassInstance(cls) = base1 {
                                     acc.push(AttributeBase1::Quantified(
                                         (*quantified).clone(),
-                                        Some(cls),
+                                        cls,
                                     ));
                                 } else {
                                     use_fallback = true;
@@ -1627,12 +1615,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     if use_fallback {
-                        acc.push(AttributeBase1::Quantified((*quantified).clone(), None));
+                        acc.push(AttributeBase1::Quantified(
+                            (*quantified).clone(),
+                            self.stdlib.object().clone(),
+                        ));
                     }
                 }
                 Restriction::Unrestricted => acc.push(AttributeBase1::Quantified(
                     (*quantified).clone(),
-                    Some(self.stdlib.object().clone()),
+                    self.stdlib.object().clone(),
                 )),
             },
             // TODO: check to see which ones should have class representations
@@ -1856,7 +1847,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase1::ClassInstance(class)
                 | AttributeBase1::SelfType(class)
                 | AttributeBase1::EnumLiteral(LitEnum { class, .. })
-                | AttributeBase1::Quantified(_, Some(class)) => {
+                | AttributeBase1::Quantified(_, class) => {
                     self.completions_class_type(class, expected_attribute_name, res)
                 }
                 AttributeBase1::TypedDict(_) => self.completions_class_type(
@@ -1881,11 +1872,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 AttributeBase1::TypeQuantified(_, class) => {
                     self.completions_class(class.class_object(), expected_attribute_name, res)
                 }
-                AttributeBase1::Quantified(q, _) => self.completions_class_type(
-                    q.class_type(self.stdlib),
-                    expected_attribute_name,
-                    res,
-                ),
                 AttributeBase1::TypeAny(_) => self.completions_class_type(
                     self.stdlib.builtins_type(),
                     expected_attribute_name,
