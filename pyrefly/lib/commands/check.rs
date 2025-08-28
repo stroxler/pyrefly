@@ -78,17 +78,10 @@ pub struct FullCheckArgs {
 }
 
 impl FullCheckArgs {
-    pub async fn run(self, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
+    pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
         self.args.config_override.validate()?;
         let (files_to_check, config_finder) = self.files.resolve(&self.args.config_override)?;
-        run_check(
-            self.args,
-            self.watch,
-            files_to_check,
-            config_finder,
-            allow_forget,
-        )
-        .await
+        run_check(self.args, self.watch, files_to_check, config_finder).await
     }
 }
 
@@ -97,7 +90,6 @@ async fn run_check(
     watch: bool,
     files_to_check: FilteredGlobs,
     config_finder: ConfigFinder,
-    allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
         let roots = files_to_check.roots();
@@ -110,7 +102,7 @@ async fn run_check(
             .await?;
         Ok(CommandExitStatus::Success)
     } else {
-        match args.run_once(files_to_check, config_finder, allow_forget) {
+        match args.run_once(files_to_check, config_finder) {
             Ok((status, _)) => Ok(status),
             Err(e) => Err(e),
         }
@@ -168,7 +160,7 @@ pub struct SnippetCheckArgs {
 }
 
 impl SnippetCheckArgs {
-    pub async fn run(self, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
+    pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
         let (_, config_finder) = FilesArgs::get(vec![], self.config, &self.config_override)?;
         let check_args = CheckArgs {
             output: self.output,
@@ -180,7 +172,7 @@ impl SnippetCheckArgs {
             },
             config_override: self.config_override,
         };
-        match check_args.run_once_with_snippet(self.code, config_finder, allow_forget) {
+        match check_args.run_once_with_snippet(self.code, config_finder) {
             Ok((status, _)) => Ok(status),
             Err(e) => Err(e),
         }
@@ -512,7 +504,6 @@ impl CheckArgs {
         self,
         files_to_check: FilteredGlobs,
         config_finder: ConfigFinder,
-        allow_forget: bool,
     ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
         let mut timings = Timings::new();
         let list_files_start = Instant::now();
@@ -527,14 +518,14 @@ impl CheckArgs {
             return Ok((CommandExitStatus::Success, Vec::new()));
         }
 
-        let holder = Forgetter::new(State::new(config_finder), allow_forget);
+        let holder = Forgetter::new(State::new(config_finder), true);
         let handles = Handles::new(expanded_file_list, holder.as_ref().config_finder());
         let require_levels = self.get_required_levels();
         let mut transaction = Forgetter::new(
             holder
                 .as_ref()
                 .new_transaction(require_levels.default, None),
-            allow_forget,
+            true,
         );
         self.run_inner(
             timings,
@@ -547,14 +538,13 @@ impl CheckArgs {
         self,
         code: String,
         config_finder: ConfigFinder,
-        allow_forget: bool,
     ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
         // Create a virtual module path for the snippet
         let path = PathBuf::from_str("snippet")?;
         let module_path = ModulePath::memory(path);
         let module_name = ModuleName::from_str("__main__");
 
-        let holder = Forgetter::new(State::new(config_finder), allow_forget);
+        let holder = Forgetter::new(State::new(config_finder), true);
 
         // Create a single handle for the virtual module
         let sys_info = holder
@@ -569,7 +559,7 @@ impl CheckArgs {
             holder
                 .as_ref()
                 .new_transaction(require_levels.default, None),
-            allow_forget,
+            true,
         );
 
         // Add the snippet source to the transaction's memory

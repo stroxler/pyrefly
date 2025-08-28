@@ -47,10 +47,10 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn run(self, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
+    pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
         match self {
-            Command::Check(args) => args.run(allow_forget).await,
-            Command::Snippet(args) => args.run(allow_forget).await,
+            Command::Check(args) => args.run().await,
+            Command::Snippet(args) => args.run().await,
             Command::BuckCheck(args) => args.run(),
             Command::Lsp(args) => args.run(),
             Command::Tsp(args) => args.run(),

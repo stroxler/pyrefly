@@ -245,7 +245,7 @@ impl InferArgs {
         let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
         let (_, config_finder) = FilesArgs::get(Vec::new(), None, &check_args.config_override)?;
         let state = holder.as_ref();
-        match check_args.run_once(files_to_check, config_finder, true) {
+        match check_args.run_once(files_to_check, config_finder) {
             Ok((_, errors)) => {
                 for error in errors {
                     match error.error_kind() {

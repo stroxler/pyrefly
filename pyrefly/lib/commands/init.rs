@@ -106,7 +106,7 @@ impl InitArgs {
             FilesArgs::get(Vec::new(), config_path, &check_args.config_override)?;
 
         // Run the check directly
-        match check_args.run_once(filtered_globs, config_finder, true) {
+        match check_args.run_once(filtered_globs, config_finder) {
             Ok((status, errors)) => Ok((status, errors)),
             Err(e) => {
                 error!("Failed to run pyrefly check: {}", e);
@@ -141,7 +141,7 @@ impl InitArgs {
                 FilesArgs::get(Vec::new(), config_path, &suppress_args.config_override)?;
 
             // Run the check with suppress-errors flag
-            match suppress_args.run_once(suppress_globs, suppress_config_finder, true) {
+            match suppress_args.run_once(suppress_globs, suppress_config_finder) {
                 Ok(_) => return Ok(CommandExitStatus::Success),
                 Err(e) => {
                     error!("Failed to run pyrefly check with suppress-errors: {}", e);
