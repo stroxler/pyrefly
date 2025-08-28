@@ -276,7 +276,6 @@ const config: Config = {
               },
             };
         },
-        require.resolve('./src/plugins/version-replacer-plugin.js'),
     ],
     themeConfig: {
         prism: {
