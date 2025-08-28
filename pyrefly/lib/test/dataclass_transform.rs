@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -365,5 +366,33 @@ reveal_type(B.__init__)  # E: (self: Self@B, y: str) -> None
 class C(B): ...
 # inheriting from `B` synthesizes an `__init__`
 reveal_type(C.__init__)  # E: (self: C, z: bool) -> None
+    "#,
+);
+
+fn overloaded_transform_env() -> TestEnv {
+    TestEnv::one_with_path(
+        "foo",
+        "foo.pyi",
+        r#"
+from typing import Any, dataclass_transform, overload
+@overload
+def create() -> Any: ...
+@overload
+@dataclass_transform()
+def create[T](cls: type[T]) -> type[T]: ...
+    "#,
+    )
+}
+
+testcase!(
+    bug = "There should be no errors",
+    test_overloaded_transform,
+    overloaded_transform_env(),
+    r#"
+import foo
+@foo.create
+class C:
+    x: int
+C(x=0)  # E: Unexpected keyword argument
     "#,
 );
