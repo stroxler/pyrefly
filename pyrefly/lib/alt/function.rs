@@ -15,6 +15,7 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType;
+use pyrefly_types::quantified::Quantified;
 use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
@@ -342,151 +343,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else if flags.is_staticmethod {
             self_type = None;
         }
-
-        let mut paramspec_args = None;
-        let mut paramspec_kwargs = None;
-        let mut params = Vec::with_capacity(def.parameters.len());
-        params.extend(def.parameters.posonlyargs.iter().map(|x| {
-            let (ty, required) = self.get_param_type_and_requiredness(
-                &x.parameter.name,
-                x.default.as_deref(),
-                stub_or_impl,
-                &mut self_type,
-                errors,
-            );
-            Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
-        }));
-
-        // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
-        let is_historical_args_usage =
-            def.parameters.posonlyargs.is_empty() && def.parameters.kwonlyargs.is_empty();
-        let mut seen_keyword_args = false;
-
-        params.extend(def.parameters.args.iter().map(|x| {
-            let (ty, required) = self.get_param_type_and_requiredness(
-                &x.parameter.name,
-                x.default.as_deref(),
-                stub_or_impl,
-                &mut self_type,
-                errors,
-            );
-
-            // If the parameter begins but does not end with "__", it is a positional-only parameter.
-            // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
-            if is_historical_args_usage
-                && x.parameter.name.starts_with("__")
-                && !x.parameter.name.ends_with("__")
-            {
-                if seen_keyword_args {
-                    self.error(
-                        errors,
-                        x.parameter.name.range,
-                        ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
-                        format!(
-                            "Positional-only parameter `{}` cannot appear after keyword parameters",
-                            x.parameter.name
-                        ),
-                    );
-                }
-
-                Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
-            } else {
-                seen_keyword_args |=
-                    x.parameter.name.as_str() != "self" && x.parameter.name.as_str() != "cls";
-                Param::Pos(x.parameter.name.id.clone(), ty, required)
-            }
-        }));
-        params.extend(def.parameters.vararg.iter().map(|x| {
-            let (ty, _) = self.get_param_type_and_requiredness(
-                &x.name,
-                None,
-                stub_or_impl,
-                &mut self_type,
-                errors,
-            );
-            if let Type::Args(q) = &ty {
-                paramspec_args = Some(q.clone());
-            }
-            Param::VarArg(Some(x.name.id.clone()), ty)
-        }));
-        if paramspec_args.is_some()
-            && let Some(param) = def.parameters.kwonlyargs.first()
-        {
-            self.error(
-                errors,
-                param.range,
-                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
-                format!(
-                    "Keyword-only parameter `{}` may not appear after ParamSpec args parameter",
-                    param.parameter.name
-                ),
-            );
-        }
-        params.extend(def.parameters.kwonlyargs.iter().map(|x| {
-            let (ty, required) = self.get_param_type_and_requiredness(
-                &x.parameter.name,
-                x.default.as_deref(),
-                stub_or_impl,
-                &mut self_type,
-                errors,
-            );
-            Param::KwOnly(x.parameter.name.id.clone(), ty, required)
-        }));
-        params.extend(def.parameters.kwarg.iter().map(|x| {
-            let ty = match self.bindings().get_function_param(&x.name) {
-                FunctionParameter::Annotated(idx) => {
-                    let annot = self.get_idx(*idx);
-                    annot.annotation.get_type().clone()
-                }
-                FunctionParameter::Unannotated(var, _) => self.solver().force_var(*var),
-            };
-            if let Type::Kwargs(q) = &ty {
-                paramspec_kwargs = Some(q.clone());
-            }
-            Param::Kwargs(Some(x.name.id().clone()), ty)
-        }));
-
-        let paramspec = if let Some(q) = &paramspec_args
-            && paramspec_args == paramspec_kwargs
-        {
-            Some((**q).clone())
-        } else if paramspec_args != paramspec_kwargs {
-            if paramspec_args.is_some() != paramspec_kwargs.is_some() {
-                self.error(
-                    errors,
-                    def.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
-                    "`ParamSpec` *args and **kwargs must be used together".to_owned(),
-                );
-            } else {
-                self.error(
-                    errors,
-                    def.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
-                    "*args and **kwargs must come from the same `ParamSpec`".to_owned(),
-                );
-            }
-            // If ParamSpec args and kwargs are invalid, fall back to Any
-            params = params
-                .into_iter()
-                .map(|p| match p {
-                    Param::Kwargs(name, Type::Kwargs(_)) => Param::Kwargs(name, Type::any_error()),
-                    Param::VarArg(name, Type::Args(_)) => Param::VarArg(name, Type::any_error()),
-                    _ => p,
-                })
-                .collect();
-            None
-        } else {
-            params = params
-                .into_iter()
-                .filter_map(|p| match p {
-                    Param::Kwargs(_, Type::Kwargs(_)) | Param::VarArg(_, Type::Args(_)) => None,
-                    _ => Some(p),
-                })
-                .collect();
-            None
-        };
-
+        let (params, paramspec) =
+            self.get_params_and_paramspec(def, stub_or_impl, &mut self_type, errors);
         let mut tparams = self.scoped_type_params(def.type_params.as_deref());
         let legacy_tparams = legacy_tparams
             .iter()
@@ -734,6 +592,159 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         *self_type = None; // Stop using `self` type solve Var params after the first param.
         (ty, required)
+    }
+
+    fn get_params_and_paramspec(
+        &self,
+        def: &StmtFunctionDef,
+        stub_or_impl: FunctionStubOrImpl,
+        self_type: &mut Option<Type>,
+        errors: &ErrorCollector,
+    ) -> (Vec<Param>, Option<Quantified>) {
+        let mut paramspec_args = None;
+        let mut paramspec_kwargs = None;
+        let mut params = Vec::with_capacity(def.parameters.len());
+        params.extend(def.parameters.posonlyargs.iter().map(|x| {
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+            Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
+        }));
+
+        // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
+        let is_historical_args_usage =
+            def.parameters.posonlyargs.is_empty() && def.parameters.kwonlyargs.is_empty();
+        let mut seen_keyword_args = false;
+
+        params.extend(def.parameters.args.iter().map(|x| {
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+
+            // If the parameter begins but does not end with "__", it is a positional-only parameter.
+            // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
+            if is_historical_args_usage
+                && x.parameter.name.starts_with("__")
+                && !x.parameter.name.ends_with("__")
+            {
+                if seen_keyword_args {
+                    self.error(
+                        errors,
+                        x.parameter.name.range,
+                        ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                        format!(
+                            "Positional-only parameter `{}` cannot appear after keyword parameters",
+                            x.parameter.name
+                        ),
+                    );
+                }
+
+                Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
+            } else {
+                seen_keyword_args |=
+                    x.parameter.name.as_str() != "self" && x.parameter.name.as_str() != "cls";
+                Param::Pos(x.parameter.name.id.clone(), ty, required)
+            }
+        }));
+        params.extend(def.parameters.vararg.iter().map(|x| {
+            let (ty, _) = self.get_param_type_and_requiredness(
+                &x.name,
+                None,
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+            if let Type::Args(q) = &ty {
+                paramspec_args = Some(q.clone());
+            }
+            Param::VarArg(Some(x.name.id.clone()), ty)
+        }));
+        if paramspec_args.is_some()
+            && let Some(param) = def.parameters.kwonlyargs.first()
+        {
+            self.error(
+                errors,
+                param.range,
+                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                format!(
+                    "Keyword-only parameter `{}` may not appear after ParamSpec args parameter",
+                    param.parameter.name
+                ),
+            );
+        }
+        params.extend(def.parameters.kwonlyargs.iter().map(|x| {
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                self_type,
+                errors,
+            );
+            Param::KwOnly(x.parameter.name.id.clone(), ty, required)
+        }));
+        params.extend(def.parameters.kwarg.iter().map(|x| {
+            let ty = match self.bindings().get_function_param(&x.name) {
+                FunctionParameter::Annotated(idx) => {
+                    let annot = self.get_idx(*idx);
+                    annot.annotation.get_type().clone()
+                }
+                FunctionParameter::Unannotated(var, _) => self.solver().force_var(*var),
+            };
+            if let Type::Kwargs(q) = &ty {
+                paramspec_kwargs = Some(q.clone());
+            }
+            Param::Kwargs(Some(x.name.id().clone()), ty)
+        }));
+
+        let paramspec = if let Some(q) = &paramspec_args
+            && paramspec_args == paramspec_kwargs
+        {
+            Some((**q).clone())
+        } else if paramspec_args != paramspec_kwargs {
+            if paramspec_args.is_some() != paramspec_kwargs.is_some() {
+                self.error(
+                    errors,
+                    def.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
+                    "`ParamSpec` *args and **kwargs must be used together".to_owned(),
+                );
+            } else {
+                self.error(
+                    errors,
+                    def.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
+                    "*args and **kwargs must come from the same `ParamSpec`".to_owned(),
+                );
+            }
+            // If ParamSpec args and kwargs are invalid, fall back to Any
+            params = params
+                .into_iter()
+                .map(|p| match p {
+                    Param::Kwargs(name, Type::Kwargs(_)) => Param::Kwargs(name, Type::any_error()),
+                    Param::VarArg(name, Type::Args(_)) => Param::VarArg(name, Type::any_error()),
+                    _ => p,
+                })
+                .collect();
+            None
+        } else {
+            params = params
+                .into_iter()
+                .filter_map(|p| match p {
+                    Param::Kwargs(_, Type::Kwargs(_)) | Param::VarArg(_, Type::Args(_)) => None,
+                    _ => Some(p),
+                })
+                .collect();
+            None
+        };
+        (params, paramspec)
     }
 
     fn check_top_level_function_decorator(
