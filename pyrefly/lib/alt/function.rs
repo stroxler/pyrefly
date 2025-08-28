@@ -64,6 +64,21 @@ use crate::types::types::Overload;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
 
+fn is_class_property_decorator_class_object(cls: &Class) -> bool {
+    let cls_name = cls.name();
+    // Obviously this is just a very naive heuristic. But it's not a crazy convention
+    // either and we have important customers that badly wants support of class properties.
+    cls_name == "classproperty" || cls_name == "lazy_classproperty"
+}
+
+fn is_class_property_decorator_type(ty: &Type) -> bool {
+    match ty {
+        Type::ClassDef(cls) => is_class_property_decorator_class_object(cls),
+        Type::ClassType(cls) => is_class_property_decorator_class_object(cls.class_object()),
+        _ => false,
+    }
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn solve_function_binding(
         &self,
@@ -296,6 +311,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_classmethod: is_dunder_init_subclass,
             ..Default::default()
         };
+        let mut found_class_property = false;
         let decorators = Box::from_iter(
             decorators
                 .iter()
@@ -312,6 +328,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
                     } else {
+                        if is_class_property_decorator_type(decorator_ty) {
+                            found_class_property = true;
+                        }
                         true
                     }
                 })
@@ -321,7 +340,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Look for a @classmethod or @staticmethod decorator and change the "self" type
         // accordingly. This is not totally correct, since it doesn't account for chaining
         // decorators, or weird cases like both decorators existing at the same time.
-        if flags.is_classmethod || is_dunder_new {
+        if flags.is_classmethod || found_class_property || is_dunder_new {
             self_type = self_type.map(Type::type_form);
         } else if flags.is_staticmethod {
             self_type = None;
