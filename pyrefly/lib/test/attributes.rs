@@ -1557,22 +1557,29 @@ testcase!(
     r#"
 from typing import TypeVar, ParamSpec, TypeVarTuple
 
+def ty[T](x: T) -> type[T]: ...
+
 T = TypeVar("T")
 P = ParamSpec("P")
 Ts = TypeVarTuple("Ts")
 
 T.__name__
 P.__name__
-Ts.__name__
-
 P.args.__origin__
 P.kwargs.__origin__
+Ts.__name__
 
-def ty[T](x: T) -> type[T]: ...
 ty(T).__name__
 ty(P).__name__
+ty(P.args).__origin__
+ty(P.args).__origin__
 ty(Ts).__name__
-ty(P).args.__origin__
-ty(P).kwargs.__origin__
+
+def f(*args: P.args, **kwargs: P.kwargs):
+    args.count(1)
+    kwargs.keys()
+
+    ty(args).count(args, 1)
+    ty(kwargs).keys(kwargs)
 "#,
 );

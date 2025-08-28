@@ -880,22 +880,15 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Type::Kwargs(_), _) => {
                 // We know kwargs will always be a dict w/ str keys
-                let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
-                    &stdlib
-                        .dict(
-                            stdlib.str().clone().to_type(),
-                            stdlib.object().clone().to_type(),
-                        )
-                        .to_type(),
+                    &self.type_order.stdlib().param_spec_kwargs_value().to_type(),
                     want,
                 )
             }
             (Type::Args(_), _) => {
                 // We know args will always be a tuple
-                let stdlib = self.type_order.stdlib();
                 self.is_subset_eq(
-                    &stdlib.tuple(stdlib.object().clone().to_type()).to_type(),
+                    &self.type_order.stdlib().param_spec_args_value().to_type(),
                     want,
                 )
             }

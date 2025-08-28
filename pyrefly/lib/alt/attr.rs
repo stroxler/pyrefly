@@ -1078,14 +1078,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase1::TypeQuantified(quantified, class) => {
                 match (quantified.kind(), attr_name.as_str()) {
-                    (QuantifiedKind::ParamSpec, "args") => acc.found_type(
-                        Type::type_form(Type::Args(Box::new(quantified.clone()))),
-                        base,
-                    ),
-                    (QuantifiedKind::ParamSpec, "kwargs") => acc.found_type(
-                        Type::type_form(Type::Kwargs(Box::new(quantified.clone()))),
-                        base,
-                    ),
+                    (QuantifiedKind::ParamSpec, "args") => {
+                        acc.found_type(Type::Args(Box::new(quantified.clone())), base)
+                    }
+                    (QuantifiedKind::ParamSpec, "kwargs") => {
+                        acc.found_type(Type::Kwargs(Box::new(quantified.clone())), base)
+                    }
                     _ => match self.get_bounded_quantified_class_attribute(
                         quantified.clone(),
                         class,
@@ -1501,6 +1499,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::TypeVarTuple(_) => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.type_var_tuple().clone(),
             )),
+            Type::Args(_) => acc.push(AttributeBase1::ClassInstance(
+                self.stdlib.param_spec_args_value(),
+            )),
+            Type::Kwargs(_) => acc.push(AttributeBase1::ClassInstance(
+                self.stdlib.param_spec_kwargs_value(),
+            )),
             Type::Type(box Type::TypeVar(_)) => acc.push(AttributeBase1::ClassObject(
                 ClassBase::ClassType(self.stdlib.type_var().clone()),
             )),
@@ -1510,11 +1514,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::TypeVarTuple(_)) => acc.push(AttributeBase1::ClassObject(
                 ClassBase::ClassType(self.stdlib.type_var_tuple().clone()),
             )),
-            Type::Args(_) => acc.push(AttributeBase1::ClassInstance(
-                self.stdlib.param_spec_args().clone(),
+            Type::Type(box Type::Args(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.param_spec_args_value()),
             )),
-            Type::Kwargs(_) => acc.push(AttributeBase1::ClassInstance(
-                self.stdlib.param_spec_kwargs().clone(),
+            Type::Type(box Type::Kwargs(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.param_spec_kwargs_value()),
             )),
             Type::None => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.none_type().clone(),

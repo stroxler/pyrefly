@@ -3197,7 +3197,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Var(v) if let Some(_guard) = self.recurser.recurse(v) => {
                 self.untype_opt(self.solver().force_var(v), range)
             }
-            ty @ (Type::TypeVar(_) | Type::ParamSpec(_) | Type::TypeVarTuple(_)) => Some(ty),
+            ty @ (Type::TypeVar(_)
+            | Type::ParamSpec(_)
+            | Type::TypeVarTuple(_)
+            | Type::Args(_)
+            | Type::Kwargs(_)) => Some(ty),
             Type::Type(t) => Some(*t),
             Type::None => Some(Type::None), // Both a value and a type
             Type::Ellipsis => Some(Type::Ellipsis), // A bit weird because of tuples, so just promote it
