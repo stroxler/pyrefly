@@ -63,6 +63,9 @@ fn test_initialize_basic() {
                         "changeNotifications": true
                     }
                 }
+            }, "serverInfo": {
+                "name":"pyrefly-lsp",
+                "version":"pyrefly-lsp-test-version"
             }})),
             error: None,
         }));

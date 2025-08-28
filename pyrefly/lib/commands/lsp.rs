@@ -47,8 +47,12 @@ pub struct LspArgs {
     pub(crate) workspace_indexing_limit: usize,
 }
 
-pub fn run_lsp(connection: Arc<Connection>, args: LspArgs) -> anyhow::Result<()> {
-    let initialization_params = match initialize_connection(&connection, &args) {
+pub fn run_lsp(
+    connection: Arc<Connection>,
+    args: LspArgs,
+    version_string: &str,
+) -> anyhow::Result<()> {
+    let initialization_params = match initialize_connection(&connection, &args, version_string) {
         Ok(it) => it,
         Err(e) => {
             // Use this in later versions of LSP server
@@ -70,6 +74,7 @@ pub fn run_lsp(connection: Arc<Connection>, args: LspArgs) -> anyhow::Result<()>
 fn initialize_connection(
     connection: &Connection,
     args: &LspArgs,
+    version_string: &str,
 ) -> Result<InitializeParams, ProtocolError> {
     let (request_id, initialization_params) = connection.initialize_start()?;
     let initialization_params: InitializeParams =
@@ -78,6 +83,10 @@ fn initialize_connection(
         serde_json::to_value(capabilities(args.indexing_mode, &initialization_params)).unwrap();
     let initialize_data = serde_json::json!({
         "capabilities": server_capabilities,
+        "serverInfo": {
+            "name": "pyrefly-lsp",
+            "version": version_string,
+        }
     });
 
     connection.initialize_finish(request_id, initialize_data)?;
@@ -85,7 +94,7 @@ fn initialize_connection(
 }
 
 impl LspArgs {
-    pub fn run(self) -> anyhow::Result<CommandExitStatus> {
+    pub fn run(self, version_string: &str) -> anyhow::Result<CommandExitStatus> {
         // Note that  we must have our logging only write out to stderr.
         eprintln!("starting generic LSP server");
 
@@ -93,7 +102,7 @@ impl LspArgs {
         // also be implemented to use sockets or HTTP.
         let (connection, io_threads) = Connection::stdio();
 
-        run_lsp(Arc::new(connection), self)?;
+        run_lsp(Arc::new(connection), self, version_string)?;
         io_threads.join()?;
         // We have shut down gracefully.
         eprintln!("shutting down server");

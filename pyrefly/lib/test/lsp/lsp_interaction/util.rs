@@ -92,9 +92,13 @@ pub fn run_test_lsp(test_case: TestCase) {
     thread::scope(|scope| {
         // this thread runs the language server
         scope.spawn(move || {
-            run_lsp(Arc::new(connection), args)
-                .map(|_| ())
-                .map_err(|e| std::io::Error::other(e.to_string()))
+            run_lsp(
+                Arc::new(connection),
+                args,
+                "pyrefly-lsp-deprecated-test-version",
+            )
+            .map(|_| ())
+            .map_err(|e| std::io::Error::other(e.to_string()))
         });
         // this thread sends messages to the language server (from test case)
         scope.spawn(move || {
@@ -327,6 +331,9 @@ fn get_initialize_responses(find_refs: bool) -> Vec<Message> {
             }),
             semantic_tokens_provider: None,
             ..Default::default()
+        }, "serverInfo": {
+            "name":"pyrefly-lsp",
+            "version":"pyrefly-lsp-deprecated-test-version"
         }})),
         error: None,
     })]

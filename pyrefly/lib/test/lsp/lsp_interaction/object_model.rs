@@ -487,7 +487,7 @@ impl LspInteraction {
 
         // Spawn the server thread and store its handle
         let thread_handle = thread::spawn(move || {
-            run_lsp(connection, args)
+            run_lsp(connection, args, "pyrefly-lsp-test-version")
                 .map(|_| ())
                 .map_err(|e| std::io::Error::other(e.to_string()))
         });

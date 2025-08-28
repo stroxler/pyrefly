@@ -19,7 +19,7 @@ path = "bin/main.rs"
 anstream = "0.6.11"
 anyhow = "1.0.98"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] }
-clap = { version = "4.5.42", features = ["derive", "env", "string", "unicode", "wrap_help"] }
+clap = { version = "4.5.42", features = ["cargo", "derive", "env", "string", "unicode", "wrap_help"] }
 crossbeam-channel = "0.5.15"
 dupe = "0.9.1"
 enum-iterator = "2.1"
