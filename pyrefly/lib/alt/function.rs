@@ -183,11 +183,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             );
                         }
                     }
-                    // When an overloaded function doesn't have a implementation, decorators like `@override` and `@final` should be applied
-                    // on the first overload: https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
-                    let mut metadata = first.metadata.clone();
-                    // This does not apply to `@deprecated` - some overloads can be deprecated while others are fine.
-                    metadata.flags.is_deprecated = false;
+                    let metadata = self.merge_overload_metadata_no_implementation(&acc);
                     Type::Overload(Overload {
                         signatures: self
                             .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
@@ -270,7 +266,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     defs.split_off_first().0.1
                 } else {
-                    let metadata = self.merge_metadata(&defs, def.metadata().clone());
+                    let metadata = self
+                        .merge_overload_metadata_with_implementation(&defs, def.metadata().clone());
                     let sigs =
                         self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
                     self.check_consistency(&sigs, &def, errors);
@@ -1014,7 +1011,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    fn merge_metadata(
+    fn merge_overload_metadata_with_implementation(
         &self,
         overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
         mut metadata: FuncMetadata,
@@ -1029,6 +1026,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if dataclass_transform_metadata.is_some() {
             metadata.flags.dataclass_transform_metadata = dataclass_transform_metadata.cloned();
         }
+        metadata
+    }
+
+    fn merge_overload_metadata_no_implementation(
+        &self,
+        overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
+    ) -> FuncMetadata {
+        // When an overloaded function doesn't have a implementation, decorators like `@override` and `@final` should be applied
+        // on the first overload: https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
+        let mut metadata = overloads.first().2.clone();
+        // This does not apply to `@deprecated` - some overloads can be deprecated while others are fine.
+        metadata.flags.is_deprecated = false;
         metadata
     }
 
