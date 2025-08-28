@@ -411,14 +411,7 @@
   "tuples_unpacked.py": [],
   "typeddicts_alt_syntax.py": [],
   "typeddicts_class_syntax.py": [],
-  "typeddicts_extra_items.py": [
-    "Line 181: Expected 1 errors",
-    "Line 184: Expected 1 errors",
-    "Line 68: Unexpected errors ['Cannot extend closed TypedDict `ClosedBase` with extra item `age`']",
-    "Line 74: Unexpected errors ['TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`']",
-    "Line 182: Unexpected errors ['TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`']",
-    "Line 185: Unexpected errors ['`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`']"
-  ],
+  "typeddicts_extra_items.py": [],
   "typeddicts_final.py": [],
   "typeddicts_inheritance.py": [
     "Line 65: Expected 1 errors"

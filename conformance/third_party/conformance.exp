@@ -9973,16 +9973,6 @@
     },
     {
       "code": -2,
-      "column": 5,
-      "concise_description": "Cannot extend closed TypedDict `ClosedBase` with extra item `age`",
-      "description": "Cannot extend closed TypedDict `ClosedBase` with extra item `age`",
-      "line": 68,
-      "name": "typed-dict-key-error",
-      "stop_column": 8,
-      "stop_line": 68
-    },
-    {
-      "code": -2,
       "column": 7,
       "concise_description": "Non-closed TypedDict cannot inherit from TypedDict `ExtraItemsBase` with extra items",
       "description": "Non-closed TypedDict cannot inherit from TypedDict `ExtraItemsBase` with extra items",
@@ -9990,16 +9980,6 @@
       "name": "bad-typed-dict",
       "stop_column": 20,
       "stop_line": 73
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`",
-      "description": "TypedDict `ExtraItemsBase` with non-read-only `extra_items` cannot be extended with required extra item `age`",
-      "line": 74,
-      "name": "typed-dict-key-error",
-      "stop_column": 8,
-      "stop_line": 74
     },
     {
       "code": -2,
@@ -10023,69 +10003,69 @@
     },
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Closed TypedDict cannot inherit from TypedDict `ExtraItemsBase` with non-read-only extra items",
+      "description": "Closed TypedDict cannot inherit from TypedDict `ExtraItemsBase` with non-read-only extra items",
+      "line": 109,
+      "name": "bad-typed-dict",
+      "stop_column": 30,
+      "stop_line": 109
+    },
+    {
+      "code": -2,
       "column": 50,
       "concise_description": "`Required` is not allowed in this context",
       "description": "`Required` is not allowed in this context",
-      "line": 111,
+      "line": 114,
       "name": "invalid-annotation",
       "stop_column": 63,
-      "stop_line": 111
+      "stop_line": 114
     },
     {
       "code": -2,
       "column": 57,
       "concise_description": "`NotRequired` is not allowed in this context",
       "description": "`NotRequired` is not allowed in this context",
-      "line": 114,
+      "line": 117,
       "name": "invalid-annotation",
       "stop_column": 73,
-      "stop_line": 114
+      "stop_line": 117
     },
     {
       "code": -2,
       "column": 15,
       "concise_description": "Key `name` in TypedDict `MovieEI` may not be deleted",
       "description": "Key `name` in TypedDict `MovieEI` may not be deleted",
-      "line": 125,
+      "line": 128,
       "name": "delete-error",
       "stop_column": 21,
-      "stop_line": 125
+      "stop_line": 128
     },
     {
       "code": -2,
       "column": 48,
       "concise_description": "Unexpected keyword argument `year` in function `unpack_no_extra`",
       "description": "Unexpected keyword argument `year` in function `unpack_no_extra`",
-      "line": 140,
+      "line": 143,
       "name": "unexpected-keyword",
       "stop_column": 52,
-      "stop_line": 140
+      "stop_line": 143
     },
     {
       "code": -2,
       "column": 7,
       "concise_description": "Cannot change the non-read-only extra items type of TypedDict `Parent`",
       "description": "Cannot change the non-read-only extra items type of TypedDict `Parent`",
-      "line": 171,
+      "line": 174,
       "name": "bad-typed-dict",
       "stop_column": 12,
-      "stop_line": 171
+      "stop_line": 174
     },
     {
       "code": -2,
       "column": 5,
       "concise_description": "TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`",
       "description": "TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`",
-      "line": 182,
-      "name": "typed-dict-key-error",
-      "stop_column": 9,
-      "stop_line": 182
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
-      "description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
       "line": 185,
       "name": "typed-dict-key-error",
       "stop_column": 9,
@@ -10093,113 +10073,133 @@
     },
     {
       "code": -2,
+      "column": 5,
+      "concise_description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
+      "description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
+      "line": 188,
+      "name": "typed-dict-key-error",
+      "stop_column": 9,
+      "stop_line": 188
+    },
+    {
+      "code": -2,
+      "column": 5,
+      "concise_description": "`str` is not assignable to `extra_items` type `int | None` of TypedDict `BookBase`",
+      "description": "`str` is not assignable to `extra_items` type `int | None` of TypedDict `BookBase`",
+      "line": 197,
+      "name": "typed-dict-key-error",
+      "stop_column": 14,
+      "stop_line": 197
+    },
+    {
+      "code": -2,
       "column": 22,
       "concise_description": "`TypedDict[MovieDetails]` is not assignable to `TypedDict[MovieBase2]`",
       "description": "`TypedDict[MovieDetails]` is not assignable to `TypedDict[MovieBase2]`",
-      "line": 206,
+      "line": 215,
       "name": "bad-assignment",
       "stop_column": 30,
-      "stop_line": 206
+      "stop_line": 215
     },
     {
       "code": -2,
       "column": 22,
       "concise_description": "`TypedDict[MovieWithYear2]` is not assignable to `TypedDict[MovieBase2]`",
       "description": "`TypedDict[MovieWithYear2]` is not assignable to `TypedDict[MovieBase2]`",
-      "line": 213,
+      "line": 222,
       "name": "bad-assignment",
       "stop_column": 30,
-      "stop_line": 213
+      "stop_line": 222
     },
     {
       "code": -2,
       "column": 19,
       "concise_description": "`TypedDict[MovieDetails5]` is not assignable to `TypedDict[MovieSI]`",
       "description": "`TypedDict[MovieDetails5]` is not assignable to `TypedDict[MovieSI]`",
-      "line": 233,
+      "line": 242,
       "name": "bad-assignment",
       "stop_column": 27,
-      "stop_line": 233
+      "stop_line": 242
     },
     {
       "code": -2,
       "column": 13,
       "concise_description": "`TypedDict[MovieExtraStr]` is not assignable to variable `extra_int` with type `TypedDict[MovieExtraInt]`",
       "description": "`TypedDict[MovieExtraStr]` is not assignable to variable `extra_int` with type `TypedDict[MovieExtraInt]`",
-      "line": 247,
+      "line": 256,
       "name": "bad-assignment",
       "stop_column": 22,
-      "stop_line": 247
+      "stop_line": 256
     },
     {
       "code": -2,
       "column": 13,
       "concise_description": "`TypedDict[MovieExtraInt]` is not assignable to variable `extra_str` with type `TypedDict[MovieExtraStr]`",
       "description": "`TypedDict[MovieExtraInt]` is not assignable to variable `extra_str` with type `TypedDict[MovieExtraStr]`",
-      "line": 248,
+      "line": 257,
       "name": "bad-assignment",
       "stop_column": 22,
-      "stop_line": 248
+      "stop_line": 257
     },
     {
       "code": -2,
       "column": 14,
       "concise_description": "`TypedDict[MovieNotClosed]` is not assignable to variable `extra_int2` with type `TypedDict[MovieExtraInt]`",
       "description": "`TypedDict[MovieNotClosed]` is not assignable to variable `extra_int2` with type `TypedDict[MovieExtraInt]`",
-      "line": 259,
+      "line": 268,
       "name": "bad-assignment",
       "stop_column": 24,
-      "stop_line": 259
+      "stop_line": 268
     },
     {
       "code": -2,
       "column": 47,
       "concise_description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
       "description": "Unexpected keyword argument `year` in function `NonClosedMovie.__init__`",
-      "line": 269,
+      "line": 278,
       "name": "unexpected-keyword",
       "stop_column": 51,
-      "stop_line": 269
+      "stop_line": 278
     },
     {
       "code": -2,
       "column": 52,
       "concise_description": "Keyword argument `language` with type `Literal['English']` is not assignable to kwargs type `int` in function `ExtraMovie.__init__`",
       "description": "Keyword argument `language` with type `Literal['English']` is not assignable to kwargs type `int` in function `ExtraMovie.__init__`",
-      "line": 276,
+      "line": 285,
       "name": "bad-argument-type",
       "stop_column": 61,
-      "stop_line": 276
+      "stop_line": 285
     },
     {
       "code": -2,
       "column": 44,
       "concise_description": "Unexpected keyword argument `year` in function `ClosedMovie.__init__`",
       "description": "Unexpected keyword argument `year` in function `ClosedMovie.__init__`",
-      "line": 284,
+      "line": 293,
       "name": "unexpected-keyword",
       "stop_column": 48,
-      "stop_line": 284
+      "stop_line": 293
     },
     {
       "code": -2,
       "column": 34,
       "concise_description": "`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int]`",
       "description": "`TypedDict[MovieExtraInt]` is not assignable to `Mapping[str, int]`",
-      "line": 294,
+      "line": 303,
       "name": "bad-assignment",
       "stop_column": 44,
-      "stop_line": 294
+      "stop_line": 303
     },
     {
       "code": -2,
       "column": 25,
       "concise_description": "`dict[str, int]` is not assignable to `TypedDict[IntDict]`",
       "description": "`dict[str, int]` is not assignable to `TypedDict[IntDict]`",
-      "line": 343,
+      "line": 352,
       "name": "bad-assignment",
       "stop_column": 52,
-      "stop_line": 343
+      "stop_line": 352
     }
   ],
   "typeddicts_final.py": [],
