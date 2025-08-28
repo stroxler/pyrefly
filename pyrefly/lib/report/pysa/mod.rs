@@ -23,6 +23,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
@@ -171,10 +172,16 @@ enum FunctionParameters {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct FunctionSignature {
+    parameters: FunctionParameters,
+    return_annotation: PysaType,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct FunctionDefinition {
     name: String,
     parent: ScopeParent,
-    undecorated_signatures: Vec<FunctionParameters>,
+    undecorated_signatures: Vec<FunctionSignature>,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_overload: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -495,10 +502,7 @@ fn add_expression_definitions(
     );
 }
 
-fn convert_param_to_function_parameter(
-    param: &Param,
-    context: &ModuleContext,
-) -> FunctionParameter {
+fn export_function_parameter(param: &Param, context: &ModuleContext) -> FunctionParameter {
     match param {
         Param::PosOnly(name, ty, required) => FunctionParameter::PosOnly {
             name: name.as_ref().map(|n| n.to_string()),
@@ -526,20 +530,24 @@ fn convert_param_to_function_parameter(
     }
 }
 
-fn convert_params_to_function_parameters(
-    params: &Params,
-    context: &ModuleContext,
-) -> FunctionParameters {
+fn export_function_parameters(params: &Params, context: &ModuleContext) -> FunctionParameters {
     match params {
         Params::List(params) => FunctionParameters::List(
             params
                 .items()
                 .iter()
-                .map(|param| convert_param_to_function_parameter(param, context))
+                .map(|param| export_function_parameter(param, context))
                 .collect(),
         ),
         Params::Ellipsis => FunctionParameters::Ellipsis,
         Params::ParamSpec(_, _) => FunctionParameters::ParamSpec,
+    }
+}
+
+fn export_function_signature(function: &Callable, context: &ModuleContext) -> FunctionSignature {
+    FunctionSignature {
+        parameters: export_function_parameters(&function.params, context),
+        return_annotation: PysaType::from_type(&function.ret, context),
     }
 }
 
@@ -792,6 +800,12 @@ fn get_function_type(function: &DecoratedFunction, context: &ModuleContext) -> T
     context.answers.get_idx(idx).unwrap().arc_clone_ty()
 }
 
+fn get_undecorated_return_type(function: &DecoratedFunction, context: &ModuleContext) -> Type {
+    let return_binding = Key::ReturnType(function.undecorated.identifier.clone());
+    let idx = context.bindings.key_to_idx(&return_binding);
+    context.answers.get_idx(idx).unwrap().arc_clone_ty()
+}
+
 fn should_export_function(function: &DecoratedFunction, context: &ModuleContext) -> bool {
     // We only want to export one function when we have an @overload chain.
     // If the function has no successor (function in the same scope with the same name), then we should export it.
@@ -825,18 +839,22 @@ fn export_all_functions(
                         ..
                     }) => body,
                 })
-                .map(|function| {
-                    convert_params_to_function_parameters(&function.signature.params, context)
-                })
+                .map(|function| export_function_signature(&function.signature, context))
                 .collect::<Vec<_>>(),
-            _ => vec![FunctionParameters::List(
-                function
-                    .undecorated
-                    .params
-                    .iter()
-                    .map(|param| convert_param_to_function_parameter(param, context))
-                    .collect(),
-            )],
+            _ => vec![FunctionSignature {
+                parameters: FunctionParameters::List(
+                    function
+                        .undecorated
+                        .params
+                        .iter()
+                        .map(|param| export_function_parameter(param, context))
+                        .collect(),
+                ),
+                return_annotation: PysaType::from_type(
+                    &get_undecorated_return_type(&function, context),
+                    context,
+                ),
+            }],
         };
 
         let display_range = context.module_info.display_range(function.id_range());
