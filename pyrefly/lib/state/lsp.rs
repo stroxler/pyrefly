@@ -120,6 +120,14 @@ impl Default for InlayHintConfig {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportFormat {
+    #[default]
+    Absolute,
+    Relative,
+}
+
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
@@ -1478,6 +1486,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         range: TextRange,
+        import_format: ImportFormat,
     ) -> Option<Vec<(String, Module, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
@@ -1490,8 +1499,14 @@ impl<'a> Transaction<'a> {
                     if error_range.contains_range(range) {
                         let unknown_name = module_info.code_at(error_range);
                         for handle_to_import_from in self.search_exports_exact(unknown_name) {
-                            let (position, insert_text) =
-                                insert_import_edit(&ast, handle_to_import_from, unknown_name);
+                            let (position, insert_text) = insert_import_edit(
+                                &ast,
+                                self.config_finder(),
+                                handle.dupe(),
+                                handle_to_import_from,
+                                unknown_name,
+                                import_format,
+                            );
                             let range = TextRange::at(position, TextSize::new(0));
                             let title = format!("Insert import: `{}`", insert_text.trim());
                             code_actions.push((title, module_info.dupe(), range, insert_text));
@@ -1791,6 +1806,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         identifier: &Identifier,
         completions: &mut Vec<CompletionItem>,
+        import_format: ImportFormat,
     ) {
         // Auto-import can be slow. Let's only return results if there are no local
         // results for now. TODO: re-enable it once we no longer have perf issues.
@@ -1810,8 +1826,14 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let (insert_text, additional_text_edits) = {
-                    let (position, insert_text) =
-                        insert_import_edit(&ast, handle_to_import_from, &name);
+                    let (position, insert_text) = insert_import_edit(
+                        &ast,
+                        self.config_finder(),
+                        handle.dupe(),
+                        handle_to_import_from,
+                        &name,
+                        import_format,
+                    );
                     let import_text_edit = TextEdit {
                         range: module_info
                             .lined_buffer()
@@ -1892,8 +1914,13 @@ impl<'a> Transaction<'a> {
             });
     }
 
-    pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
-        let mut results = self.completion_unsorted_opt(handle, position);
+    pub fn completion(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+        import_format: ImportFormat,
+    ) -> Vec<CompletionItem> {
+        let mut results = self.completion_unsorted_opt(handle, position, import_format);
         for item in &mut results {
             let sort_text = if item.additional_text_edits.is_some() {
                 "3"
@@ -1918,7 +1945,12 @@ impl<'a> Transaction<'a> {
         results
     }
 
-    fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
+    fn completion_unsorted_opt(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+        import_format: ImportFormat,
+    ) -> Vec<CompletionItem> {
         let mut result = Vec::new();
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
@@ -2001,7 +2033,12 @@ impl<'a> Transaction<'a> {
                     position,
                     &mut result,
                 ) {
-                    self.add_autoimport_completions(handle, &identifier, &mut result);
+                    self.add_autoimport_completions(
+                        handle,
+                        &identifier,
+                        &mut result,
+                        import_format,
+                    );
                 }
                 self.add_builtins_autoimport_completions(handle, Some(&identifier), &mut result);
             }

@@ -370,6 +370,10 @@ impl<'a> Transaction<'a> {
         Errors::new(res)
     }
 
+    pub fn config_finder(&self) -> &ConfigFinder {
+        &self.data.state.config_finder
+    }
+
     pub fn search_exports_exact(&self, name: &str) -> Vec<Handle> {
         self.search_exports_helper(|handle, exports| {
             if let Some(export) = exports.get(&Name::new(name)) {

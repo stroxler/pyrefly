@@ -11,6 +11,7 @@ use pretty_assertions::assert_eq;
 use pyrefly_build::handle::Handle;
 use ruff_text_size::TextSize;
 
+use crate::state::lsp::ImportFormat;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
@@ -21,10 +22,13 @@ struct ResultsFilter {
 }
 
 fn get_default_test_report() -> impl Fn(&State, &Handle, TextSize) -> String {
-    get_test_report(ResultsFilter::default())
+    get_test_report(ResultsFilter::default(), ImportFormat::Absolute)
 }
 
-fn get_test_report(filter: ResultsFilter) -> impl Fn(&State, &Handle, TextSize) -> String {
+fn get_test_report(
+    filter: ResultsFilter,
+    import_format: ImportFormat,
+) -> impl Fn(&State, &Handle, TextSize) -> String {
     move |state: &State, handle: &Handle, position: TextSize| {
         let mut report = "Completion Results:".to_owned();
         for CompletionItem {
@@ -34,7 +38,9 @@ fn get_test_report(filter: ResultsFilter) -> impl Fn(&State, &Handle, TextSize) 
             insert_text,
             data,
             ..
-        } in state.transaction().completion(handle, position)
+        } in state
+            .transaction()
+            .completion(handle, position, import_format)
         {
             if (filter.include_keywords || kind != Some(CompletionItemKind::KEYWORD))
                 && (filter.include_builtins || data != Some(serde_json::json!("builtin")))
@@ -238,10 +244,13 @@ FileExist
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report(ResultsFilter {
-            include_builtins: true,
-            ..Default::default()
-        }),
+        get_test_report(
+            ResultsFilter {
+                include_builtins: true,
+                ..Default::default()
+            },
+            ImportFormat::Absolute,
+        ),
     );
     assert_eq!(
         r#"
@@ -791,10 +800,13 @@ isins
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report(ResultsFilter {
-            include_builtins: true,
-            ..Default::default()
-        }),
+        get_test_report(
+            ResultsFilter {
+                include_builtins: true,
+                ..Default::default()
+            },
+            ImportFormat::Absolute,
+        ),
     );
     assert_eq!(
         r#"
@@ -934,10 +946,13 @@ Foo.
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report(ResultsFilter {
-            include_keywords: true,
-            ..Default::default()
-        }),
+        get_test_report(
+            ResultsFilter {
+                include_keywords: true,
+                ..Default::default()
+            },
+            ImportFormat::Absolute,
+        ),
     );
     assert_eq!(
         r#"
@@ -1049,10 +1064,13 @@ import typ
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report(ResultsFilter {
-            include_keywords: true,
-            ..Default::default()
-        }),
+        get_test_report(
+            ResultsFilter {
+                include_keywords: true,
+                ..Default::default()
+            },
+            ImportFormat::Absolute,
+        ),
     );
     assert_eq!(
         r#"
@@ -1070,6 +1088,64 @@ Completion Results:
 }
 
 #[test]
+fn autoimport_relative_on_builtins() {
+    let code = r#"
+T = foooooo
+#       ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code), ("bar", "foooooo = 1")],
+        get_test_report(Default::default(), ImportFormat::Relative),
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | T = foooooo
+            ^
+Completion Results:
+- (Variable) foooooo: from .bar import foooooo
+
+
+
+# bar.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn autoimport_completions_on_builtins() {
+    let code = r#"
+T = Literal
+#       ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report(Default::default(), ImportFormat::Relative),
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | T = Literal
+            ^
+Completion Results:
+- (Variable) AnyOrLiteralStr: from _typeshed import AnyOrLiteralStr
+
+- (Variable) Literal: from typing import Literal
+
+- (Variable) Literal: from typing_extensions import Literal
+
+- (Variable) LiteralString: from typing import LiteralString
+
+- (Variable) StrOrLiteralStr: from _typeshed import StrOrLiteralStr
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn completion_on_empty_line() {
     let code = r#"
 def test():
@@ -1079,10 +1155,13 @@ def test():
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code)],
-        get_test_report(ResultsFilter {
-            include_keywords: true,
-            include_builtins: true,
-        }),
+        get_test_report(
+            ResultsFilter {
+                include_keywords: true,
+                include_builtins: true,
+            },
+            ImportFormat::Absolute,
+        ),
     );
     assert_eq!(
         r#"

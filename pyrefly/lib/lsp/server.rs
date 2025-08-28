@@ -1390,15 +1390,16 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        let handle = match self.make_handle_if_enabled(uri) {
-            None => {
-                return Ok(CompletionResponse::List(CompletionList {
-                    is_incomplete: false,
-                    items: Vec::new(),
-                }));
-            }
-            Some(x) => x,
-        };
+        let (handle, import_format) =
+            match self.make_handle_with_lsp_analysis_config_if_enabled(uri) {
+                None => {
+                    return Ok(CompletionResponse::List(CompletionList {
+                        is_incomplete: false,
+                        items: Vec::new(),
+                    }));
+                }
+                Some((x, config)) => (x, config.and_then(|c| c.import_format).unwrap_or_default()),
+            };
         let items = transaction
             .get_module_info(&handle)
             .map(|info| {
@@ -1406,6 +1407,7 @@ impl Server {
                     &handle,
                     info.lined_buffer()
                         .from_lsp_position(params.text_document_position.position),
+                    import_format,
                 )
             })
             .unwrap_or_default();
@@ -1421,11 +1423,12 @@ impl Server {
         params: CodeActionParams,
     ) -> Option<CodeActionResponse> {
         let uri = &params.text_document.uri;
-        let handle = self.make_handle_if_enabled(uri)?;
+        let (handle, lsp_config) = self.make_handle_with_lsp_analysis_config_if_enabled(uri)?;
+        let import_format = lsp_config.and_then(|c| c.import_format).unwrap_or_default();
         let module_info = transaction.get_module_info(&handle)?;
         let range = module_info.lined_buffer().from_lsp_range(params.range);
         let code_actions = transaction
-            .local_quickfix_code_actions(&handle, range)?
+            .local_quickfix_code_actions(&handle, range, import_format)?
             .into_map(|(title, info, range, insert_text)| {
                 CodeActionOrCommand::CodeAction(CodeAction {
                     title,

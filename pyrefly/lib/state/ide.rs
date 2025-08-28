@@ -6,7 +6,9 @@
  */
 
 use pyrefly_build::handle::Handle;
+use pyrefly_config::finder::ConfigFinder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_util::gas::Gas;
@@ -25,6 +27,7 @@ use crate::binding::bindings::Bindings;
 use crate::binding::narrow::identifier_and_chain_for_expr;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::export::exports::Export;
+use crate::state::lsp::ImportFormat;
 
 const KEY_TO_DEFINITION_INITIAL_GAS: Gas = Gas::new(100);
 
@@ -171,18 +174,75 @@ fn create_intermediate_definition_from(
 
 pub fn insert_import_edit(
     ast: &ModModule,
+    config_finder: &ConfigFinder,
+    handle_to_insert_import: Handle,
     handle_to_import_from: Handle,
     export_name: &str,
+    import_format: ImportFormat,
+) -> (TextSize, String) {
+    let use_absolute_import = match import_format {
+        ImportFormat::Absolute => true,
+        ImportFormat::Relative => {
+            handle_require_absolute_import(config_finder, &handle_to_import_from)
+        }
+    };
+    insert_import_edit_with_forced_import_format(
+        ast,
+        handle_to_insert_import,
+        handle_to_import_from,
+        export_name,
+        use_absolute_import,
+    )
+}
+
+pub fn insert_import_edit_with_forced_import_format(
+    ast: &ModModule,
+    handle_to_insert_import: Handle,
+    handle_to_import_from: Handle,
+    export_name: &str,
+    use_absolute_import: bool,
 ) -> (TextSize, String) {
     let position = if let Some(first_stmt) = ast.body.first() {
         first_stmt.range().start()
     } else {
         ast.range.end()
     };
+    let module_name_to_import = if use_absolute_import {
+        handle_to_import_from.module()
+    } else if let Some(relative_module) = ModuleName::relative_module_name_between(
+        handle_to_insert_import.path().as_path(),
+        handle_to_import_from.path().as_path(),
+    ) {
+        relative_module
+    } else {
+        handle_to_import_from.module()
+    };
     let insert_text = format!(
         "from {} import {}\n",
-        handle_to_import_from.module().as_str(),
+        module_name_to_import.as_str(),
         export_name
     );
     (position, insert_text)
+}
+
+/// Some handles must be imported in absolute style,
+/// even if the user has `importFormat: "relative"` in their settings.
+///
+/// For now, we use the following criteria:
+/// 1. Bundled typeshed
+/// 2. In search path or site packages
+fn handle_require_absolute_import(config_finder: &ConfigFinder, handle: &Handle) -> bool {
+    if matches!(
+        handle.path().details(),
+        ModulePathDetails::BundledTypeshed(_)
+    ) {
+        return true;
+    }
+    let config = config_finder.python_file(handle.module(), handle.path());
+    config
+        .search_path()
+        .any(|search_path| handle.path().as_path().starts_with(search_path))
+        || config
+            .site_package_path()
+            .any(|search_path| handle.path().as_path().starts_with(search_path))
 }

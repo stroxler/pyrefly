@@ -236,7 +236,7 @@ impl Playground {
         let transaction = self.state.transaction();
         self.to_text_size(&transaction, pos)
             .map_or(Vec::new(), |position| {
-                transaction.completion(&self.handle, position)
+                transaction.completion(&self.handle, position, Default::default())
             })
             .into_map(
                 |CompletionItem {

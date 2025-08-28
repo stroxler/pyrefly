@@ -11,6 +11,7 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
 use crate::module::module_info::ModuleInfo;
+use crate::state::lsp::ImportFormat;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
@@ -29,7 +30,11 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
     let mut report = "Code Actions Results:\n".to_owned();
     let transaction = state.transaction();
     for (title, info, range, patch) in transaction
-        .local_quickfix_code_actions(handle, TextRange::new(position, position))
+        .local_quickfix_code_actions(
+            handle,
+            TextRange::new(position, position),
+            ImportFormat::Absolute,
+        )
         .unwrap_or_default()
     {
         let (before, after) = apply_patch(&info, range, patch);

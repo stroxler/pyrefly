@@ -30,6 +30,7 @@ use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
+use crate::state::lsp::ImportFormat;
 use crate::state::lsp::InlayHintConfig;
 
 /// Information about the Python environment p
@@ -150,20 +151,12 @@ pub enum DiagnosticMode {
     OpenFilesOnly,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ImportFormat {
-    Absolute,
-    Relative,
-}
-
 /// https://code.visualstudio.com/docs/python/settings-reference#_pylance-language-server
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LspAnalysisConfig {
     #[expect(unused)]
     pub diagnostic_mode: Option<DiagnosticMode>,
-    #[expect(unused)]
     pub import_format: Option<ImportFormat>,
     pub inlay_hints: Option<InlayHintConfig>,
 }

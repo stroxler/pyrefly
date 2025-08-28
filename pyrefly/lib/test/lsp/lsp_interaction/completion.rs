@@ -12,7 +12,13 @@ use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
+use lsp_types::ConfigurationItem;
+use lsp_types::ConfigurationParams;
 use lsp_types::Url;
+use lsp_types::notification::DidChangeConfiguration;
+use lsp_types::notification::Notification as _;
+use lsp_types::request::Request as _;
+use lsp_types::request::WorkspaceConfiguration;
 use pyrefly_python::keywords::get_keywords;
 
 use crate::commands::lsp::IndexingMode;
@@ -141,6 +147,11 @@ fn test_completion_with_autoimport() {
 
     run_test_lsp(TestCase {
         messages_from_language_client: vec![
+            Message::Response(Response {
+                id: RequestId::from(1),
+                result: Some(serde_json::json!([])),
+                error: None,
+            }),
             Message::from(build_did_open_notification(root_path.join("foo.py"))),
             Message::from(Notification {
                 method: "textDocument/didChange".to_owned(),
@@ -168,34 +179,123 @@ fn test_completion_with_autoimport() {
                     }
                 }),
             }),
+            Message::Notification(Notification {
+                method: DidChangeConfiguration::METHOD.to_owned(),
+                params: serde_json::json!([{"settings": {}}
+                ]),
+            }),
+            Message::Response(Response {
+                id: RequestId::from(2),
+                result: Some(serde_json::json!([
+                    {
+                        "analysis": {
+                            "importFormat": "relative",
+                        }
+                    },
+                ])),
+                error: None,
+            }),
+            Message::from(Request {
+                id: RequestId::from(4),
+                method: "textDocument/completion".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 0,
+                        "character": 43
+                    }
+                }),
+            }),
         ],
-        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
-            2,
-            vec![
-                CompletionItem {
-                    label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                    detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
-                    kind: Some(CompletionItemKind::FUNCTION),
-                    sort_text: Some("3".to_owned()),
-                    additional_text_edits: Some(vec![lsp_types::TextEdit {
-                        range: lsp_types::Range {
-                            start: lsp_types::Position {
-                                line: 0,
-                                character: 0,
-                            },
-                            end: lsp_types::Position {
-                                line: 0,
-                                character: 0,
-                            },
+        expected_messages_from_language_server: vec![
+            Message::Request(Request {
+                id: RequestId::from(1),
+                method: WorkspaceConfiguration::METHOD.to_owned(),
+                params: serde_json::json!(ConfigurationParams {
+                    items: Vec::from([
+                        ConfigurationItem {
+                            scope_uri: Some(Url::from_file_path(root_path.as_path()).unwrap()),
+                            section: Some("python".to_owned()),
                         },
-                        new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
-                    }]),
-                    ..Default::default()
-                },
-            ],
-        )],
+                        ConfigurationItem {
+                            scope_uri: None,
+                            section: Some("python".to_owned()),
+                        }
+                    ]),
+                }),
+            }),
+            make_sorted_completion_result_with_all_keywords(
+                2,
+                vec![
+                    CompletionItem {
+                        label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
+                        detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
+                        kind: Some(CompletionItemKind::FUNCTION),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 0,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 0,
+                                    character: 0,
+                                },
+                            },
+                            new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                ],
+            ),
+            Message::Request(Request {
+                id: RequestId::from(2),
+                method: WorkspaceConfiguration::METHOD.to_owned(),
+                params: serde_json::json!(ConfigurationParams {
+                    items: Vec::from([
+                        ConfigurationItem {
+                            scope_uri: Some(Url::from_file_path(root_path.as_path()).unwrap()),
+                            section: Some("python".to_owned()),
+                        },
+                        ConfigurationItem {
+                            scope_uri: None,
+                            section: Some("python".to_owned()),
+                        }
+                    ]),
+                }),
+            }),
+            make_sorted_completion_result_with_all_keywords(
+                4,
+                vec![
+                    CompletionItem {
+                        label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
+                        detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
+                        kind: Some(CompletionItemKind::FUNCTION),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 0,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 0,
+                                    character: 0,
+                                },
+                            },
+                            new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                ],
+            ),
+        ],
         indexing_mode: IndexingMode::LazyBlocking,
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: true,
         ..Default::default()
     });
 }

@@ -24,7 +24,7 @@ use crate::commands::files::FilesArgs;
 use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::ErrorKind;
 use crate::lsp::module_helpers::handle_from_module_path;
-use crate::state::ide::insert_import_edit;
+use crate::state::ide::insert_import_edit_with_forced_import_format;
 use crate::state::lsp::AnnotationKind;
 use crate::state::lsp::ParameterAnnotation;
 use crate::state::require::Require;
@@ -259,10 +259,12 @@ impl InferArgs {
                                     .search_exports_exact(unknown_name)
                                     .into_iter()
                                     .map(|handle_to_import_from| {
-                                        insert_import_edit(
+                                        insert_import_edit_with_forced_import_format(
                                             &ast,
-                                            handle_to_import_from.clone(),
+                                            handle.dupe(),
+                                            handle_to_import_from.dupe(),
                                             unknown_name,
+                                            true,
                                         )
                                     })
                                     .collect();
