@@ -1765,6 +1765,14 @@ reveal_type(f1) # E: revealed type: (x: Unknown, *args: Unknown, **kwargs: Unkno
 );
 
 testcase!(
+    test_missing_name_in_dunder_all,
+    r#"
+__all__ = ["x", "y"]
+x = 5
+    "#,
+);
+
+testcase!(
     test_ellipsis_default_source,
     r#"
 def f(x: bool = ...):  # E: Default `Ellipsis` is not assignable to parameter `x` with type `bool`
