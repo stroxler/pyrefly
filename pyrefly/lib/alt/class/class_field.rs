@@ -1563,7 +1563,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_class_attribute(&self, field: &ClassField, cls: &ClassBase) -> ClassAttribute {
-        match &field.instantiate_for_class(cls).0 {
+        match field.instantiate_for_class(cls).0 {
             ClassFieldInner::Simple {
                 ty,
                 descriptor_getter,
@@ -1571,10 +1571,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ..
             } if descriptor_getter.is_some() || descriptor_setter.is_some() => {
                 ClassAttribute::descriptor(
-                    ty.clone(),
+                    ty,
                     DescriptorBase::ClassDef(cls.class_object().dupe()),
-                    descriptor_getter.clone(),
-                    descriptor_setter.clone(),
+                    descriptor_getter,
+                    descriptor_setter,
                 )
             }
             ClassFieldInner::Simple {
@@ -1584,16 +1584,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } => ClassAttribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
                 cls.class_object().dupe(),
             )),
-            ClassFieldInner::Simple { ty, .. } => {
+            ClassFieldInner::Simple { mut ty, .. } => {
                 if self.depends_on_class_type_parameter(field, cls.class_object()) {
-                    self.get_function_depending_on_class_type_parameter(cls, ty)
+                    self.get_function_depending_on_class_type_parameter(cls, &ty)
                         .unwrap_or_else(|| {
                             ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
                                 cls.class_object().dupe(),
                             ))
                         })
                 } else {
-                    let mut ty = ty.clone();
                     // TODO(samgoldman): We should always substitute self, but this is behavior preserving. Fix incoming.
                     if let ClassBase::Quantified(q, _) = cls {
                         ty.subst_self_type_mut(&q.clone().to_type(), &|a, b| {
