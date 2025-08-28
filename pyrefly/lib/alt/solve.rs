@@ -1056,7 +1056,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(x) => {
                 fn get_quantified(t: &Type) -> Quantified {
                     match t {
-                        Type::Type(box Type::Quantified(q)) => (**q).clone(),
+                        Type::QuantifiedValue(q) => (**q).clone(),
                         _ => unreachable!(),
                     }
                 }
@@ -2890,10 +2890,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                     ));
                 }
-                Type::type_form(
-                    Quantified::new(*unique, name.clone(), *kind, default_ty, restriction)
-                        .to_type(),
-                )
+                Quantified::new(*unique, name.clone(), *kind, default_ty, restriction).to_value()
             }
             Binding::Module(m, path, prev) => {
                 let prev = prev
@@ -2929,7 +2926,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ),
                             );
                         }
-                        Type::type_form(p.quantified.clone().to_type())
+                        p.quantified.clone().to_value()
                     }
                     LegacyTypeParameterLookup::NotParameter(ty) => ty.clone(),
                 }
@@ -3213,6 +3210,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Unpack(box Type::Var(v)) if let Some(_guard) = self.recurser.recurse(v) => {
                 self.untype_opt(Type::Unpack(Box::new(self.solver().force_var(v))), range)
             }
+            Type::QuantifiedValue(q) => Some(q.to_type()),
+            Type::ArgsValue(q) => Some(Type::Args(q)),
+            Type::KwargsValue(q) => Some(Type::Kwargs(q)),
             _ => None,
         }
     }

@@ -100,6 +100,14 @@ impl QuantifiedKind {
             QuantifiedKind::TypeVarTuple => Type::any_tuple(),
         }
     }
+
+    fn class_type(self, stdlib: &Stdlib) -> &ClassType {
+        match self {
+            QuantifiedKind::TypeVar => stdlib.type_var(),
+            QuantifiedKind::ParamSpec => stdlib.param_spec(),
+            QuantifiedKind::TypeVarTuple => stdlib.type_var_tuple(),
+        }
+    }
 }
 
 impl Display for Quantified {
@@ -164,12 +172,12 @@ impl Quantified {
         Type::Quantified(Box::new(self))
     }
 
-    pub fn as_value<'a>(&self, stdlib: &'a Stdlib) -> &'a ClassType {
-        match self.kind {
-            QuantifiedKind::TypeVar => stdlib.type_var(),
-            QuantifiedKind::ParamSpec => stdlib.param_spec(),
-            QuantifiedKind::TypeVarTuple => stdlib.type_var_tuple(),
-        }
+    pub fn to_value(self) -> Type {
+        Type::QuantifiedValue(Box::new(self))
+    }
+
+    pub fn class_type<'a>(&self, stdlib: &'a Stdlib) -> &'a ClassType {
+        self.kind.class_type(stdlib)
     }
 
     pub fn name(&self) -> &Name {

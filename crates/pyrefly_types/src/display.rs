@@ -399,11 +399,18 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Module(m) => write!(f, "Module[{m}]"),
             Type::Var(var) => write!(f, "{var}"),
             Type::Quantified(var) => write!(f, "{var}"),
+            Type::QuantifiedValue(var) => write!(f, "{var}"),
             Type::Args(q) => {
                 write!(f, "Args[{q}]")
             }
             Type::Kwargs(q) => {
                 write!(f, "Kwargs[{q}]")
+            }
+            Type::ArgsValue(q) => {
+                write!(f, "ArgsValue[{q}]")
+            }
+            Type::KwargsValue(q) => {
+                write!(f, "KwargsValue[{q}]")
             }
             Type::SpecialForm(x) => write!(f, "{x}"),
             Type::Ellipsis => write!(f, "Ellipsis"),

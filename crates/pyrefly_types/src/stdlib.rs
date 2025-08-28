@@ -414,11 +414,11 @@ impl Stdlib {
         Self::primitive(&self.param_spec_kwargs)
     }
 
-    pub fn param_spec_args_value(&self) -> ClassType {
+    pub fn param_spec_args_as_tuple(&self) -> ClassType {
         self.tuple(self.object().clone().to_type())
     }
 
-    pub fn param_spec_kwargs_value(&self) -> ClassType {
+    pub fn param_spec_kwargs_as_dict(&self) -> ClassType {
         self.dict(
             self.str().clone().to_type(),
             self.object().clone().to_type(),

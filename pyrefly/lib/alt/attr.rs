@@ -390,18 +390,17 @@ enum AttributeBase1 {
     ClassInstance(ClassType),
     ClassObject(ClassBase),
     Module(ModuleType),
+    /// Attribute access on a type parameter in a value position.
+    /// This is almost always `P.args` or `P.kwargs`.
+    QuantifiedValue(Quantified),
     /// Attribute access on a quantified value, i.e. a value with type `T` for
     /// some in-scope type variable `T`. The optional `ClassType` is an upper
     /// bound, which may be the original bound on `T` or a decomposition of
     /// it (e.g. if the original bound is a union).
     Quantified(Quantified, Option<ClassType>),
-    /// Attribute access on a `Type::Type(Type::Quantified(...))`, which comes up in two cases:
-    /// - attribute access on an actual type variable, which mainly comes up in
-    ///   the case of ParamSpec, where `P.args` and `P.kwargs` are both valid
-    ///   annotations.
-    /// - attribute access on a value explicitly typed as `type[T]` where `T` is
-    ///   a type variable, in which case we'll resolve it as class object attribute
-    ///   access against the bounds of `T`.
+    /// Attribute access on a value explicitly typed as `type[T]` where `T` is
+    /// an in-scope type variable. We will resolve it as class object attribute
+    /// access against the bounds of `T`.
     TypeQuantified(Quantified, ClassType),
     Any(AnyStyle),
     Never,
@@ -1076,23 +1075,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             }
-            AttributeBase1::TypeQuantified(quantified, class) => {
+            AttributeBase1::QuantifiedValue(quantified) => {
                 match (quantified.kind(), attr_name.as_str()) {
                     (QuantifiedKind::ParamSpec, "args") => {
-                        acc.found_type(Type::Args(Box::new(quantified.clone())), base)
+                        acc.found_type(Type::ArgsValue(Box::new(quantified.clone())), base)
                     }
                     (QuantifiedKind::ParamSpec, "kwargs") => {
-                        acc.found_type(Type::Kwargs(Box::new(quantified.clone())), base)
+                        acc.found_type(Type::KwargsValue(Box::new(quantified.clone())), base)
                     }
-                    _ => match self.get_bounded_quantified_class_attribute(
-                        quantified.clone(),
-                        class,
+                    _ => self.lookup_attr_from_attribute_base1(
+                        AttributeBase1::ClassInstance(quantified.class_type(self.stdlib).clone()),
                         attr_name,
-                    ) {
-                        Some(attr) => acc.found_class_attribute(attr, base),
-                        None => acc
-                            .not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base)),
-                    },
+                        acc,
+                    ),
+                }
+            }
+            AttributeBase1::TypeQuantified(quantified, class) => {
+                if let Some(attr) = self.get_bounded_quantified_class_attribute(
+                    quantified.clone(),
+                    class,
+                    attr_name,
+                ) {
+                    acc.found_class_attribute(attr, base);
+                } else {
+                    acc.not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base));
                 }
             }
             AttributeBase1::ClassObject(class) => {
@@ -1144,7 +1150,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         )),
                     }
                 } else {
-                    let class = q.as_value(self.stdlib);
+                    let class = q.class_type(self.stdlib);
                     match self.get_instance_attribute(class, attr_name) {
                         Some(attr) => acc.found_class_attribute(attr, base),
                         None => acc.not_found(NotFoundOn::ClassInstance(
@@ -1421,6 +1427,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(class)) => acc.push(AttributeBase1::ClassObject(
                 ClassBase::ClassType(class.clone()),
             )),
+            Type::QuantifiedValue(q) => acc.push(AttributeBase1::QuantifiedValue(*q)),
             Type::Type(box Type::Quantified(quantified)) => match quantified.restriction() {
                 Restriction::Bound(ty) => {
                     let mut use_fallback = false;
@@ -1500,10 +1507,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.stdlib.type_var_tuple().clone(),
             )),
             Type::Args(_) => acc.push(AttributeBase1::ClassInstance(
-                self.stdlib.param_spec_args_value(),
+                self.stdlib.param_spec_args_as_tuple(),
             )),
             Type::Kwargs(_) => acc.push(AttributeBase1::ClassInstance(
-                self.stdlib.param_spec_kwargs_value(),
+                self.stdlib.param_spec_kwargs_as_dict(),
+            )),
+            Type::ArgsValue(_) => acc.push(AttributeBase1::ClassInstance(
+                self.stdlib.param_spec_args().clone(),
+            )),
+            Type::KwargsValue(_) => acc.push(AttributeBase1::ClassInstance(
+                self.stdlib.param_spec_kwargs().clone(),
             )),
             Type::Type(box Type::TypeVar(_)) => acc.push(AttributeBase1::ClassObject(
                 ClassBase::ClassType(self.stdlib.type_var().clone()),
@@ -1514,11 +1527,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::TypeVarTuple(_)) => acc.push(AttributeBase1::ClassObject(
                 ClassBase::ClassType(self.stdlib.type_var_tuple().clone()),
             )),
+            Type::Type(box Type::QuantifiedValue(q)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(q.class_type(self.stdlib).clone()),
+            )),
             Type::Type(box Type::Args(_)) => acc.push(AttributeBase1::ClassObject(
-                ClassBase::ClassType(self.stdlib.param_spec_args_value()),
+                ClassBase::ClassType(self.stdlib.param_spec_args_as_tuple()),
             )),
             Type::Type(box Type::Kwargs(_)) => acc.push(AttributeBase1::ClassObject(
-                ClassBase::ClassType(self.stdlib.param_spec_kwargs_value()),
+                ClassBase::ClassType(self.stdlib.param_spec_kwargs_as_dict()),
+            )),
+            Type::Type(box Type::ArgsValue(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.param_spec_args().clone()),
+            )),
+            Type::Type(box Type::KwargsValue(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.param_spec_kwargs().clone()),
             )),
             Type::None => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.none_type().clone(),
@@ -1848,6 +1870,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     };
                     self.completions_super(cls, start_lookup_cls, expected_attribute_name, res)
                 }
+                AttributeBase1::QuantifiedValue(q) => self.completions_class_type(
+                    q.class_type(self.stdlib),
+                    expected_attribute_name,
+                    res,
+                ),
                 AttributeBase1::ClassObject(class) => {
                     self.completions_class(class.class_object(), expected_attribute_name, res)
                 }
@@ -1855,7 +1882,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.completions_class(class.class_object(), expected_attribute_name, res)
                 }
                 AttributeBase1::Quantified(q, _) => self.completions_class_type(
-                    q.as_value(self.stdlib),
+                    q.class_type(self.stdlib),
                     expected_attribute_name,
                     res,
                 ),

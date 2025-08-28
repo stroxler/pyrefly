@@ -647,7 +647,12 @@ pub enum Type {
     Module(ModuleType),
     Forall(Box<Forall<Forallable>>),
     Var(Var),
+    /// The type of a value which is annotated with a type var.
     Quantified(Box<Quantified>),
+    /// The type of type var _value_ itself, after it has been bound to a function or a class.
+    /// This is equivalent to Type::TypeVar/ParamSpec/TypeVarTuple as a value, but when used
+    /// in a type annotation, it becomes Type::Quantified.
+    QuantifiedValue(Box<Quantified>),
     TypeGuard(Box<Type>),
     TypeIs(Box<Type>),
     Unpack(Box<Type>),
@@ -657,10 +662,18 @@ pub enum Type {
     SpecialForm(SpecialForm),
     Concatenate(Box<[Type]>, Box<Type>),
     ParamSpecValue(ParamList),
-    /// Used to represent `P.args`. The spec describes it as an annotation,
-    /// but it's easier to think of it as a type that can't occur in nested positions.
+    /// The type of a value which is annotated with `P.args`.
     Args(Box<Quantified>),
+    /// The type of a value which is annotated with `P.kwargs`.
     Kwargs(Box<Quantified>),
+    /// The type of the _value_ `P.args`.
+    /// This is equivalent to `typing.ParamSpecArgs`, but when used in a type annotation it
+    /// becomes Type::Args.
+    ArgsValue(Box<Quantified>),
+    /// The type of the _value_ `P.kwargs`.
+    /// This is equivalent to `typing.ParamSpecKwargs`, but when used in a type annotation it
+    /// becomes Type::Kwargs.
+    KwargsValue(Box<Quantified>),
     /// Used to represent a type that has a value representation, e.g. a class
     Type(Box<Type>),
     Ellipsis,
@@ -708,6 +721,7 @@ impl Visit for Type {
             Type::Forall(x) => x.visit(f),
             Type::Var(x) => x.visit(f),
             Type::Quantified(x) => x.visit(f),
+            Type::QuantifiedValue(x) => x.visit(f),
             Type::TypeGuard(x) => x.visit(f),
             Type::TypeIs(x) => x.visit(f),
             Type::Unpack(x) => x.visit(f),
@@ -719,6 +733,8 @@ impl Visit for Type {
             Type::ParamSpecValue(x) => x.visit(f),
             Type::Args(x) => x.visit(f),
             Type::Kwargs(x) => x.visit(f),
+            Type::ArgsValue(x) => x.visit(f),
+            Type::KwargsValue(x) => x.visit(f),
             Type::Type(x) => x.visit(f),
             Type::Ellipsis => {}
             Type::Any(x) => x.visit(f),
@@ -752,6 +768,7 @@ impl VisitMut for Type {
             Type::Forall(x) => x.visit_mut(f),
             Type::Var(x) => x.visit_mut(f),
             Type::Quantified(x) => x.visit_mut(f),
+            Type::QuantifiedValue(x) => x.visit_mut(f),
             Type::TypeGuard(x) => x.visit_mut(f),
             Type::TypeIs(x) => x.visit_mut(f),
             Type::Unpack(x) => x.visit_mut(f),
@@ -763,6 +780,8 @@ impl VisitMut for Type {
             Type::ParamSpecValue(x) => x.visit_mut(f),
             Type::Args(x) => x.visit_mut(f),
             Type::Kwargs(x) => x.visit_mut(f),
+            Type::ArgsValue(x) => x.visit_mut(f),
+            Type::KwargsValue(x) => x.visit_mut(f),
             Type::Type(x) => x.visit_mut(f),
             Type::Ellipsis => {}
             Type::Any(x) => x.visit_mut(f),

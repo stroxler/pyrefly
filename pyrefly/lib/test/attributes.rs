@@ -592,7 +592,7 @@ testcase!(
     test_class_generic_attribute_lookup,
     r#"
 class C[T]:
-    x = T
+    x: list[T] = []
 
 C.x  # E: Generic attribute `x` of class `C` is not visible on the class
 "#,
@@ -1069,10 +1069,12 @@ testcase!(
     r#"
 from typing import assert_type, Any
 class Foo:
-    x: int = 1
-def f[T: Foo](y: T) -> T:
-    assert_type(y.x, int)
-    assert_type(T.x, int)
+    def m(self) -> int:
+        return 0
+def f[T: Foo](y: T, z: type[T]) -> T:
+    assert_type(y.m(), int)
+    assert_type(z.m(y), int)
+    assert_type(T.m(y), Any) # E: Object of class `TypeVar` has no attribute `m`
     return y
     "#,
 );
@@ -1555,7 +1557,7 @@ def foo[T](x: type[T]):
 testcase!(
     test_typevar_value_lookups,
     r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
+from typing import Callable, TypeVar, ParamSpec, TypeVarTuple
 
 def ty[T](x: T) -> type[T]: ...
 
@@ -1575,11 +1577,23 @@ ty(P.args).__origin__
 ty(P.args).__origin__
 ty(Ts).__name__
 
-def f(*args: P.args, **kwargs: P.kwargs):
+def f(g: Callable[P, T], ts: tuple[*Ts], *args: P.args, **kwargs: P.kwargs):
     args.count(1)
     kwargs.keys()
 
     ty(args).count(args, 1)
     ty(kwargs).keys(kwargs)
+
+    T.__name__
+    P.__name__
+    P.args.__origin__
+    P.kwargs.__origin__
+    Ts.__name__
+
+    ty(T).__name__
+    ty(P).__name__
+    ty(P.args).__origin__
+    ty(P.args).__origin__
+    ty(Ts).__name__
 "#,
 );
