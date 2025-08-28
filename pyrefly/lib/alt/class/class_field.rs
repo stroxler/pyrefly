@@ -14,6 +14,7 @@ use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
+use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
 use pyrefly_types::type_var::Restriction;
@@ -735,6 +736,11 @@ fn make_bound_method_helper(
     attr: Type,
     should_bind: &dyn Fn(&FuncMetadata) -> bool,
 ) -> Result<Type, Type> {
+    // Don't bind functions originating from callback protocols, because the self param
+    // has already been removed.
+    let should_bind = |metadata: &FuncMetadata| {
+        !matches!(metadata.kind, FunctionKind::CallbackProtocol(_)) && should_bind(metadata)
+    };
     let func = match attr {
         Type::Forall(box Forall {
             tparams,

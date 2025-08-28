@@ -326,12 +326,12 @@ assert_type(C().f(0), int)
 testcase!(
     test_property_decorated_to_callback_protocol,
     r#"
-from typing import assert_type, Protocol, Callable
+from typing import assert_type, Protocol, Callable, Concatenate, Any
 
 class P[**TParams, TReturn](Protocol):
     def __call__(self, *args: TParams.args, **kwargs: TParams.kwargs) -> TReturn: ...
 
-def f[**TParams, TReturn](func: Callable[TParams, TReturn]) -> P[TParams, TReturn]:
+def f[**TParams, TReturn](func: Callable[Concatenate[Any, TParams], TReturn]) -> P[TParams, TReturn]:
     ...
 
 class Foo:
@@ -348,12 +348,12 @@ def test(x: Foo) -> None:
 testcase!(
     test_method_decorated_to_callback_protocol,
     r#"
-from typing import assert_type, Protocol, Callable
+from typing import assert_type, Protocol, Callable, Concatenate, Any
 
 class P[**TParams, TReturn](Protocol):
     def __call__(self, *args: TParams.args, **kwargs: TParams.kwargs) -> TReturn: ...
 
-def f[**TParams, TReturn](func: Callable[TParams, TReturn]) -> P[TParams, TReturn]:
+def f[**TParams, TReturn](func: Callable[Concatenate[Any, TParams], TReturn]) -> P[TParams, TReturn]:
     ...
 
 class Foo:
