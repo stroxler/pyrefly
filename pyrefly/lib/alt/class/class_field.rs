@@ -1562,7 +1562,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn as_class_attribute(&self, field: ClassField, cls: &ClassBase) -> ClassAttribute {
+    fn as_class_attribute(&self, field: &ClassField, cls: &ClassBase) -> ClassAttribute {
         match &field.instantiate_for_class(cls).0 {
             ClassFieldInner::Simple {
                 ty,
@@ -1585,7 +1585,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 cls.class_object().dupe(),
             )),
             ClassFieldInner::Simple { ty, .. } => {
-                if self.depends_on_class_type_parameter(&field, cls.class_object()) {
+                if self.depends_on_class_type_parameter(field, cls.class_object()) {
                     self.get_function_depending_on_class_type_parameter(cls, ty)
                         .unwrap_or_else(|| {
                             ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
@@ -2042,10 +2042,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             SuperObj::Class(obj) => self
                 .get_super_class_member(obj.class_object(), start_lookup_cls, name)
                 .map(|member| {
-                    self.as_class_attribute(
-                        Arc::unwrap_or_clone(member.value),
-                        &ClassBase::ClassType(obj.clone()),
-                    )
+                    self.as_class_attribute(&member.value, &ClassBase::ClassType(obj.clone()))
                 }),
         }
     }
@@ -2059,7 +2056,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// type contains a class-scoped type parameter - e.g., `class A[T]: x: T`.
     pub fn get_class_attribute(&self, cls: &ClassBase, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| self.as_class_attribute(Arc::unwrap_or_clone(member.value), cls))
+            .map(|member| self.as_class_attribute(&member.value, cls))
     }
 
     pub fn get_bounded_quantified_class_attribute(
@@ -2071,7 +2068,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_class_member(class.class_object(), name)
             .map(|member| {
                 self.as_class_attribute(
-                    Arc::unwrap_or_clone(member.value),
+                    &member.value,
                     &ClassBase::Quantified(quantified, class.clone()),
                 )
             })
