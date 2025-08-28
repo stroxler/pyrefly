@@ -715,6 +715,19 @@ impl<'a> Instance<'a> {
             _ => ClassBase::ClassType(ClassType::new(self.class.dupe(), self.targs.clone())),
         }
     }
+
+    fn to_descriptor_base(&self) -> Option<DescriptorBase> {
+        match self.kind {
+            // There's no situation in which you can stick a usable descriptor in a TypedDict.
+            // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
+            InstanceKind::TypedDict => None,
+            // TODO(samgoldman) This almost definitely needs to be supported. Needs a test.
+            InstanceKind::TypeVar(..) => None,
+            InstanceKind::ClassType | InstanceKind::SelfType => Some(DescriptorBase::Instance(
+                ClassType::new(self.class.dupe(), self.targs.clone()),
+            )),
+        }
+    }
 }
 
 fn bind_class_attribute(
@@ -1513,20 +1526,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 descriptor_setter,
                 ..
             } if (descriptor_getter.is_some() || descriptor_setter.is_some())
-                // There's no situation in which you can stick a usable descriptor in a TypedDict.
-                // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
-                && (instance.kind == InstanceKind::ClassType
-                || instance.kind == InstanceKind::SelfType) =>
+                && let Some(base) = instance.to_descriptor_base() =>
             {
-                ClassAttribute::descriptor(
-                    ty,
-                    DescriptorBase::Instance(ClassType::new(
-                        instance.class.dupe(),
-                        instance.targs.clone(),
-                    )),
-                    descriptor_getter,
-                    descriptor_setter,
-                )
+                ClassAttribute::descriptor(ty, base, descriptor_getter, descriptor_setter)
             }
             ClassFieldInner::Simple {
                 mut ty,
