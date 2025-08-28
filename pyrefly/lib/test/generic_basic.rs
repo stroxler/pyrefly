@@ -982,3 +982,36 @@ class A[T]:  # E: Cannot use type parameter lists on Python 3.8 (syntax was adde
     x: T
     "#,
 );
+
+testcase!(
+    test_typevar_values,
+    r#"
+from typing import TypeVar, ParamSpec, TypeVarTuple, Callable, assert_type
+
+T = TypeVar("T")
+P = ParamSpec("P")
+Ts = TypeVarTuple("Ts")
+
+assert_type(T, TypeVar)
+assert_type(P, ParamSpec)
+assert_type(Ts, TypeVarTuple)
+
+def f(x: T, xs: tuple[*Ts], f: Callable[P, None]):
+    assert_type(T, TypeVar)
+    assert_type(P, ParamSpec)
+    assert_type(Ts, TypeVarTuple)
+
+    assert_type(x, T)
+    assert_type(xs, tuple[*Ts])
+    assert_type(f, Callable[P, None])
+
+def g[U, *Us, **Q](x: U, xs: tuple[*Us], f: Callable[Q, None]):
+    assert_type(U, TypeVar)
+    assert_type(Q, ParamSpec)
+    assert_type(Us, TypeVarTuple)
+
+    assert_type(x, U)
+    assert_type(xs, tuple[*Us])
+    assert_type(f, Callable[Q, None])
+    "#,
+);

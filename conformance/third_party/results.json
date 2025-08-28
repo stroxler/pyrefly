@@ -3,7 +3,7 @@
   "pass": 82,
   "fail": 56,
   "pass_rate": 0.59,
-  "differences": 246,
+  "differences": 245,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -118,7 +118,7 @@
     "generics_self_basic.py": 2,
     "generics_self_protocols.py": 1,
     "generics_self_usage.py": 10,
-    "generics_syntax_scoping.py": 6,
+    "generics_syntax_scoping.py": 5,
     "generics_typevartuple_basic.py": 1,
     "generics_typevartuple_concat.py": 1,
     "generics_typevartuple_specialization.py": 4,

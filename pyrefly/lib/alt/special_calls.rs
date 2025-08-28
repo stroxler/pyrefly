@@ -55,6 +55,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let b = self.expr_untype(expr_b, TypeFormContext::FunctionArgument, errors);
             let mut a = self
                 .canonicalize_all_class_types(self.solver().deep_force(a), expr_a.range())
+                .promote_typevar_values(self.stdlib)
                 .explicit_any()
                 .noreturn_to_never()
                 .anon_callables();

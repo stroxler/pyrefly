@@ -1286,6 +1286,16 @@ impl Type {
         })
     }
 
+    pub fn promote_typevar_values(self, stdlib: &Stdlib) -> Self {
+        self.transform(&mut |ty| match &ty {
+            Type::TypeVar(_) => *ty = stdlib.type_var().clone().to_type(),
+            Type::ParamSpec(_) => *ty = stdlib.param_spec().clone().to_type(),
+            Type::TypeVarTuple(_) => *ty = stdlib.type_var_tuple().clone().to_type(),
+            Type::QuantifiedValue(q) => *ty = q.class_type(stdlib).clone().to_type(),
+            _ => {}
+        })
+    }
+
     pub fn sort_unions(self) -> Self {
         self.transform(&mut |ty| {
             if let Type::Union(ts) = ty {
