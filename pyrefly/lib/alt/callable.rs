@@ -954,18 +954,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         if let Some(targs) = ctor_targs.as_mut() {
             self.solver().freshen_class_targs(targs, self.uniques);
-            let substitution = targs.substitution();
-            let mp = substitution.as_map();
-            callable.params.visit_mut(&mut |t| t.subst_mut(mp));
+            let mp = targs.substitution_map();
+            callable.params.visit_mut(&mut |t| t.subst_mut(&mp));
             if let Some(obj) = self_obj.as_mut() {
-                obj.subst_mut(mp);
+                obj.subst_mut(&mp);
             } else if let Some(id) = callable_name.as_ref()
                 && id.func == dunder::NEW
                 && let Some((first, rest)) = args.split_first()
                 && let CallArg::Arg(TypeOrExpr::Type(obj, _)) = first
             {
                 // hack: we inserted a class type into the args list, but we need to substitute it
-                self_obj = Some((*obj).clone().subst(mp));
+                self_obj = Some((*obj).clone().subst(&mp));
                 args = rest;
             }
         }

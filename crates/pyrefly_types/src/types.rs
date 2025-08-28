@@ -244,10 +244,14 @@ impl TArgs {
         Self::new(self.0.0.dupe(), tys)
     }
 
-    pub fn substitution<'a>(&'a self) -> Substitution<'a> {
+    pub fn substitution_map(&self) -> SmallMap<&Quantified, &Type> {
         let tparams = self.tparams();
         let tys = self.as_slice();
-        Substitution(tparams.quantifieds().zip(tys.iter()).collect())
+        tparams.quantifieds().zip(tys.iter()).collect()
+    }
+
+    pub fn substitution<'a>(&'a self) -> Substitution<'a> {
+        Substitution(self.substitution_map())
     }
 
     pub fn substitute_into(&self, ty: Type) -> Type {
@@ -260,10 +264,6 @@ pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 impl<'a> Substitution<'a> {
     pub fn substitute_into(&self, ty: Type) -> Type {
         ty.subst(&self.0)
-    }
-
-    pub fn as_map(&self) -> &SmallMap<&Quantified, &Type> {
-        &self.0
     }
 }
 
