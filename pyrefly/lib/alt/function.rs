@@ -1033,11 +1033,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
     ) -> FuncMetadata {
+        let (first, remaining) = overloads.split_first().unwrap();
         // When an overloaded function doesn't have a implementation, decorators like `@override` and `@final` should be applied
         // on the first overload: https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
-        let mut metadata = overloads.first().2.clone();
+        let mut metadata = first.2.clone();
         // This does not apply to `@deprecated` - some overloads can be deprecated while others are fine.
         metadata.flags.is_deprecated = false;
+        // `dataclass_transform()` can be on any of the overloads.
+        if metadata.flags.dataclass_transform_metadata.is_none() {
+            metadata.flags.dataclass_transform_metadata = remaining
+                .iter()
+                .find_map(|(_, _, metadata)| metadata.flags.dataclass_transform_metadata.clone());
+        }
         metadata
     }
 

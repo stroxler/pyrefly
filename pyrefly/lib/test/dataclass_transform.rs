@@ -385,7 +385,6 @@ def create[T](cls: type[T]) -> type[T]: ...
 }
 
 testcase!(
-    bug = "There should be no errors",
     test_overloaded_transform,
     overloaded_transform_env(),
     r#"
@@ -393,6 +392,6 @@ import foo
 @foo.create
 class C:
     x: int
-C(x=0)  # E: Unexpected keyword argument
+C(x=0)
     "#,
 );
