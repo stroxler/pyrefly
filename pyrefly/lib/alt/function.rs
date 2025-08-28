@@ -96,20 +96,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let successor = self.get_function_successor(&def);
             if successor.is_none() {
                 // This is the last definition in the chain. We should produce an overload type.
-                let last_range = def.id_range();
                 let is_impl = def.is_impl();
-                let mut acc = Vec1::new((last_range, (*def.ty).clone(), def.metadata().clone()));
-                let mut first = def.undecorated;
+                let mut acc =
+                    Vec1::new((def.id_range(), (*def.ty).clone(), def.metadata().clone()));
                 let mut impl_before_overload_range = None;
                 while let Some(def) = self.step_pred(predecessor) {
                     if def.is_overload() {
                         acc.push((def.id_range(), (*def.ty).clone(), def.metadata().clone()));
-                        first = def.undecorated;
                     } else {
                         impl_before_overload_range = Some(def.id_range());
                         break;
                     }
                 }
+                let first_range = acc.last().0;
+                let last_range = acc.first().0;
                 if !skip_implementation {
                     if let Some(range) = impl_before_overload_range {
                         self.error(
@@ -130,7 +130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         self.error(
                             errors,
-                            (*first).id_range(),
+                            first_range,
                             ErrorInfo::Kind(ErrorKind::InvalidOverload),
                             "Overloaded function must have an implementation".to_owned(),
                         );
@@ -139,7 +139,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if acc.len() == 1 {
                     self.error(
                         errors,
-                        (*first).id_range(),
+                        first_range,
                         ErrorInfo::Kind(ErrorKind::InvalidOverload),
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
@@ -187,7 +187,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let metadata = self.merge_overload_metadata_no_implementation(&acc);
                     Type::Overload(Overload {
                         signatures: self
-                            .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
+                            .extract_signatures(acc.first().2.kind.as_func_id().func, acc, errors)
                             .mapped(|(_, sig)| sig),
                         metadata: Box::new(metadata.clone()),
                     })
