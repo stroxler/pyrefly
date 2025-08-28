@@ -84,7 +84,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if dataclass.kws.init {
             fields.insert(
                 dunder::INIT,
-                self.get_dataclass_init(cls, dataclass, !metadata.is_pydantic_model(), errors),
+                self.get_dataclass_init(cls, dataclass, !metadata.is_pydantic_base_model(), errors),
             );
         }
         let dataclass_fields_type = self.stdlib.dict(

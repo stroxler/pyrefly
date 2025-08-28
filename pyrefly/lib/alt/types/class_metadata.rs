@@ -55,7 +55,7 @@ pub struct ClassMetadata {
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
     dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-    is_pydantic_model: bool,
+    is_pydantic_base_model: bool,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -87,7 +87,7 @@ impl ClassMetadata {
         is_final: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
-        is_pydantic_model: bool,
+        is_pydantic_base_model: bool,
     ) -> ClassMetadata {
         ClassMetadata {
             metaclass: Metaclass(metaclass),
@@ -104,7 +104,7 @@ impl ClassMetadata {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            is_pydantic_model,
+            is_pydantic_base_model,
         }
     }
 
@@ -124,7 +124,7 @@ impl ClassMetadata {
             is_final: false,
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
-            is_pydantic_model: false,
+            is_pydantic_base_model: false,
         }
     }
 
@@ -141,8 +141,8 @@ impl ClassMetadata {
         self.typed_dict_metadata.is_some()
     }
 
-    pub fn is_pydantic_model(&self) -> bool {
-        self.is_pydantic_model
+    pub fn is_pydantic_base_model(&self) -> bool {
+        self.is_pydantic_base_model
     }
 
     pub fn is_final(&self) -> bool {

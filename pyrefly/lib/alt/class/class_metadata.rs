@@ -410,12 +410,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
             });
 
-        let is_pydantic_model = has_pydantic_base_model_base_class
+        let is_pydantic_base_model = has_pydantic_base_model_base_class
             || bases_with_metadata
                 .iter()
-                .any(|(_, metadata)| metadata.is_pydantic_model());
+                .any(|(_, metadata)| metadata.is_pydantic_base_model());
 
-        if !is_pydantic_model {
+        if !is_pydantic_base_model {
             return None;
         }
 

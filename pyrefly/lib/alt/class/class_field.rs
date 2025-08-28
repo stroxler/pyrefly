@@ -1028,7 +1028,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Note: the subset check here is too conservative when it comes to modeling runtime behavior
         // we want to check if the bound_val is coercible to the annotation type at runtime.
         // statically, this could be a challenge, which is why we go with this more conservative approach for now.
-        if metadata.is_pydantic_model()
+        if metadata.is_pydantic_base_model()
             && let Some(annot) = &direct_annotation
             && let ClassFieldInitialization::ClassBody(Some(DataclassFieldKeywords {
                 gt, lt, ..
@@ -1349,7 +1349,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && dm.kws.frozen
             && dm.fields.contains(name)
         {
-            let reason = if metadata.is_pydantic_model() {
+            let reason = if metadata.is_pydantic_base_model() {
                 ReadOnlyReason::PydanticFrozen
             } else {
                 ReadOnlyReason::FrozenDataclass
