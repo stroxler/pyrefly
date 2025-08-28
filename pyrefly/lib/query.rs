@@ -761,7 +761,7 @@ impl Query {
             // For backward compatibility with Pyre, we allow `is_subset` comparison for checking if something
             // is a TypedDict. That isn't actually a valid subtype relationship, so we look for magic
             // attributes that in practice only exist on typed dicts.
-            let types = format!("type pyrefly_lt = ({lt})");
+            let types = format!("pyrefly_lt = ({lt})");
             let check =
                 "pyrefly_lt.__required_keys__, pyrefly_lt.__optional_keys__, pyrefly_lt.__total__";
             self.check_code_snippet(name, path, lt, gt, types, check)
