@@ -425,6 +425,7 @@ impl ClassField {
         name: &Name,
         default: bool,
         kw_only: bool,
+        strict: bool,
         converter_param: Option<Type>,
     ) -> Param {
         let ClassField(ClassFieldInner::Simple {
@@ -432,7 +433,9 @@ impl ClassField {
             descriptor_setter,
             ..
         }) = self;
-        let param_ty = if let Some(converter_param) = converter_param {
+        let param_ty = if !strict {
+            Type::any_explicit()
+        } else if let Some(converter_param) = converter_param {
             converter_param
         } else if let Some(descriptor_setter) = descriptor_setter {
             Self::get_descriptor_setter_value(descriptor_setter)

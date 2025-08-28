@@ -14,7 +14,6 @@ fn pydantic_env() -> TestEnv {
 }
 
 testcase!(
-    bug = "strict is false so we should not raise an error on those fields",
     test_pyrefly_strict,
     pydantic_env(),
     r#"
@@ -22,7 +21,21 @@ from pydantic import BaseModel, Field
 class Model(BaseModel):
     x: int = Field(strict=False)  # this is the default
     y: int = Field(strict=True)
-Model(x='0', y=1)  # E: Argument `Literal['0']` is not assignable to parameter `x` with type `int` in function `Model.__init__ 
-Model(x='0', y='1') # E: Argument `Literal['0']` is not assignable to parameter `x` with type `int` in function `Model.__init__ # E: Argument `Literal['1']` is not assignable to parameter `y` with type `int` in function `Model.__init__`
+Model(x='0', y=1) 
+Model(x='0', y='1') # E: Argument `Literal['1']` is not assignable to parameter `y` with type `int` in function `Model.__init__` 
+"#,
+);
+
+// Note: mypy does not support strict=false. Everything is strict.
+testcase!(
+    test_pyrefly_strict_default,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, Field
+class Model(BaseModel):
+    x: int = Field()
+    y: int = Field(strict=True)
+Model(x='0', y=1) 
+Model(x='0', y='1') # E: Argument `Literal['1']` is not assignable to parameter `y` with type `int` in function `Model.__init__` 
 "#,
 );

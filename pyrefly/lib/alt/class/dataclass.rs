@@ -84,7 +84,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if dataclass.kws.init {
             fields.insert(
                 dunder::INIT,
-                self.get_dataclass_init(cls, dataclass, errors),
+                self.get_dataclass_init(cls, dataclass, !metadata.is_pydantic_model(), errors),
             );
         }
         let dataclass_fields_type = self.stdlib.dict(
@@ -184,7 +184,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = Vec::new();
         for (name, field, _) in self.iter_fields(cls, dataclass_metadata, true) {
             if field.is_init_var() {
-                params.push(field.as_param(&name, false, false, None));
+                params.push(field.as_param(&name, false, false, true, None));
             }
         }
         let want = Type::Callable(Box::new(Callable::list(
@@ -434,11 +434,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         dataclass: &DataclassMetadata,
+        strict_default: bool,
         errors: &ErrorCollector,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, false)];
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
+            let strict = match (field_flags.strict, strict_default) {
+                (Some(strict), false) => strict,
+                (None, false) => false,
+                _ => true,
+            };
+
             if field_flags.init {
                 let has_default = field_flags.default
                     || (dataclass.class_validation_flags.validate_by_name
@@ -470,6 +477,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &name,
                         has_default,
                         is_kw_only,
+                        strict,
                         field_flags.converter_param.clone(),
                     ));
                 }
@@ -480,6 +488,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         alias,
                         has_default,
                         is_kw_only,
+                        strict,
                         field_flags.converter_param.clone(),
                     ));
                 }
