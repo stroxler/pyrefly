@@ -915,9 +915,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(got_attrs) = self
             .as_attribute_base(got.clone())
             .map(|got_base| self.lookup_attr_from_base(got_base, name))
-            .map(|lookup_result| {
-                // TODO(stroxler): we probably shouldn't just ignore not-found here.
-                lookup_result.found
+            .and_then(|lookup_result| {
+                if lookup_result.not_found.is_empty() && lookup_result.internal_error.is_empty() {
+                    Some(lookup_result.found)
+                } else {
+                    None
+                }
             })
         {
             if (!got_attrs.is_empty())

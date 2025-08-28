@@ -566,7 +566,6 @@ class AnotherClass:
 );
 
 testcase!(
-    bug = "We aren't handling unions where some members lack an attribute except at the top level",
     test_union_as_protocol,
     r#"
 from typing import Protocol
@@ -578,7 +577,7 @@ class B:
     y: int
 def f[T: A | B](direct: A | B, quantified: T) -> None:
     p: P = direct  # E: `A | B` is not assignable to `P`
-    p: P = quantified  # Should error, the layering of logic is preventing this
+    p: P = quantified  # E: `T` is not assignable to `P`
     "#,
 );
 
