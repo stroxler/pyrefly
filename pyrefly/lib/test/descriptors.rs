@@ -256,6 +256,21 @@ def f(a: A):
 );
 
 testcase!(
+    test_descriptor_on_tvar_bound,
+    r#"
+from typing import assert_type
+class D:
+    def __get__(self, obj, classobj) -> int: ...
+    def __set__(self, obj, value: str) -> None: ...
+class A:
+    p = D()
+def f[T: A](x: T):
+    x.p = "foo"
+    assert_type(x.p, int)
+    "#,
+);
+
+testcase!(
     test_inherit_annotated_descriptor,
     r#"
 class D:

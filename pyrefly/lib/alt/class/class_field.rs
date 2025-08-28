@@ -721,11 +721,9 @@ impl<'a> Instance<'a> {
             // There's no situation in which you can stick a usable descriptor in a TypedDict.
             // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
             InstanceKind::TypedDict => None,
-            // TODO(samgoldman) This almost definitely needs to be supported. Needs a test.
-            InstanceKind::TypeVar(..) => None,
-            InstanceKind::ClassType | InstanceKind::SelfType => Some(DescriptorBase::Instance(
-                ClassType::new(self.class.dupe(), self.targs.clone()),
-            )),
+            InstanceKind::ClassType | InstanceKind::SelfType | InstanceKind::TypeVar(..) => Some(
+                DescriptorBase::Instance(ClassType::new(self.class.dupe(), self.targs.clone())),
+            ),
         }
     }
 }
