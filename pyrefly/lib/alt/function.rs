@@ -343,64 +343,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self_type = None;
         }
 
-        let get_requiredness =
-            |default: Option<&Expr>, check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>| {
-                match default {
-                    Some(default)
-                        if (stub_or_impl == FunctionStubOrImpl::Stub
-                            || self.module().path().style() == ModuleStyle::Interface)
-                            && matches!(default, Expr::EllipsisLiteral(_)) =>
-                    {
-                        Required::Optional(None)
-                    }
-                    Some(default) => Required::Optional(Some(self.expr(default, check, errors))),
-                    None => Required::Required,
-                }
-            };
-
-        // Determine the type of the parameter based on its binding. Left is annotated parameter, right is unannotated
-        let mut get_param_type_and_requiredness = |name: &Identifier, default: Option<&Expr>| {
-            let (ty, required) = match self.bindings().get_function_param(name) {
-                FunctionParameter::Annotated(idx) => {
-                    // If the parameter is annotated, we check the default value against the annotation
-                    let param_ty = self.get_idx(*idx).annotation.get_type().clone();
-                    let required = get_requiredness(
-                        default,
-                        Some((&param_ty, &|| {
-                            TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
-                                name.id.clone(),
-                            ))
-                        })),
-                    );
-                    (param_ty, required)
-                }
-                FunctionParameter::Unannotated(var, _) => {
-                    let required = get_requiredness(default, None);
-                    // If this is the first parameter and there is a self type, solve to `Self`.
-                    // We only try to solve the first param for now. Other unannotated params
-                    // are also Var. If a default value of type T is provided, it will resolve to Any | T.
-                    // Otherwise, it will be forced to Any
-                    if let Some(ty) = &self_type {
-                        self.is_subset_eq(&var.to_type(), ty);
-                    } else if let Required::Optional(Some(default_ty)) = &required {
-                        self.solver().is_subset_eq(
-                            &self.union(Type::any_implicit(), default_ty.clone()),
-                            &var.to_type(),
-                            self.type_order(),
-                        );
-                    }
-                    (self.solver().force_var(*var), required)
-                }
-            };
-            self_type = None; // Stop using `self` type solve Var params after the first param.
-            (ty, required)
-        };
         let mut paramspec_args = None;
         let mut paramspec_kwargs = None;
         let mut params = Vec::with_capacity(def.parameters.len());
         params.extend(def.parameters.posonlyargs.iter().map(|x| {
-            let (ty, required) =
-                get_param_type_and_requiredness(&x.parameter.name, x.default.as_deref());
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                &mut self_type,
+                errors,
+            );
             Param::PosOnly(Some(x.parameter.name.id.clone()), ty, required)
         }));
 
@@ -410,8 +363,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut seen_keyword_args = false;
 
         params.extend(def.parameters.args.iter().map(|x| {
-            let (ty, required) =
-                get_param_type_and_requiredness(&x.parameter.name, x.default.as_deref());
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                &mut self_type,
+                errors,
+            );
 
             // If the parameter begins but does not end with "__", it is a positional-only parameter.
             // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
@@ -439,7 +397,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }));
         params.extend(def.parameters.vararg.iter().map(|x| {
-            let (ty, _) = get_param_type_and_requiredness(&x.name, None);
+            let (ty, _) = self.get_param_type_and_requiredness(
+                &x.name,
+                None,
+                stub_or_impl,
+                &mut self_type,
+                errors,
+            );
             if let Type::Args(q) = &ty {
                 paramspec_args = Some(q.clone());
             }
@@ -459,8 +423,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
         params.extend(def.parameters.kwonlyargs.iter().map(|x| {
-            let (ty, required) =
-                get_param_type_and_requiredness(&x.parameter.name, x.default.as_deref());
+            let (ty, required) = self.get_param_type_and_requiredness(
+                &x.parameter.name,
+                x.default.as_deref(),
+                stub_or_impl,
+                &mut self_type,
+                errors,
+            );
             Param::KwOnly(x.parameter.name.id.clone(), ty, required)
         }));
         params.extend(def.parameters.kwarg.iter().map(|x| {
@@ -698,6 +667,73 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             _ => false,
         }
+    }
+
+    fn get_requiredness(
+        &self,
+        default: Option<&Expr>,
+        check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>,
+        stub_or_impl: FunctionStubOrImpl,
+        errors: &ErrorCollector,
+    ) -> Required {
+        match default {
+            Some(default)
+                if (stub_or_impl == FunctionStubOrImpl::Stub
+                    || self.module().path().style() == ModuleStyle::Interface)
+                    && matches!(default, Expr::EllipsisLiteral(_)) =>
+            {
+                Required::Optional(None)
+            }
+            Some(default) => Required::Optional(Some(self.expr(default, check, errors))),
+            None => Required::Required,
+        }
+    }
+
+    /// Determine the type and required-ness of a parameter.
+    fn get_param_type_and_requiredness(
+        &self,
+        name: &Identifier,
+        default: Option<&Expr>,
+        stub_or_impl: FunctionStubOrImpl,
+        self_type: &mut Option<Type>,
+        errors: &ErrorCollector,
+    ) -> (Type, Required) {
+        let (ty, required) = match self.bindings().get_function_param(name) {
+            FunctionParameter::Annotated(idx) => {
+                // If the parameter is annotated, we check the default value against the annotation
+                let param_ty = self.get_idx(*idx).annotation.get_type().clone();
+                let required = self.get_requiredness(
+                    default,
+                    Some((&param_ty, &|| {
+                        TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
+                            name.id.clone(),
+                        ))
+                    })),
+                    stub_or_impl,
+                    errors,
+                );
+                (param_ty, required)
+            }
+            FunctionParameter::Unannotated(var, _) => {
+                let required = self.get_requiredness(default, None, stub_or_impl, errors);
+                // If this is the first parameter and there is a self type, solve to `Self`.
+                // We only try to solve the first param for now. Other unannotated params
+                // are also Var. If a default value of type T is provided, it will resolve to Any | T.
+                // Otherwise, it will be forced to Any
+                if let Some(ty) = self_type {
+                    self.is_subset_eq(&var.to_type(), ty);
+                } else if let Required::Optional(Some(default_ty)) = &required {
+                    self.solver().is_subset_eq(
+                        &self.union(Type::any_implicit(), default_ty.clone()),
+                        &var.to_type(),
+                        self.type_order(),
+                    );
+                }
+                (self.solver().force_var(*var), required)
+            }
+        };
+        *self_type = None; // Stop using `self` type solve Var params after the first param.
+        (ty, required)
     }
 
     fn check_top_level_function_decorator(
