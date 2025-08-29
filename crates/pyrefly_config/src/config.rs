@@ -510,6 +510,11 @@ impl ConfigFile {
                  self.root.untyped_def_behavior.unwrap())
     }
 
+    pub fn disable_type_errors_in_ide(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(ConfigBase::get_disable_type_errors_in_ide, path)
+            .unwrap_or_else(|| self.root.disable_type_errors_in_ide.unwrap_or_default())
+    }
+
     fn ignore_errors_in_generated_code(&self, path: &Path) -> bool {
         self.get_from_sub_configs(ConfigBase::get_ignore_errors_in_generated_code, path)
             .unwrap_or_else(||
@@ -891,6 +896,7 @@ mod tests {
                         (ErrorKind::BadReturn, Severity::Ignore),
                         (ErrorKind::AssertType, Severity::Error),
                     ]))),
+                    disable_type_errors_in_ide: None,
                     ignore_errors_in_generated_code: Some(true),
                     infer_with_first_use: None,
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
@@ -907,6 +913,7 @@ mod tests {
                             (ErrorKind::InvalidYield, Severity::Ignore),
                             (ErrorKind::AssertType, Severity::Ignore),
                         ]))),
+                        disable_type_errors_in_ide: None,
                         ignore_errors_in_generated_code: Some(false),
                         infer_with_first_use: Some(false),
                         replace_imports_with_any: Some(Vec::new()),
@@ -1265,6 +1272,7 @@ mod tests {
                 replace_imports_with_any: Some(vec![ModuleWildcard::new("root").unwrap()]),
                 ignore_missing_imports: None,
                 untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
+                disable_type_errors_in_ide: Some(true),
                 ignore_errors_in_generated_code: Some(false),
                 infer_with_first_use: Some(true),
                 extras: Default::default(),

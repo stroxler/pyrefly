@@ -60,6 +60,10 @@ pub struct ConfigBase {
     )]
     pub untyped_def_behavior: Option<UntypedDefBehavior>,
 
+    /// Whether to disable type errors in language server. By default errors will be shown in IDEs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disable_type_errors_in_ide: Option<bool>,
+
     /// Whether to ignore type errors in generated code. By default this is disabled.
     /// Generated code is defined as code that contains the marker string `@` immediately followed by `generated`.
     #[serde(
@@ -109,6 +113,10 @@ impl ConfigBase {
 
     pub fn get_untyped_def_behavior(base: &Self) -> Option<UntypedDefBehavior> {
         base.untyped_def_behavior
+    }
+
+    pub fn get_disable_type_errors_in_ide(base: &Self) -> Option<bool> {
+        base.disable_type_errors_in_ide
     }
 
     pub fn get_ignore_errors_in_generated_code(base: &Self) -> Option<bool> {

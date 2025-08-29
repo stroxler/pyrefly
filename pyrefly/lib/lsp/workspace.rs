@@ -62,7 +62,7 @@ pub struct Workspace {
     python_info: Option<PythonInfo>,
     search_path: Option<Vec<PathBuf>>,
     pub disable_language_services: bool,
-    pub disable_type_errors: bool,
+    pub disable_type_errors: Option<bool>,
     pub lsp_analysis_config: Option<LspAnalysisConfig>,
 }
 
@@ -289,9 +289,7 @@ impl Workspaces {
             if let Some(disable_language_services) = pyrefly.disable_language_services {
                 self.update_disable_language_services(scope_uri, disable_language_services);
             }
-            if let Some(disable_type_errors) = pyrefly.disable_type_errors {
-                self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
-            }
+            self.update_disable_type_errors(modified, scope_uri, pyrefly.disable_type_errors);
         }
         if let Some(analysis) = config.analysis {
             self.update_ide_settings(modified, scope_uri, analysis);
@@ -320,7 +318,7 @@ impl Workspaces {
         &self,
         modified: &mut bool,
         scope_uri: &Option<Url>,
-        disable_type_errors: bool,
+        disable_type_errors: Option<bool>,
     ) {
         let mut workspaces = self.workspaces.write();
         match scope_uri {

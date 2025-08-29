@@ -281,6 +281,46 @@ fn test_disable_type_errors_default_workspace() {
     interaction.shutdown();
 }
 
+#[test]
+fn test_disable_type_errors_config() {
+    let root = get_test_files_root();
+    let test_files_root = root.path().join("disable_type_error_in_config");
+    let scope_uri = Url::from_file_path(test_files_root.as_path()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(serde_json::json!([])),
+        ..Default::default()
+    });
+
+    interaction.server.did_open("type_errors.py");
+
+    interaction.server.diagnostic("type_errors.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({"items": [], "kind": "full"})),
+        error: None,
+    });
+
+    interaction.server.did_change_configuration();
+
+    interaction
+        .client
+        .expect_configuration_request(2, Some(&scope_uri));
+    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"disableTypeErrors": false}}, {"pyrefly": {"disableTypeErrors": false}}]));
+    interaction.server.diagnostic("type_errors.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(3),
+        result: Some(get_diagnostics_result()),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
 /// If we failed to parse pylance configs, we would fail to apply the `disableTypeErrors` settings.
 /// This test ensures that we don't fail to apply `disableTypeErrors`.
 #[test]

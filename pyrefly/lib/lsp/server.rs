@@ -926,6 +926,7 @@ impl Server {
                 && !self
                     .workspaces
                     .get_with(path.to_path_buf(), |w| w.disable_type_errors)
+                    .unwrap_or_else(|| config.disable_type_errors_in_ide(e.path().as_path()))
             {
                 return Some((path.to_path_buf(), e.to_diagnostic()));
             }
