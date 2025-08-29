@@ -56,6 +56,7 @@ pub struct ClassMetadata {
     /// that were passed to the `dataclass_transform` call.
     dataclass_transform_metadata: Option<DataclassTransformKeywords>,
     is_pydantic_base_model: bool,
+    is_pydantic_root_model: bool,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -88,6 +89,7 @@ impl ClassMetadata {
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
         is_pydantic_base_model: bool,
+        is_pydantic_root_model: bool,
     ) -> ClassMetadata {
         ClassMetadata {
             metaclass: Metaclass(metaclass),
@@ -105,6 +107,7 @@ impl ClassMetadata {
             total_ordering_metadata,
             dataclass_transform_metadata,
             is_pydantic_base_model,
+            is_pydantic_root_model,
         }
     }
 
@@ -125,6 +128,7 @@ impl ClassMetadata {
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
             is_pydantic_base_model: false,
+            is_pydantic_root_model: false,
         }
     }
 
@@ -143,6 +147,10 @@ impl ClassMetadata {
 
     pub fn is_pydantic_base_model(&self) -> bool {
         self.is_pydantic_base_model
+    }
+
+    pub fn is_pydantic_root_model(&self) -> bool {
+        self.is_pydantic_root_model
     }
 
     pub fn is_final(&self) -> bool {

@@ -287,6 +287,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let keywords =
             keywords.into_map(|(name, annot)| (name, annot.ty.unwrap_or_else(Type::any_implicit)));
 
+        // get pydantic model info. A root model is by default also a base model, while not every base model is a root model
+        let (is_base_model, is_root_model) = if let Some(pydantic_metadata) = &pydantic_metadata {
+            (true, pydantic_metadata.is_root_model)
+        } else {
+            (false, false)
+        };
+
         ClassMetadata::new(
             bases,
             metaclass,
@@ -302,7 +309,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            pydantic_metadata.is_some(),
+            is_base_model,
+            is_root_model,
         )
     }
 
@@ -415,6 +423,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .any(|(_, metadata)| metadata.is_pydantic_base_model());
 
+        let has_pydantic_root_model_base_class =
+            bases_with_metadata.iter().any(|(base_class_object, _)| {
+                base_class_object.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
+            });
+
+        let is_root_model = has_pydantic_root_model_base_class
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.is_pydantic_root_model());
+
         if !is_pydantic_base_model {
             return None;
         }
@@ -480,6 +498,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             class_validate_by_alias,
             class_validate_by_name,
             extra,
+            is_root_model,
         })
     }
 

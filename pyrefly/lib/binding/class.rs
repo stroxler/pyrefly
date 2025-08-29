@@ -258,7 +258,6 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         match info.as_initial_value() {
                             ClassFieldInBody::InitializedByAssign(e) => {
-                                // TODO Zeina: Replace these calls with a single call
                                 self.extract_pydantic_config_dict_metadata(
                                     &e,
                                     name,
