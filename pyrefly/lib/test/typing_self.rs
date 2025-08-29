@@ -180,3 +180,23 @@ class B(A):
 x: B = B(1)
 "#,
 );
+
+testcase!(
+    test_literal_self,
+    r#"
+from typing import Self, Literal, assert_type
+import enum
+
+class E(enum.Enum):
+    A = 1
+    B = 2
+
+    def m(self, other: Self) -> Self:
+        return other
+
+a: Literal[E.A] = E.A
+
+assert_type(a.m(E.B), E)
+assert_type(E.A.m(E.B), E)
+"#,
+);
