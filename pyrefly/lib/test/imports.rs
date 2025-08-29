@@ -984,3 +984,12 @@ import foo
 reveal_type(foo.bar)  # E: revealed type: Module[foo.bar]
     "#,
 );
+
+testcase!(
+    bug = "We can't understand unittes.main(), root cause is same as above",
+    test_unittest_main,
+    r#"
+import unittest
+unittest.main()  # E: Expected a callable, got Module[unittest.main]
+    "#,
+);
