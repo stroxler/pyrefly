@@ -1445,3 +1445,53 @@ Completion Results:
         report.trim(),
     );
 }
+
+#[test]
+fn from_import_keyword_completion() {
+    let code = r#"
+from lib imp
+#          ^
+"#;
+
+    let lib = r#"
+class Foo: pass
+"#;
+
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code), ("lib", lib)],
+        get_test_report(
+            ResultsFilter {
+                include_keywords: true,
+                ..Default::default()
+            },
+            ImportFormat::Absolute,
+        ),
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib imp
+               ^
+Completion Results:
+- (Variable) Foo
+- (Keyword) import
+- (Variable) __annotations__
+- (Variable) __builtins__
+- (Variable) __cached__
+- (Variable) __debug__
+- (Variable) __dict__
+- (Variable) __doc__
+- (Variable) __file__
+- (Variable) __loader__
+- (Variable) __name__
+- (Variable) __package__
+- (Variable) __path__
+- (Variable) __spec__
+
+
+# lib.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
