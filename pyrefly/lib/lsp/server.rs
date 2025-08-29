@@ -240,6 +240,8 @@ pub struct Server {
     connection: ServerConnection,
     /// A thread pool of size one for heavy read operations on the State
     async_state_read_threads: ThreadPool,
+    /// A thread pool of size one for running background transactions on the State
+    transaction_threads: ThreadPool,
     lsp_queue: LspQueue,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
@@ -850,6 +852,9 @@ impl Server {
             async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
                 NonZero::new(1).unwrap(),
             )),
+            transaction_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
+                NonZero::new(1).unwrap(),
+            )),
             lsp_queue,
             initialize_params,
             indexing_mode,
@@ -992,7 +997,7 @@ impl Server {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         let state = self.state.dupe();
                         let lsp_queue = self.lsp_queue.dupe();
-                        std::thread::spawn(move || {
+                        self.transaction_threads.async_spawn(move || {
                             Self::populate_all_project_files_in_config(config, state, lsp_queue);
                         });
                     }
@@ -1029,7 +1034,7 @@ impl Server {
                 drop(indexed_workspaces);
                 let state = self.state.dupe();
                 let lsp_queue = self.lsp_queue.dupe();
-                std::thread::spawn(move || {
+                self.transaction_threads.async_spawn(move || {
                     Self::populate_all_workspaces_files(
                         roots_to_populate_files,
                         state,
@@ -1057,7 +1062,7 @@ impl Server {
         let state = self.state.dupe();
         let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
-        std::thread::spawn(move || {
+        self.transaction_threads.async_spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Indexing, None);
             f(transaction.as_mut());
             // Commit will be blocked until there are no ongoing reads.
@@ -1238,7 +1243,7 @@ impl Server {
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         let state = self.state.dupe();
         let open_files = self.open_files.dupe();
-        std::thread::spawn(move || {
+        self.transaction_threads.async_spawn(move || {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
