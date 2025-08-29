@@ -310,29 +310,11 @@ impl ClassField {
         })
     }
 
-    pub fn for_variance_inference(
-        &self,
-    ) -> Option<(
-        &Type,
-        Option<&Annotation>,
-        bool,
-        &Option<Type>,
-        &Option<Type>,
-    )> {
+    pub fn for_variance_inference(&self) -> Option<(&Type, Option<&Annotation>, bool)> {
         match &self.0 {
-            ClassFieldInner::Simple {
-                ty,
-                annotation,
-                descriptor_getter,
-                descriptor_setter,
-                ..
-            } => Some((
-                ty,
-                annotation.as_ref(),
-                self.is_read_only(),
-                descriptor_getter,
-                descriptor_setter,
-            )),
+            ClassFieldInner::Simple { ty, annotation, .. } => {
+                Some((ty, annotation.as_ref(), self.is_read_only()))
+            }
         }
     }
 

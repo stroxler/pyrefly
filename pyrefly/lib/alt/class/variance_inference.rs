@@ -232,38 +232,17 @@ fn on_class(
             continue;
         }
 
-        if let Some((ty, _, read_only, descriptor_getter, descriptor_setter)) =
-            field.for_variance_inference()
-        {
-            // Case 1: Regular attribute
-
+        if let Some((ty, _, read_only)) = field.for_variance_inference() {
             // TODO: We need a much better way to distinguish between fields and methods than this
             // currently, class field representation isn't good enough but we need to fix that soon
-            if descriptor_getter.is_none() && descriptor_setter.is_none() {
-                let variance = if ty.is_function_type()
-                    || is_private_field(name)
-                    || read_only
-                    || field.is_final()
+            let variance =
+                if ty.is_function_type() || is_private_field(name) || read_only || field.is_final()
                 {
                     Variance::Covariant
                 } else {
                     Variance::Invariant
                 };
-                on_type(variance, true, ty, on_edge, on_var);
-            } else {
-                // Case 2: Descriptor or property (has getter and/or setter)
-                // Not too sure about this yet, will need to investigate further.
-
-                // Getter: covariant on return type
-                if let Some(typ) = descriptor_getter {
-                    on_type(Variance::Covariant, true, typ, on_edge, on_var);
-                }
-
-                // Setter: contravariant on value being written
-                if let Some(typ) = descriptor_setter {
-                    on_type(Variance::Contravariant, true, typ, on_edge, on_var);
-                }
-            }
+            on_type(variance, true, ty, on_edge, on_var);
         }
     }
 }
