@@ -58,6 +58,8 @@ pub enum AtomicNarrowOp {
     IsNotSubclass(Expr),
     HasAttr(Name),
     NotHasAttr(Name),
+    GetAttr(Name, Option<Box<Expr>>),
+    NotGetAttr(Name, Option<Box<Expr>>),
     TypeGuard(Type, Arguments),
     NotTypeGuard(Type, Arguments),
     TypeIs(Type, Arguments),
@@ -115,6 +117,18 @@ impl DisplayWith<ModuleInfo> for AtomicNarrowOp {
             }
             AtomicNarrowOp::NotHasAttr(attr) => {
                 write!(f, "NotHasAttr({})", attr)
+            }
+            AtomicNarrowOp::GetAttr(attr, Some(default)) => {
+                write!(f, "GetAttr({}, {})", attr, default.display_with(ctx))
+            }
+            AtomicNarrowOp::NotGetAttr(attr, Some(default)) => {
+                write!(f, "NotGetAttr({}, {})", attr, default.display_with(ctx))
+            }
+            AtomicNarrowOp::GetAttr(attr, None) => {
+                write!(f, "GetAttr({}, None)", attr)
+            }
+            AtomicNarrowOp::NotGetAttr(attr, None) => {
+                write!(f, "NotGetAttr({}, None)", attr)
             }
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 write!(f, "TypeGuard({t}, {})", arguments.display_with(ctx))
@@ -193,6 +207,8 @@ impl AtomicNarrowOp {
             Self::IsNotSubclass(v) => Self::IsSubclass(v.clone()),
             Self::HasAttr(attr) => Self::NotHasAttr(attr.clone()),
             Self::NotHasAttr(attr) => Self::HasAttr(attr.clone()),
+            Self::GetAttr(attr, default) => Self::NotGetAttr(attr.clone(), default.clone()),
+            Self::NotGetAttr(attr, default) => Self::GetAttr(attr.clone(), default.clone()),
             Self::Eq(v) => Self::NotEq(v.clone()),
             Self::NotEq(v) => Self::Eq(v.clone()),
             Self::In(v) => Self::NotIn(v.clone()),
@@ -516,6 +532,30 @@ impl NarrowOps {
                 Self::from_single_narrow_op(
                     &arguments.args[0],
                     AtomicNarrowOp::HasAttr(Name::new(value.to_string())),
+                    *range,
+                )
+            }
+            Some(Expr::Call(ExprCall {
+                node_index: _,
+                range,
+                func,
+                arguments,
+            })) if builder.as_special_export(func) == Some(SpecialExport::GetAttr)
+                && (arguments.args.len() == 2 || arguments.args.len() == 3)
+                && arguments.keywords.is_empty()
+                && let Expr::StringLiteral(ExprStringLiteral { value, .. }) =
+                    &arguments.args[1] =>
+            {
+                Self::from_single_narrow_op(
+                    &arguments.args[0],
+                    AtomicNarrowOp::GetAttr(
+                        Name::new(value.to_string()),
+                        if arguments.args.len() == 2 {
+                            None
+                        } else {
+                            Some(Box::new(arguments.args[2].clone()))
+                        },
+                    ),
                     *range,
                 )
             }

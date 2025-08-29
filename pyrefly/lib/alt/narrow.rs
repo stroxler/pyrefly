@@ -575,8 +575,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let right = self.expr_infer(v, errors);
                 self.narrow_is_not_subclass(ty, &right, v.range())
             }
+            // `hasattr` and `getattr` are handled in `narrow`
             AtomicNarrowOp::HasAttr(_) => ty.clone(),
             AtomicNarrowOp::NotHasAttr(_) => ty.clone(),
+            AtomicNarrowOp::GetAttr(_, _) => ty.clone(),
+            AtomicNarrowOp::NotGetAttr(_, _) => ty.clone(),
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
                     let args = arguments.args.map(CallArg::expr_maybe_starred);
@@ -815,6 +818,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     type_info.with_narrow(&facets, Type::any_implicit())
                 } else {
                     type_info.clone()
+                }
+            }
+            NarrowOp::Atomic(subject, AtomicNarrowOp::GetAttr(attr, default)) => {
+                let suppress_errors =
+                    ErrorCollector::new(errors.module().clone(), ErrorStyle::Never);
+                let default_ty = default
+                    .as_ref()
+                    .map_or(Type::None, |v| self.expr_infer(v, &suppress_errors));
+                // We can't narrow the type if the specified default is not falsy
+                if self.as_bool(&default_ty, range, &suppress_errors) != Some(false) {
+                    return type_info.clone();
+                }
+                let base_ty = match subject {
+                    Some(facet_chain) => self.get_facet_chain_type(type_info, facet_chain, range),
+                    None => type_info.ty().clone(),
+                };
+                let attr_ty =
+                    self.attr_infer_for_type(&base_ty, attr, range, &suppress_errors, None);
+                let attr_facet = FacetKind::Attribute(attr.clone());
+                let facets = match subject {
+                    Some(chain) => {
+                        let mut new_facets = chain.facets().clone();
+                        new_facets.push(attr_facet);
+                        new_facets
+                    }
+                    None => Vec1::new(attr_facet),
+                };
+                // Given that the default is falsy:
+                // If the attribute does not exist we narrow to `Any`
+                // If the attribute exists we narrow it to be truthy
+                if attr_ty == Type::any_error() {
+                    type_info.with_narrow(&facets, Type::any_implicit())
+                } else {
+                    let narrowed_ty = self.atomic_narrow(
+                        &attr_ty,
+                        &AtomicNarrowOp::IsTruthy,
+                        range,
+                        &suppress_errors,
+                    );
+                    type_info.with_narrow(&facets, narrowed_ty)
                 }
             }
             NarrowOp::Atomic(None, op) => {

@@ -332,6 +332,7 @@ impl SysInfo {
             Expr::NumberLiteral(ExprNumberLiteral { value: i, .. }) => {
                 Some(Value::Int(i.as_int()?.as_i64()?))
             }
+            Expr::NoneLiteral(_) => Some(Value::Truthiness(false)),
             Expr::BooleanLiteral(ExprBooleanLiteral { value: b, .. }) => Some(Value::Bool(*b)),
             Expr::StringLiteral(x) => Some(Value::String(x.value.to_str().to_owned())),
             Expr::BoolOp(x) => match x.op {

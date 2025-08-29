@@ -47,6 +47,7 @@ pub enum SpecialExport {
     PydanticConfigDict,
     PydanticField,
     HasAttr,
+    GetAttr,
 }
 
 impl SpecialExport {
@@ -85,6 +86,7 @@ impl SpecialExport {
             "ConfigDict" => Some(Self::PydanticConfigDict),
             "Field" => Some(Self::PydanticField),
             "hasattr" => Some(Self::HasAttr),
+            "getattr" => Some(Self::GetAttr),
             _ => None,
         }
     }
@@ -113,7 +115,13 @@ impl SpecialExport {
             }
             Self::CollectionsNamedTuple => matches!(m.as_str(), "collections"),
             Self::Enum | Self::StrEnum | Self::IntEnum => matches!(m.as_str(), "enum"),
-            Self::Super | Self::Len | Self::Quit | Self::Bool | Self::Type | Self::HasAttr => {
+            Self::Super
+            | Self::Len
+            | Self::Quit
+            | Self::Bool
+            | Self::Type
+            | Self::HasAttr
+            | Self::GetAttr => {
                 matches!(m.as_str(), "builtins")
             }
             Self::Exit => matches!(m.as_str(), "sys" | "builtins"),
