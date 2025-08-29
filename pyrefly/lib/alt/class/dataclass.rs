@@ -440,11 +440,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = vec![self.class_self_param(cls, false)];
         let mut has_seen_default = false;
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
-            let strict = match (field_flags.strict, strict_default) {
-                (Some(strict), false) => strict,
-                (None, false) => false,
-                _ => true,
-            };
+            let strict = field_flags.strict.unwrap_or(strict_default);
 
             if field_flags.init {
                 let has_default = field_flags.default
