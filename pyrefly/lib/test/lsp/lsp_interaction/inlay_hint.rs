@@ -74,14 +74,6 @@ fn test_inlay_hint_default_config() {
                         "newText":" -> Literal[0]",
                         "range":{"end":{"character":15,"line":14},"start":{"character":15,"line":14}}
                     }]
-                },
-                {
-                    "label":": list[int]",
-                    "position":{"character":3,"line":19},
-                    "textEdits":[{
-                        "newText":": list[int]",
-                        "range":{"end":{"character":3,"line":19},"start":{"character":3,"line":19}}
-                    }]
                 }
             ])),
             error: None,
@@ -339,14 +331,6 @@ fn test_inlay_hint_disable_returns() {
                     "textEdits":[{
                         "newText":": tuple[Literal[1], Literal[2]]",
                         "range":{"end":{"character":6,"line":11},"start":{"character":6,"line":11}}
-                    }]
-                },
-                {
-                    "label":": list[int]",
-                    "position":{"character":3,"line":19},
-                    "textEdits":[{
-                        "newText":": list[int]",
-                        "range":{"end":{"character":3,"line":19},"start":{"character":3,"line":19}}
                     }]
                 }])),
                 error: None,

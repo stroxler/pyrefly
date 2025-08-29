@@ -55,3 +55,41 @@ def g() -> int:
         report.trim()
     );
 }
+
+#[test]
+fn test_constructor_inlay_hint() {
+    let code = r#"
+x = int()
+y = list([1, 2, 3])
+"#;
+    let files = [("main", code)];
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
+    let mut report = String::new();
+    for (name, code) in &files {
+        report.push_str("# ");
+        report.push_str(name);
+        report.push_str(".py\n");
+        let handle = handles.get(name).unwrap();
+        for (pos, hint) in state
+            .transaction()
+            .inlay_hints(handle, Default::default())
+            .unwrap()
+        {
+            report.push_str(&code_frame_of_source_at_position(code, pos));
+            report.push_str(" inlay-hint: `");
+            report.push_str(&hint);
+            report.push_str("`\n\n");
+        }
+        report.push('\n');
+    }
+    // constructor calls for non-generic classes do not show inlay hints
+    assert_eq!(
+        r#"
+# main.py
+3 | y = list([1, 2, 3])
+     ^ inlay-hint: `: list[int]`
+"#
+        .trim(),
+        report.trim()
+    );
+}
