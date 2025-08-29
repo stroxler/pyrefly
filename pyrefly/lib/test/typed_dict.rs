@@ -715,8 +715,8 @@ from typing import TypedDict, Unpack, assert_type
 class Coord(TypedDict):
     x: int
     y: int
-def foo(x: Coord, **kwargs: Unpack[Coord]):
-    assert_type(x, Coord)
+def foo(c: Coord, **kwargs: Unpack[Coord]):
+    assert_type(c, Coord)
     assert_type(kwargs, Coord)
     "#,
 );
@@ -1532,6 +1532,25 @@ class A(TypedDict, closed=True):
     x: str
 def f(a: A, k: str):
     assert_type(a[k], str)
+    "#,
+);
+
+testcase!(
+    test_typed_dict_kwargs_overlap_pos_arg,
+    r#"
+from typing import *
+from functools import cache
+
+class Kwargs(TypedDict):
+    x: int
+
+# this is OK because the first x is positional-only
+def test(x: int, /, **kwargs: Unpack[Kwargs]): ...
+
+# this should not be OK
+def test(x: int, **kwargs: Unpack[Kwargs]): ... # E:  TypedDict key 'x' in **kwargs overlaps with parameter 'x'
+@cache
+def test(x: int, **kwargs: Unpack[Kwargs]): ... # E:  TypedDict key 'x' in **kwargs overlaps with parameter 'x'
     "#,
 );
 

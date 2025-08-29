@@ -88,9 +88,7 @@
     "Line 156: Unexpected errors ['`Proto4[Ellipsis]` is not assignable to `Proto3`']",
     "Line 157: Unexpected errors ['`Proto7` is not assignable to `Proto6`']"
   ],
-  "callables_kwargs.py": [
-    "Line 111: Expected 1 errors"
-  ],
+  "callables_kwargs.py": [],
   "callables_protocol.py": [],
   "callables_subtyping.py": [],
   "classes_classvar.py": [],

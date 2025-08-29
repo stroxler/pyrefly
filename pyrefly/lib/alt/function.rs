@@ -600,7 +600,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             Param::KwOnly(x.parameter.name.id.clone(), ty, required)
         }));
-        params.extend(def.parameters.kwarg.iter().map(|x| {
+        if let Some(x) = &def.parameters.kwarg {
             let ty = match self.bindings().get_function_param(&x.name) {
                 FunctionParameter::Annotated(idx) => {
                     let annot = self.get_idx(*idx);
@@ -611,8 +611,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if let Type::Kwargs(q) = &ty {
                 paramspec_kwargs = Some(q.clone());
             }
-            Param::Kwargs(Some(x.name.id().clone()), ty)
-        }));
+
+            if let Type::Unpack(box Type::TypedDict(typed_dict)) = &ty {
+                for (name, _) in self.typed_dict_fields(typed_dict) {
+                    if params.iter().any(|param| {
+                        matches!(
+                            param,
+                            Param::Pos(param_name, ..) | Param::KwOnly(param_name, ..)
+                                if param_name == &name
+                        )
+                    }) {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                            format!(
+                                "TypedDict key '{}' in **kwargs overlaps with parameter '{}'",
+                                name, name
+                            ),
+                        );
+                    }
+                }
+            }
+
+            params.push(Param::Kwargs(Some(x.name.id().clone()), ty));
+        }
 
         let paramspec = if let Some(q) = &paramspec_args
             && paramspec_args == paramspec_kwargs

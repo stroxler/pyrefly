@@ -1917,6 +1917,16 @@
     },
     {
       "code": -2,
+      "column": 20,
+      "concise_description": "TypedDict key 'v1' in **kwargs overlaps with parameter 'v1'",
+      "description": "TypedDict key 'v1' in **kwargs overlaps with parameter 'v1'",
+      "line": 111,
+      "name": "bad-function-definition",
+      "stop_column": 41,
+      "stop_line": 111
+    },
+    {
+      "code": -2,
       "column": 21,
       "concise_description": "`Unpack` in **kwargs annotation must be used only with a `TypedDict`",
       "description": "`Unpack` in **kwargs annotation must be used only with a `TypedDict`",
