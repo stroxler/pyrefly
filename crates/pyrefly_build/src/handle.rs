@@ -10,11 +10,14 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::SysInfo;
 
+use crate::source_db::Target;
+
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]
 pub struct Handle {
     module: ModuleName,
     path: ModulePath,
     sys_info: SysInfo,
+    target: Option<Target>,
 }
 
 impl Handle {
@@ -23,6 +26,22 @@ impl Handle {
             module,
             path,
             sys_info,
+            target: None,
+        }
+    }
+
+    #[expect(unused)]
+    pub(crate) fn new_with_target(
+        module: ModuleName,
+        path: ModulePath,
+        sys_info: SysInfo,
+        target: Target,
+    ) -> Self {
+        Self {
+            module,
+            path,
+            sys_info,
+            target: Some(target),
         }
     }
 
@@ -36,5 +55,10 @@ impl Handle {
 
     pub fn sys_info(&self) -> &SysInfo {
         &self.sys_info
+    }
+
+    #[expect(unused)]
+    pub(crate) fn target(&self) -> Option<&Target> {
+        self.target.as_ref()
     }
 }
