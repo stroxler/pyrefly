@@ -975,21 +975,19 @@ fn env_submodule_attribute_name_collision() -> TestEnv {
 }
 
 testcase!(
-    bug = "Pyrefly incorrectly resolves `foo.bar` to the submodule rather than the same-named function in the submodule",
     test_submodule_attribute_name_collision,
     env_submodule_attribute_name_collision(),
     r#"
-from typing import reveal_type
+from typing import assert_type, Callable
 import foo
-reveal_type(foo.bar)  # E: revealed type: Module[foo.bar]
+assert_type(foo.bar, Callable[[], None])
     "#,
 );
 
 testcase!(
-    bug = "We can't understand unittes.main(), root cause is same as above",
     test_unittest_main,
     r#"
 import unittest
-unittest.main()  # E: Expected a callable, got Module[unittest.main]
+unittest.main()
     "#,
 );

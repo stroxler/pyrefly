@@ -1353,17 +1353,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None => return Some(Attribute::simple(Type::any_error())), // This module doesn't exist, we must have already errored
         };
 
-        if module_exports.is_submodule_imported_implicitly(attr_name)
+        if module_exports.exports(self.exports).contains_key(attr_name) {
+            Some(Attribute::simple(
+                self.get_from_export(module_name, None, &KeyExport(attr_name.clone()))
+                    .arc_clone(),
+            ))
+        } else if module_exports.is_submodule_imported_implicitly(attr_name)
             && self
                 .get_module_exports(module_name.append(attr_name))
                 .is_some()
         {
             Some(Attribute::simple(submodule.to_type()))
-        } else if module_exports.exports(self.exports).contains_key(attr_name) {
-            Some(Attribute::simple(
-                self.get_from_export(module_name, None, &KeyExport(attr_name.clone()))
-                    .arc_clone(),
-            ))
         } else if self
             .get_module_exports(module_name.append(attr_name))
             .is_some()
