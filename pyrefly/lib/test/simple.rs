@@ -518,7 +518,7 @@ def f(x: list[int], y: dict[str, bool]) -> None:
     c = C()
     c[0]  # E: Cannot index into `C`\n  Object of class `C` has no attribute `__getitem__`
     d = D()
-    d[0]  # E: Expected `__getitem__` to be a callable, got int
+    d[0]  # E: Expected `__getitem__` to be a callable, got `int`
 "#,
 );
 
@@ -1358,7 +1358,7 @@ class NotBoolable:
 y = bool(NotBoolable())  # E: `NotBoolable.__bool__` has type `int`, which is not callable
 
 # if expressions
-x = 0 if NotBoolable() else 1  # E: `NotBoolable.__bool__` has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got int
+x = 0 if NotBoolable() else 1  # E: `NotBoolable.__bool__` has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got `int`
 
 # if statements
 if NotBoolable(): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
