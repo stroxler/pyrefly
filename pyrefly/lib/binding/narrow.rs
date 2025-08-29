@@ -414,8 +414,10 @@ impl NarrowOps {
                 ops: cmp_ops,
                 comparators,
             })) => {
-                // If the left expression is a call to len(), we're narrowing the argument
+                // If the left expression is a call to `len()` or `getattr()`, we're narrowing the first argument
                 let mut left = &**left;
+                // If the left expression is a call to `getattr()` we store attribute name and default
+                let mut getattr_name = None;
                 let mut special_export = None;
                 if let Expr::Call(ExprCall {
                     func, arguments, ..
@@ -431,6 +433,23 @@ impl NarrowOps {
                         left = &arguments.args[0];
                     }
                 }
+                // If we have something like `getattr(x, "attr") != None` or `getattr(x, "attr", None) is not None`
+                // we can perform a `hasattr(x, "attr")` narrow.
+                if let Expr::Call(ExprCall {
+                    func, arguments, ..
+                }) = left
+                    && arguments.keywords.is_empty()
+                    && (arguments.args.len() == 2
+                        || (arguments.args.len() == 3
+                            && matches!(arguments.args[2], Expr::NoneLiteral(_))))
+                    && let Expr::StringLiteral(ExprStringLiteral { value, .. }) = &arguments.args[1]
+                {
+                    special_export = builder.as_special_export(func);
+                    if matches!(special_export, Some(SpecialExport::GetAttr)) {
+                        left = &arguments.args[0];
+                        getattr_name = Some(Name::new(value.to_string()));
+                    }
+                }
                 let mut ops = cmp_ops
                     .iter()
                     .zip(comparators)
@@ -442,6 +461,15 @@ impl NarrowOps {
                             }
                             (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::Type)) => {
                                 AtomicNarrowOp::TypeNotEq(right.clone())
+                            }
+                            (CmpOp::IsNot | CmpOp::NotEq, Some(SpecialExport::GetAttr))
+                                if matches!(right, Expr::NoneLiteral(_))
+                                    && let Some(attr) = &getattr_name =>
+                            {
+                                AtomicNarrowOp::HasAttr(attr.clone())
+                            }
+                            (_, Some(SpecialExport::GetAttr)) => {
+                                return None;
                             }
                             (CmpOp::Is, None) => AtomicNarrowOp::Is(right.clone()),
                             (CmpOp::IsNot, None) => AtomicNarrowOp::IsNot(right.clone()),
