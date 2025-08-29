@@ -991,3 +991,19 @@ import unittest
 unittest.main()
     "#,
 );
+
+testcase!(
+    bug = "In the presence of collisions, the runtime result can be order-dependent",
+    test_ambiguous_pkg_attribute_vs_submodule,
+    r#"
+# The behavior when a package `__init__` attribute and a submodule collide can
+# be ambiguous. We currently do not model this fully, and instead use the distinction
+# between `import pkg.xyz` vs `from pkg import xyz` (which is correlated with the
+# runtime behavior but not entirely the same) to approximate.
+#
+# One example where this leads us astray is with unittest.main; the following
+# snippet works at runtime:
+import unittest.main
+unittest.main()  # E: Expected a callable, got `Module[unittest.main]`
+    "#,
+);
