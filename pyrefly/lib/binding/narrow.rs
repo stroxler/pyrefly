@@ -56,6 +56,8 @@ pub enum AtomicNarrowOp {
     IsNotInstance(Expr),
     IsSubclass(Expr),
     IsNotSubclass(Expr),
+    HasAttr(Name),
+    NotHasAttr(Name),
     TypeGuard(Type, Arguments),
     NotTypeGuard(Type, Arguments),
     TypeIs(Type, Arguments),
@@ -107,6 +109,12 @@ impl DisplayWith<ModuleInfo> for AtomicNarrowOp {
             AtomicNarrowOp::IsSubclass(expr) => write!(f, "IsSubclass({})", expr.display_with(ctx)),
             AtomicNarrowOp::IsNotSubclass(expr) => {
                 write!(f, "IsNotSubclass({})", expr.display_with(ctx))
+            }
+            AtomicNarrowOp::HasAttr(attr) => {
+                write!(f, "HasAttr({})", attr)
+            }
+            AtomicNarrowOp::NotHasAttr(attr) => {
+                write!(f, "NotHasAttr({})", attr)
             }
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 write!(f, "TypeGuard({t}, {})", arguments.display_with(ctx))
@@ -183,6 +191,8 @@ impl AtomicNarrowOp {
             Self::IsNotInstance(v) => Self::IsInstance(v.clone()),
             Self::IsSubclass(v) => Self::IsNotSubclass(v.clone()),
             Self::IsNotSubclass(v) => Self::IsSubclass(v.clone()),
+            Self::HasAttr(attr) => Self::NotHasAttr(attr.clone()),
+            Self::NotHasAttr(attr) => Self::HasAttr(attr.clone()),
             Self::Eq(v) => Self::NotEq(v.clone()),
             Self::NotEq(v) => Self::Eq(v.clone()),
             Self::In(v) => Self::NotIn(v.clone()),
@@ -491,6 +501,23 @@ impl NarrowOps {
                 && arguments.keywords.is_empty() =>
             {
                 Self::from_single_narrow_op(&arguments.args[0], AtomicNarrowOp::IsTruthy, *range)
+            }
+            Some(Expr::Call(ExprCall {
+                node_index: _,
+                range,
+                func,
+                arguments,
+            })) if builder.as_special_export(func) == Some(SpecialExport::HasAttr)
+                && arguments.args.len() == 2
+                && arguments.keywords.is_empty()
+                && let Expr::StringLiteral(ExprStringLiteral { value, .. }) =
+                    &arguments.args[1] =>
+            {
+                Self::from_single_narrow_op(
+                    &arguments.args[0],
+                    AtomicNarrowOp::HasAttr(Name::new(value.to_string())),
+                    *range,
+                )
             }
             Some(Expr::Call(ExprCall {
                 node_index: _,

@@ -575,6 +575,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let right = self.expr_infer(v, errors);
                 self.narrow_is_not_subclass(ty, &right, v.range())
             }
+            AtomicNarrowOp::HasAttr(_) => ty.clone(),
+            AtomicNarrowOp::NotHasAttr(_) => ty.clone(),
             AtomicNarrowOp::TypeGuard(t, arguments) => {
                 if let Some(call_target) = self.as_call_target(t.clone()) {
                     let args = arguments.args.map(CallArg::expr_maybe_starred);
@@ -794,10 +796,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> TypeInfo {
         match op {
+            NarrowOp::Atomic(subject, AtomicNarrowOp::HasAttr(attr)) => {
+                let base_ty = match subject {
+                    Some(facet_chain) => self.get_facet_chain_type(type_info, facet_chain, range),
+                    None => type_info.ty().clone(),
+                };
+                // We only narrow the attribute to `Any` if the attribute does not exist
+                if !self.has_attr(&base_ty, attr) {
+                    let attr_facet = FacetKind::Attribute(attr.clone());
+                    let facets = match subject {
+                        Some(chain) => {
+                            let mut new_facets = chain.facets().clone();
+                            new_facets.push(attr_facet);
+                            new_facets
+                        }
+                        None => Vec1::new(attr_facet),
+                    };
+                    type_info.with_narrow(&facets, Type::any_implicit())
+                } else {
+                    type_info.clone()
+                }
+            }
             NarrowOp::Atomic(None, op) => {
-                type_info
-                    .clone()
-                    .with_ty(self.atomic_narrow(type_info.ty(), op, range, errors))
+                let ty = self.atomic_narrow(type_info.ty(), op, range, errors);
+                type_info.clone().with_ty(ty)
             }
             NarrowOp::Atomic(Some(facet_chain), op) => {
                 let ty = self.atomic_narrow(

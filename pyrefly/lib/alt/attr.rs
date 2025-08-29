@@ -342,7 +342,7 @@ impl NotFoundOn {
         match self {
             NotFoundOn::ClassInstance(class, _) => {
                 let class_name = class.name();
-                format!("Object of class `{class_name}` has no attribute `{attr_name}`",)
+                format!("Object of class `{class_name}` has no attribute `{attr_name}`")
             }
             NotFoundOn::ClassObject(class, _) => {
                 let class_name = class.name();
@@ -506,6 +506,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 error_messages.join("\n"),
             )
         }
+    }
+
+    /// Can the attribute be successfully looked up in all cases?
+    pub fn has_attr(&self, base: &Type, attr_name: &Name) -> bool {
+        if let Some(attr_base) = self.as_attribute_base(base.clone()) {
+            let lookup_result = self.lookup_attr_from_base(attr_base, attr_name);
+            return lookup_result.internal_error.is_empty() && lookup_result.not_found.is_empty();
+        }
+        false
     }
 
     /// Compute the get (i.e., read) type of a magic dunder attribute, if it can

@@ -490,3 +490,18 @@ def f(foo: Foo):
             assert_type(x, int)
 "#,
 );
+
+testcase!(
+    test_hasattr_narrowing,
+    r#"
+from typing import reveal_type, assert_type, Any
+class C:
+    x: int
+
+def test(c: C):
+    if hasattr(c, "x"):
+        assert_type(c.x, int)
+    if hasattr(c, "y"):
+        assert_type(c.y, Any)
+    "#,
+);
