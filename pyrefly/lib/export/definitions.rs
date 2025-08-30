@@ -436,6 +436,11 @@ impl<'a> DefinitionsBuilder<'a> {
                 if let Some(value) = &x.value {
                     self.named_in_expr(value);
                 }
+                if let Some(v) = &x.value
+                    && DunderAllEntry::is_all(&x.target)
+                {
+                    self.inner.dunder_all = DunderAllEntry::as_list(v.as_ref());
+                }
                 match &*x.target {
                     Expr::Name(x) => {
                         self.add_name(
@@ -842,6 +847,23 @@ __all__.remove('r')
             defs.dunder_all.map(|x| x),
             vec![a, b, a, b, foo, a, b, foo, a, r]
         );
+    }
+
+    #[test]
+    fn test_all_annotated() {
+        let defs = calculate_unranged_definitions_with_defaults(
+            r#"
+from foo import *
+a = 1
+b = 1
+__all__: list[str] = ["a", "b"]
+        "#,
+        );
+        assert_definition_names(&defs, &["a", "b", "__all__"]);
+        let loc = TextRange::default();
+        let a = &DunderAllEntry::Name(loc, Name::new_static("a"));
+        let b = &DunderAllEntry::Name(loc, Name::new_static("b"));
+        assert_eq!(defs.dunder_all.map(|x| x), vec![a, b]);
     }
 
     #[test]
