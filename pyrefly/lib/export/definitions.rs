@@ -438,7 +438,8 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.inner
                         .dunder_all
                         .extend(DunderAllEntry::as_list(&x.value));
-                } else if let Expr::Name(name) = &*x.target {
+                }
+                if let Expr::Name(name) = &*x.target {
                     self.add_name(
                         &name.id,
                         name.range,

@@ -626,3 +626,10 @@ def check[T](new: T, old: T) -> None:
         lambda: old.shape
 "#,
 );
+
+testcase!(
+    test_dunder_all_mutated_without_def,
+    r#"
+__all__ += []  # E: Could not find name `__all__`
+"#,
+);
