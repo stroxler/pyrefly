@@ -432,6 +432,22 @@ impl<'a> DefinitionsBuilder<'a> {
                     }
                 }
             }
+            Stmt::AnnAssign(x) => {
+                if let Some(value) = &x.value {
+                    self.named_in_expr(value);
+                }
+                match &*x.target {
+                    Expr::Name(x) => {
+                        self.add_name(
+                            &x.id,
+                            x.range,
+                            DefinitionStyle::Local(SymbolKind::Variable),
+                            Some(ShortIdentifier::expr_name(x)),
+                        );
+                    }
+                    _ => self.expr_lvalue(&x.target),
+                }
+            }
             Stmt::AugAssign(x) => {
                 self.named_in_expr(&x.value);
                 if DunderAllEntry::is_all(&x.target) && x.op == Operator::Add {
@@ -481,22 +497,6 @@ impl<'a> DefinitionsBuilder<'a> {
                         }
                         _ => {}
                     }
-                }
-            }
-            Stmt::AnnAssign(x) => {
-                if let Some(value) = &x.value {
-                    self.named_in_expr(value);
-                }
-                match &*x.target {
-                    Expr::Name(x) => {
-                        self.add_name(
-                            &x.id,
-                            x.range,
-                            DefinitionStyle::Local(SymbolKind::Variable),
-                            Some(ShortIdentifier::expr_name(x)),
-                        );
-                    }
-                    _ => self.expr_lvalue(&x.target),
                 }
             }
             Stmt::TypeAlias(x) => {
