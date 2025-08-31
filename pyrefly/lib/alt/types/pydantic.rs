@@ -14,5 +14,13 @@ pub struct PydanticMetadata {
     pub class_validate_by_name: bool,
     pub class_validate_by_alias: bool,
     pub extra: bool,
-    pub is_root_model: bool,
+    pub pydantic_model_kind: PydanticModelKind,
+}
+
+#[derive(Clone, Debug, TypeEq, PartialEq, Eq, VisitMut, Default)]
+
+pub enum PydanticModelKind {
+    #[default]
+    BaseModel,
+    RootModel,
 }

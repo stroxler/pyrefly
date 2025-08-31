@@ -39,6 +39,7 @@ use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
 use crate::alt::types::pydantic::PydanticMetadata;
+use crate::alt::types::pydantic::PydanticModelKind;
 use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassExpr;
 use crate::binding::base_class::BaseClassGeneric;
@@ -288,11 +289,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             keywords.into_map(|(name, annot)| (name, annot.ty.unwrap_or_else(Type::any_implicit)));
 
         // get pydantic model info. A root model is by default also a base model, while not every base model is a root model
-        let (is_base_model, is_root_model) = if let Some(pydantic_metadata) = &pydantic_metadata {
-            (true, pydantic_metadata.is_root_model)
-        } else {
-            (false, false)
-        };
+        let pydantic_model_kind = pydantic_metadata
+            .as_ref()
+            .map(|m| m.pydantic_model_kind.clone());
 
         ClassMetadata::new(
             bases,
@@ -309,8 +308,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_final,
             total_ordering_metadata,
             dataclass_transform_metadata,
-            is_base_model,
-            is_root_model,
+            pydantic_model_kind,
         )
     }
 
@@ -423,19 +421,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .iter()
                 .any(|(_, metadata)| metadata.is_pydantic_base_model());
 
+        if !is_pydantic_base_model {
+            return None;
+        }
+
         let has_pydantic_root_model_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
                 base_class_object.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
             });
 
-        let is_root_model = has_pydantic_root_model_base_class
-            || bases_with_metadata
-                .iter()
-                .any(|(_, metadata)| metadata.is_pydantic_root_model());
+        let has_root_model_kind = bases_with_metadata.iter().any(|(_, metadata)| {
+            matches!(
+                metadata.pydantic_model_kind(),
+                Some(PydanticModelKind::RootModel)
+            )
+        });
 
-        if !is_pydantic_base_model {
-            return None;
-        }
+        let pydantic_model_kind = if has_pydantic_root_model_base_class || has_root_model_kind {
+            PydanticModelKind::RootModel
+        } else {
+            PydanticModelKind::BaseModel
+        };
 
         // Extract validate_by_alias & validate_by_name
         let class_validate_by_alias = keywords
@@ -498,7 +504,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             class_validate_by_alias,
             class_validate_by_name,
             extra,
-            is_root_model,
+            pydantic_model_kind,
         })
     }
 
