@@ -357,6 +357,9 @@ impl GleanState<'_> {
                 }
             }
         };
+        if !self.names.contains(&scope) {
+            self.record_name(scope.clone(), None);
+        }
         self.record_name(join_names(&scope, name), Some(name.range.start()))
     }
 

@@ -1876,6 +1876,49 @@
         "id": 0,
         "key": {
           "id": 0,
+          "key": "classes.Animal.__init__.<locals>"
+        },
+        "value": {
+          "id": 0,
+          "key": {
+            "local_name": {
+              "id": 0,
+              "key": "<locals>"
+            },
+            "parent": {
+              "id": 0,
+              "key": {
+                "local_name": {
+                  "id": 0,
+                  "key": "__init__"
+                },
+                "parent": {
+                  "id": 0,
+                  "key": {
+                    "local_name": {
+                      "id": 0,
+                      "key": "Animal"
+                    },
+                    "parent": {
+                      "id": 0,
+                      "key": {
+                        "local_name": {
+                          "id": 0,
+                          "key": "classes"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "id": 0,
           "key": "classes.Animal.__init__.<locals>.name"
         },
         "value": {
@@ -2014,6 +2057,49 @@
         "id": 0,
         "key": {
           "id": 0,
+          "key": "classes.Animal.speak.<locals>"
+        },
+        "value": {
+          "id": 0,
+          "key": {
+            "local_name": {
+              "id": 0,
+              "key": "<locals>"
+            },
+            "parent": {
+              "id": 0,
+              "key": {
+                "local_name": {
+                  "id": 0,
+                  "key": "speak"
+                },
+                "parent": {
+                  "id": 0,
+                  "key": {
+                    "local_name": {
+                      "id": 0,
+                      "key": "Animal"
+                    },
+                    "parent": {
+                      "id": 0,
+                      "key": {
+                        "local_name": {
+                          "id": 0,
+                          "key": "classes"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "id": 0,
           "key": "classes.Animal.speak.<locals>.self"
         },
         "value": {
@@ -2113,6 +2199,49 @@
                     "local_name": {
                       "id": 0,
                       "key": "classes"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "id": 0,
+          "key": "classes.Dog.speak.<locals>"
+        },
+        "value": {
+          "id": 0,
+          "key": {
+            "local_name": {
+              "id": 0,
+              "key": "<locals>"
+            },
+            "parent": {
+              "id": 0,
+              "key": {
+                "local_name": {
+                  "id": 0,
+                  "key": "speak"
+                },
+                "parent": {
+                  "id": 0,
+                  "key": {
+                    "local_name": {
+                      "id": 0,
+                      "key": "Dog"
+                    },
+                    "parent": {
+                      "id": 0,
+                      "key": {
+                        "local_name": {
+                          "id": 0,
+                          "key": "classes"
+                        }
+                      }
                     }
                   }
                 }
