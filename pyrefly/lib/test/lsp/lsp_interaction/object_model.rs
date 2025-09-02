@@ -37,7 +37,11 @@ use crate::test::util::init_test;
 #[derive(Default)]
 pub struct InitializeSettings {
     pub workspace_folders: Option<Vec<(String, Url)>>,
-    pub configuration: Option<serde_json::Value>,
+    // initial configuration to send after initialization
+    // When Some, configuration will be sent after initialization
+    // When None, no configuration will be sent
+    // When Some(None), empty configuration will be sent
+    pub configuration: Option<Option<serde_json::Value>>,
     pub file_watch: bool,
 }
 
@@ -508,7 +512,7 @@ impl LspInteraction {
             self.client.expect_any_message();
             self.server.send_message(Message::Response(Response {
                 id: RequestId::from(1),
-                result: Some(settings),
+                result: settings,
                 error: None,
             }));
         }

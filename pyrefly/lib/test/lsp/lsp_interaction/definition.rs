@@ -154,7 +154,9 @@ fn definition_in_builtins_without_interpreter_goes_to_stub() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(serde_json::json!([{"pythonPath": "/fake/python/path"}])),
+        configuration: Some(Some(
+            serde_json::json!([{"pythonPath": "/fake/python/path"}]),
+        )),
         ..Default::default()
     });
     interaction.server.did_open("imports_builtins.py");

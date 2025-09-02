@@ -25,7 +25,7 @@ fn test_did_change_configuration() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(serde_json::json!([{}, {}])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -49,7 +49,7 @@ fn test_disable_language_services() {
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -96,7 +96,7 @@ fn test_disable_language_services_default_workspace() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -142,7 +142,7 @@ fn test_did_change_workspace_folder() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -183,7 +183,7 @@ fn test_disable_type_errors_language_services_still_work() {
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(serde_json::json!([{"pyrefly": {"disableTypeErrors": true}}, {"pyrefly": {"disableTypeErrors": true}}])),
+        configuration: Some(Some(serde_json::json!([{"pyrefly": {"disableTypeErrors": true}}, {"pyrefly": {"disableTypeErrors": true}}]))),
         ..Default::default()
     });
 
@@ -215,7 +215,7 @@ fn test_disable_type_errors_workspace_folder() {
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -252,7 +252,7 @@ fn test_disable_type_errors_default_workspace() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -290,7 +290,7 @@ fn test_disable_type_errors_config() {
     interaction.set_root(test_files_root.clone());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
@@ -329,7 +329,7 @@ fn test_parse_pylance_configs() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(serde_json::json!([])),
+        configuration: Some(None),
         ..Default::default()
     });
 
