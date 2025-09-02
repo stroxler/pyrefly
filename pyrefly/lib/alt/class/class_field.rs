@@ -586,6 +586,7 @@ enum InstanceKind {
     TypedDict,
     TypeVar(Quantified),
     SelfType,
+    Protocol(Type),
 }
 
 /// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
@@ -628,6 +629,14 @@ impl<'a> Instance<'a> {
         }
     }
 
+    fn of_protocol(cls: &'a ClassType, self_type: Type) -> Self {
+        Self {
+            kind: InstanceKind::Protocol(self_type),
+            class: cls.class_object(),
+            targs: cls.targs(),
+        }
+    }
+
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: &mut Type) {
@@ -646,16 +655,21 @@ impl<'a> Instance<'a> {
             InstanceKind::SelfType => {
                 Type::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
             }
+            InstanceKind::Protocol(self_type) => self_type.clone(),
         }
     }
 
     /// Looking up a classmethod/staticmethod from an instance base has class-like
     /// lookup behavior. When this happens, we convert from an instance base to a class base.
     fn to_class_base(&self) -> ClassBase {
-        match self.kind {
+        match &self.kind {
             InstanceKind::SelfType => {
                 ClassBase::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
             }
+            InstanceKind::Protocol(self_type) => ClassBase::Protocol(
+                ClassType::new(self.class.dupe(), self.targs.clone()),
+                self_type.clone(),
+            ),
             _ => ClassBase::ClassType(ClassType::new(self.class.dupe(), self.targs.clone())),
         }
     }
@@ -665,9 +679,13 @@ impl<'a> Instance<'a> {
             // There's no situation in which you can stick a usable descriptor in a TypedDict.
             // TODO(rechen): a descriptor in a TypedDict should be an error at class creation time.
             InstanceKind::TypedDict => None,
-            InstanceKind::ClassType | InstanceKind::SelfType | InstanceKind::TypeVar(..) => Some(
-                DescriptorBase::Instance(ClassType::new(self.class.dupe(), self.targs.clone())),
-            ),
+            InstanceKind::ClassType
+            | InstanceKind::SelfType
+            | InstanceKind::Protocol(..)
+            | InstanceKind::TypeVar(..) => Some(DescriptorBase::Instance(ClassType::new(
+                self.class.dupe(),
+                self.targs.clone(),
+            ))),
         }
     }
 }
@@ -1642,6 +1660,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassBase::ClassType(c) => c.clone().to_type(),
             ClassBase::Quantified(q, _) => q.clone().to_type(),
             ClassBase::SelfType(c) => Type::SelfType(c.clone()),
+            ClassBase::Protocol(_, self_type) => self_type.clone(),
         };
         foralled.subst_self_type_mut(&replacement, &|a, b| self.is_subset_eq(a, b));
         Some(bind_class_attribute(cls, foralled, &None))
@@ -1941,6 +1960,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_self_type(cls)))
+    }
+
+    pub fn get_protocol_attribute(
+        &self,
+        cls: &ClassType,
+        self_type: Type,
+        name: &Name,
+    ) -> Option<ClassAttribute> {
+        self.get_class_member(cls.class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(&member.value, &Instance::of_protocol(cls, self_type))
+            })
     }
 
     pub fn get_bounded_quantified_attribute(

@@ -433,6 +433,7 @@ pub enum ClassBase {
     ClassType(ClassType),
     Quantified(Quantified, ClassType),
     SelfType(ClassType),
+    Protocol(ClassType, Type),
 }
 
 impl ClassBase {
@@ -442,15 +443,17 @@ impl ClassBase {
             ClassBase::ClassType(c) => c.class_object(),
             ClassBase::Quantified(_, c) => c.class_object(),
             ClassBase::SelfType(c) => c.class_object(),
+            ClassBase::Protocol(c, _) => c.class_object(),
         }
     }
 
     pub fn targs(&self) -> Option<&TArgs> {
         match self {
             ClassBase::ClassDef(..) => None,
-            ClassBase::ClassType(c) | ClassBase::Quantified(_, c) | ClassBase::SelfType(c) => {
-                Some(c.targs())
-            }
+            ClassBase::ClassType(c)
+            | ClassBase::Quantified(_, c)
+            | ClassBase::SelfType(c)
+            | ClassBase::Protocol(c, _) => Some(c.targs()),
         }
     }
 
@@ -460,6 +463,7 @@ impl ClassBase {
             ClassBase::ClassType(c) => Type::Type(Box::new(c.to_type())),
             ClassBase::Quantified(q, _) => Type::type_form(q.to_type()),
             ClassBase::SelfType(c) => Type::type_form(Type::SelfType(c)),
+            ClassBase::Protocol(_, self_type) => Type::type_form(self_type),
         }
     }
 }
@@ -932,7 +936,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
         {
             if (!got_attrs.is_empty())
-                && let Some(want) = self.get_instance_attribute(protocol, name)
+                && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), name)
             {
                 got_attrs.iter().all(|(got_attr, _)| {
                     self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
