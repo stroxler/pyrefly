@@ -254,14 +254,23 @@ impl TArgs {
         Substitution(self.substitution_map())
     }
 
-    pub fn substitute_into(&self, ty: Type) -> Type {
-        self.substitution().substitute_into(ty)
+    pub fn substitute_into_mut(&self, ty: &mut Type) {
+        self.substitution().substitute_into_mut(ty)
+    }
+
+    pub fn substitute_into(&self, mut ty: Type) -> Type {
+        self.substitute_into_mut(&mut ty);
+        ty
     }
 }
 
 pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 
 impl<'a> Substitution<'a> {
+    pub fn substitute_into_mut(&self, ty: &mut Type) {
+        ty.subst_mut(&self.0)
+    }
+
     pub fn substitute_into(&self, ty: Type) -> Type {
         ty.subst(&self.0)
     }

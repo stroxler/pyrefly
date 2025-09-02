@@ -350,7 +350,7 @@ impl ClassField {
         }
     }
 
-    fn instantiate_helper(&self, f: &mut dyn FnMut(&Type) -> Type) -> Self {
+    fn instantiate_helper(&self, f: &mut dyn FnMut(&mut Type)) -> Self {
         match &self.0 {
             ClassFieldInner::Simple {
                 ty,
@@ -361,27 +361,41 @@ impl ClassField {
                 descriptor_setter,
                 is_function_without_return_annotation,
                 name_might_exist_in_inherited,
-            } => Self(ClassFieldInner::Simple {
-                ty: f(ty),
-                annotation: annotation.clone(),
-                initialization: initialization.clone(),
-                read_only_reason: read_only_reason.clone(),
-                descriptor_getter: descriptor_getter.as_ref().map(&mut *f),
-                descriptor_setter: descriptor_setter.as_ref().map(&mut *f),
-                is_function_without_return_annotation: *is_function_without_return_annotation,
-                name_might_exist_in_inherited: *name_might_exist_in_inherited,
-            }),
+            } => {
+                let mut ty = ty.clone();
+                f(&mut ty);
+                let descriptor_getter = descriptor_getter.as_ref().map(|ty| {
+                    let mut ty = ty.clone();
+                    f(&mut ty);
+                    ty
+                });
+                let descriptor_setter = descriptor_setter.as_ref().map(|ty| {
+                    let mut ty = ty.clone();
+                    f(&mut ty);
+                    ty
+                });
+                Self(ClassFieldInner::Simple {
+                    ty,
+                    annotation: annotation.clone(),
+                    initialization: initialization.clone(),
+                    read_only_reason: read_only_reason.clone(),
+                    descriptor_getter,
+                    descriptor_setter,
+                    is_function_without_return_annotation: *is_function_without_return_annotation,
+                    name_might_exist_in_inherited: *name_might_exist_in_inherited,
+                })
+            }
         }
     }
 
     fn instantiate_for(&self, instance: &Instance) -> Self {
-        self.instantiate_helper(&mut |ty| instance.instantiate_member(ty.clone()))
+        self.instantiate_helper(&mut |ty| instance.instantiate_member(ty))
     }
 
     fn instantiate_for_class(&self, cls: &ClassBase) -> Self {
         self.instantiate_helper(&mut |ty| match cls.targs() {
-            Some(targs) => targs.substitute_into(ty.clone()),
-            None => ty.clone(), // TODO: transform to function depending on class param here
+            Some(targs) => targs.substitute_into_mut(ty),
+            None => {} // TODO: transform to function depending on class param here
         })
     }
 
@@ -671,8 +685,8 @@ impl<'a> Instance<'a> {
 
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
-    fn instantiate_member(&self, raw_member: Type) -> Type {
-        self.targs.substitute_into(raw_member)
+    fn instantiate_member(&self, raw_member: &mut Type) {
+        self.targs.substitute_into_mut(raw_member)
     }
 
     fn to_type(&self) -> Type {
