@@ -429,7 +429,7 @@ impl AttributeBase1 {
 
 #[derive(Clone, Debug)]
 pub enum ClassBase {
-    ClassDef(Class),
+    ClassDef(ClassType),
     ClassType(ClassType),
     Quantified(Quantified, ClassType),
     SelfType(ClassType),
@@ -439,7 +439,7 @@ pub enum ClassBase {
 impl ClassBase {
     pub fn class_object(&self) -> &Class {
         match self {
-            ClassBase::ClassDef(c) => c,
+            ClassBase::ClassDef(c) => c.class_object(),
             ClassBase::ClassType(c) => c.class_object(),
             ClassBase::Quantified(_, c) => c.class_object(),
             ClassBase::SelfType(c) => c.class_object(),
@@ -459,11 +459,21 @@ impl ClassBase {
 
     pub fn to_type(self) -> Type {
         match self {
-            ClassBase::ClassDef(c) => Type::ClassDef(c),
+            ClassBase::ClassDef(c) => Type::ClassDef(c.into_class_object()),
             ClassBase::ClassType(c) => Type::Type(Box::new(c.to_type())),
             ClassBase::Quantified(q, _) => Type::type_form(q.to_type()),
             ClassBase::SelfType(c) => Type::type_form(Type::SelfType(c)),
             ClassBase::Protocol(_, self_type) => Type::type_form(self_type),
+        }
+    }
+
+    pub fn to_self_type(self) -> Type {
+        match self {
+            ClassBase::ClassDef(c) => c.to_type(),
+            ClassBase::ClassType(c) => c.to_type(),
+            ClassBase::Quantified(q, _) => q.to_type(),
+            ClassBase::SelfType(c) => Type::SelfType(c),
+            ClassBase::Protocol(_, self_type) => self_type,
         }
     }
 }
@@ -1400,7 +1410,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn as_attribute_base1(&self, ty: Type, acc: &mut Vec<AttributeBase1>) {
         match ty {
             Type::ClassType(class_type) => acc.push(AttributeBase1::ClassInstance(class_type)),
-            Type::ClassDef(cls) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(cls))),
+            Type::ClassDef(cls) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(
+                self.as_class_type_unchecked(&cls),
+            ))),
             Type::SelfType(class_type) => acc.push(AttributeBase1::SelfType(class_type)),
             Type::Type(box Type::SelfType(class_type)) => {
                 acc.push(AttributeBase1::ClassObject(ClassBase::SelfType(class_type)))
@@ -1494,7 +1506,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )) => acc.push(AttributeBase1::TypeAny(AnyStyle::Implicit)),
             Type::Type(box Type::SpecialForm(SpecialForm::Type)) => {
                 acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(
-                    self.stdlib.builtins_type().class_object().dupe(),
+                    self.stdlib.builtins_type().clone(),
                 )))
             }
             Type::Module(module) => acc.push(AttributeBase1::Module(module)),

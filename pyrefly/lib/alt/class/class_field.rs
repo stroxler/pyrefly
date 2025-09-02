@@ -1655,14 +1655,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return None;
             }
         };
-        let replacement = match cls {
-            ClassBase::ClassDef(c) => self.instantiate(c),
-            ClassBase::ClassType(c) => c.clone().to_type(),
-            ClassBase::Quantified(q, _) => q.clone().to_type(),
-            ClassBase::SelfType(c) => Type::SelfType(c.clone()),
-            ClassBase::Protocol(_, self_type) => self_type.clone(),
-        };
-        foralled.subst_self_type_mut(&replacement, &|a, b| self.is_subset_eq(a, b));
+        foralled.subst_self_type_mut(&cls.clone().to_self_type(), &|a, b| self.is_subset_eq(a, b));
         Some(bind_class_attribute(cls, foralled, &None))
     }
 
