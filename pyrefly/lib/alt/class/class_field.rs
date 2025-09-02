@@ -370,7 +370,7 @@ impl ClassField {
 
     fn instantiate_for(&self, instance: &Instance) -> Self {
         self.instantiate_helper(&mut |ty| {
-            ty.subst_self_type_mut(&instance.to_type(), &|_, _| true);
+            ty.subst_self_type_mut(&instance.to_type());
             instance.instantiate_member(ty)
         })
     }
@@ -383,7 +383,7 @@ impl ClassField {
     ) -> Self {
         let mp = targs.substitution_map();
         self.instantiate_helper(&mut |ty| {
-            ty.subst_self_type_mut(&self_type, &|_, _| true);
+            ty.subst_self_type_mut(&self_type);
             match ty {
                 Type::Function(_)
                 | Type::Overload(_)
@@ -426,7 +426,7 @@ impl ClassField {
             }
         };
         self.instantiate_helper(&mut |ty| {
-            ty.subst_self_type_mut(&self_type, &|_, _| true);
+            ty.subst_self_type_mut(&self_type);
             match ty {
                 Type::Function(func) => {
                     if let Some(tparams) = prepend_class_tparams_if_used(func, None) {
@@ -1695,7 +1695,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) =>
             {
                 let replacement = self.instantiate(enum_cls);
-                lit.visit_mut(&mut |ty| ty.subst_self_type_mut(&replacement, &|_, _| true));
+                lit.visit_mut(&mut |ty| ty.subst_self_type_mut(&replacement));
                 Some(lit)
             }
             _ => None,

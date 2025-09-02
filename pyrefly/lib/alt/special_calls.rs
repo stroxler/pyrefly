@@ -66,8 +66,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .anon_callables();
             // Make assert_type(Self@SomeClass, typing.Self) work.
             let self_form = Type::SpecialForm(SpecialForm::SelfType);
-            a.subst_self_type_mut(&self_form, &|_, _| true);
-            b.subst_self_type_mut(&self_form, &|_, _| true);
+            a.subst_self_type_mut(&self_form);
+            b.subst_self_type_mut(&self_form);
 
             // Re-sort unions. Make sure to keep this as the final step before comparison.
             a = a.sort_unions();

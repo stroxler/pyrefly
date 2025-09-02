@@ -426,20 +426,13 @@ impl BoundMethodType {
         }
     }
 
-    pub fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
+    pub fn subst_self_type_mut(&mut self, replacement: &Type) {
         match self {
-            Self::Function(func) => func.signature.subst_self_type_mut(replacement, is_subset),
-            Self::Forall(forall) => forall
-                .body
-                .signature
-                .subst_self_type_mut(replacement, is_subset),
+            Self::Function(func) => func.signature.subst_self_type_mut(replacement),
+            Self::Forall(forall) => forall.body.signature.subst_self_type_mut(replacement),
             Self::Overload(overload) => {
                 for sig in overload.signatures.iter_mut() {
-                    sig.subst_self_type_mut(replacement, is_subset)
+                    sig.subst_self_type_mut(replacement)
                 }
             }
         }
@@ -504,17 +497,10 @@ impl OverloadType {
         }
     }
 
-    fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
+    fn subst_self_type_mut(&mut self, replacement: &Type) {
         match self {
-            Self::Function(f) => f.signature.subst_self_type_mut(replacement, is_subset),
-            Self::Forall(forall) => forall
-                .body
-                .signature
-                .subst_self_type_mut(replacement, is_subset),
+            Self::Function(f) => f.signature.subst_self_type_mut(replacement),
+            Self::Forall(forall) => forall.body.signature.subst_self_type_mut(replacement),
         }
     }
 
@@ -998,13 +984,9 @@ impl Type {
         });
     }
 
-    pub fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
+    pub fn subst_self_type_mut(&mut self, replacement: &Type) {
         self.transform_mut(&mut |t| {
-            if matches!(t, Type::SelfType(_)) && is_subset(replacement, t) {
+            if matches!(t, Type::SelfType(_)) {
                 *t = replacement.clone();
             }
         })

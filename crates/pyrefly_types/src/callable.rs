@@ -456,12 +456,8 @@ impl Callable {
         )
     }
 
-    pub fn subst_self_type_mut(
-        &mut self,
-        replacement: &Type,
-        is_subset: &dyn Fn(&Type, &Type) -> bool,
-    ) {
-        self.visit_mut(&mut |t: &mut Type| t.subst_self_type_mut(replacement, is_subset));
+    pub fn subst_self_type_mut(&mut self, replacement: &Type) {
+        self.visit_mut(&mut |t: &mut Type| t.subst_self_type_mut(replacement));
     }
 }
 
