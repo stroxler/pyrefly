@@ -20,8 +20,10 @@ use pyrefly_types::simplify::unions;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::types::TParams;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
+use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -370,10 +372,99 @@ impl ClassField {
         self.instantiate_helper(&mut |ty| instance.instantiate_member(ty))
     }
 
-    fn instantiate_for_class(&self, cls: &ClassBase) -> Self {
-        self.instantiate_helper(&mut |ty| match cls.targs() {
-            Some(targs) => targs.substitute_into_mut(ty),
-            None => {} // TODO: transform to function depending on class param here
+    fn instantiate_for_class_targs(
+        &self,
+        targs: &TArgs,
+        ambiguous: &mut bool,
+        depends_on_class_tparams: &mut bool,
+    ) -> Self {
+        let mp = targs.substitution_map();
+        self.instantiate_helper(&mut |ty| match ty {
+            Type::Function(_)
+            | Type::Overload(_)
+            | Type::Forall(box Forall {
+                body: Forallable::Function(_),
+                ..
+            }) => ty.subst_mut_fn(&mut |q| {
+                mp.get(q).map(|ty| {
+                    *depends_on_class_tparams = true;
+                    (*ty).clone()
+                })
+            }),
+            _ => {
+                let mut qs: SmallSet<&Quantified> = SmallSet::new();
+                ty.collect_quantifieds(&mut qs);
+                *ambiguous = targs.tparams().iter().any(|x| qs.contains(&x.quantified));
+            }
+        })
+    }
+
+    fn instantiate_for_class_tparams(
+        &self,
+        cls_tparams: Arc<TParams>,
+        ambiguous: &mut bool,
+        depends_on_class_tparams: &mut bool,
+    ) -> Self {
+        let mut prepend_class_tparams_if_used = |f: &Function, tparams_opt: Option<&TParams>| {
+            let mut qs = SmallSet::new();
+            f.visit(&mut |ty| ty.collect_quantifieds(&mut qs));
+            if cls_tparams.iter().any(|tp| qs.contains(&tp.quantified)) {
+                *depends_on_class_tparams = true;
+                match tparams_opt {
+                    None => Some(cls_tparams.dupe()),
+                    Some(tparams) => {
+                        let mut new_tparams = (*cls_tparams).clone();
+                        new_tparams.extend(tparams);
+                        Some(Arc::new(new_tparams))
+                    }
+                }
+            } else {
+                None
+            }
+        };
+        self.instantiate_helper(&mut |ty| match ty {
+            Type::Function(func) => {
+                if let Some(tparams) = prepend_class_tparams_if_used(func, None) {
+                    *ty = Type::Forall(Box::new(Forall {
+                        tparams,
+                        body: Forallable::Function((**func).clone()),
+                    }));
+                }
+            }
+            Type::Forall(forall) => {
+                let Forall { tparams, body } = &mut **forall;
+                if let Forallable::Function(func) = body
+                    && let Some(new_tparams) = prepend_class_tparams_if_used(func, Some(tparams))
+                {
+                    *tparams = new_tparams;
+                }
+            }
+            Type::Overload(Overload { signatures, .. }) => {
+                signatures.iter_mut().for_each(|sig| match sig {
+                    OverloadType::Function(body)
+                        if let Some(tparams) = prepend_class_tparams_if_used(body, None) =>
+                    {
+                        *sig = OverloadType::Forall(Forall {
+                            tparams,
+                            body: body.clone(),
+                        })
+                    }
+                    OverloadType::Forall(Forall { tparams, body })
+                        if let Some(new_tparams) =
+                            prepend_class_tparams_if_used(body, Some(tparams)) =>
+                    {
+                        *tparams = new_tparams;
+                    }
+                    _ => {}
+                });
+            }
+            ty => {
+                if !cls_tparams.is_empty() {
+                    let mut qs: SmallSet<&Quantified> = SmallSet::new();
+                    ty.collect_quantifieds(&mut qs);
+                    *ambiguous = cls_tparams.iter().any(|x| qs.contains(&x.quantified));
+                }
+            }
         })
     }
 
@@ -511,14 +602,6 @@ impl ClassField {
     pub fn is_override(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_override(),
-        }
-    }
-
-    pub fn read_only_reason(&self) -> &Option<ReadOnlyReason> {
-        match &self.0 {
-            ClassFieldInner::Simple {
-                read_only_reason, ..
-            } => read_only_reason,
         }
     }
 
@@ -693,11 +776,11 @@ impl<'a> Instance<'a> {
 fn bind_class_attribute(
     cls: &ClassBase,
     attr: Type,
-    read_only_reason: &Option<ReadOnlyReason>,
+    read_only_reason: Option<ReadOnlyReason>,
 ) -> ClassAttribute {
     let ty = make_bound_classmethod(cls, attr).into_inner();
     if let Some(reason) = read_only_reason {
-        ClassAttribute::read_only(ty, reason.clone())
+        ClassAttribute::read_only(ty, reason)
     } else {
         ClassAttribute::read_write(ty)
     }
@@ -1526,7 +1609,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_class_attribute(&self, field: &ClassField, cls: &ClassBase) -> ClassAttribute {
-        match field.instantiate_for_class(cls).0 {
+        let mut ambiguous = false;
+        let mut depends_on_class_tparams = false;
+        let cls_tparams = self.get_class_tparams(cls.class_object());
+        let field = if cls_tparams.is_empty() {
+            field.clone()
+        } else {
+            match cls.targs() {
+                Some(targs) => field.instantiate_for_class_targs(
+                    targs,
+                    &mut ambiguous,
+                    &mut depends_on_class_tparams,
+                ),
+                None => field.instantiate_for_class_tparams(
+                    cls_tparams,
+                    &mut ambiguous,
+                    &mut depends_on_class_tparams,
+                ),
+            }
+        };
+        match field.0 {
             ClassFieldInner::Simple {
                 descriptor: Some(descriptor),
                 ..
@@ -1541,22 +1643,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } => ClassAttribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
                 cls.class_object().dupe(),
             )),
-            ClassFieldInner::Simple { mut ty, .. } => {
-                if self.depends_on_class_type_parameter(field, cls.class_object()) {
-                    self.get_function_depending_on_class_type_parameter(cls, &ty)
-                        .unwrap_or_else(|| {
-                            ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
-                                cls.class_object().dupe(),
-                            ))
-                        })
+            ClassFieldInner::Simple {
+                mut ty,
+                read_only_reason,
+                ..
+            } => {
+                if ambiguous {
+                    ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
+                        cls.class_object().dupe(),
+                    ))
                 } else {
-                    // TODO(samgoldman): We should always substitute self, but this is behavior preserving. Fix incoming.
-                    if let ClassBase::Quantified(q, _) = cls {
-                        ty.subst_self_type_mut(&q.clone().to_type(), &|a, b| {
-                            self.is_subset_eq(a, b)
-                        });
+                    if depends_on_class_tparams {
+                        // We don't need to check the replacement, since the replacement is the receiver
+                        // and we are looking up the field on the receiver's class.
+                        ty.subst_self_type_mut(&cls.clone().to_self_type(), &|_, _| true);
+                    } else {
+                        // TODO(samgoldman): We should always substitute self, but this is behavior preserving. Fix incoming.
+                        if let ClassBase::Quantified(q, _) = cls {
+                            ty.subst_self_type_mut(&q.clone().to_type(), &|_, _| true);
+                        }
                     }
-                    bind_class_attribute(cls, ty, field.read_only_reason())
+                    bind_class_attribute(cls, ty, read_only_reason)
                 }
             }
         }
@@ -1593,70 +1700,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             Param::Pos(name.clone(), param_ty, required)
         }
-    }
-
-    fn depends_on_class_type_parameter(&self, field: &ClassField, cls: &Class) -> bool {
-        let tparams = self.get_class_tparams(cls);
-        let mut qs = SmallSet::new();
-        match &field.0 {
-            ClassFieldInner::Simple { ty, .. } => ty.collect_quantifieds(&mut qs),
-        };
-        tparams.quantifieds().any(|q| qs.contains(q))
-    }
-
-    fn get_function_depending_on_class_type_parameter(
-        &self,
-        cls: &ClassBase,
-        ty: &Type,
-    ) -> Option<ClassAttribute> {
-        let mut foralled = match ty {
-            Type::Function(func) => Type::Forall(Box::new(Forall {
-                tparams: self.get_class_tparams(cls.class_object()),
-                body: Forallable::Function((**func).clone()),
-            })),
-            Type::Forall(box Forall {
-                tparams,
-                body: body @ Forallable::Function(_),
-            }) => {
-                let mut new_tparams = tparams.as_ref().clone();
-                new_tparams.extend(&self.get_class_tparams(cls.class_object()));
-                Type::Forall(Box::new(Forall {
-                    tparams: Arc::new(new_tparams),
-                    body: body.clone(),
-                }))
-            }
-            Type::Overload(Overload {
-                signatures,
-                metadata,
-            }) => {
-                let new_signatures = signatures.clone().mapped(|sig| match sig {
-                    OverloadType::Function(function) => OverloadType::Forall(Forall {
-                        tparams: self.get_class_tparams(cls.class_object()),
-                        body: Function {
-                            signature: function.signature,
-                            metadata: (**metadata).clone(),
-                        },
-                    }),
-                    OverloadType::Forall(Forall { tparams, body }) => {
-                        let mut new_tparams = tparams.as_ref().clone();
-                        new_tparams.extend(&self.get_class_tparams(cls.class_object()));
-                        OverloadType::Forall(Forall {
-                            tparams: Arc::new(new_tparams),
-                            body,
-                        })
-                    }
-                });
-                Type::Overload(Overload {
-                    signatures: new_signatures,
-                    metadata: metadata.clone(),
-                })
-            }
-            _ => {
-                return None;
-            }
-        };
-        foralled.subst_self_type_mut(&cls.clone().to_self_type(), &|a, b| self.is_subset_eq(a, b));
-        Some(bind_class_attribute(cls, foralled, &None))
     }
 
     fn is_typed_dict_field(&self, metadata: &ClassMetadata, field_name: &Name) -> bool {

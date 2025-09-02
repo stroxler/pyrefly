@@ -964,7 +964,7 @@ impl Type {
         }
     }
 
-    fn subst_mut_fn(&mut self, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
+    pub fn subst_mut_fn(&mut self, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
         // We are looking up Quantified in a map, and Quantified may contain a Quantified within it.
         // Therefore, to make sure we still get matches, work top-down (not using `transform`).
         fn f(ty: &mut Type, mp: &mut dyn FnMut(&Quantified) -> Option<Type>) {
