@@ -1163,9 +1163,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             arg_name = true;
         }
 
-        let constraints = iargs
+        let constraints: Vec<Type> = iargs
             .map(|arg| self.expr_untype(arg, TypeFormContext::TypeVarConstraint, errors))
-            .collect::<Vec<_>>();
+            .collect();
         if !constraints.is_empty() {
             restriction = Some(Restriction::Constraints(constraints));
         }
@@ -1183,6 +1183,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
                                 "TypeVar cannot have both constraints and bound".to_owned(),
                             );
+                            restriction = Some(Restriction::Unrestricted);
                         } else {
                             restriction = Some(Restriction::Bound(bound));
                         }
@@ -1237,6 +1238,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
                 "Missing `name` argument".to_owned(),
             );
+        }
+        // If we ended up with a single constraint, emit an error and treat as unrestricted.
+        if let Some(Restriction::Constraints(cs)) = &restriction
+            && cs.len() < 2
+        {
+            self.error(
+                errors,
+                x.range,
+                ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
+                format!(
+                    "Expected at least 2 constraints in TypeVar `{}`, got {}",
+                    name.id,
+                    cs.len(),
+                ),
+            );
+            restriction = Some(Restriction::Unrestricted);
         }
         let restriction = restriction.unwrap_or(Restriction::Unrestricted);
         let mut default_value = None;
