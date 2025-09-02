@@ -334,6 +334,15 @@ fn string_for_type(type_: &Type) -> String {
     ctx.display(type_).to_string()
 }
 
+fn strip_self_type(mut ty: Type) -> Type {
+    ty.transform_mut(&mut |t| {
+        if let Type::SelfType(cls) = t {
+            *t = Type::ClassType(cls.clone());
+        }
+    });
+    ty
+}
+
 fn has_superclass(class: &Class, want: &Class, context: &ModuleContext) -> bool {
     context
         .transaction
@@ -421,6 +430,8 @@ impl PysaType {
     fn from_type(type_: &Type, context: &ModuleContext) -> PysaType {
         // Promote `Literal[..]` into `str` or `int`.
         let type_ = type_.clone().promote_literals(context.stdlib);
+        let type_ = strip_self_type(type_);
+
         let string = string_for_type(&type_);
 
         PysaType {
