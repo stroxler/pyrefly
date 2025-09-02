@@ -31,7 +31,7 @@ const VALUE_PROP: Name = Name::new_static("value");
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_enum_member(&self, cls: &Class, name: &Name) -> Option<Lit> {
         self.get_field_from_current_class_only(cls, name)
-            .and_then(|field| Arc::unwrap_or_clone(field).as_enum_member(cls))
+            .and_then(|field| self.as_enum_member(Arc::unwrap_or_clone(field), cls))
     }
 
     pub fn get_enum_members(&self, cls: &Class) -> SmallSet<Lit> {

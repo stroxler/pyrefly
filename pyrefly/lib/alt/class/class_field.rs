@@ -555,18 +555,6 @@ impl ClassField {
         }
     }
 
-    pub fn as_enum_member(self, enum_cls: &Class) -> Option<Lit> {
-        match self.0 {
-            ClassFieldInner::Simple {
-                ty: Type::Literal(lit),
-                ..
-            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) => {
-                Some(lit)
-            }
-            _ => None,
-        }
-    }
-
     fn is_dataclass_kwonly_marker(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => {
@@ -1699,6 +1687,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Param::KwOnly(name.clone(), param_ty, required)
         } else {
             Param::Pos(name.clone(), param_ty, required)
+        }
+    }
+
+    pub fn as_enum_member(&self, field: ClassField, enum_cls: &Class) -> Option<Lit> {
+        match field.0 {
+            ClassFieldInner::Simple {
+                ty: Type::Literal(lit),
+                ..
+            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) => {
+                Some(lit)
+            }
+            _ => None,
         }
     }
 
