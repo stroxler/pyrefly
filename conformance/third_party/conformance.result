@@ -149,9 +149,7 @@
   "directives_type_ignore_file1.py": [],
   "directives_type_ignore_file2.py": [],
   "directives_version_platform.py": [],
-  "enums_behaviors.py": [
-    "Line 20: Unexpected errors ['assert_type(Any, Color) failed']"
-  ],
+  "enums_behaviors.py": [],
   "enums_definition.py": [],
   "enums_expansion.py": [],
   "enums_member_names.py": [],

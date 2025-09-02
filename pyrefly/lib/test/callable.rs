@@ -837,7 +837,7 @@ class B:
 class C:
     def __init__(self, *args, **kwargs) -> None: ...
 
-assert_type(ret(A), A) # TODO # E: assert_type(Meta, A) failed
+assert_type(ret(A), A) # TODO # E: assert_type(type[A], A) failed
 assert_type(ret(B), B)
 assert_type(ret(C), C)
 "#,

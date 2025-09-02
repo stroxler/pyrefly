@@ -117,16 +117,28 @@ Color = Enum("C", 'RED', 'GREEN', 'BLUE')  # E: Expected string literal "Color"
 );
 
 testcase!(
-    bug = "`e` is `Any` because we need to use the bound object to instantiate _EnumMemberT in EnumMeta.__iter__",
+    bug = "Enums with multiple inheritance are not iterable. Maybe a MRO / metaclass resolution issue?",
     test_iterate,
     r#"
 from typing import assert_type
-from enum import Enum
-class E(Enum):
+from enum import Enum, StrEnum
+
+class E1(Enum):
     X = 1
-    Y = 2
-for e in E:
-    assert_type(e, E)  # E: assert_type(Any, E)
+
+class E2(str, Enum):
+    X = "1"
+
+class E3(StrEnum):
+    X = "1"
+
+for e in E1:
+    assert_type(e, E1)
+for e in E2: # E: Type `type[E2]` is not iterable
+    assert_type(e, E2)
+for e in E3: # E: Type `type[E3]` is not iterable
+    assert_type(e, E3)
+
     "#,
 );
 
@@ -515,20 +527,5 @@ class EmptyEnum(Enum):
     pass
 def test(x: EmptyEnum):
     assert_type(x.value, Any)
-    "#,
-);
-
-testcase!(
-    bug = "Our support for enum iteration is incomplete, the type is being downgraded to Any",
-    test_iterate_enum,
-    r#"
-import enum
-from typing import assert_type, Any
-class MyEnum(enum.Enum):
-    X = 'X'
-    Y = 'Y'
-def foo():
-    for e in MyEnum:
-        assert_type(e, MyEnum)  # E: assert_type(Any, MyEnum)
     "#,
 );

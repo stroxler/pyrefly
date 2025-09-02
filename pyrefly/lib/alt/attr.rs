@@ -1134,10 +1134,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // See `lookup_magic_dunder_attr()`.
                         let metadata = self.get_metadata_for_class(class.class_object());
                         let instance_attr = match metadata.metaclass() {
-                            Some(meta) => self.get_instance_attribute(meta, attr_name),
-                            None => {
-                                self.get_instance_attribute(self.stdlib.builtins_type(), attr_name)
-                            }
+                            Some(meta) => self.get_metaclass_attribute(class, meta, attr_name),
+                            None => self.get_metaclass_attribute(
+                                class,
+                                self.stdlib.builtins_type(),
+                                attr_name,
+                            ),
                         };
                         match instance_attr {
                             Some(attr) => acc.found_class_attribute(attr, base),
@@ -1252,7 +1254,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ));
                     return;
                 }
-                match self.get_instance_attribute(metaclass, dunder_name) {
+                match self.get_metaclass_attribute(class, metaclass, dunder_name) {
                     Some(attr) => acc.found_class_attribute(attr, base),
                     None => acc.not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),

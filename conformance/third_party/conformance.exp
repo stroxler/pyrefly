@@ -4216,16 +4216,6 @@
   "enums_behaviors.py": [
     {
       "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(Any, Color) failed",
-      "description": "assert_type(Any, Color) failed",
-      "line": 20,
-      "name": "assert-type",
-      "stop_column": 30,
-      "stop_line": 20
-    },
-    {
-      "code": -2,
       "column": 12,
       "concise_description": "assert_type(Literal[Color.RED], Color) failed",
       "description": "assert_type(Literal[Color.RED], Color) failed",

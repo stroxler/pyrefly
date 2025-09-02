@@ -683,6 +683,21 @@ assert_type(C.x, int)
     "#,
 );
 
+testcase!(
+    test_metaclass_method_cls_typetype,
+    r#"
+from typing import assert_type
+
+class Meta(type):
+    def m[T](cls: type[T]) -> T: ...
+
+class C(metaclass=Meta):
+    pass
+
+assert_type(C.m(), C)
+"#,
+);
+
 fn env_with_stub() -> TestEnv {
     let mut t = TestEnv::new();
     t.add_with_path(

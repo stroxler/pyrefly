@@ -658,13 +658,13 @@ impl ClassField {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
 enum InstanceKind {
     ClassType,
     TypedDict,
     TypeVar(Quantified),
     SelfType,
     Protocol(Type),
+    Metaclass(ClassBase),
 }
 
 /// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
@@ -715,6 +715,14 @@ impl<'a> Instance<'a> {
         }
     }
 
+    fn of_metaclass(cls: ClassBase, metaclass: &'a ClassType) -> Self {
+        Self {
+            kind: InstanceKind::Metaclass(cls),
+            class: metaclass.class_object(),
+            targs: metaclass.targs(),
+        }
+    }
+
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: &mut Type) {
@@ -734,6 +742,7 @@ impl<'a> Instance<'a> {
                 Type::SelfType(ClassType::new(self.class.dupe(), self.targs.clone()))
             }
             InstanceKind::Protocol(self_type) => self_type.clone(),
+            InstanceKind::Metaclass(cls) => cls.clone().to_type(),
         }
     }
 
@@ -760,6 +769,7 @@ impl<'a> Instance<'a> {
             InstanceKind::ClassType
             | InstanceKind::SelfType
             | InstanceKind::Protocol(..)
+            | InstanceKind::Metaclass(..)
             | InstanceKind::TypeVar(..) => Some(DescriptorBase::Instance(ClassType::new(
                 self.class.dupe(),
                 self.targs.clone(),
@@ -2002,6 +2012,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    pub fn get_metaclass_attribute(
+        &self,
+        cls: &ClassBase,
+        metaclass: &ClassType,
+        name: &Name,
+    ) -> Option<ClassAttribute> {
+        self.get_class_member(metaclass.class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(
+                    &member.value,
+                    &Instance::of_metaclass(cls.clone(), metaclass),
+                )
+            })
+    }
+
     pub fn get_bounded_quantified_attribute(
         &self,
         quantified: Quantified,
@@ -2172,7 +2197,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None
         } else {
             Arc::unwrap_or_clone(attr.value)
-                .as_raw_special_method_type(&Instance::of_class(metaclass))
+                .as_raw_special_method_type(&Instance::of_metaclass(
+                    ClassBase::ClassType(cls.clone()),
+                    metaclass,
+                ))
                 .and_then(|ty| make_bound_method(Type::type_form(cls.clone().to_type()), ty).ok())
         }
     }
