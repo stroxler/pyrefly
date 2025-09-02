@@ -585,15 +585,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Expr::Await(x) => {
                 let awaiting_ty = self.expr_infer(&x.value, errors);
-                match self.unwrap_awaitable(&awaiting_ty) {
+                self.distribute_over_union(&awaiting_ty, |ty| match self.unwrap_awaitable(ty) {
                     Some(ty) => ty,
                     None => self.error(
                         errors,
                         x.range,
                         ErrorInfo::Kind(ErrorKind::AsyncError),
-                        ErrorContext::Await(self.for_display(awaiting_ty)).format(),
+                        ErrorContext::Await(self.for_display(ty.clone())).format(),
                     ),
-                }
+                })
             }
             Expr::Yield(x) => self.get(&KeyYield(x.range)).send_ty.clone(),
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),

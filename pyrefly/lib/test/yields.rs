@@ -334,6 +334,28 @@ async def test() -> None:
 );
 
 testcase!(
+    test_await_union_success,
+    r#"
+from typing import Awaitable, assert_type
+
+async def test(x: Awaitable[int] | Awaitable[str]) -> None:
+    y = await x
+    assert_type(y, int | str)
+"#,
+);
+
+testcase!(
+    test_await_union_error,
+    r#"
+from typing import Any, Awaitable, assert_type
+
+async def test(x: Awaitable[int] | str) -> None:
+    y = await x  # E: Type `str` is not awaitable
+    assert_type(y, int | Any)
+"#,
+);
+
+testcase!(
     test_invalid_global_yield,
     r#"
 yield 0  # E: Invalid `yield` outside of a function

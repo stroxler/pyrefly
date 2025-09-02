@@ -30,12 +30,11 @@ async def test() -> None:
     z = await returns_never()
     reveal_type(z)  # E: revealed type: Never
     z = await returns_noreturn()
-    reveal_type(z)  # E: revealed type: NoReturn
+    reveal_type(z)  # E: revealed type: Never
 "#,
 );
 
 testcase!(
-    bug = "We are deterministic here, but the union handling is not good",
     test_await_union,
     r#"
 from typing import Never, Any, Awaitable, reveal_type
@@ -49,6 +48,6 @@ async def test() -> None:
     reveal_type(z)  # E: revealed type: int
     # (This one is a backtracking bug: we pin the var to int, then fail the
     #  str check because the upper bound has mutated and is no longer a var).
-    z = await union_int_str()  # E: Type `Awaitable[int] | Awaitable[str]` is not awaitable
+    z = await union_int_str()
 "#,
 );
