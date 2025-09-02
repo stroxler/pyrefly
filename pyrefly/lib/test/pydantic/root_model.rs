@@ -25,3 +25,16 @@ m1 = IntRootModel(123) # E: Expected argument `root` to be passed by name in fun
 m2 = IntRootModel("abc") # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
 "#,
 );
+
+testcase!(
+    bug = "We should not error on anything here since we have a generic type param",
+    test_root_model_generic,
+    pydantic_env(),
+    r#"
+from pydantic import RootModel
+class IntRootModel[T](RootModel[T]):
+   pass
+m1 = IntRootModel(123) # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
+m2 = IntRootModel("abc") # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
+"#,
+);
