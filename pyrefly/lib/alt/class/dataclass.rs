@@ -184,7 +184,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut params = Vec::new();
         for (name, field, _) in self.iter_fields(cls, dataclass_metadata, true) {
             if field.is_init_var() {
-                params.push(self.as_param(&field, &name, false, false, true, None));
+                params.push(self.as_param(&field, &name, false, false, true, None, errors));
             }
         }
         let want = Type::Callable(Box::new(Callable::list(
@@ -476,6 +476,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_kw_only,
                         strict,
                         field_flags.converter_param.clone(),
+                        errors,
                     ));
                 }
                 if let Some(alias) = &field_flags.alias
@@ -488,6 +489,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         is_kw_only,
                         strict,
                         field_flags.converter_param.clone(),
+                        errors,
                     ));
                 }
             }

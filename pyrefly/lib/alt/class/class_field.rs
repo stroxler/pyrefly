@@ -22,6 +22,7 @@ use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::name::Name;
@@ -113,20 +114,8 @@ impl ClassAttribute {
         Self::Property(getter, setter, cls)
     }
 
-    pub fn descriptor(
-        ty: Type,
-        base: DescriptorBase,
-        getter: Option<Type>,
-        setter: Option<Type>,
-    ) -> Self {
-        Self::Descriptor(
-            Descriptor {
-                descriptor_ty: ty,
-                getter,
-                setter,
-            },
-            base,
-        )
+    pub fn descriptor(descriptor: Descriptor, base: DescriptorBase) -> Self {
+        Self::Descriptor(descriptor, base)
     }
 
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
@@ -135,16 +124,15 @@ impl ClassAttribute {
             Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
             Self::Descriptor(
                 Descriptor {
-                    descriptor_ty,
-                    getter,
-                    ..
+                    range, cls, getter, ..
                 },
                 base,
             ) => Self::Descriptor(
                 Descriptor {
-                    descriptor_ty,
+                    range,
+                    cls,
                     getter,
-                    setter: None,
+                    setter: false,
                 },
                 base,
             ),
@@ -168,20 +156,20 @@ impl ClassAttribute {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 pub struct Descriptor {
-    /// This is the raw type of the descriptor, which is needed both for attribute subtyping
+    /// The location of the property where the descriptor is bound, where we should raise
+    /// errors attempting to access the getter/setter.
+    range: TextRange,
+    /// This is the descriptor class, which is needed both for attribute subtyping
     /// checks in structural types and in the case where there is no getter method.
-    descriptor_ty: Type,
-    /// If `__get__` exists on the descriptor, this is the type of `__get__`
-    /// method type (as resolved by accessing it on an instance of the
-    /// descriptor). It is typically a `BoundMethod` although it is possible for
-    /// a user to erroneously define a `__get__` with any type, including a
+    cls: ClassType,
+    /// Does `__get__` exists on the descriptor?  It is typically a `BoundMethod` although
+    /// it is possible for a user to erroneously define a `__get__` with any type, including a
     /// non-callable one.
-    getter: Option<Type>,
-    /// If `__set__` exists on the descriptor, this is the type of `__set__`. Similar considerations
-    /// to `getter` apply.
-    setter: Option<Type>,
+    getter: bool,
+    /// Does `__set__` exists on the descriptor? Similar considerations to `getter` apply.
+    setter: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -271,10 +259,8 @@ enum ClassFieldInner {
         initialization: ClassFieldInitialization,
         /// The reason this field is read-only. `None` indicates it is read-write.
         read_only_reason: Option<ReadOnlyReason>,
-        // Descriptor getter method, if there is one. `None` indicates no getter.
-        descriptor_getter: Option<Type>,
-        // Descriptor setter method, if there is one. `None` indicates no setter.
-        descriptor_setter: Option<Type>,
+        /// If this is a descriptor, data derived from `ty`.
+        descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         name_might_exist_in_inherited: bool,
     },
@@ -296,8 +282,7 @@ impl ClassField {
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
         read_only_reason: Option<ReadOnlyReason>,
-        descriptor_getter: Option<Type>,
-        descriptor_setter: Option<Type>,
+        descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         name_might_exist_in_inherited: bool,
     ) -> Self {
@@ -306,8 +291,7 @@ impl ClassField {
             annotation,
             initialization,
             read_only_reason,
-            descriptor_getter,
-            descriptor_setter,
+            descriptor,
             is_function_without_return_annotation,
             name_might_exist_in_inherited,
         })
@@ -327,8 +311,7 @@ impl ClassField {
             annotation: None,
             initialization: ClassFieldInitialization::ClassBody(None),
             read_only_reason: None,
-            descriptor_getter: None,
-            descriptor_setter: None,
+            descriptor: None,
             is_function_without_return_annotation: false,
             name_might_exist_in_inherited: true,
         })
@@ -340,8 +323,7 @@ impl ClassField {
             annotation: None,
             initialization: ClassFieldInitialization::recursive(),
             read_only_reason: None,
-            descriptor_getter: None,
-            descriptor_setter: None,
+            descriptor: None,
             is_function_without_return_annotation: false,
             name_might_exist_in_inherited: true,
         })
@@ -360,30 +342,23 @@ impl ClassField {
                 annotation,
                 initialization,
                 read_only_reason,
-                descriptor_getter,
-                descriptor_setter,
+                descriptor,
                 is_function_without_return_annotation,
                 name_might_exist_in_inherited,
             } => {
                 let mut ty = ty.clone();
                 f(&mut ty);
-                let descriptor_getter = descriptor_getter.as_ref().map(|ty| {
-                    let mut ty = ty.clone();
-                    f(&mut ty);
-                    ty
-                });
-                let descriptor_setter = descriptor_setter.as_ref().map(|ty| {
-                    let mut ty = ty.clone();
-                    f(&mut ty);
-                    ty
+                let descriptor = descriptor.as_ref().map(|x| {
+                    let mut x = x.clone();
+                    x.cls.visit_mut(f);
+                    x
                 });
                 Self(ClassFieldInner::Simple {
                     ty,
                     annotation: annotation.clone(),
                     initialization: initialization.clone(),
                     read_only_reason: read_only_reason.clone(),
-                    descriptor_getter,
-                    descriptor_setter,
+                    descriptor,
                     is_function_without_return_annotation: *is_function_without_return_annotation,
                     name_might_exist_in_inherited: *name_might_exist_in_inherited,
                 })
@@ -1211,7 +1186,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         // Identify whether this is a descriptor
-        let (mut descriptor_getter, mut descriptor_setter) = (None, None);
+        let mut descriptor = None;
         match &ty {
             // TODO(stroxler): This works for simple descriptors. There three known gaps, there may be others:
             // - If the field is instance-only, descriptor dispatching won't occur, an instance-only attribute
@@ -1220,14 +1195,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //   when the descriptor attribute is initialized on the class body of the descriptor.
             // - Do we care about distributing descriptor behavior over unions? If so, what about the case when
             //   the raw class field is a union of a descriptor and a non-descriptor? Do we want to allow this?
-            Type::ClassType(c) => {
-                if self.get_instance_attribute(c, &dunder::GET).is_some() {
-                    descriptor_getter =
-                        Some(self.attr_infer_for_type(&ty, &dunder::GET, range, errors, None));
-                }
-                if self.get_instance_attribute(c, &dunder::SET).is_some() {
-                    descriptor_setter =
-                        Some(self.attr_infer_for_type(&ty, &dunder::SET, range, errors, None));
+            Type::ClassType(cls) => {
+                let getter = self
+                    .get_class_member(cls.class_object(), &dunder::GET)
+                    .is_some();
+                let setter = self
+                    .get_class_member(cls.class_object(), &dunder::SET)
+                    .is_some();
+                if getter || setter {
+                    descriptor = Some(Descriptor {
+                        range,
+                        cls: cls.clone(),
+                        getter,
+                        setter,
+                    })
                 }
             }
             _ => {}
@@ -1246,8 +1227,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             direct_annotation,
             initialization,
             read_only_reason,
-            descriptor_getter,
-            descriptor_setter,
+            descriptor,
             is_function_without_return_annotation,
             name_might_exist_in_inherited,
         );
@@ -1488,14 +1468,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
             // enum; the match is messy
             ClassFieldInner::Simple {
-                ty,
-                descriptor_getter,
-                descriptor_setter,
+                descriptor: Some(descriptor),
                 ..
-            } if (descriptor_getter.is_some() || descriptor_setter.is_some())
-                && let Some(base) = instance.to_descriptor_base() =>
-            {
-                ClassAttribute::descriptor(ty, base, descriptor_getter, descriptor_setter)
+            } if let Some(base) = instance.to_descriptor_base() => {
+                ClassAttribute::descriptor(descriptor, base)
             }
             ClassFieldInner::Simple {
                 mut ty,
@@ -1534,18 +1510,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn as_class_attribute(&self, field: &ClassField, cls: &ClassBase) -> ClassAttribute {
         match field.instantiate_for_class(cls).0 {
             ClassFieldInner::Simple {
-                ty,
-                descriptor_getter,
-                descriptor_setter,
+                descriptor: Some(descriptor),
                 ..
-            } if descriptor_getter.is_some() || descriptor_setter.is_some() => {
-                ClassAttribute::descriptor(
-                    ty,
-                    DescriptorBase::ClassDef(cls.class_object().dupe()),
-                    descriptor_getter,
-                    descriptor_setter,
-                )
-            }
+            } => ClassAttribute::descriptor(
+                descriptor,
+                DescriptorBase::ClassDef(cls.class_object().dupe()),
+            ),
             ClassFieldInner::Simple {
                 initialization:
                     ClassFieldInitialization::Method | ClassFieldInitialization::Uninitialized,
@@ -1582,18 +1552,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         kw_only: bool,
         strict: bool,
         converter_param: Option<Type>,
+        errors: &ErrorCollector,
     ) -> Param {
-        let ClassField(ClassFieldInner::Simple {
-            ty,
-            descriptor_setter,
-            ..
-        }) = field;
+        let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }) = field;
         let param_ty = if !strict {
             Type::any_explicit()
         } else if let Some(converter_param) = converter_param {
             converter_param
-        } else if let Some(descriptor_setter) = descriptor_setter {
-            ClassField::get_descriptor_setter_value(descriptor_setter)
+        } else if let Some(x) = descriptor
+            && let Some(setter) = self.resolve_descriptor_setter(x, errors)
+        {
+            ClassField::get_descriptor_setter_value(&setter)
         } else {
             ty.clone()
         };
@@ -2155,8 +2124,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassFieldInner::Simple {
                 ty,
                 read_only_reason: Some(_),
-                descriptor_getter: None,
-                descriptor_setter: None,
+                descriptor: None,
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty),
@@ -2178,8 +2146,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match &field.0 {
             ClassFieldInner::Simple {
                 ty,
-                descriptor_getter: None,
-                descriptor_setter: None,
+                descriptor: None,
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty.clone()),
@@ -2252,15 +2219,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_property_setter(setter, got, range, errors, context);
                 *should_narrow = false;
             }
-            ClassAttribute::Descriptor(d, base) => {
-                match (base, d.setter) {
-                    (DescriptorBase::Instance(class_type), Some(setter)) => {
+            ClassAttribute::Descriptor(x, base) => {
+                match base {
+                    DescriptorBase::Instance(class_type)
+                        if let Some(setter) = self.resolve_descriptor_setter(&x, errors) =>
+                    {
                         let got = CallArg::arg(got);
                         self.call_descriptor_setter(
                             setter, class_type, got, range, errors, context,
                         );
                     }
-                    (DescriptorBase::Instance(class_type), None) => {
+                    DescriptorBase::Instance(class_type) => {
                         let e = NoAccessReason::SettingReadOnlyDescriptor(
                             class_type.class_object().dupe(),
                         );
@@ -2271,7 +2240,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             e.to_error_msg(attr_name),
                         );
                     }
-                    (DescriptorBase::ClassDef(class), _) => {
+                    DescriptorBase::ClassDef(class) => {
                         let e = NoAccessReason::SettingDescriptorOnClass(class.dupe());
                         self.error(
                             errors,
@@ -2457,27 +2426,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             (
-                ClassAttribute::Descriptor(
-                    Descriptor {
-                        descriptor_ty: got_ty,
-                        ..
-                    },
-                    ..,
-                ),
-                ClassAttribute::Descriptor(
-                    Descriptor {
-                        descriptor_ty: want_ty,
-                        ..
-                    },
-                    ..,
-                ),
+                ClassAttribute::Descriptor(Descriptor { cls: got_cls, .. }, ..),
+                ClassAttribute::Descriptor(Descriptor { cls: want_cls, .. }, ..),
             ) => {
-                if is_subset(got_ty, want_ty) {
+                let got_ty = got_cls.clone().to_type();
+                let want_ty = want_cls.clone().to_type();
+                if is_subset(&got_ty, &want_ty) {
                     Ok(())
                 } else {
                     Err(AttrSubsetError::Covariant {
-                        got: got_ty.clone(),
-                        want: want_ty.clone(),
+                        got: got_ty,
+                        want: want_ty,
                         got_is_property: false,
                         want_is_property: false,
                     })
@@ -2503,24 +2462,60 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
             }
-            ClassAttribute::Descriptor(d, base) => {
-                match d {
+            ClassAttribute::Descriptor(x, base) => {
+                if let Some(getter) = self.resolve_descriptor_getter(&x, errors) {
                     // Reading a descriptor with a getter resolves to a method call
                     //
                     // TODO(stroxler): Once we have more complex error traces, it would be good to pass
                     // context down so that errors inside the call can mention that it was a descriptor read.
-                    Descriptor {
-                        getter: Some(getter),
-                        ..
-                    } => Ok(self.call_descriptor_getter(getter, base, range, errors, context)),
+                    Ok(self.call_descriptor_getter(getter, base, range, errors, context))
+                } else {
                     // Reading descriptor with no getter resolves to the descriptor itself
-                    Descriptor {
-                        descriptor_ty,
-                        getter: None,
-                        ..
-                    } => Ok(descriptor_ty),
+                    Ok(x.cls.to_type())
                 }
             }
+        }
+    }
+
+    fn resolve_descriptor_getter(&self, x: &Descriptor, errors: &ErrorCollector) -> Option<Type> {
+        if x.getter
+            && let Some(getter) = self.get_class_member(x.cls.class_object(), &dunder::GET)
+        {
+            let attr = self.as_instance_attribute(&getter.value, &Instance::of_class(&x.cls));
+            Some(
+                self.resolve_get_class_attr(attr, x.range, errors, None)
+                    .unwrap_or_else(|e| {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::new(ErrorKind::NoAccess, None),
+                            e.to_error_msg(&dunder::GET),
+                        )
+                    }),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn resolve_descriptor_setter(&self, x: &Descriptor, errors: &ErrorCollector) -> Option<Type> {
+        if x.setter
+            && let Some(setter) = self.get_class_member(x.cls.class_object(), &dunder::SET)
+        {
+            let attr = self.as_instance_attribute(&setter.value, &Instance::of_class(&x.cls));
+            Some(
+                self.resolve_get_class_attr(attr, x.range, errors, None)
+                    .unwrap_or_else(|e| {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::new(ErrorKind::NoAccess, None),
+                            e.to_error_msg(&dunder::SET),
+                        )
+                    }),
+            )
+        } else {
+            None
         }
     }
 
