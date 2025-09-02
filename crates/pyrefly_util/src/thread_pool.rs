@@ -124,4 +124,16 @@ impl ThreadPool {
             }
         }
     }
+
+    // See rayon::ThreadPool::install
+    pub fn install<OP, R>(&self, op: OP) -> R
+    where
+        OP: FnOnce() -> R + Send,
+        R: Send,
+    {
+        match &self.0 {
+            None => op(),
+            Some(pool) => pool.install(op),
+        }
+    }
 }

@@ -31,6 +31,7 @@ use pyrefly_types::types::Overload;
 use pyrefly_types::types::Type;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::visit::Visit;
 use rayon::prelude::*;
 use ruff_python_ast::AnyNodeRef;
@@ -1149,28 +1150,30 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
     let project_modules = Arc::new(Mutex::new(project_modules));
 
     // Retrieve and dump information about each module, in parallel.
-    module_info_tasks.into_par_iter().try_for_each(
-        |(handle, module_id, info_path)| -> anyhow::Result<()> {
-            let writer = BufWriter::new(File::create(
-                results_directory.join("modules").join(info_path),
-            )?);
-            serde_json::to_writer(
-                writer,
-                &get_module_file(handle, module_id, transaction, &module_ids),
-            )?;
+    ThreadPool::new().install(|| -> anyhow::Result<()> {
+        module_info_tasks.into_par_iter().try_for_each(
+            |(handle, module_id, info_path)| -> anyhow::Result<()> {
+                let writer = BufWriter::new(File::create(
+                    results_directory.join("modules").join(info_path),
+                )?);
+                serde_json::to_writer(
+                    writer,
+                    &get_module_file(handle, module_id, transaction, &module_ids),
+                )?;
 
-            if is_test_module(handle, transaction) {
-                project_modules
-                    .lock()
-                    .unwrap()
-                    .get_mut(&module_id)
-                    .unwrap()
-                    .is_test = true;
-            }
+                if is_test_module(handle, transaction) {
+                    project_modules
+                        .lock()
+                        .unwrap()
+                        .get_mut(&module_id)
+                        .unwrap()
+                        .is_test = true;
+                }
 
-            Ok(())
-        },
-    )?;
+                Ok(())
+            },
+        )
+    })?;
 
     // Dump all typeshed files, so we can parse them.
     let typeshed = typeshed()?;
