@@ -3444,7 +3444,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect();
                 Type::ParamSpecValue(ParamList::new(elts))
             }
-            _ => self.untype(self.expr_infer(x, errors), x.range(), errors),
+            _ => {
+                let inferred_ty = self.expr_infer(x, errors);
+                // Check if this is a scoped type alias in base class context
+                // We do this check here instead of `validate_type_form` because it
+                // substitutes type aliases with the aliased type
+                if type_form_context == TypeFormContext::BaseClassList
+                    && let Type::TypeAlias(ta) = &inferred_ty
+                    && ta.style == TypeAliasStyle::Scoped
+                {
+                    return self.error(
+                                errors,
+                                x.range(),
+                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                format!(
+                                    "Cannot use scoped type alias `{}` as a base class. Use a legacy type alias instead: `{}: TypeAlias = {}`",
+                                    ta.name,
+                                    ta.name,
+                                    self.for_display(ta.as_type())
+                                ),
+                            );
+                }
+                self.untype(inferred_ty, x.range(), errors)
+            }
         };
         self.validate_type_form(result, x.range(), type_form_context, errors)
     }
