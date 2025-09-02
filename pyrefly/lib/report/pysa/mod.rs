@@ -390,7 +390,6 @@ fn is_scalar_type(get: &Type, want: &Class, context: &ModuleContext) -> bool {
     }
     match get {
         Type::ClassType(class_type) => has_superclass(class_type.class_object(), want, context),
-        Type::Type(inner) => is_scalar_type(inner, want, context),
         Type::TypeAlias(alias) => is_scalar_type(&alias.as_type(), want, context),
         _ => false,
     }
@@ -412,7 +411,6 @@ fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> Vec<Class> {
             .iter()
             .flat_map(|inner| get_classes_of_type(inner, context))
             .collect(),
-        Type::Type(inner) => get_classes_of_type(inner, context),
         Type::TypeAlias(alias) => get_classes_of_type(&alias.as_type(), context),
         _ => Vec::new(),
     }
