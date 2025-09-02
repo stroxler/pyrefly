@@ -204,7 +204,7 @@ foo.f("",3,True)
           ^
 Signature Help Result: active=0
 - (
-    self: Self@Foo,
+    self: Foo,
     a: str,
     b: int,
     c: bool
@@ -214,7 +214,7 @@ Signature Help Result: active=0
              ^
 Signature Help Result: active=0
 - (
-    self: Self@Foo,
+    self: Foo,
     a: str,
     b: int,
     c: bool
@@ -224,7 +224,7 @@ Signature Help Result: active=0
                 ^
 Signature Help Result: active=0
 - (
-    self: Self@Foo,
+    self: Foo,
     a: str,
     b: int,
     c: bool
@@ -234,7 +234,7 @@ Signature Help Result: active=0
                 ^
 Signature Help Result: active=0
 - (
-    self: Self@Foo,
+    self: Foo,
     a: str,
     b: int,
     c: bool

@@ -392,18 +392,17 @@ from typing import Self
 class A:
     def __new__(cls: type[Self]): ...
 A.__new__(A)  # OK
-A.__new__(int) # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
+A.__new__(int) # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
     "#,
 );
 
 testcase!(
-    bug = "We should specialize `type[Self@A]` to `type[A]` in the call to `A.__new__`",
     test_cls_type_in_new_unannotated,
     r#"
 class A:
     def __new__(cls): ...
 A.__new__(A)  # OK
-A.__new__(int)  # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
+A.__new__(int)  # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
     "#,
 );
 

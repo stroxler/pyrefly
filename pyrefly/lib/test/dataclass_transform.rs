@@ -332,11 +332,11 @@ class A:
     def __init__(self, x: int) -> None: ...
     y: str
 # `__init__` is not synthesized when one already exists
-reveal_type(A.__init__)  # E: (self: Self@A, x: int) -> None
+reveal_type(A.__init__)  # E: (self: A, x: int) -> None
 
 class B(A): ...
 # inheriting from `A` still does not synthesize an `__init__`
-reveal_type(B.__init__)  # E: (self: Self@A, x: int) -> None
+reveal_type(B.__init__)  # E: (self: B, x: int) -> None
 
 @build
 class C(A): ...
@@ -361,7 +361,7 @@ class B(Base):
     def __init__(self, y: str) -> None: ...
     z: bool
 # __init__ is not synthesized when one already exists
-reveal_type(B.__init__)  # E: (self: Self@B, y: str) -> None
+reveal_type(B.__init__)  # E: (self: B, y: str) -> None
 
 class C(B): ...
 # inheriting from `B` synthesizes an `__init__`

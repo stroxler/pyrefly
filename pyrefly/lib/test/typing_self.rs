@@ -108,22 +108,9 @@ class A:
         assert_type(self.x.y, int)
 class B(A):
     pass
-#
-# Two issues here:
-# - We don't display `Self` in a way that makes good sense for users or debugging,
-#   there's no indication of when it is bound versus the raw special form.
-# - We aren't treating `Self` the ways we need to theoretically: it should behave
-#   like a type variable in calls, and in some slightly more complex way in
-#   attribute lookups.
-#
-assert_type(A().x, A)  # E: assert_type(Self, A)
-assert_type(B().x, B)  # E: assert_type(Self, B)
-#
-# That said, the existing implementation does actually have most of the basic
-# behaviors we need, since it "behaves like" the class it is bound to for many
-# purposes
-assert_type(A().x.y, int)
-assert_type(B().x.y, int)
+
+assert_type(A().x, A)
+assert_type(B().x, B)
     "#,
 );
 
@@ -137,15 +124,9 @@ class A:
     y: int
 class B(A):
     pass
-# 
-# Similar issues here to the test above; we need Self to be more type-var
-# like and play better with inheritance.
-assert_type(A.x, A)  # E: assert_type(Self, A)
-assert_type(B.x, B)  # E: assert_type(Self, B)
-#
-# But again, quite a few of the desired behaviors are present.
-assert_type(A.x.y, int)
-assert_type(B.x.y, int)
+
+assert_type(A.x, A)
+assert_type(B.x, B)
     "#,
 );
 

@@ -128,17 +128,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 });
                 Some(CallTarget::FunctionOverload(funcs, *overload.metadata))
             }
-            Type::BoundMethod(box BoundMethod { obj, mut func }) => {
-                let self_replacement = if func.metadata().flags.is_classmethod {
-                    match &obj {
-                        Type::ClassDef(c) => &self.instantiate(c),
-                        Type::Type(t) => t,
-                        _ => &obj,
-                    }
-                } else {
-                    &obj
-                };
-                func.subst_self_type_mut(self_replacement, &|a, b| self.is_subset_eq(a, b));
+            Type::BoundMethod(box BoundMethod { obj, func }) => {
                 match self.as_call_target_impl(func.as_type(), quantified) {
                     Some(CallTarget::Function(func)) => Some(CallTarget::BoundMethod(obj, func)),
                     Some(CallTarget::FunctionOverload(overloads, meta)) => {
@@ -506,7 +496,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .finish_class_targs(cls.targs_mut(), self.uniques);
         if let Some(mut ret) = dunder_new_ret {
             ret.subst_mut(&cls.targs().substitution_map());
-            ret.subst_self_type_mut(&cls.to_type(), &|_, _| true);
             ret
         } else {
             cls.to_type()
@@ -670,43 +659,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             CallTarget::Function(TargetWithTParams(
                 tparams,
                 Function {
-                    signature: mut callable,
+                    signature: callable,
                     metadata,
                 },
-            )) => {
-                // Most instances of typing.Self are replaced in as_call_target, but __new__ is a
-                // staticmethod, so we don't have access to the first argument until we get here.
-                if let Some(self_obj) =
-                    self.get_self_obj_from_dunder_new_args(args, errors, &metadata)
-                {
-                    callable.subst_self_type_mut(&self_obj, &|a, b| self.is_subset_eq(a, b));
-                }
-                self.callable_infer(
-                    callable,
-                    Some(metadata.kind.as_func_id()),
-                    tparams.as_deref(),
-                    None,
-                    args,
-                    keywords,
-                    range,
-                    errors,
-                    errors,
-                    context,
-                    hint,
-                    ctor_targs,
-                )
-            }
-            CallTarget::FunctionOverload(mut overloads, metadata) => {
-                // As with the Target::Function case, we need to substitute the type of `self` here.
-                if let Some(self_obj) =
-                    self.get_self_obj_from_dunder_new_args(args, errors, &metadata)
-                {
-                    for func in overloads.iter_mut() {
-                        func.1
-                            .signature
-                            .subst_self_type_mut(&self_obj, &|a, b| self.is_subset_eq(a, b));
-                    }
-                }
+            )) => self.callable_infer(
+                callable,
+                Some(metadata.kind.as_func_id()),
+                tparams.as_deref(),
+                None,
+                args,
+                keywords,
+                range,
+                errors,
+                errors,
+                context,
+                hint,
+                ctor_targs,
+            ),
+            CallTarget::FunctionOverload(overloads, metadata) => {
                 self.call_overloads(
                     overloads, metadata, None, args, keywords, range, errors, context, hint,
                     ctor_targs,
@@ -768,26 +738,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }))
         } else {
             res
-        }
-    }
-
-    // TODO: This is buggy. For constructor calls, `C()` we insert the first argument ourselves, and it
-    // has the correct type of the receiver. For calls like `A.__new__(B)`, we should use the receiver (A)
-    // as the self type, not the argument (B). See `test_self_type_subst_use_receiver`
-    fn get_self_obj_from_dunder_new_args(
-        &self,
-        args: &[CallArg<'_>],
-        errors: &ErrorCollector,
-        metadata: &FuncMetadata,
-    ) -> Option<Type> {
-        if metadata.kind.as_func_id().func == dunder::NEW {
-            self.first_arg_type(args, errors).and_then(|ty| match ty {
-                Type::Type(box Type::ClassType(c)) => Some(c.to_type()),
-                Type::ClassDef(class) => Some(self.as_class_type_unchecked(&class).to_type()),
-                _ => None,
-            })
-        } else {
-            None
         }
     }
 
@@ -1082,10 +1032,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn constructor_to_callable(&self, cls: &ClassType) -> Type {
         let class_type = cls.clone().to_type();
-        if let Some(mut metaclass_call_attr_ty) = self.get_metaclass_dunder_call(cls) {
+        if let Some(metaclass_call_attr_ty) = self.get_metaclass_dunder_call(cls) {
             // If the class has a custom metaclass and the return type of the metaclass's __call__
             // is not a subclass of the current class, use that and ignore __new__ and __init__
-            metaclass_call_attr_ty.subst_self_type_mut(&class_type, &|_, _| true);
             if metaclass_call_attr_ty
                 .callable_return_type()
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))
@@ -1101,11 +1050,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )))
         };
         // Check the __new__ method and whether it comes from object or has been overridden
-        let (new_attr_ty, overrides_new) = if let Some(mut t) = self
+        let (new_attr_ty, overrides_new) = if let Some(t) = self
             .get_dunder_new(cls)
             .and_then(|t| self.bind_dunder_new(&t, cls.clone()))
         {
-            t.subst_self_type_mut(&class_type, &|_, _| true);
             if t.callable_return_type()
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))
             {

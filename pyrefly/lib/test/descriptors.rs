@@ -53,8 +53,8 @@ class C:
     def foo(cls) -> int:
         return 42
 def f(c: C):
-    reveal_type(C.foo)  # E: revealed type: BoundMethod[type[C], (cls: type[Self@C]) -> int]
-    reveal_type(c.foo)  # E: revealed type: BoundMethod[type[C], (cls: type[Self@C]) -> int]
+    reveal_type(C.foo)  # E: revealed type: BoundMethod[type[C], (cls: type[C]) -> int]
+    reveal_type(c.foo)  # E: revealed type: BoundMethod[type[C], (cls: type[C]) -> int]
     "#,
 );
 
@@ -97,7 +97,7 @@ class C:
 def f(c: C):
     assert_type(c.foo, int)
     c.foo = 42  # E: Attribute `foo` of class `C` is a read-only property and cannot be set
-    reveal_type(C.foo)  # E: revealed type: (self: Self@C) -> int
+    reveal_type(C.foo)  # E: revealed type: (self: C) -> int
     "#,
 );
 
@@ -129,7 +129,7 @@ class C:
 def f(c: C):
     assert_type(c.foo, int)
     c.foo = "42"
-    reveal_type(C.foo)  # E: revealed type: (self: Self@C, value: str)
+    reveal_type(C.foo)  # E: revealed type: (self: C, value: str)
     "#,
 );
 

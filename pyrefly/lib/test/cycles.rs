@@ -371,6 +371,6 @@ class A:
         self.f()
     def f(self):
         pass
-reveal_type(A.__init__)  # E: revealed type: (self: Self@A) -> None
+reveal_type(A.__init__)  # E: revealed type: (self: A) -> None
     "#,
 );

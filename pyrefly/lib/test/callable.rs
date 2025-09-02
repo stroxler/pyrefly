@@ -815,14 +815,15 @@ zoo(partial(bar, b=99))
 );
 
 testcase!(
+    bug = "Self in Metaclass should be error, treated as Any. Any in metaclass call should act like no annot.",
     test_callable_class_substitute_self,
     r#"
-from typing import Callable, Self, assert_type
+from typing import Any, Callable, Self, assert_type
 
 def ret[T](f: Callable[[], T]) -> T: ...
 
 class Meta(type):
-    def __call__(self, *args, **kwargs) -> Self: ... # TODO: error invalid Self
+    def __call__(self, *args, **kwargs) -> Self: ... # TODO: Error here and treat `Self` as `Any`
 
 # metaclass __call__
 class A(metaclass=Meta):
@@ -836,7 +837,7 @@ class B:
 class C:
     def __init__(self, *args, **kwargs) -> None: ...
 
-assert_type(ret(A), A) # mypy/pyright agree, but maybe Any since metaclass Self is illegal?
+assert_type(ret(A), A) # TODO # E: assert_type(Meta, A) failed
 assert_type(ret(B), B)
 assert_type(ret(C), C)
 "#,

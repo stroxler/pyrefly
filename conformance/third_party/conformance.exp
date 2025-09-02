@@ -3294,8 +3294,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "`__post_init__` type `BoundMethod[DC1, (self: Self@DC1, x: int, y: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
-      "description": "`__post_init__` type `BoundMethod[DC1, (self: Self@DC1, x: int, y: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "concise_description": "`__post_init__` type `BoundMethod[DC1, (self: DC1, x: int, y: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "description": "`__post_init__` type `BoundMethod[DC1, (self: DC1, x: int, y: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
       "line": 19,
       "name": "bad-function-definition",
       "stop_column": 22,
@@ -3324,8 +3324,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "`__post_init__` type `BoundMethod[DC2, (self: Self@DC2, x: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
-      "description": "`__post_init__` type `BoundMethod[DC2, (self: Self@DC2, x: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "concise_description": "`__post_init__` type `BoundMethod[DC2, (self: DC2, x: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
+      "description": "`__post_init__` type `BoundMethod[DC2, (self: DC2, x: int) -> None]` is not assignable to expected type `(x: int, y: str) -> object` generated from the dataclass's `InitVar` fields",
       "line": 36,
       "name": "bad-function-definition",
       "stop_column": 22,
@@ -4466,8 +4466,8 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "assert_type((self: Self) -> str, Any) failed",
-      "description": "assert_type((self: Self) -> str, Any) failed",
+      "concise_description": "assert_type((self: Pet4) -> str, Any) failed",
+      "description": "assert_type((self: Pet4) -> str, Any) failed",
       "line": 84,
       "name": "assert-type",
       "stop_column": 49,
@@ -4486,8 +4486,8 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "assert_type((self: Self) -> None, Any) failed",
-      "description": "assert_type((self: Self) -> None, Any) failed",
+      "concise_description": "assert_type((self: Pet4) -> None, Any) failed",
+      "description": "assert_type((self: Pet4) -> None, Any) failed",
       "line": 85,
       "name": "assert-type",
       "stop_column": 45,
@@ -5588,6 +5588,16 @@
       "name": "bad-argument-type",
       "stop_column": 62,
       "stop_line": 26
+    },
+    {
+      "code": -2,
+      "column": 15,
+      "concise_description": "`LinkedList[int]` is not assignable to attribute `next` with type `OrdinalLinkedList | None`",
+      "description": "`LinkedList[int]` is not assignable to attribute `next` with type `OrdinalLinkedList | None`",
+      "line": 32,
+      "name": "bad-assignment",
+      "stop_column": 50,
+      "stop_line": 32
     }
   ],
   "generics_self_basic.py": [
@@ -5603,16 +5613,6 @@
     }
   ],
   "generics_self_protocols.py": [
-    {
-      "code": -2,
-      "column": 19,
-      "concise_description": "Argument `ReturnConcreteShape` is not assignable to parameter `shape` with type `ShapeProtocol` in function `accepts_shape`",
-      "description": "Argument `ReturnConcreteShape` is not assignable to parameter `shape` with type `ShapeProtocol` in function `accepts_shape`",
-      "line": 58,
-      "name": "bad-argument-type",
-      "stop_column": 40,
-      "stop_line": 58
-    },
     {
       "code": -2,
       "column": 19,

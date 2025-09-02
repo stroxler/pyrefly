@@ -38,7 +38,6 @@ force_error(f(1, None))  # E: Argument `tuple[int, @_]` is not assignable to par
 );
 
 testcase!(
-    bug = "We should specialize `type[Self@A]` to `type[A]` in the call to `A.__new__`. Also, we should not leak the `Self` type when self-specialization fails.",
     test_self_type_subst,
     r#"
 from typing import assert_type, Self
@@ -47,13 +46,13 @@ class A:
 class B[T](A): ...
 class C[T]: ...
 assert_type(A.__new__(A), A)
-assert_type(A.__new__(B[int]), B[int])
-assert_type(A.__new__(C[int]), Self) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
+assert_type(A.__new__(B[int]), A)
+assert_type(A.__new__(C[int]), A) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
 
 o = A()
 assert_type(o.__new__(A), A)
-assert_type(o.__new__(B[int]), B[int])
-assert_type(o.__new__(C[int]), Self) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[Self@A]` in function `A.__new__`
+assert_type(o.__new__(B[int]), A)
+assert_type(o.__new__(C[int]), A) # E: Argument `type[C[int]]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
     "#,
 );
 

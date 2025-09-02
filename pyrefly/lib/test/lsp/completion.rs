@@ -121,8 +121,8 @@ foo.
 10 | foo.
          ^
 Completion Results:
-- (Method) class_method: (cls: type[Self@Foo]) -> None
-- (Method) method: (self: Self@Foo) -> None
+- (Method) class_method: (cls: type[Foo]) -> None
+- (Method) method: (self: Foo) -> None
 - (Function) static_method: () -> None
 - (Field) x: int
 "#
@@ -1019,7 +1019,7 @@ def foo(x: B) -> None:
 9 |     x.
           ^
 Completion Results:
-- (Method) foo: (self: Self@B) -> int
+- (Method) foo: (self: B) -> int
 "#
         .trim(),
         report.trim(),

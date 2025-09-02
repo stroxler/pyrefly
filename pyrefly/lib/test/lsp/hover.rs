@@ -45,13 +45,13 @@ xyz = [foo.meth]
 7 | foo.meth()
         ^
 ```python
-(attribute) meth: (self: Self@Foo) -> None
+(attribute) meth: (self: Foo) -> None
 ```
 
 9 | xyz = [foo.meth]
      ^
 ```python
-(variable) xyz: list[(self: Self@Foo) -> None]
+(variable) xyz: list[(self: Foo) -> None]
 ```
 "#
         .trim(),

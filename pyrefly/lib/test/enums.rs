@@ -201,7 +201,7 @@ testcase!(
     test_enum_member,
     r#"
 from enum import Enum, nonmember, member
-from typing import reveal_type
+from typing import Literal, reveal_type, assert_type
 
 class MyEnum(Enum):
     A = 1
@@ -213,7 +213,7 @@ class MyEnum(Enum):
 reveal_type(MyEnum.A)  # E: revealed type: Literal[MyEnum.A]
 reveal_type(MyEnum.B)  # E: revealed type: nonmember[int]
 reveal_type(MyEnum.C)  # E: revealed type: Literal[MyEnum.C]
-reveal_type(MyEnum.D)  # E: revealed type: (self: Self@MyEnum) -> None
+reveal_type(MyEnum.D)  # E: revealed type: (self: MyEnum) -> None
 "#,
 );
 

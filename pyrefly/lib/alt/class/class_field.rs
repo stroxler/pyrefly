@@ -369,32 +369,33 @@ impl ClassField {
     }
 
     fn instantiate_for(&self, instance: &Instance) -> Self {
-        self.instantiate_helper(&mut |ty| instance.instantiate_member(ty))
+        self.instantiate_helper(&mut |ty| {
+            ty.subst_self_type_mut(&instance.to_type(), &|_, _| true);
+            instance.instantiate_member(ty)
+        })
     }
 
     fn instantiate_for_class_targs(
         &self,
         targs: &TArgs,
+        self_type: Type,
         ambiguous: &mut bool,
-        depends_on_class_tparams: &mut bool,
     ) -> Self {
         let mp = targs.substitution_map();
-        self.instantiate_helper(&mut |ty| match ty {
-            Type::Function(_)
-            | Type::Overload(_)
-            | Type::Forall(box Forall {
-                body: Forallable::Function(_),
-                ..
-            }) => ty.subst_mut_fn(&mut |q| {
-                mp.get(q).map(|ty| {
-                    *depends_on_class_tparams = true;
-                    (*ty).clone()
-                })
-            }),
-            _ => {
-                let mut qs: SmallSet<&Quantified> = SmallSet::new();
-                ty.collect_quantifieds(&mut qs);
-                *ambiguous = targs.tparams().iter().any(|x| qs.contains(&x.quantified));
+        self.instantiate_helper(&mut |ty| {
+            ty.subst_self_type_mut(&self_type, &|_, _| true);
+            match ty {
+                Type::Function(_)
+                | Type::Overload(_)
+                | Type::Forall(box Forall {
+                    body: Forallable::Function(_),
+                    ..
+                }) => ty.subst_mut_fn(&mut |q| mp.get(q).map(|ty| (*ty).clone())),
+                _ => {
+                    let mut qs: SmallSet<&Quantified> = SmallSet::new();
+                    ty.collect_quantifieds(&mut qs);
+                    *ambiguous = targs.tparams().iter().any(|x| qs.contains(&x.quantified));
+                }
             }
         })
     }
@@ -402,14 +403,16 @@ impl ClassField {
     fn instantiate_for_class_tparams(
         &self,
         cls_tparams: Arc<TParams>,
+        self_type: Type,
         ambiguous: &mut bool,
-        depends_on_class_tparams: &mut bool,
     ) -> Self {
-        let mut prepend_class_tparams_if_used = |f: &Function, tparams_opt: Option<&TParams>| {
+        let prepend_class_tparams_if_used = |f: &Function, tparams_opt: Option<&TParams>| {
+            if cls_tparams.is_empty() {
+                return None;
+            }
             let mut qs = SmallSet::new();
             f.visit(&mut |ty| ty.collect_quantifieds(&mut qs));
             if cls_tparams.iter().any(|tp| qs.contains(&tp.quantified)) {
-                *depends_on_class_tparams = true;
                 match tparams_opt {
                     None => Some(cls_tparams.dupe()),
                     Some(tparams) => {
@@ -422,47 +425,51 @@ impl ClassField {
                 None
             }
         };
-        self.instantiate_helper(&mut |ty| match ty {
-            Type::Function(func) => {
-                if let Some(tparams) = prepend_class_tparams_if_used(func, None) {
-                    *ty = Type::Forall(Box::new(Forall {
-                        tparams,
-                        body: Forallable::Function((**func).clone()),
-                    }));
-                }
-            }
-            Type::Forall(forall) => {
-                let Forall { tparams, body } = &mut **forall;
-                if let Forallable::Function(func) = body
-                    && let Some(new_tparams) = prepend_class_tparams_if_used(func, Some(tparams))
-                {
-                    *tparams = new_tparams;
-                }
-            }
-            Type::Overload(Overload { signatures, .. }) => {
-                signatures.iter_mut().for_each(|sig| match sig {
-                    OverloadType::Function(body)
-                        if let Some(tparams) = prepend_class_tparams_if_used(body, None) =>
-                    {
-                        *sig = OverloadType::Forall(Forall {
+        self.instantiate_helper(&mut |ty| {
+            ty.subst_self_type_mut(&self_type, &|_, _| true);
+            match ty {
+                Type::Function(func) => {
+                    if let Some(tparams) = prepend_class_tparams_if_used(func, None) {
+                        *ty = Type::Forall(Box::new(Forall {
                             tparams,
-                            body: body.clone(),
-                        })
+                            body: Forallable::Function((**func).clone()),
+                        }));
                     }
-                    OverloadType::Forall(Forall { tparams, body })
-                        if let Some(new_tparams) =
-                            prepend_class_tparams_if_used(body, Some(tparams)) =>
+                }
+                Type::Forall(forall) => {
+                    let Forall { tparams, body } = &mut **forall;
+                    if let Forallable::Function(func) = body
+                        && let Some(new_tparams) =
+                            prepend_class_tparams_if_used(func, Some(tparams))
                     {
                         *tparams = new_tparams;
                     }
-                    _ => {}
-                });
-            }
-            ty => {
-                if !cls_tparams.is_empty() {
-                    let mut qs: SmallSet<&Quantified> = SmallSet::new();
-                    ty.collect_quantifieds(&mut qs);
-                    *ambiguous = cls_tparams.iter().any(|x| qs.contains(&x.quantified));
+                }
+                Type::Overload(Overload { signatures, .. }) => {
+                    signatures.iter_mut().for_each(|sig| match sig {
+                        OverloadType::Function(body)
+                            if let Some(tparams) = prepend_class_tparams_if_used(body, None) =>
+                        {
+                            *sig = OverloadType::Forall(Forall {
+                                tparams,
+                                body: body.clone(),
+                            })
+                        }
+                        OverloadType::Forall(Forall { tparams, body })
+                            if let Some(new_tparams) =
+                                prepend_class_tparams_if_used(body, Some(tparams)) =>
+                        {
+                            *tparams = new_tparams;
+                        }
+                        _ => {}
+                    });
+                }
+                ty => {
+                    if !cls_tparams.is_empty() {
+                        let mut qs: SmallSet<&Quantified> = SmallSet::new();
+                        ty.collect_quantifieds(&mut qs);
+                        *ambiguous = cls_tparams.iter().any(|x| qs.contains(&x.quantified));
+                    }
                 }
             }
         })
@@ -1597,23 +1604,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn as_class_attribute(&self, field: &ClassField, cls: &ClassBase) -> ClassAttribute {
+        let self_type = cls.clone().to_self_type();
         let mut ambiguous = false;
-        let mut depends_on_class_tparams = false;
-        let cls_tparams = self.get_class_tparams(cls.class_object());
-        let field = if cls_tparams.is_empty() {
-            field.clone()
-        } else {
-            match cls.targs() {
-                Some(targs) => field.instantiate_for_class_targs(
-                    targs,
-                    &mut ambiguous,
-                    &mut depends_on_class_tparams,
-                ),
-                None => field.instantiate_for_class_tparams(
-                    cls_tparams,
-                    &mut ambiguous,
-                    &mut depends_on_class_tparams,
-                ),
+        let field = match cls.targs() {
+            Some(targs) => field.instantiate_for_class_targs(targs, self_type, &mut ambiguous),
+            None => {
+                let tparams = self.get_class_tparams(cls.class_object());
+                field.instantiate_for_class_tparams(tparams, self_type, &mut ambiguous)
             }
         };
         match field.0 {
@@ -1632,7 +1629,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 cls.class_object().dupe(),
             )),
             ClassFieldInner::Simple {
-                mut ty,
+                ty,
                 read_only_reason,
                 ..
             } => {
@@ -1641,16 +1638,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         cls.class_object().dupe(),
                     ))
                 } else {
-                    if depends_on_class_tparams {
-                        // We don't need to check the replacement, since the replacement is the receiver
-                        // and we are looking up the field on the receiver's class.
-                        ty.subst_self_type_mut(&cls.clone().to_self_type(), &|_, _| true);
-                    } else {
-                        // TODO(samgoldman): We should always substitute self, but this is behavior preserving. Fix incoming.
-                        if let ClassBase::Quantified(q, _) = cls {
-                            ty.subst_self_type_mut(&q.clone().to_type(), &|_, _| true);
-                        }
-                    }
                     bind_class_attribute(cls, ty, read_only_reason)
                 }
             }
@@ -1693,9 +1680,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn as_enum_member(&self, field: ClassField, enum_cls: &Class) -> Option<Lit> {
         match field.0 {
             ClassFieldInner::Simple {
-                ty: Type::Literal(lit),
+                ty: Type::Literal(mut lit),
                 ..
-            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) => {
+            } if matches!(&lit, Lit::Enum(lit_enum) if lit_enum.class.class_object() == enum_cls) =>
+            {
+                let replacement = self.instantiate(enum_cls);
+                lit.visit_mut(&mut |ty| ty.subst_self_type_mut(&replacement, &|_, _| true));
                 Some(lit)
             }
             _ => None,
@@ -1890,7 +1880,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 get_field(ancestor.class_object(), name)
             }
             .map(|field| WithDefiningClass {
-                value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                value: Arc::new(
+                    field.instantiate_helper(&mut |ty| ancestor.targs().substitute_into_mut(ty)),
+                ),
                 defining_class: ancestor.class_object().dupe(),
             })
         })
