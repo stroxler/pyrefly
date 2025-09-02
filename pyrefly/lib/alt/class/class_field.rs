@@ -419,39 +419,6 @@ impl ClassField {
         }
     }
 
-    pub fn as_param(
-        &self,
-        name: &Name,
-        default: bool,
-        kw_only: bool,
-        strict: bool,
-        converter_param: Option<Type>,
-    ) -> Param {
-        let ClassField(ClassFieldInner::Simple {
-            ty,
-            descriptor_setter,
-            ..
-        }) = self;
-        let param_ty = if !strict {
-            Type::any_explicit()
-        } else if let Some(converter_param) = converter_param {
-            converter_param
-        } else if let Some(descriptor_setter) = descriptor_setter {
-            Self::get_descriptor_setter_value(descriptor_setter)
-        } else {
-            ty.clone()
-        };
-        let required = match default {
-            true => Required::Optional(None),
-            false => Required::Required,
-        };
-        if kw_only {
-            Param::KwOnly(name.clone(), param_ty, required)
-        } else {
-            Param::Pos(name.clone(), param_ty, required)
-        }
-    }
-
     fn as_raw_special_method_type(&self, instance: &Instance) -> Option<Type> {
         match self.instantiate_for(instance).0 {
             ClassFieldInner::Simple { ty, .. } => match self.initialization() {
@@ -1604,6 +1571,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     bind_class_attribute(cls, ty, field.read_only_reason())
                 }
             }
+        }
+    }
+
+    pub fn as_param(
+        &self,
+        field: &ClassField,
+        name: &Name,
+        default: bool,
+        kw_only: bool,
+        strict: bool,
+        converter_param: Option<Type>,
+    ) -> Param {
+        let ClassField(ClassFieldInner::Simple {
+            ty,
+            descriptor_setter,
+            ..
+        }) = field;
+        let param_ty = if !strict {
+            Type::any_explicit()
+        } else if let Some(converter_param) = converter_param {
+            converter_param
+        } else if let Some(descriptor_setter) = descriptor_setter {
+            ClassField::get_descriptor_setter_value(descriptor_setter)
+        } else {
+            ty.clone()
+        };
+        let required = match default {
+            true => Required::Optional(None),
+            false => Required::Required,
+        };
+        if kw_only {
+            Param::KwOnly(name.clone(), param_ty, required)
+        } else {
+            Param::Pos(name.clone(), param_ty, required)
         }
     }
 
