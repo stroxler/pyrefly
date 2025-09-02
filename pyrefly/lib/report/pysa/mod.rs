@@ -179,6 +179,27 @@ struct FunctionSignature {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct ClassRef {
+    module_id: ModuleId,
+    module_name: String, // For debugging purposes only. Reader should use the module id.
+    class_id: ClassId,
+    class_name: String, // For debugging purposes only. Reader should use the class id.
+}
+
+impl ClassRef {
+    fn from_class(class: &Class, module_ids: &ModuleIds) -> ClassRef {
+        ClassRef {
+            module_id: module_ids
+                .get(ModuleKey::from_module(class.module()))
+                .unwrap(),
+            module_name: class.module_name().to_string(),
+            class_id: ClassId::from_class(class),
+            class_name: class.qname().id().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct FunctionDefinition {
     name: String,
     parent: ScopeParent,
@@ -195,6 +216,13 @@ struct FunctionDefinition {
     is_property_setter: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_stub: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// If this is a method, record the class it is defined in.
+    defining_class: Option<ClassRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// If the method directly overrides a method in a parent class, we record that class.
+    /// This is used for building overriding graphs.
+    overridden_base_class: Option<ClassRef>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -203,14 +231,6 @@ struct DefinitionRef {
     module_name: String, // For debugging purposes only. Reader should use the module id.
     location: String,
     identifier: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct ClassRef {
-    module_id: ModuleId,
-    module_name: String, // For debugging purposes only. Reader should use the module id.
-    class_id: ClassId,
-    class_name: String, // For debugging purposes only. Reader should use the class id.
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -312,20 +332,6 @@ struct ModuleContext<'a> {
     stdlib: &'a Stdlib,
     module_info: &'a ModuleInfo,
     module_ids: &'a ModuleIds,
-}
-
-impl ClassRef {
-    fn from_class(class: &Class, context: &ModuleContext) -> ClassRef {
-        ClassRef {
-            module_id: context
-                .module_ids
-                .get(ModuleKey::from_module(class.module()))
-                .unwrap(),
-            module_name: class.module_name().to_string(),
-            class_id: ClassId::from_class(class),
-            class_name: class.qname().id().to_string(),
-        }
-    }
 }
 
 fn string_for_type(type_: &Type) -> String {
@@ -446,7 +452,7 @@ impl PysaType {
                 classes.dedup();
                 classes
                     .into_iter()
-                    .map(|class_type| ClassRef::from_class(&class_type, context))
+                    .map(|class_type| ClassRef::from_class(&class_type, context.module_ids))
                     .collect()
             },
         }
@@ -824,6 +830,21 @@ fn should_export_function(function: &DecoratedFunction, context: &ModuleContext)
     !has_successor || !function.is_overload()
 }
 
+fn get_super_class_member(
+    handle: &Handle,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+    class: &Class,
+    field: &Name,
+) -> Option<ClassRef> {
+    transaction
+        .ad_hoc_solve(handle, |solver| {
+            solver.get_super_class_member(class, None, field)
+        })
+        .unwrap()
+        .map(|member| ClassRef::from_class(&member.defining_class, module_ids))
+}
+
 fn export_all_functions(
     ast: &ModModule,
     context: &ModuleContext,
@@ -868,14 +889,23 @@ fn export_all_functions(
         };
 
         let display_range = context.module_info.display_range(function.id_range());
-        let name = function.metadata().kind.as_func_id().func.to_string();
+        let name = function.metadata().kind.as_func_id().func;
         let parent = get_scope_parent(ast, context.module_info, function.id_range());
+        let overridden_base_class = function.defining_cls().and_then(|class| {
+            get_super_class_member(
+                context.handle,
+                context.transaction,
+                context.module_ids,
+                class,
+                &name,
+            )
+        });
         assert!(
             function_definitions
                 .insert(
                     location_key(&display_range),
                     FunctionDefinition {
-                        name,
+                        name: name.to_string(),
                         parent,
                         undecorated_signatures,
                         is_overload: function.metadata().flags.is_overload,
@@ -888,6 +918,10 @@ fn export_all_functions(
                             .is_property_setter_with_getter
                             .is_some(),
                         is_stub: function.is_stub(),
+                        defining_class: function
+                            .defining_cls()
+                            .map(|class| ClassRef::from_class(class, context.module_ids)),
+                        overridden_base_class,
                     }
                 )
                 .is_none(),
@@ -972,7 +1006,7 @@ fn export_all_classes(
             bases: metadata
                 .base_class_objects()
                 .iter()
-                .map(|base_class| ClassRef::from_class(base_class, context))
+                .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
                 .collect::<Vec<_>>(),
             is_synthesized,
             fields,

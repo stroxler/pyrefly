@@ -2066,17 +2066,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_typed_dict(td)))
     }
 
-    fn get_super_class_member(
+    pub fn get_super_class_member(
         &self,
         cls: &Class,
-        start_lookup_cls: &ClassType,
+        start_lookup_cls: Option<&ClassType>,
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         // Skip ancestors in the MRO until we find the class we want to start at
         let metadata = self.get_mro_for_class(cls);
-        let ancestors = metadata
-            .ancestors(self.stdlib)
-            .skip_while(|ancestor| *ancestor != start_lookup_cls);
+        let ancestors = metadata.ancestors(self.stdlib).skip_while(|ancestor| {
+            if let Some(start_lookup_cls) = start_lookup_cls {
+                *ancestor != start_lookup_cls
+            } else {
+                false
+            }
+        });
         self.get_field_from_ancestors(cls, ancestors, name, &|cls, name| {
             self.get_field_from_current_class_only(cls, name)
                 .filter(|field| !field.is_init_var())
@@ -2092,10 +2096,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<ClassAttribute> {
         match super_obj {
             SuperObj::Instance(obj) => self
-                .get_super_class_member(obj.class_object(), start_lookup_cls, name)
+                .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
                 .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(obj))),
             SuperObj::Class(obj) => self
-                .get_super_class_member(obj.class_object(), start_lookup_cls, name)
+                .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
                 .map(|member| {
                     self.as_class_attribute(&member.value, &ClassBase::ClassType(obj.clone()))
                 }),
