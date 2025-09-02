@@ -93,7 +93,7 @@ pub enum ClassAttribute {
     Property(Type, Option<Type>, Class),
     /// A descriptor is a user-defined type whose actions may dispatch to special method calls
     /// for the get and set actions.
-    Descriptor(Descriptor),
+    Descriptor(Descriptor, DescriptorBase),
 }
 
 impl ClassAttribute {
@@ -119,29 +119,35 @@ impl ClassAttribute {
         getter: Option<Type>,
         setter: Option<Type>,
     ) -> Self {
-        Self::Descriptor(Descriptor {
-            descriptor_ty: ty,
+        Self::Descriptor(
+            Descriptor {
+                descriptor_ty: ty,
+                getter,
+                setter,
+            },
             base,
-            getter,
-            setter,
-        })
+        )
     }
 
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self {
             Self::ReadWrite(ty) => Self::ReadOnly(ty, reason),
             Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
-            Self::Descriptor(Descriptor {
-                descriptor_ty,
+            Self::Descriptor(
+                Descriptor {
+                    descriptor_ty,
+                    getter,
+                    ..
+                },
                 base,
-                getter,
-                ..
-            }) => Self::Descriptor(Descriptor {
+            ) => Self::Descriptor(
+                Descriptor {
+                    descriptor_ty,
+                    getter,
+                    setter: None,
+                },
                 base,
-                descriptor_ty,
-                getter,
-                setter: None,
-            }),
+            ),
             attr @ (Self::NoAccess(..) | Self::ReadOnly(..)) => attr,
         }
     }
@@ -167,9 +173,6 @@ pub struct Descriptor {
     /// This is the raw type of the descriptor, which is needed both for attribute subtyping
     /// checks in structural types and in the case where there is no getter method.
     descriptor_ty: Type,
-    /// Descriptor behavior depends on the base against which the attribute is resolved, so
-    /// we have to preserve information about whether it is a class instance or class def.
-    base: DescriptorBase,
     /// If `__get__` exists on the descriptor, this is the type of `__get__`
     /// method type (as resolved by accessing it on an instance of the
     /// descriptor). It is typically a `BoundMethod` although it is possible for
@@ -2248,8 +2251,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_property_setter(setter, got, range, errors, context);
                 *should_narrow = false;
             }
-            ClassAttribute::Descriptor(d) => {
-                match (d.base, d.setter) {
+            ClassAttribute::Descriptor(d, base) => {
+                match (base, d.setter) {
                     (DescriptorBase::Instance(class_type), Some(setter)) => {
                         let got = CallArg::arg(got);
                         self.call_descriptor_setter(
@@ -2499,14 +2502,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
             }
-            ClassAttribute::Descriptor(d, ..) => {
+            ClassAttribute::Descriptor(d, base) => {
                 match d {
                     // Reading a descriptor with a getter resolves to a method call
                     //
                     // TODO(stroxler): Once we have more complex error traces, it would be good to pass
                     // context down so that errors inside the call can mention that it was a descriptor read.
                     Descriptor {
-                        base,
                         getter: Some(getter),
                         ..
                     } => Ok(self.call_descriptor_getter(getter, base, range, errors, context)),
