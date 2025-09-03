@@ -19,6 +19,8 @@ use starlark_map::small_map::SmallMap;
 use static_interner::Intern;
 use static_interner::Interner;
 
+use crate::handle::Handle;
+
 // We're interning `Target`s, since they'll be duplicated all over the place,
 // and it would be nice to have something that implements `Copy`.
 // We choose Interning over `Arc`, since we want to make sure all `Target`s
@@ -59,4 +61,5 @@ impl Target {
 pub trait SourceDatabase {
     fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)>;
     fn list(&self) -> SmallMap<ModuleName, ModulePath>;
+    fn lookup(&self, module: &ModuleName, origin: Option<&Handle>) -> Option<ModulePath>;
 }

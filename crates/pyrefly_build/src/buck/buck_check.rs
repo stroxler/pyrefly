@@ -19,6 +19,7 @@ use starlark_map::small_map::SmallMap;
 use tracing::debug;
 use vec1::Vec1;
 
+use crate::handle::Handle;
 use crate::source_db::SourceDatabase;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -118,6 +119,13 @@ impl SourceDatabase for BuckCheckSourceDatabase {
             .map(|(name, paths)| (*name, ModulePath::filesystem(paths.first().clone())))
             .collect()
     }
+
+    fn lookup(&self, module: &ModuleName, _: Option<&Handle>) -> Option<ModulePath> {
+        self.sources
+            .get(module)
+            .or_else(|| self.dependencies.get(module))
+            .map(|p| ModulePath::filesystem(p.first().clone()))
+    }
 }
 
 impl BuckCheckSourceDatabase {
@@ -166,7 +174,7 @@ mod tests {
     }
 
     impl BuckCheckSourceDatabase {
-        fn lookup(&self, module: ModuleName) -> LookupResult {
+        fn lookup_for_test(&self, module: ModuleName) -> LookupResult {
             match self.sources.get(&module) {
                 Some(paths) => LookupResult::OwningSource(paths.first().clone()),
                 None => match self.dependencies.get(&module) {
@@ -216,19 +224,19 @@ mod tests {
             }],
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("foo")),
+            source_db.lookup_for_test(ModuleName::from_str("foo")),
             LookupResult::OwningSource(foo_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("bar")),
+            source_db.lookup_for_test(ModuleName::from_str("bar")),
             LookupResult::ExternalSource(bar_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("baz")),
+            source_db.lookup_for_test(ModuleName::from_str("baz")),
             LookupResult::ExternalSource(baz_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("qux")),
+            source_db.lookup_for_test(ModuleName::from_str("qux")),
             LookupResult::NoSource
         );
     }
@@ -265,11 +273,11 @@ mod tests {
             vec![],
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("foo")),
+            source_db.lookup_for_test(ModuleName::from_str("foo")),
             LookupResult::OwningSource(src_foo_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("bar")),
+            source_db.lookup_for_test(ModuleName::from_str("bar")),
             LookupResult::OwningSource(src_bar_path)
         );
     }
@@ -305,11 +313,11 @@ mod tests {
             vec![],
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("foo")),
+            source_db.lookup_for_test(ModuleName::from_str("foo")),
             LookupResult::OwningSource(foo_pyi_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("bar")),
+            source_db.lookup_for_test(ModuleName::from_str("bar")),
             LookupResult::ExternalSource(bar_pyi_path)
         );
     }
@@ -366,19 +374,19 @@ mod tests {
             ],
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("a")),
+            source_db.lookup_for_test(ModuleName::from_str("a")),
             LookupResult::ExternalSource(dep_a_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("b")),
+            source_db.lookup_for_test(ModuleName::from_str("b")),
             LookupResult::ExternalSource(dep_b_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("c")),
+            source_db.lookup_for_test(ModuleName::from_str("c")),
             LookupResult::ExternalSource(typeshed_c_path)
         );
         assert_eq!(
-            source_db.lookup(ModuleName::from_str("d")),
+            source_db.lookup_for_test(ModuleName::from_str("d")),
             LookupResult::ExternalSource(dep_d_path)
         );
     }
