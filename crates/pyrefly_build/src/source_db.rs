@@ -58,7 +58,7 @@ impl Target {
 /// Represents a virtual filesystem provided by a build system. A build system
 /// should understand the relationship between targets and importable qualified
 /// paths to the files contained in the build system.
-pub trait SourceDatabase {
+pub trait SourceDatabase: Send + Sync + fmt::Debug {
     fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)>;
     fn list(&self) -> SmallMap<ModuleName, ModulePath>;
     fn lookup(&self, module: &ModuleName, origin: Option<&Handle>) -> Option<ModulePath>;

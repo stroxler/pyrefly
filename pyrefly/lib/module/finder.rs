@@ -420,10 +420,12 @@ pub fn find_import_filtered(
     style_filter: Option<ModuleStyle>,
 ) -> Result<ModulePath, FindError> {
     let path = origin.map(|h| h.path().as_path());
-    if let Some(path) = config.custom_module_paths.get(&module) {
-        Ok(path.clone())
-    } else if module != ModuleName::builtins() && config.replace_imports_with_any(path, module) {
+    if module != ModuleName::builtins() && config.replace_imports_with_any(path, module) {
         Err(FindError::Ignored)
+    } else if let Some(sourcedb) = &config.source_db
+        && let Some(path) = sourcedb.lookup(&module, origin)
+    {
+        Ok(path.clone())
     } else if let Some(path) = find_module(module, config.search_path(), true, style_filter)? {
         Ok(path)
     } else if let Some(custom_typeshed_path) = &config.typeshed_path

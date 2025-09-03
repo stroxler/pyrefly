@@ -61,14 +61,14 @@ fn read_input_file(path: &Path) -> anyhow::Result<InputFile> {
     Ok(input_file)
 }
 
-fn compute_errors(sys_info: SysInfo, sourcedb: impl SourceDatabase) -> Vec<Error> {
+fn compute_errors(sys_info: SysInfo, sourcedb: Box<impl SourceDatabase + 'static>) -> Vec<Error> {
     let modules = sourcedb.modules_to_check();
 
     let mut config = ConfigFile::default();
     config.python_environment.python_platform = Some(sys_info.platform().clone());
     config.python_environment.python_version = Some(sys_info.version());
     config.python_environment.site_package_path = Some(Vec::new());
-    config.custom_module_paths = sourcedb.list();
+    config.source_db = Some(ArcId::new(sourcedb));
     config.interpreters.skip_interpreter_query = true;
     config.disable_search_path_heuristics = true;
     config.configure();
@@ -121,7 +121,7 @@ impl BuckCheckArgs {
             input_file.dependencies.as_slice(),
             input_file.typeshed.as_slice(),
         )?;
-        let type_errors = compute_errors(sys_info, sourcedb);
+        let type_errors = compute_errors(sys_info, Box::new(sourcedb));
         info!("Found {} type errors", type_errors.len());
         write_output(&type_errors, self.output_path.as_deref())?;
         Ok(CommandExitStatus::Success)

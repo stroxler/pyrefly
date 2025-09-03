@@ -98,6 +98,7 @@ fn create_manifest_item_index(
         .collect()
 }
 
+#[derive(Debug)]
 pub struct BuckCheckSourceDatabase {
     sources: SmallMap<ModuleName, Vec1<PathBuf>>,
     dependencies: SmallMap<ModuleName, Vec1<PathBuf>>,
