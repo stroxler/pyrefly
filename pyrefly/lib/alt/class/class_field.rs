@@ -2097,11 +2097,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match super_obj {
             SuperObj::Instance(obj) => self
                 .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
-                .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(obj))),
+                .map(|member| {
+                    self.as_instance_attribute(&member.value, &Instance::of_self_type(obj))
+                }),
             SuperObj::Class(obj) => self
                 .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
                 .map(|member| {
-                    self.as_class_attribute(&member.value, &ClassBase::ClassType(obj.clone()))
+                    self.as_class_attribute(&member.value, &ClassBase::SelfType(obj.clone()))
                 }),
         }
     }
