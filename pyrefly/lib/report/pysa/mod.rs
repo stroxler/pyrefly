@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
 use std::ops::Not;
@@ -37,6 +38,7 @@ use rayon::prelude::*;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprContext;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtImportFrom;
@@ -256,6 +258,7 @@ struct PysaModuleFile {
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
     function_definitions: HashMap<String, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
+    global_variables: HashSet<String>,
 }
 
 /// Represents what makes a module unique
@@ -463,6 +466,7 @@ struct VisitorContext<'a> {
     module_context: &'a ModuleContext<'a>,
     type_of_expression: &'a mut HashMap<String, PysaType>,
     definitions_of_expression: &'a mut HashMap<String, Vec<DefinitionRef>>,
+    global_variables: &'a mut HashSet<String>,
 }
 
 fn add_expression_definitions(
@@ -633,7 +637,17 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
     e.recurse(&mut |e| visit_expression(e, context));
 }
 
-fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
+fn visit_assign_target(target: &Expr, is_top_level: bool, context: &mut VisitorContext) {
+    if !is_top_level {
+        return;
+    }
+
+    Ast::expr_lvalue(target, &mut |global: &ExprName| {
+        context.global_variables.insert(global.id.to_string());
+    });
+}
+
+fn visit_statement(stmt: &Stmt, is_top_level: bool, context: &mut VisitorContext) {
     match stmt {
         Stmt::FunctionDef(function_def) => {
             visit_expressions(
@@ -667,7 +681,11 @@ fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
                     .filter_map(|argument| argument.default.as_deref()),
                 context,
             );
-            visit_statements(function_def.body.iter(), context);
+            visit_statements(
+                function_def.body.iter(),
+                /* is_top_level */ false,
+                context,
+            );
         }
         Stmt::ClassDef(class_def) => {
             visit_expressions(
@@ -684,39 +702,52 @@ fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
                     context,
                 );
             }
-            visit_statements(class_def.body.iter(), context);
+            visit_statements(
+                class_def.body.iter(),
+                /* is_top_level */ false,
+                context,
+            );
         }
         Stmt::Expr(e) => {
             visit_expression(&e.value, context);
         }
-        Stmt::Return(_)
-        | Stmt::Delete(_)
-        | Stmt::Assign(_)
-        | Stmt::AugAssign(_)
-        | Stmt::AnnAssign(_)
-        | Stmt::Raise(_) => {
+        Stmt::Assign(assign) => {
+            stmt.visit(&mut |e| visit_expression(e, context));
+            for t in &assign.targets {
+                visit_assign_target(t, is_top_level, context);
+            }
+        }
+        Stmt::AnnAssign(assign) => {
+            stmt.visit(&mut |e| visit_expression(e, context));
+            visit_assign_target(&assign.target, is_top_level, context);
+        }
+        Stmt::AugAssign(assign) => {
+            stmt.visit(&mut |e| visit_expression(e, context));
+            visit_assign_target(&assign.target, is_top_level, context);
+        }
+        Stmt::Return(_) | Stmt::Delete(_) | Stmt::Raise(_) => {
             // Statements that only contains expressions, use Visit<Expr>
             stmt.visit(&mut |e| visit_expression(e, context));
         }
         Stmt::For(for_stmt) => {
             visit_expression(&for_stmt.iter, context);
             visit_expression(&for_stmt.target, context);
-            visit_statements(for_stmt.body.iter(), context);
-            visit_statements(for_stmt.orelse.iter(), context);
+            visit_statements(for_stmt.body.iter(), is_top_level, context);
+            visit_statements(for_stmt.orelse.iter(), is_top_level, context);
         }
         Stmt::While(while_stmt) => {
             visit_expression(&while_stmt.test, context);
-            visit_statements(while_stmt.body.iter(), context);
-            visit_statements(while_stmt.orelse.iter(), context);
+            visit_statements(while_stmt.body.iter(), is_top_level, context);
+            visit_statements(while_stmt.orelse.iter(), is_top_level, context);
         }
         Stmt::If(if_stmt) => {
             visit_expression(&if_stmt.test, context);
-            visit_statements(if_stmt.body.iter(), context);
+            visit_statements(if_stmt.body.iter(), is_top_level, context);
             for elif_else_clause in &if_stmt.elif_else_clauses {
                 if let Some(test) = &elif_else_clause.test {
                     visit_expression(test, context);
                 }
-                visit_statements(elif_else_clause.body.iter(), context);
+                visit_statements(elif_else_clause.body.iter(), is_top_level, context);
             }
         }
         Stmt::With(with_stmt) => {
@@ -724,7 +755,7 @@ fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
                 visit_expression(&item.context_expr, context);
                 visit_expressions(item.optional_vars.iter().map(|x| &**x), context);
             }
-            visit_statements(with_stmt.body.iter(), context);
+            visit_statements(with_stmt.body.iter(), is_top_level, context);
         }
         Stmt::Match(match_stmt) => {
             visit_expression(&match_stmt.subject, context);
@@ -732,19 +763,19 @@ fn visit_statement(stmt: &Stmt, context: &mut VisitorContext) {
                 if let Some(guard) = &case.guard {
                     visit_expression(guard, context);
                 }
-                visit_statements(case.body.iter(), context);
+                visit_statements(case.body.iter(), is_top_level, context);
             }
         }
         Stmt::Try(try_stmt) => {
-            visit_statements(try_stmt.body.iter(), context);
-            visit_statements(try_stmt.orelse.iter(), context);
-            visit_statements(try_stmt.finalbody.iter(), context);
+            visit_statements(try_stmt.body.iter(), is_top_level, context);
+            visit_statements(try_stmt.orelse.iter(), is_top_level, context);
+            visit_statements(try_stmt.finalbody.iter(), is_top_level, context);
             for ruff_python_ast::ExceptHandler::ExceptHandler(except_handler) in &try_stmt.handlers
             {
                 if let Some(annotation) = &except_handler.type_ {
                     visit_expression(annotation, context);
                 }
-                visit_statements(except_handler.body.iter(), context);
+                visit_statements(except_handler.body.iter(), is_top_level, context);
             }
         }
         Stmt::Assert(assert_stmt) => {
@@ -776,9 +807,13 @@ fn visit_expressions<'a>(
     }
 }
 
-fn visit_statements<'a>(statements: impl Iterator<Item = &'a Stmt>, context: &mut VisitorContext) {
+fn visit_statements<'a>(
+    statements: impl Iterator<Item = &'a Stmt>,
+    is_top_level: bool,
+    context: &mut VisitorContext,
+) {
     for stmt in statements {
-        visit_statement(stmt, context);
+        visit_statement(stmt, is_top_level, context);
     }
 }
 
@@ -1096,6 +1131,7 @@ fn get_module_file(
 
     let mut type_of_expression = HashMap::new();
     let mut definitions_of_expression = HashMap::new();
+    let mut global_variables = HashSet::new();
     let context = ModuleContext {
         handle,
         transaction,
@@ -1109,10 +1145,12 @@ fn get_module_file(
     for stmt in &ast.body {
         visit_statement(
             stmt,
+            /* is_top_level */ true,
             &mut VisitorContext {
                 module_context: &context,
                 type_of_expression: &mut type_of_expression,
                 definitions_of_expression: &mut definitions_of_expression,
+                global_variables: &mut global_variables,
             },
         );
     }
@@ -1129,6 +1167,7 @@ fn get_module_file(
         goto_definitions_of_expression: definitions_of_expression,
         function_definitions,
         class_definitions,
+        global_variables,
     }
 }
 
