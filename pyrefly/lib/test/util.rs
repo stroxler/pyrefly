@@ -213,7 +213,7 @@ impl TestEnv {
         if self.implicitly_defined_attribute_error {
             errors.set_error_severity(ErrorKind::ImplicitlyDefinedAttribute, Severity::Error);
         }
-        let mut sourcedb = MapDatabase::new();
+        let mut sourcedb = MapDatabase::new(config.get_sys_info());
         for (name, path, _) in self.modules.iter() {
             sourcedb.insert(*name, path.dupe());
         }

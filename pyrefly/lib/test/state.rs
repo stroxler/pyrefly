@@ -93,7 +93,8 @@ fn test_multiple_path() {
 
     let mut config = ConfigFile::default();
     config.python_environment.set_empty_to_default();
-    let mut sourcedb = MapDatabase::new();
+    let sys_info = config.get_sys_info();
+    let mut sourcedb = MapDatabase::new(sys_info.dupe());
     for (name, path, _) in FILES.iter().rev() {
         sourcedb.insert(
             ModuleName::from_str(name),
@@ -104,16 +105,8 @@ fn test_multiple_path() {
     config.configure();
     let config = ArcId::new(config);
 
-    let sys_info = SysInfo::default();
-
-    let state = State::new(ConfigFinder::new_constant(config));
-    let handles = FILES.map(|(name, path, _)| {
-        Handle::new(
-            ModuleName::from_str(name),
-            ModulePath::memory(PathBuf::from(path)),
-            sys_info.dupe(),
-        )
-    });
+    let state = State::new(ConfigFinder::new_constant(config.clone()));
+    let handles = config.source_db.as_ref().unwrap().modules_to_check();
     let mut transaction = state.new_transaction(Require::Exports, None);
     transaction.set_memory(
         FILES.map(|(_, path, contents)| {

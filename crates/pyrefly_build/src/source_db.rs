@@ -6,7 +6,6 @@
  */
 
 use std::fmt;
-use std::path::PathBuf;
 
 use dupe::Dupe;
 use pyrefly_python::module_name::ModuleName;
@@ -59,7 +58,7 @@ impl Target {
 /// should understand the relationship between targets and importable qualified
 /// paths to the files contained in the build system.
 pub trait SourceDatabase: Send + Sync + fmt::Debug {
-    fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)>;
+    fn modules_to_check(&self) -> Vec<Handle>;
     fn list(&self) -> SmallMap<ModuleName, ModulePath>;
     fn lookup(&self, module: &ModuleName, origin: Option<&Handle>) -> Option<ModulePath>;
 }

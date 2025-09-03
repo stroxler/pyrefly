@@ -77,7 +77,7 @@ impl Incremental {
 
         let mut config = ConfigFile::default();
         config.python_environment.set_empty_to_default();
-        let mut sourcedb = MapDatabase::new();
+        let mut sourcedb = MapDatabase::new(config.get_sys_info());
         for file in Self::USER_FILES {
             sourcedb.insert(
                 ModuleName::from_str(file),

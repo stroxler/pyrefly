@@ -11,8 +11,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context as _;
+use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::fs_anyhow;
 use starlark_map::small_map::SmallMap;
@@ -102,13 +104,22 @@ fn create_manifest_item_index(
 pub struct BuckCheckSourceDatabase {
     sources: SmallMap<ModuleName, Vec1<PathBuf>>,
     dependencies: SmallMap<ModuleName, Vec1<PathBuf>>,
+    sys_info: SysInfo,
 }
 
 impl SourceDatabase for BuckCheckSourceDatabase {
-    fn modules_to_check(&self) -> Vec<(ModuleName, PathBuf)> {
+    fn modules_to_check(&self) -> Vec<Handle> {
         self.sources
             .iter()
-            .flat_map(|(name, paths)| paths.iter().map(|path| (*name, path.clone())))
+            .flat_map(|(name, paths)| {
+                paths.iter().map(|path| {
+                    Handle::new(
+                        name.dupe(),
+                        ModulePath::filesystem(path.to_path_buf()),
+                        self.sys_info.dupe(),
+                    )
+                })
+            })
             .collect()
     }
 
@@ -134,23 +145,31 @@ impl BuckCheckSourceDatabase {
         source_manifests: &[PathBuf],
         dependency_manifests: &[PathBuf],
         typeshed_manifests: &[PathBuf],
+        sys_info: SysInfo,
     ) -> anyhow::Result<Self> {
         let sources = read_manifest_files(source_manifests)?;
         let dependencies = read_manifest_files(dependency_manifests)?;
         let typeshed = read_manifest_files(typeshed_manifests)?;
-        Ok(Self::from_manifest_items(sources, dependencies, typeshed))
+        Ok(Self::from_manifest_items(
+            sources,
+            dependencies,
+            typeshed,
+            sys_info,
+        ))
     }
 
     fn from_manifest_items(
         source_items: Vec<ManifestItem>,
         dependency_items: Vec<ManifestItem>,
         typeshed_items: Vec<ManifestItem>,
+        sys_info: SysInfo,
     ) -> Self {
         Self {
             sources: create_manifest_item_index(source_items.into_iter()),
             dependencies: create_manifest_item_index(
                 dependency_items.into_iter().chain(typeshed_items),
             ),
+            sys_info,
         }
     }
 }
@@ -223,6 +242,7 @@ mod tests {
                 module_name: ModuleName::from_str("baz"),
                 absolute_path: baz_path.clone(),
             }],
+            SysInfo::default(),
         );
         assert_eq!(
             source_db.lookup_for_test(ModuleName::from_str("foo")),
@@ -272,6 +292,7 @@ mod tests {
                 },
             ],
             vec![],
+            SysInfo::default(),
         );
         assert_eq!(
             source_db.lookup_for_test(ModuleName::from_str("foo")),
@@ -312,6 +333,7 @@ mod tests {
                 },
             ],
             vec![],
+            SysInfo::default(),
         );
         assert_eq!(
             source_db.lookup_for_test(ModuleName::from_str("foo")),
@@ -373,6 +395,7 @@ mod tests {
                     absolute_path: typeshed_d_path.clone(),
                 },
             ],
+            SysInfo::default(),
         );
         assert_eq!(
             source_db.lookup_for_test(ModuleName::from_str("a")),
