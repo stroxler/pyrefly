@@ -14,7 +14,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::small_map::SmallMap;
 use static_interner::Intern;
 use static_interner::Interner;
 
@@ -59,6 +58,5 @@ impl Target {
 /// paths to the files contained in the build system.
 pub trait SourceDatabase: Send + Sync + fmt::Debug {
     fn modules_to_check(&self) -> Vec<Handle>;
-    fn list(&self) -> SmallMap<ModuleName, ModulePath>;
     fn lookup(&self, module: &ModuleName, origin: Option<&Handle>) -> Option<ModulePath>;
 }

@@ -60,13 +60,6 @@ impl SourceDatabase for MapDatabase {
             .collect()
     }
 
-    fn list(&self) -> SmallMap<ModuleName, ModulePath> {
-        self.0
-            .iter()
-            .map(|(name, paths)| (name.dupe(), paths.last().dupe()))
-            .collect()
-    }
-
     fn lookup(&self, module: &ModuleName, _: Option<&Handle>) -> Option<ModulePath> {
         self.0.get(module).map(|paths| paths.last().dupe())
     }

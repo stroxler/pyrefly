@@ -123,15 +123,6 @@ impl SourceDatabase for BuckCheckSourceDatabase {
             .collect()
     }
 
-    fn list(&self) -> SmallMap<ModuleName, pyrefly_python::module_path::ModulePath> {
-        // Iterate the sources second so if there are any conflicts the source wins.
-        self.dependencies
-            .iter()
-            .chain(self.sources.iter())
-            .map(|(name, paths)| (*name, ModulePath::filesystem(paths.first().clone())))
-            .collect()
-    }
-
     fn lookup(&self, module: &ModuleName, _: Option<&Handle>) -> Option<ModulePath> {
         self.sources
             .get(module)
