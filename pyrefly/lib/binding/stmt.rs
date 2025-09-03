@@ -666,7 +666,10 @@ impl<'a> BindingsBuilder<'a> {
                         Some(x) => self.sys_info.evaluate_bool(x),
                     };
                     if this_branch_chosen == Some(false) {
-                        continue; // We definitely won't pick this branch
+                        // We definitely won't pick this branch. We still ensure the test
+                        // expression to pick up any names it defines.
+                        self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing);
+                        continue;
                     }
                     self.bind_narrow_ops(&negated_prev_ops, range);
                     let mut base = self.scopes.clone_current_flow();

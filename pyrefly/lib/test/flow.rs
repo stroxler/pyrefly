@@ -1439,3 +1439,14 @@ def f():
         d[idx] = (x := idx)  # E: `int` is not assignable to parameter `key` with type `str`
     "#,
 );
+
+testcase!(
+    test_false_and_walrus,
+    r#"
+def f(v):
+    if False and (value := v):
+        print(value)
+    else:
+        print(value)
+    "#,
+);
