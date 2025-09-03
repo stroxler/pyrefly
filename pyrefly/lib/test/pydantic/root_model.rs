@@ -32,9 +32,50 @@ testcase!(
     pydantic_env(),
     r#"
 from pydantic import RootModel
-class IntRootModel[T](RootModel[T]):
+class GenericRootModel[T](RootModel[T]):
    pass
-m1 = IntRootModel(123) # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
-m2 = IntRootModel("abc") # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
+m1 = GenericRootModel(123) # E: Expected argument `root` to be passed by name in function `GenericRootModel.__init__`
+m2 = GenericRootModel("abc") # E: Expected argument `root` to be passed by name in function `GenericRootModel.__init__`
+"#,
+);
+
+testcase!(
+    bug = "We should expect one positional argument",
+    test_root_model_wrong_args,
+    pydantic_env(),
+    r#"
+from pydantic import RootModel
+class TwoArgRootModel[F, G](RootModel[F, G]): # E: Expected 1 type argument for `RootModel`, got 2 
+    pass
+m1 = TwoArgRootModel(123, "abc") # E: Expected 0 positional arguments, got 2 in function `TwoArgRootModel.__init__` # E: Expected argument `root` to be passed by name in function `TwoArgRootModel.__init__` 
+"#,
+);
+
+testcase!(
+    bug = "Zero arguments is acceptable",
+    test_no_args,
+    pydantic_env(),
+    r#"
+from pydantic import RootModel
+
+class ZeroArgRootModel(RootModel):
+    pass
+m1 = ZeroArgRootModel() # E:  Missing argument `root` in function `ZeroArgRootModel.__init__`
+"#,
+);
+
+testcase!(
+    bug = "when no args are specified, fallback to the default generic arg",
+    test_fallback,
+    pydantic_env(),
+    r#"
+from pydantic import RootModel
+
+class FallBackRootModel(RootModel):
+    pass
+
+m1 = FallBackRootModel(123) # E: Expected argument `root` to be passed by name in function `FallBackRootModel.__init__` 
+
+
 "#,
 );
