@@ -17,6 +17,7 @@ const FROZEN_DEFAULT: bool = false;
 pub const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
 pub const GT: Name = Name::new_static("gt");
 pub const LT: Name = Name::new_static("lt");
+pub const ROOT: Name = Name::new_static("root");
 pub const STRICT: Name = Name::new_static("strict");
 const FROZEN: Name = Name::new_static("frozen");
 const EXTRA: Name = Name::new_static("extra");
