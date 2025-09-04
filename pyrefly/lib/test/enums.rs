@@ -501,6 +501,28 @@ class Color(IntEnum):
 }
 
 testcase!(
+    test_enum_descriptor,
+    r#"
+from enum import IntEnum
+from typing import Callable, assert_type
+
+class classproperty[_TClass, _TReturnType]:
+    fget: Callable[[_TClass], _TReturnType]
+    def __init__(self, f: Callable[[_TClass], _TReturnType]) -> None: ...
+    def __get__(self, obj: _TClass | None, cls: _TClass) -> _TReturnType: ...
+    
+class Foo(IntEnum):
+    X = 1
+    @classproperty
+    def Y(cls) -> list[Foo]:
+        return [Foo.X]
+
+# descriptors are not enum members
+assert_type(Foo.Y, list[Foo])
+"#,
+);
+
+testcase!(
     bug = "The RED = ... in pyi should be fine",
     test_enum_value_dots_pyi,
     env_enum_dots(),
