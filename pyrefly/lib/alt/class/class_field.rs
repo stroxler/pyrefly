@@ -1632,8 +1632,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 DescriptorBase::ClassDef(cls.class_object().dupe()),
             ),
             ClassFieldInner::Simple {
-                initialization:
-                    ClassFieldInitialization::Method | ClassFieldInitialization::Uninitialized,
+                initialization: ClassFieldInitialization::Method,
                 ..
             } => ClassAttribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
                 cls.class_object().dupe(),

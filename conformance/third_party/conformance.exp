@@ -3140,16 +3140,6 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Instance-only attribute `final_no_default` of class `D` is not visible on the class",
-      "description": "Instance-only attribute `final_no_default` of class `D` is not visible on the class",
-      "line": 37,
-      "name": "no-access",
-      "stop_column": 19,
-      "stop_line": 37
-    },
-    {
-      "code": -2,
-      "column": 1,
       "concise_description": "Cannot set field `final_with_default`",
       "description": "Cannot set field `final_with_default`\n  This field is marked as Final",
       "line": 38,
@@ -4385,46 +4375,6 @@
   "enums_members.py": [
     {
       "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, str) failed",
-      "description": "assert_type(Any, str) failed",
-      "line": 27,
-      "name": "assert-type",
-      "stop_column": 28,
-      "stop_line": 27
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Instance-only attribute `genus` of class `Pet` is not visible on the class",
-      "description": "Instance-only attribute `genus` of class `Pet` is not visible on the class",
-      "line": 27,
-      "name": "missing-attribute",
-      "stop_column": 22,
-      "stop_line": 27
-    },
-    {
-      "code": -2,
-      "column": 12,
-      "concise_description": "assert_type(Any, str) failed",
-      "description": "assert_type(Any, str) failed",
-      "line": 28,
-      "name": "assert-type",
-      "stop_column": 30,
-      "stop_line": 28
-    },
-    {
-      "code": -2,
-      "column": 13,
-      "concise_description": "Instance-only attribute `species` of class `Pet` is not visible on the class",
-      "description": "Instance-only attribute `species` of class `Pet` is not visible on the class",
-      "line": 28,
-      "name": "missing-attribute",
-      "stop_column": 24,
-      "stop_line": 28
-    },
-    {
-      "code": -2,
       "column": 5,
       "concise_description": "Enum member `DOG` may not be annotated directly. Instead, annotate the `_value_` attribute.",
       "description": "Enum member `DOG` may not be annotated directly. Instead, annotate the `_value_` attribute.",
@@ -4954,8 +4904,8 @@
     {
       "code": -2,
       "column": 13,
-      "concise_description": "Instance-only attribute `attr` of class `Foo7` is not visible on the class",
-      "description": "Instance-only attribute `attr` of class `Foo7` is not visible on the class",
+      "concise_description": "Generic attribute `attr` of class `Foo7` is not visible on the class",
+      "description": "Generic attribute `attr` of class `Foo7` is not visible on the class",
       "line": 170,
       "name": "missing-attribute",
       "stop_column": 22,
@@ -5556,48 +5506,7 @@
       "stop_line": 65
     }
   ],
-  "generics_self_advanced.py": [
-    {
-      "code": -2,
-      "column": 20,
-      "concise_description": "assert_type(Any, list[Self]) failed",
-      "description": "assert_type(Any, list[Self]) failed",
-      "line": 43,
-      "name": "assert-type",
-      "stop_column": 39,
-      "stop_line": 43
-    },
-    {
-      "code": -2,
-      "column": 21,
-      "concise_description": "Instance-only attribute `a` of class `ChildB` is not visible on the class",
-      "description": "Instance-only attribute `a` of class `ChildB` is not visible on the class",
-      "line": 43,
-      "name": "missing-attribute",
-      "stop_column": 26,
-      "stop_line": 43
-    },
-    {
-      "code": -2,
-      "column": 20,
-      "concise_description": "assert_type(Any, Self) failed",
-      "description": "assert_type(Any, Self) failed",
-      "line": 44,
-      "name": "assert-type",
-      "stop_column": 36,
-      "stop_line": 44
-    },
-    {
-      "code": -2,
-      "column": 21,
-      "concise_description": "Instance-only attribute `a` of class `ChildB` is not visible on the class",
-      "description": "Instance-only attribute `a` of class `ChildB` is not visible on the class",
-      "line": 44,
-      "name": "missing-attribute",
-      "stop_column": 26,
-      "stop_line": 44
-    }
-  ],
+  "generics_self_advanced.py": [],
   "generics_self_attributes.py": [
     {
       "code": -2,
@@ -6088,8 +5997,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Instance-only attribute `label` of class `Node` is not visible on the class",
-      "description": "Instance-only attribute `label` of class `Node` is not visible on the class",
+      "concise_description": "Generic attribute `label` of class `Node` is not visible on the class",
+      "description": "Generic attribute `label` of class `Node` is not visible on the class",
       "line": 42,
       "name": "no-access",
       "stop_column": 16,
@@ -6098,8 +6007,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Instance-only attribute `label` of class `Node` is not visible on the class",
-      "description": "Instance-only attribute `label` of class `Node` is not visible on the class",
+      "concise_description": "Generic attribute `label` of class `Node` is not visible on the class",
+      "description": "Generic attribute `label` of class `Node` is not visible on the class",
       "line": 43,
       "name": "missing-attribute",
       "stop_column": 16,
@@ -6108,8 +6017,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Instance-only attribute `label` of class `Node` is not visible on the class",
-      "description": "Instance-only attribute `label` of class `Node` is not visible on the class",
+      "concise_description": "Generic attribute `label` of class `Node` is not visible on the class",
+      "description": "Generic attribute `label` of class `Node` is not visible on the class",
       "line": 44,
       "name": "no-access",
       "stop_column": 11,
@@ -6118,8 +6027,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Instance-only attribute `label` of class `Node` is not visible on the class",
-      "description": "Instance-only attribute `label` of class `Node` is not visible on the class",
+      "concise_description": "Generic attribute `label` of class `Node` is not visible on the class",
+      "description": "Generic attribute `label` of class `Node` is not visible on the class",
       "line": 45,
       "name": "missing-attribute",
       "stop_column": 11,
@@ -6128,8 +6037,8 @@
     {
       "code": -2,
       "column": 1,
-      "concise_description": "Instance-only attribute `label` of class `Node` is not visible on the class",
-      "description": "Instance-only attribute `label` of class `Node` is not visible on the class",
+      "concise_description": "Generic attribute `label` of class `Node` is not visible on the class",
+      "description": "Generic attribute `label` of class `Node` is not visible on the class",
       "line": 46,
       "name": "missing-attribute",
       "stop_column": 15,

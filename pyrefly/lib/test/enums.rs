@@ -319,13 +319,18 @@ def foo(f: MyFlag) -> None:
 testcase!(
     test_enum_instance_only_attr,
     r#"
-from typing import reveal_type
+from typing import assert_type, Any
 from enum import Enum
 
 class MyEnum(Enum):
+    X = "foo"
     Y: int
+    Z = "bar"
 
-MyEnum.Y  # E: Instance-only attribute `Y` of class `MyEnum` is not visible on the class
+assert_type(MyEnum.Y, int)
+
+for x in MyEnum:
+    assert_type(x.value, str)  # Y is not an enum member
 "#,
 );
 
