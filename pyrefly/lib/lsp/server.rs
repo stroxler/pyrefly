@@ -95,6 +95,7 @@ use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
 use lsp_types::SymbolInformation;
+use lsp_types::TextDocumentIdentifier;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
@@ -144,6 +145,7 @@ use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
 use lsp_types::request::WorkspaceSymbolRequest;
 use pyrefly_build::handle::Handle;
+use pyrefly_config::config::ConfigSource;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -158,6 +160,7 @@ use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use starlark_map::small_map::SmallMap;
@@ -190,6 +193,28 @@ use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::State;
 use crate::state::state::Transaction;
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum TypeErrorDisplayStatus {
+    DisabledInIdeConfig,
+    EnabledInIdeConfig,
+    DisabledInConfigFile,
+    EnabledInConfigFile,
+    DisabledDueToMissingConfigFile,
+}
+
+impl TypeErrorDisplayStatus {
+    fn is_enabled(self) -> bool {
+        match self {
+            TypeErrorDisplayStatus::DisabledInIdeConfig
+            | TypeErrorDisplayStatus::DisabledInConfigFile
+            | TypeErrorDisplayStatus::DisabledDueToMissingConfigFile => false,
+            TypeErrorDisplayStatus::EnabledInIdeConfig
+            | TypeErrorDisplayStatus::EnabledInConfigFile => true,
+        }
+    }
+}
 
 /// Interface exposed for TSP to interact with the LSP server
 pub trait TspInterface {
@@ -813,6 +838,14 @@ impl Server {
                         ));
                         ide_transaction_manager.save(transaction);
                     }
+                } else if &x.method == "pyrefly/textDocument/typeErrorDisplayStatus" {
+                    let text_document: TextDocumentIdentifier = serde_json::from_value(x.params)?;
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(self.type_error_display_status(
+                            text_document.uri.to_file_path().unwrap().as_path(),
+                        )),
+                    ));
                 } else {
                     self.send_response(Response::new_err(
                         x.id.clone(),
@@ -930,18 +963,37 @@ impl Server {
             if open_files.contains_key(&path)
                 && !config.project_excludes.covers(&path)
                 && self
-                    .workspaces
-                    .get_with(path.to_path_buf(), |w| match w.display_type_errors {
-                        Some(DisplayTypeErrors::ForceOn) => Some(true),
-                        Some(DisplayTypeErrors::ForceOff) => Some(false),
-                        Some(DisplayTypeErrors::Default) | None => None,
-                    })
-                    .unwrap_or_else(|| !config.disable_type_errors_in_ide(e.path().as_path()))
+                    .type_error_display_status(e.path().as_path())
+                    .is_enabled()
             {
                 return Some((path.to_path_buf(), e.to_diagnostic()));
             }
         }
         None
+    }
+
+    fn type_error_display_status(&self, path: &Path) -> TypeErrorDisplayStatus {
+        let handle = make_open_handle(&self.state, path);
+        let config = self
+            .state
+            .config_finder()
+            .python_file(handle.module(), handle.path());
+        match self
+            .workspaces
+            .get_with(path.to_path_buf(), |w| w.display_type_errors)
+        {
+            Some(DisplayTypeErrors::ForceOn) => TypeErrorDisplayStatus::EnabledInIdeConfig,
+            Some(DisplayTypeErrors::ForceOff) => TypeErrorDisplayStatus::DisabledInIdeConfig,
+            Some(DisplayTypeErrors::Default) | None => {
+                if matches!(config.source, ConfigSource::Synthetic) {
+                    TypeErrorDisplayStatus::DisabledDueToMissingConfigFile
+                } else if config.disable_type_errors_in_ide(path) {
+                    TypeErrorDisplayStatus::DisabledInConfigFile
+                } else {
+                    TypeErrorDisplayStatus::EnabledInConfigFile
+                }
+            }
+        }
     }
 
     fn validate_in_memory<'a>(&'a self, ide_transaction_manager: &mut TransactionManager<'a>) {

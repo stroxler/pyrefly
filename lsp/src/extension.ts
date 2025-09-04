@@ -34,31 +34,55 @@ function requireSetting<T>(path: string): T {
 }
 
 /// Update the status bar based on current configuration
-function updateStatusBar() {
-    const disableTypeErrors = vscode.workspace.getConfiguration().get<boolean | null>('python.pyrefly.disableTypeErrors', null);
+async function updateStatusBar() {
+    const document = vscode.window.activeTextEditor?.document;
+    if (document == null
+        || document.uri.scheme !== 'file'
+        || !(document.uri.fsPath.endsWith('.py')
+        || document.uri.fsPath.endsWith('.pyi'))) {
+        statusBarItem?.hide();
+        return;
+    }
+    let status;
+    try {
+        status = await client.sendRequest('pyrefly/textDocument/typeErrorDisplayStatus', client.code2ProtocolConverter.asTextDocumentItem(document));
+    } catch {
+        statusBarItem?.hide();
+        return;
+    }
 
     if (!statusBarItem) {
-        statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+        statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
         statusBarItem.name = "Pyrefly";
     }
 
-    switch (disableTypeErrors) {
-        case null:
-          statusBarItem.text = "Pyrefly (error-default-off)";
-          statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is disabled by default.
+    switch (status) {
+        case 'disabled-due-to-missing-config-file':
+            statusBarItem.text = "Pyrefly (error-off)";
+            statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is disabled by default.
 Create a [\`pyrefly.toml\`](https://pyrefly.org/en/docs/configuration/) file or set disableTypeErrors to false in settings to show type errors.`);
-          break;
-        case true:
-          statusBarItem.text = "Pyrefly (error-off)";
-          statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is explicitly disabled.
+            break;
+        case 'disabled-in-ide-config':
+            statusBarItem.text = "Pyrefly (error-off)";
+            statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is explicitly disabled.
 No errors will be shown even if there is a [\`pyrefly.toml\`](https://pyrefly.org/en/docs/configuration/) file.`);
-          break;
-        case false:
-          statusBarItem.text = "Pyrefly (error-on)";
-          statusBarItem.tooltip = new vscode.MarkdownString("Pyrefly type checking is explicitly enabled.\nType errors will always be shown.");
-          break;
+            break;
+        case 'disabled-in-config-file':
+            statusBarItem.text = "Pyrefly (error-off)";
+            statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is disabled through a config file.`);
+            break;
+        case 'enabled-in-ide-config':
+            statusBarItem.text = "Pyrefly";
+            statusBarItem.tooltip = new vscode.MarkdownString("Pyrefly type checking is explicitly enabled.\nType errors will always be shown.");
+            break;
+        case 'enabled-in-config-file':
+            statusBarItem.text = "Pyrefly";
+            statusBarItem.tooltip = new vscode.MarkdownString("Pyrefly type checking is enabled through a config file.");
+            break;
+        default:
+            statusBarItem?.hide();
+            return;
     }
-
     statusBarItem.show();
 }
 
@@ -79,11 +103,11 @@ No errors will be shown even if there is a [\`pyrefly.toml\`](https://pyrefly.or
    * @param configuration the configuration returned by vscode in response to a workspace/configuration request (usually what's in settings.json)
    * corresponding to the sections described in configurationItems
    */
- async function overridePythonPath(
+async function overridePythonPath(
     pythonExtension: PythonExtension,
     configurationItems: ConfigurationItem[],
     configuration: (object | null)[],
-  ): Promise<(object | null)[]> {
+): Promise<(object | null)[]> {
     const getPythonPathForConfigurationItem = async (index: number) => {
       if (configurationItems.length <= index || configurationItems[index].section !== 'python') {
         return undefined;
@@ -151,17 +175,23 @@ export async function activate(context: ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(async () => {
+            await updateStatusBar();
+        })
+    );
+
+    context.subscriptions.push(
         pythonExtension.environments.onDidChangeActiveEnvironmentPath(() => {
           client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
         })
     );
 
     context.subscriptions.push(
-      workspace.onDidChangeConfiguration(event => {
+      workspace.onDidChangeConfiguration(async (event) => {
         if (event.affectsConfiguration("python.pyrefly")) {
           client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
         }
-        updateStatusBar();
+        await updateStatusBar();
       }));
 
     context.subscriptions.push(
@@ -191,7 +221,7 @@ export async function activate(context: ExtensionContext) {
     // Start the client. This will also launch the server
     await client.start();
 
-    updateStatusBar();
+    await updateStatusBar();
     context.subscriptions.push(statusBarItem);
 }
 
