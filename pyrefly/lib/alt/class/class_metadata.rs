@@ -265,7 +265,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             dataclass_from_dataclass_transform,
             pydantic_metadata.as_ref(),
         );
-        if let Some(dm) = dataclass_metadata.as_ref() {
+        if let Some(dm) = dataclass_metadata.as_ref()
+            && pydantic_metadata.is_none()
+        {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
 
