@@ -1972,7 +1972,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         self.get_field_from_mro(cls, name, &|cls, name| {
-            self.get_non_synthesized_field_from_current_class_only(cls, name)
+            let field = self.get_non_synthesized_field_from_current_class_only(cls, name)?;
+            if field.initialization() == ClassFieldInitialization::Method {
+                // This parent happens to assign to the field in a method but doesn't define it.
+                None
+            } else {
+                Some(field)
+            }
         })
     }
 
