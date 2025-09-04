@@ -41,10 +41,7 @@ async function updateStatusBar() {
   if (
     document == null ||
     document.uri.scheme !== 'file' ||
-    !(
-      document.uri.fsPath.endsWith('.py') ||
-      document.uri.fsPath.endsWith('.pyi')
-    )
+    document.languageId !== 'python'
   ) {
     statusBarItem?.hide();
     return;
