@@ -22,14 +22,44 @@ import {
 import {PythonExtension} from '@vscode/python-extension';
 
 let client: LanguageClient;
+let statusBarItem: vscode.StatusBarItem;
 
 /// Get a setting at the path, or throw an error if it's not set.
 function requireSetting<T>(path: string): T {
-    const ret: T = vscode.workspace.getConfiguration().get(path);
+    const ret: T | undefined = vscode.workspace.getConfiguration().get(path);
     if (ret == undefined) {
         throw new Error(`Setting "${path}" was not configured`)
     }
     return ret;
+}
+
+/// Update the status bar based on current configuration
+function updateStatusBar() {
+    const disableTypeErrors = vscode.workspace.getConfiguration().get<boolean | null>('python.pyrefly.disableTypeErrors', null);
+
+    if (!statusBarItem) {
+        statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+        statusBarItem.name = "Pyrefly";
+    }
+
+    switch (disableTypeErrors) {
+        case null:
+          statusBarItem.text = "Pyrefly (error-default-off)";
+          statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is disabled by default.
+Create a [\`pyrefly.toml\`](https://pyrefly.org/en/docs/configuration/) file or set disableTypeErrors to false in settings to show type errors.`);
+          break;
+        case true:
+          statusBarItem.text = "Pyrefly (error-off)";
+          statusBarItem.tooltip = new vscode.MarkdownString(`Pyrefly type checking is explicitly disabled.
+No errors will be shown even if there is a [\`pyrefly.toml\`](https://pyrefly.org/en/docs/configuration/) file.`);
+          break;
+        case false:
+          statusBarItem.text = "Pyrefly (error-on)";
+          statusBarItem.tooltip = new vscode.MarkdownString("Pyrefly type checking is explicitly enabled.\nType errors will always be shown.");
+          break;
+    }
+
+    statusBarItem.show();
 }
 
  /**
@@ -131,6 +161,7 @@ export async function activate(context: ExtensionContext) {
         if (event.affectsConfiguration("python.pyrefly")) {
           client.sendNotification(DidChangeConfigurationNotification.type, {settings: {}});
         }
+        updateStatusBar();
       }));
 
     context.subscriptions.push(
@@ -159,6 +190,9 @@ export async function activate(context: ExtensionContext) {
 
     // Start the client. This will also launch the server
     await client.start();
+
+    updateStatusBar();
+    context.subscriptions.push(statusBarItem);
 }
 
 /**

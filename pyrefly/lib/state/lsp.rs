@@ -128,6 +128,15 @@ pub enum ImportFormat {
     Relative,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DisplayTypeErrors {
+    #[default]
+    Default,
+    ForceOff,
+    ForceOn,
+}
+
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 

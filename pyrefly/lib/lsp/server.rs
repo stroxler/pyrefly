@@ -183,6 +183,7 @@ use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::LspAnalysisConfig;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
+use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
@@ -928,10 +929,14 @@ impl Server {
                 .python_file(ModuleName::unknown(), e.path());
             if open_files.contains_key(&path)
                 && !config.project_excludes.covers(&path)
-                && !self
+                && self
                     .workspaces
-                    .get_with(path.to_path_buf(), |w| w.disable_type_errors)
-                    .unwrap_or_else(|| config.disable_type_errors_in_ide(e.path().as_path()))
+                    .get_with(path.to_path_buf(), |w| match w.display_type_errors {
+                        Some(DisplayTypeErrors::ForceOn) => Some(true),
+                        Some(DisplayTypeErrors::ForceOff) => Some(false),
+                        Some(DisplayTypeErrors::Default) | None => None,
+                    })
+                    .unwrap_or_else(|| !config.disable_type_errors_in_ide(e.path().as_path()))
             {
                 return Some((path.to_path_buf(), e.to_diagnostic()));
             }
