@@ -112,6 +112,27 @@ m.x = 10
 );
 
 testcase!(
+    bug =
+        "Non-frozen model can subclass a frozen model and override the existing field readonlyness",
+    test_frozen_model_subclass,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+
+class Model(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    x: int = 42
+
+class Model2(Model): # E: Cannot inherit non-frozen dataclass `Model2` from frozen dataclass `Model`
+    model_config = ConfigDict(frozen=False)
+
+m = Model2()
+m.x = 10 # E: Cannot set field `x`
+"#,
+);
+
+testcase!(
     bug = "Nested config not supported yet. Fields should be frozen.",
     test_nested_model_config,
     pydantic_env(),
