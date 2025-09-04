@@ -9,12 +9,21 @@ use pyrefly_python::module_name::ModuleName;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::pydantic::PydanticModelKind::RootModel;
 use crate::types::class::Class;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    #[allow(dead_code)]
-    pub fn get_pydantic_root_model_type_via_mro(&self, class: &Class) -> Option<Type> {
+    pub fn get_pydantic_root_model_type_via_mro(
+        &self,
+        class: &Class,
+        metadata: &ClassMetadata,
+    ) -> Option<Type> {
+        if !matches!(metadata.pydantic_model_kind(), Some(RootModel)) {
+            return None;
+        }
+
         let mro = self.get_mro_for_class(class);
         for base_type in mro.ancestors_no_object() {
             if base_type.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel") {

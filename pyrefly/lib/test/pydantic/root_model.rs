@@ -14,15 +14,15 @@ fn pydantic_env() -> TestEnv {
 }
 
 testcase!(
-    bug = "We should error m2 only because the argument type is inconsistent with int",
+    bug = "We should error once on m2 because the argument type is inconsistent with int",
     test_root_model_basic,
     pydantic_env(),
     r#"
 from pydantic import RootModel
 class IntRootModel(RootModel[int]):
    pass
-m1 = IntRootModel(123) # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
-m2 = IntRootModel("abc") # E: Expected argument `root` to be passed by name in function `IntRootModel.__init__`
+m1 = IntRootModel(123) # E: Missing argument `root` in function `IntRootModel.__init__`
+m2 = IntRootModel("abc") # E: Missing argument `root` in function `IntRootModel.__init__` # E: Argument `Literal['abc']` is not assignable to parameter with type `int` in function `IntRootModel.__init__`
 "#,
 );
 
@@ -34,8 +34,8 @@ testcase!(
 from pydantic import RootModel
 class GenericRootModel[T](RootModel[T]):
    pass
-m1 = GenericRootModel(123) # E: Expected argument `root` to be passed by name in function `GenericRootModel.__init__`
-m2 = GenericRootModel("abc") # E: Expected argument `root` to be passed by name in function `GenericRootModel.__init__`
+m1 = GenericRootModel(123) # E: Missing argument `root` in function `GenericRootModel.__init__`
+m2 = GenericRootModel("abc") # E: Missing argument `root` in function `GenericRootModel.__init__`
 "#,
 );
 
@@ -45,9 +45,9 @@ testcase!(
     pydantic_env(),
     r#"
 from pydantic import RootModel
-class TwoArgRootModel[F, G](RootModel[F, G]): # E: Expected 1 type argument for `RootModel`, got 2 
+class TwoArgRootModel[F, G](RootModel[F, G]): # E: Expected 1 type argument for `RootModel`, got 2
     pass
-m1 = TwoArgRootModel(123, "abc") # E: Expected 0 positional arguments, got 2 in function `TwoArgRootModel.__init__` # E: Expected argument `root` to be passed by name in function `TwoArgRootModel.__init__` 
+m1 = TwoArgRootModel(123, "abc") # E: Expected argument `root` to be passed by name in function `TwoArgRootModel.__init__` 
 "#,
 );
 
@@ -74,7 +74,7 @@ from pydantic import RootModel
 class FallBackRootModel(RootModel):
     pass
 
-m1 = FallBackRootModel(123) # E: Expected argument `root` to be passed by name in function `FallBackRootModel.__init__` 
+m1 = FallBackRootModel(123) # E: Missing argument `root` in function `FallBackRootModel.__init__`
 "#,
 );
 
@@ -91,7 +91,7 @@ class A(RootModel[int]):
 class B(A):
     pass
 
-m1 = B(3) # E: Expected argument `root` to be passed by name in function `B.__init__`
-m2 = B("abc") # E: Expected argument `root` to be passed by name in function `B.__init__`
+m1 = B(3) # E: Missing argument `root` in function `B.__init__`
+m2 = B("abc") # E: Missing argument `root` in function `B.__init__` # E: Argument `Literal['abc']` is not assignable to parameter with type `int` in function `B.__init__`
 "#,
 );

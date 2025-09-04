@@ -81,10 +81,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metadata = self.get_metadata_for_class(cls);
         let dataclass = metadata.dataclass_metadata()?;
         let mut fields = SmallMap::new();
+
+        let optional_positional_arg = self.get_pydantic_root_model_type_via_mro(cls, &metadata);
+
         if dataclass.kws.init {
             fields.insert(
                 dunder::INIT,
-                self.get_dataclass_init(cls, dataclass, !metadata.is_pydantic_base_model(), errors),
+                self.get_dataclass_init(
+                    cls,
+                    dataclass,
+                    !metadata.is_pydantic_base_model(),
+                    optional_positional_arg,
+                    errors,
+                ),
             );
         }
         let dataclass_fields_type = self.stdlib.dict(
@@ -435,10 +444,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         dataclass: &DataclassMetadata,
         strict_default: bool,
+        optional_pos: Option<Type>,
         errors: &ErrorCollector,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, false)];
         let mut has_seen_default = false;
+
+        // TODO Zeina: Adjust the reasoning for rootmodel positional args
+        if let Some(ty) = optional_pos {
+            params.push(Param::PosOnly(None, ty, Required::Optional(None)));
+        }
+
         for (name, field, field_flags) in self.iter_fields(cls, dataclass, true) {
             let strict = field_flags.strict.unwrap_or(strict_default);
 
