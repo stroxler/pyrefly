@@ -472,6 +472,63 @@ impl Query {
                 None
             }
         }
+        fn find_init_or_new(
+            cls: &Class,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
+        ) -> Vec<Callee> {
+            callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
+                // find first class that has __init__ or __new__
+                let class_metadata = solver.get_metadata_for_class(c);
+                if c.contains(&dunder::INIT) || class_metadata.dataclass_metadata().is_some() {
+                    // treat dataclasses as always having __init__
+                    Some(format!("{}.{}.__init__", c.module_name(), c.name()))
+                } else if c.contains(&dunder::NEW) {
+                    Some(format!("{}.{}.__new__", c.module_name(), c.name()))
+                } else {
+                    None
+                }
+            })
+        }
+        fn init_or_new_from_type(
+            ty: &Type,
+            callee_range: TextRange,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
+            module_info: &ModuleInfo,
+        ) -> Vec<Callee> {
+            match ty {
+                Type::SelfType(c) | Type::ClassType(c) => {
+                    find_init_or_new(c.class_object(), transaction, handle)
+                }
+                Type::Quantified(box q) => match &q.restriction {
+                    Restriction::Bound(Type::ClassType(c)) => {
+                        find_init_or_new(c.class_object(), transaction, handle)
+                    }
+                    x => panic!(
+                        "unexpected restriction {}: {x:?}",
+                        module_info.display_range(callee_range)
+                    ),
+                },
+                Type::Union(tys) => {
+                    // get callee for each type
+                    tys.iter()
+                        .flat_map(|t| {
+                            init_or_new_from_type(t, callee_range, transaction, handle, module_info)
+                        })
+                        .unique()
+                        // return sorted by target
+                        .sorted_by(|a, b| a.target.cmp(&b.target))
+                        .collect_vec()
+                }
+                x => {
+                    panic!(
+                        "unexpected type at [{}]: {x:?}",
+                        module_info.display_range(callee_range)
+                    );
+                }
+            }
+        }
         fn callee_from_type(
             ty: &Type,
             call_target: Option<&Expr>,
@@ -482,15 +539,6 @@ impl Query {
             answers: &Answers,
         ) -> Vec<Callee> {
             match ty {
-                Type::Type(ty) => callee_from_type(
-                    ty,
-                    call_target,
-                    callee_range,
-                    module_info,
-                    transaction,
-                    handle,
-                    answers,
-                ),
                 Type::Quantified(q) => match &q.restriction {
                     Restriction::Bound(b) => callee_from_type(
                         b,
@@ -557,22 +605,11 @@ impl Query {
                     }]
                 }
                 Type::Callable(_) => for_callable(callee_range, module_info, transaction, handle),
-                Type::ClassDef(cls) => {
-                    callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
-                        // find first class that has __init__ or __new__
-                        let class_metadata = solver.get_metadata_for_class(c);
-                        if c.contains(&dunder::INIT)
-                            || class_metadata.dataclass_metadata().is_some()
-                        {
-                            // treat dataclasses as always having __init__
-                            Some(format!("{}.{}.__init__", c.module_name(), c.name()))
-                        } else if c.contains(&dunder::NEW) {
-                            Some(format!("{}.{}.__new__", c.module_name(), c.name()))
-                        } else {
-                            None
-                        }
-                    })
+                Type::Type(box ty) => {
+                    init_or_new_from_type(ty, callee_range, transaction, handle, module_info)
                 }
+
+                Type::ClassDef(cls) => find_init_or_new(cls, transaction, handle),
                 Type::Forall(v) => match &v.body {
                     Forallable::Function(func) => {
                         vec![callee_from_function(func, call_target, answers)]
