@@ -109,8 +109,6 @@ use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
 use crate::state::require::Require;
-use crate::state::require::RequireDefault;
-use crate::state::require::RequireOverride;
 use crate::state::steps::Context;
 use crate::state::steps::Step;
 use crate::state::steps::Steps;
@@ -154,16 +152,16 @@ struct ModuleDataMut {
 /// The fields of `ModuleDataMut` that are stored together as they might be mutated.
 #[derive(Debug, Clone)]
 struct ModuleDataInner {
-    require: RequireOverride,
+    require: Require,
     epochs: Epochs,
     dirty: Dirty,
     steps: Steps,
 }
 
 impl ModuleDataInner {
-    fn new(now: Epoch) -> Self {
+    fn new(require: Require, now: Epoch) -> Self {
         Self {
-            require: Default::default(),
+            require,
             epochs: Epochs::new(now),
             dirty: Dirty::default(),
             steps: Steps::default(),
@@ -185,11 +183,11 @@ impl ModuleData {
 }
 
 impl ModuleDataMut {
-    fn new(handle: Handle, config: ArcId<ConfigFile>, now: Epoch) -> Self {
+    fn new(handle: Handle, require: Require, config: ArcId<ConfigFile>, now: Epoch) -> Self {
         Self {
             handle,
             config: RwLock::new(config),
-            state: UpgradeLock::new(ModuleDataInner::new(now)),
+            state: UpgradeLock::new(ModuleDataInner::new(require, now)),
             deps: Default::default(),
             rdeps: Default::default(),
         }
@@ -227,7 +225,6 @@ struct StateData {
     memory: MemoryFiles,
     /// The current epoch, gets incremented every time we recompute
     now: Epoch,
-    require: RequireDefault,
 }
 
 impl StateData {
@@ -238,8 +235,6 @@ impl StateData {
             loaders: Default::default(),
             memory: Default::default(),
             now: Epoch::zero(),
-            // Will be overwritten with a new default before is it used.
-            require: RequireDefault::new(Require::Exports),
         }
     }
 }
@@ -253,7 +248,7 @@ pub struct TransactionData<'a> {
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
     updated_loaders: LockedMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
-    require: RequireDefault,
+    default_require: Require,
     /// The current epoch, gets incremented every time we recompute
     now: Epoch,
     /// Items we still need to process. Stored in a max heap, so that
@@ -751,7 +746,7 @@ impl<'a> Transaction<'a> {
 
             computed = true;
             let compute = todo.compute().0(&exclusive.steps);
-            let require = exclusive.require.get(self.data.require);
+            let require = exclusive.require;
             if todo == Step::Answers && !require.keep_ast() {
                 // We have captured the Ast, and must have already built Exports (we do it serially),
                 // so won't need the Ast again.
@@ -890,11 +885,11 @@ impl<'a> Transaction<'a> {
     }
 
     fn get_module(&self, handle: &Handle) -> ArcId<ModuleDataMut> {
-        self.get_module_ex(handle).0
+        self.get_module_ex(handle, self.data.default_require).0
     }
 
     /// Return the module, plus true if the module was newly created.
-    fn get_module_ex(&self, handle: &Handle) -> (ArcId<ModuleDataMut>, bool) {
+    fn get_module_ex(&self, handle: &Handle, require: Require) -> (ArcId<ModuleDataMut>, bool) {
         let mut created = None;
         let res = self
             .data
@@ -904,7 +899,12 @@ impl<'a> Transaction<'a> {
                     ArcId::new(m.clone_for_mutation())
                 } else {
                     let config = self.data.state.get_config(handle.module(), handle.path());
-                    let res = ArcId::new(ModuleDataMut::new(handle.dupe(), config, self.data.now));
+                    let res = ArcId::new(ModuleDataMut::new(
+                        handle.dupe(),
+                        require,
+                        config,
+                        self.data.now,
+                    ));
                     created = Some(res.dupe());
                     res
                 }
@@ -1090,12 +1090,7 @@ impl<'a> Transaction<'a> {
         })
     }
 
-    fn run_step(
-        &mut self,
-        handles: &[Handle],
-        require: Require,
-        old_require: Option<RequireDefault>,
-    ) -> Result<(), Cancelled> {
+    fn run_step(&mut self, handles: &[Handle], require: Require) -> Result<(), Cancelled> {
         self.data.now.next();
         let sys_infos = handles
             .iter()
@@ -1106,15 +1101,11 @@ impl<'a> Transaction<'a> {
         {
             let dirty = mem::take(&mut *self.data.dirty.lock());
             for h in handles {
-                let (m, created) = self.get_module_ex(h);
+                let (m, created) = self.get_module_ex(h, require);
                 let mut state = m.state.write(Step::first()).unwrap();
-                let dirty_require = match old_require {
-                    None => false,
-                    _ if created => false,
-                    Some(old_require) => state.require.get(old_require) < require,
-                };
+                let dirty_require = state.require < require;
                 state.dirty.require = dirty_require || state.dirty.require;
-                state.require.set(self.data.require, require);
+                state.require = require;
                 drop(state);
                 if (created || dirty_require) && !dirty.contains(&m) {
                     self.data.todo.push_fifo(Step::first(), m);
@@ -1164,12 +1155,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn run_internal(
-        &mut self,
-        handles: &[Handle],
-        require: Require,
-        old_require: RequireDefault,
-    ) -> Result<(), Cancelled> {
+    fn run_internal(&mut self, handles: &[Handle], require: Require) -> Result<(), Cancelled> {
         let run_number = self.data.state.run_count.fetch_add(1, Ordering::SeqCst);
 
         // We first compute all the modules that are either new or have changed.
@@ -1181,13 +1167,7 @@ impl<'a> Transaction<'a> {
 
         for i in 1.. {
             debug!("Running epoch {i} of run {run_number}");
-            // The first version we use the old require. We use this to trigger require changes,
-            // but only once, as after we've done it once, the "old" value will no longer be accessible.
-            self.run_step(
-                handles,
-                require,
-                if i == 1 { Some(old_require) } else { None },
-            )?;
+            self.run_step(handles, require)?;
             let changed = mem::take(&mut *self.data.changed.lock());
             if changed.is_empty() {
                 return Ok(());
@@ -1198,7 +1178,7 @@ impl<'a> Transaction<'a> {
                     // We are in a cycle of mutual dependencies, so give up.
                     // Just invalidate everything in the cycle and recompute it all.
                     self.invalidate_rdeps(&changed);
-                    return self.run_step(handles, require, None);
+                    return self.run_step(handles, require);
                 }
             }
         }
@@ -1206,7 +1186,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn run(&mut self, handles: &[Handle], require: Require) {
-        let _ = self.run_internal(handles, require, self.readable.require);
+        let _ = self.run_internal(handles, require);
     }
 
     pub fn ad_hoc_solve<R: Sized, F: FnOnce(AnswersSolver<TransactionHandle>) -> R>(
@@ -1397,7 +1377,7 @@ impl<'a> Transaction<'a> {
             let stdlib = self.get_stdlib(&m.handle);
             let config = m.config.read();
             let ctx = Context {
-                require: lock.require.get(self.data.require),
+                require: lock.require,
                 module: m.handle.module(),
                 path: m.handle.path(),
                 sys_info: m.handle.sys_info(),
@@ -1594,8 +1574,7 @@ pub struct CancellableTransaction<'a>(Transaction<'a>);
 
 impl CancellableTransaction<'_> {
     pub fn run(&mut self, handles: &[Handle], require: Require) -> Result<(), Cancelled> {
-        self.0
-            .run_internal(handles, require, self.0.readable.require)
+        self.0.run_internal(handles, require)
     }
 
     pub fn get_cancellation_handle(&self) -> CancellationHandle {
@@ -1660,7 +1639,7 @@ impl State {
 
     pub fn new_transaction<'a>(
         &'a self,
-        require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> Transaction<'a> {
         let readable = self.state.read();
@@ -1675,7 +1654,7 @@ impl State {
                 updated_loaders: Default::default(),
                 memory_overlay: Default::default(),
                 now,
-                require: RequireDefault::new(require),
+                default_require,
                 todo: Default::default(),
                 changed: Default::default(),
                 dirty: Default::default(),
@@ -1734,7 +1713,7 @@ impl State {
                             updated_loaders,
                             memory_overlay,
                             now,
-                            require,
+                            default_require: _,
                             state: _,
                             todo: _,
                             changed: _,
@@ -1756,7 +1735,6 @@ impl State {
         let mut state = self.state.write();
         state.stdlib = stdlib;
         state.now = now;
-        state.require = require;
         for (handle, new_module_data) in updated_modules.iter_unordered() {
             state
                 .modules
