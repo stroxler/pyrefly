@@ -13,7 +13,7 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
 
 // special pydantic constants
-const FROZEN_DEFAULT: bool = false;
+pub const FROZEN_DEFAULT: bool = false;
 pub const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
 pub const GT: Name = Name::new_static("gt");
 pub const LT: Name = Name::new_static("lt");
@@ -29,7 +29,7 @@ const EXTRA: Name = Name::new_static("extra");
 // but this will likely change as we add more fields.
 #[derive(Debug, Clone, Default)]
 pub struct PydanticMetadataBinding {
-    pub frozen: bool,
+    pub frozen: Option<bool>,
     pub extra: Option<bool>,
 }
 
@@ -85,9 +85,6 @@ impl<'a> BindingsBuilder<'a> {
         frozen: Option<bool>,
         extra: Option<bool>,
     ) -> PydanticMetadataBinding {
-        PydanticMetadataBinding {
-            frozen: frozen.unwrap_or(FROZEN_DEFAULT),
-            extra,
-        }
+        PydanticMetadataBinding { frozen, extra }
     }
 }

@@ -45,6 +45,7 @@ use crate::binding::base_class::BaseClassExpr;
 use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
+use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
@@ -499,6 +500,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     true
                 }
             }
+        };
+
+        let frozen = match frozen {
+            Some(value) => value,
+            None => &bases_with_metadata
+                .iter()
+                .find_map(|(_, metadata)| {
+                    metadata
+                        .dataclass_metadata()
+                        .as_ref()
+                        .map(|dm| dm.kws.frozen)
+                })
+                .unwrap_or(FROZEN_DEFAULT),
         };
 
         Some(PydanticMetadata {
