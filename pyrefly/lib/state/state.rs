@@ -1007,10 +1007,6 @@ impl<'a> Transaction<'a> {
         SolutionsTable: TableKeyed<K, Value = SolutionsEntry<K>>,
     {
         let key = Hashed::new(key);
-        let infer_with_first_use = module_data
-            .config
-            .read()
-            .infer_with_first_use(module_data.handle.path().as_path());
 
         // Either: We have solutions (use that), or we have answers (calculate that), or we have none (demand and try again)
         // Check; demand; check - the second check is guaranteed to work.
@@ -1036,7 +1032,6 @@ impl<'a> Transaction<'a> {
                     &self.data.state.uniques,
                     key,
                     thread_state,
-                    infer_with_first_use,
                 );
             }
             drop(lock);
@@ -1202,7 +1197,6 @@ impl<'a> Transaction<'a> {
         let stdlib = self.get_stdlib(handle);
         let recurser = Recurser::new();
         let thread_state = ThreadState::new();
-        let config = module_data.config.read();
         let solver = AnswersSolver::new(
             &lookup,
             answers,
@@ -1213,7 +1207,6 @@ impl<'a> Transaction<'a> {
             &recurser,
             &stdlib,
             &thread_state,
-            config.infer_with_first_use(module_data.handle.path().as_path()),
         );
         let result = solve(solver);
         Some(result)
