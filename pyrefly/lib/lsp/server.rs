@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::once;
-use std::num::NonZero;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -158,8 +157,6 @@ use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
-use pyrefly_util::thread_pool::ThreadCount;
-use pyrefly_util::thread_pool::ThreadPool;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -264,8 +261,6 @@ impl ServerConnection {
 
 pub struct Server {
     connection: ServerConnection,
-    /// A thread pool of size one for heavy read operations on the State
-    async_state_read_threads: ThreadPool,
     lsp_queue: LspQueue,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
@@ -881,9 +876,6 @@ impl Server {
         let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {
             connection: ServerConnection(connection),
-            async_state_read_threads: ThreadPool::with_thread_count(ThreadCount::NumThreads(
-                NonZero::new(1).unwrap(),
-            )),
             lsp_queue,
             initialize_params,
             indexing_mode,
@@ -1575,7 +1567,7 @@ impl Server {
         let cancellation_handles = self.cancellation_handles.dupe();
 
         let connection = self.connection.dupe();
-        self.async_state_read_threads.async_spawn(move || {
+        std::thread::spawn(move || {
             let mut transaction = state.cancellable_transaction();
             cancellation_handles
                 .lock()
