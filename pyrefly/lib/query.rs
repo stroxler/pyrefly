@@ -165,7 +165,7 @@ impl Query {
             .new_committable_transaction(Require::Everything, None);
         let new_transaction_mut = transaction.as_mut();
         new_transaction_mut.invalidate_events(events);
-        new_transaction_mut.run(&[]);
+        new_transaction_mut.run(&[], Require::Everything);
         self.state.commit_transaction(transaction);
         let all_files = self.files.lock().iter().cloned().collect::<Vec<_>>();
         self.add_files(all_files);
@@ -188,12 +188,9 @@ impl Query {
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Everything, None);
-        let handles =
-            files.into_map(|(name, file)| (self.make_handle(name, file), Require::Everything));
-        transaction.as_mut().run(&handles);
-        let errors = transaction
-            .as_mut()
-            .get_errors(handles.iter().map(|(h, _)| h));
+        let handles = files.into_map(|(name, file)| self.make_handle(name, file));
+        transaction.as_mut().run(&handles, Require::Everything);
+        let errors = transaction.as_mut().get_errors(&handles);
         self.state.commit_transaction(transaction);
         errors.collect_errors().shown.map(|e| {
             // We deliberately don't have a Display for `Error`, to encourage doing the right thing.
@@ -846,7 +843,7 @@ impl Query {
         // First, make sure that the types are well-formed and importable, return `Err` if not
         let before = format!("{imports}\n{types}\n");
         t.set_memory(vec![(path.clone(), Some(Arc::new(before.clone())))]);
-        t.run(&[(h.dupe(), Require::Everything)]);
+        t.run(&[h.dupe()], Require::Everything);
         let errors = t.get_errors([&h]).collect_errors();
         if !errors.shown.is_empty() {
             let mut res = Vec::new();
@@ -862,7 +859,7 @@ impl Query {
         // Now that we know the types are valid, check a snippet to do the actual subtype test.
         let after = format!("{imports}\n{types}\n{check}");
         t.set_memory(vec![(path, Some(Arc::new(after)))]);
-        t.run(&[(h.dupe(), Require::Everything)]);
+        t.run(&[h.dupe()], Require::Everything);
         let errors = t.get_errors([&h]).collect_errors();
         Ok(errors.shown.is_empty())
     }

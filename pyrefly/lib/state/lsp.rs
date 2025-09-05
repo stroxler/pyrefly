@@ -2557,7 +2557,7 @@ impl<'a> CancellableTransaction<'a> {
                 let rdeps = self.as_ref().get_transitive_rdeps(definition_handle.dupe());
                 // We still need to know everything about the definition file, because the index
                 // only contains non-local references.
-                self.run(&[(definition_handle, Require::Everything)])?;
+                self.run(&[definition_handle], Require::Everything)?;
                 rdeps
             }
         };

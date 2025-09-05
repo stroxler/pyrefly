@@ -918,11 +918,11 @@ impl Server {
         state: &State,
         open_files: &RwLock<HashMap<PathBuf, Arc<String>>>,
         transaction: &mut Transaction<'_>,
-    ) -> Vec<(Handle, Require)> {
+    ) -> Vec<Handle> {
         let handles = open_files
             .read()
             .keys()
-            .map(|x| (make_open_handle(state, x), Require::Everything))
+            .map(|x| make_open_handle(state, x))
             .collect::<Vec<_>>();
         transaction.set_memory(
             open_files
@@ -931,7 +931,7 @@ impl Server {
                 .map(|x| (x.0.clone(), Some(x.1.dupe())))
                 .collect::<Vec<_>>(),
         );
-        transaction.run(&handles);
+        transaction.run(&handles, Require::Everything);
         handles
     }
 
@@ -999,11 +999,7 @@ impl Server {
             for x in open_files.keys() {
                 diags.insert(x.as_path().to_owned(), Vec::new());
             }
-            for e in transaction
-                .get_errors(handles.iter().map(|(handle, _)| handle))
-                .collect_errors()
-                .shown
-            {
+            for e in transaction.get_errors(&handles).collect_errors().shown {
                 if let Some((path, diag)) = self.get_diag_if_shown(&e, &open_files) {
                     diags.entry(path.to_owned()).or_default().push(diag);
                 }
@@ -1116,7 +1112,7 @@ impl Server {
                 cancellation_handle.cancel();
             }
             // we have to run, not just commit to process updates
-            state.run_with_committing_transaction(transaction, &[]);
+            state.run_with_committing_transaction(transaction, &[], Require::Everything);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
@@ -1147,14 +1143,11 @@ impl Server {
             if config != path_config {
                 continue;
             }
-            handles.push((
-                handle_from_module_path(&state, module_path),
-                Require::Indexing,
-            ));
+            handles.push(handle_from_module_path(&state, module_path));
         }
 
         eprintln!("Prepare to check {} files.", handles.len());
-        transaction.as_mut().run(&handles);
+        transaction.as_mut().run(&handles, Require::Indexing);
         state.commit_transaction(transaction);
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
@@ -1182,14 +1175,14 @@ impl Server {
                 .unwrap_or_default();
             let mut handles = Vec::new();
             for path in paths {
-                handles.push((
-                    handle_from_module_path(&state, ModulePath::filesystem(path.clone())),
-                    Require::Indexing,
+                handles.push(handle_from_module_path(
+                    &state,
+                    ModulePath::filesystem(path.clone()),
                 ));
             }
 
             eprintln!("Prepare to check {} files.", handles.len());
-            transaction.as_mut().run(&handles);
+            transaction.as_mut().run(&handles, Require::Indexing);
             state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of

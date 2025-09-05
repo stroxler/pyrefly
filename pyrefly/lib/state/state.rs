@@ -1092,28 +1092,29 @@ impl<'a> Transaction<'a> {
 
     fn run_step(
         &mut self,
-        handles: &[(Handle, Require)],
+        handles: &[Handle],
+        require: Require,
         old_require: Option<RequireDefault>,
     ) -> Result<(), Cancelled> {
         self.data.now.next();
         let sys_infos = handles
             .iter()
-            .map(|(x, _)| x.sys_info().dupe())
+            .map(|x| x.sys_info().dupe())
             .collect::<SmallSet<_>>();
         self.compute_stdlib(sys_infos);
 
         {
             let dirty = mem::take(&mut *self.data.dirty.lock());
-            for (h, r) in handles {
+            for h in handles {
                 let (m, created) = self.get_module_ex(h);
                 let mut state = m.state.write(Step::first()).unwrap();
                 let dirty_require = match old_require {
                     None => false,
                     _ if created => false,
-                    Some(old_require) => state.require.get(old_require) < *r,
+                    Some(old_require) => state.require.get(old_require) < require,
                 };
                 state.dirty.require = dirty_require || state.dirty.require;
-                state.require.set(self.data.require, *r);
+                state.require.set(self.data.require, require);
                 drop(state);
                 if (created || dirty_require) && !dirty.contains(&m) {
                     self.data.todo.push_fifo(Step::first(), m);
@@ -1165,7 +1166,8 @@ impl<'a> Transaction<'a> {
 
     fn run_internal(
         &mut self,
-        handles: &[(Handle, Require)],
+        handles: &[Handle],
+        require: Require,
         old_require: RequireDefault,
     ) -> Result<(), Cancelled> {
         let run_number = self.data.state.run_count.fetch_add(1, Ordering::SeqCst);
@@ -1181,7 +1183,11 @@ impl<'a> Transaction<'a> {
             debug!("Running epoch {i} of run {run_number}");
             // The first version we use the old require. We use this to trigger require changes,
             // but only once, as after we've done it once, the "old" value will no longer be accessible.
-            self.run_step(handles, if i == 1 { Some(old_require) } else { None })?;
+            self.run_step(
+                handles,
+                require,
+                if i == 1 { Some(old_require) } else { None },
+            )?;
             let changed = mem::take(&mut *self.data.changed.lock());
             if changed.is_empty() {
                 return Ok(());
@@ -1192,15 +1198,15 @@ impl<'a> Transaction<'a> {
                     // We are in a cycle of mutual dependencies, so give up.
                     // Just invalidate everything in the cycle and recompute it all.
                     self.invalidate_rdeps(&changed);
-                    return self.run_step(handles, None);
+                    return self.run_step(handles, require, None);
                 }
             }
         }
         Ok(())
     }
 
-    pub fn run(&mut self, handles: &[(Handle, Require)]) {
-        let _ = self.run_internal(handles, self.readable.require);
+    pub fn run(&mut self, handles: &[Handle], require: Require) {
+        let _ = self.run_internal(handles, require, self.readable.require);
     }
 
     pub fn ad_hoc_solve<R: Sized, F: FnOnce(AnswersSolver<TransactionHandle>) -> R>(
@@ -1587,8 +1593,9 @@ impl<'a> AsMut<Transaction<'a>> for CommittingTransaction<'a> {
 pub struct CancellableTransaction<'a>(Transaction<'a>);
 
 impl CancellableTransaction<'_> {
-    pub fn run(&mut self, handles: &[(Handle, Require)]) -> Result<(), Cancelled> {
-        self.0.run_internal(handles, self.0.readable.require)
+    pub fn run(&mut self, handles: &[Handle], require: Require) -> Result<(), Cancelled> {
+        self.0
+            .run_internal(handles, require, self.0.readable.require)
     }
 
     pub fn get_cancellation_handle(&self) -> CancellationHandle {
@@ -1766,21 +1773,23 @@ impl State {
 
     pub fn run(
         &self,
-        handles: &[(Handle, Require)],
+        handles: &[Handle],
+        require: Require,
         new_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) {
         let mut transaction = self.new_committable_transaction(new_require, subscriber);
-        transaction.transaction.run(handles);
+        transaction.transaction.run(handles, require);
         self.commit_transaction(transaction);
     }
 
     pub fn run_with_committing_transaction(
         &self,
         mut transaction: CommittingTransaction<'_>,
-        handles: &[(Handle, Require)],
+        handles: &[Handle],
+        require: Require,
     ) {
-        transaction.transaction.run(handles);
+        transaction.transaction.run(handles, require);
         self.commit_transaction(transaction);
     }
 }
