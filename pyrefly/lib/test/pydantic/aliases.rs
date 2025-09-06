@@ -115,7 +115,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class Model(BaseModel):
     x: str = Field(..., alias="y")
     model_config = ConfigDict(validate_by_name=True)
-Model(y="y")
-Model(x="y")  # E: Missing argument `y`
+Model(y="123")
+Model(x="123")  
     "#,
 );

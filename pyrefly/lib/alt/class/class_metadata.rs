@@ -47,6 +47,7 @@ use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::VALIDATE_BY_NAME;
 use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -446,18 +447,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             PydanticModelKind::BaseModel
         };
 
+        let PydanticMetadataBinding {
+            frozen,
+            extra,
+            validate_by_name,
+        } = pydantic_metadata_binding;
+
+        // TODO: support ConfigDict validate_by_alias.
+        // Note: class keywords take precedence over ConfigDict keywords.
+        // But another design choice is to error if there is a conflict. We can consider this design for v2.
         // Extract validate_by_alias & validate_by_name
         let class_validate_by_alias = keywords
             .iter()
             .find(|(name, _)| name.as_str() == "validate_by_alias")
             .is_none_or(|(_, ann)| ann.get_type().as_bool().unwrap_or(true));
 
+        // TODO Zeina: Rename this variable to just validate_by_name
         let class_validate_by_name = keywords
             .iter()
-            .find(|(name, _)| name.as_str() == "validate_by_name")
-            .is_some_and(|(_, ann)| ann.get_type().as_bool().unwrap_or(false));
-
-        let PydanticMetadataBinding { frozen, extra } = pydantic_metadata_binding;
+            .find(|(name, _)| name == &VALIDATE_BY_NAME)
+            .map_or(*validate_by_name, |(_, ann)| {
+                ann.get_type().as_bool().unwrap_or(*validate_by_name)
+            });
 
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
