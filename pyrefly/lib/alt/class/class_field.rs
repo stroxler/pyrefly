@@ -2276,12 +2276,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 *should_narrow = false;
             }
             ClassAttribute::ReadOnly(_, reason) => {
-                let msg = vec1![
-                    format!("Cannot set field `{attr_name}`"),
-                    reason.error_message()
-                ];
-                errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
-                *should_narrow = false;
+                // In pydantic, if a non-frozen model inherits from a frozen model,
+                // attributes of the frozen model are no longer readonly.
+                let should_raise_error = if let Some(instance_class) = instance_class {
+                    let class = instance_class.class_object();
+                    let metadata = self.get_metadata_for_class(class);
+                    !(metadata.is_pydantic_base_model()
+                        && metadata
+                            .dataclass_metadata()
+                            .is_some_and(|dm| !dm.kws.frozen))
+                } else {
+                    true
+                };
+
+                if should_raise_error {
+                    let msg = vec1![
+                        format!("Cannot set field `{attr_name}`"),
+                        reason.error_message()
+                    ];
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::ReadOnly), msg);
+                    *should_narrow = false;
+                }
             }
             ClassAttribute::ReadWrite(attr_ty) => {
                 // If the attribute has a converter, then `want` should be the type expected by the converter.

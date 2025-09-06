@@ -112,7 +112,6 @@ m.x = 10
 );
 
 testcase!(
-    bug = "Non-frozen model should override the existing field readonlyness",
     test_frozen_model_subclass,
     pydantic_env(),
     r#"
@@ -126,7 +125,7 @@ class Model2(Model):
     model_config = ConfigDict(frozen=False)
 
 m = Model2()
-m.x = 10 # E: Cannot set field `x`
+m.x = 10
 "#,
 );
 
