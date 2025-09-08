@@ -1,21 +1,22 @@
-# Pyrefly: A fast type checker and IDE for Python
+# Pyrefly: a fast type checker and language server for Python, with powerful IDE features
 
 [![PyPI](https://img.shields.io/pypi/v/pyrefly.svg?color=blue)](https://pypi.python.org/pypi/pyrefly)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/Cf7mFQtW7W)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
+Pyrefly is a type checker and language server for Python, which provides
+lightning-fast type checking along with IDE features such as code navigation,
+semantic highlighting, and code completion. It is available as a
+[command-line tool](https://pyrefly.org/en/docs/installation/) and a
+[VSCode extension](https://marketplace.visualstudio.com/items?itemName=meta.pyrefly).
+
+See the [Pyrefly website](https://pyrefly.org) for full documentation and how to
+add Pyrefly to your editor of choice.
+
 Currently under active development with known issues. Please open an issue if
 you find bugs.
 
-Pyrefly is a fast type checker for Python. It's designed to replace the existing
-Pyre type checker at Meta by the end of 2025. This README describes basic usage.
-See the [Pyrefly website](https://pyrefly.org) for full documentation and a tool
-for checking code.
-
 ### Getting Started
-
-Pyrefly aims to increase development velocity with IDE features and by checking
-your Python code.
 
 - Try out pyrefly in your browser: [Sandbox](https://pyrefly.org/sandbox/)
 - Get the command-line tool: `pip install pyrefly`
