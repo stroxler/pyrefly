@@ -72,8 +72,8 @@ pub struct StaticInfo {
     /// How many times this will be redefined
     pub count: usize,
     pub style: DefinitionStyle,
-    /// Is this just a name declaration (i.e. a global or a nonlocal)?
-    pub is_declaration: bool,
+    /// Is this a mutable catpure of a definition in an outer scope (i.e. a global or a nonlocal)?
+    pub is_mutable_capture: bool,
 }
 
 impl StaticInfo {
@@ -90,8 +90,8 @@ impl StaticInfo {
                         id: name.clone(),
                         range: self.loc,
                     });
-                    if self.is_declaration {
-                        Key::Declaration(short_identifier)
+                    if self.is_mutable_capture {
+                        Key::MutableCapture(short_identifier)
                     } else {
                         Key::Definition(short_identifier)
                     }
@@ -119,7 +119,7 @@ impl Static {
             annot,
             count: 0,
             style: DefinitionStyle::Local(symbol_kind),
-            is_declaration,
+            is_mutable_capture: is_declaration,
         });
         res.count += count;
         res

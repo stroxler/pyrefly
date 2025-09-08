@@ -162,7 +162,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn declare_nonlocal_name(&mut self, name: &Identifier) {
-        let key = Key::Declaration(ShortIdentifier::new(name));
+        let key = Key::MutableCapture(ShortIdentifier::new(name));
         let binding =
             match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Nonlocal) {
                 Ok(found) => Binding::Forward(found),
@@ -189,7 +189,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn declare_global_name(&mut self, name: &Identifier) {
-        let key = Key::Declaration(ShortIdentifier::new(name));
+        let key = Key::MutableCapture(ShortIdentifier::new(name));
         let binding =
             match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Global) {
                 Ok(found) => Binding::Forward(found),
