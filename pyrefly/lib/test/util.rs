@@ -47,6 +47,7 @@ use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::module::finder::find_import;
+use crate::state::errors::Errors;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
@@ -468,6 +469,11 @@ pub fn testcase_for_macro(
     // If any given test regularly takes > 10s, that's probably a bug.
     // Currently all are less than 3s in debug, even when running in parallel.
     let limit = 15;
+    let check = |errors: Errors| {
+        errors.check_against_expectations()?;
+        errors.check_var_leak()?;
+        Ok::<(), anyhow::Error>(())
+    };
     for _ in 0..3 {
         let start = Instant::now();
         if is_empty_env {
@@ -485,19 +491,15 @@ pub fn testcase_for_macro(
             t.run(&[h.dupe()], Require::Everything);
             let errors = t.get_errors([&h]);
             print_errors(&errors.collect_errors().shown);
-            errors.check_against_expectations()?;
+            check(errors)?;
         } else {
             let (state, handle) = env.clone().to_state();
             let t = state.transaction();
             // First check against main, so we can capture any import order errors.
-            t.get_errors([&handle("main")])
-                .check_against_expectations()?;
+            check(t.get_errors(&[handle("main")]))?;
             // THen check all handles, so we make sure the rest of the TestEnv is valid.
             let handles = env.modules.map(|(x, _, _)| handle(x.as_str()));
-            state
-                .transaction()
-                .get_errors(handles.iter())
-                .check_against_expectations()?;
+            check(state.transaction().get_errors(handles.iter()))?;
         }
         if start.elapsed().as_secs() <= limit {
             return Ok(());

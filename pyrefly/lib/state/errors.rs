@@ -59,3 +59,32 @@ impl Errors {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use regex::Regex;
+
+    use crate::state::errors::Errors;
+
+    impl Errors {
+        pub fn check_var_leak(&self) -> anyhow::Result<()> {
+            let regex = Regex::new(r"@\d+").unwrap();
+            for (load, config) in &self.loads {
+                let error_config = config.get_error_config(load.module_info.path().as_path());
+                let errors = load.errors.collect(&error_config).shown;
+                for error in errors {
+                    let msg = error.msg();
+                    if regex.is_match(&msg) {
+                        return Err(anyhow::anyhow!(
+                            "{}:{}: variable ids leaked into error message: {}",
+                            error.path(),
+                            error.display_range(),
+                            msg,
+                        ));
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
