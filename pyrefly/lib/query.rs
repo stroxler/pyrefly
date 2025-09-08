@@ -97,6 +97,7 @@ fn display_range_for_expr(
     module_info: &ModuleInfo,
     original_range: TextRange,
     expr: &Expr,
+    parent_expr: Option<&Expr>,
 ) -> DisplayRange {
     let expression_range = if let Expr::Generator(e) = expr {
         // python AST module reports locations of all generator expressions as if they are parenthesized
@@ -109,9 +110,19 @@ fn display_range_for_expr(
         if e.parenthesized {
             original_range
         } else {
-            original_range
-                .sub_start(TextSize::new(1))
-                .add_end(TextSize::new(1))
+            if let Some(Expr::Call(p)) = parent_expr
+                && p.arguments.len() == 1
+                && p.arguments.inner_range().contains_range(original_range)
+            {
+                TextRange::new(
+                    p.arguments.l_paren_range().start(),
+                    p.arguments.r_paren_range().end(),
+                )
+            } else {
+                original_range
+                    .sub_start(TextSize::new(1))
+                    .add_end(TextSize::new(1))
+            }
         }
     } else {
         original_range
@@ -733,12 +744,13 @@ impl Query {
         fn add_type(
             ty: &Type,
             e: &Expr,
+            parent: Option<&Expr>,
             range: TextRange,
             module_info: &ModuleInfo,
             res: &mut Vec<(DisplayRange, String)>,
         ) {
             res.push((
-                display_range_for_expr(module_info, range, e),
+                display_range_for_expr(module_info, range, e, parent),
                 type_to_string(ty),
             ));
         }
@@ -756,6 +768,7 @@ impl Query {
         }
         fn f(
             x: &Expr,
+            parent: Option<&Expr>,
             module_info: &ModuleInfo,
             answers: &Answers,
             bindings: &Bindings,
@@ -766,14 +779,14 @@ impl Query {
                 && let Some(key) = try_find_key_for_name(name, bindings)
                 && let Some(ty) = answers.get_type_at(bindings.key_to_idx(&key))
             {
-                add_type(&ty, x, range, module_info, res);
+                add_type(&ty, x, parent, range, module_info, res);
             } else if let Some(ty) = answers.get_type_trace(range) {
-                add_type(&ty, x, range, module_info, res);
+                add_type(&ty, x, parent, range, module_info, res);
             }
-            x.recurse(&mut |x| f(x, module_info, answers, bindings, res));
+            x.recurse(&mut |c| f(c, Some(x), module_info, answers, bindings, res));
         }
 
-        ast.visit(&mut |x| f(x, &module_info, &answers, &bindings, &mut res));
+        ast.visit(&mut |x| f(x, None, &module_info, &answers, &bindings, &mut res));
         Some(res)
     }
 
