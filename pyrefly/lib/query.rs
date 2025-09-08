@@ -26,7 +26,6 @@ use pyrefly_types::callable::Function;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::literal::Lit;
-use pyrefly_types::qname;
 use pyrefly_types::qname::QName;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::BoundMethodType;
