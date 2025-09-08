@@ -186,7 +186,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Any(style) => Some(CallTarget::Any(style)),
             Type::TypeAlias(ta) => self.as_call_target_impl(ta.as_value(self.stdlib), quantified),
-            Type::ClassType(cls) | Type::SelfType(cls) => {
+            Type::ClassType(cls) => {
                 if let Some(quantified) = quantified {
                     self.quantified_instance_as_dunder_call(quantified.clone(), &cls)
                         .and_then(|ty| self.as_call_target_impl(ty, Some(quantified)))
@@ -194,6 +194,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.instance_as_dunder_call(&cls)
                         .and_then(|ty| self.as_call_target_impl(ty, quantified))
                 }
+            }
+            Type::SelfType(cls) => {
+                // Ignoring `quantified` is okay here because Self is not a valid typevar bound.
+                self.self_as_dunder_call(&cls)
+                    .and_then(|ty| self.as_call_target_impl(ty, None))
             }
             Type::Type(box Type::TypedDict(typed_dict)) => Some(CallTarget::TypedDict(typed_dict)),
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {

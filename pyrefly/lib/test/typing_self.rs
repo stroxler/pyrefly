@@ -181,3 +181,17 @@ assert_type(a.m(E.B), E)
 assert_type(E.A.m(E.B), E)
 "#,
 );
+
+testcase!(
+    test_callable_self,
+    r#"
+from typing import Self, assert_type
+
+class C:
+    def __call__(self) -> Self:
+        return self
+
+    def m(self):
+        assert_type(self(), Self)
+"#,
+);

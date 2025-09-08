@@ -2643,6 +2643,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .and_then(|attr| attr.as_instance_method())
     }
 
+    /// Return `__call__` as bound method when called on `Self`.
+    pub fn self_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
+        self.get_self_attribute(cls, &dunder::CALL)
+            .and_then(|attr| attr.as_instance_method())
+    }
+
     /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
     /// We look up `__call__` from the upper bound of `type_var`, but `Self` is substituted with
     /// the `type_var` instead of the upper bound class.
