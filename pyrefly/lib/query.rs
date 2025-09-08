@@ -26,6 +26,7 @@ use pyrefly_types::callable::Function;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::literal::Lit;
+use pyrefly_types::qname;
 use pyrefly_types::qname::QName;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::BoundMethodType;
@@ -277,16 +278,22 @@ impl Query {
                 panic!("class_name_from_def_kind - unsupported function kind: {kind:?}");
             }
         }
-        fn target_from_def_kind(kind: &FunctionKind) -> String {
+        fn target_from_def_kind(kind: &FunctionKind, module_name_override: Option<&str>) -> String {
             match kind {
-                FunctionKind::Def(f) => match &f.cls {
-                    Some(class_name) => {
-                        format!("{}.{}.{}", f.module, class_name, f.func)
+                FunctionKind::Def(f) => {
+                    if let Some(module_name_override) = module_name_override {
+                        format!("{module_name_override}.{}", f.func)
+                    } else {
+                        match &f.cls {
+                            Some(class_name) => {
+                                format!("{}.{}.{}", f.module, class_name, f.func)
+                            }
+                            None => {
+                                format!("{}.{}", f.module, f.func)
+                            }
+                        }
                     }
-                    None => {
-                        format!("{}.{}", f.module, f.func)
-                    }
-                },
+                }
                 FunctionKind::IsInstance => String::from("isinstance"),
                 FunctionKind::IsSubclass => String::from("issubclass"),
                 FunctionKind::Cast => String::from("typing.cast"),
@@ -307,13 +314,13 @@ impl Query {
             if f.metadata.flags.is_staticmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_STATICMETHOD),
-                    target: target_from_def_kind(&f.metadata.kind),
+                    target: target_from_def_kind(&f.metadata.kind, None),
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
             } else if f.metadata.flags.is_classmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_CLASSMETHOD),
-                    target: target_from_def_kind(&f.metadata.kind),
+                    target: target_from_def_kind(&f.metadata.kind, None),
                     // TODO: use type of receiver
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
@@ -327,16 +334,30 @@ impl Query {
 
                 Callee {
                     kind,
-                    target: target_from_def_kind(&f.metadata.kind),
+                    target: target_from_def_kind(&f.metadata.kind, None),
                     class_name,
                 }
             }
         }
-        fn target_from_bound_method_type(m: &BoundMethodType) -> String {
+        fn target_from_bound_method_type(
+            m: &BoundMethodType,
+            method_of_typed_dict: bool,
+        ) -> String {
+            let module_name_override = if method_of_typed_dict {
+                Some("TypedDictionary")
+            } else {
+                None
+            };
             match m {
-                BoundMethodType::Function(f) => target_from_def_kind(&f.metadata.kind),
-                BoundMethodType::Forall(f) => target_from_def_kind(&f.body.metadata.kind),
-                BoundMethodType::Overload(f) => target_from_def_kind(&f.metadata.kind),
+                BoundMethodType::Function(f) => {
+                    target_from_def_kind(&f.metadata.kind, module_name_override)
+                }
+                BoundMethodType::Forall(f) => {
+                    target_from_def_kind(&f.body.metadata.kind, module_name_override)
+                }
+                BoundMethodType::Overload(f) => {
+                    target_from_def_kind(&f.metadata.kind, module_name_override)
+                }
             }
         }
         fn callee_method_kind_from_function_metadata(m: &FuncMetadata) -> String {
@@ -361,31 +382,32 @@ impl Query {
                 }
             }
         }
-        fn class_names_from_bound_obj(ty: &Type) -> Vec<String> {
+        fn class_info_for_qname(qname: &QName, is_typed_dict: bool) -> Vec<(String, bool)> {
+            vec![(qname_to_string(qname), is_typed_dict)]
+        }
+        fn class_info_from_bound_obj(ty: &Type) -> Vec<(String, bool)> {
             match ty {
-                Type::SelfType(c) => vec![qname_to_string(c.qname())],
-                Type::Type(t) => class_names_from_bound_obj(t),
-                Type::ClassType(c) => vec![qname_to_string(c.qname())],
-                Type::ClassDef(c) => vec![qname_to_string(c.qname())],
-                Type::TypedDict(d) => vec![qname_to_string(d.qname())],
+                Type::SelfType(c) => class_info_for_qname(c.qname(), false),
+                // TODO: wrap in 'type'
+                Type::Type(t) => class_info_from_bound_obj(t),
+                Type::ClassType(c) => class_info_for_qname(c.qname(), false),
+                Type::ClassDef(c) => class_info_for_qname(c.qname(), false),
+                Type::TypedDict(d) => class_info_for_qname(d.qname(), true),
                 Type::Literal(Lit::Str(_)) | Type::LiteralString => {
-                    vec![String::from("builtins.str")]
+                    vec![(String::from("builtins.str"), false)]
                 }
-                Type::Literal(Lit::Int(_)) => vec![String::from("builtins.int")],
-                Type::Literal(Lit::Bool(_)) => vec![String::from("builtins.bool")],
+                Type::Literal(Lit::Int(_)) => vec![(String::from("builtins.int"), false)],
+                Type::Literal(Lit::Bool(_)) => vec![(String::from("builtins.bool"), false)],
                 Type::Quantified(q) => match &q.restriction {
                     // for explicit bound - use name of the type used as bound
-                    Restriction::Bound(b) => class_names_from_bound_obj(b),
+                    Restriction::Bound(b) => class_info_from_bound_obj(b),
                     // no bound - use name of the type variable (not very useful but not worse than status quo)
-                    Restriction::Unrestricted => vec![q.name().to_string()],
+                    Restriction::Unrestricted => vec![(q.name().to_string(), false)],
                     Restriction::Constraints(_) => {
                         panic!("unexpected restriction: {q:?}")
                     }
                 },
-                Type::Union(tys) => tys
-                    .iter()
-                    .flat_map(class_names_from_bound_obj)
-                    .collect_vec(),
+                Type::Union(tys) => tys.iter().flat_map(class_info_from_bound_obj).collect_vec(),
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
@@ -571,12 +593,12 @@ impl Query {
                         .sorted_by(|a, b| a.target.cmp(&b.target))
                         .collect_vec()
                 }
-                Type::BoundMethod(m) => class_names_from_bound_obj(&m.obj)
+                Type::BoundMethod(m) => class_info_from_bound_obj(&m.obj)
                     .into_iter()
-                    .map(|c| Callee {
+                    .map(|(class_name, class_is_typed_dict)| Callee {
                         kind: callee_method_kind_from_bound_method_type(&m.func),
-                        target: target_from_bound_method_type(&m.func),
-                        class_name: Some(c),
+                        target: target_from_bound_method_type(&m.func, class_is_typed_dict),
+                        class_name: Some(class_name),
                     })
                     .unique()
                     // return sorted by target
@@ -597,7 +619,7 @@ impl Query {
                     // are handled by BoundMethod case
                     vec![Callee {
                         kind,
-                        target: target_from_def_kind(&f.metadata.kind),
+                        target: target_from_def_kind(&f.metadata.kind, None),
                         class_name,
                     }]
                 }
