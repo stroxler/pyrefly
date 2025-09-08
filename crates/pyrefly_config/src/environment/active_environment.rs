@@ -16,7 +16,6 @@ pub struct ActiveEnvironment {}
 
 impl ActiveEnvironment {
     pub fn find() -> Option<PathBuf> {
-        // TODO(connernilsen): don't perform upward search for `VIRTUAL_ENV` finding
         if let Ok(venv_path) = std::env::var(venv::ENV_VAR)
             && let Some(env) = venv::find(Path::new(&venv_path))
         {

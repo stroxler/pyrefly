@@ -383,7 +383,6 @@ impl ConfigFile {
     pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["mypy.ini", "pyrightconfig.json"];
 
     /// Writes the configuration to a file in the specified directory.
-    /// TODO(connernilsen) relative these paths to the config file's directory
     pub fn write_to_toml_in_directory(&self, directory: &Path) -> Result<()> {
         let config_str =
             toml::to_string_pretty(&self).context("Failed to serialize config to TOML")?;
