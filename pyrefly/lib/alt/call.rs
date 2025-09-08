@@ -56,7 +56,7 @@ pub enum CallStyle<'a> {
 /// A thing that can be called (see as_call_target and call_infer).
 /// Note that a single "call" may invoke multiple functions under the hood,
 /// e.g., `__new__` followed by `__init__` for Class.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum CallTarget {
     /// A typing.Callable.
     Callable(TargetWithTParams<Callable>),
@@ -78,7 +78,7 @@ pub enum CallTarget {
     Any(AnyStyle),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct TargetWithTParams<T>(pub Option<Arc<TParams>>, pub T);
 
 impl CallTarget {
