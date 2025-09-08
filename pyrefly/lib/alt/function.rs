@@ -1109,7 +1109,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &|| {
                     TypeCheckContext::of_kind(TypeCheckKind::OverloadInput(
                         overload_func.signature.clone(),
-                        impl_func.signature.clone(),
+                        impl_sig.clone(),
                     ))
                 },
             );

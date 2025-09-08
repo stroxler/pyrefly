@@ -688,3 +688,23 @@ def foo(d: TD | int) -> None: ...
 assert_type(foo({ "x": "foo" }), Any) # E: No matching overload found for function `foo`
     "#,
 );
+
+testcase!(
+    test_generic_impl_input_inconsistent,
+    r#"
+from typing import overload, TypeVar
+T = TypeVar("T")
+S = TypeVar("S")
+
+# The implementation signature is intentionally inconsistent with this overload signature
+# (`exception` is kw-only in the implementation) so that we can test how legacy TypeVars are
+# printed in the error message.
+@overload
+def catch(exception: T) -> T: ...  # E: Implementation signature `(f: S | None = None, *, exception: T) -> S | T` does not accept all arguments that overload signature `(exception: object) -> object` accepts
+
+@overload
+def catch(f: S, *, exception: T) -> S | T: ...
+
+def catch(f: S | None = None, *, exception: T) -> S | T: ...
+    "#,
+);
