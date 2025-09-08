@@ -44,7 +44,7 @@ const docsSidebar = [
     },
     {
         type: 'category' as const,
-        label: 'IDE',
+        label: 'Language Server',
         description: "Learn how to use Pyrefly in your IDE",
         collapsed: false,
         items: ['IDE', 'IDE-features']
