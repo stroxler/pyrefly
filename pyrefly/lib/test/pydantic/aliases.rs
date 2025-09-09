@@ -107,7 +107,6 @@ Model()
 );
 
 testcase!(
-    bug = "We should respect validate_by_name and accept both Model(...) calls",
     test_configdict_validate_by_name,
     pydantic_env(),
     r#"
