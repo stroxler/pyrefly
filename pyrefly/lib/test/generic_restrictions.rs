@@ -398,18 +398,14 @@ from collections import defaultdict
 from typing import assert_type
 
 class A:
-
     @property
     def attr(self) -> str:
         return "A"
 
-
 class B:
-
     @property
     def attr(self) -> str:
         return "B"
-
 
 def foo[T: A | B](items: list[T]) -> None:
     results: defaultdict[str, list[T]] = defaultdict(list)
@@ -458,11 +454,9 @@ testcase!(
     r#"
 from typing import Self
 class A:
-
     def method(self) -> Self: ...
 
 class B:
-
     def method(self) -> Self: ...
 
 def foo[T: A | B](x: T) -> T:
@@ -475,11 +469,9 @@ testcase!(
     r#"
 from typing import Self
 class A:
-
     def method(self) -> Self: ...
 
 class B:
-
     def method(self) -> Self: ...
 
 def foo[T: (A, B)](x: T) -> T:
