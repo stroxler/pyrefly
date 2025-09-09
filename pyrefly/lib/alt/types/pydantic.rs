@@ -11,7 +11,7 @@ use pyrefly_derive::VisitMut;
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq, VisitMut, Default)]
 pub struct PydanticMetadata {
     pub frozen: bool,
-    pub class_validate_by_name: bool,
+    pub validate_by_name: bool,
     pub class_validate_by_alias: bool,
     pub extra: bool,
     pub pydantic_model_kind: PydanticModelKind,

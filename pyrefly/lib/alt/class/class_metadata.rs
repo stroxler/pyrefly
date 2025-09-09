@@ -462,8 +462,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .find(|(name, _)| name.as_str() == "validate_by_alias")
             .is_none_or(|(_, ann)| ann.get_type().as_bool().unwrap_or(true));
 
-        // TODO Zeina: Rename this variable to just validate_by_name
-        let class_validate_by_name = keywords
+        let validate_by_name = keywords
             .iter()
             .find(|(name, _)| name == &VALIDATE_BY_NAME)
             .map_or(*validate_by_name, |(_, ann)| {
@@ -529,7 +528,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Some(PydanticMetadata {
             frozen: *frozen,
             class_validate_by_alias,
-            class_validate_by_name,
+            validate_by_name,
             extra,
             pydantic_model_kind,
         })
@@ -837,7 +836,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 validate_by_alias: true,
             },
             |pyd| ClassValidationFlags {
-                validate_by_name: pyd.class_validate_by_name,
+                validate_by_name: pyd.validate_by_name,
                 validate_by_alias: pyd.class_validate_by_alias,
             },
         );
