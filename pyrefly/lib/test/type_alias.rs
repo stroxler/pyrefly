@@ -19,6 +19,26 @@ def f(x: X):
 );
 
 testcase!(
+    test_type_alias_type,
+    r#"
+from typing import assert_type, TypeAliasType, TypeVar
+X1 = TypeAliasType("X1", int)
+def f(x: X1):
+    assert_type(x, int)
+
+T = TypeVar('T')
+T2 = TypeVar('T2')
+X2 = TypeAliasType("X2", list[T], type_params=(T,))
+X3 = TypeAliasType("X3", list[T])
+X4 = TypeAliasType("X4", list[T2], type_params=(T,))
+X5 = TypeAliasType(name="X5", value=int)
+
+def f2(x: X2[int]):
+    assert_type(x, list[int])
+    "#,
+);
+
+testcase!(
     test_type_alias_generic,
     r#"
 from typing import assert_type

@@ -1226,6 +1226,8 @@ pub enum Binding {
     ),
     /// A type alias declared with the `type` soft keyword
     ScopedTypeAlias(Name, Option<TypeParams>, Box<Expr>),
+    /// A type alias declared with the `TypeAliasType` constructor
+    TypeAliasType(Option<Idx<KeyAnnotation>>, Identifier, Box<ExprCall>),
     /// An entry in a MatchMapping. The Key looks up the value being matched, the Expr is the key we're extracting.
     PatternMatchMapping(Expr, Idx<Key>),
     /// An entry in a MatchClass. The Key looks up the value being matched, the Expr is the class name.
@@ -1414,6 +1416,9 @@ impl DisplayWith<Bindings> for Binding {
                     m.display(expr)
                 )
             }
+            Self::TypeAliasType(a, name, x) => {
+                write!(f, "TypeAliasType({}, {name}, {})", ann(a), m.display(x))
+            }
             Self::PatternMatchMapping(mapping_key, binding_key) => {
                 write!(
                     f,
@@ -1535,7 +1540,9 @@ impl Binding {
             }
             Binding::ClassDef(_, _) => Some(SymbolKind::Class),
             Binding::Module(_, _, _) => Some(SymbolKind::Module),
-            Binding::ScopedTypeAlias(_, _, _) => Some(SymbolKind::TypeAlias),
+            Binding::ScopedTypeAlias(_, _, _) | Binding::TypeAliasType(_, _, _) => {
+                Some(SymbolKind::TypeAlias)
+            }
             Binding::NameAssign(name, _, _) if name.as_str() == name.to_uppercase() => {
                 Some(SymbolKind::Constant)
             }

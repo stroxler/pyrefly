@@ -15,6 +15,7 @@ use ruff_python_ast::name::Name;
 #[derive(Debug, Clone, Dupe, Copy, PartialEq, Eq)]
 pub enum SpecialExport {
     TypeAlias,
+    TypeAliasType,
     TypeVar,
     ParamSpec,
     TypeVarTuple,
@@ -87,6 +88,7 @@ impl SpecialExport {
             "Field" => Some(Self::PydanticField),
             "hasattr" => Some(Self::HasAttr),
             "getattr" => Some(Self::GetAttr),
+            "TypeAliasType" => Some(Self::TypeAliasType),
             _ => None,
         }
     }
@@ -105,6 +107,7 @@ impl SpecialExport {
             | Self::Union
             | Self::Optional
             | Self::AssertType
+            | Self::TypeAliasType
             | Self::NoTypeCheck
             | Self::Overload
             | Self::SelfType

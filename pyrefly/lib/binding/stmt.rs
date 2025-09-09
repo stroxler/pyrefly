@@ -161,6 +161,48 @@ impl<'a> BindingsBuilder<'a> {
         })
     }
 
+    fn ensure_type_alias_type_args(&mut self, call: &mut ExprCall) {
+        // Type var declarations are static types only; skip them for first-usage type inference.
+        let static_type_usage = &mut Usage::StaticTypeInformation;
+        self.ensure_expr(&mut call.func, static_type_usage);
+        let mut iargs = call.arguments.args.iter_mut();
+        // The first argument is the name
+        if let Some(expr) = iargs.next() {
+            self.ensure_expr(expr, static_type_usage);
+        }
+        // The second argument is the type
+        if let Some(expr) = iargs.next() {
+            self.ensure_type(expr, &mut None);
+        }
+        // There shouldn't be any other positional arguments
+        for arg in iargs {
+            self.ensure_expr(arg, static_type_usage);
+        }
+        for kw in call.arguments.keywords.iter_mut() {
+            if let Some(id) = &kw.arg
+                && id.id == "type_params"
+                && let Expr::Tuple(type_params) = &mut kw.value
+            {
+                for type_param in type_params.elts.iter_mut() {
+                    self.ensure_type(type_param, &mut None);
+                }
+            } else {
+                self.ensure_expr(&mut kw.value, static_type_usage);
+            }
+        }
+    }
+
+    fn assign_type_alias_type(&mut self, name: &ExprName, call: &mut ExprCall) {
+        self.ensure_type_alias_type_args(call);
+        self.bind_legacy_type_var_or_typing_alias(name, |ann| {
+            Binding::TypeAliasType(
+                ann,
+                Ast::expr_name_identifier(name.clone()),
+                Box::new(call.clone()),
+            )
+        })
+    }
+
     fn declare_nonlocal_name(&mut self, name: &Identifier) {
         let key = Key::MutableCapture(ShortIdentifier::new(name));
         let binding =
@@ -325,6 +367,10 @@ impl<'a> BindingsBuilder<'a> {
                             }
                             SpecialExport::ParamSpec => {
                                 self.assign_param_spec(name, call);
+                                return;
+                            }
+                            SpecialExport::TypeAliasType => {
+                                self.assign_type_alias_type(name, call);
                                 return;
                             }
                             SpecialExport::TypeVarTuple => {

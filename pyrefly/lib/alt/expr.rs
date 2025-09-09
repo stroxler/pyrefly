@@ -1523,6 +1523,120 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         TypeVarTuple::new(name, self.module().dupe(), default_value)
     }
 
+    pub fn typealiastype_from_call(
+        &self,
+        name: Identifier,
+        x: &ExprCall,
+        errors: &ErrorCollector,
+    ) -> Option<Expr> {
+        let mut arg_name = false;
+        let mut value = None;
+        let check_name_arg = |arg: &Expr| {
+            if let Expr::StringLiteral(lit) = arg {
+                if lit.value.to_str() != name.id.as_str() {
+                    self.error(
+                        errors,
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        format!(
+                            "TypeAliasType must be assigned to a variable named `{}`",
+                            lit.value.to_str()
+                        ),
+                    );
+                }
+            } else {
+                self.error(
+                    errors,
+                    arg.range(),
+                    ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                    "Expected first argument of `TypeAliasType` to be a string literal".to_owned(),
+                );
+            }
+        };
+        if let Some(arg) = x.arguments.args.first() {
+            check_name_arg(arg);
+            arg_name = true;
+        }
+        if let Some(arg) = x.arguments.args.get(1) {
+            value = Some(arg.clone());
+        }
+        if let Some(arg) = x.arguments.args.get(2) {
+            self.error(
+                errors,
+                arg.range(),
+                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                "Unexpected positional argument to `TypeAliasType`".to_owned(),
+            );
+        }
+        for kw in &x.arguments.keywords {
+            match &kw.arg {
+                Some(id) => match id.id.as_str() {
+                    "name" => {
+                        if arg_name {
+                            self.error(
+                                errors,
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                "Multiple values for argument `name`".to_owned(),
+                            );
+                        } else {
+                            check_name_arg(&kw.value);
+                            arg_name = true;
+                        }
+                    }
+                    "value" => {
+                        if value.is_some() {
+                            self.error(
+                                errors,
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                "Multiple values for argument `value`".to_owned(),
+                            );
+                        } else {
+                            value = Some(kw.value.clone());
+                        }
+                    }
+                    "type_params" => {
+                        // TODO
+                    }
+                    _ => {
+                        self.error(
+                            errors,
+                            kw.range,
+                            ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                            format!("Unexpected keyword argument `{}` to `TypeAliasType`", id.id),
+                        );
+                    }
+                },
+                _ => {
+                    self.error(
+                        errors,
+                        kw.range,
+                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        "Cannot pass unpacked keyword arguments to `TypeAliasType`".to_owned(),
+                    );
+                }
+            }
+        }
+        if !arg_name {
+            self.error(
+                errors,
+                x.range,
+                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                "Missing `name` argument".to_owned(),
+            );
+        }
+        if value.is_none() {
+            self.error(
+                errors,
+                x.range,
+                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                "Missing `value` argument".to_owned(),
+            );
+        }
+        value
+    }
+
     /// Apply a decorator. This effectively synthesizes a function call.
     pub fn apply_decorator(
         &self,

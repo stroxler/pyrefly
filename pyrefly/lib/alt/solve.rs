@@ -2953,6 +2953,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => ta,
                 }
             }
+            Binding::TypeAliasType(ann, name, x) => {
+                let Some(expr) = self.typealiastype_from_call(name.clone(), x, errors) else {
+                    return Type::any_error();
+                };
+                let ty = self.expr_infer(&expr, errors);
+                let ta = self.as_type_alias(&name.id, TypeAliasStyle::Scoped, ty, &expr, errors);
+                if let Some(k) = ann
+                    && let AnnotationWithTarget {
+                        target,
+                        annotation:
+                            Annotation {
+                                ty: Some(want),
+                                qualifiers: _,
+                            },
+                    } = &*self.get_idx(*k)
+                {
+                    self.check_and_return_type(ta.clone(), want, x.range, errors, &|| {
+                        TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
+                    })
+                } else {
+                    ta
+                }
+            }
             Binding::Decorator(expr) => self.expr_infer(expr, errors),
             Binding::LambdaParameter(var) => var.to_type(),
             Binding::FunctionParameter(param) => {
