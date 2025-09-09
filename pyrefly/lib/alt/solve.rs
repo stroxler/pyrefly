@@ -28,6 +28,7 @@ use starlark_map::ordered_set::OrderedSet;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -727,6 +728,107 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn tvars_to_tparams_for_type_alias_type(
+        &self,
+        exprs: &Vec<Expr>,
+        seen_type_vars: &mut SmallMap<TypeVar, Quantified>,
+        seen_type_var_tuples: &mut SmallMap<TypeVarTuple, Quantified>,
+        seen_param_specs: &mut SmallMap<ParamSpec, Quantified>,
+        tparams: &mut Vec<TParam>,
+        errors: &ErrorCollector,
+    ) {
+        for expr in exprs {
+            let ty = self.expr_infer(expr, errors);
+            let ty = self.untype(ty, expr.range(), errors);
+            if ty == Type::any_error() {
+                continue;
+            }
+            match ty {
+                Type::TypeVar(ty_var) => {
+                    match seen_type_vars.entry(ty_var.dupe()) {
+                        Entry::Occupied(_) => {
+                            self.error(
+                                errors,
+                                expr.range(),
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                format!("Duplicate type variable `{}`", ty_var.qname().id()),
+                            );
+                        }
+                        Entry::Vacant(e) => {
+                            let q = Quantified::type_var(
+                                ty_var.qname().id().clone(),
+                                self.uniques,
+                                ty_var.default().cloned(),
+                                ty_var.restriction().clone(),
+                            );
+                            e.insert(q.clone());
+                            tparams.push(TParam {
+                                quantified: q.clone(),
+                                variance: ty_var.variance(),
+                            });
+                        }
+                    };
+                }
+                Type::TypeVarTuple(ty_var_tuple) => {
+                    match seen_type_var_tuples.entry(ty_var_tuple.dupe()) {
+                        Entry::Occupied(_) => {
+                            self.error(
+                                errors,
+                                expr.range(),
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                format!("Duplicate type variable `{}`", ty_var_tuple.qname().id()),
+                            );
+                        }
+                        Entry::Vacant(e) => {
+                            let q = Quantified::type_var_tuple(
+                                ty_var_tuple.qname().id().clone(),
+                                self.uniques,
+                                ty_var_tuple.default().cloned(),
+                            );
+                            e.insert(q.clone());
+                            tparams.push(TParam {
+                                quantified: q.clone(),
+                                variance: PreInferenceVariance::PInvariant,
+                            });
+                        }
+                    };
+                }
+                Type::ParamSpec(param_spec) => {
+                    match seen_param_specs.entry(param_spec.dupe()) {
+                        Entry::Occupied(_) => {
+                            self.error(
+                                errors,
+                                expr.range(),
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                format!("Duplicate type variable `{}`", param_spec.qname().id()),
+                            );
+                        }
+                        Entry::Vacant(e) => {
+                            let q = Quantified::param_spec(
+                                param_spec.qname().id().clone(),
+                                self.uniques,
+                                param_spec.default().cloned(),
+                            );
+                            e.insert(q.clone());
+                            tparams.push(TParam {
+                                quantified: q.clone(),
+                                variance: PreInferenceVariance::PInvariant,
+                            });
+                        }
+                    };
+                }
+                _ => {
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        format!("Expected a type variable, got `{}`", self.for_display(ty),),
+                    );
+                }
+            }
+        }
+    }
+
     fn tvars_to_tparams_for_type_alias(
         &self,
         ty: &mut Type,
@@ -880,12 +982,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// `type_params` refers specifically to the elements of the tuple literal passed to the `TypeAliasType` constructor
+    /// For all other kinds of type aliases, it should be `None`.
+    ///
+    /// When present, we visit those types first to determine the `TParams` for this alias, and any
+    /// type variables when we subsequently visit the aliased type are considered out of scope.
     fn as_type_alias(
         &self,
         name: &Name,
         style: TypeAliasStyle,
         ty: Type,
         expr: &Expr,
+        type_params: Option<Vec<Expr>>,
         errors: &ErrorCollector,
     ) -> Type {
         let range = expr.range();
@@ -916,6 +1024,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut seen_type_var_tuples = SmallMap::new();
         let mut seen_param_specs = SmallMap::new();
         let mut tparams = Vec::new();
+        let mut tparams_for_type_alias_type = None;
+        if let Some(type_params) = &type_params {
+            self.tvars_to_tparams_for_type_alias_type(
+                type_params,
+                &mut seen_type_vars,
+                &mut seen_type_var_tuples,
+                &mut seen_param_specs,
+                &mut tparams,
+                errors,
+            );
+            tparams_for_type_alias_type = Some(tparams.len());
+        }
         self.tvars_to_tparams_for_type_alias(
             &mut ty,
             &mut seen_type_vars,
@@ -923,6 +1043,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &mut seen_param_specs,
             &mut tparams,
         );
+        if let Some(n) = tparams_for_type_alias_type {
+            for extra_tparam in tparams.iter().skip(n) {
+                errors.add(
+                    expr.range(),
+                    ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                    vec1![
+                        format!(
+                            "Type variable `{}` is out of scope for this `TypeAliasType`",
+                            extra_tparam.name()
+                        ),
+                        format!(
+                            "Type parameters must be passed as a tuple literal to the `type_params` argument",
+                        )
+                    ],
+                );
+            }
+        }
         let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style);
         Forallable::TypeAlias(ta).forall(self.validated_tparams(
             range,
@@ -2382,13 +2519,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 // Then, handle the possibility that we need to treat the type as a type alias
                 match has_type_alias_qualifier {
-                    Some(true) => {
-                        self.as_type_alias(name, TypeAliasStyle::LegacyExplicit, ty, expr, errors)
-                    }
+                    Some(true) => self.as_type_alias(
+                        name,
+                        TypeAliasStyle::LegacyExplicit,
+                        ty,
+                        expr,
+                        None,
+                        errors,
+                    ),
                     None if Self::may_be_implicit_type_alias(&ty)
                         && self.has_valid_annotation_syntax(expr, &self.error_swallower()) =>
                     {
-                        self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
+                        self.as_type_alias(
+                            name,
+                            TypeAliasStyle::LegacyImplicit,
+                            ty,
+                            expr,
+                            None,
+                            errors,
+                        )
                     }
                     _ => ty,
                 }
@@ -2933,7 +3082,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Binding::ScopedTypeAlias(name, params, expr) => {
                 let ty = self.expr_infer(expr, errors);
-                let ta = self.as_type_alias(name, TypeAliasStyle::Scoped, ty, expr, errors);
+                let ta = self.as_type_alias(name, TypeAliasStyle::Scoped, ty, expr, None, errors);
                 match ta {
                     Type::Forall(..) => self.error(
                         errors,
@@ -2954,11 +3103,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::TypeAliasType(ann, name, x) => {
-                let Some(expr) = self.typealiastype_from_call(name.clone(), x, errors) else {
+                let Some((expr, type_param_exprs)) =
+                    self.typealiastype_from_call(name.clone(), x, errors)
+                else {
                     return Type::any_error();
                 };
                 let ty = self.expr_infer(&expr, errors);
-                let ta = self.as_type_alias(&name.id, TypeAliasStyle::Scoped, ty, &expr, errors);
+                let ta = self.as_type_alias(
+                    &name.id,
+                    TypeAliasStyle::Scoped,
+                    ty,
+                    &expr,
+                    Some(type_param_exprs),
+                    errors,
+                );
                 if let Some(k) = ann
                     && let AnnotationWithTarget {
                         target,

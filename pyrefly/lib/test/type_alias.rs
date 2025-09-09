@@ -29,8 +29,8 @@ def f(x: X1):
 T = TypeVar('T')
 T2 = TypeVar('T2')
 X2 = TypeAliasType("X2", list[T], type_params=(T,))
-X3 = TypeAliasType("X3", list[T])
-X4 = TypeAliasType("X4", list[T2], type_params=(T,))
+X3 = TypeAliasType("X3", list[T])  # E: Type variable `T` is out of scope for this `TypeAliasType`
+X4 = TypeAliasType("X4", list[T] | list[T2], type_params=(T,))  # E: Type variable `T2` is out of scope for this `TypeAliasType`
 X5 = TypeAliasType(name="X5", value=int)
 
 def f2(x: X2[int]):

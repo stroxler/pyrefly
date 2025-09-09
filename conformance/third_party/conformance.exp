@@ -914,76 +914,6 @@
     {
       "code": -2,
       "column": 5,
-      "concise_description": "Expected a valid ParamSpec expression, got `str`",
-      "description": "Expected a valid ParamSpec expression, got `str`",
-      "line": 37,
-      "name": "invalid-param-spec",
-      "stop_column": 40,
-      "stop_line": 37
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "`ParamSpec` cannot be used for type parameter",
-      "description": "`ParamSpec` cannot be used for type parameter",
-      "line": 37,
-      "name": "invalid-param-spec",
-      "stop_column": 40,
-      "stop_line": 37
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a valid ParamSpec expression, got `int`",
-      "description": "Expected a valid ParamSpec expression, got `int`",
-      "line": 38,
-      "name": "invalid-param-spec",
-      "stop_column": 40,
-      "stop_line": 38
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "`ParamSpec` cannot be used for type parameter",
-      "description": "`ParamSpec` cannot be used for type parameter",
-      "line": 38,
-      "name": "invalid-param-spec",
-      "stop_column": 40,
-      "stop_line": 38
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a valid ParamSpec expression, got `int`",
-      "description": "Expected a valid ParamSpec expression, got `int`",
-      "line": 39,
-      "name": "invalid-param-spec",
-      "stop_column": 60,
-      "stop_line": 39
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "`ParamSpec` cannot be used for type parameter",
-      "description": "`ParamSpec` cannot be used for type parameter",
-      "line": 39,
-      "name": "invalid-param-spec",
-      "stop_column": 60,
-      "stop_line": 39
-    },
-    {
-      "code": -2,
-      "column": 5,
-      "concise_description": "Expected a valid ParamSpec expression, got `int`",
-      "description": "Expected a valid ParamSpec expression, got `int`",
-      "line": 40,
-      "name": "invalid-param-spec",
-      "stop_column": 30,
-      "stop_line": 40
-    },
-    {
-      "code": -2,
-      "column": 5,
       "concise_description": "Type `int` is not assignable to upper bound `str` of type variable `TStr`",
       "description": "Type `int` is not assignable to upper bound `str` of type variable `TStr`",
       "line": 40,
@@ -993,13 +923,33 @@
     },
     {
       "code": -2,
-      "column": 5,
-      "concise_description": "`ParamSpec` cannot be used for type parameter",
-      "description": "`ParamSpec` cannot be used for type parameter",
-      "line": 40,
-      "name": "invalid-param-spec",
-      "stop_column": 30,
-      "stop_line": 40
+      "column": 40,
+      "concise_description": "Type variable `S` is out of scope for this `TypeAliasType`",
+      "description": "Type variable `S` is out of scope for this `TypeAliasType`\n  Type parameters must be passed as a tuple literal to the `type_params` argument",
+      "line": 43,
+      "name": "type-alias-error",
+      "stop_column": 47,
+      "stop_line": 43
+    },
+    {
+      "code": -2,
+      "column": 40,
+      "concise_description": "Type variable `S` is out of scope for this `TypeAliasType`",
+      "description": "Type variable `S` is out of scope for this `TypeAliasType`\n  Type parameters must be passed as a tuple literal to the `type_params` argument",
+      "line": 44,
+      "name": "type-alias-error",
+      "stop_column": 47,
+      "stop_line": 44
+    },
+    {
+      "code": -2,
+      "column": 45,
+      "concise_description": "Value for argument `type_params` must be a tuple literal",
+      "description": "Value for argument `type_params` must be a tuple literal",
+      "line": 45,
+      "name": "type-alias-error",
+      "stop_column": 65,
+      "stop_line": 45
     },
     {
       "code": -2,

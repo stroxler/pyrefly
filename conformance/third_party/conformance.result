@@ -35,16 +35,10 @@
     "Lines 88, 89: Expected error (tag 'RTA6+')"
   ],
   "aliases_typealiastype.py": [
-    "Line 43: Expected 1 errors",
-    "Line 44: Expected 1 errors",
-    "Line 45: Expected 1 errors",
     "Line 46: Expected 1 errors",
     "Line 47: Expected 1 errors",
     "Line 48: Expected 1 errors",
-    "Line 66: Expected 1 errors",
-    "Line 37: Unexpected errors ['Expected a valid ParamSpec expression, got `str`', '`ParamSpec` cannot be used for type parameter']",
-    "Line 38: Unexpected errors ['Expected a valid ParamSpec expression, got `int`', '`ParamSpec` cannot be used for type parameter']",
-    "Line 39: Unexpected errors ['Expected a valid ParamSpec expression, got `int`', '`ParamSpec` cannot be used for type parameter']"
+    "Line 66: Expected 1 errors"
   ],
   "aliases_variance.py": [
     "Line 24: Expected 1 errors",

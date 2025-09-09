@@ -1528,9 +1528,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: Identifier,
         x: &ExprCall,
         errors: &ErrorCollector,
-    ) -> Option<Expr> {
+    ) -> Option<(Expr, Vec<Expr>)> {
         let mut arg_name = false;
         let mut value = None;
+        let mut type_params = None;
         let check_name_arg = |arg: &Expr| {
             if let Expr::StringLiteral(lit) = arg {
                 if lit.value.to_str() != name.id.as_str() {
@@ -1597,7 +1598,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     "type_params" => {
-                        // TODO
+                        if let Expr::Tuple(tuple) = &kw.value {
+                            type_params = Some(tuple.elts.clone());
+                        } else {
+                            self.error(
+                                errors,
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                "Value for argument `type_params` must be a tuple literal"
+                                    .to_owned(),
+                            );
+                        }
                     }
                     _ => {
                         self.error(
@@ -1626,15 +1637,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Missing `name` argument".to_owned(),
             );
         }
-        if value.is_none() {
+        if let Some(value) = value {
+            Some((value, type_params.unwrap_or_default()))
+        } else {
             self.error(
                 errors,
                 x.range,
                 ErrorInfo::Kind(ErrorKind::TypeAliasError),
                 "Missing `value` argument".to_owned(),
             );
+            None
         }
-        value
     }
 
     /// Apply a decorator. This effectively synthesizes a function call.
