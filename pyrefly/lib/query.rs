@@ -108,20 +108,18 @@ fn display_range_for_expr(
         // need to adjust start/end column offsets
         if e.parenthesized {
             original_range
+        } else if let Some(Expr::Call(p)) = parent_expr
+            && p.arguments.len() == 1
+            && p.arguments.inner_range().contains_range(original_range)
+        {
+            TextRange::new(
+                p.arguments.l_paren_range().start(),
+                p.arguments.r_paren_range().end(),
+            )
         } else {
-            if let Some(Expr::Call(p)) = parent_expr
-                && p.arguments.len() == 1
-                && p.arguments.inner_range().contains_range(original_range)
-            {
-                TextRange::new(
-                    p.arguments.l_paren_range().start(),
-                    p.arguments.r_paren_range().end(),
-                )
-            } else {
-                original_range
-                    .sub_start(TextSize::new(1))
-                    .add_end(TextSize::new(1))
-            }
+            original_range
+                .sub_start(TextSize::new(1))
+                .add_end(TextSize::new(1))
         }
     } else {
         original_range
