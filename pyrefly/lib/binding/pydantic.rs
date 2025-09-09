@@ -16,6 +16,7 @@ use crate::export::special::SpecialExport;
 pub const FROZEN_DEFAULT: bool = false;
 pub const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
 pub const VALIDATE_BY_NAME: Name = Name::new_static("validate_by_name");
+pub const VALIDATE_BY_ALIAS: Name = Name::new_static("validate_by_alias");
 pub const GT: Name = Name::new_static("gt");
 pub const LT: Name = Name::new_static("lt");
 pub const ROOT: Name = Name::new_static("root");
@@ -33,6 +34,7 @@ pub struct PydanticMetadataBinding {
     pub frozen: Option<bool>,
     pub extra: Option<bool>,
     pub validate_by_name: bool,
+    pub validate_by_alias: bool,
 }
 
 impl<'a> BindingsBuilder<'a> {
@@ -46,6 +48,7 @@ impl<'a> BindingsBuilder<'a> {
         pydantic_frozen: &mut Option<bool>,
         pydantic_extra: &mut Option<bool>,
         pydantic_validate_by_name: &mut bool,
+        pydantic_validate_by_alias: &mut bool,
     ) {
         if name.as_str() == "model_config"
             && let Some(call) = e.as_call_expr()
@@ -86,6 +89,13 @@ impl<'a> BindingsBuilder<'a> {
                 {
                     *pydantic_validate_by_name = bl.value;
                 }
+
+                if let Some(arg_name) = &kw.arg
+                    && arg_name.id == VALIDATE_BY_ALIAS
+                    && let Expr::BooleanLiteral(bl) = &kw.value
+                {
+                    *pydantic_validate_by_alias = bl.value;
+                }
             }
         }
     }
@@ -95,11 +105,13 @@ impl<'a> BindingsBuilder<'a> {
         frozen: Option<bool>,
         extra: Option<bool>,
         validate_by_name: bool,
+        validate_by_alias: bool,
     ) -> PydanticMetadataBinding {
         PydanticMetadataBinding {
             frozen,
             extra,
             validate_by_name,
+            validate_by_alias,
         }
     }
 }

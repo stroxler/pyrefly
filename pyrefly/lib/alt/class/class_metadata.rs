@@ -47,6 +47,7 @@ use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::VALIDATE_BY_ALIAS;
 use crate::binding::pydantic::VALIDATE_BY_NAME;
 use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
@@ -451,16 +452,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             frozen,
             extra,
             validate_by_name,
+            validate_by_alias,
         } = pydantic_metadata_binding;
 
-        // TODO: support ConfigDict validate_by_alias.
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
         // Extract validate_by_alias & validate_by_name
+        // TODO: Rename variable to validate_by_alias and refactor the code snippets below since they are quite similar.
         let class_validate_by_alias = keywords
             .iter()
-            .find(|(name, _)| name.as_str() == "validate_by_alias")
-            .is_none_or(|(_, ann)| ann.get_type().as_bool().unwrap_or(true));
+            .find(|(name, _)| name == &VALIDATE_BY_ALIAS)
+            .map_or(*validate_by_alias, |(_, ann)| {
+                ann.get_type().as_bool().unwrap_or(*validate_by_alias)
+            });
 
         let validate_by_name = keywords
             .iter()
