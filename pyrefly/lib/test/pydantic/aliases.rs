@@ -118,3 +118,17 @@ Model(y="123")
 Model(x="123")  
     "#,
 );
+
+testcase!(
+    bug = "We should error on y=123",
+    test_configdict_validate_by_alias,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, Field, ConfigDict
+class Model(BaseModel):
+    x: str = Field(..., alias="y")
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=False)
+Model(y="123")
+Model(x="123")  
+    "#,
+);
