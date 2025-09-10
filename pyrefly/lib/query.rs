@@ -514,7 +514,7 @@ impl Query {
                 let def0 = &defs[0];
                 if def0.module.name() == handle.module() {
                     match &def0.metadata {
-                        DefinitionMetadata::Variable(s) => {
+                        DefinitionMetadata::Variable(..) => {
                             let name = module_info.code_at(defs[0].definition_range);
                             vec![Callee {
                                 kind: String::from(CALLEE_KIND_FUNCTION),
@@ -691,7 +691,7 @@ impl Query {
                         class_name,
                     }]
                 }
-                Type::Callable(c) => for_callable(callee_range, module_info, transaction, handle),
+                Type::Callable(..) => for_callable(callee_range, module_info, transaction, handle),
                 Type::Type(box ty) => {
                     init_or_new_from_type(ty, callee_range, transaction, handle, module_info)
                 }
