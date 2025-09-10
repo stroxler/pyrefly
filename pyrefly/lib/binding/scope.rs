@@ -108,21 +108,20 @@ impl Static {
         &mut self,
         name: Hashed<Name>,
         loc: TextRange,
-        symbol_kind: SymbolKind,
+        style: DefinitionStyle,
         annot: Option<Idx<KeyAnnotation>>,
         is_mutable_capture: bool,
         count: usize,
-    ) -> &mut StaticInfo {
+    ) {
         // Use whichever one we see first
         let res = self.0.entry_hashed(name).or_insert(StaticInfo {
             loc,
             annot,
             count: 0,
-            style: DefinitionStyle::Local(symbol_kind),
+            style,
             is_mutable_capture,
         });
         res.count += count;
-        res
     }
 
     pub fn add(
@@ -136,7 +135,7 @@ impl Static {
         self.add_with_count(
             Hashed::new(name),
             range,
-            symbol_kind,
+            DefinitionStyle::Local(symbol_kind),
             annot,
             is_mutable_capture,
             1,
@@ -179,21 +178,19 @@ impl Static {
 
         for (name, def) in d.definitions.into_iter_hashed() {
             let annot = def.annot.map(&mut get_annotation_idx);
-            let info = self.add_with_count(
-                name,
-                def.range,
-                SymbolKind::Variable,
-                annot,
-                false,
-                def.count,
-            );
-            info.style = def.style;
+            self.add_with_count(name, def.range, def.style, annot, false, def.count);
         }
         for (range, wildcard) in wildcards {
             for name in wildcard.iter_hashed() {
                 // TODO: semantics of import * and global var with same name
-                self.add_with_count(name.cloned(), range, SymbolKind::Module, None, false, 1)
-                    .style = DefinitionStyle::ImportModule(module_info.name());
+                self.add_with_count(
+                    name.cloned(),
+                    range,
+                    DefinitionStyle::ImportModule(module_info.name()),
+                    None,
+                    false,
+                    1,
+                )
             }
         }
     }
