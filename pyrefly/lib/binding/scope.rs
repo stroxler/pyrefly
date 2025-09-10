@@ -110,7 +110,7 @@ impl Static {
         loc: TextRange,
         symbol_kind: SymbolKind,
         annot: Option<Idx<KeyAnnotation>>,
-        is_declaration: bool,
+        is_mutable_capture: bool,
         count: usize,
     ) -> &mut StaticInfo {
         // Use whichever one we see first
@@ -119,7 +119,7 @@ impl Static {
             annot,
             count: 0,
             style: DefinitionStyle::Local(symbol_kind),
-            is_mutable_capture: is_declaration,
+            is_mutable_capture,
         });
         res.count += count;
         res
@@ -131,14 +131,14 @@ impl Static {
         range: TextRange,
         symbol_kind: SymbolKind,
         annot: Option<Idx<KeyAnnotation>>,
-        is_declaration: bool,
+        is_mutable_capture: bool,
     ) {
         self.add_with_count(
             Hashed::new(name),
             range,
             symbol_kind,
             annot,
-            is_declaration,
+            is_mutable_capture,
             1,
         );
     }
@@ -1000,11 +1000,11 @@ impl Scopes {
         range: TextRange,
         symbol_kind: SymbolKind,
         ann: Option<Idx<KeyAnnotation>>,
-        is_declaration: bool,
+        is_mutable_capture: bool,
     ) {
         self.current_mut()
             .stat
-            .add(name, range, symbol_kind, ann, is_declaration);
+            .add(name, range, symbol_kind, ann, is_mutable_capture);
     }
 
     pub fn add_lvalue_to_current_static(&mut self, x: &Expr) {
