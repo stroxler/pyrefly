@@ -458,8 +458,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
         // Extract validate_by_alias & validate_by_name
-        // TODO: Rename variable to validate_by_alias and refactor the code snippets below since they are quite similar.
-        let class_validate_by_alias = keywords
+        let validate_by_alias = keywords
             .iter()
             .find(|(name, _)| name == &VALIDATE_BY_ALIAS)
             .map_or(*validate_by_alias, |(_, ann)| {
@@ -531,7 +530,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         Some(PydanticMetadata {
             frozen: *frozen,
-            class_validate_by_alias,
+            validate_by_alias,
             validate_by_name,
             extra,
             pydantic_model_kind,
@@ -841,7 +840,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             },
             |pyd| ClassValidationFlags {
                 validate_by_name: pyd.validate_by_name,
-                validate_by_alias: pyd.class_validate_by_alias,
+                validate_by_alias: pyd.validate_by_alias,
             },
         );
 
