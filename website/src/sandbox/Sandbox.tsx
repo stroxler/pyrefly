@@ -360,6 +360,9 @@ export default function Sandbox({
                     )}
                     title={activeFileName === 'sandbox.py' ? 'Cannot delete sandbox.py' : 'Delete file'}
                     disabled={activeFileName === 'sandbox.py'}
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                    }}
                 >
                     ×
                 </button>
