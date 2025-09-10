@@ -2100,6 +2100,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "tsp_types",
  "vec1",
  "yansi 1.0.1",
 ]
