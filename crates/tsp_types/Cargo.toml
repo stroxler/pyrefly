@@ -13,6 +13,3 @@ lsp-server = "0.7.2"
 lsp-types = "0.94.1"
 serde = { version = "1.0.219", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
-
-[dev-dependencies]
-pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }

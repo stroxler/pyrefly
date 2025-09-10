@@ -3253,7 +3253,6 @@ version = "0.32.0"
 dependencies = [
  "lsp-server",
  "lsp-types",
- "pretty_assertions",
  "serde",
  "serde_json",
 ]
