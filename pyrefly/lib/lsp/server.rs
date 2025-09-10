@@ -1105,9 +1105,13 @@ impl Server {
         let state = self.state.dupe();
         let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
+        let open_files = self.open_files.dupe();
         std::thread::spawn(move || {
             let mut transaction = state.new_committable_transaction(Require::Indexing, None);
             f(transaction.as_mut());
+
+            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+
             // Commit will be blocked until there are no ongoing reads.
             // If we have some long running read jobs that can be cancelled, we should cancel them
             // to unblock committing transactions.

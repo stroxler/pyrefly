@@ -46,7 +46,6 @@ fn test_did_change_configuration() {
     interaction.shutdown();
 }
 
-// todo(kylei): definition should point to site-packages
 #[test]
 fn test_pythonpath_change() {
     let test_files_root = get_test_files_root();
@@ -131,15 +130,24 @@ fi
         1,
     );
 
-    // TODO: The definition should be found in site-packages
+    // After the new config takes effect, publish diagnostics should have 0 errors
+    interaction.client.expect_publish_diagnostics_error_count(
+        Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))
+            .unwrap()
+            .to_string(),
+        0,
+    );
+    // The definition can now be found in site-packages
     interaction
         .server
         .definition("custom_interpreter/src/foo.py", 5, 31);
-    interaction.client.expect_response(Response {
-        id: RequestId::from(3),
-        result: Some(serde_json::json!([])),
-        error: None,
-    });
+    interaction.client.expect_definition_response_from_root(
+        "custom_interpreter/bin/site-packages/custom_module.py",
+        6,
+        6,
+        6,
+        17,
+    );
 
     interaction.shutdown();
 }
