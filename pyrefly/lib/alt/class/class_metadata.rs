@@ -408,6 +408,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    fn extract_validate_flag(
+        &self,
+        keywords: &[(Name, Annotation)],
+        key: &Name,
+        default: bool,
+    ) -> bool {
+        keywords
+            .iter()
+            .find(|(name, _)| name == key)
+            .map_or(default, |(_, ann)| {
+                ann.get_type().as_bool().unwrap_or(default)
+            })
+    }
+
     fn pydantic_metadata(
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
@@ -457,20 +471,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
-        // Extract validate_by_alias & validate_by_name
-        let validate_by_alias = keywords
-            .iter()
-            .find(|(name, _)| name == &VALIDATE_BY_ALIAS)
-            .map_or(*validate_by_alias, |(_, ann)| {
-                ann.get_type().as_bool().unwrap_or(*validate_by_alias)
-            });
-
-        let validate_by_name = keywords
-            .iter()
-            .find(|(name, _)| name == &VALIDATE_BY_NAME)
-            .map_or(*validate_by_name, |(_, ann)| {
-                ann.get_type().as_bool().unwrap_or(*validate_by_name)
-            });
+        let validate_by_alias =
+            self.extract_validate_flag(keywords, &VALIDATE_BY_ALIAS, *validate_by_alias);
+        let validate_by_name =
+            self.extract_validate_flag(keywords, &VALIDATE_BY_NAME, *validate_by_name);
 
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
