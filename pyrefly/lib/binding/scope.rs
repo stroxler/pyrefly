@@ -124,7 +124,7 @@ impl Static {
         res.count += count;
     }
 
-    pub fn add(
+    fn add(
         &mut self,
         name: Name,
         range: TextRange,
@@ -195,7 +195,7 @@ impl Static {
         }
     }
 
-    pub fn expr_lvalue(&mut self, x: &Expr) {
+    fn expr_lvalue(&mut self, x: &Expr) {
         let mut add = |name: &ExprName| {
             self.add(
                 name.id.clone(),
