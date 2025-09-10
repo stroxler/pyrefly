@@ -715,6 +715,7 @@ impl Query {
                         &t.as_type(),
                         call_target,
                         callee_range,
+                        call_arguments,
                         module_info,
                         transaction,
                         handle,
