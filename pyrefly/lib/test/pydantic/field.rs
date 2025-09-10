@@ -40,3 +40,17 @@ class Model(BaseModel):
 Model(x=5)
 "#,
 );
+
+testcase!(
+    bug = "Add support to the ge keyword, which should result in raising a type error on the wrong argument",
+    test_field_ge,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, Field
+
+class Model(BaseModel):
+    x: int = Field(ge="B") 
+
+Model(x=5)
+"#,
+);
