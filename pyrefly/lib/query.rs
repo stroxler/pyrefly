@@ -711,7 +711,15 @@ impl Query {
                     Forallable::Callable(_) => {
                         for_callable(callee_range, module_info, transaction, handle)
                     }
-                    _ => panic!("unsupported forallable type {:?}", v.body),
+                    Forallable::TypeAlias(t) => callee_from_type(
+                        &t.as_type(),
+                        call_target,
+                        callee_range,
+                        module_info,
+                        transaction,
+                        handle,
+                        answers,
+                    ),
                 },
                 Type::SelfType(c) | Type::ClassType(c) => callee_from_mro(
                     c.class_object(),
