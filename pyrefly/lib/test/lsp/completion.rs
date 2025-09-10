@@ -13,6 +13,7 @@ use ruff_text_size::TextSize;
 
 use crate::state::lsp::ImportFormat;
 use crate::state::state::State;
+use crate::test::util::get_batched_lsp_operations_report;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
 #[derive(Default)]
@@ -1490,6 +1491,36 @@ Completion Results:
 
 
 # lib.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(kylei): extra completion
+#[test]
+fn kwarg_completion_in_str() {
+    let code = r#"
+def foo(x: str): ...
+foo(x="x")
+#      ^"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", code)],
+        get_test_report(
+            ResultsFilter {
+                include_keywords: true,
+                ..Default::default()
+            },
+            ImportFormat::Absolute,
+        ),
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | foo(x="x")
+           ^
+Completion Results:
+- (Variable) x=: str
 "#
         .trim(),
         report.trim(),
