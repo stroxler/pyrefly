@@ -1355,22 +1355,22 @@ class NotBoolable:
     __bool__: int = 3
 
 # bool()
-y = bool(NotBoolable())  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+y = bool(NotBoolable())  # E: has type `int`, which is not callable
 
 # if expressions
-x = 0 if NotBoolable() else 1  # E: `NotBoolable.__bool__` has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got `int`
+x = 0 if NotBoolable() else 1  # E: has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got `int`
 
 # if statements
-if NotBoolable(): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+if NotBoolable(): ...  # E: has type `int`, which is not callable
 
 # while statements
-while NotBoolable(): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+while NotBoolable(): ...  # E: has type `int`, which is not callable
 
 # expression evaluating to NotBoolable
 def f() -> NotBoolable:
   return NotBoolable()
 
-if (f() if True else None): ...  # E: `NotBoolable.__bool__` has type `int`, which is not callable
+if (f() if True else None): ...  # E: has type `int`, which is not callable
 "#,
 );
 
@@ -1410,12 +1410,16 @@ class D:
 def j(x: B | C):
     if x: ...
 
-# Invalid, but we don't check
+# Invalid
 def k(x: B | D):
-    if x: ...
+    if x: ...  # E: has type `BoundMethod[B, (self: B) -> bool] | int`, which is not callable
 
 def l(x: int | None):
     if x: ...
+
+def m(x: D | None):
+    if x: ...  # E: has type `BoundMethod[NoneType, (self: NoneType) -> Literal[False]] | int`, which is not callable
+
 "#,
 );
 

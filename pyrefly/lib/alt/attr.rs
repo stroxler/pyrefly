@@ -1713,10 +1713,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             "__bool__",
         );
 
-        // test::narrow::test_walrus_value is an example of a valid union type that
-        // as_call_target() does not handle.
         if let Some(ty) = cond_bool_ty
-            && !matches!(ty, Type::Union(_) | Type::Never(_))
+            && !matches!(ty, Type::Never(_))
             && self.as_call_target(ty.clone()).is_none()
         {
             self.error(
@@ -1724,7 +1722,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorInfo::Kind(ErrorKind::InvalidArgument),
                 format!(
-                    "`{}.__bool__` has type `{}`, which is not callable",
+                    "The `__bool__` attribute of `{}` has type `{}`, which is not callable",
                     self.for_display(condition_type.clone()),
                     self.for_display(ty.clone()),
                 ),
