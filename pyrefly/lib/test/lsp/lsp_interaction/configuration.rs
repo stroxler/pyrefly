@@ -5,13 +5,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+
 use lsp_server::Message;
 use lsp_server::Notification;
+use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeWorkspaceFolders;
 use lsp_types::notification::Notification as _;
+use pyrefly_util::fs_anyhow::write;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -37,6 +42,104 @@ fn test_did_change_configuration() {
     interaction
         .server
         .send_configuration_response(2, serde_json::json!([{}]));
+
+    interaction.shutdown();
+}
+
+// todo(kylei): definition should point to site-packages
+#[test]
+fn test_pythonpath_change() {
+    let test_files_root = get_test_files_root();
+    let custom_interpreter_path = test_files_root.path().join("custom_interpreter");
+
+    // Create a mock Python interpreter script that returns the environment info
+    // This simulates what a real Python interpreter would return when queried with the env script
+    let python_script = format!(
+        r#"#!/bin/bash
+if [[ "$1" == "-c" && "$2" == *"import json, sys"* ]]; then
+    cat << 'EOF'
+{{"python_platform": "linux", "python_version": "3.12.0", "site_package_path": ["{site_packages}"]}}
+EOF
+else
+    echo "Mock python interpreter - args: $@" >&2
+    exit 1
+fi
+"#,
+        site_packages = custom_interpreter_path
+            .join("bin/site-packages")
+            .to_str()
+            .unwrap()
+    );
+
+    let interpreter_suffix = if cfg!(windows) { ".exe" } else { "" };
+    let python_path = custom_interpreter_path.join(format!("bin/python{interpreter_suffix}"));
+    write(&python_path, python_script).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&python_path).unwrap().permissions();
+        perms.set_mode(0o755); // rwxr-xr-x
+        fs::set_permissions(&python_path, perms).unwrap();
+    }
+
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(Some(
+            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+        )),
+        ..Default::default()
+    });
+
+    interaction.server.did_open("custom_interpreter/src/foo.py");
+    // Prior to the config taking effect, there should be 1 diagnostic showing an import error
+    interaction.client.expect_publish_diagnostics_error_count(
+        Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))
+            .unwrap()
+            .to_string(),
+        1,
+    );
+    interaction
+        .server
+        .definition("custom_interpreter/src/foo.py", 5, 31);
+    // The definition response is in the same file
+    interaction.client.expect_definition_response_from_root(
+        "custom_interpreter/src/foo.py",
+        5,
+        26,
+        5,
+        37,
+    );
+
+    interaction.server.did_change_configuration();
+    interaction.client.expect_message(Message::Request(Request {
+        id: RequestId::from(2),
+        method: "workspace/configuration".to_owned(),
+        params: serde_json::json!({"items":[{"section":"python"}]}),
+    }));
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([
+            {
+                "pythonPath": python_path.to_str().unwrap()
+            }
+        ]),
+    );
+    interaction.client.expect_publish_diagnostics_error_count(
+        Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))
+            .unwrap()
+            .to_string(),
+        1,
+    );
+
+    // TODO: The definition should be found in site-packages
+    interaction
+        .server
+        .definition("custom_interpreter/src/foo.py", 5, 31);
+    interaction.client.expect_response(Response {
+        id: RequestId::from(3),
+        result: Some(serde_json::json!([])),
+        error: None,
+    });
 
     interaction.shutdown();
 }
