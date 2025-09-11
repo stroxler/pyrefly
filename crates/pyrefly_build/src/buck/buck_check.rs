@@ -138,7 +138,7 @@ impl SourceDatabase for BuckCheckSourceDatabase {
             .collect()
     }
 
-    fn lookup(&self, module: &ModuleName, _: Option<&Handle>) -> Option<ModulePath> {
+    fn lookup(&self, module: &ModuleName, _: Option<&Path>) -> Option<ModulePath> {
         self.sources
             .get(module)
             .or_else(|| self.dependencies.get(module))
