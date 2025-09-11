@@ -636,6 +636,7 @@ __all__ += []  # E: Could not find name `__all__`
 
 // https://github.com/facebook/pyrefly/issues/264
 testcase!(
+    bug = "This was implemented but we backed it out due to subtleties - see D82224938. All these should show `Literal['string']`",
     test_class_scope_lookups_when_skip,
     r#"
 from typing import reveal_type
@@ -649,17 +650,16 @@ class A:
     x = 42
     def f():
         reveal_type(x) # E: revealed type: Literal['string']
-    lambda_f = lambda: reveal_type(x) # E: revealed type: Literal['string']
+    lambda_f = lambda: reveal_type(x) # E: revealed type: Literal[42]
     class B:
-        reveal_type(x) # E: revealed type: Literal['string']
-    [reveal_type(x) for _ in range(1)] # E: revealed type: Literal['string']
+        reveal_type(x) # E: revealed type: Literal[42]
+    [reveal_type(x) for _ in range(1)] # E: revealed type: Literal[42]
 "#,
 );
 
 // Regression test for https://github.com/facebook/pyrefly/issues/1073 and
 // https://github.com/facebook/pyrefly/issues/1074
 testcase!(
-    bug = "Regression in class scope lookups",
     test_class_scope_lookups_when_permitted,
     r#"
 # There are some cases where we want to be sure class body lookup is permitted:
@@ -669,8 +669,8 @@ testcase!(
 #   so parameter defaults may use class body vars.
 class C:
     X = "X"
-    x_chars = [char for char in X]  # E: Could not find name `X`
-    def __init__(self, x: str = X):  # E: Could not find name `X`
+    x_chars = [char for char in X]
+    def __init__(self, x: str = X):
         self.x = x
     "#,
 );
