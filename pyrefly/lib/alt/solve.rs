@@ -325,7 +325,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Check that got and want are consistent with each other
     pub fn is_equal(&self, got: &Type, want: &Type) -> bool {
-        self.solver().is_equal(got, want, self.type_order())
+        self.solver().is_equal(got, want, self.type_order()).is_ok()
     }
 
     pub fn expr_class_keyword(&self, x: &Expr, errors: &ErrorCollector) -> Annotation {

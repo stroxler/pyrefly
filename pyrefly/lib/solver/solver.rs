@@ -716,9 +716,9 @@ impl Solver {
         got: &Type,
         want: &Type,
         type_order: TypeOrder<Ans>,
-    ) -> bool {
+    ) -> Result<(), SubsetError> {
         let mut subset = self.subset(type_order, false);
-        subset.is_equal(got, want).is_ok()
+        subset.is_equal(got, want)
     }
 
     fn subset<'a, Ans: LookupAnswer>(
