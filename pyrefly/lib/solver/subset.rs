@@ -368,11 +368,11 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         true
     }
 
-    fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> bool {
+    fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> Result<(), SubsetError> {
         let recursive_check = (got.clone(), Type::ClassType(protocol.clone()));
         if !self.recursive_assumptions.insert(recursive_check) {
             // Assume recursive checks are true
-            return true;
+            return Ok(());
         }
         let protocol_members = self
             .type_order
@@ -392,10 +392,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     && let Some(want_no_self) = self.type_order.bind_boundmethod(method)
                 {
                     if !self.is_subset_eq(&got, &want_no_self) {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 } else if !self.is_subset_eq(&got, &want) {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
             } else if !self.type_order.is_protocol_subset_at_attr(
                 &got,
@@ -403,73 +403,85 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 &name,
                 &mut |got, want| self.is_subset_eq(got, want),
             ) {
-                return false;
+                return Err(SubsetError::Other);
             }
         }
-        true
+        Ok(())
     }
 
-    fn is_subset_tuple(&mut self, got: &Tuple, want: &Tuple) -> bool {
+    fn is_subset_tuple(&mut self, got: &Tuple, want: &Tuple) -> Result<(), SubsetError> {
         match (got, want) {
             (Tuple::Concrete(lelts), Tuple::Concrete(uelts)) => {
                 if lelts.len() == uelts.len() {
-                    lelts
-                        .iter()
-                        .zip(uelts)
-                        .all(|(l, u)| self.is_subset_eq(l, u))
+                    SubsetError::if_false(
+                        lelts
+                            .iter()
+                            .zip(uelts)
+                            .all(|(l, u)| self.is_subset_eq(l, u)),
+                    )
                 } else {
-                    false
+                    Err(SubsetError::Other)
                 }
             }
             (Tuple::Unbounded(box Type::Any(_)), _) | (_, Tuple::Unbounded(box Type::Any(_))) => {
-                true
+                Ok(())
             }
             (Tuple::Concrete(lelts), Tuple::Unbounded(u)) => {
-                lelts.iter().all(|l| self.is_subset_eq(l, u))
+                SubsetError::if_false(lelts.iter().all(|l| self.is_subset_eq(l, u)))
             }
-            (Tuple::Unbounded(l), Tuple::Unbounded(u)) => self.is_subset_eq(l, u),
+            (Tuple::Unbounded(l), Tuple::Unbounded(u)) => {
+                SubsetError::if_false(self.is_subset_eq(l, u))
+            }
             (Tuple::Concrete(lelts), Tuple::Unpacked(box (u_prefix, u_middle, u_suffix))) => {
                 if lelts.len() < u_prefix.len() + u_suffix.len() {
-                    false
+                    Err(SubsetError::Other)
                 } else {
                     let mut l_middle = Vec::new();
-                    lelts.iter().enumerate().all(|(idx, l)| {
-                        if idx < u_prefix.len() {
-                            self.is_subset_eq(l, &u_prefix[idx])
-                        } else if idx >= lelts.len() - u_suffix.len() {
-                            self.is_subset_eq(l, &u_suffix[idx + u_suffix.len() - lelts.len()])
-                        } else {
-                            l_middle.push(l.clone());
-                            true
-                        }
-                    }) && self.is_subset_eq(&Type::Tuple(Tuple::Concrete(l_middle)), u_middle)
+                    SubsetError::if_false(
+                        lelts.iter().enumerate().all(|(idx, l)| {
+                            if idx < u_prefix.len() {
+                                self.is_subset_eq(l, &u_prefix[idx])
+                            } else if idx >= lelts.len() - u_suffix.len() {
+                                self.is_subset_eq(l, &u_suffix[idx + u_suffix.len() - lelts.len()])
+                            } else {
+                                l_middle.push(l.clone());
+                                true
+                            }
+                        }) && self.is_subset_eq(&Type::Tuple(Tuple::Concrete(l_middle)), u_middle),
+                    )
                 }
             }
             (Tuple::Unbounded(_), Tuple::Unpacked(box (u_prefix, u_middle, u_suffix))) => {
-                u_prefix.is_empty()
-                    && u_suffix.is_empty()
-                    && self.is_subset_eq(&Type::Tuple(got.clone()), u_middle)
+                SubsetError::if_false(
+                    u_prefix.is_empty()
+                        && u_suffix.is_empty()
+                        && self.is_subset_eq(&Type::Tuple(got.clone()), u_middle),
+                )
             }
             (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Unbounded(u)) => {
-                l_prefix.iter().all(|l| self.is_subset_eq(l, u))
-                    && l_suffix.iter().all(|l| self.is_subset_eq(l, u))
-                    && self.is_subset_eq(l_middle, &Type::Tuple(want.clone()))
+                SubsetError::if_false(
+                    l_prefix.iter().all(|l| self.is_subset_eq(l, u))
+                        && l_suffix.iter().all(|l| self.is_subset_eq(l, u))
+                        && self.is_subset_eq(l_middle, &Type::Tuple(want.clone())),
+                )
             }
             (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Concrete(uelts)) => {
                 if uelts.len() < l_prefix.len() + l_suffix.len() {
-                    false
+                    Err(SubsetError::Other)
                 } else {
                     let mut u_middle = Vec::new();
-                    uelts.iter().enumerate().all(|(idx, u)| {
-                        if idx < l_prefix.len() {
-                            self.is_subset_eq(&l_prefix[idx], u)
-                        } else if idx >= uelts.len() - l_suffix.len() {
-                            self.is_subset_eq(&l_suffix[idx + l_suffix.len() - uelts.len()], u)
-                        } else {
-                            u_middle.push(u.clone());
-                            true
-                        }
-                    }) && self.is_subset_eq(l_middle, &Type::Tuple(Tuple::Concrete(u_middle)))
+                    SubsetError::if_false(
+                        uelts.iter().enumerate().all(|(idx, u)| {
+                            if idx < l_prefix.len() {
+                                self.is_subset_eq(&l_prefix[idx], u)
+                            } else if idx >= uelts.len() - l_suffix.len() {
+                                self.is_subset_eq(&l_suffix[idx + l_suffix.len() - uelts.len()], u)
+                            } else {
+                                u_middle.push(u.clone());
+                                true
+                            }
+                        }) && self.is_subset_eq(l_middle, &Type::Tuple(Tuple::Concrete(u_middle))),
+                    )
                 }
             }
             (
@@ -513,19 +525,21 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                             }
                         }))
                 {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
                 l_after.reverse();
                 u_after.reverse();
-                self.is_subset_eq(
-                    &Type::Tuple(Tuple::unpacked(l_before, l_middle.clone(), l_after)),
-                    u_middle,
-                ) && self.is_subset_eq(
-                    l_middle,
-                    &Type::Tuple(Tuple::unpacked(u_before, u_middle.clone(), u_after)),
+                SubsetError::if_false(
+                    self.is_subset_eq(
+                        &Type::Tuple(Tuple::unpacked(l_before, l_middle.clone(), l_after)),
+                        u_middle,
+                    ) && self.is_subset_eq(
+                        l_middle,
+                        &Type::Tuple(Tuple::unpacked(u_before, u_middle.clone(), u_after)),
+                    ),
                 )
             }
-            _ => false,
+            _ => Err(SubsetError::Other),
         }
     }
 
@@ -954,16 +968,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     return Err(SubsetError::Other);
                 }
                 match self.type_order.as_superclass(got, want.class_object()) {
-                    Some(got) => SubsetError::if_false(self.check_targs(&got, want)),
+                    Some(got) => self.check_targs(&got, want),
                     // Structural checking for assigning to protocols
-                    None if want_is_protocol => SubsetError::if_false(
-                        self.is_subset_protocol(got.clone().to_type(), want.clone()),
-                    ),
+                    None if want_is_protocol => {
+                        self.is_subset_protocol(got.clone().to_type(), want.clone())
+                    }
                     _ => Err(SubsetError::Other),
                 }
             }
             (_, Type::ClassType(want)) if self.type_order.is_protocol(want.class_object()) => {
-                SubsetError::if_false(self.is_subset_protocol(got.clone(), want.clone()))
+                self.is_subset_protocol(got.clone(), want.clone())
             }
             // Protocols/classes that define __call__
             (
@@ -1027,7 +1041,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::SelfType(got), _) => {
                 SubsetError::if_false(self.is_subset_eq(&Type::ClassType(got.clone()), want))
             }
-            (Type::Tuple(l), Type::Tuple(u)) => SubsetError::if_false(self.is_subset_tuple(l, u)),
+            (Type::Tuple(l), Type::Tuple(u)) => self.is_subset_tuple(l, u),
             (Type::Tuple(Tuple::Concrete(left_elts)), _) => {
                 let tuple_type = self
                     .type_order
@@ -1162,7 +1176,11 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    fn check_targs(&mut self, got_class: &ClassType, want_class: &ClassType) -> bool {
+    fn check_targs(
+        &mut self,
+        got_class: &ClassType,
+        want_class: &ClassType,
+    ) -> Result<(), SubsetError> {
         let got = got_class.targs();
         let want = want_class.targs();
         let params = want_class.tparams();
@@ -1196,9 +1214,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
             };
             if !result {
-                return false;
+                return Err(SubsetError::Other);
             }
         }
-        true
+        Ok(())
     }
 }
