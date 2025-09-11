@@ -636,22 +636,41 @@ __all__ += []  # E: Could not find name `__all__`
 
 // https://github.com/facebook/pyrefly/issues/264
 testcase!(
-    test_class_var_scope,
+    test_class_scope_lookups_when_skip,
     r#"
 from typing import reveal_type
 
 x = 'string'
 
+# Nested scopes - except for parameter scopes - cannot see a containing class
+# body. This applies not only to methods but also other scopes like lambda,
+# inner class bodies, and comprehensions.
 class A:
     x = 42
     def f():
         reveal_type(x) # E: revealed type: Literal['string']
-
     lambda_f = lambda: reveal_type(x) # E: revealed type: Literal['string']
-
     class B:
         reveal_type(x) # E: revealed type: Literal['string']
-
     [reveal_type(x) for _ in range(1)] # E: revealed type: Literal['string']
 "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1073 and
+// https://github.com/facebook/pyrefly/issues/1074
+testcase!(
+    bug = "Regression in class scope lookups",
+    test_class_scope_lookups_when_permitted,
+    r#"
+# There are some cases where we want to be sure class body lookup is permitted:
+# - Comprehension iterators are evaluated in the parent scope, not the comprehension
+#   scope, so it is legal to use class body vars.
+# - Method parameters are defined in a scope that *can* see the class body,
+#   so parameter defaults may use class body vars.
+class C:
+    X = "X"
+    x_chars = [char for char in X]  # E: Could not find name `X`
+    def __init__(self, x: str = X):  # E: Could not find name `X`
+        self.x = x
+    "#,
 );
