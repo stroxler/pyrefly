@@ -1827,7 +1827,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &want_attribute,
                 &mut |got, want| self.is_subset_eq_with_reason(got, want),
             );
-            if let Err(error) = attr_check {
+            let error = match attr_check {
+                Err(
+                    AttrSubsetError::Covariant {
+                        subset_error: SubsetError::PosParamName(child, parent),
+                        ..
+                    }
+                    | AttrSubsetError::Invariant {
+                        subset_error: SubsetError::PosParamName(child, parent),
+                        ..
+                    }
+                    | AttrSubsetError::Contravariant {
+                        subset_error: SubsetError::PosParamName(child, parent),
+                        ..
+                    },
+                ) => Some((
+                    ErrorKind::BadParamNameOverride,
+                    format!("Got parameter name `{child}`, expected `{parent}`"),
+                )),
+                Err(error) => Some((
+                    ErrorKind::BadOverride,
+                    error.to_error_msg(cls.name(), parent.name(), field_name),
+                )),
+                Ok(()) => None,
+            };
+            if let Some((kind, error)) = error {
                 let msg = vec1![
                     format!(
                         "Class member `{}.{}` overrides parent class `{}` in an inconsistent manner",
@@ -1835,9 +1859,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         field_name,
                         parent.name()
                     ),
-                    error.to_error_msg(cls.name(), parent.name(), field_name)
+                    error,
                 ];
-                errors.add(range, ErrorInfo::Kind(ErrorKind::BadOverride), msg);
+                errors.add(range, ErrorInfo::Kind(kind), msg);
             }
         }
         if is_override && !parent_attr_found && !parent_has_any {

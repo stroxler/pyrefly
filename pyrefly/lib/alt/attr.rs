@@ -87,7 +87,6 @@ pub enum AttrSubsetError {
         want: Type,
         got_is_property: bool,
         want_is_property: bool,
-        #[expect(dead_code)]
         subset_error: SubsetError,
     },
     // `got` and `want` are not subtypes of each other
@@ -95,7 +94,6 @@ pub enum AttrSubsetError {
     Invariant {
         got: Type,
         want: Type,
-        #[expect(dead_code)]
         subset_error: SubsetError,
     },
     // `want` is not a subtype of `got`
@@ -104,7 +102,6 @@ pub enum AttrSubsetError {
         got: Type,
         want: Type,
         got_is_property: bool,
-        #[expect(dead_code)]
         subset_error: SubsetError,
     },
 }
