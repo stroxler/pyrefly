@@ -718,7 +718,7 @@ impl Solver {
         type_order: TypeOrder<Ans>,
     ) -> bool {
         let mut subset = self.subset(type_order, false);
-        subset.is_equal(got, want)
+        subset.is_equal(got, want).is_ok()
     }
 
     fn subset<'a, Ans: LookupAnswer>(
@@ -765,8 +765,8 @@ pub struct Subset<'a, Ans: LookupAnswer> {
 }
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
-    pub fn is_equal(&mut self, got: &Type, want: &Type) -> bool {
-        self.is_subset_eq(got, want) && self.is_subset_eq(want, got)
+    pub fn is_equal(&mut self, got: &Type, want: &Type) -> Result<(), SubsetError> {
+        SubsetError::if_false(self.is_subset_eq(got, want) && self.is_subset_eq(want, got))
     }
 
     pub fn is_subset_eq(&mut self, got: &Type, want: &Type) -> bool {

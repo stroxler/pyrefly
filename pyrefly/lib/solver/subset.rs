@@ -663,7 +663,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 // ReadOnly cannot be assigned to Non-ReadOnly
                 (true, false) => false,
                 // Non-ReadOnly fields are invariant
-                (false, false) => self.is_equal(&got_v.ty, &want_v.ty),
+                (false, false) => self.is_equal(&got_v.ty, &want_v.ty).is_ok(),
                 // ReadOnly `want` fields are covariant
                 (_, true) => self.is_subset_eq(&got_v.ty, &want_v.ty),
             }) && (if want_v.required {
@@ -1215,12 +1215,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
 
         for (got_arg, want_arg, param) in izip!(got, want, params.iter()) {
             let result = if param.quantified.kind() == QuantifiedKind::TypeVarTuple {
-                self.is_equal(got_arg, want_arg)
+                self.is_equal(got_arg, want_arg).is_ok()
             } else {
                 match variances.get(param.name()) {
                     Variance::Covariant => self.is_subset_eq(got_arg, want_arg),
                     Variance::Contravariant => self.is_subset_eq(want_arg, got_arg),
-                    Variance::Invariant => self.is_equal(got_arg, want_arg),
+                    Variance::Invariant => self.is_equal(got_arg, want_arg).is_ok(),
                     Variance::Bivariant => true,
                 }
             };
