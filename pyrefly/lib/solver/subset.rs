@@ -354,13 +354,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 } else {
                     self.is_subset_eq(&got, &want)?;
                 }
-            } else if !self.type_order.is_protocol_subset_at_attr(
-                &got,
-                &protocol,
-                &name,
-                &mut |got, want| self.is_subset_eq(got, want).is_ok(),
-            ) {
-                return Err(SubsetError::Other);
+            } else {
+                self.type_order.is_protocol_subset_at_attr(
+                    &got,
+                    &protocol,
+                    &name,
+                    &mut |got, want| self.is_subset_eq(got, want),
+                )?;
             }
         }
         Ok(())

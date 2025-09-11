@@ -34,6 +34,7 @@ use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::export::exports::Exports;
+use crate::solver::solver::SubsetError;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
@@ -937,8 +938,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         got: &Type,
         protocol: &ClassType,
         name: &Name,
-        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
-    ) -> bool {
+        is_subset: &mut dyn FnMut(&Type, &Type) -> Result<(), SubsetError>,
+    ) -> Result<(), SubsetError> {
         if let Some(got_attrs) = self
             .as_attribute_base(got.clone())
             .map(|got_base| self.lookup_attr_from_base(got_base, name))
@@ -953,15 +954,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if (!got_attrs.is_empty())
                 && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), name)
             {
-                got_attrs.iter().all(|(got_attr, _)| {
-                    self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
-                        .is_ok()
-                })
+                for (got_attr, _) in got_attrs.iter() {
+                    self.is_attribute_subset(got_attr, &want, &mut |got, want| {
+                        is_subset(got, want)
+                    })
+                    .map_err(|_| SubsetError::Other)?;
+                }
+                Ok(())
             } else {
-                false
+                Err(SubsetError::Other)
             }
         } else {
-            false
+            Err(SubsetError::Other)
         }
     }
 
@@ -969,7 +973,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         got: &Attribute,
         want: &ClassAttribute,
-        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> Result<(), SubsetError>,
     ) -> Result<(), AttrSubsetError> {
         match got {
             Attribute::ClassAttribute(got_class_attr) => {

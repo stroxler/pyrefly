@@ -55,6 +55,7 @@ use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
+use crate::solver::solver::SubsetError;
 use crate::types::annotation::Annotation;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::FuncMetadata;
@@ -1824,7 +1825,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let attr_check = self.is_class_attribute_subset(
                 got_attribute.as_ref().unwrap(),
                 &want_attribute,
-                &mut |got, want| self.is_subset_eq(got, want),
+                &mut |got, want| {
+                    // TODO(rechen): Add a variant of is_subset_eq that bubbles up SubsetError.
+                    if self.is_subset_eq(got, want) {
+                        Ok(())
+                    } else {
+                        Err(SubsetError::Other)
+                    }
+                },
             );
             if let Err(error) = attr_check {
                 let msg = vec1![
@@ -2408,7 +2416,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         got: &ClassAttribute,
         want: &ClassAttribute,
-        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> Result<(), SubsetError>,
     ) -> Result<(), AttrSubsetError> {
         match (got, want) {
             (_, ClassAttribute::NoAccess(_)) => Ok(()),
@@ -2426,20 +2434,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // in some cases for unknown reasons they wind up being ReadWrite.
                 ClassAttribute::ReadWrite(got @ Type::BoundMethod(_)),
                 ClassAttribute::ReadWrite(want @ Type::BoundMethod(_)),
-            ) => {
-                if is_subset(got, want) {
-                    Ok(())
-                } else {
-                    Err(AttrSubsetError::Covariant {
-                        got: got.clone(),
-                        want: want.clone(),
-                        got_is_property: false,
-                        want_is_property: false,
-                    })
-                }
-            }
+            ) => is_subset(got, want).map_err(|_| AttrSubsetError::Covariant {
+                got: got.clone(),
+                want: want.clone(),
+                got_is_property: false,
+                want_is_property: false,
+            }),
             (ClassAttribute::ReadWrite(got), ClassAttribute::ReadWrite(want)) => {
-                if is_subset(got, want) && is_subset(want, got) {
+                if is_subset(got, want).is_ok() && is_subset(want, got).is_ok() {
                     Ok(())
                 } else {
                     Err(AttrSubsetError::Invariant {
@@ -2451,64 +2453,51 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (
                 ClassAttribute::ReadWrite(got) | ClassAttribute::ReadOnly(got, ..),
                 ClassAttribute::ReadOnly(want, _),
-            ) => {
-                if is_subset(got, want) {
-                    Ok(())
-                } else {
-                    Err(AttrSubsetError::Covariant {
-                        got: got.clone(),
-                        want: want.clone(),
-                        got_is_property: false,
-                        want_is_property: false,
-                    })
-                }
-            }
+            ) => is_subset(got, want).map_err(|_| AttrSubsetError::Covariant {
+                got: got.clone(),
+                want: want.clone(),
+                got_is_property: false,
+                want_is_property: false,
+            }),
             (ClassAttribute::ReadOnly(got, _), ClassAttribute::Property(want, _, _)) => {
-                if is_subset(
+                is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
                     want,
-                ) {
-                    Ok(())
-                } else {
-                    Err(AttrSubsetError::Covariant {
-                        got: got.clone(),
-                        want: want.clone(),
-                        got_is_property: false,
-                        want_is_property: true,
-                    })
-                }
+                )
+                .map_err(|_| AttrSubsetError::Covariant {
+                    got: got.clone(),
+                    want: want.clone(),
+                    got_is_property: false,
+                    want_is_property: true,
+                })
             }
             (ClassAttribute::ReadWrite(got), ClassAttribute::Property(want, want_setter, _)) => {
-                if !is_subset(
+                is_subset(
                     // Synthesize a getter method
                     &Type::callable_ellipsis(got.clone()),
                     want,
-                ) {
-                    return Err(AttrSubsetError::Covariant {
-                        got: got.clone(),
-                        want: want.clone(),
-                        got_is_property: false,
-                        want_is_property: true,
-                    });
-                }
+                )
+                .map_err(|_| AttrSubsetError::Covariant {
+                    got: got.clone(),
+                    want: want.clone(),
+                    got_is_property: false,
+                    want_is_property: true,
+                })?;
                 if let Some(want_setter) = want_setter {
                     // Synthesize a setter method
-                    if is_subset(
+                    is_subset(
                         want_setter,
                         &Type::callable(
                             vec![Param::PosOnly(None, got.clone(), Required::Required)],
                             Type::None,
                         ),
-                    ) {
-                        Ok(())
-                    } else {
-                        Err(AttrSubsetError::Contravariant {
-                            want: want_setter.clone(),
-                            got: got.clone(),
-                            got_is_property: true,
-                        })
-                    }
+                    )
+                    .map_err(|_| AttrSubsetError::Contravariant {
+                        want: want_setter.clone(),
+                        got: got.clone(),
+                        got_is_property: true,
+                    })
                 } else {
                     Ok(())
                 }
@@ -2517,29 +2506,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ClassAttribute::Property(got_getter, got_setter, _),
                 ClassAttribute::Property(want_getter, want_setter, _),
             ) => {
-                if !is_subset(got_getter, want_getter) {
-                    Err(AttrSubsetError::Covariant {
-                        got: got_getter.clone(),
-                        want: want_getter.clone(),
-                        got_is_property: true,
-                        want_is_property: true,
-                    })
-                } else {
-                    match (got_setter, want_setter) {
-                        (Some(got_setter), Some(want_setter)) => {
-                            if is_subset(got_setter, want_setter) {
-                                Ok(())
-                            } else {
-                                Err(AttrSubsetError::Contravariant {
-                                    want: want_setter.clone(),
-                                    got: got_setter.clone(),
-                                    got_is_property: true,
-                                })
-                            }
-                        }
-                        (None, Some(_)) => Err(AttrSubsetError::ReadOnly),
-                        (_, None) => Ok(()),
-                    }
+                is_subset(got_getter, want_getter).map_err(|_| AttrSubsetError::Covariant {
+                    got: got_getter.clone(),
+                    want: want_getter.clone(),
+                    got_is_property: true,
+                    want_is_property: true,
+                })?;
+                match (got_setter, want_setter) {
+                    (Some(got_setter), Some(want_setter)) => is_subset(got_setter, want_setter)
+                        .map_err(|_| AttrSubsetError::Contravariant {
+                            want: want_setter.clone(),
+                            got: got_setter.clone(),
+                            got_is_property: true,
+                        }),
+                    (None, Some(_)) => Err(AttrSubsetError::ReadOnly),
+                    (_, None) => Ok(()),
                 }
             }
             (
@@ -2548,16 +2529,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ) => {
                 let got_ty = got_cls.clone().to_type();
                 let want_ty = want_cls.clone().to_type();
-                if is_subset(&got_ty, &want_ty) {
-                    Ok(())
-                } else {
-                    Err(AttrSubsetError::Covariant {
-                        got: got_ty,
-                        want: want_ty,
-                        got_is_property: false,
-                        want_is_property: false,
-                    })
-                }
+                is_subset(&got_ty, &want_ty).map_err(|_| AttrSubsetError::Covariant {
+                    got: got_ty,
+                    want: want_ty,
+                    got_is_property: false,
+                    want_is_property: false,
+                })
             }
             (ClassAttribute::Descriptor(..), _) | (_, ClassAttribute::Descriptor(..)) => {
                 Err(AttrSubsetError::Descriptor)
