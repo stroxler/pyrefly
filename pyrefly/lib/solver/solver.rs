@@ -422,7 +422,7 @@ impl Solver {
 
         // Solve for the vars created above. If this errors, then the definition
         // is invalid, and we should have raised an error at the definition site.
-        self.is_subset_eq(self_obj, &self_param, type_order);
+        let _ = self.is_subset_eq(self_obj, &self_param, type_order);
 
         // Either we have solutions, or we fall back to Any. We don't use finish_quantified
         // because we don't want Variable::Contained.
@@ -669,7 +669,7 @@ impl Solver {
                 // We got forced into choosing a type to satisfy a subset constraint, so check we are OK with that.
                 // Since we have already used `forced`, and will continue to do so, important that what we expect
                 // is more restrictive (so the `forced` is an over-approximation).
-                if !self.is_subset_eq(&t, &forced, type_order) {
+                if self.is_subset_eq(&t, &forced, type_order).is_err() {
                     // Poor error message, but overall, this is a terrible experience for users.
                     self.error(&t, &forced, errors, loc, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking)
@@ -696,8 +696,8 @@ impl Solver {
         got: &Type,
         want: &Type,
         type_order: TypeOrder<Ans>,
-    ) -> bool {
-        self.is_subset_eq_impl(got, want, type_order, false).is_ok()
+    ) -> Result<(), SubsetError> {
+        self.is_subset_eq_impl(got, want, type_order, false)
     }
 
     fn is_subset_eq_impl<Ans: LookupAnswer>(

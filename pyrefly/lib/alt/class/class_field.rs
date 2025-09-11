@@ -1825,14 +1825,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let attr_check = self.is_class_attribute_subset(
                 got_attribute.as_ref().unwrap(),
                 &want_attribute,
-                &mut |got, want| {
-                    // TODO(rechen): Add a variant of is_subset_eq that bubbles up SubsetError.
-                    if self.is_subset_eq(got, want) {
-                        Ok(())
-                    } else {
-                        Err(SubsetError::Other)
-                    }
-                },
+                &mut |got, want| self.is_subset_eq_with_reason(got, want),
             );
             if let Err(error) = attr_check {
                 let msg = vec1![

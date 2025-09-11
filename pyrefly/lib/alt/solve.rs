@@ -91,6 +91,7 @@ use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::style::ErrorStyle;
+use crate::solver::solver::SubsetError;
 use crate::types::annotation::Annotation;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::Function;
@@ -320,6 +321,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Check that got is assignable to want
     pub fn is_subset_eq(&self, got: &Type, want: &Type) -> bool {
+        self.is_subset_eq_with_reason(got, want).is_ok()
+    }
+
+    pub fn is_subset_eq_with_reason(&self, got: &Type, want: &Type) -> Result<(), SubsetError> {
         self.solver().is_subset_eq(got, want, self.type_order())
     }
 
