@@ -743,14 +743,6 @@ pub enum SubsetError {
     Other,
 }
 
-impl SubsetError {
-    // TODO(rechen): Get rid of this helper once all is_subset_* methods have been updated to
-    // return Result instead of bool.
-    pub fn if_false(b: bool) -> Result<(), Self> {
-        b.then_some(()).ok_or(Self::Other)
-    }
-}
-
 /// A helper to implement subset ergonomically.
 /// Should only be used within `crate::subset`, which implements part of it.
 pub struct Subset<'a, Ans: LookupAnswer> {
