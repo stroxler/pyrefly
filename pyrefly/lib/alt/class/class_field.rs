@@ -923,10 +923,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             value = member_targ;
         }
-        if !self
-            .solver()
-            .is_subset_eq(value, annotation, self.type_order())
-        {
+        if !self.is_subset_eq(value, annotation) {
             self.error(
                 errors, range, ErrorInfo::Kind(ErrorKind::BadAssignment),
                 format!(
