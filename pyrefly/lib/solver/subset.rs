@@ -109,10 +109,11 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     u_arg = u_args.next();
                 }
                 (Some(Param::Pos(l_name, l, l_req)), Some(Param::Pos(u_name, u, u_req)))
-                    if l_name == u_name
-                        && (*u_req == Required::Required
-                            || matches!(l_req, Required::Optional(_))) =>
+                    if *u_req == Required::Required || matches!(l_req, Required::Optional(_)) =>
                 {
+                    if l_name != u_name {
+                        return Err(SubsetError::PosParamName(l_name.clone(), u_name.clone()));
+                    }
                     self.is_subset_eq(u, l)?;
                     l_arg = l_args.next();
                     u_arg = u_args.next();

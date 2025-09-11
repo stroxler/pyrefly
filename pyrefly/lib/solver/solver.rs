@@ -739,6 +739,8 @@ impl Solver {
 /// If a got <: want check fails, the failure reason
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SubsetError {
+    /// The name of a positional parameter differs between `got` and `want`.
+    PosParamName(Name, Name),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
