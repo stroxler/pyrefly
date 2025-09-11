@@ -168,6 +168,7 @@ impl SnippetCheckArgs {
                 suppress_errors: false,
                 expectations: false,
                 remove_unused_ignores: false,
+                all: false,
             },
             config_override: self.config_override,
         };
@@ -274,6 +275,9 @@ struct BehaviorArgs {
     /// Remove unused ignores from the input files.
     #[arg(long)]
     remove_unused_ignores: bool,
+    ///
+    #[arg(long, requires("remove_unused_ignores"))]
+    all: bool,
 }
 
 impl OutputFormat {
@@ -778,7 +782,7 @@ impl CheckArgs {
             suppress::suppress_errors(errors.shown.clone());
         }
         if self.behavior.remove_unused_ignores {
-            suppress::remove_unused_ignores(&loads);
+            suppress::remove_unused_ignores(&loads, self.behavior.all);
         }
         if self.behavior.expectations {
             loads.check_against_expectations()?;
