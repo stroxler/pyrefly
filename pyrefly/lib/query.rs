@@ -199,7 +199,7 @@ impl Query {
         self.files.lock().extend(files.clone());
         let mut transaction = self
             .state
-            .new_committable_transaction(Require::Everything, None);
+            .new_committable_transaction(Require::Exports, None);
         let handles = files.into_map(|(name, file)| self.make_handle(name, file));
         transaction.as_mut().run(&handles, Require::Everything);
         let errors = transaction.as_mut().get_errors(&handles);
@@ -515,7 +515,7 @@ impl Query {
                 let def0 = &defs[0];
                 if def0.module.name() == handle.module() {
                     match &def0.metadata {
-                        DefinitionMetadata::Variable(..) => {
+                        DefinitionMetadata::Variable(_) => {
                             let name = module_info.code_at(defs[0].definition_range);
                             vec![Callee {
                                 kind: String::from(CALLEE_KIND_FUNCTION),
