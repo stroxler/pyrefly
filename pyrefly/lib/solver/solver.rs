@@ -599,7 +599,7 @@ impl Solver {
         }
         for b in &branches[1..] {
             // Do the is_subset_eq only to force free variables
-            self.is_subset_eq_impl(&branches[0], b, type_order, true);
+            let _ = self.is_subset_eq_impl(&branches[0], b, type_order, true);
         }
 
         // We want to union modules differently, by merging their module sets
@@ -697,7 +697,7 @@ impl Solver {
         want: &Type,
         type_order: TypeOrder<Ans>,
     ) -> bool {
-        self.is_subset_eq_impl(got, want, type_order, false)
+        self.is_subset_eq_impl(got, want, type_order, false).is_ok()
     }
 
     fn is_subset_eq_impl<Ans: LookupAnswer>(
@@ -706,7 +706,7 @@ impl Solver {
         want: &Type,
         type_order: TypeOrder<Ans>,
         union: bool,
-    ) -> bool {
+    ) -> Result<(), SubsetError> {
         let mut subset = self.subset(type_order, union);
         subset.is_subset_eq(got, want)
     }
@@ -766,17 +766,18 @@ pub struct Subset<'a, Ans: LookupAnswer> {
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     pub fn is_equal(&mut self, got: &Type, want: &Type) -> Result<(), SubsetError> {
-        SubsetError::if_false(self.is_subset_eq(got, want) && self.is_subset_eq(want, got))
+        self.is_subset_eq(got, want)?;
+        self.is_subset_eq(want, got)
     }
 
-    pub fn is_subset_eq(&mut self, got: &Type, want: &Type) -> bool {
+    pub fn is_subset_eq(&mut self, got: &Type, want: &Type) -> Result<(), SubsetError> {
         if self.gas.stop() {
             // We really have no idea. Just give up for now.
-            return false;
+            return Err(SubsetError::Other);
         }
         let res = self.is_subset_eq_var(got, want);
         self.gas.restore();
-        res.is_ok()
+        res
     }
 
     /// Implementation of Var subset cases, calling onward to solve non-Var cases.
@@ -798,17 +799,17 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         let t1 = t1.clone();
                         let t2 = t2.clone();
                         drop(variables);
-                        SubsetError::if_false(self.is_subset_eq(&t1, &t2))
+                        self.is_subset_eq(&t1, &t2)
                     }
                     (_, Variable::Answer(t2)) => {
                         let t2 = t2.clone();
                         drop(variables);
-                        SubsetError::if_false(self.is_subset_eq(got, &t2))
+                        self.is_subset_eq(got, &t2)
                     }
                     (Variable::Answer(t1), _) => {
                         let t1 = t1.clone();
                         drop(variables);
-                        SubsetError::if_false(self.is_subset_eq(&t1, want))
+                        self.is_subset_eq(&t1, want)
                     }
                     (var_type1, var_type2)
                         if should_force(var_type1) && should_force(var_type2) =>
@@ -826,7 +827,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     Variable::Answer(t1) => {
                         let t1 = t1.clone();
                         drop(variables);
-                        SubsetError::if_false(self.is_subset_eq(&t1, t2))
+                        self.is_subset_eq(&t1, t2)
                     }
                     var_type if should_force(var_type) => {
                         variables.insert(*v1, Variable::Answer(t2.clone()));
@@ -841,7 +842,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     Variable::Answer(t2) => {
                         let t2 = t2.clone();
                         drop(variables);
-                        SubsetError::if_false(self.is_subset_eq(t1, &t2))
+                        self.is_subset_eq(t1, &t2)
                     }
                     var_type if should_force(var_type) => {
                         // Note that we promote the type when the var is on the RHS, but not when it's on the
