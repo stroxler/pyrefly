@@ -47,7 +47,11 @@ enum TypedDictFieldId {
 
 impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     /// Can a function with l_args be called as a function with u_args?
-    fn is_subset_param_list(&mut self, l_args: &[Param], u_args: &[Param]) -> bool {
+    fn is_subset_param_list(
+        &mut self,
+        l_args: &[Param],
+        u_args: &[Param],
+    ) -> Result<(), SubsetError> {
         let mut l_args = l_args.iter();
         let mut u_args = u_args.iter();
         let mut l_arg = l_args.next();
@@ -60,7 +64,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             match (l_arg, u_arg) {
                 (None, None) => {
                     if u_param_matched_with_l_varargs.is_empty() {
-                        return true;
+                        return Ok(());
                     } else {
                         // We can't return early since we need to check that the matched params from `u`
                         // can be called by name.
@@ -75,7 +79,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(Param::Pos(l_name, l, l_req)), Some(Param::Pos(u_name, u, u_req)))
@@ -87,14 +91,14 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(Param::VarArg(_, Type::Unpack(l))), None) => {
                     if self.is_subset_eq(&Type::tuple(Vec::new()), l) {
                         l_arg = l_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (
@@ -134,7 +138,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 u_arg = u_args.next();
                                 break;
                             } else {
-                                return false;
+                                return Err(SubsetError::Other);
                             }
                         } else if let Some(Param::VarArg(_, u)) = u_arg {
                             if self.is_subset_eq(
@@ -149,13 +153,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 u_arg = u_args.next();
                                 break;
                             } else {
-                                return false;
+                                return Err(SubsetError::Other);
                             }
                         } else if self.is_subset_eq(&Type::tuple(u_types), l) {
                             l_arg = l_args.next();
                             break;
                         } else {
-                            return false;
+                            return Err(SubsetError::Other);
                         }
                     }
                 }
@@ -177,7 +181,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 u_arg = u_args.next();
                                 break;
                             } else {
-                                return false;
+                                return Err(SubsetError::Other);
                             }
                         } else if let Some(Param::VarArg(_, l)) = l_arg {
                             if self.is_subset_eq(
@@ -192,13 +196,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 u_arg = u_args.next();
                                 break;
                             } else {
-                                return false;
+                                return Err(SubsetError::Other);
                             }
                         } else if self.is_subset_eq(u, &Type::tuple(l_types)) {
                             u_arg = u_args.next();
                             break;
                         } else {
-                            return false;
+                            return Err(SubsetError::Other);
                         }
                     }
                 }
@@ -206,7 +210,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     if self.is_subset_eq(u, l) {
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(Param::VarArg(_, l)), Some(Param::Pos(name, u, _))) => {
@@ -216,7 +220,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         u_param_matched_with_l_varargs.push((name, u));
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (
@@ -227,7 +231,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(Param::VarArg(_, Type::Any(_))), Some(Param::VarArg(_, Type::Unpack(_)))) => {
@@ -239,7 +243,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(Param::VarArg(_, Type::Unpack(l))), Some(Param::VarArg(_, u))) => {
@@ -247,7 +251,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(Param::VarArg(_, l)), Some(Param::VarArg(_, u))) => {
@@ -255,13 +259,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         l_arg = l_args.next();
                         u_arg = u_args.next();
                     } else {
-                        return false;
+                        return Err(SubsetError::Other);
                     }
                 }
                 (Some(_), Some(Param::KwOnly(_, _, _) | Param::Kwargs(_, _))) => {
                     break;
                 }
-                _ => return false,
+                _ => return Err(SubsetError::Other),
             }
         }
         // We can use a HashMap for `l_keywords` since the order does not matter
@@ -320,12 +324,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Some(l), Some(u)) => {
                 if !self.is_subset_eq(&u, &l) {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
                 Some(l)
             }
             (None, Some(_)) => {
-                return false;
+                return Err(SubsetError::Other);
             }
             (l_kwargs, _) => l_kwargs,
         };
@@ -336,36 +340,36 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 // Matched kw-only param from `l` must be optional, since the argument will not be
                 // present if passed positionally.
                 if l_req || !self.is_subset_eq(u_ty, &l_ty) {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
             } else if let Some(l_ty) = &l_kwargs {
                 if !self.is_subset_eq(u_ty, l_ty) {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
             } else {
-                return false;
+                return Err(SubsetError::Other);
             }
         }
         // Handle keyword-only args
         for (name, (u_ty, u_req)) in u_keywords.iter() {
             if let Some((l_ty, l_req)) = l_keywords.remove(name) {
                 if (!*u_req && l_req) || !self.is_subset_eq(u_ty, &l_ty) {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
             } else if let Some(l_ty) = &l_kwargs {
                 if !self.is_subset_eq(u_ty, l_ty) {
-                    return false;
+                    return Err(SubsetError::Other);
                 }
             } else {
-                return false;
+                return Err(SubsetError::Other);
             }
         }
         for (_, l_req) in l_keywords.values() {
             if *l_req {
-                return false;
+                return Err(SubsetError::Other);
             }
         }
-        true
+        Ok(())
     }
 
     fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> Result<(), SubsetError> {
@@ -554,9 +558,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
         let args = ParamList::new_types(want_ts.to_owned());
         let (pre, post) = got.items().split_at(args.len());
-        if !self.is_subset_param_list(pre, args.items()) {
-            return Err(SubsetError::Other);
-        }
+        self.is_subset_param_list(pre, args.items())?;
         SubsetError::if_false(self.is_subset_eq(
             &Type::ParamSpecValue(ParamList::new(post.to_vec())),
             want_pspec,
@@ -574,9 +576,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
         let args = ParamList::new_types(got_ts.to_owned());
         let (pre, post) = want.items().split_at(args.len());
-        if !self.is_subset_param_list(args.items(), pre) {
-            return Err(SubsetError::Other);
-        }
+        self.is_subset_param_list(args.items(), pre)?;
         SubsetError::if_false(self.is_subset_eq(
             got_pspec,
             &Type::ParamSpecValue(ParamList::new(post.to_vec())),
@@ -875,9 +875,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         self.is_subset_eq(pspec, &Type::Ellipsis)
                     }
                     (Params::Ellipsis, _) | (_, Params::Ellipsis) => true,
-                    (Params::List(l_args), Params::List(u_args)) => {
-                        self.is_subset_param_list(l_args.items(), u_args.items())
-                    }
+                    (Params::List(l_args), Params::List(u_args)) => self
+                        .is_subset_param_list(l_args.items(), u_args.items())
+                        .is_ok(),
                     (Params::List(ls), Params::ParamSpec(args, pspec)) => self
                         .is_paramlist_subset_of_paramspec(ls, args, pspec)
                         .is_ok(),
@@ -1151,7 +1151,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Type::Ellipsis, Type::ParamSpecValue(_) | Type::Concatenate(_, _))
             | (Type::ParamSpecValue(_) | Type::Concatenate(_, _), Type::Ellipsis) => Ok(()),
             (Type::ParamSpecValue(ls), Type::ParamSpecValue(us)) => {
-                SubsetError::if_false(self.is_subset_param_list(ls.items(), us.items()))
+                self.is_subset_param_list(ls.items(), us.items())
             }
             (Type::ParamSpecValue(ls), Type::Concatenate(us, u_pspec)) => {
                 self.is_paramlist_subset_of_paramspec(ls, us, u_pspec)
