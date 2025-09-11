@@ -87,12 +87,16 @@ pub enum AttrSubsetError {
         want: Type,
         got_is_property: bool,
         want_is_property: bool,
+        #[expect(dead_code)]
+        subset_error: SubsetError,
     },
     // `got` and `want` are not subtypes of each other
     // applies to read-write attributes
     Invariant {
         got: Type,
         want: Type,
+        #[expect(dead_code)]
+        subset_error: SubsetError,
     },
     // `want` is not a subtype of `got`
     // applies to property setters
@@ -100,6 +104,8 @@ pub enum AttrSubsetError {
         got: Type,
         want: Type,
         got_is_property: bool,
+        #[expect(dead_code)]
+        subset_error: SubsetError,
     },
 }
 
@@ -139,6 +145,7 @@ impl AttrSubsetError {
                 want,
                 got_is_property,
                 want_is_property,
+                subset_error: _,
             } => {
                 let got_desc = if got_is_property {
                     "Property getter for "
@@ -156,7 +163,11 @@ impl AttrSubsetError {
                     want.deterministic_printing()
                 )
             }
-            AttrSubsetError::Invariant { got, want } => {
+            AttrSubsetError::Invariant {
+                got,
+                want,
+                subset_error: _,
+            } => {
                 format!(
                     "`{child_class}.{attr_name}` has type `{}`, which is not consistent with `{}` in `{parent_class}.{attr_name}` (the type of read-write attributes cannot be changed)",
                     got.deterministic_printing(),
@@ -167,6 +178,7 @@ impl AttrSubsetError {
                 got,
                 want,
                 got_is_property,
+                subset_error: _,
             } => {
                 let desc = if got_is_property {
                     "The property setter for "

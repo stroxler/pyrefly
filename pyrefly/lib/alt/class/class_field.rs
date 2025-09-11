@@ -2427,30 +2427,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // in some cases for unknown reasons they wind up being ReadWrite.
                 ClassAttribute::ReadWrite(got @ Type::BoundMethod(_)),
                 ClassAttribute::ReadWrite(want @ Type::BoundMethod(_)),
-            ) => is_subset(got, want).map_err(|_| AttrSubsetError::Covariant {
+            ) => is_subset(got, want).map_err(|subset_error| AttrSubsetError::Covariant {
                 got: got.clone(),
                 want: want.clone(),
                 got_is_property: false,
                 want_is_property: false,
+                subset_error,
             }),
             (ClassAttribute::ReadWrite(got), ClassAttribute::ReadWrite(want)) => {
-                if is_subset(got, want).is_ok() && is_subset(want, got).is_ok() {
-                    Ok(())
-                } else {
+                let subset_error = is_subset(got, want)
+                    .map_or_else(Some, |_| is_subset(want, got).map_or_else(Some, |_| None));
+                if let Some(subset_error) = subset_error {
                     Err(AttrSubsetError::Invariant {
                         got: got.clone(),
                         want: want.clone(),
+                        subset_error,
                     })
+                } else {
+                    Ok(())
                 }
             }
             (
                 ClassAttribute::ReadWrite(got) | ClassAttribute::ReadOnly(got, ..),
                 ClassAttribute::ReadOnly(want, _),
-            ) => is_subset(got, want).map_err(|_| AttrSubsetError::Covariant {
+            ) => is_subset(got, want).map_err(|subset_error| AttrSubsetError::Covariant {
                 got: got.clone(),
                 want: want.clone(),
                 got_is_property: false,
                 want_is_property: false,
+                subset_error,
             }),
             (ClassAttribute::ReadOnly(got, _), ClassAttribute::Property(want, _, _)) => {
                 is_subset(
@@ -2458,11 +2463,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &Type::callable_ellipsis(got.clone()),
                     want,
                 )
-                .map_err(|_| AttrSubsetError::Covariant {
+                .map_err(|subset_error| AttrSubsetError::Covariant {
                     got: got.clone(),
                     want: want.clone(),
                     got_is_property: false,
                     want_is_property: true,
+                    subset_error,
                 })
             }
             (ClassAttribute::ReadWrite(got), ClassAttribute::Property(want, want_setter, _)) => {
@@ -2471,11 +2477,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &Type::callable_ellipsis(got.clone()),
                     want,
                 )
-                .map_err(|_| AttrSubsetError::Covariant {
+                .map_err(|subset_error| AttrSubsetError::Covariant {
                     got: got.clone(),
                     want: want.clone(),
                     got_is_property: false,
                     want_is_property: true,
+                    subset_error,
                 })?;
                 if let Some(want_setter) = want_setter {
                     // Synthesize a setter method
@@ -2486,10 +2493,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::None,
                         ),
                     )
-                    .map_err(|_| AttrSubsetError::Contravariant {
+                    .map_err(|subset_error| AttrSubsetError::Contravariant {
                         want: want_setter.clone(),
                         got: got.clone(),
                         got_is_property: true,
+                        subset_error,
                     })
                 } else {
                     Ok(())
@@ -2499,18 +2507,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ClassAttribute::Property(got_getter, got_setter, _),
                 ClassAttribute::Property(want_getter, want_setter, _),
             ) => {
-                is_subset(got_getter, want_getter).map_err(|_| AttrSubsetError::Covariant {
-                    got: got_getter.clone(),
-                    want: want_getter.clone(),
-                    got_is_property: true,
-                    want_is_property: true,
+                is_subset(got_getter, want_getter).map_err(|subset_error| {
+                    AttrSubsetError::Covariant {
+                        got: got_getter.clone(),
+                        want: want_getter.clone(),
+                        got_is_property: true,
+                        want_is_property: true,
+                        subset_error,
+                    }
                 })?;
                 match (got_setter, want_setter) {
                     (Some(got_setter), Some(want_setter)) => is_subset(got_setter, want_setter)
-                        .map_err(|_| AttrSubsetError::Contravariant {
+                        .map_err(|subset_error| AttrSubsetError::Contravariant {
                             want: want_setter.clone(),
                             got: got_setter.clone(),
                             got_is_property: true,
+                            subset_error,
                         }),
                     (None, Some(_)) => Err(AttrSubsetError::ReadOnly),
                     (_, None) => Ok(()),
@@ -2522,11 +2534,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ) => {
                 let got_ty = got_cls.clone().to_type();
                 let want_ty = want_cls.clone().to_type();
-                is_subset(&got_ty, &want_ty).map_err(|_| AttrSubsetError::Covariant {
+                is_subset(&got_ty, &want_ty).map_err(|subset_error| AttrSubsetError::Covariant {
                     got: got_ty,
                     want: want_ty,
                     got_is_property: false,
                     want_is_property: false,
+                    subset_error,
                 })
             }
             (ClassAttribute::Descriptor(..), _) | (_, ClassAttribute::Descriptor(..)) => {
