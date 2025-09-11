@@ -204,11 +204,12 @@ impl Query {
         transaction.as_mut().run(&handles, Require::Everything);
         let errors = transaction.as_mut().get_errors(&handles);
         self.state.commit_transaction(transaction);
+        let project_root = PathBuf::new();
         errors.collect_errors().shown.map(|e| {
             // We deliberately don't have a Display for `Error`, to encourage doing the right thing.
             // But we just hack something up as this code is experimental.
             let mut s = Cursor::new(Vec::new());
-            e.write_line(&mut s, false).unwrap();
+            e.write_line(&mut s, project_root.as_path(), false).unwrap();
             String::from_utf8_lossy(&s.into_inner()).into_owned()
         })
     }
@@ -960,8 +961,10 @@ impl Query {
         let errors = t.get_errors([&h]).collect_errors();
         if !errors.shown.is_empty() {
             let mut res = Vec::new();
+            let project_root = PathBuf::new();
             for e in errors.shown {
-                e.write_line(&mut Cursor::new(&mut res), true).unwrap();
+                e.write_line(&mut Cursor::new(&mut res), project_root.as_path(), true)
+                    .unwrap();
             }
             return Err(format!(
                 "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",
