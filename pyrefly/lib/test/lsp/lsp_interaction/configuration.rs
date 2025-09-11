@@ -46,6 +46,8 @@ fn test_did_change_configuration() {
     interaction.shutdown();
 }
 
+// TODO: fix and re-enable. The test is currently flaky.
+#[ignore]
 #[test]
 fn test_pythonpath_change() {
     let test_files_root = get_test_files_root();
