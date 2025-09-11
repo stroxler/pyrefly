@@ -853,7 +853,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     _ => Err(SubsetError::Other),
                 }
             }
-            _ => SubsetError::if_false(self.is_subset_eq_impl(got, want)),
+            _ => self.is_subset_eq_impl(got, want),
         }
     }
 }
