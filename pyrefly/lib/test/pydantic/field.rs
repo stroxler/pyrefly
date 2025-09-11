@@ -42,14 +42,13 @@ Model(x=5)
 );
 
 testcase!(
-    bug = "Add support to the ge keyword, which should result in raising a type error on the wrong argument",
     test_field_ge,
     pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 
 class Model(BaseModel):
-    x: int = Field(ge="B") 
+    x: int = Field(ge="B") # E: Pydantic `ge` value is of type `Literal['B']` but the field is annotated with `int`
 
 Model(x=5)
 "#,

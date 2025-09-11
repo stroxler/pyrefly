@@ -1078,12 +1078,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if metadata.is_pydantic_base_model()
             && let Some(annot) = &direct_annotation
             && let ClassFieldInitialization::ClassBody(Some(DataclassFieldKeywords {
-                gt, lt, ..
+                gt,
+                lt,
+                ge,
+                ..
             })) = &initialization
         {
             let field_ty = annot.get_type();
 
-            for (bound_val, label) in [(gt, "gt"), (lt, "lt")] {
+            for (bound_val, label) in [(gt, "gt"), (lt, "lt"), (ge, "ge")] {
                 let Some(val) = bound_val else { continue };
                 if !self.is_subset_eq(val, field_ty) {
                     self.error(
