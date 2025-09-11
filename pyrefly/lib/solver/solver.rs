@@ -700,7 +700,7 @@ impl Solver {
         self.is_subset_eq_impl(got, want, type_order, false)
     }
 
-    pub fn is_subset_eq_impl<Ans: LookupAnswer>(
+    fn is_subset_eq_impl<Ans: LookupAnswer>(
         &self,
         got: &Type,
         want: &Type,
