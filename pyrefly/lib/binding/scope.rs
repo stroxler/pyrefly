@@ -71,6 +71,7 @@ pub struct StaticInfo {
     pub annot: Option<Idx<KeyAnnotation>>,
     /// How many times this will be redefined
     pub count: usize,
+    /// How was this defined? Needed to determine the key for forward lookups.
     pub style: DefinitionStyle,
     /// Is this a mutable catpure of a definition in an outer scope (i.e. a global or a nonlocal)?
     pub is_mutable_capture: bool,
