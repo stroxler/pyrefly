@@ -49,7 +49,6 @@ pub enum DefinitionStyle {
     /// Imported with an alias, e.g. `from x import y as z`
     /// Name is the previous name before the alias
     ImportAs(ModuleName, Name),
-
     /// Imported with an alias, where the alias is identical, e.g. `from x import y as y`
     ImportAsEq(ModuleName),
     /// Imported from another module, e.g. `from x import y`
