@@ -1270,7 +1270,8 @@ impl<'a> Transaction<'a> {
         self.invalidate(|_| true, |dirty| dirty.find = true);
     }
 
-    /// The data returned by the ConfigFinder might have changed.
+    /// The data returned by the ConfigFinder might have changed. Note: invalidate find is not also required to run. When
+    /// a config changes, this function guarantees the next transaction run will invalidate find accordingly.
     pub fn invalidate_config(&mut self) {
         // We clear the global config cache, rather than making a dedicated copy.
         // This is reasonable, because we will cache the result on ModuleData.

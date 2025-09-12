@@ -917,6 +917,7 @@ impl Server {
         self.outgoing_requests.lock().insert(id, request);
     }
 
+    /// Run the transaction with the in-memory content of open files. Returns the handles of open files when the transaction is done.
     fn validate_in_memory_for_transaction(
         state: &State,
         open_files: &RwLock<HashMap<PathBuf, Arc<String>>>,
@@ -986,6 +987,10 @@ impl Server {
         }
     }
 
+    /// Validate open files and send errors to the LSP. In the case of an ongoing recheck
+    /// (i.e., another transaction is already being committed or the state is locked for writing),
+    /// we still update diagnostics using a non-committable transaction, which may have slightly stale
+    /// data compared to the main state
     fn validate_in_memory<'a>(&'a self, ide_transaction_manager: &mut TransactionManager<'a>) {
         let mut possibly_committable_transaction =
             ide_transaction_manager.get_possibly_committable_transaction(&self.state);
@@ -1023,6 +1028,7 @@ impl Server {
                 // recheck, we still want to update the diagnostics. In this case, we compute them
                 // from the transactions that won't be committed. It will still contain all the
                 // up-to-date in-memory content, but can have stale main `State` content.
+                // Note: if this changes, update this function's docstring.
                 publish(&transaction);
                 ide_transaction_manager.save(transaction);
             }
@@ -1962,6 +1968,7 @@ impl Server {
         }
     }
 
+    /// Asynchronously invalidate configuration
     fn invalidate_config(&self) {
         self.invalidate(|t| t.invalidate_config());
     }
