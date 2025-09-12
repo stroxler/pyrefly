@@ -249,7 +249,7 @@ impl ClassFieldInitialization {
 /// know whether it is initialized in the class body in order to determine
 /// both visibility rules and whether method binding should be performed.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
-pub struct ClassField(ClassFieldInner);
+pub struct ClassField(ClassFieldInner, IsInherited);
 
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 enum ClassFieldInner {
@@ -265,8 +265,17 @@ enum ClassFieldInner {
         /// If this is a descriptor, data derived from `ty`.
         descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
-        name_might_exist_in_inherited: bool,
     },
+}
+
+/// For efficiency, keep track of whether we know from `calculate_class_field`
+/// that this is not an inherited field so that we can skip override consistency
+/// checks. This information is not needed to understand the class field, it is
+/// only used for efficiency.
+#[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
+enum IsInherited {
+    No,
+    Maybe,
 }
 
 impl Display for ClassField {
@@ -287,17 +296,19 @@ impl ClassField {
         read_only_reason: Option<ReadOnlyReason>,
         descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
-        name_might_exist_in_inherited: bool,
+        is_inherited: IsInherited,
     ) -> Self {
-        Self(ClassFieldInner::Simple {
-            ty,
-            annotation,
-            initialization,
-            read_only_reason,
-            descriptor,
-            is_function_without_return_annotation,
-            name_might_exist_in_inherited,
-        })
+        Self(
+            ClassFieldInner::Simple {
+                ty,
+                annotation,
+                initialization,
+                read_only_reason,
+                descriptor,
+                is_function_without_return_annotation,
+            },
+            is_inherited,
+        )
     }
 
     pub fn for_variance_inference(&self) -> Option<(&Type, Option<&Annotation>, bool)> {
@@ -309,27 +320,31 @@ impl ClassField {
     }
 
     pub fn new_synthesized(ty: Type) -> Self {
-        ClassField(ClassFieldInner::Simple {
-            ty,
-            annotation: None,
-            initialization: ClassFieldInitialization::ClassBody(None),
-            read_only_reason: None,
-            descriptor: None,
-            is_function_without_return_annotation: false,
-            name_might_exist_in_inherited: true,
-        })
+        ClassField(
+            ClassFieldInner::Simple {
+                ty,
+                annotation: None,
+                initialization: ClassFieldInitialization::ClassBody(None),
+                read_only_reason: None,
+                descriptor: None,
+                is_function_without_return_annotation: false,
+            },
+            IsInherited::Maybe,
+        )
     }
 
     pub fn recursive() -> Self {
-        Self(ClassFieldInner::Simple {
-            ty: Type::any_implicit(),
-            annotation: None,
-            initialization: ClassFieldInitialization::recursive(),
-            read_only_reason: None,
-            descriptor: None,
-            is_function_without_return_annotation: false,
-            name_might_exist_in_inherited: true,
-        })
+        Self(
+            ClassFieldInner::Simple {
+                ty: Type::any_implicit(),
+                annotation: None,
+                initialization: ClassFieldInitialization::recursive(),
+                read_only_reason: None,
+                descriptor: None,
+                is_function_without_return_annotation: false,
+            },
+            IsInherited::Maybe,
+        )
     }
 
     fn initialization(&self) -> ClassFieldInitialization {
@@ -347,7 +362,6 @@ impl ClassField {
                 read_only_reason,
                 descriptor,
                 is_function_without_return_annotation,
-                name_might_exist_in_inherited,
             } => {
                 let mut ty = ty.clone();
                 f(&mut ty);
@@ -356,15 +370,18 @@ impl ClassField {
                     x.cls.visit_mut(f);
                     x
                 });
-                Self(ClassFieldInner::Simple {
-                    ty,
-                    annotation: annotation.clone(),
-                    initialization: initialization.clone(),
-                    read_only_reason: read_only_reason.clone(),
-                    descriptor,
-                    is_function_without_return_annotation: *is_function_without_return_annotation,
-                    name_might_exist_in_inherited: *name_might_exist_in_inherited,
-                })
+                Self(
+                    ClassFieldInner::Simple {
+                        ty,
+                        annotation: annotation.clone(),
+                        initialization: initialization.clone(),
+                        read_only_reason: read_only_reason.clone(),
+                        descriptor,
+                        is_function_without_return_annotation:
+                            *is_function_without_return_annotation,
+                    },
+                    self.1.clone(),
+                )
             }
         }
     }
@@ -607,15 +624,6 @@ impl ClassField {
             ClassFieldInner::Simple {
                 read_only_reason, ..
             } => read_only_reason.is_some(),
-        }
-    }
-
-    pub fn name_might_exist_in_inherited(&self) -> bool {
-        match &self.0 {
-            ClassFieldInner::Simple {
-                name_might_exist_in_inherited,
-                ..
-            } => *name_might_exist_in_inherited,
         }
     }
 
@@ -1021,7 +1029,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Optimisation. If we can determine that the name definitely doesn't exist in the inheritance
         // then we can avoid a bunch of work with checking for override errors.
-        let mut name_might_exist_in_inherited = true;
+        let mut is_inherited = IsInherited::Maybe;
 
         let (value_ty, inherited_annotation) = match value {
             ExprOrBinding::Expr(e) => {
@@ -1031,7 +1039,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let (inherited_ty, annotation) =
                         self.get_inherited_type_and_annotation(class, name);
                     if inherited_ty.is_none() {
-                        name_might_exist_in_inherited = false;
+                        is_inherited = IsInherited::No;
                     }
                     (inherited_ty, annotation)
                 };
@@ -1337,7 +1345,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             read_only_reason,
             descriptor,
             is_function_without_return_annotation,
-            name_might_exist_in_inherited,
+            is_inherited,
         );
         if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
             method_name,
@@ -1442,7 +1450,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .find_map(|parent| {
                 let parent_field =
                     self.get_field_from_current_class_only(parent.class_object(), name)?;
-                let ClassField(ClassFieldInner::Simple { ty, annotation, .. }) = &*parent_field;
+                let ClassField(ClassFieldInner::Simple { ty, annotation, .. }, ..) = &*parent_field;
                 if found_field.is_none() {
                     found_field = Some(parent.targs().substitution().substitute_into(ty.clone()));
                 }
@@ -1665,7 +1673,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         converter_param: Option<Type>,
         errors: &ErrorCollector,
     ) -> Param {
-        let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }) = field;
+        let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }, ..) = field;
         let param_ty = if !strict {
             Type::any_explicit()
         } else if let Some(converter_param) = converter_param {
@@ -1718,7 +1726,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) {
         let is_override = class_field.is_override();
-        if !class_field.name_might_exist_in_inherited() && !is_override {
+        if matches!(class_field.1, IsInherited::No) && !is_override {
             return;
         }
 
