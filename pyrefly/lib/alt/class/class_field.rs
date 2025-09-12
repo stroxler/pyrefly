@@ -588,7 +588,7 @@ impl ClassField {
         }
     }
 
-    pub fn is_class_var(&self) -> bool {
+    fn is_class_var(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_class_var())
@@ -612,14 +612,14 @@ impl ClassField {
         }
     }
 
-    pub fn is_override(&self) -> bool {
+    fn is_override(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_override(),
         }
     }
 
     /// Check if this field is read-only for any reason.
-    pub fn is_read_only(&self) -> bool {
+    fn is_read_only(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple {
                 read_only_reason, ..
@@ -633,7 +633,7 @@ impl ClassField {
         }
     }
 
-    pub fn is_function_without_return_annotation(&self) -> bool {
+    fn is_function_without_return_annotation(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple {
                 is_function_without_return_annotation,
