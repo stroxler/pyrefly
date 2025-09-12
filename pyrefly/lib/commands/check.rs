@@ -275,7 +275,7 @@ struct BehaviorArgs {
     /// Remove unused ignores from the input files.
     #[arg(long)]
     remove_unused_ignores: bool,
-    ///
+    /// If we are removing unused ignores, should we remove all unsused ignores or only Pyre-fly specific `pyrefly: ignore`s?
     #[arg(long, requires("remove_unused_ignores"))]
     all: bool,
 }
