@@ -260,8 +260,7 @@ impl<'a> DefinitionsBuilder<'a> {
     ) {
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
-                let style = cmp::min(&e.get().style, &style);
-                e.get_mut().style = style.clone();
+                e.get_mut().style = cmp::min(&e.get().style, &style).clone();
                 if e.get().annot.is_none() {
                     e.get_mut().annot = annot;
                 }
