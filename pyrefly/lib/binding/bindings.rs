@@ -792,20 +792,20 @@ impl<'a> BindingsBuilder<'a> {
             matches!(self.scopes.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.scopes.iter_rev().enumerate() {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
+            // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
+            //   The scope of names defined in a class block is limited to the
+            //   class block; it does not extend to the code blocks of
+            //   methods. This includes comprehensions and generator
+            //   expressions, but it does not include annotation scopes, which
+            //   have access to their enclosing class scopes."""
+            if is_class
+                && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
+            {
+                continue;
+            }
+
             if let Some(flow) = scope.flow.info.get_hashed(name)
                 && !barrier
-                // Handles the special case of class fields:
-                // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
-                // """The scope of names defined in a class block is limited to the
-                // class block; it does not extend to the code blocks of
-                // methods. This includes comprehensions and generator
-                // expressions, but it does not include annotation scopes, which
-                // have access to their enclosing class scopes."""
-                && (
-                    (lookup_depth == 0) // We can always see values in the current scope
-                    || (is_current_scope_annotation && lookup_depth == 1)// Annotations can see class fields in enclosing scopes
-                    || !is_class // Other scopes cannot see names defined in class bodies
-                )
             {
                 let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
                 if let Some(pinned_idx) = maybe_pinned_idx {
