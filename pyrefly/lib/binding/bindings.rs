@@ -803,7 +803,7 @@ impl<'a> BindingsBuilder<'a> {
                 // have access to their enclosing class scopes."""
                 && (
                     (is_current_scope_class && lookup_depth == 0) // The class body can see class fields in the current scope
-                    || is_current_scope_annotation // Annotations can see class fields in enclosing scopes
+                    || (is_current_scope_annotation && lookup_depth == 1)// Annotations can see class fields in enclosing scopes
                     || !matches!(flow.style, FlowStyle::ClassField { .. }) // Other scopes cannot see class fields
                 )
             {

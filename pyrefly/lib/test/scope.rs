@@ -673,7 +673,7 @@ class C:
 );
 
 testcase!(
-    bug = "We don't yet handle all class body members or nesting correctly",
+    bug = "We don't yet handle all class body members correctly",
     test_class_scope_edge_cases,
     r#"
 from typing import assert_type, Any
@@ -701,7 +701,7 @@ class B:
 class C:
     x = 5
     class Inner:
-        def g(self, z = x):  # should error, x is not in scope and this crashes
+        def g(self, z = x):  # E: Could not find name `x`
             pass
     "#,
 );
