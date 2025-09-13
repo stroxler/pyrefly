@@ -37,7 +37,7 @@ yansi = { version = "1.0.0-rc.1", features = ["hyperlink"] }
 [dev-dependencies]
 pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
 pulldown-cmark = "0.9.1"
-tempfile = "3.15"
+tempfile = "3.22"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 which = "4.2.4"
