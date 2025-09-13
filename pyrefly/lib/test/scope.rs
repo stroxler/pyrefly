@@ -694,7 +694,7 @@ assert_type(A.zs, list[tuple[str, Any]])
 class B:
     @staticmethod
     def f(): pass
-    cb = lambda _: f()  # Should be an error, this crashes if we call cb
+    cb = lambda _: f()  # E: Could not find name `f`
 
 # The visibility rules should understand scope layering - an annotation scope
 # can only see the containing class body, not any class body further up the scope stack

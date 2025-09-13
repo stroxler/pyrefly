@@ -791,6 +791,7 @@ impl<'a> BindingsBuilder<'a> {
         let is_current_scope_annotation =
             matches!(self.scopes.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.scopes.iter_rev().enumerate() {
+            let is_class = matches!(scope.kind, ScopeKind::Class(_));
             if let Some(flow) = scope.flow.info.get_hashed(name)
                 && !barrier
                 // Handles the special case of class fields:
@@ -803,7 +804,7 @@ impl<'a> BindingsBuilder<'a> {
                 && (
                     (lookup_depth == 0) // We can always see values in the current scope
                     || (is_current_scope_annotation && lookup_depth == 1)// Annotations can see class fields in enclosing scopes
-                    || !matches!(flow.style, FlowStyle::ClassField { .. }) // Other scopes cannot see class fields
+                    || !is_class // Other scopes cannot see names defined in class bodies
                 )
             {
                 let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
@@ -813,9 +814,7 @@ impl<'a> BindingsBuilder<'a> {
                     return ok_no_usage(idx);
                 }
             }
-            if !matches!(scope.kind, ScopeKind::Class(_))
-                && let Some(info) = scope.stat.0.get_hashed(name)
-            {
+            if !is_class && let Some(info) = scope.stat.0.get_hashed(name) {
                 match kind {
                     LookupKind::Regular => {
                         let key = info.as_key(name.into_key());
