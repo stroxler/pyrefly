@@ -788,7 +788,6 @@ impl<'a> BindingsBuilder<'a> {
     ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
         let mut barrier = false;
         let ok_no_usage = |idx| Ok((idx, None));
-        let is_current_scope_class = matches!(self.scopes.current().kind, ScopeKind::Class(_));
         let is_current_scope_annotation =
             matches!(self.scopes.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.scopes.iter_rev().enumerate() {
@@ -802,7 +801,7 @@ impl<'a> BindingsBuilder<'a> {
                 // expressions, but it does not include annotation scopes, which
                 // have access to their enclosing class scopes."""
                 && (
-                    (is_current_scope_class && lookup_depth == 0) // The class body can see class fields in the current scope
+                    (lookup_depth == 0) // We can always see values in the current scope
                     || (is_current_scope_annotation && lookup_depth == 1)// Annotations can see class fields in enclosing scopes
                     || !matches!(flow.style, FlowStyle::ClassField { .. }) // Other scopes cannot see class fields
                 )
