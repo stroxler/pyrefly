@@ -634,18 +634,15 @@ __all__ += []  # E: Could not find name `__all__`
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/264
+// Nested scopes - except for parameter scopes - cannot see a containing class
+// body. This applies not only to methods but also other scopes like lambda, inner
+// class bodies, and comprehensions. See https://github.com/facebook/pyrefly/issues/264
 testcase!(
     bug = "All these should show `Literal['string']`. The issue with comprehension persists, see also the next test case.",
     test_class_scope_lookups_when_skip,
     r#"
 from typing import reveal_type
-
 x = 'string'
-
-# Nested scopes - except for parameter scopes - cannot see a containing class
-# body. This applies not only to methods but also other scopes like lambda,
-# inner class bodies, and comprehensions.
 class A:
     x = 42
     def f():
@@ -653,7 +650,7 @@ class A:
     lambda_f = lambda: reveal_type(x) # E: revealed type: Literal['string']
     class B:
         reveal_type(x) # E: revealed type: Literal['string']
-    [reveal_type(x) for _ in range(1)] # E: revealed type: Literal[42]
+    [reveal_type(x) for _ in range(1)] # E: revealed type: Literal['string']
 "#,
 );
 
@@ -672,5 +669,22 @@ class C:
     x_chars = [char for char in X]
     def __init__(self, x: str = X):
         self.x = x
+    "#,
+);
+
+testcase!(
+    test_class_scope_edge_cases,
+    r#"
+from typing import assert_type, Any
+
+# The leftmost iterator of a comprehension evaluates in the parent scope, but
+# other iterators evaluate in the comprehension scope. This behavior is only really
+# evident in class bodies - this test checks that we get it exactly right.
+class A:
+    xs = [1, 2, 3]
+    ys = [(a, b) for a in xs for b in ["a", "b"]]
+    zs = [(a, b) for a in ["a", "b"] for b in xs]  # E: Could not find name `xs`
+assert_type(A.ys, list[tuple[int, str]])
+assert_type(A.zs, list[tuple[str, Any]])
     "#,
 );

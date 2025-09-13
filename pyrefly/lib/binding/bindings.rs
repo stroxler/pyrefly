@@ -791,12 +791,6 @@ impl<'a> BindingsBuilder<'a> {
         let is_current_scope_class = matches!(self.scopes.current().kind, ScopeKind::Class(_));
         let is_current_scope_annotation =
             matches!(self.scopes.current().kind, ScopeKind::Annotation);
-        // FIXME: Temporarily allow comprehensions to see all class fields, but
-        // class fields should be only allowed be used in the place of iterator,
-        // i.e. in `[expr1 for x in expr2]`, `expr2` can see class fields, but not `expr1`.
-        // See https://github.com/facebook/pyrefly/issues/264#issuecomment-3282180275 for details.
-        let is_current_scope_comprehension =
-            matches!(self.scopes.current().kind, ScopeKind::Comprehension);
         let mut is_current_scope = true;
         for scope in self.scopes.iter_rev() {
             if let Some(flow) = scope.flow.info.get_hashed(name)
@@ -811,7 +805,6 @@ impl<'a> BindingsBuilder<'a> {
                 && (
                     (is_current_scope_class && is_current_scope) // The class body can see class fields in the current scope
                     || is_current_scope_annotation // Annotations can see class fields in enclosing scopes
-                    || is_current_scope_comprehension // Comprehensions can see class fields in the current scope, but only in the place of iterators
                     || !matches!(flow.style, FlowStyle::ClassField { .. }) // Other scopes cannot see class fields
                 )
             {
