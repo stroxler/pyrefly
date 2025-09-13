@@ -791,8 +791,7 @@ impl<'a> BindingsBuilder<'a> {
         let is_current_scope_class = matches!(self.scopes.current().kind, ScopeKind::Class(_));
         let is_current_scope_annotation =
             matches!(self.scopes.current().kind, ScopeKind::Annotation);
-        let mut is_current_scope = true;
-        for scope in self.scopes.iter_rev() {
+        for (lookup_depth, scope) in self.scopes.iter_rev().enumerate() {
             if let Some(flow) = scope.flow.info.get_hashed(name)
                 && !barrier
                 // Handles the special case of class fields:
@@ -803,7 +802,7 @@ impl<'a> BindingsBuilder<'a> {
                 // expressions, but it does not include annotation scopes, which
                 // have access to their enclosing class scopes."""
                 && (
-                    (is_current_scope_class && is_current_scope) // The class body can see class fields in the current scope
+                    (is_current_scope_class && lookup_depth == 0) // The class body can see class fields in the current scope
                     || is_current_scope_annotation // Annotations can see class fields in enclosing scopes
                     || !matches!(flow.style, FlowStyle::ClassField { .. }) // Other scopes cannot see class fields
                 )
@@ -830,7 +829,6 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
             }
-            is_current_scope = false;
             barrier = barrier || scope.barrier;
         }
         Err(LookupError::NotFound)
