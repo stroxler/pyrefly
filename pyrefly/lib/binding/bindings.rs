@@ -801,6 +801,7 @@ impl<'a> BindingsBuilder<'a> {
             if is_class
                 && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
             {
+                // Note: class body scopes have `barrier = false`, so skipping the barrier update is okay.
                 continue;
             }
 
