@@ -299,8 +299,8 @@ impl Bindings {
         let scope_trace = builder.scopes.finish();
         let last_scope = scope_trace.toplevel_scope();
         let exported = exports.exports(lookup);
-        for (k, static_info) in last_scope.stat.0.iter_hashed() {
-            let info = last_scope.flow.info.get_hashed(k);
+        for (name, static_info) in last_scope.stat.0.iter_hashed() {
+            let info = last_scope.flow.info.get_hashed(name);
             let binding = match info {
                 Some(FlowInfo { key, .. }) => {
                     if let Some(ann) = static_info.annot {
@@ -317,14 +317,14 @@ impl Bindings {
                             .table
                             .types
                             .0
-                            .insert(static_info.as_key(k.into_key())),
+                            .insert(static_info.as_key(name.into_key())),
                     )
                 }
             };
-            if exported.contains_key_hashed(k) {
+            if exported.contains_key_hashed(name) {
                 builder
                     .table
-                    .insert(KeyExport(k.into_key().clone()), BindingExport(binding));
+                    .insert(KeyExport(name.into_key().clone()), BindingExport(binding));
             }
         }
         Self(Arc::new(BindingsInner {
