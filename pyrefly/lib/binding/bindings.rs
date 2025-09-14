@@ -815,6 +815,10 @@ impl<'a> BindingsBuilder<'a> {
                     return ok_no_usage(idx);
                 }
             }
+            // Class body scopes are dynamic, not static, so if we don't find a name in the
+            // current flow we keep looking. In every other kind of scope, anything the Python
+            // compiler has identified as local shadows enclosing scopes, so we should prefer
+            // inner static lookups to outer flow lookups.
             if !is_class && let Some(info) = scope.stat.0.get_hashed(name) {
                 match kind {
                     LookupKind::Regular => {

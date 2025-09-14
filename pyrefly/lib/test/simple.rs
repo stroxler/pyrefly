@@ -269,22 +269,6 @@ assert_type(f(), str)
 );
 
 testcase!(
-    test_class_rebind_attribute,
-    r#"
-from typing import assert_type
-def f(x: str) -> int:
-    return 42
-
-attribute = "test"
-
-class C:
-    attribute = f(attribute)
-
-assert_type(C().attribute, int)
-"#,
-);
-
-testcase!(
     test_class_attribute_lookup,
     r#"
 from typing import assert_type

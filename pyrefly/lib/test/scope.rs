@@ -18,15 +18,25 @@ class C:
 "#,
 );
 
+// The python compiler enforces static scoping rules in most cases - for example, if a function
+// defines a name and we try to read it before we write it, Python will normally not fall back
+// to searching in enclosing scopes.
+//
+// But class body scopes are dynamic - Python just checks the currently-defined
+// locals and then keeps looking. This allows Python developers to do things
+// like shadow a global in a class body with a simple assignment where the RHS
+// uses the name being defined in the LHS.
 testcase!(
-    test_more_class_scope,
+    test_class_scope_is_dynamic,
     r#"
 x: int = 0
+z: int = 0
 class C:
+    z: str = str(z)
     x: str = x # E: `int` is not assignable to `str`
     y: int = x # E: `str` is not assignable to `int`
+    # Inside of a method, x refers to the global x: int
     def m(self) -> str:
-        # x refers to global x: int
         return x # E: Returned type `int` is not assignable to declared return type `str`
 "#,
 );
