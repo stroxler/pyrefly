@@ -55,6 +55,21 @@ async def test_async():
 );
 
 testcase!(
+    bug = "Pyrefly's uninitialized local checks behave unpredictably depending on parent scopes",
+    test_uninitialized_local_shadows,
+    r#"
+from typing import reveal_type
+x = 5
+def f():
+    # These two lines ought to analyze the same, but we don't catch the use of an uninitialized local `x`.
+    reveal_type(y)  # E: `y` is uninitialized  # E: revealed type: Literal['y']
+    reveal_type(x)  # E: revealed type: Literal['x']
+    y = "y"
+    x = "x"
+"#,
+);
+
+testcase!(
     test_async_for_outside_async_function_def,
     r#"
 import asyncio
