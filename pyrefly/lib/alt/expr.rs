@@ -1115,6 +1115,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     *ty = Type::type_form(Type::Tuple(Tuple::unbounded(Type::Any(
                         AnyStyle::Implicit,
                     ))));
+                } else if cls.has_qname("typing", "Any") {
+                    *ty = Type::type_form(Type::any_explicit())
                 } else {
                     *ty = Type::type_form(self.promote(cls, range));
                 }
