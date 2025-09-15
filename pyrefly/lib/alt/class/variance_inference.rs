@@ -78,16 +78,15 @@ impl VarianceMap {
 }
 
 type Injectivity = bool;
-type TypeParam = (Name, Variance, Injectivity);
-type TParamArray = Vec<TypeParam>;
+type InferenceMap = SmallMap<Name, (Variance, Injectivity)>;
 
 // A map from class name to tparam environment
 // Why is this not Class or ClassObject
-type VarianceEnv = SmallMap<Class, TParamArray>;
+type VarianceEnv = SmallMap<Class, InferenceMap>;
 
 fn on_class(
     class: &Class,
-    on_edge: &mut impl FnMut(&Class) -> TParamArray,
+    on_edge: &mut impl FnMut(&Class) -> InferenceMap,
     on_var: &mut impl FnMut(&Name, Variance, Injectivity),
     get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
@@ -103,7 +102,7 @@ fn on_class(
         tuple: &Tuple,
         variance: Variance,
         inj: Injectivity,
-        on_edge: &mut impl FnMut(&Class) -> TParamArray,
+        on_edge: &mut impl FnMut(&Class) -> InferenceMap,
         on_var: &mut impl FnMut(&Name, Variance, Injectivity),
     ) {
         match tuple {
@@ -132,7 +131,7 @@ fn on_class(
         variance: Variance,
         inj: Injectivity,
         typ: &Type,
-        on_edge: &mut impl FnMut(&Class) -> TParamArray,
+        on_edge: &mut impl FnMut(&Class) -> InferenceMap,
         on_var: &mut impl FnMut(&Name, Variance, Injectivity),
     ) {
         match typ {
@@ -155,17 +154,14 @@ fn on_class(
 
                 let targs = class.targs().as_slice();
 
-                for (i, param) in params.iter().enumerate() {
-                    if let Some(ty) = targs.get(i) {
-                        let (_, variance_param, inj_param) = param;
-                        on_type(
-                            variance.compose(*variance_param),
-                            *inj_param,
-                            ty,
-                            on_edge,
-                            on_var,
-                        );
-                    }
+                for ((variance_param, inj_param), ty) in params.values().zip(targs) {
+                    on_type(
+                        variance.compose(*variance_param),
+                        *inj_param,
+                        ty,
+                        on_edge,
+                        on_var,
+                    );
                 }
             }
             Type::Quantified(q) => {
@@ -256,13 +252,11 @@ fn default_variance_and_inj(gp: &TParam) -> (Variance, Injectivity) {
     (variance, inj)
 }
 
-fn from_gp_to_decl(gp: &TParam) -> (Name, Variance, Injectivity) {
-    let (variance, inj) = default_variance_and_inj(gp);
-    (gp.name().clone(), variance, inj)
-}
-
-fn params_from_gp(tparams: &[TParam]) -> TParamArray {
-    tparams.iter().map(from_gp_to_decl).collect::<Vec<_>>()
+fn params_from_gp(tparams: &[TParam]) -> InferenceMap {
+    tparams
+        .iter()
+        .map(|p| (p.name().clone(), default_variance_and_inj(p)))
+        .collect::<InferenceMap>()
 }
 
 fn convert_gp_to_map(tparams: &TParams) -> SmallMap<Name, Variance> {
@@ -287,12 +281,12 @@ fn loop_fn<'a>(
     get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
     get_tparams: &impl Fn(&Class) -> Arc<TParams>,
-) -> TParamArray {
+) -> InferenceMap {
     if let Some(params) = environment.get(class) {
         return params.clone();
     }
 
-    let params: Vec<(Name, Variance, bool)> = params_from_gp(get_tparams(class).as_vec());
+    let params = params_from_gp(get_tparams(class).as_vec());
 
     environment.insert(class.dupe(), params.clone());
     let mut on_var = |_name: &Name, _variance: Variance, _inj: Injectivity| {};
@@ -316,12 +310,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let post_inference_initial = convert_gp_to_map(&self.get_class_tparams(class));
 
         fn to_map(
-            params: &TParamArray,
+            params: &InferenceMap,
             post_inference_initial: &SmallMap<Name, Variance>,
         ) -> SmallMap<Name, Variance> {
             let mut map = SmallMap::new();
 
-            for (name, variance, inj) in params.iter() {
+            for (name, (variance, inj)) in params.iter() {
                 let inferred_variance = match post_inference_initial.get(name) {
                     Some(&Variance::Bivariant) => match (*variance, *inj) {
                         (_, false) => Variance::Bivariant,
@@ -351,15 +345,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let mut params_prime = params.clone();
 
                 let mut on_var = |name: &Name, variance: Variance, inj: Injectivity| {
-                    for (n, variance_prime, inj_prime) in params_prime.iter_mut() {
-                        if n == name {
-                            *variance_prime = variance.union(*variance_prime);
-                            *inj_prime = *inj_prime || inj;
-                        }
+                    if let Some((variance_prime, inj_prime)) = params_prime.get_mut(name) {
+                        *variance_prime = variance.union(*variance_prime);
+                        *inj_prime = *inj_prime || inj;
                     }
                 };
 
-                let mut on_edge = |c: &Class| env.get(c).cloned().unwrap_or_else(Vec::new);
+                let mut on_edge = |c: &Class| env.get(c).cloned().unwrap_or_else(SmallMap::new);
 
                 on_class(
                     my_class,
