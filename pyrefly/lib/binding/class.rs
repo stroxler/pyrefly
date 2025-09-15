@@ -232,78 +232,73 @@ impl<'a> BindingsBuilder<'a> {
         let last_scope = self.scopes.pop();
         self.scopes.pop(); // annotation scope
         let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
-        for (name, flow_info) in last_scope.flow.info.iter_hashed() {
-            // Ignore a name not in the current flow's static. This can happen because operations
-            // like narrows can change the local flow info for a name defined in some parent scope.
-            if let Some(static_info) = last_scope.stat.0.get_hashed(name) {
-                let (definition, is_initialized_on_class) = {
-                    if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
-                        (
-                            ClassFieldDefinition::MethodLike {
-                                definition: flow_info.key,
-                                has_return_annotation,
+
+        let class_body_field_definitions = last_scope.flow.info.iter_hashed().flat_map(
+            |(name, flow_info)|
+            last_scope.stat.0.get_hashed(name).map(|static_info| {
+                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
+                    ClassFieldDefinition::MethodLike {
+                        definition: flow_info.key,
+                        has_return_annotation,
+                    }
+                } else {
+                    match flow_info.as_initial_value() {
+                        ClassFieldInBody::InitializedByAssign(e) =>
+                            ClassFieldDefinition::AssignedInBody {
+                                value: ExprOrBinding::Expr(e.clone()),
+                                annotation: static_info.annot,
                             },
-                            true,
-                        )
-                    } else {
-                        match flow_info.as_initial_value() {
-                            ClassFieldInBody::InitializedByAssign(e) => (
-                                ClassFieldDefinition::AssignedInBody {
-                                    value: ExprOrBinding::Expr(e.clone()),
-                                    annotation: static_info.annot,
-                                },
-                                true,
-                            ),
-                            ClassFieldInBody::InitializedWithoutAssign => (
-                                ClassFieldDefinition::DefinedWithoutAssign {
-                                    definition: flow_info.key,
-                                },
-                                true,
-                            ),
-                            ClassFieldInBody::Uninitialized => {
-                                let annotation = static_info.annot.unwrap_or_else(
-                                    || panic!("A class field known in the body but uninitialized always has an annotation.")
-                                );
-                                (
-                                    ClassFieldDefinition::DeclaredByAnnotation { annotation },
-                                    false,
-                                )
-                            }
+                        ClassFieldInBody::InitializedWithoutAssign =>
+                            ClassFieldDefinition::DefinedWithoutAssign {
+                                definition: flow_info.key,
+                            },
+                        ClassFieldInBody::Uninitialized => {
+                            let annotation = static_info.annot.unwrap_or_else(
+                                || panic!("A class field known in the body but uninitialized always has an annotation.")
+                            );
+                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
                         }
                     }
                 };
-                if let ClassFieldDefinition::AssignedInBody {
-                    value: ExprOrBinding::Expr(e),
-                    ..
-                } = &definition
-                {
-                    self.extract_pydantic_config_dict_metadata(
-                        e,
-                        name,
-                        &mut pydantic_frozen,
-                        &mut pydantic_config_dict_extra,
-                        &mut pydantic_validate_by_name,
-                        &mut pydantic_validate_by_alias,
-                    );
-                }
-                let binding = BindingClassField {
-                    class_idx: class_indices.class_idx,
-                    name: name.into_key().clone(),
-                    range: static_info.loc,
-                    definition,
-                };
-                fields.insert_hashed(
-                    name.cloned(),
-                    ClassFieldProperties::new(
-                        static_info.annot.is_some(),
-                        is_initialized_on_class,
-                        static_info.loc,
-                    ),
-                );
-                let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
-                self.insert_binding(key_field, binding);
+                (name, definition, static_info.loc)
             }
+        ));
+        for (name, definition, range) in class_body_field_definitions {
+            if let ClassFieldDefinition::AssignedInBody {
+                value: ExprOrBinding::Expr(e),
+                ..
+            } = &definition
+            {
+                self.extract_pydantic_config_dict_metadata(
+                    e,
+                    name,
+                    &mut pydantic_frozen,
+                    &mut pydantic_config_dict_extra,
+                    &mut pydantic_validate_by_name,
+                    &mut pydantic_validate_by_alias,
+                );
+            }
+            let (is_initialized_on_class, is_annotated) = match &definition {
+                ClassFieldDefinition::DeclaredByAnnotation { .. } => (false, true),
+                ClassFieldDefinition::AssignedInBody { annotation, .. } => {
+                    (true, annotation.is_some())
+                }
+                _ => (true, false),
+            };
+            let binding = BindingClassField {
+                class_idx: class_indices.class_idx,
+                name: name.into_key().clone(),
+                range,
+                definition,
+            };
+            fields.insert_hashed(
+                name.cloned(),
+                ClassFieldProperties::new(is_annotated, is_initialized_on_class, range),
+            );
+            let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
+            self.insert_binding(key_field, binding);
         }
+
         if let ScopeKind::Class(class_scope) = last_scope.kind {
             for (name, method, InstanceAttribute(value, annotation, range)) in
                 class_scope.method_defined_attributes()
