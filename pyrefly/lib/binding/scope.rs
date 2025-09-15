@@ -34,6 +34,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -607,6 +608,70 @@ impl Scope {
 
     fn module(range: TextRange) -> Self {
         Self::new(range, false, ScopeKind::Module)
+    }
+
+    /// Get the class field definitions and ranges from the current scope.
+    /// - Includes both fields defined in the class body and implicit definitions
+    ///   coming from self-assignment in methods. If both occur, only the class body
+    ///   definition is tracked.
+    /// - Panics if the current scope is not a class body.
+    pub fn class_field_definitions(self) -> SmallMap<Name, (ClassFieldDefinition, TextRange)> {
+        let mut field_definitions = SmallMap::new();
+        let class_scope = {
+            if let ScopeKind::Class(class_scope) = self.kind {
+                class_scope
+            } else {
+                unreachable!("Expected class body scope, got {:?}", self.kind)
+            }
+        };
+        self.flow.info.iter_hashed().for_each(
+            |(name, flow_info)| {
+            if let Some(static_info) = self.stat.0.get_hashed(name) {
+                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
+                    ClassFieldDefinition::MethodLike {
+                        definition: flow_info.key,
+                        has_return_annotation,
+                    }
+                } else {
+                    match flow_info.as_initial_value() {
+                        ClassFieldInBody::InitializedByAssign(e) =>
+                            ClassFieldDefinition::AssignedInBody {
+                                value: ExprOrBinding::Expr(e.clone()),
+                                annotation: static_info.annot,
+                            },
+                        ClassFieldInBody::InitializedWithoutAssign =>
+                            ClassFieldDefinition::DefinedWithoutAssign {
+                                definition: flow_info.key,
+                            },
+                        ClassFieldInBody::Uninitialized => {
+                            let annotation = static_info.annot.unwrap_or_else(
+                                || panic!("A class field known in the body but uninitialized always has an annotation.")
+                            );
+                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
+                        }
+                    }
+                };
+                field_definitions.insert_hashed(name.owned(), (definition, static_info.loc));
+            }
+        });
+        class_scope.method_defined_attributes().for_each(
+            |(name, method, InstanceAttribute(value, annotation, range))| {
+                if !field_definitions.contains_key_hashed(name.as_ref()) {
+                    field_definitions.insert_hashed(
+                        name,
+                        (
+                            ClassFieldDefinition::DefinedInMethod {
+                                value,
+                                annotation,
+                                method,
+                            },
+                            range,
+                        ),
+                    );
+                }
+            },
+        );
+        field_definitions
     }
 }
 

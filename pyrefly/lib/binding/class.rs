@@ -60,12 +60,9 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamBuilder;
 use crate::binding::pydantic::PydanticMetadataBinding;
-use crate::binding::scope::ClassFieldInBody;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
-use crate::binding::scope::InstanceAttribute;
 use crate::binding::scope::Scope;
-use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::types::class::ClassDefIndex;
@@ -231,63 +228,9 @@ impl<'a> BindingsBuilder<'a> {
 
         let last_scope = self.scopes.pop();
         self.scopes.pop(); // annotation scope
-        let class_scope = if let ScopeKind::Class(class_scope) = last_scope.kind {
-            class_scope
-        } else {
-            unreachable!("Expected class body scope, got {:?}", last_scope.kind)
-        };
-
-        let mut field_definitions = SmallMap::new();
-        last_scope.flow.info.iter_hashed().for_each(
-            |(name, flow_info)| {
-            if let Some(static_info) = last_scope.stat.0.get_hashed(name) {
-                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
-                    ClassFieldDefinition::MethodLike {
-                        definition: flow_info.key,
-                        has_return_annotation,
-                    }
-                } else {
-                    match flow_info.as_initial_value() {
-                        ClassFieldInBody::InitializedByAssign(e) =>
-                            ClassFieldDefinition::AssignedInBody {
-                                value: ExprOrBinding::Expr(e.clone()),
-                                annotation: static_info.annot,
-                            },
-                        ClassFieldInBody::InitializedWithoutAssign =>
-                            ClassFieldDefinition::DefinedWithoutAssign {
-                                definition: flow_info.key,
-                            },
-                        ClassFieldInBody::Uninitialized => {
-                            let annotation = static_info.annot.unwrap_or_else(
-                                || panic!("A class field known in the body but uninitialized always has an annotation.")
-                            );
-                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
-                        }
-                    }
-                };
-                field_definitions.insert_hashed(name.owned(), (definition, static_info.loc));
-            }
-        });
-        class_scope.method_defined_attributes().for_each(
-            |(name, method, InstanceAttribute(value, annotation, range))| {
-                if !field_definitions.contains_key_hashed(name.as_ref()) {
-                    field_definitions.insert_hashed(
-                        name,
-                        (
-                            ClassFieldDefinition::DefinedInMethod {
-                                value,
-                                annotation,
-                                method,
-                            },
-                            range,
-                        ),
-                    );
-                }
-            },
-        );
 
         let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
-        for (name, (definition, range)) in field_definitions.into_iter_hashed() {
+        for (name, (definition, range)) in last_scope.class_field_definitions().into_iter_hashed() {
             if let ClassFieldDefinition::AssignedInBody {
                 value: ExprOrBinding::Expr(e),
                 ..
