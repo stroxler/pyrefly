@@ -439,6 +439,17 @@ x = "str"
 );
 
 testcase!(
+    bug = "We don't detect a case that crashes at runtime (the compiler rejects this)",
+    test_mutable_capture_read_before_declared,
+    r#"
+x = 42
+def f():
+    print(x)  # Should error, the compiler crashes with "SyntaxError: name 'x' is used prior to global declaration"
+    global x
+"#,
+);
+
+testcase!(
     test_del_name,
     r#"
 x: int
