@@ -471,6 +471,18 @@ z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable 
 );
 
 testcase!(
+    bug = "The duplication of flow and static leads to us accidentally allowing uninitialized reads when a var shadows an enclosing scope",
+    test_uninitialized_when_shadowing,
+    r#"
+from typing import assert_type
+x: int = 5
+def f():
+    assert_type(x, str)  # This should error, it crashes at runtime. We do understand the type, but we fail to track initialization.
+    x: str = "foo"
+    "#,
+);
+
+testcase!(
     test_uninitialized_merge_flow,
     r#"
 def test(cond: bool):
