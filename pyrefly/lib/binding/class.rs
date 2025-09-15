@@ -231,7 +231,11 @@ impl<'a> BindingsBuilder<'a> {
 
         let last_scope = self.scopes.pop();
         self.scopes.pop(); // annotation scope
-        let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
+        let class_scope = if let ScopeKind::Class(class_scope) = last_scope.kind {
+            class_scope
+        } else {
+            unreachable!("Expected class body scope, got {:?}", last_scope.kind)
+        };
 
         let field_definitions = last_scope.flow.info.iter_hashed().flat_map(
             |(name, flow_info)|
@@ -263,11 +267,12 @@ impl<'a> BindingsBuilder<'a> {
                 (name.owned(), definition, static_info.loc)
             }
         )).chain({
-            let class_scope = if let ScopeKind::Class(class_scope) = last_scope.kind { class_scope } else { unreachable!("Expected class body scope, got {:?}", last_scope.kind) };
             class_scope.method_defined_attributes().map(|(name, method, InstanceAttribute(value, annotation, range))| {
                 (name, ClassFieldDefinition::DefinedInMethod { value, annotation, method, }, range)
             })
         });
+
+        let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
         for (name, definition, range) in field_definitions {
             // Fields can appear more than once, because we might track self assignment in methods when
             // the attribute is also declared in the class body. We prefer the class body definition, which
