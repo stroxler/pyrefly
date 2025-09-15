@@ -1015,6 +1015,33 @@ Completion Results:
     );
 }
 
+// todo(kylei): escape escape characters
+#[test]
+fn completion_literal_with_escape_characters() {
+    let code = r#"
+from typing import Literal
+def foo(x: Literal["a\nb"]): ...
+foo("
+#    ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+4 | foo("
+         ^
+Completion Results:
+- (Value) 'a
+b': Literal['a
+b']
+- (Variable) x=: Literal['a
+b']"#
+            .trim(),
+        report.trim(),
+    );
+}
+
 // todo(kylei): completion on known dict values
 // Pyright completes "a", "b"
 #[test]
