@@ -498,16 +498,15 @@ impl ConfigFile {
              // be set in `ConfigFile::configure()`.
              self.root.replace_imports_with_any.as_deref().unwrap());
         // Need to filter out any files that would be a not case.
-        let mut found_match = None;
-        for w in wildcards {
+        let found_match = wildcards.iter().find_map(|w| {
             if w.matches(module) == Match::Negative {
-                found_match = Some(false);
-                break;
+                Some(false)
             } else if w.matches(module) == Match::Positive {
-                found_match = Some(true);
-                break;
+                Some(true)
+            } else {
+                None
             }
-        }
+        });
         found_match == Some(true)
     }
 
@@ -520,9 +519,16 @@ impl ConfigFile {
              // we can use unwrap here, because the value in the root config must
              // be set in `ConfigFile::configure()`.
              self.root.ignore_missing_imports.as_deref().unwrap());
-        wildcards
-            .iter()
-            .any(|p| p.matches(module) == Match::Positive)
+        let found_match = wildcards.iter().find_map(|w| {
+            if w.matches(module) == Match::Negative {
+                Some(false)
+            } else if w.matches(module) == Match::Positive {
+                Some(true)
+            } else {
+                None
+            }
+        });
+        found_match == Some(true)
     }
 
     pub fn untyped_def_behavior(&self, path: &Path) -> UntypedDefBehavior {
