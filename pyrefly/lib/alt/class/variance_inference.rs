@@ -247,8 +247,8 @@ fn on_class(
     }
 }
 
-fn default_variance_and_inj(gp: &TParam, contains_bivariant: &mut bool) -> (Variance, Injectivity) {
-    let variance = pre_to_post_variance(gp.variance, contains_bivariant);
+fn default_variance_and_inj(gp: &TParam) -> (Variance, Injectivity) {
+    let variance = pre_to_post_variance(gp.variance);
     let inj = match variance {
         Variance::Bivariant => false,
         _ => true,
@@ -256,50 +256,37 @@ fn default_variance_and_inj(gp: &TParam, contains_bivariant: &mut bool) -> (Vari
     (variance, inj)
 }
 
-fn from_gp_to_decl(gp: &TParam, contains_bivariant: &mut bool) -> (Name, Variance, Injectivity) {
-    let (variance, inj) = default_variance_and_inj(gp, contains_bivariant);
+fn from_gp_to_decl(gp: &TParam) -> (Name, Variance, Injectivity) {
+    let (variance, inj) = default_variance_and_inj(gp);
     (gp.name().clone(), variance, inj)
 }
 
-fn params_from_gp(tparams: &[TParam], contains_bivariant: &mut bool) -> TParamArray {
-    tparams
-        .iter()
-        .map(|param| from_gp_to_decl(param, contains_bivariant))
-        .collect::<Vec<_>>()
+fn params_from_gp(tparams: &[TParam]) -> TParamArray {
+    tparams.iter().map(from_gp_to_decl).collect::<Vec<_>>()
 }
 
-fn convert_gp_to_map(tparams: &TParams, contains_bivariant: &mut bool) -> SmallMap<Name, Variance> {
+fn convert_gp_to_map(tparams: &TParams) -> SmallMap<Name, Variance> {
     let mut lookup = SmallMap::new();
 
     for param in tparams.iter() {
-        lookup.insert(
-            param.name().clone(),
-            pre_to_post_variance(param.variance, contains_bivariant),
-        );
+        lookup.insert(param.name().clone(), pre_to_post_variance(param.variance));
     }
 
     lookup
 }
 
-fn pre_to_post_variance(
-    pre_variance: PreInferenceVariance,
-    contains_bivariant: &mut bool,
-) -> Variance {
+fn pre_to_post_variance(pre_variance: PreInferenceVariance) -> Variance {
     match pre_variance {
         PreInferenceVariance::PCovariant => Variance::Covariant,
         PreInferenceVariance::PContravariant => Variance::Contravariant,
         PreInferenceVariance::PInvariant => Variance::Invariant,
-        PreInferenceVariance::PUndefined => {
-            *contains_bivariant = true;
-            Variance::Bivariant
-        }
+        PreInferenceVariance::PUndefined => Variance::Bivariant,
     }
 }
 
 fn loop_fn<'a>(
     class: &'a Class,
     environment: &mut VarianceEnv,
-    contains_bivariant: &mut bool,
     get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
     get_tparams: &impl Fn(&Class) -> Arc<TParams>,
@@ -308,23 +295,13 @@ fn loop_fn<'a>(
         return params.clone();
     }
 
-    let params: Vec<(Name, Variance, bool)> =
-        params_from_gp(get_tparams(class).as_vec(), contains_bivariant);
+    let params: Vec<(Name, Variance, bool)> = params_from_gp(get_tparams(class).as_vec());
 
     environment.insert(class.dupe(), params.clone());
     let mut on_var = |_name: &Name, _variance: Variance, _inj: Injectivity| {};
 
     // get the variance results of a given class c
-    let mut on_edge = |c: &Class| {
-        loop_fn(
-            c,
-            environment,
-            contains_bivariant,
-            get_class_bases,
-            get_fields,
-            get_tparams,
-        )
-    };
+    let mut on_edge = |c: &Class| loop_fn(c, environment, get_class_bases, get_fields, get_tparams);
 
     on_class(
         class,
@@ -339,10 +316,7 @@ fn loop_fn<'a>(
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn variance_map(&self, class: &Class) -> Arc<VarianceMap> {
-        let mut contains_bivariant: bool = false;
-
-        let post_inference_initial =
-            convert_gp_to_map(&self.get_class_tparams(class), &mut contains_bivariant);
+        let post_inference_initial = convert_gp_to_map(&self.get_class_tparams(class));
 
         fn to_map(
             params: &TParamArray,
@@ -412,6 +386,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
+        let contains_bivariant = post_inference_initial
+            .iter()
+            .any(|(_, v)| *v == Variance::Bivariant);
         if !contains_bivariant {
             Arc::new(VarianceMap(post_inference_initial))
         } else {
@@ -420,7 +397,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             loop_fn(
                 class,
                 &mut environment,
-                &mut contains_bivariant,
                 &|c| self.get_base_types_for_class(c),
                 &|c| self.get_class_field_map(c),
                 &|c| self.get_class_tparams(c),
