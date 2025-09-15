@@ -237,9 +237,10 @@ impl<'a> BindingsBuilder<'a> {
             unreachable!("Expected class body scope, got {:?}", last_scope.kind)
         };
 
-        let field_definitions = last_scope.flow.info.iter_hashed().flat_map(
-            |(name, flow_info)|
-            last_scope.stat.0.get_hashed(name).map(|static_info| {
+        let mut field_definitions = SmallMap::new();
+        last_scope.flow.info.iter_hashed().for_each(
+            |(name, flow_info)| {
+            if let Some(static_info) = last_scope.stat.0.get_hashed(name) {
                 let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
                     ClassFieldDefinition::MethodLike {
                         definition: flow_info.key,
@@ -264,57 +265,65 @@ impl<'a> BindingsBuilder<'a> {
                         }
                     }
                 };
-                (name.owned(), definition, static_info.loc)
+                field_definitions.insert_hashed(name.owned(), (definition, static_info.loc));
             }
-        )).chain({
-            class_scope.method_defined_attributes().map(|(name, method, InstanceAttribute(value, annotation, range))| {
-                (name, ClassFieldDefinition::DefinedInMethod { value, annotation, method, }, range)
-            })
         });
-
-        let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
-        for (name, definition, range) in field_definitions {
-            // Fields can appear more than once, because we might track self assignment in methods when
-            // the attribute is also declared in the class body. We prefer the class body definition, which
-            // comes first, so skip duplicates.
-            if !fields.contains_key_hashed(name.as_ref()) {
-                if let ClassFieldDefinition::AssignedInBody {
-                    value: ExprOrBinding::Expr(e),
-                    ..
-                } = &definition
-                {
-                    self.extract_pydantic_config_dict_metadata(
-                        e,
-                        &name,
-                        &mut pydantic_frozen,
-                        &mut pydantic_config_dict_extra,
-                        &mut pydantic_validate_by_name,
-                        &mut pydantic_validate_by_alias,
+        class_scope.method_defined_attributes().for_each(
+            |(name, method, InstanceAttribute(value, annotation, range))| {
+                if !field_definitions.contains_key_hashed(name.as_ref()) {
+                    field_definitions.insert_hashed(
+                        name,
+                        (
+                            ClassFieldDefinition::DefinedInMethod {
+                                value,
+                                annotation,
+                                method,
+                            },
+                            range,
+                        ),
                     );
                 }
-                let (is_initialized_on_class, is_annotated) = match &definition {
-                    ClassFieldDefinition::DefinedInMethod { annotation, .. } => {
-                        (false, annotation.is_some())
-                    }
-                    ClassFieldDefinition::DeclaredByAnnotation { .. } => (false, true),
-                    ClassFieldDefinition::AssignedInBody { annotation, .. } => {
-                        (true, annotation.is_some())
-                    }
-                    _ => (true, false),
-                };
-                fields.insert_hashed(
-                    name.clone(),
-                    ClassFieldProperties::new(is_annotated, is_initialized_on_class, range),
+            },
+        );
+
+        let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
+        for (name, (definition, range)) in field_definitions.into_iter_hashed() {
+            if let ClassFieldDefinition::AssignedInBody {
+                value: ExprOrBinding::Expr(e),
+                ..
+            } = &definition
+            {
+                self.extract_pydantic_config_dict_metadata(
+                    e,
+                    &name,
+                    &mut pydantic_frozen,
+                    &mut pydantic_config_dict_extra,
+                    &mut pydantic_validate_by_name,
+                    &mut pydantic_validate_by_alias,
                 );
-                let key_field = KeyClassField(class_indices.def_index, name.clone().into_key());
-                let binding = BindingClassField {
-                    class_idx: class_indices.class_idx,
-                    name: name.into_key(),
-                    range,
-                    definition,
-                };
-                self.insert_binding(key_field, binding);
             }
+            let (is_initialized_on_class, is_annotated) = match &definition {
+                ClassFieldDefinition::DefinedInMethod { annotation, .. } => {
+                    (false, annotation.is_some())
+                }
+                ClassFieldDefinition::DeclaredByAnnotation { .. } => (false, true),
+                ClassFieldDefinition::AssignedInBody { annotation, .. } => {
+                    (true, annotation.is_some())
+                }
+                _ => (true, false),
+            };
+            fields.insert_hashed(
+                name.clone(),
+                ClassFieldProperties::new(is_annotated, is_initialized_on_class, range),
+            );
+            let key_field = KeyClassField(class_indices.def_index, name.clone().into_key());
+            let binding = BindingClassField {
+                class_idx: class_indices.class_idx,
+                name: name.into_key(),
+                range,
+                definition,
+            };
+            self.insert_binding(key_field, binding);
         }
 
         let decorator_keys = decorators_with_ranges
