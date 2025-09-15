@@ -38,11 +38,14 @@ use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -320,6 +323,7 @@ impl Query {
                 FunctionKind::CallbackProtocol(cls) => {
                     format!("{}.__call__", qname_to_string(cls.qname()))
                 }
+                FunctionKind::Final => String::from("typing.Final"),
                 _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
             }
         }
@@ -760,7 +764,7 @@ impl Query {
         }
 
         let mut res = Vec::new();
-        fn f<'a>(
+        fn process_expr<'a>(
             x: &Expr,
             module_info: &ModuleInfo,
             answers: &Answers,
@@ -803,10 +807,56 @@ impl Query {
                 });
             }
 
-            x.recurse(&mut |x| f(x, module_info, answers, transaction, handle, res));
+            x.recurse(&mut |x| process_expr(x, module_info, answers, transaction, handle, res));
         }
 
-        ast.visit(&mut |x| f(x, &module_info, &answers, &transaction, &handle, &mut res));
+        fn add_decorators<'a>(
+            decorators: &[Decorator],
+            module_info: &ModuleInfo,
+            answers: &Answers,
+            transaction: &Transaction<'a>,
+            handle: &Handle,
+            res: &mut Vec<(DisplayRange, Callee)>,
+        ) {
+            for dec in decorators {
+                if matches!(dec.expression, Expr::Name(_) | Expr::Attribute(_))
+                    && let Some(call_ty) = answers.get_type_trace(dec.expression.range())
+                {
+                    callee_from_type(
+                        &call_ty,
+                        None,
+                        dec.expression.range(),
+                        None,
+                        module_info,
+                        transaction,
+                        handle,
+                        answers,
+                    )
+                    .into_iter()
+                    .for_each(|callee| {
+                        res.push((module_info.display_range(dec.expression.range()), callee));
+                    });
+                }
+            }
+        }
+
+        for stmt in &ast.body {
+            match &stmt {
+                Stmt::ClassDef(StmtClassDef {
+                    decorator_list: d, ..
+                })
+                | Stmt::FunctionDef(StmtFunctionDef {
+                    decorator_list: d, ..
+                }) => {
+                    add_decorators(d, &module_info, &answers, &transaction, &handle, &mut res);
+                }
+                _ => {}
+            }
+            stmt.visit(&mut |x| {
+                process_expr(x, &module_info, &answers, &transaction, &handle, &mut res)
+            });
+        }
+
         Some(res)
     }
 
