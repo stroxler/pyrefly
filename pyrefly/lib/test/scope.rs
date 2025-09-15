@@ -425,6 +425,20 @@ assert_type(C().x, int)  # This should be a lookup error
 );
 
 testcase!(
+    bug = "We allow mutable captures to mutate in ways that invalidate through-barrier types on globals and nonlocals",
+    test_mutable_capture_incompatible_assign,
+    r#"
+from typing import reveal_type
+x = 5
+def f():
+    global x
+    reveal_type(x)  # E: revealed type: Literal['str', 5]
+    x = b'bytes'  # This ought to be an error (unless the reveal_type above were to account for the mutation)
+x = "str"
+"#,
+);
+
+testcase!(
     test_del_name,
     r#"
 x: int
