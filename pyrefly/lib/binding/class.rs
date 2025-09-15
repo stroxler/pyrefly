@@ -233,7 +233,7 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.pop(); // annotation scope
         let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
 
-        let class_body_field_definitions = last_scope.flow.info.iter_hashed().flat_map(
+        let field_definitions = last_scope.flow.info.iter_hashed().flat_map(
             |(name, flow_info)|
             last_scope.stat.0.get_hashed(name).map(|static_info| {
                 let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
@@ -260,73 +260,56 @@ impl<'a> BindingsBuilder<'a> {
                         }
                     }
                 };
-                (name, definition, static_info.loc)
+                (name.owned(), definition, static_info.loc)
             }
-        ));
-        for (name, definition, range) in class_body_field_definitions {
-            if let ClassFieldDefinition::AssignedInBody {
-                value: ExprOrBinding::Expr(e),
-                ..
-            } = &definition
-            {
-                self.extract_pydantic_config_dict_metadata(
-                    e,
-                    name,
-                    &mut pydantic_frozen,
-                    &mut pydantic_config_dict_extra,
-                    &mut pydantic_validate_by_name,
-                    &mut pydantic_validate_by_alias,
+        )).chain({
+            let class_scope = if let ScopeKind::Class(class_scope) = last_scope.kind { class_scope } else { unreachable!("Expected class body scope, got {:?}", last_scope.kind) };
+            class_scope.method_defined_attributes().map(|(name, method, InstanceAttribute(value, annotation, range))| {
+                (name, ClassFieldDefinition::DefinedInMethod { value, annotation, method, }, range)
+            })
+        });
+        for (name, definition, range) in field_definitions {
+            // Fields can appear more than once, because we might track self assignment in methods when
+            // the attribute is also declared in the class body. We prefer the class body definition, which
+            // comes first, so skip duplicates.
+            if !fields.contains_key_hashed(name.as_ref()) {
+                if let ClassFieldDefinition::AssignedInBody {
+                    value: ExprOrBinding::Expr(e),
+                    ..
+                } = &definition
+                {
+                    self.extract_pydantic_config_dict_metadata(
+                        e,
+                        &name,
+                        &mut pydantic_frozen,
+                        &mut pydantic_config_dict_extra,
+                        &mut pydantic_validate_by_name,
+                        &mut pydantic_validate_by_alias,
+                    );
+                }
+                let (is_initialized_on_class, is_annotated) = match &definition {
+                    ClassFieldDefinition::DefinedInMethod { annotation, .. } => {
+                        (false, annotation.is_some())
+                    }
+                    ClassFieldDefinition::DeclaredByAnnotation { .. } => (false, true),
+                    ClassFieldDefinition::AssignedInBody { annotation, .. } => {
+                        (true, annotation.is_some())
+                    }
+                    _ => (true, false),
+                };
+                fields.insert_hashed(
+                    name.clone(),
+                    ClassFieldProperties::new(is_annotated, is_initialized_on_class, range),
                 );
+                let key_field = KeyClassField(class_indices.def_index, name.clone().into_key());
+                let binding = BindingClassField {
+                    class_idx: class_indices.class_idx,
+                    name: name.into_key(),
+                    range,
+                    definition,
+                };
+                self.insert_binding(key_field, binding);
             }
-            let (is_initialized_on_class, is_annotated) = match &definition {
-                ClassFieldDefinition::DeclaredByAnnotation { .. } => (false, true),
-                ClassFieldDefinition::AssignedInBody { annotation, .. } => {
-                    (true, annotation.is_some())
-                }
-                _ => (true, false),
-            };
-            let binding = BindingClassField {
-                class_idx: class_indices.class_idx,
-                name: name.into_key().clone(),
-                range,
-                definition,
-            };
-            fields.insert_hashed(
-                name.cloned(),
-                ClassFieldProperties::new(is_annotated, is_initialized_on_class, range),
-            );
-            let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
-            self.insert_binding(key_field, binding);
-        }
-
-        if let ScopeKind::Class(class_scope) = last_scope.kind {
-            for (name, method, InstanceAttribute(value, annotation, range)) in
-                class_scope.method_defined_attributes()
-            {
-                if !fields.contains_key_hashed(name.as_ref()) {
-                    fields.insert_hashed(
-                        name.clone(),
-                        ClassFieldProperties::new(annotation.is_some(), false, range),
-                    );
-
-                    let key_field = KeyClassField(class_indices.def_index, name.key().clone());
-                    self.insert_binding(
-                        key_field,
-                        BindingClassField {
-                            class_idx: class_indices.class_idx,
-                            name: name.into_key(),
-                            range,
-                            definition: ClassFieldDefinition::DefinedInMethod {
-                                value,
-                                annotation,
-                                method,
-                            },
-                        },
-                    );
-                }
-            }
-        } else {
-            unreachable!("Expected class body scope, got {:?}", last_scope.kind);
         }
 
         let decorator_keys = decorators_with_ranges

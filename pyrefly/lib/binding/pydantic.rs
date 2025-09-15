@@ -45,7 +45,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn extract_pydantic_config_dict_metadata(
         &self,
         e: &Expr,
-        name: Hashed<&Name>,
+        name: &Hashed<Name>,
         pydantic_frozen: &mut Option<bool>,
         pydantic_extra: &mut Option<bool>,
         pydantic_validate_by_name: &mut bool,
