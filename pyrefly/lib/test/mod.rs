@@ -25,6 +25,7 @@ mod decorators;
 mod delayed_inference;
 mod descriptors;
 mod dict;
+mod django;
 mod enums;
 mod flow;
 mod generic_basic;
