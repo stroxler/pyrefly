@@ -247,23 +247,13 @@ impl<'a> BindingsBuilder<'a> {
                         )
                     } else {
                         match flow_info.as_initial_value() {
-                            ClassFieldInBody::InitializedByAssign(e) => {
-                                self.extract_pydantic_config_dict_metadata(
-                                    &e,
-                                    name,
-                                    &mut pydantic_frozen,
-                                    &mut pydantic_config_dict_extra,
-                                    &mut pydantic_validate_by_name,
-                                    &mut pydantic_validate_by_alias,
-                                );
-                                (
-                                    ClassFieldDefinition::AssignedInBody {
-                                        value: ExprOrBinding::Expr(e.clone()),
-                                        annotation: static_info.annot,
-                                    },
-                                    true,
-                                )
-                            }
+                            ClassFieldInBody::InitializedByAssign(e) => (
+                                ClassFieldDefinition::AssignedInBody {
+                                    value: ExprOrBinding::Expr(e.clone()),
+                                    annotation: static_info.annot,
+                                },
+                                true,
+                            ),
                             ClassFieldInBody::InitializedWithoutAssign => (
                                 ClassFieldDefinition::DefinedWithoutAssign {
                                     definition: flow_info.key,
@@ -282,6 +272,20 @@ impl<'a> BindingsBuilder<'a> {
                         }
                     }
                 };
+                if let ClassFieldDefinition::AssignedInBody {
+                    value: ExprOrBinding::Expr(e),
+                    ..
+                } = &definition
+                {
+                    self.extract_pydantic_config_dict_metadata(
+                        e,
+                        name,
+                        &mut pydantic_frozen,
+                        &mut pydantic_config_dict_extra,
+                        &mut pydantic_validate_by_name,
+                        &mut pydantic_validate_by_alias,
+                    );
+                }
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
