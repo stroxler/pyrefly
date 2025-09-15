@@ -805,10 +805,10 @@ impl<'a> BindingsBuilder<'a> {
                 continue;
             }
 
-            if let Some(flow) = scope.flow.info.get_hashed(name)
+            if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
-                let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
+                let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow_info.key, usage);
                 if let Some(pinned_idx) = maybe_pinned_idx {
                     return Ok((idx, Some(pinned_idx)));
                 } else {
@@ -819,10 +819,10 @@ impl<'a> BindingsBuilder<'a> {
             // current flow we keep looking. In every other kind of scope, anything the Python
             // compiler has identified as local shadows enclosing scopes, so we should prefer
             // inner static lookups to outer flow lookups.
-            if !is_class && let Some(info) = scope.stat.0.get_hashed(name) {
+            if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
                 match kind {
                     LookupKind::Regular => {
-                        let key = info.as_key(name.into_key());
+                        let key = static_info.as_key(name.into_key());
                         return ok_no_usage(self.table.types.0.insert(key));
                     }
                     LookupKind::Mutable => {

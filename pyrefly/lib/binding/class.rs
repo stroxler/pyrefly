@@ -232,21 +232,21 @@ impl<'a> BindingsBuilder<'a> {
         let last_scope = self.scopes.pop();
         self.scopes.pop(); // annotation scope
         let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
-        for (name, info) in last_scope.flow.info.iter_hashed() {
+        for (name, flow_info) in last_scope.flow.info.iter_hashed() {
             // Ignore a name not in the current flow's static. This can happen because operations
             // like narrows can change the local flow info for a name defined in some parent scope.
-            if let Some(stat_info) = last_scope.stat.0.get_hashed(name) {
+            if let Some(static_info) = last_scope.stat.0.get_hashed(name) {
                 let (definition, is_initialized_on_class) = {
-                    if let FlowStyle::FunctionDef(_, has_return_annotation) = info.style {
+                    if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
                         (
                             ClassFieldDefinition::MethodLike {
-                                definition: info.key,
+                                definition: flow_info.key,
                                 has_return_annotation,
                             },
                             true,
                         )
                     } else {
-                        match info.as_initial_value() {
+                        match flow_info.as_initial_value() {
                             ClassFieldInBody::InitializedByAssign(e) => {
                                 self.extract_pydantic_config_dict_metadata(
                                     &e,
@@ -259,19 +259,19 @@ impl<'a> BindingsBuilder<'a> {
                                 (
                                     ClassFieldDefinition::AssignedInBody {
                                         value: ExprOrBinding::Expr(e.clone()),
-                                        annotation: stat_info.annot,
+                                        annotation: static_info.annot,
                                     },
                                     true,
                                 )
                             }
                             ClassFieldInBody::InitializedWithoutAssign => (
                                 ClassFieldDefinition::DefinedWithoutAssign {
-                                    definition: info.key,
+                                    definition: flow_info.key,
                                 },
                                 true,
                             ),
                             ClassFieldInBody::Uninitialized => {
-                                let annotation = stat_info.annot.unwrap_or_else(
+                                let annotation = static_info.annot.unwrap_or_else(
                                     || panic!("A class field known in the body but uninitialized always has an annotation.")
                                 );
                                 (
@@ -285,15 +285,15 @@ impl<'a> BindingsBuilder<'a> {
                 let binding = BindingClassField {
                     class_idx: class_indices.class_idx,
                     name: name.into_key().clone(),
-                    range: stat_info.loc,
+                    range: static_info.loc,
                     definition,
                 };
                 fields.insert_hashed(
                     name.cloned(),
                     ClassFieldProperties::new(
-                        stat_info.annot.is_some(),
+                        static_info.annot.is_some(),
                         is_initialized_on_class,
-                        stat_info.loc,
+                        static_info.loc,
                     ),
                 );
                 let key_field = KeyClassField(class_indices.def_index, name.into_key().clone());
