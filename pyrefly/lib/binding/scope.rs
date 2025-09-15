@@ -609,70 +609,6 @@ impl Scope {
     fn module(range: TextRange) -> Self {
         Self::new(range, false, ScopeKind::Module)
     }
-
-    /// Get the class field definitions and ranges from the current scope.
-    /// - Includes both fields defined in the class body and implicit definitions
-    ///   coming from self-assignment in methods. If both occur, only the class body
-    ///   definition is tracked.
-    /// - Panics if the current scope is not a class body.
-    pub fn class_field_definitions(self) -> SmallMap<Name, (ClassFieldDefinition, TextRange)> {
-        let mut field_definitions = SmallMap::new();
-        let class_scope = {
-            if let ScopeKind::Class(class_scope) = self.kind {
-                class_scope
-            } else {
-                unreachable!("Expected class body scope, got {:?}", self.kind)
-            }
-        };
-        self.flow.info.iter_hashed().for_each(
-            |(name, flow_info)| {
-            if let Some(static_info) = self.stat.0.get_hashed(name) {
-                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
-                    ClassFieldDefinition::MethodLike {
-                        definition: flow_info.key,
-                        has_return_annotation,
-                    }
-                } else {
-                    match flow_info.as_initial_value() {
-                        ClassFieldInBody::InitializedByAssign(e) =>
-                            ClassFieldDefinition::AssignedInBody {
-                                value: ExprOrBinding::Expr(e.clone()),
-                                annotation: static_info.annot,
-                            },
-                        ClassFieldInBody::InitializedWithoutAssign =>
-                            ClassFieldDefinition::DefinedWithoutAssign {
-                                definition: flow_info.key,
-                            },
-                        ClassFieldInBody::Uninitialized => {
-                            let annotation = static_info.annot.unwrap_or_else(
-                                || panic!("A class field known in the body but uninitialized always has an annotation.")
-                            );
-                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
-                        }
-                    }
-                };
-                field_definitions.insert_hashed(name.owned(), (definition, static_info.loc));
-            }
-        });
-        class_scope.method_defined_attributes().for_each(
-            |(name, method, InstanceAttribute(value, annotation, range))| {
-                if !field_definitions.contains_key_hashed(name.as_ref()) {
-                    field_definitions.insert_hashed(
-                        name,
-                        (
-                            ClassFieldDefinition::DefinedInMethod {
-                                value,
-                                annotation,
-                                method,
-                            },
-                            range,
-                        ),
-                    );
-                }
-            },
-        );
-        field_definitions
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -1211,6 +1147,77 @@ impl Scopes {
         {
             current_scope_info.annot = ann;
         }
+    }
+
+    /// Finish traversing a class body: pop both the class body scope and the annotation scope
+    /// that wraps it, and extract the class field definitions.
+    ///
+    /// The resulting map of field definitions:
+    /// - Includes both fields defined in the class body and implicit definitions
+    ///   coming from self-assignment in methods. If both occur, only the class body
+    ///   definition is tracked.
+    /// - Panics if the current scope is not a class body.
+    pub fn finish_class_and_get_field_definitions(
+        &mut self,
+    ) -> SmallMap<Name, (ClassFieldDefinition, TextRange)> {
+        let mut field_definitions = SmallMap::new();
+        let class_body = self.pop();
+        let class_scope = {
+            if let ScopeKind::Class(class_scope) = class_body.kind {
+                class_scope
+            } else {
+                unreachable!("Expected class body scope, got {:?}", class_body.kind)
+            }
+        };
+        self.pop(); // Also pop the annotation scope that wrapped the class body.
+        class_body.flow.info.iter_hashed().for_each(
+            |(name, flow_info)| {
+            if let Some(static_info) = class_body.stat.0.get_hashed(name) {
+                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
+                    ClassFieldDefinition::MethodLike {
+                        definition: flow_info.key,
+                        has_return_annotation,
+                    }
+                } else {
+                    match flow_info.as_initial_value() {
+                        ClassFieldInBody::InitializedByAssign(e) =>
+                            ClassFieldDefinition::AssignedInBody {
+                                value: ExprOrBinding::Expr(e.clone()),
+                                annotation: static_info.annot,
+                            },
+                        ClassFieldInBody::InitializedWithoutAssign =>
+                            ClassFieldDefinition::DefinedWithoutAssign {
+                                definition: flow_info.key,
+                            },
+                        ClassFieldInBody::Uninitialized => {
+                            let annotation = static_info.annot.unwrap_or_else(
+                                || panic!("A class field known in the body but uninitialized always has an annotation.")
+                            );
+                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
+                        }
+                    }
+                };
+                field_definitions.insert_hashed(name.owned(), (definition, static_info.loc));
+            }
+        });
+        class_scope.method_defined_attributes().for_each(
+            |(name, method, InstanceAttribute(value, annotation, range))| {
+                if !field_definitions.contains_key_hashed(name.as_ref()) {
+                    field_definitions.insert_hashed(
+                        name,
+                        (
+                            ClassFieldDefinition::DefinedInMethod {
+                                value,
+                                annotation,
+                                method,
+                            },
+                            range,
+                        ),
+                    );
+                }
+            },
+        );
+        field_definitions
     }
 }
 

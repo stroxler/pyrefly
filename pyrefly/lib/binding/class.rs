@@ -225,12 +225,10 @@ impl<'a> BindingsBuilder<'a> {
         ));
         self.init_static_scope(&body, false);
         self.stmts(body);
+        let field_definitions = self.scopes.finish_class_and_get_field_definitions();
 
-        let last_scope = self.scopes.pop();
-        self.scopes.pop(); // annotation scope
-
-        let mut fields = SmallMap::with_capacity(last_scope.stat.0.len());
-        for (name, (definition, range)) in last_scope.class_field_definitions().into_iter_hashed() {
+        let mut fields = SmallMap::with_capacity(field_definitions.len());
+        for (name, (definition, range)) in field_definitions.into_iter_hashed() {
             if let ClassFieldDefinition::AssignedInBody {
                 value: ExprOrBinding::Expr(e),
                 ..
