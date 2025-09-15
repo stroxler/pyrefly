@@ -77,8 +77,13 @@ impl VarianceMap {
     }
 }
 
-type Injectivity = bool;
-type InferenceMap = SmallMap<Name, (Variance, Injectivity)>;
+#[derive(Debug, Clone, Copy)]
+struct InferenceStatus {
+    inferred_variance: Variance,
+    has_variance_inferred: bool,
+    specified_variance: Option<Variance>,
+}
+type InferenceMap = SmallMap<Name, InferenceStatus>;
 
 // A map from class name to tparam environment
 // Why is this not Class or ClassObject
@@ -87,7 +92,7 @@ type VarianceEnv = SmallMap<Class, InferenceMap>;
 fn on_class(
     class: &Class,
     on_edge: &mut impl FnMut(&Class) -> InferenceMap,
-    on_var: &mut impl FnMut(&Name, Variance, Injectivity),
+    on_var: &mut impl FnMut(&Name, Variance, bool),
     get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
     get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
 ) {
@@ -101,9 +106,9 @@ fn on_class(
     fn handle_tuple_type(
         tuple: &Tuple,
         variance: Variance,
-        inj: Injectivity,
+        inj: bool,
         on_edge: &mut impl FnMut(&Class) -> InferenceMap,
-        on_var: &mut impl FnMut(&Name, Variance, Injectivity),
+        on_var: &mut impl FnMut(&Name, Variance, bool),
     ) {
         match tuple {
             Tuple::Concrete(concrete_types) => {
@@ -129,10 +134,10 @@ fn on_class(
 
     fn on_type(
         variance: Variance,
-        inj: Injectivity,
+        inj: bool,
         typ: &Type,
         on_edge: &mut impl FnMut(&Class) -> InferenceMap,
-        on_var: &mut impl FnMut(&Name, Variance, Injectivity),
+        on_var: &mut impl FnMut(&Name, Variance, bool),
     ) {
         match typ {
             Type::Type(t) => {
@@ -154,10 +159,10 @@ fn on_class(
 
                 let targs = class.targs().as_slice();
 
-                for ((variance_param, inj_param), ty) in params.values().zip(targs) {
+                for (status, ty) in params.values().zip(targs) {
                     on_type(
-                        variance.compose(*variance_param),
-                        *inj_param,
+                        variance.compose(status.inferred_variance),
+                        status.has_variance_inferred,
                         ty,
                         on_edge,
                         on_var,
@@ -243,19 +248,23 @@ fn on_class(
     }
 }
 
-fn default_variance_and_inj(gp: &TParam) -> (Variance, Injectivity) {
+fn initial_inference_status(gp: &TParam) -> InferenceStatus {
     let variance = pre_to_post_variance(gp.variance);
-    let inj = match variance {
-        Variance::Bivariant => false,
-        _ => true,
+    let (specified_variance, has_variance_inferred) = match variance {
+        Variance::Bivariant => (None, false),
+        _ => (Some(variance), true),
     };
-    (variance, inj)
+    InferenceStatus {
+        inferred_variance: variance,
+        has_variance_inferred,
+        specified_variance,
+    }
 }
 
 fn params_from_gp(tparams: &[TParam]) -> InferenceMap {
     tparams
         .iter()
-        .map(|p| (p.name().clone(), default_variance_and_inj(p)))
+        .map(|p| (p.name().clone(), initial_inference_status(p)))
         .collect::<InferenceMap>()
 }
 
@@ -289,7 +298,7 @@ fn loop_fn<'a>(
     let params = params_from_gp(get_tparams(class).as_vec());
 
     environment.insert(class.dupe(), params.clone());
-    let mut on_var = |_name: &Name, _variance: Variance, _inj: Injectivity| {};
+    let mut on_var = |_name: &Name, _variance: Variance, _inj: bool| {};
 
     // get the variance results of a given class c
     let mut on_edge = |c: &Class| loop_fn(c, environment, get_class_bases, get_fields, get_tparams);
@@ -309,31 +318,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn variance_map(&self, class: &Class) -> Arc<VarianceMap> {
         let post_inference_initial = convert_gp_to_map(&self.get_class_tparams(class));
 
-        fn to_map(
-            params: &InferenceMap,
-            post_inference_initial: &SmallMap<Name, Variance>,
-        ) -> SmallMap<Name, Variance> {
-            let mut map = SmallMap::new();
-
-            for (name, (variance, inj)) in params.iter() {
-                let inferred_variance = match post_inference_initial.get(name) {
-                    Some(&Variance::Bivariant) => match (*variance, *inj) {
-                        (_, false) => Variance::Bivariant,
-                        (Variance::Bivariant, _) => Variance::Bivariant,
-                        (Variance::Covariant, _) => Variance::Covariant,
-                        (Variance::Contravariant, _) => Variance::Contravariant,
-                        (Variance::Invariant, _) => Variance::Invariant,
-                    },
-                    Some(&res) => res,
-                    None => {
-                        panic!("Impossible. Class name {name} must be present in variance map",)
-                    }
-                };
-                map.insert(name.clone(), inferred_variance);
-            }
-            map
-        }
-
         fn fixpoint<'a, Ans: LookupAnswer>(
             solver: &AnswersSolver<'a, Ans>,
             mut env: VarianceEnv,
@@ -347,13 +331,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 for (my_class, params) in env.iter() {
                     let mut new_params = params.clone();
 
-                    let mut on_var = |name: &Name, variance: Variance, inj: Injectivity| {
-                        if let Some((old_variance, old_inj)) = new_params.get_mut(name) {
-                            let new_variance = variance.union(*old_variance);
-                            let new_inj = *old_inj || inj;
-                            if new_variance != *old_variance || new_inj != *old_inj {
-                                *old_variance = new_variance;
-                                *old_inj = new_inj;
+                    let mut on_var = |name: &Name, variance: Variance, has_inferred: bool| {
+                        if let Some(old_status) = new_params.get_mut(name) {
+                            let new_inferred_variance =
+                                variance.union(old_status.inferred_variance);
+                            let new_has_variance_inferred =
+                                old_status.has_variance_inferred || has_inferred;
+                            if new_inferred_variance != old_status.inferred_variance
+                                || new_has_variance_inferred != old_status.has_variance_inferred
+                            {
+                                old_status.inferred_variance = new_inferred_variance;
+                                old_status.has_variance_inferred = new_has_variance_inferred;
                                 changed = true;
                             }
                         }
@@ -395,7 +383,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .get(class)
                 .expect("class name must be present in environment");
 
-            let class_variances = to_map(params, &post_inference_initial);
+            let class_variances = params
+                .iter()
+                .map(|(name, status)| {
+                    (
+                        name.clone(),
+                        if let Some(specified_variance) = status.specified_variance {
+                            specified_variance
+                        } else if status.has_variance_inferred {
+                            status.inferred_variance
+                        } else {
+                            // Rare case where the variance does not appear to be constrained in any way
+                            Variance::Bivariant
+                        },
+                    )
+                })
+                .collect::<SmallMap<_, _>>();
             Arc::new(VarianceMap(class_variances))
         }
     }

@@ -8,6 +8,28 @@
 use crate::testcase;
 
 testcase!(
+    test_specified_variance_gets_respected,
+    r#"
+from typing import Generic, TypeVar
+
+T = TypeVar("T", contravariant=True)
+
+# Intentionally set up 2 type variables:
+# - U needs to has its variance inferred (to be covariant)
+# - T has its variance specified incorrectly -- but downstream logic is expected to respect it.
+class Foo[U](Generic[T]):  # E:
+    def m0(self) -> T: ...
+    def m1(self) -> U: ...
+
+t_good: Foo[int, int] = Foo[int, float]()
+t_bad: Foo[int, float] = Foo[int, int]()  # E:
+
+u_good: Foo[float, int] = Foo[int, int]()
+u_bad: Foo[int, int] = Foo[float, int]()  # E:
+"#,
+);
+
+testcase!(
     test_covariance_inference_class,
     r#"
 from typing import Sequence
