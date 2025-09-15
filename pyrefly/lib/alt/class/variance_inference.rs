@@ -336,43 +336,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         fn fixpoint<'a, Ans: LookupAnswer>(
             solver: &AnswersSolver<'a, Ans>,
-            env: &VarianceEnv,
+            mut env: VarianceEnv,
         ) -> VarianceEnv {
-            let mut environment_prime: VarianceEnv = SmallMap::new();
-            let mut changed = false;
+            let mut changed = true;
 
-            for (my_class, params) in env.iter() {
-                let mut params_prime = params.clone();
+            while changed {
+                changed = false;
+                let mut new_environment: VarianceEnv = SmallMap::new();
 
-                let mut on_var = |name: &Name, variance: Variance, inj: Injectivity| {
-                    if let Some((variance_prime, inj_prime)) = params_prime.get_mut(name) {
-                        *variance_prime = variance.union(*variance_prime);
-                        *inj_prime = *inj_prime || inj;
-                    }
-                };
+                for (my_class, params) in env.iter() {
+                    let mut new_params = params.clone();
 
-                let mut on_edge = |c: &Class| env.get(c).cloned().unwrap_or_else(SmallMap::new);
-
-                on_class(
-                    my_class,
-                    &mut on_edge,
-                    &mut on_var,
-                    &|c| solver.get_base_types_for_class(c),
-                    &|c| solver.get_class_field_map(c),
-                );
-
-                if params != &params_prime {
-                    changed = true;
+                    let mut on_var = |name: &Name, variance: Variance, inj: Injectivity| {
+                        if let Some((old_variance, old_inj)) = new_params.get_mut(name) {
+                            let new_variance = variance.union(*old_variance);
+                            let new_inj = *old_inj || inj;
+                            if new_variance != *old_variance || new_inj != *old_inj {
+                                *old_variance = new_variance;
+                                *old_inj = new_inj;
+                                changed = true;
+                            }
+                        }
+                    };
+                    let mut on_edge = |c: &Class| env.get(c).cloned().unwrap_or_else(SmallMap::new);
+                    on_class(
+                        my_class,
+                        &mut on_edge,
+                        &mut on_var,
+                        &|c| solver.get_base_types_for_class(c),
+                        &|c| solver.get_class_field_map(c),
+                    );
+                    new_environment.insert(my_class.dupe(), new_params);
                 }
-
-                environment_prime.insert(my_class.dupe(), params_prime);
+                env = new_environment;
             }
-
-            if changed {
-                fixpoint(solver, &environment_prime)
-            } else {
-                environment_prime
-            }
+            env
         }
 
         let contains_bivariant = post_inference_initial
@@ -391,7 +389,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &|c| self.get_class_tparams(c),
             );
 
-            let environment = fixpoint(self, &environment);
+            let environment = fixpoint(self, environment);
 
             let params = environment
                 .get(class)
