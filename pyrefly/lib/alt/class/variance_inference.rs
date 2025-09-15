@@ -261,18 +261,11 @@ fn initial_inference_status(gp: &TParam) -> InferenceStatus {
     }
 }
 
-fn params_from_gp(tparams: &[TParam]) -> InferenceMap {
+fn initial_inference_map(tparams: &[TParam]) -> InferenceMap {
     tparams
         .iter()
         .map(|p| (p.name().clone(), initial_inference_status(p)))
         .collect::<InferenceMap>()
-}
-
-fn convert_gp_to_map(tparams: &TParams) -> SmallMap<Name, Variance> {
-    tparams
-        .iter()
-        .map(|p| (p.name().clone(), pre_to_post_variance(p.variance)))
-        .collect::<SmallMap<_, _>>()
 }
 
 fn pre_to_post_variance(pre_variance: PreInferenceVariance) -> Variance {
@@ -284,7 +277,7 @@ fn pre_to_post_variance(pre_variance: PreInferenceVariance) -> Variance {
     }
 }
 
-fn loop_fn<'a>(
+fn initialize_environment_impl<'a>(
     class: &'a Class,
     environment: &mut VarianceEnv,
     get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
@@ -295,13 +288,15 @@ fn loop_fn<'a>(
         return params.clone();
     }
 
-    let params = params_from_gp(get_tparams(class).as_vec());
+    let params = initial_inference_map(get_tparams(class).as_vec());
 
     environment.insert(class.dupe(), params.clone());
     let mut on_var = |_name: &Name, _variance: Variance, _inj: bool| {};
 
     // get the variance results of a given class c
-    let mut on_edge = |c: &Class| loop_fn(c, environment, get_class_bases, get_fields, get_tparams);
+    let mut on_edge = |c: &Class| {
+        initialize_environment_impl(c, environment, get_class_bases, get_fields, get_tparams)
+    };
 
     on_class(
         class,
@@ -314,10 +309,30 @@ fn loop_fn<'a>(
     params
 }
 
+fn initialize_environment<'a>(
+    class: &'a Class,
+    initial_inference_map: InferenceMap,
+    environment: &mut VarianceEnv,
+    get_class_bases: &impl Fn(&Class) -> Arc<ClassBases>,
+    get_fields: &impl Fn(&Class) -> SmallMap<Name, Arc<ClassField>>,
+    get_tparams: &impl Fn(&Class) -> Arc<TParams>,
+) {
+    environment.insert(class.dupe(), initial_inference_map);
+    let mut on_var = |_name: &Name, _variance: Variance, _inj: bool| {};
+    let mut on_edge = |c: &Class| {
+        initialize_environment_impl(c, environment, get_class_bases, get_fields, get_tparams)
+    };
+    on_class(
+        class,
+        &mut on_edge,
+        &mut on_var,
+        get_class_bases,
+        get_fields,
+    );
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn variance_map(&self, class: &Class) -> Arc<VarianceMap> {
-        let post_inference_initial = convert_gp_to_map(&self.get_class_tparams(class));
-
         fn fixpoint<'a, Ans: LookupAnswer>(
             solver: &AnswersSolver<'a, Ans>,
             mut env: VarianceEnv,
@@ -361,16 +376,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             env
         }
 
-        let contains_bivariant = post_inference_initial
+        let initial_inference_map_for_class =
+            initial_inference_map(self.get_class_tparams(class).as_vec());
+        let need_inference = initial_inference_map_for_class
             .iter()
-            .any(|(_, v)| *v == Variance::Bivariant);
-        if !contains_bivariant {
-            Arc::new(VarianceMap(post_inference_initial))
+            .any(|(_, status)| status.specified_variance.is_none());
+        let final_inference_map_for_class = if !need_inference {
+            initial_inference_map_for_class
         } else {
             let mut environment = VarianceEnv::new();
-
-            loop_fn(
+            initialize_environment(
                 class,
+                initial_inference_map_for_class,
                 &mut environment,
                 &|c| self.get_base_types_for_class(c),
                 &|c| self.get_class_field_map(c),
@@ -378,28 +395,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
 
             let environment = fixpoint(self, environment);
-
-            let params = environment
+            environment
                 .get(class)
-                .expect("class name must be present in environment");
-
-            let class_variances = params
-                .iter()
-                .map(|(name, status)| {
-                    (
-                        name.clone(),
-                        if let Some(specified_variance) = status.specified_variance {
-                            specified_variance
-                        } else if status.has_variance_inferred {
-                            status.inferred_variance
-                        } else {
-                            // Rare case where the variance does not appear to be constrained in any way
-                            Variance::Bivariant
-                        },
-                    )
-                })
-                .collect::<SmallMap<_, _>>();
-            Arc::new(VarianceMap(class_variances))
-        }
+                .expect("class name must be present in environment")
+                .clone()
+        };
+        let class_variances = final_inference_map_for_class
+            .iter()
+            .map(|(name, status)| {
+                (
+                    name.clone(),
+                    if let Some(specified_variance) = status.specified_variance {
+                        specified_variance
+                    } else if status.has_variance_inferred {
+                        status.inferred_variance
+                    } else {
+                        // Rare case where the variance does not appear to be constrained in any way
+                        Variance::Bivariant
+                    },
+                )
+            })
+            .collect::<SmallMap<_, _>>();
+        Arc::new(VarianceMap(class_variances))
     }
 }
