@@ -266,13 +266,10 @@ fn params_from_gp(tparams: &[TParam]) -> TParamArray {
 }
 
 fn convert_gp_to_map(tparams: &TParams) -> SmallMap<Name, Variance> {
-    let mut lookup = SmallMap::new();
-
-    for param in tparams.iter() {
-        lookup.insert(param.name().clone(), pre_to_post_variance(param.variance));
-    }
-
-    lookup
+    tparams
+        .iter()
+        .map(|p| (p.name().clone(), pre_to_post_variance(p.variance)))
+        .collect::<SmallMap<_, _>>()
 }
 
 fn pre_to_post_variance(pre_variance: PreInferenceVariance) -> Variance {
