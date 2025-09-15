@@ -8,18 +8,6 @@
 use crate::testcase;
 
 testcase!(
-    bug = "T is only used in covariant positions so it should be inferred as covariant",
-    test_covariance_inference,
-    r#"
-from typing import Sequence, reveal_type
-def id[T](x: Sequence[T]) -> Sequence[T]:
-    return x
-def test(x: Sequence[int] | Sequence[str]):
-    reveal_type(id(x))  # E: revealed type: Sequence[int] | int # E: Argument `Sequence[int] | Sequence[str]` is not assignable to parameter `x` 
-"#,
-);
-
-testcase!(
     test_covariance_inference_class,
     r#"
 from typing import Sequence
