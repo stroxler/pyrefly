@@ -13,6 +13,7 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
+use lsp_types::CompletionItemTag;
 use lsp_types::DocumentSymbol;
 use lsp_types::ParameterInformation;
 use lsp_types::ParameterLabel;
@@ -1851,6 +1852,11 @@ impl<'a> Transaction<'a> {
                             Some(k.to_lsp_completion_item_kind())
                         }),
                     additional_text_edits,
+                    tags: if export.is_deprecated {
+                        Some(vec![CompletionItemTag::DEPRECATED])
+                    } else {
+                        None
+                    },
                     ..Default::default()
                 });
             }
@@ -1885,16 +1891,25 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let binding = bindings.get(idx);
-                let detail = self.get_type(handle, key).map(|t| t.to_string());
+                let kind = binding
+                    .symbol_kind()
+                    .map_or(CompletionItemKind::VARIABLE, |k| {
+                        k.to_lsp_completion_item_kind()
+                    });
+                let ty = self.get_type(handle, key);
+                let is_deprecated = matches!(kind, CompletionItemKind::FUNCTION)
+                    && ty.as_ref().is_some_and(|t| t.is_deprecated());
+                let detail = ty.map(|t| t.to_string());
                 has_added_any = true;
                 completions.push(CompletionItem {
                     label: label.to_owned(),
                     detail,
-                    kind: binding
-                        .symbol_kind()
-                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                            Some(k.to_lsp_completion_item_kind())
-                        }),
+                    kind: Some(kind),
+                    tags: if is_deprecated {
+                        Some(vec![CompletionItemTag::DEPRECATED])
+                    } else {
+                        None
+                    },
                     ..Default::default()
                 })
             }
@@ -2005,11 +2020,20 @@ impl<'a> Transaction<'a> {
                         })
                     }
                     let exports = self.get_exports(&handle);
-                    for name in exports.keys() {
+                    for (name, export) in exports.iter() {
+                        let is_deprecated = match export {
+                            ExportLocation::ThisModule(export) => export.is_deprecated,
+                            ExportLocation::OtherModule(_, _) => false,
+                        };
                         result.push(CompletionItem {
                             label: name.to_string(),
                             // todo(kylei): completion kind for exports
                             kind: Some(CompletionItemKind::VARIABLE),
+                            tags: if is_deprecated {
+                                Some(vec![CompletionItemTag::DEPRECATED])
+                            } else {
+                                None
+                            },
                             ..Default::default()
                         })
                     }
@@ -2050,10 +2074,19 @@ impl<'a> Transaction<'a> {
                                     Some(Type::Function(_)) => Some(CompletionItemKind::FUNCTION),
                                     _ => Some(CompletionItemKind::FIELD),
                                 };
+                                let ty = &x.ty;
+                                let is_deprecated =
+                                    ty.as_ref().is_some_and(|ty| ty.is_deprecated());
+                                let detail = ty.clone().map(|t| t.as_hover_string());
                                 result.push(CompletionItem {
                                     label: x.name.as_str().to_owned(),
-                                    detail: x.ty.clone().map(|t| t.as_hover_string()),
+                                    detail,
                                     kind,
+                                    tags: if is_deprecated {
+                                        Some(vec![CompletionItemTag::DEPRECATED])
+                                    } else {
+                                        None
+                                    },
                                     ..Default::default()
                                 });
                             });
