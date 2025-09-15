@@ -262,16 +262,10 @@ fn from_gp_to_decl(gp: &TParam, contains_bivariant: &mut bool) -> (Name, Varianc
 }
 
 fn params_from_gp(tparams: &[TParam], contains_bivariant: &mut bool) -> TParamArray {
-    let mut params: Vec<(Name, Variance, Injectivity)> = tparams
+    tparams
         .iter()
-        .map(|param| (param.name().clone(), Variance::Bivariant, false))
-        .collect();
-
-    for (i, param) in tparams.iter().enumerate() {
-        let (name, variance, inj) = from_gp_to_decl(param, contains_bivariant);
-        params[i] = (name, variance, inj);
-    }
-    params
+        .map(|param| from_gp_to_decl(param, contains_bivariant))
+        .collect::<Vec<_>>()
 }
 
 fn convert_gp_to_map(tparams: &TParams, contains_bivariant: &mut bool) -> SmallMap<Name, Variance> {
