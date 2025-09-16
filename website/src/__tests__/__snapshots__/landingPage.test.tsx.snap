@@ -7,7 +7,7 @@ exports[`Home page renders external site correctly 1`] = `
       Pyrefly: A Static Type Checker for Python
     </div>
     <div>
-      Pyrefly is a static type checker for Python
+      Pyrefly is a fast type checker and language server for Python with powerful IDE features
     </div>
     <div>
       <div>
@@ -49,7 +49,7 @@ exports[`Home page renders external site correctly 1`] = `
             >
               <p>
                 <span>
-                  A fast Python type checker written in Rust
+                  A fast type checker and language server for Python with powerful IDE features
                 </span>
               </p>
             </div>
@@ -424,7 +424,7 @@ exports[`Home page renders internal site correctly 1`] = `
       Pyrefly: A Static Type Checker for Python
     </div>
     <div>
-      Pyrefly is a static type checker for Python
+      Pyrefly is a fast type checker and language server for Python with powerful IDE features
     </div>
     <div>
       <div>
@@ -466,7 +466,7 @@ exports[`Home page renders internal site correctly 1`] = `
             >
               <p>
                 <span>
-                  A fast Python type checker written in Rust
+                  A fast type checker and language server for Python with powerful IDE features
                 </span>
               </p>
             </div>

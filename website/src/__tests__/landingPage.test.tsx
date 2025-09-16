@@ -85,7 +85,7 @@ describe('Home page', () => {
         expect(subtitle).toBeInTheDocument();
         const subtitleText = subtitle?.textContent?.trim();
         expect(subtitleText).toBe(
-            'A fast Python type checker written in Rust'
+            'A fast type checker and language server for Python with powerful IDE features'
         );
     }
 });
