@@ -22,7 +22,7 @@ const useDocusaurusContext = (): {
             title: 'Pyrefly',
             tagline: 'A Static Type Checker for Python',
             description: 'Pyrefly is a static type checker for Python',
-            url: 'https://pyrefly.io',
+            url: 'https://pyrefly.org',
             baseUrl: '/',
             organizationName: 'Meta',
             projectName: 'pyrefly',
