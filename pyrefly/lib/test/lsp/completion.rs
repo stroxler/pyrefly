@@ -983,6 +983,62 @@ Completion Results:
 }
 
 #[test]
+fn completion_literal_with_escape_chars() {
+    let code = r#"
+from typing import Literal
+def foo(x: Literal['\a', '\b', '\f', '\n', '\r', '\t', '\v', '\\', '"', "'"]): ...
+foo(
+#   ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+4 | foo(
+        ^
+Completion Results:
+- (Value) '"': Literal['"']
+- (Value) '\'': Literal['\'']
+- (Value) '\\': Literal['\\']
+- (Value) '\a': Literal['\a']
+- (Value) '\b': Literal['\b']
+- (Value) '\f': Literal['\f']
+- (Value) '\n': Literal['\n']
+- (Value) '\r': Literal['\r']
+- (Value) '\t': Literal['\t']
+- (Value) '\v': Literal['\v']
+- (Variable) x=: Literal['\a', '\b', '\t', '\n', '\v', '\f', '\r', '"', '\'', '\\']
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn completion_literal_with_escape_chars_inside() {
+    let code = r#"
+from typing import Literal
+def foo(x: Literal["a\nb"]): ...
+foo("
+#    ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+4 | foo("
+         ^
+Completion Results:
+- (Value) 'a\nb': Literal['a\nb']
+- (Variable) x=: Literal['a\nb']"#
+            .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn completion_literal_union() {
     let code = r#"
 from typing import Literal, Union
@@ -1131,33 +1187,6 @@ Completion Results:
 - (Value) 1: Literal[1]
 "#
         .trim(),
-        report.trim(),
-    );
-}
-
-// todo(kylei): escape escape characters
-#[test]
-fn completion_literal_with_escape_characters() {
-    let code = r#"
-from typing import Literal
-def foo(x: Literal["a\nb"]): ...
-foo("
-#    ^
-"#;
-    let report =
-        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
-    assert_eq!(
-        r#"
-# main.py
-4 | foo("
-         ^
-Completion Results:
-- (Value) 'a
-b': Literal['a
-b']
-- (Variable) x=: Literal['a
-b']"#
-            .trim(),
         report.trim(),
     );
 }
