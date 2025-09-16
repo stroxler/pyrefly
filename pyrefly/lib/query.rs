@@ -27,6 +27,8 @@ use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::literal::Lit;
 use pyrefly_types::qname::QName;
+use pyrefly_types::quantified::Quantified;
+use pyrefly_types::quantified::QuantifiedKind;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
@@ -149,12 +151,31 @@ fn is_static_method(ty: &Type) -> bool {
     }
 }
 
+fn bound_of_type_var(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Quantified(box Quantified {
+            kind: QuantifiedKind::TypeVar,
+            restriction: Restriction::Bound(bound),
+            ..
+        })
+        | Type::QuantifiedValue(box Quantified {
+            kind: QuantifiedKind::TypeVar,
+            restriction: Restriction::Bound(bound),
+            ..
+        }) => Some(bound),
+        _ => None,
+    }
+}
+
 fn type_to_string(ty: &Type) -> String {
     let mut ctx = TypeDisplayContext::new(&[ty]);
     ctx.always_display_module_name();
     let text = ctx.display(ty).to_string();
     if is_static_method(ty) {
         format!("typing.StaticMethod[{text}]")
+    } else if let Some(bound) = bound_of_type_var(ty) {
+        // pyre1 compatibility: return bound for type variable
+        format!("Variable[{text} (bound to {})]", type_to_string(bound))
     } else {
         text
     }
