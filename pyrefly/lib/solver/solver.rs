@@ -853,4 +853,8 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             _ => self.is_subset_eq_impl(got, want),
         }
     }
+
+    pub fn finish_quantified(&mut self, vs: &[Var]) {
+        self.solver.finish_quantified(vs);
+    }
 }
