@@ -81,12 +81,8 @@ impl<'a> BindingsBuilder<'a> {
     ) {
         let assigned = self.declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
         // TODO(stroxler): It probably should be an error if the annotation is ever non-None
-        let (ann, default) = self.bind_current(&name.id, &assigned, FlowStyle::Other);
-        let mut binding = make_binding(ann);
-        // TODO(stroxler): It probably should be an error if the default is ever non-None
-        if let Some(default) = default {
-            binding = Binding::Default(default, Box::new(binding));
-        }
+        let (ann, _) = self.bind_current(&name.id, &assigned, FlowStyle::Other);
+        let binding = make_binding(ann);
         self.insert_binding_current(assigned, binding);
     }
 
@@ -592,12 +588,8 @@ impl<'a> BindingsBuilder<'a> {
                         self.ensure_expr(&mut x.value, assigned.usage());
                         // TODO(stroxler): Should we really be using `bind_key` here? This will update the
                         // flow info to define the name, even if it was not previously defined.
-                        let (ann, default) =
-                            self.bind_current(&name.id, &assigned, FlowStyle::Other);
-                        let mut binding = Binding::AugAssign(ann, x.clone());
-                        if let Some(default) = default {
-                            binding = Binding::Default(default, Box::new(binding));
-                        }
+                        let (ann, _) = self.bind_current(&name.id, &assigned, FlowStyle::Other);
+                        let binding = Binding::AugAssign(ann, x.clone());
                         self.insert_binding_current(assigned, binding);
                     }
                     Expr::Attribute(attr) => {
