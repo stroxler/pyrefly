@@ -113,6 +113,7 @@ impl Variable {
 #[derive(Debug)]
 pub struct Solver {
     variables: RwLock<SmallMap<Var, Variable>>,
+    instantiation_errors: RwLock<SmallMap<Var, SubsetError>>,
     pub infer_with_first_use: bool,
 }
 
@@ -134,6 +135,7 @@ impl Solver {
     pub fn new(infer_with_first_use: bool) -> Self {
         Self {
             variables: Default::default(),
+            instantiation_errors: Default::default(),
             infer_with_first_use,
         }
     }
@@ -440,18 +442,33 @@ impl Solver {
     /// If `infer_with_first_use` is true, the variable `T` will be have like an
     /// empty container and get pinned by the first subsequent usage.
     /// If `infer_with_first_use` is false, the variable `T` will be replaced with `Any`
-    pub fn finish_quantified(&self, vs: &[Var]) {
+    pub fn finish_quantified(&self, vs: &[Var]) -> Result<(), SubsetError> {
         let mut lock = self.variables.write();
+        let mut ok = Ok(());
         for v in vs {
             let e = lock.get_mut(v).expect(VAR_LEAK);
-            if matches!(*e, Variable::Quantified(_)) {
-                if self.infer_with_first_use {
-                    *e = Variable::Contained;
-                } else {
-                    *e = Variable::Answer(Type::any_implicit())
+            match e {
+                Variable::Answer(_) => {
+                    // We pin the quantified var to a type when it first appears in a subset constraint,
+                    // and at that point we check the instantiation with the bound.
+                    ok = ok.and_then(|_| {
+                        self.instantiation_errors
+                            .read()
+                            .get(v)
+                            .map_or(Ok(()), |e| Err(e.clone()))
+                    })
                 }
+                Variable::Quantified(_) => {
+                    if self.infer_with_first_use {
+                        *e = Variable::Contained;
+                    } else {
+                        *e = Variable::Answer(Type::any_implicit())
+                    }
+                }
+                _ => {}
             }
         }
+        ok
     }
 
     /// Given targs which contain quantified (as come from `instantiate`), replace the quantifieds
@@ -826,7 +843,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         self.is_subset_eq(&t1, t2)
                     }
                     var_type if should_force(var_type) => {
-                        variables.insert(*v1, Variable::Answer(t2.clone()));
+                        if let Variable::Quantified(q) = var_type {
+                            let bound = q.restriction().as_type(self.type_order.stdlib());
+                            variables.insert(*v1, Variable::Answer(t2.clone()));
+                            drop(variables);
+                            if let Err(e) = self.is_subset_eq(t2, &bound) {
+                                self.solver.instantiation_errors.write().insert(*v1, e);
+                            }
+                        } else {
+                            variables.insert(*v1, Variable::Answer(t2.clone()));
+                        }
                         Ok(())
                     }
                     _ => Err(SubsetError::Other),
@@ -844,7 +870,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         // Note that we promote the type when the var is on the RHS, but not when it's on the
                         // LHS, so that we infer more general types but leave user-specified types alone.
                         let t1 = var_type.promote(t1.clone(), self.type_order);
-                        variables.insert(*v2, Variable::Answer(t1));
+                        if let Variable::Quantified(q) = var_type {
+                            let bound = q.restriction().as_type(self.type_order.stdlib());
+                            variables.insert(*v2, Variable::Answer(t1.clone()));
+                            drop(variables);
+                            if let Err(e) = self.is_subset_eq(&t1, &bound) {
+                                self.solver.instantiation_errors.write().insert(*v2, e);
+                            }
+                        } else {
+                            variables.insert(*v2, Variable::Answer(t1));
+                        }
                         Ok(())
                     }
                     _ => Err(SubsetError::Other),
@@ -854,7 +889,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    pub fn finish_quantified(&mut self, vs: &[Var]) {
-        self.solver.finish_quantified(vs);
+    pub fn finish_quantified(&self, vs: &[Var]) -> Result<(), SubsetError> {
+        self.solver.finish_quantified(vs)
     }
 }

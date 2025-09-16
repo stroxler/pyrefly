@@ -1065,7 +1065,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(targs) = ctor_targs {
             self.solver().generalize_class_targs(targs);
         }
-        self.solver().finish_quantified(&qs);
+        // TODO: error when instantiation is incompatible with bounds
+        let _ = self.solver().finish_quantified(&qs);
         self.solver().expand(callable.ret)
     }
 }
