@@ -259,19 +259,17 @@ impl<'a> BindingsBuilder<'a> {
         };
         match value {
             Ok(value) => {
-                if !self.module_info.path().is_interface() {
-                    // Don't check flow for global/nonlocal lookups
-                    if let Some(error_message) = self
+                if !self.module_info.path().is_interface()
+                    && let Some(error_message) = self
                         .scopes
                         .get_flow_style(&name.id, used_in_static_type)
                         .uninitialized_error_message(name)
-                    {
-                        self.error(
-                            name.range,
-                            ErrorInfo::Kind(ErrorKind::UnboundName),
-                            error_message,
-                        );
-                    }
+                {
+                    self.error(
+                        name.range,
+                        ErrorInfo::Kind(ErrorKind::UnboundName),
+                        error_message,
+                    );
                 }
                 self.insert_binding(key, value)
             }
