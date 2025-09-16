@@ -332,24 +332,13 @@ impl FlowInfo {
     }
 
     /// Create a new FlowInfo after an update.
-    ///
-    /// Also return the `Idx<Key>` of the default binding, if we are updating inside a loop
-    /// (and `None` if we are not in a loop).
-    fn updated(
-        &self,
-        key: Idx<Key>,
-        style: Option<FlowStyle>,
-        in_loop: bool,
-    ) -> (Self, Option<Idx<Key>>) {
+    fn updated(&self, key: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
         let default = if in_loop { Some(self.default) } else { None };
-        (
-            Self {
-                key,
-                default: default.unwrap_or(key),
-                style: style.unwrap_or_else(|| self.style.clone()),
-            },
-            default,
-        )
+        Self {
+            key,
+            default: default.unwrap_or(key),
+            style: style.unwrap_or_else(|| self.style.clone()),
+        }
     }
 
     pub fn as_initial_value(&self) -> ClassFieldInBody {
@@ -878,9 +867,6 @@ impl Scopes {
     /// - If `style` is `None`, then:
     ///   - Preserve the existing style, when updating an existing name.
     ///   - Use `FlowStyle::Other`, when inserting a new name.
-    /// - Maybe return the `Idx<Key>` of the default binding:
-    ///   - Return it if this is an update of an existing name, inside a loop.
-    ///   - For insert of a new name or if we are not in a loop, return `None`.
     ///
     /// A caller of this function promises to create a binding for `key`; the
     /// binding may not exist yet (it might depend on the returned default).
@@ -891,17 +877,14 @@ impl Scopes {
         name: Hashed<&Name>,
         key: Idx<Key>,
         style: Option<FlowStyle>,
-    ) -> Option<Idx<Key>> {
+    ) {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
                 e.insert(FlowInfo::new(key, style));
-                None
             }
             Entry::Occupied(mut e) => {
-                let (updated, default) = e.get().updated(key, style, in_loop);
-                *e.get_mut() = updated;
-                default
+                *e.get_mut() = e.get().updated(key, style, in_loop);
             }
         }
     }
