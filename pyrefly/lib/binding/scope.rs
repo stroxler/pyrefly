@@ -8,7 +8,6 @@
 use std::fmt::Debug;
 use std::mem;
 
-use itertools::Either;
 use parse_display::Display;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
@@ -62,6 +61,19 @@ use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::class::ClassDefIndex;
+
+pub enum NameReadInfo {
+    /// A normal key bound in the current flow. The key is always already in the bindings table.
+    Flow(Idx<Key>),
+    /// A lookup that fell back to an anywhere-style forward-ref lookup using
+    /// only static scope information (note that this isn't always a
+    /// `Key::Anywhere` - when the definition count is one it will use the
+    /// definition directly). This key may or may not already be in the bindings
+    /// table, callers must handle that possibility.
+    Anywhere(Key),
+    /// The lookup failed for some reason.
+    Error(LookupError),
+}
 
 /// A name defined in a module, which needs to be convertable to an export.
 #[derive(Debug)]
@@ -1225,17 +1237,9 @@ impl Scopes {
         }
     }
 
-    /// Get the key bound in the current scope stack for a name, for a read.
-    ///
-    /// If the lookup is Ok(Left(_)), then it is a read from the current flow. If the lookup
-    /// is OK(Right(_)) then it is a forward lookup of static scope.
-    ///
-    /// TODO(stroxler): Use a dedicated type instead of Either.
-    pub fn look_up_name_for_read(
-        &self,
-        name: Hashed<&Name>,
-        kind: LookupKind,
-    ) -> Result<Either<Idx<Key>, Key>, LookupError> {
+    /// Look up the information needed to create a `Usage` binding for a read of a name
+    /// in the current scope stack.
+    pub fn look_up_name_for_read(&self, name: Hashed<&Name>, kind: LookupKind) -> NameReadInfo {
         let mut barrier = false;
         let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
@@ -1256,7 +1260,7 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
-                return Ok(Either::Left(flow_info.key));
+                return NameReadInfo::Flow(flow_info.key);
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
             // current flow we keep looking. In every other kind of scope, anything the Python
@@ -1265,18 +1269,18 @@ impl Scopes {
             if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
                 match kind {
                     LookupKind::Regular => {
-                        return Ok(Either::Right(static_info.as_key(name.into_key())));
+                        return NameReadInfo::Anywhere(static_info.as_key(name.into_key()));
                     }
                     LookupKind::Mutable => {
                         if barrier {
-                            return Err(LookupError::NotMutable);
+                            return NameReadInfo::Error(LookupError::NotMutable);
                         }
                     }
                 }
             }
             barrier = barrier || scope.barrier;
         }
-        Err(LookupError::NotFound)
+        NameReadInfo::Error(LookupError::NotFound)
     }
 }
 

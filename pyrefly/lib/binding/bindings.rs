@@ -58,6 +58,7 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
+use crate::binding::scope::NameReadInfo;
 use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
@@ -775,7 +776,7 @@ impl<'a> BindingsBuilder<'a> {
     ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
         let ok_no_usage = |idx| Ok((idx, None));
         match self.scopes.look_up_name_for_read(name, kind) {
-            Ok(Either::Left(key)) => {
+            NameReadInfo::Flow(key) => {
                 let (idx, maybe_pinned_idx) = self.detect_first_use(key, usage);
                 if let Some(pinned_idx) = maybe_pinned_idx {
                     Ok((idx, Some(pinned_idx)))
@@ -783,8 +784,8 @@ impl<'a> BindingsBuilder<'a> {
                     ok_no_usage(idx)
                 }
             }
-            Ok(Either::Right(key)) => ok_no_usage(self.table.types.0.insert(key)),
-            Err(lookup_error) => Err(lookup_error),
+            NameReadInfo::Anywhere(key) => ok_no_usage(self.table.types.0.insert(key)),
+            NameReadInfo::Error(lookup_error) => Err(lookup_error),
         }
     }
 
