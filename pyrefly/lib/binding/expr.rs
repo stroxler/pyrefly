@@ -259,11 +259,11 @@ impl<'a> BindingsBuilder<'a> {
         };
         match value {
             Ok(value) => {
-                if !self.module_info.path().is_interface()
-                    && let Some(error_message) = self
-                        .scopes
-                        .get_flow_style(&name.id, used_in_static_type)
-                        .uninitialized_error_message(name)
+                // Uninitialized local errors are only reported when we are neither in a stub
+                // nor a static type context.
+                if !used_in_static_type
+                    && !self.module_info.path().is_interface()
+                    && let Some(error_message) = self.scopes.uninitialized_error_message(&name.id)
                 {
                     self.error(
                         name.range,

@@ -496,7 +496,7 @@ impl<'a> BindingsBuilder<'a> {
                                 // If so, we use that style; otherwise, the flow
                                 // style lookup would return an uninitialized
                                 // flow style, which is what we want here.
-                                self.scopes.get_flow_style(&name.id, false).clone()
+                                self.scopes.get_flow_style(&name.id).clone()
                             },
                         ),
                     };

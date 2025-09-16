@@ -269,15 +269,6 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    /// Produce an error message for an uninitialized or unbound variable.
-    pub fn uninitialized_error_message(&self, name: &Identifier) -> Option<String> {
-        match self {
-            Self::Uninitialized => Some(format!("`{name}` is uninitialized")),
-            Self::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
-            _ => None,
-        }
-    }
-
     pub fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
         let mut it = styles.into_iter();
         let mut merged = it.next().unwrap_or(FlowStyle::Other);
@@ -899,12 +890,10 @@ impl Scopes {
         None
     }
 
-    fn get_static_info(&self, name: &Name, should_skip_current_scope: bool) -> Option<&StaticInfo> {
+    fn static_info_from_any_enclosing(&self, name: &Name) -> Option<&StaticInfo> {
         let name = Hashed::new(name);
         let mut iter = self.iter_rev();
-        if should_skip_current_scope {
-            iter.next();
-        }
+        iter.next();
         for scope in iter {
             if let Some(info) = scope.stat.0.get_hashed(name) {
                 return Some(info);
@@ -921,25 +910,26 @@ impl Scopes {
     /// binding, in which case, `FlowStyle::Uninitialized` is returned.
     /// Otherwise we return `FlowStyle::Other` to indicate no information
     /// available.
-    pub fn get_flow_style(&self, name: &Name, used_in_static_type: bool) -> &FlowStyle {
+    pub fn get_flow_style(&self, name: &Name) -> &FlowStyle {
         match self.get_flow_info(name) {
             Some(flow) => &flow.style,
             None => {
-                // If the name is used for static type information, we can look
-                // at the current scope.
-                // Otherwise, we should skip the current scope, because it may
-                // permit a name to be used before it is defined.
-                if self.get_static_info(name, !used_in_static_type).is_some() {
-                    // If we have a static binding, then we are in a scope where
-                    // the name is defined, so we can return Other.
+                if self.static_info_from_any_enclosing(name).is_some() {
                     &FlowStyle::Other
                 } else {
-                    // If we don't have a static binding, then we are in a scope
-                    // where the name is not defined, so we return
-                    // Uninitialized.
                     &FlowStyle::Uninitialized
                 }
             }
+        }
+    }
+
+    /// If we can tell a variable might not be initialized in the current flow,
+    /// return an error message. Otherwise, return None.
+    pub fn uninitialized_error_message(&self, name: &Name) -> Option<String> {
+        match self.get_flow_style(name) {
+            FlowStyle::Uninitialized => Some(format!("`{name}` is uninitialized")),
+            FlowStyle::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
+            _ => None,
         }
     }
 
