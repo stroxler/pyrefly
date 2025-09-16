@@ -60,6 +60,21 @@ use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::class::ClassDefIndex;
 
+/// A name defined in a module, which needs to be convertable to an export.
+#[derive(Debug)]
+pub enum Exportable {
+    /// The typical case: this name has key `Key` in the flow at the end of
+    /// the module, and may or may not be annotated.
+    Initialized(Idx<Key>, Option<Idx<KeyAnnotation>>),
+    /// This case occurs if a name is missing from the flow at the end of the
+    /// module - for example it might be a name defined only in a branch that
+    /// raises.
+    ///
+    /// We still need export behavior to be well-defined so we use an
+    /// anywhere-style lookup for this case.
+    Uninitialized(Key),
+}
+
 /// Many names may map to the same TextRange (e.g. from foo import *).
 /// But no other static will point at the same TextRange.
 #[derive(Default, Clone, Debug)]
@@ -1241,6 +1256,25 @@ pub struct ScopeTrace(ScopeTreeNode);
 impl ScopeTrace {
     pub fn toplevel_scope(&self) -> &Scope {
         &self.0.scope
+    }
+
+    pub fn exportables(&self) -> SmallMap<Name, Exportable> {
+        let mut exportables = SmallMap::new();
+        let scope = self.toplevel_scope();
+        for (name, static_info) in scope.stat.0.iter_hashed() {
+            let exportable = match scope.flow.info.get_hashed(name) {
+                Some(FlowInfo { key, .. }) => {
+                    if let Some(ann) = static_info.annot {
+                        Exportable::Initialized(*key, Some(ann))
+                    } else {
+                        Exportable::Initialized(*key, None)
+                    }
+                }
+                None => Exportable::Uninitialized(static_info.as_key(name.into_key())),
+            };
+            exportables.insert_hashed(name.owned(), exportable);
+        }
+        exportables
     }
 
     pub fn available_definitions(

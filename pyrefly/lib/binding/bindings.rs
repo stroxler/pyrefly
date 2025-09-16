@@ -56,7 +56,7 @@ use crate::binding::binding::LastStmt;
 use crate::binding::binding::TypeParameter;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
-use crate::binding::scope::FlowInfo;
+use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
@@ -297,34 +297,21 @@ impl Bindings {
         builder.stmts(x.body);
         assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
-        let last_scope = scope_trace.toplevel_scope();
         let exported = exports.exports(lookup);
-        for (name, static_info) in last_scope.stat.0.iter_hashed() {
-            let info = last_scope.flow.info.get_hashed(name);
-            let binding = match info {
-                Some(FlowInfo { key, .. }) => {
-                    if let Some(ann) = static_info.annot {
-                        Binding::AnnotatedType(ann, Box::new(Binding::Forward(*key)))
-                    } else {
-                        Binding::Forward(*key)
-                    }
+        for (name, exportable) in scope_trace.exportables().into_iter_hashed() {
+            let binding = match exportable {
+                Exportable::Initialized(key, Some(ann)) => {
+                    Binding::AnnotatedType(ann, Box::new(Binding::Forward(key)))
                 }
-                None => {
-                    // The variable is not in the flow scope, so probably it has not been defined
-                    // in any flow that reaches the end. So just use the anywhere version.
-                    Binding::Forward(
-                        builder
-                            .table
-                            .types
-                            .0
-                            .insert(static_info.as_key(name.into_key())),
-                    )
+                Exportable::Initialized(key, None) => Binding::Forward(key),
+                Exportable::Uninitialized(key) => {
+                    Binding::Forward(builder.table.types.0.insert(key))
                 }
             };
-            if exported.contains_key_hashed(name) {
+            if exported.contains_key_hashed(name.as_ref()) {
                 builder
                     .table
-                    .insert(KeyExport(name.into_key().clone()), BindingExport(binding));
+                    .insert(KeyExport(name.into_key()), BindingExport(binding));
             }
         }
         Self(Arc::new(BindingsInner {
