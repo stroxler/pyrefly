@@ -753,7 +753,7 @@ impl<'a> BindingsBuilder<'a> {
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_inner(name, kind, usage)
+        self.get_bound_key_and_first_use_at_name(name, kind, usage)
             .map(|(result, first_use)| {
                 if let Some(used_idx) = first_use {
                     self.record_first_use(used_idx, usage);
@@ -767,7 +767,7 @@ impl<'a> BindingsBuilder<'a> {
     /// When lookup succeeds, returns a pair `idx, maybe_first_use`, where `maybe_first_use`
     /// is an option of a possible first-use `(used_idx)` to track for deterministic
     /// type inference.
-    fn lookup_name_inner(
+    fn get_bound_key_and_first_use_at_name(
         &mut self,
         name: Hashed<&Name>,
         kind: LookupKind,
