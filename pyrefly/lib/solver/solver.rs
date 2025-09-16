@@ -113,6 +113,7 @@ impl Variable {
 #[derive(Debug)]
 pub struct Solver {
     variables: RwLock<SmallMap<Var, Variable>>,
+    pub infer_with_first_use: bool,
 }
 
 impl Display for Solver {
@@ -130,9 +131,10 @@ const TYPE_LIMIT: usize = 20;
 
 impl Solver {
     /// Create a new solver.
-    pub fn new() -> Self {
+    pub fn new(infer_with_first_use: bool) -> Self {
         Self {
             variables: Default::default(),
+            infer_with_first_use,
         }
     }
 
@@ -435,15 +437,15 @@ impl Solver {
 
     /// Called after a quantified function has been called. Given `def f[T](x: int): list[T]`,
     /// after the generic has completed.
-    /// If `replace_quantified_with_contained` is true, the variable `T` will be have like an
+    /// If `infer_with_first_use` is true, the variable `T` will be have like an
     /// empty container and get pinned by the first subsequent usage.
-    /// If `replace_quantified_with_contained` is false, the variable `T` will be replaced with `Any`
-    pub fn finish_quantified(&self, vs: &[Var], replace_quantified_with_contained: bool) {
+    /// If `infer_with_first_use` is false, the variable `T` will be replaced with `Any`
+    pub fn finish_quantified(&self, vs: &[Var]) {
         let mut lock = self.variables.write();
         for v in vs {
             let e = lock.get_mut(v).expect(VAR_LEAK);
             if matches!(*e, Variable::Quantified(_)) {
-                if replace_quantified_with_contained {
+                if self.infer_with_first_use {
                     *e = Variable::Contained;
                 } else {
                     *e = Variable::Answer(Type::any_implicit())

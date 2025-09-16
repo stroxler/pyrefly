@@ -522,7 +522,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if x.is_empty() {
                     let elem_ty = elt_hint.map_or_else(
                         || {
-                            if !self.infer_with_first_use() {
+                            if !self.solver().infer_with_first_use {
                                 Type::any_implicit()
                             } else {
                                 self.solver().fresh_contained(self.uniques).to_type()
@@ -542,7 +542,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if x.is_empty() {
                     let elem_ty = elem_hint.map_or_else(
                         || {
-                            if !self.infer_with_first_use() {
+                            if !self.solver().infer_with_first_use {
                                 Type::any_implicit()
                             } else {
                                 self.solver().fresh_contained(self.uniques).to_type()
@@ -868,7 +868,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if items.is_empty() {
             let key_ty = key_hint.map_or_else(
                 || {
-                    if !self.infer_with_first_use() {
+                    if !self.solver().infer_with_first_use {
                         Type::any_implicit()
                     } else {
                         self.solver().fresh_contained(self.uniques).to_type()
@@ -878,7 +878,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             let value_ty = value_hint.map_or_else(
                 || {
-                    if !self.infer_with_first_use() {
+                    if !self.solver().infer_with_first_use {
                         Type::any_implicit()
                     } else {
                         self.solver().fresh_contained(self.uniques).to_type()

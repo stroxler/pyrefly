@@ -104,7 +104,6 @@ pub struct Answers {
     table: AnswerTable,
     index: Option<Arc<Mutex<Index>>>,
     trace: Option<Mutex<Traces>>,
-    infer_with_first_use: bool,
 }
 
 pub type AnswerEntry<K> = IndexMap<K, Calculation<Arc<<K as Keyed>::Answer>, Var>>;
@@ -349,7 +348,6 @@ impl Answers {
         solver: Solver,
         enable_index: bool,
         enable_trace: bool,
-        infer_with_first_use: bool,
     ) -> Self {
         fn presize<K: Keyed>(items: &mut AnswerEntry<K>, bindings: &Bindings)
         where
@@ -379,16 +377,11 @@ impl Answers {
             table,
             index,
             trace,
-            infer_with_first_use,
         }
     }
 
     pub fn table(&self) -> &AnswerTable {
         &self.table
-    }
-
-    pub fn infer_with_first_use(&self) -> bool {
-        self.infer_with_first_use
     }
 
     #[expect(dead_code)]
