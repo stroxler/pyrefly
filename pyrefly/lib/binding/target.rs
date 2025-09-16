@@ -414,11 +414,8 @@ impl<'a> BindingsBuilder<'a> {
         if ensure_assigned && let Some(assigned) = &mut assigned {
             self.ensure_expr(assigned, user.usage());
         }
-        let (ann, default) = self.bind_current(&name.id, &user, FlowStyle::Other);
-        let mut binding = make_binding(assigned.as_deref(), ann);
-        if let Some(default) = default {
-            binding = Binding::Default(default, Box::new(binding));
-        }
+        let (ann, _) = self.bind_current(&name.id, &user, FlowStyle::Other);
+        let binding = make_binding(assigned.as_deref(), ann);
         self.insert_binding_current(user, binding);
     }
 
@@ -466,15 +463,12 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FlowStyle::Other
         };
-        let (canonical_ann, default) = self.bind_name(&name.id, pinned_idx, style);
+        let (canonical_ann, _) = self.bind_name(&name.id, pinned_idx, style);
         let ann = match direct_ann {
             Some((_, idx)) => Some((AnnotationStyle::Direct, idx)),
             None => canonical_ann.map(|idx| (AnnotationStyle::Forwarded, idx)),
         };
-        let mut binding = Binding::NameAssign(name.id.clone(), ann, value);
-        if let Some(default) = default {
-            binding = Binding::Default(default, Box::new(binding));
-        }
+        let binding = Binding::NameAssign(name.id.clone(), ann, value);
         // Record the raw assignment
         let (first_used_by, def_idx) = user.decompose();
         let def_idx = self.insert_binding_idx(def_idx, binding);
