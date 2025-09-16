@@ -360,7 +360,10 @@ impl BindingTable {
         idx
     }
 
-    fn insert_anywhere(&mut self, name: Name, range: TextRange, idx: Idx<Key>) {
+    /// Record the binding of a value to a variable in an Anywhere binding (which
+    /// will take the phi of all values bound at different points). If necessary, we
+    /// insert the Anywhere.
+    fn record_bind_in_anywhere(&mut self, name: Name, range: TextRange, idx: Idx<Key>) {
         let phi_idx = self.types.0.insert(Key::Anywhere(name, range));
         match self
             .types
@@ -1005,7 +1008,7 @@ impl<'a> BindingsBuilder<'a> {
             });
         if info.count > 1 {
             self.table
-                .insert_anywhere(name.into_key().clone(), info.loc, idx);
+                .record_bind_in_anywhere(name.into_key().clone(), info.loc, idx);
         }
         info.annot
     }
