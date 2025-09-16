@@ -430,6 +430,7 @@ fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> Vec<Class> {
     }
     match type_ {
         Type::ClassType(class_type) => vec![class_type.class_object().clone()],
+        Type::Tuple(_) => vec![context.stdlib.tuple_object().clone()],
         Type::Union(elements) => elements
             .iter()
             .flat_map(|inner| get_classes_of_type(inner, context))
