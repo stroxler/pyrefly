@@ -914,6 +914,23 @@ g(f)
 );
 
 testcase!(
+    test_generic_bounds_to_callable,
+    r#"
+from typing import Callable
+
+class A: ...
+class B(A): ...
+class C(B): ...
+
+def f[T: B](x: T) -> T: ...
+
+c1: Callable[[A], A] = f # E: `[T](x: T) -> T` is not assignable to `(A) -> A`
+c2: Callable[[B], B] = f # OK
+c3: Callable[[C], C] = f # OK
+    "#,
+);
+
+testcase!(
     test_return_generic_callable,
     r#"
 from typing import assert_type, Callable
