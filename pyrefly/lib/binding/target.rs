@@ -414,7 +414,7 @@ impl<'a> BindingsBuilder<'a> {
         if ensure_assigned && let Some(assigned) = &mut assigned {
             self.ensure_expr(assigned, user.usage());
         }
-        let (ann, _) = self.bind_current(&name.id, &user, FlowStyle::Other);
+        let ann = self.bind_current(&name.id, &user, FlowStyle::Other);
         let binding = make_binding(assigned.as_deref(), ann);
         self.insert_binding_current(user, binding);
     }
@@ -463,7 +463,7 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             FlowStyle::Other
         };
-        let (canonical_ann, _) = self.bind_name(&name.id, pinned_idx, style);
+        let canonical_ann = self.bind_name(&name.id, pinned_idx, style);
         let ann = match direct_ann {
             Some((_, idx)) => Some((AnnotationStyle::Direct, idx)),
             None => canonical_ann.map(|idx| (AnnotationStyle::Forwarded, idx)),

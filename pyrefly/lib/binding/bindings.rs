@@ -994,7 +994,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self.insert_binding(Key::Definition(ShortIdentifier::new(name)), binding);
-        self.bind_name(&name.id, idx, style).0
+        self.bind_name(&name.id, idx, style)
     }
 
     /// Bind a name in scope to the idx of `current`, inserting `binding` as the binding.
@@ -1006,7 +1006,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self.insert_binding_current(current, binding);
-        self.bind_name(&name.id, idx, style).0
+        self.bind_name(&name.id, idx, style)
     }
 
     /// Bind a name in scope to the idx of `current`, without inserting a binding.
@@ -1018,7 +1018,7 @@ impl<'a> BindingsBuilder<'a> {
         name: &Name,
         current: &CurrentIdx,
         style: FlowStyle,
-    ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
+    ) -> Option<Idx<KeyAnnotation>> {
         self.bind_name(name, current.idx(), style)
     }
 
@@ -1032,9 +1032,9 @@ impl<'a> BindingsBuilder<'a> {
         name: &Name,
         idx: Idx<Key>,
         style: FlowStyle,
-    ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
+    ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
-        let default = self.scopes.upsert_flow_info(name, idx, Some(style));
+        self.scopes.upsert_flow_info(name, idx, Some(style));
         let info = self
             .scopes
             .current()
@@ -1049,7 +1049,7 @@ impl<'a> BindingsBuilder<'a> {
             self.table
                 .insert_anywhere(name.into_key().clone(), info.loc, idx);
         }
-        (info.annot, default)
+        info.annot
     }
 
     pub fn type_params(&mut self, x: &mut TypeParams) {
