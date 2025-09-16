@@ -37,6 +37,7 @@ use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::display::function_suffix;
+use crate::solver::solver::QuantifiedHandle;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncId;
 use crate::types::callable::Param;
@@ -947,7 +948,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.instantiate_fresh_callable(tparams, callable)
             }
         } else {
-            (Vec::new(), callable)
+            (QuantifiedHandle::empty(), callable)
         };
         if let Some(targs) = ctor_targs.as_mut() {
             self.solver().freshen_class_targs(targs, self.uniques);
@@ -1066,7 +1067,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.solver().generalize_class_targs(targs);
         }
         // TODO: error when instantiation is incompatible with bounds
-        let _ = self.solver().finish_quantified(&qs);
+        let _ = self.solver().finish_quantified(qs);
         self.solver().expand(callable.ret)
     }
 }

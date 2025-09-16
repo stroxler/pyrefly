@@ -20,6 +20,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::variance_inference::VarianceMap;
 use crate::binding::binding::KeyVariance;
+use crate::solver::solver::QuantifiedHandle;
 use crate::solver::solver::SubsetError;
 use crate::types::callable::Required;
 use crate::types::class::Class;
@@ -30,7 +31,6 @@ use crate::types::typed_dict::TypedDictField;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Type;
-use crate::types::types::Var;
 
 /// `TypeOrder` provides a minimal API allowing `Subset` to request additional
 /// information about types that may be required for solving bindings
@@ -159,7 +159,7 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.constructor_to_callable(cls)
     }
 
-    pub fn instantiate_fresh_forall(self, forall: Forall<Forallable>) -> (Vec<Var>, Type) {
+    pub fn instantiate_fresh_forall(self, forall: Forall<Forallable>) -> (QuantifiedHandle, Type) {
         self.0.instantiate_fresh_forall(forall)
     }
 

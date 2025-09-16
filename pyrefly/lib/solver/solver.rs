@@ -110,6 +110,15 @@ impl Variable {
     }
 }
 
+#[must_use = "Quantified vars must be finalized. Pass to finish_quantified."]
+pub struct QuantifiedHandle(Vec<Var>);
+
+impl QuantifiedHandle {
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+}
+
 #[derive(Debug)]
 pub struct Solver {
     variables: RwLock<SmallMap<Var, Variable>>,
@@ -365,9 +374,9 @@ impl Solver {
         params: &TParams,
         t: Type,
         uniques: &UniqueFactory,
-    ) -> (Vec<Var>, Type) {
+    ) -> (QuantifiedHandle, Type) {
         if params.is_empty() {
-            return (Vec::new(), t);
+            return (QuantifiedHandle::empty(), t);
         }
 
         let vs: Vec<Var> = params.iter().map(|_| Var::new(uniques)).collect();
@@ -377,7 +386,7 @@ impl Solver {
         for (v, param) in vs.iter().zip(params.iter()) {
             lock.insert(*v, Variable::Quantified(param.quantified.clone()));
         }
-        (vs, t)
+        (QuantifiedHandle(vs), t)
     }
 
     /// Partially instantiate a generic function using the first argument.
@@ -442,11 +451,11 @@ impl Solver {
     /// If `infer_with_first_use` is true, the variable `T` will be have like an
     /// empty container and get pinned by the first subsequent usage.
     /// If `infer_with_first_use` is false, the variable `T` will be replaced with `Any`
-    pub fn finish_quantified(&self, vs: &[Var]) -> Result<(), SubsetError> {
+    pub fn finish_quantified(&self, vs: QuantifiedHandle) -> Result<(), SubsetError> {
         let mut lock = self.variables.write();
         let mut ok = Ok(());
-        for v in vs {
-            let e = lock.get_mut(v).expect(VAR_LEAK);
+        for v in vs.0 {
+            let e = lock.get_mut(&v).expect(VAR_LEAK);
             match e {
                 Variable::Answer(_) => {
                     // We pin the quantified var to a type when it first appears in a subset constraint,
@@ -454,7 +463,7 @@ impl Solver {
                     ok = ok.and_then(|_| {
                         self.instantiation_errors
                             .read()
-                            .get(v)
+                            .get(&v)
                             .map_or(Ok(()), |e| Err(e.clone()))
                     })
                 }
@@ -889,7 +898,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    pub fn finish_quantified(&self, vs: &[Var]) -> Result<(), SubsetError> {
+    pub fn finish_quantified(&self, vs: QuantifiedHandle) -> Result<(), SubsetError> {
         self.solver.finish_quantified(vs)
     }
 }

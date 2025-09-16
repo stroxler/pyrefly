@@ -1136,9 +1136,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 self.is_subset_eq(got, &self.type_order.stdlib().none_type().clone().to_type())
             }
             (Type::Forall(forall), _) => {
+                // Finalizing the quantified vars returns instantiation errors
                 let (vs, got) = self.type_order.instantiate_fresh_forall((**forall).clone());
                 let result = self.is_subset_eq(&got, want);
-                result.and(self.finish_quantified(&vs))
+                result.and(self.finish_quantified(vs))
             }
             (_, Type::Forall(forall)) => self.is_subset_eq(got, &forall.body.clone().as_type()),
             (Type::TypeAlias(ta), _) => {
