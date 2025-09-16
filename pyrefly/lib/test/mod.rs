@@ -30,6 +30,7 @@ mod enums;
 mod flow;
 mod generic_basic;
 mod generic_restrictions;
+mod generic_sub;
 mod imports;
 mod incremental;
 mod inference;

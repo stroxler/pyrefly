@@ -578,14 +578,13 @@ def f[T]() -> Callable[[T], T]:
 );
 
 testcase!(
-    bug = "This assignment should work",
     test_assign_lambda_to_protocol,
     r#"
 from typing import Protocol, reveal_type
 class Identity(Protocol):
     def __call__[T](self, x: T) -> T:
         return x
-x: Identity = lambda x: x  # E: `(x: Unknown) -> Unknown` is not assignable to `Identity`
+x: Identity = lambda x: x
     "#,
 );
 

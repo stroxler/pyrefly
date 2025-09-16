@@ -961,7 +961,6 @@ def g[T]() -> Callable[[T], T]:
 );
 
 testcase!(
-    bug = "This assignment should work",
     test_forall_matches_forall,
     r#"
 from typing import Callable, Protocol
@@ -970,7 +969,7 @@ class Identity(Protocol):
         return x
 def f[T]() -> Callable[[T], T]:
     return lambda x: x
-x: Identity = f()  # E: `[T](T) -> T` is not assignable to `Identity`
+x: Identity = f()
     "#,
 );
 

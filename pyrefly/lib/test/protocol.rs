@@ -582,7 +582,6 @@ def f[T: A | B](direct: A | B, quantified: T) -> None:
 );
 
 testcase!(
-    bug = "We don't support this yet",
     test_callback_protocol_generic,
     r#"
 from typing import Protocol
@@ -593,13 +592,12 @@ def f[T](x: T) -> T:
     return x
 def g(x: int) -> int:
     return x
-c: C = f  # should be OK  # E: `[T](x: T) -> T` is not assignable to `C`
+c: C = f
 c: C = g  # E: `(x: int) -> int` is not assignable to `C`
     "#,
 );
 
 testcase!(
-    bug = "Generic subtyping is not yet supported",
     test_protocol_self_tvar,
     r#"
 from typing import Protocol
@@ -612,6 +610,6 @@ class C:
     def f[T: 'C'](self: T) -> T:
         return self
 
-x: P = C()  # TODO # E: `C` is not assignable to `P`
+x: P = C() # OK
     "#,
 );

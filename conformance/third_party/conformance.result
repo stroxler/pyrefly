@@ -300,9 +300,7 @@
     "Line 135: Expected 1 errors",
     "Line 165: Expected 1 errors"
   ],
-  "protocols_generic.py": [
-    "Line 144: Unexpected errors ['`ConcreteHasProperty1` is not assignable to `HasPropertyProto`']"
-  ],
+  "protocols_generic.py": [],
   "protocols_merging.py": [
     "Line 82: Expected 1 errors"
   ],
@@ -315,10 +313,7 @@
     "Line 92: Expected 1 errors",
     "Line 96: Expected 1 errors"
   ],
-  "protocols_self.py": [
-    "Line 32: Unexpected errors ['`One` is not assignable to variable `c` with type `Copyable`']",
-    "Line 33: Unexpected errors ['`Other` is not assignable to variable `c` with type `Copyable`']"
-  ],
+  "protocols_self.py": [],
   "protocols_subtyping.py": [],
   "protocols_variance.py": [
     "Line 21: Expected 1 errors",
