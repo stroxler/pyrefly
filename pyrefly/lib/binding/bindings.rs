@@ -995,22 +995,13 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
+        let write_info = self.scopes.look_up_name_for_write(name, &self.module_info);
         self.scopes.upsert_flow_info(name, idx, Some(style));
-        let info = self
-            .scopes
-            .current()
-            .stat
-            .0
-            .get_hashed(name)
-            .unwrap_or_else(|| {
-                let module = self.module_info.name();
-                panic!("Name `{name}` not found in static scope of module `{module}`")
-            });
-        if info.count > 1 {
+        if let Some(range) = write_info.anywhere_range {
             self.table
-                .record_bind_in_anywhere(name.into_key().clone(), info.loc, idx);
+                .record_bind_in_anywhere(name.into_key().clone(), range, idx);
         }
-        info.annot
+        write_info.annotation
     }
 
     pub fn type_params(&mut self, x: &mut TypeParams) {

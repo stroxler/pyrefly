@@ -78,6 +78,22 @@ pub enum NameReadInfo {
     Error(LookupError),
 }
 
+/// The result of a successful lookup of a name for a write operation.
+#[derive(Debug)]
+pub struct NameWriteInfo {
+    /// The annotation associated with this name in the current scope stack, if
+    /// any. Used both for contextual typing and because write operations must
+    /// have values assignable to the annotated type.
+    pub annotation: Option<Idx<KeyAnnotation>>,
+    /// If this name has multiple assignments - in which case we need to create an
+    /// `Anywhere` binding and record each assignment in it's Phi binding - this is
+    /// the text range used for the `Anywhere`.
+    ///
+    /// If this name only has one assignment, we will skip the `Anywhere` as
+    /// an optimization, and this field will be `None`.
+    pub anywhere_range: Option<TextRange>,
+}
+
 /// A name defined in a module, which needs to be convertable to an export.
 #[derive(Debug)]
 pub enum Exportable {
@@ -1284,6 +1300,31 @@ impl Scopes {
             barrier = barrier || scope.barrier;
         }
         NameReadInfo::Error(LookupError::NotFound)
+    }
+
+    /// Look up a name for a write operation.
+    ///
+    /// Panics if the name is not found in static scopes - we rely on this panic to
+    /// ensure that the scope construction powered by Definitions always includes
+    /// names that the bindings stage believes are defined. If you encounter a panic
+    /// here, most likely the two have diverged.
+    pub fn look_up_name_for_write(
+        &self,
+        name: Hashed<&Name>,
+        module_info: &ModuleInfo,
+    ) -> NameWriteInfo {
+        let static_info = self.current().stat.0.get_hashed(name).unwrap_or_else(|| {
+            let module = module_info.name();
+            panic!("Name `{name}` not found in static scope of module `{module}`")
+        });
+        NameWriteInfo {
+            annotation: static_info.annot,
+            anywhere_range: if static_info.count > 1 {
+                Some(static_info.loc)
+            } else {
+                None
+            },
+        }
     }
 }
 
