@@ -385,14 +385,14 @@ impl Solver {
     ///
     /// Returns a callable with the first parameter removed, substituted with
     /// instantiations provided by applying the first argument.
-    pub fn instantiate_callable_self<Ans: LookupAnswer>(
+    pub fn instantiate_callable_self(
         &self,
         tparams: &TParams,
         self_obj: &Type,
         self_param: &Type,
         mut callable: Callable,
         uniques: &UniqueFactory,
-        type_order: TypeOrder<Ans>,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Callable {
         // Collect tparams that appear in the first parameter.
         let mut qs = Vec::new();
@@ -422,7 +422,7 @@ impl Solver {
 
         // Solve for the vars created above. If this errors, then the definition
         // is invalid, and we should have raised an error at the definition site.
-        let _ = self.is_subset_eq(self_obj, &self_param, type_order);
+        is_subset(self_obj, &self_param);
 
         // Either we have solutions, or we fall back to Any. We don't use finish_quantified
         // because we don't want Variable::Contained.

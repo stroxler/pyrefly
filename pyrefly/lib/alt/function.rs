@@ -820,7 +820,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
                     if let Type::BoundMethod(m) = call_attr {
-                        Some(self.bind_boundmethod(&m).unwrap_or(m.func.as_type()))
+                        Some(
+                            self.bind_boundmethod(&m, &mut |a, b| self.is_subset_eq(a, b))
+                                .unwrap_or(m.func.as_type()),
+                        )
                     } else {
                         None
                     }
@@ -1229,28 +1232,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn bind_boundmethod(&self, m: &BoundMethod) -> Option<Type> {
-        self.bind_function(&m.func.clone().as_type(), &m.obj)
+    pub fn bind_boundmethod(
+        &self,
+        m: &BoundMethod,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> Option<Type> {
+        self.bind_function(&m.func.clone().as_type(), &m.obj, is_subset)
     }
 
     pub fn bind_dunder_new(&self, t: &Type, cls: ClassType) -> Option<Type> {
-        self.bind_function(t, &Type::Type(Box::new(Type::SelfType(cls))))
+        self.bind_function(
+            t,
+            &Type::Type(Box::new(Type::SelfType(cls))),
+            &mut |a, b| self.is_subset_eq(a, b),
+        )
     }
 
     /// If this is an unbound callable (i.e., a callable that is not BoundMethod), strip the first parameter.
     /// If it is generic, we use the bound object to instantiate type variables in the first argument.
-    fn bind_function(&self, t: &Type, obj: &Type) -> Option<Type> {
+    fn bind_function(
+        &self,
+        t: &Type,
+        obj: &Type,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> Option<Type> {
         match t {
             Type::Forall(forall) => match &forall.body {
                 Forallable::Callable(c) => c.split_first_param().map(|(param, c)| {
-                    let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
+                    let c =
+                        self.instantiate_callable_self(&forall.tparams, obj, param, c, is_subset);
                     Type::Forall(Box::new(Forall {
                         tparams: forall.tparams.clone(),
                         body: Forallable::Callable(c),
                     }))
                 }),
                 Forallable::Function(f) => f.signature.split_first_param().map(|(param, c)| {
-                    let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
+                    let c =
+                        self.instantiate_callable_self(&forall.tparams, obj, param, c, is_subset);
                     Type::Forall(Box::new(Forall {
                         tparams: forall.tparams.clone(),
                         body: Forallable::Function(Function {
@@ -1288,7 +1306,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .signature
                         .split_first_param()
                         .map(|(param, c)| {
-                            let c = self.instantiate_callable_self(&forall.tparams, obj, param, c);
+                            let c = self.instantiate_callable_self(
+                                &forall.tparams,
+                                obj,
+                                param,
+                                c,
+                                is_subset,
+                            );
                             OverloadType::Forall(Forall {
                                 tparams: forall.tparams.clone(),
                                 body: Function {
@@ -1316,6 +1340,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self_obj: &Type,
         self_param: &Type,
         callable: Callable,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Callable {
         self.solver().instantiate_callable_self(
             tparams,
@@ -1323,7 +1348,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self_param,
             callable,
             self.uniques,
-            self.type_order(),
+            is_subset,
         )
     }
 }

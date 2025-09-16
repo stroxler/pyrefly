@@ -384,7 +384,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let callable = self.constructor_to_callable(&instance);
                 &self.distribute_over_union(&callable, |ty| {
                     if let Type::BoundMethod(m) = ty {
-                        self.bind_boundmethod(m).unwrap_or_else(|| ty.clone())
+                        self.bind_boundmethod(m, &mut |a, b| self.is_subset_eq(a, b))
+                            .unwrap_or_else(|| ty.clone())
                     } else {
                         ty.clone()
                     }

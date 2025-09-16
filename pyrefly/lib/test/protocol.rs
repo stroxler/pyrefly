@@ -597,3 +597,21 @@ c: C = f  # should be OK  # E: `[T](x: T) -> T` is not assignable to `C`
 c: C = g  # E: `(x: int) -> int` is not assignable to `C`
     "#,
 );
+
+testcase!(
+    bug = "Generic subtyping is not yet supported",
+    test_protocol_self_tvar,
+    r#"
+from typing import Protocol
+
+class P(Protocol):
+    def f[T: 'P'](self: T) -> T:
+        return self
+
+class C:
+    def f[T: 'C'](self: T) -> T:
+        return self
+
+x: P = C()  # TODO # E: `C` is not assignable to `P`
+    "#,
+);

@@ -163,7 +163,11 @@ impl<'a, Ans: LookupAnswer> TypeOrder<'a, Ans> {
         self.0.instantiate_fresh_forall(forall)
     }
 
-    pub fn bind_boundmethod(self, m: &BoundMethod) -> Option<Type> {
-        self.0.bind_boundmethod(m)
+    pub fn bind_boundmethod(
+        self,
+        m: &BoundMethod,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> Option<Type> {
+        self.0.bind_boundmethod(m, is_subset)
     }
 }
