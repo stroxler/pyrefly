@@ -4,7 +4,7 @@ exports[`Home page renders external site correctly 1`] = `
 <div>
   <div>
     <div>
-      Pyrefly: A Static Type Checker for Python
+      Pyrefly: A Fast Python Type Checker and Language Server
     </div>
     <div>
       Pyrefly is a fast type checker and language server for Python with powerful IDE features
@@ -421,7 +421,7 @@ exports[`Home page renders internal site correctly 1`] = `
 <div>
   <div>
     <div>
-      Pyrefly: A Static Type Checker for Python
+      Pyrefly: A Fast Python Type Checker and Language Server
     </div>
     <div>
       Pyrefly is a fast type checker and language server for Python with powerful IDE features
