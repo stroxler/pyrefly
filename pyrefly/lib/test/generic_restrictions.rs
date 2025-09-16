@@ -487,3 +487,19 @@ from typing import TypeVar
 T = TypeVar("T", int)  # E: Expected at least 2 constraints in TypeVar `T`, got 1
     "#,
 );
+
+testcase!(
+    bug = "We always promote when instantiating, but we should not promote if the bound is literal",
+    test_typevar_literal_bound,
+    r#"
+from typing import Literal, LiteralString, assert_type
+def f[T: Literal["foo"]](x: T) -> T: ...
+def g[T: LiteralString](x: T) -> T: ...
+
+assert_type(f("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed
+assert_type(f("bar"), str)
+
+assert_type(g("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed
+assert_type(g("bar"), Literal["bar"]) # E: assert_type(str, Literal['bar']) failed
+    "#,
+);
