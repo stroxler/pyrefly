@@ -8,6 +8,7 @@
 use std::fmt::Debug;
 use std::mem;
 
+use itertools::Either;
 use parse_display::Display;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
@@ -51,6 +52,8 @@ use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
+use crate::binding::bindings::LookupError;
+use crate::binding::bindings::LookupKind;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
@@ -1220,6 +1223,60 @@ impl Scopes {
             }
             _ => None,
         }
+    }
+
+    /// Get the key bound in the current scope stack for a name, for a read.
+    ///
+    /// If the lookup is Ok(Left(_)), then it is a read from the current flow. If the lookup
+    /// is OK(Right(_)) then it is a forward lookup of static scope.
+    ///
+    /// TODO(stroxler): Use a dedicated type instead of Either.
+    pub fn look_up_name_for_read(
+        &self,
+        name: Hashed<&Name>,
+        kind: LookupKind,
+    ) -> Result<Either<Idx<Key>, Key>, LookupError> {
+        let mut barrier = false;
+        let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
+        for (lookup_depth, scope) in self.iter_rev().enumerate() {
+            let is_class = matches!(scope.kind, ScopeKind::Class(_));
+            // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
+            //   The scope of names defined in a class block is limited to the
+            //   class block; it does not extend to the code blocks of
+            //   methods. This includes comprehensions and generator
+            //   expressions, but it does not include annotation scopes, which
+            //   have access to their enclosing class scopes."""
+            if is_class
+                && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
+            {
+                // Note: class body scopes have `barrier = false`, so skipping the barrier update is okay.
+                continue;
+            }
+
+            if let Some(flow_info) = scope.flow.info.get_hashed(name)
+                && !barrier
+            {
+                return Ok(Either::Left(flow_info.key));
+            }
+            // Class body scopes are dynamic, not static, so if we don't find a name in the
+            // current flow we keep looking. In every other kind of scope, anything the Python
+            // compiler has identified as local shadows enclosing scopes, so we should prefer
+            // inner static lookups to outer flow lookups.
+            if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
+                match kind {
+                    LookupKind::Regular => {
+                        return Ok(Either::Right(static_info.as_key(name.into_key())));
+                    }
+                    LookupKind::Mutable => {
+                        if barrier {
+                            return Err(LookupError::NotMutable);
+                        }
+                    }
+                }
+            }
+            barrier = barrier || scope.barrier;
+        }
+        Err(LookupError::NotFound)
     }
 }
 
