@@ -1219,6 +1219,20 @@ impl Scopes {
         );
         field_definitions
     }
+
+    /// Check whether the current flow has a module import at a given name.
+    ///
+    /// Used when binding imports, because the semantics of multiple imports from
+    /// the same root (like `import foo.bar; import foo.baz`) are that the sub-modules
+    /// will be added as attributes of `foo`.
+    pub fn existing_module_import_at(&self, module_name: &Name) -> Option<Idx<Key>> {
+        match self.current().flow.info.get(module_name) {
+            Some(flow_info) if matches!(flow_info.style, FlowStyle::MergeableImport(..)) => {
+                Some(flow_info.key)
+            }
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

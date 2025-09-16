@@ -946,15 +946,7 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         None => {
                             let first = m.first_component();
-                            let flow_info = self.scopes.current().flow.info.get(&first);
-                            let module_key = match flow_info {
-                                Some(flow_info)
-                                    if matches!(flow_info.style, FlowStyle::MergeableImport(_)) =>
-                                {
-                                    Some(flow_info.key)
-                                }
-                                _ => None,
-                            };
+                            let module_key = self.scopes.existing_module_import_at(&first);
                             let key = self.insert_binding(
                                 Key::Import(first.clone(), x.name.range),
                                 Binding::Module(m, vec![first.clone()], module_key),
