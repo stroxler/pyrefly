@@ -756,7 +756,7 @@ impl<'a> BindingsBuilder<'a> {
         self.lookup_name_inner(name, kind, usage)
             .map(|(result, first_use)| {
                 if let Some(used_idx) = first_use {
-                    self.record_possible_first_use(used_idx, usage);
+                    self.record_first_use(used_idx, usage);
                 }
                 result
             })
@@ -795,7 +795,7 @@ impl<'a> BindingsBuilder<'a> {
             if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
-                let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow_info.key, usage);
+                let (idx, maybe_pinned_idx) = self.detect_first_use(flow_info.key, usage);
                 if let Some(pinned_idx) = maybe_pinned_idx {
                     return Ok((idx, Some(pinned_idx)));
                 } else {
@@ -839,7 +839,7 @@ impl<'a> BindingsBuilder<'a> {
     ///   usage as the first read, return `(pinned_idx, None)`: we don't need to
     ///   record first use because that is done already, but we want to continue
     ///   forwarding the raw binding throughout this first use.
-    fn detect_possible_first_use(
+    fn detect_first_use(
         &self,
         flow_idx: Idx<Key>,
         usage: &mut Usage,
@@ -880,7 +880,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Record a first use detected in `detect_possible_first_use`.
-    fn record_possible_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
+    fn record_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
         match self.table.types.1.get_mut(used) {
             Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
                 *first_use = match usage {
