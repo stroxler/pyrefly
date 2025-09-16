@@ -389,6 +389,7 @@ impl BindingTable {
 }
 
 /// Errors that can occur when we try to look up a name
+#[derive(Debug)]
 pub enum LookupError {
     /// We can't find the name at all
     NotFound,
@@ -774,17 +775,9 @@ impl<'a> BindingsBuilder<'a> {
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
-        let ok_no_usage = |idx| Ok((idx, None));
         match self.scopes.look_up_name_for_read(name, kind) {
-            NameReadInfo::Flow(key) => {
-                let (idx, maybe_pinned_idx) = self.detect_first_use(key, usage);
-                if let Some(pinned_idx) = maybe_pinned_idx {
-                    Ok((idx, Some(pinned_idx)))
-                } else {
-                    ok_no_usage(idx)
-                }
-            }
-            NameReadInfo::Anywhere(key) => ok_no_usage(self.table.types.0.insert(key)),
+            NameReadInfo::Flow(original_idx) => Ok(self.detect_first_use(original_idx, usage)),
+            NameReadInfo::Anywhere(key) => Ok((self.table.types.0.insert(key), None)),
             NameReadInfo::Error(lookup_error) => Err(lookup_error),
         }
     }

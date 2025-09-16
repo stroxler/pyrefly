@@ -62,6 +62,9 @@ use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::class::ClassDefIndex;
 
+/// The result of looking up a name in the current scope stack for a read
+/// operation.
+#[derive(Debug)]
 pub enum NameReadInfo {
     /// A normal key bound in the current flow. The key is always already in the bindings table.
     Flow(Idx<Key>),
