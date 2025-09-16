@@ -773,8 +773,33 @@ impl<'a> BindingsBuilder<'a> {
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
-        let mut barrier = false;
         let ok_no_usage = |idx| Ok((idx, None));
+        match self.key_for_read_of_name(name, kind) {
+            Ok(Either::Left(key)) => {
+                let (idx, maybe_pinned_idx) = self.detect_first_use(key, usage);
+                if let Some(pinned_idx) = maybe_pinned_idx {
+                    Ok((idx, Some(pinned_idx)))
+                } else {
+                    ok_no_usage(idx)
+                }
+            }
+            Ok(Either::Right(key)) => ok_no_usage(self.table.types.0.insert(key)),
+            Err(lookup_error) => Err(lookup_error),
+        }
+    }
+
+    /// Get the key bound in the current scope stack for a name, for a read.
+    ///
+    /// If the lookup is Ok(Left(_)), then it is a read from the current flow. If the lookup
+    /// is OK(Right(_)) then it is a forward lookup of static scope.
+    ///
+    /// TODO(stroxler): Use a dedicated type instead of Either.
+    fn key_for_read_of_name(
+        &self,
+        name: Hashed<&Name>,
+        kind: LookupKind,
+    ) -> Result<Either<Idx<Key>, Key>, LookupError> {
+        let mut barrier = false;
         let is_current_scope_annotation =
             matches!(self.scopes.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.scopes.iter_rev().enumerate() {
@@ -795,12 +820,7 @@ impl<'a> BindingsBuilder<'a> {
             if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
-                let (idx, maybe_pinned_idx) = self.detect_first_use(flow_info.key, usage);
-                if let Some(pinned_idx) = maybe_pinned_idx {
-                    return Ok((idx, Some(pinned_idx)));
-                } else {
-                    return ok_no_usage(idx);
-                }
+                return Ok(Either::Left(flow_info.key));
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
             // current flow we keep looking. In every other kind of scope, anything the Python
@@ -809,8 +829,7 @@ impl<'a> BindingsBuilder<'a> {
             if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
                 match kind {
                     LookupKind::Regular => {
-                        let key = static_info.as_key(name.into_key());
-                        return ok_no_usage(self.table.types.0.insert(key));
+                        return Ok(Either::Right(static_info.as_key(name.into_key())));
                     }
                     LookupKind::Mutable => {
                         if barrier {
