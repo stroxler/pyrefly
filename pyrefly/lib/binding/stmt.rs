@@ -20,7 +20,6 @@ use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::StmtReturn;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
-use starlark_map::Hashed;
 
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
@@ -35,7 +34,6 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::LookupKind;
 use crate::binding::bindings::MutableCaptureLookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
@@ -319,12 +317,8 @@ impl<'a> BindingsBuilder<'a> {
                 for target in &mut x.targets {
                     let mut delete_link = self.declare_current_idx(Key::UsageLink(target.range()));
                     if let Expr::Name(name) = target {
-                        let idx = self.ensure_mutable_name(name, delete_link.usage());
-                        self.scopes.upsert_flow_info(
-                            Hashed::new(&name.id),
-                            idx,
-                            Some(FlowStyle::Uninitialized),
-                        );
+                        self.ensure_mutable_name(name, delete_link.usage());
+                        self.scopes.mark_as_not_in_current_flow(&name.id);
                     } else {
                         self.ensure_expr(target, delete_link.usage());
                     }
@@ -865,22 +859,7 @@ impl<'a> BindingsBuilder<'a> {
                         // uninitialized in the current scope, so that it cannot
                         // be used later.
                         // https://docs.python.org/3/reference/compound_stmts.html#except-clause
-                        let idx = self.lookup_name(
-                            Hashed::new(&name.id),
-                            LookupKind::Regular,
-                            &mut Usage::MutableLookup,
-                        );
-                        if let Ok(idx) = idx {
-                            self.scopes.upsert_flow_info(
-                                Hashed::new(&name.id),
-                                idx,
-                                Some(FlowStyle::Uninitialized),
-                            );
-                        } else {
-                            panic!(
-                                "Should have found the exception name `{name}` in the current scope"
-                            );
-                        }
+                        self.scopes.mark_as_not_in_current_flow(&name.id);
                     }
 
                     self.scopes.swap_current_flow_with(&mut base);

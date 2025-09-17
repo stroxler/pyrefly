@@ -914,6 +914,16 @@ impl Scopes {
         }
     }
 
+    /// Mark a name as uninitialized, if it is defined in the current flow.
+    ///
+    /// Don't change the type if one is present - downstream we'll emit
+    /// uninitialized local errors but keep using our best guess for the type.
+    pub fn mark_as_not_in_current_flow(&mut self, name: &Name) {
+        if let Some(info) = self.current_mut().flow.info.get_mut(name) {
+            info.style = FlowStyle::Uninitialized;
+        }
+    }
+
     fn get_flow_info(&self, name: &Name) -> Option<&FlowInfo> {
         let name = Hashed::new(name);
         for scope in self.iter_rev() {
