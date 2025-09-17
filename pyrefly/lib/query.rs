@@ -167,17 +167,37 @@ fn bound_of_type_var(ty: &Type) -> Option<&Type> {
     }
 }
 
+fn bound_of_type_var_decl(ty: &Type) -> Option<(&QName, &Type)> {
+    if let Type::TypeVar(tv) = ty
+        && let Restriction::Bound(bound) = tv.restriction()
+    {
+        Some((tv.qname(), bound))
+    } else {
+        None
+    }
+}
+
 fn type_to_string(ty: &Type) -> String {
     let mut ctx = TypeDisplayContext::new(&[ty]);
     ctx.always_display_module_name();
-    let text = ctx.display(ty).to_string();
     if is_static_method(ty) {
-        format!("typing.StaticMethod[{text}]")
+        format!("typing.StaticMethod[{}]", ctx.display(ty))
     } else if let Some(bound) = bound_of_type_var(ty) {
         // pyre1 compatibility: return bound for type variable
-        format!("Variable[{text} (bound to {})]", type_to_string(bound))
+        format!(
+            "Variable[{} (bound to {})]",
+            ctx.display(ty),
+            type_to_string(bound)
+        )
+    } else if let Some((qname, bound)) = bound_of_type_var_decl(ty) {
+        // pyre1 compatibility: return bound for type variable
+        format!(
+            "Variable[{} (bound to {})]",
+            qname.id(),
+            type_to_string(bound)
+        )
     } else {
-        text
+        ctx.display(ty).to_string()
     }
 }
 
