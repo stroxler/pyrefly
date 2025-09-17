@@ -998,3 +998,16 @@ if g:
     assert_type(g(""), str)
     "#,
 );
+
+testcase!(
+    test_pass_literals_through_identity,
+    r#"
+from typing import Callable, Literal, reveal_type
+def f(x: Literal[1]) -> Literal[1]:
+    return x
+def g[T](x: T) -> T:
+    return x
+h = g(f)
+reveal_type(h)  # E: revealed type: (x: Literal[1]) -> Literal[1]
+    "#,
+);
