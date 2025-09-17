@@ -64,7 +64,6 @@ iter_iter(iter([1, 2, 3]))
 );
 
 testcase!(
-    bug = "Instantiation is not validated against bound, see https://github.com/facebook/pyrefly/issues/111",
     test_generic_bounds,
     r#"
 class A: ...
@@ -76,7 +75,7 @@ def test[T: B](x: T) -> None:
     b: B = x  # OK
     c: C = x  # E: `T` is not assignable to `C`
 
-test(A())  # Not OK
+test(A())  # E: Type `A` is not assignable to upper bound `B` of type variable `T`
 test(B())
 test(C())
  "#,
@@ -99,7 +98,6 @@ class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B` of type v
 );
 
 testcase!(
-    bug = "Instantiation is not validated against constraints, see https://github.com/facebook/pyrefly/issues/111",
     test_generic_constraints,
     r#"
 class A: ...
@@ -113,7 +111,7 @@ def test[T: (B, C)](x: T) -> None:
     c: C = x  # E: `T` is not assignable to `C`
     d: B | C = x  # OK
 
-test(A())  # Not OK
+test(A())  # E: Type `A` is not assignable to upper bound `B | C` of type variable `T`
 test(B())
 test(C())
 test(D())
@@ -496,10 +494,10 @@ from typing import Literal, LiteralString, assert_type
 def f[T: Literal["foo"]](x: T) -> T: ...
 def g[T: LiteralString](x: T) -> T: ...
 
-assert_type(f("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed
-assert_type(f("bar"), str)
+assert_type(f("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed # E: Type `str` is not assignable to upper bound `Literal['foo']` of type variable `T`
+assert_type(f("bar"), str) # E: Type `str` is not assignable to upper bound `Literal['foo']` of type variable `T` 
 
-assert_type(g("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed
-assert_type(g("bar"), Literal["bar"]) # E: assert_type(str, Literal['bar']) failed
+assert_type(g("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed # E: Type `str` is not assignable to upper bound `LiteralString` of type variable `T`
+assert_type(g("bar"), Literal["bar"]) # E: assert_type(str, Literal['bar']) failed # E: Type `str` is not assignable to upper bound `LiteralString` of type variable `T`
     "#,
 );

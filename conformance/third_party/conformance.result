@@ -218,9 +218,7 @@
     "Line 157: Unexpected errors ['assert_type(tuple[Any], tuple[*tuple[int, ...], int]) failed']"
   ],
   "generics_typevartuple_unpack.py": [],
-  "generics_upper_bound.py": [
-    "Line 51: Expected 1 errors"
-  ],
+  "generics_upper_bound.py": [],
   "generics_variance.py": [
     "Line 77: Expected 1 errors",
     "Line 81: Expected 1 errors",
@@ -242,8 +240,9 @@
     "Line 72: Unexpected errors ['assert_type(Matrix[Literal[2], int], Matrix[Literal[2], Literal[7]]) failed']"
   ],
   "literals_literalstring.py": [
-    "Line 120: Expected 1 errors",
+    "Line 110: Unexpected errors ['Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`']",
     "Line 111: Unexpected errors [\"assert_type(str, Literal['hello']) failed\"]",
+    "Line 115: Unexpected errors ['Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`']",
     "Line 116: Unexpected errors ['assert_type(str, LiteralString) failed']"
   ],
   "literals_parameterizations.py": [],

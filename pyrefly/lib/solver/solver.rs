@@ -22,6 +22,7 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::Vec1;
 use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -122,7 +123,7 @@ impl QuantifiedHandle {
 #[derive(Debug)]
 pub struct Solver {
     variables: RwLock<SmallMap<Var, Variable>>,
-    instantiation_errors: RwLock<SmallMap<Var, SubsetError>>,
+    instantiation_errors: RwLock<SmallMap<Var, TypeVarSpecializationError>>,
     pub infer_with_first_use: bool,
 }
 
@@ -379,7 +380,7 @@ impl Solver {
             return (QuantifiedHandle::empty(), t);
         }
 
-        let vs: Vec<Var> = params.iter().map(|_| Var::new(uniques)).collect();
+        let vs: Vec<_> = params.iter().map(|_| Var::new(uniques)).collect();
         let ts = vs.map(|v| v.to_type());
         let t = t.subst(&params.iter().map(|p| &p.quantified).zip(&ts).collect());
         let mut lock = self.variables.write();
@@ -451,21 +452,21 @@ impl Solver {
     /// If `infer_with_first_use` is true, the variable `T` will be have like an
     /// empty container and get pinned by the first subsequent usage.
     /// If `infer_with_first_use` is false, the variable `T` will be replaced with `Any`
-    pub fn finish_quantified(&self, vs: QuantifiedHandle) -> Result<(), SubsetError> {
+    pub fn finish_quantified(
+        &self,
+        vs: QuantifiedHandle,
+    ) -> Result<(), Vec1<TypeVarSpecializationError>> {
         let mut lock = self.variables.write();
-        let mut ok = Ok(());
+        let mut err = Vec::new();
         for v in vs.0 {
             let e = lock.get_mut(&v).expect(VAR_LEAK);
             match e {
                 Variable::Answer(_) => {
                     // We pin the quantified var to a type when it first appears in a subset constraint,
                     // and at that point we check the instantiation with the bound.
-                    ok = ok.and_then(|_| {
-                        self.instantiation_errors
-                            .read()
-                            .get(&v)
-                            .map_or(Ok(()), |e| Err(e.clone()))
-                    })
+                    if let Some(e) = self.instantiation_errors.read().get(&v) {
+                        err.push(e.clone());
+                    }
                 }
                 Variable::Quantified(_) => {
                     if self.infer_with_first_use {
@@ -477,7 +478,10 @@ impl Solver {
                 _ => {}
             }
         }
-        ok
+        match Vec1::try_from_vec(err) {
+            Ok(err) => Err(err),
+            Err(_) => Ok(()),
+        }
     }
 
     /// Given targs which contain quantified (as come from `instantiate`), replace the quantifieds
@@ -764,11 +768,23 @@ impl Solver {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TypeVarSpecializationError {
+    pub name: Name,
+    pub got: Type,
+    pub want: Type,
+    #[allow(dead_code)]
+    pub error: SubsetError,
+}
+
 /// If a got <: want check fails, the failure reason
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum SubsetError {
     /// The name of a positional parameter differs between `got` and `want`.
     PosParamName(Name, Name),
+    /// Instantiations for quantified vars are incompatible with bounds
+    #[allow(dead_code)]
+    TypeVarSpecialization(Vec1<TypeVarSpecializationError>),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
@@ -853,11 +869,20 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     }
                     var_type if should_force(var_type) => {
                         if let Variable::Quantified(q) = var_type {
+                            let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
                             variables.insert(*v1, Variable::Answer(t2.clone()));
                             drop(variables);
                             if let Err(e) = self.is_subset_eq(t2, &bound) {
-                                self.solver.instantiation_errors.write().insert(*v1, e);
+                                self.solver.instantiation_errors.write().insert(
+                                    *v1,
+                                    TypeVarSpecializationError {
+                                        name,
+                                        got: t2.clone(),
+                                        want: bound,
+                                        error: e,
+                                    },
+                                );
                             }
                         } else {
                             variables.insert(*v1, Variable::Answer(t2.clone()));
@@ -880,11 +905,20 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         // LHS, so that we infer more general types but leave user-specified types alone.
                         let t1 = var_type.promote(t1.clone(), self.type_order);
                         if let Variable::Quantified(q) = var_type {
+                            let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
                             variables.insert(*v2, Variable::Answer(t1.clone()));
                             drop(variables);
                             if let Err(e) = self.is_subset_eq(&t1, &bound) {
-                                self.solver.instantiation_errors.write().insert(*v2, e);
+                                self.solver.instantiation_errors.write().insert(
+                                    *v2,
+                                    TypeVarSpecializationError {
+                                        name,
+                                        got: t1.clone(),
+                                        want: bound,
+                                        error: e,
+                                    },
+                                );
                             }
                         } else {
                             variables.insert(*v2, Variable::Answer(t1));
@@ -898,7 +932,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         }
     }
 
-    pub fn finish_quantified(&self, vs: QuantifiedHandle) -> Result<(), SubsetError> {
+    pub fn finish_quantified(
+        &self,
+        vs: QuantifiedHandle,
+    ) -> Result<(), Vec1<TypeVarSpecializationError>> {
         self.solver.finish_quantified(vs)
     }
 }

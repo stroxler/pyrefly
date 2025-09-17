@@ -6501,6 +6501,16 @@
     },
     {
       "code": -2,
+      "column": 7,
+      "concise_description": "Type `int` is not assignable to upper bound `Sized` of type variable `ST`",
+      "description": "Type `int` is not assignable to upper bound `Sized` of type variable `ST`",
+      "line": 51,
+      "name": "bad-specialization",
+      "stop_column": 13,
+      "stop_line": 51
+    },
+    {
+      "code": -2,
       "column": 38,
       "concise_description": "TypeVar cannot have both constraints and bound",
       "description": "TypeVar cannot have both constraints and bound",
@@ -6921,6 +6931,16 @@
     },
     {
       "code": -2,
+      "column": 25,
+      "concise_description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
+      "description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
+      "line": 110,
+      "name": "bad-specialization",
+      "stop_column": 28,
+      "stop_line": 110
+    },
+    {
+      "code": -2,
       "column": 16,
       "concise_description": "assert_type(str, Literal['hello']) failed",
       "description": "assert_type(str, Literal['hello']) failed",
@@ -6931,6 +6951,16 @@
     },
     {
       "code": -2,
+      "column": 26,
+      "concise_description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
+      "description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
+      "line": 115,
+      "name": "bad-specialization",
+      "stop_column": 29,
+      "stop_line": 115
+    },
+    {
+      "code": -2,
       "column": 16,
       "concise_description": "assert_type(str, LiteralString) failed",
       "description": "assert_type(str, LiteralString) failed",
@@ -6938,6 +6968,16 @@
       "name": "assert-type",
       "stop_column": 35,
       "stop_line": 116
+    },
+    {
+      "code": -2,
+      "column": 21,
+      "concise_description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
+      "description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
+      "line": 120,
+      "name": "bad-specialization",
+      "stop_column": 24,
+      "stop_line": 120
     },
     {
       "code": -2,
