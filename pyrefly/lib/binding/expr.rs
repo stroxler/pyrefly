@@ -76,9 +76,6 @@ pub enum Usage {
     /// a cast, etc) where we are dealing with static types. I will not pin
     /// any placeholder types.
     StaticTypeInformation,
-    /// I'm a usage in a mutable lookup (a reassignment or delete). I will not
-    /// pin any placeholder types.
-    MutableLookup,
 }
 
 enum TestAssertion {

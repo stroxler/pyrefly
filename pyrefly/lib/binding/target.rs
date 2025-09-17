@@ -30,6 +30,7 @@ use crate::binding::bindings::LookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::binding::scope::FlowStyle;
+use crate::binding::scope::NameReadInfo;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 
@@ -121,19 +122,19 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
-    /// Check whether a name is well-defined, when updating flow info for
-    /// attribute / subscript assignments. The lookup kind is regular but the
-    /// usage is MutableLookup because these operations are non-mutating from a
-    /// scope rules point of view, but the checks are not useful for first-usage
-    /// tracking since we're just checking whether the mutation of a facet
-    /// deserves a narrow binding.
-    fn name_is_defined(&mut self, name: &Identifier) -> bool {
-        self.lookup_name(
-            Hashed::new(&name.id),
-            LookupKind::Regular,
-            &mut Usage::MutableLookup,
-        )
-        .is_ok()
+    /// Narrow a name to `Idx` if the name is defined in the current scope stack. Used
+    /// to handle attribute and subscript assignment narrows, which we want to allow whenever
+    /// the name was defined, but we don't want them to cause us to treat nonexistent names
+    /// as defined downstream.
+    fn narrow_if_name_is_defined(&mut self, identifier: Identifier, narrowed_idx: Idx<Key>) {
+        let name = Hashed::new(&identifier.id);
+        let name_is_defined = match self.scopes.look_up_name_for_read(name, LookupKind::Regular) {
+            NameReadInfo::Flow(..) | NameReadInfo::Anywhere(..) => true,
+            NameReadInfo::Error(..) => false,
+        };
+        if name_is_defined {
+            self.scopes.upsert_flow_info(name, narrowed_idx, None);
+        }
     }
 
     /// Create a binding to verify that an attribute assignment is valid and
@@ -166,13 +167,7 @@ impl<'a> BindingsBuilder<'a> {
             Binding::AssignToAttribute(attr, Box::new(value.clone())),
         );
         if let Some(identifier) = narrowing_identifier {
-            let name = Hashed::new(&identifier.id);
-            // This is a mutable usage even though it's not a "mutable lookup" because the
-            // scoping rules for attribute assignment are normal lookups, but they aren't useful
-            // for first-usage tracking.
-            if self.name_is_defined(&identifier) {
-                self.scopes.upsert_flow_info(name, idx, None);
-            }
+            self.narrow_if_name_is_defined(identifier, idx);
         }
         value
     }
@@ -217,10 +212,7 @@ impl<'a> BindingsBuilder<'a> {
         let idx = self
             .insert_binding_current(user, Binding::AssignToSubscript(subscript, Box::new(value)));
         if let Some(identifier) = narrowing_identifier {
-            let name = Hashed::new(&identifier.id);
-            if self.name_is_defined(&identifier) {
-                self.scopes.upsert_flow_info(name, idx, None);
-            }
+            self.narrow_if_name_is_defined(identifier, idx);
         }
     }
 
