@@ -113,9 +113,9 @@ fn get_super_class_member(
             DefinitionRef {
                 module_id: class.module_id,
                 module_name: class.module_name,
-                function_id: FunctionId(
-                    context.module_info.display_range(last_function.id_range()),
-                ),
+                function_id: FunctionId::Function {
+                    location: context.module_info.display_range(last_function.id_range()),
+                },
                 identifier: field.to_string(),
             }
         })

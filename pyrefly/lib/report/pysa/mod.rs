@@ -6,6 +6,8 @@
  */
 
 mod override_graph;
+
+use core::panic;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
@@ -89,13 +91,22 @@ impl ClassId {
 
 /// Represents a unique identifier for a function, inside a module
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
-struct FunctionId(DisplayRange);
+enum FunctionId {
+    #[serde(serialize_with = "serialize_display_range")]
+    Function {
+        location: DisplayRange,
+    },
+    ModuleTopLevel,
+    ClassTopLevel {
+        class_id: ClassId,
+    },
+}
 
-fn serialize_function_id<S>(function_id: &FunctionId, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_display_range<S>(location: &DisplayRange, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    serializer.serialize_str(&location_key(&function_id.0))
+    serializer.serialize_str(&location_key(location))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -246,7 +257,6 @@ struct FunctionDefinition {
 struct DefinitionRef {
     module_id: ModuleId,
     module_name: String, // For debugging purposes only. Reader should use the module id.
-    #[serde(serialize_with = "serialize_function_id")]
     function_id: FunctionId,
     identifier: String, // For debugging purposes only
 }
@@ -261,7 +271,9 @@ impl DefinitionRef {
                 .get(ModuleKey::from_module(context.module_info))
                 .unwrap(),
             module_name: context.module_info.name().to_string(),
-            function_id: FunctionId(display_range),
+            function_id: FunctionId::Function {
+                location: display_range,
+            },
             identifier: name.to_string(),
         }
     }
@@ -303,7 +315,10 @@ where
 {
     let function_definitions: HashMap<String, &FunctionDefinition> = function_definitions
         .iter()
-        .map(|(k, v)| (location_key(&k.0), v))
+        .map(|(function_id, function_definition)| match function_id {
+            FunctionId::Function { location } => (location_key(location), function_definition),
+            _ => panic!("Expect `FunctionId::Function` but got {:#?}", function_id),
+        })
         .collect();
     function_definitions.serialize(serializer)
 }
@@ -543,7 +558,9 @@ fn add_expression_definitions(
                 Some(module_id) => Some(DefinitionRef {
                     module_id,
                     module_name: module_info.name().to_string(),
-                    function_id: FunctionId(display_range),
+                    function_id: FunctionId::Function {
+                        location: display_range,
+                    },
                     identifier: identifier.to_owned(),
                 }),
                 None => {
@@ -962,7 +979,7 @@ fn export_all_functions(
         assert!(
             function_definitions
                 .insert(
-                    FunctionId(current_function.function_id.0.clone()),
+                    current_function.function_id.clone(),
                     FunctionDefinition {
                         name: current_function.identifier.clone(),
                         parent,
