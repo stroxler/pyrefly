@@ -903,25 +903,38 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     var_type if should_force(var_type) => {
                         // Note that we promote the type when the var is on the RHS, but not when it's on the
                         // LHS, so that we infer more general types but leave user-specified types alone.
-                        let t1 = var_type.promote(t1.clone(), self.type_order);
+                        let t1_p = var_type.promote(t1.clone(), self.type_order);
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
-                            variables.insert(*v2, Variable::Answer(t1.clone()));
+                            variables.insert(*v2, Variable::Answer(t1_p.clone()));
                             drop(variables);
-                            if let Err(e) = self.is_subset_eq(&t1, &bound) {
-                                self.solver.instantiation_errors.write().insert(
-                                    *v2,
-                                    TypeVarSpecializationError {
-                                        name,
-                                        got: t1.clone(),
-                                        want: bound,
-                                        error: e,
-                                    },
-                                );
+                            if let Err(err_p) = self.is_subset_eq(&t1_p, &bound) {
+                                // If the promoted type fails, try again with the original type, in case the bound itself is literal.
+                                // This could be more optimized, but errors are rare, so this code path should not be hot.
+                                self.solver
+                                    .variables
+                                    .write()
+                                    .insert(*v2, Variable::Answer(t1.clone()));
+                                if self.is_subset_eq(t1, &bound).is_err() {
+                                    // If the original type is also an error, use the promoted type.
+                                    self.solver
+                                        .variables
+                                        .write()
+                                        .insert(*v2, Variable::Answer(t1_p.clone()));
+                                    self.solver.instantiation_errors.write().insert(
+                                        *v2,
+                                        TypeVarSpecializationError {
+                                            name,
+                                            got: t1_p.clone(),
+                                            want: bound,
+                                            error: err_p,
+                                        },
+                                    );
+                                }
                             }
                         } else {
-                            variables.insert(*v2, Variable::Answer(t1));
+                            variables.insert(*v2, Variable::Answer(t1_p));
                         }
                         Ok(())
                     }

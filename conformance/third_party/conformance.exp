@@ -6931,46 +6931,6 @@
     },
     {
       "code": -2,
-      "column": 25,
-      "concise_description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
-      "description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
-      "line": 110,
-      "name": "bad-specialization",
-      "stop_column": 28,
-      "stop_line": 110
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(str, Literal['hello']) failed",
-      "description": "assert_type(str, Literal['hello']) failed",
-      "line": 111,
-      "name": "assert-type",
-      "stop_column": 37,
-      "stop_line": 111
-    },
-    {
-      "code": -2,
-      "column": 26,
-      "concise_description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
-      "description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
-      "line": 115,
-      "name": "bad-specialization",
-      "stop_column": 29,
-      "stop_line": 115
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(str, LiteralString) failed",
-      "description": "assert_type(str, LiteralString) failed",
-      "line": 116,
-      "name": "assert-type",
-      "stop_column": 35,
-      "stop_line": 116
-    },
-    {
-      "code": -2,
       "column": 21,
       "concise_description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",
       "description": "Type `str` is not assignable to upper bound `LiteralString` of type variable `TLiteral`",

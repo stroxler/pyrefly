@@ -494,10 +494,10 @@ from typing import Literal, LiteralString, assert_type
 def f[T: Literal["foo"]](x: T) -> T: ...
 def g[T: LiteralString](x: T) -> T: ...
 
-assert_type(f("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed # E: Type `str` is not assignable to upper bound `Literal['foo']` of type variable `T`
-assert_type(f("bar"), str) # E: Type `str` is not assignable to upper bound `Literal['foo']` of type variable `T` 
+assert_type(f("foo"), Literal["foo"])
+assert_type(f("bar"), str) # E: Type `str` is not assignable to upper bound `Literal['foo']`
 
-assert_type(g("foo"), Literal["foo"]) # E: assert_type(str, Literal['foo']) failed # E: Type `str` is not assignable to upper bound `LiteralString` of type variable `T`
-assert_type(g("bar"), Literal["bar"]) # E: assert_type(str, Literal['bar']) failed # E: Type `str` is not assignable to upper bound `LiteralString` of type variable `T`
+assert_type(g("foo"), Literal["foo"])
+assert_type(g("bar"), Literal["bar"])
     "#,
 );

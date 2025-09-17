@@ -1,9 +1,9 @@
 {
   "total": 138,
-  "pass": 92,
-  "fail": 46,
+  "pass": 93,
+  "fail": 45,
   "pass_rate": 0.67,
-  "differences": 204,
+  "differences": 200,
   "passing": [
     "aliases_explicit.py",
     "aliases_newtype.py",
@@ -65,6 +65,7 @@
     "generics_upper_bound.py",
     "generics_variance_inference.py",
     "historical_positional.py",
+    "literals_literalstring.py",
     "literals_parameterizations.py",
     "literals_semantics.py",
     "namedtuples_define_class.py",
@@ -128,7 +129,6 @@
     "generics_typevartuple_specialization.py": 4,
     "generics_variance.py": 12,
     "literals_interactions.py": 2,
-    "literals_literalstring.py": 4,
     "overloads_definitions.py": 3,
     "overloads_evaluation.py": 14,
     "protocols_class_objects.py": 7,
