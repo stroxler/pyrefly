@@ -326,7 +326,7 @@ impl Solutions {
 }
 
 pub trait LookupAnswer: Sized {
-    /// Look up the value. If present, the `path` is a hint which can optimise certain cases.
+    /// Look up the value. If present, the `path` is a hint which can optimize certain cases.
     ///
     /// Return None if the file is undergoing concurrent modification.
     fn get<K: Solve<Self> + Exported>(

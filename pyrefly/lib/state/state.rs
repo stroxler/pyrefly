@@ -335,7 +335,7 @@ impl<'a> Transaction<'a> {
 
     pub fn get_all_errors(&self) -> Errors {
         if self.data.updated_modules.is_empty() {
-            // Optimised path
+            // Optimized path
             return Errors::new(
                 self.readable
                     .modules
@@ -481,7 +481,7 @@ impl<'a> Transaction<'a> {
     /// Return all handles for which there is data, in a non-deterministic order.
     pub fn handles(&self) -> Vec<Handle> {
         if self.data.updated_modules.is_empty() {
-            // Optimised path
+            // Optimized path
             self.readable.modules.keys().cloned().collect()
         } else {
             let mut res = self
@@ -650,7 +650,7 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.require {
             // We have increased the `Require` level, so redo everything to make sure
             // we capture everything.
-            // Could be optimised to do less work (e.g. if you had Retain::Error before don't need to reload)
+            // Could be optimized to do less work (e.g. if you had Retain::Error before don't need to reload)
             let mut write = exclusive.write();
             write.steps.load = None;
             rebuild(write, true);
@@ -1417,7 +1417,7 @@ impl<'a> Transaction<'a> {
                 subscriber.finish_work(&m.handle, &alt.load.unwrap());
             }
         }
-        self.data.subscriber = None; // Finalise the progress bar before printing to stderr
+        self.data.subscriber = None; // Finalize the progress bar before printing to stderr
 
         fn line_key(x: &str) -> Option<(u64, &str)> {
             let (_, x) = x.rsplit_once(',')?;

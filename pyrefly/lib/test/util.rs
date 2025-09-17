@@ -450,7 +450,7 @@ pub fn init_test() {
     init_thread_pool(ThreadCount::NumThreads(NonZeroUsize::new(3).unwrap()));
 }
 
-/// Shared state with all the builtins already initialised (by a dummy module).
+/// Shared state with all the builtins already initialized (by a dummy module).
 static SHARED_STATE: LazyLock<State> =
     LazyLock::new(|| TestEnv::one("_shared_state", "").to_state().0);
 
