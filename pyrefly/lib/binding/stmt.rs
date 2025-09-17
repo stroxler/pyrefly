@@ -8,7 +8,6 @@
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_python::symbol_kind::SymbolKind;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -195,32 +194,6 @@ impl<'a> BindingsBuilder<'a> {
                 Box::new(call.clone()),
             )
         })
-    }
-
-    fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureLookupKind) {
-        let key = Key::MutableCapture(ShortIdentifier::new(name));
-        let binding = match self.lookup_mutable_captured_name(&name.id, kind) {
-            Ok(found) => Binding::Forward(found),
-            Err(error) => {
-                self.error(
-                    name.range,
-                    ErrorInfo::Kind(ErrorKind::UnknownName),
-                    error.message(name),
-                );
-                Binding::Type(Type::any_error())
-            }
-        };
-        let binding_key = self.insert_binding(key, binding);
-
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Variable,
-            None,
-            true,
-        );
-
-        self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
 
     /// Bind the annotation in an `AnnAssign`
