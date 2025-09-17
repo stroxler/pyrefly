@@ -663,6 +663,8 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core 0.9.9",
+ "rayon",
+ "serde",
 ]
 
 [[package]]
@@ -2075,6 +2077,7 @@ dependencies = [
  "blake3",
  "clap",
  "crossbeam-channel",
+ "dashmap",
  "dupe",
  "enum-iterator",
  "fuzzy-matcher",

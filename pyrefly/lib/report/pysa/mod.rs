@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+mod override_graph;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
@@ -16,6 +17,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
+use dashmap::DashMap;
 use itertools::Itertools;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
@@ -62,6 +64,8 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
+use crate::report::pysa::override_graph::OverrideGraph;
+use crate::report::pysa::override_graph::create_reversed_override_graph_for_module;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -86,6 +90,13 @@ impl ClassId {
 /// Represents a unique identifier for a function, inside a module
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 struct FunctionId(DisplayRange);
+
+fn serialize_function_id<S>(function_id: &FunctionId, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&location_key(&function_id.0))
+}
 
 #[derive(Debug, Clone, Serialize)]
 struct PysaProjectModule {
@@ -228,15 +239,32 @@ struct FunctionDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// If the method directly overrides a method in a parent class, we record that class.
     /// This is used for building overriding graphs.
-    overridden_base_class: Option<ClassRef>,
+    overridden_base_method: Option<DefinitionRef>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 struct DefinitionRef {
     module_id: ModuleId,
     module_name: String, // For debugging purposes only. Reader should use the module id.
+    #[serde(serialize_with = "serialize_function_id")]
     function_id: FunctionId,
     identifier: String, // For debugging purposes only
+}
+
+impl DefinitionRef {
+    fn from_decorated_function(function: &DecoratedFunction, context: &ModuleContext) -> Self {
+        let name = function.metadata().kind.as_func_id().func;
+        let display_range = context.module_info.display_range(function.id_range());
+        DefinitionRef {
+            module_id: context
+                .module_ids
+                .get(ModuleKey::from_module(context.module_info))
+                .unwrap(),
+            module_name: context.module_info.name().to_string(),
+            function_id: FunctionId(display_range),
+            identifier: name.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -260,9 +288,24 @@ struct PysaModuleFile {
     source_path: ModulePathDetails,
     type_of_expression: HashMap<String, PysaType>,
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
-    function_definitions: HashMap<String, FunctionDefinition>,
+    #[serde(serialize_with = "serialize_function_definitions")]
+    function_definitions: HashMap<FunctionId, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
     global_variables: HashSet<String>,
+}
+
+fn serialize_function_definitions<S>(
+    function_definitions: &HashMap<FunctionId, FunctionDefinition>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let function_definitions: HashMap<String, &FunctionDefinition> = function_definitions
+        .iter()
+        .map(|(k, v)| (location_key(&k.0), v))
+        .collect();
+    function_definitions.serialize(serializer)
 }
 
 /// Represents what makes a module unique
@@ -870,24 +913,11 @@ fn should_export_function(function: &DecoratedFunction, context: &ModuleContext)
     !has_successor || !function.is_overload()
 }
 
-fn get_super_class_member(
-    class: &Class,
-    field: &Name,
-    context: &ModuleContext,
-) -> Option<ClassRef> {
-    context
-        .transaction
-        .ad_hoc_solve(context.handle, |solver| {
-            solver.get_super_class_member(class, None, field)
-        })
-        .unwrap()
-        .map(|member| ClassRef::from_class(&member.defining_class, context.module_ids))
-}
-
 fn export_all_functions(
     ast: &ModModule,
+    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
     context: &ModuleContext,
-) -> HashMap<String, FunctionDefinition> {
+) -> HashMap<FunctionId, FunctionDefinition> {
     let mut function_definitions = HashMap::new();
 
     for function in get_all_functions(context.bindings, context.answers) {
@@ -927,18 +957,14 @@ fn export_all_functions(
             }],
         };
 
-        let display_range = context.module_info.display_range(function.id_range());
-        let name = function.metadata().kind.as_func_id().func;
+        let current_function = DefinitionRef::from_decorated_function(&function, context);
         let parent = get_scope_parent(ast, context.module_info, function.id_range());
-        let overridden_base_class = function
-            .defining_cls()
-            .and_then(|class| get_super_class_member(class, &name, context));
         assert!(
             function_definitions
                 .insert(
-                    location_key(&display_range),
+                    FunctionId(current_function.function_id.0.clone()),
                     FunctionDefinition {
-                        name: name.to_string(),
+                        name: current_function.identifier.clone(),
                         parent,
                         undecorated_signatures,
                         is_overload: function.metadata().flags.is_overload,
@@ -954,7 +980,9 @@ fn export_all_functions(
                         defining_class: function
                             .defining_cls()
                             .map(|class| ClassRef::from_class(class, context.module_ids)),
-                        overridden_base_class,
+                        overridden_base_method: reversed_override_graph
+                            .get(&current_function)
+                            .map(|r| r.clone()),
                     }
                 )
                 .is_none(),
@@ -1119,6 +1147,7 @@ fn get_module_file(
     module_id: ModuleId,
     transaction: &Transaction,
     module_ids: &ModuleIds,
+    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
 ) -> PysaModuleFile {
     let module_info = &transaction.get_module_info(handle).unwrap();
 
@@ -1153,7 +1182,7 @@ fn get_module_file(
         );
     }
 
-    let function_definitions = export_all_functions(ast, &context);
+    let function_definitions = export_all_functions(ast, reversed_override_graph, &context);
     let class_definitions = export_all_classes(ast, &context);
 
     PysaModuleFile {
@@ -1231,6 +1260,36 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
 
     let project_modules = Arc::new(Mutex::new(project_modules));
 
+    let reversed_override_graph = {
+        let reversed_override_graph = DashMap::new();
+        ThreadPool::new().install(|| {
+            module_info_tasks.par_iter().for_each(|(handle, _, _)| {
+                let module_info = &transaction.get_module_info(handle).unwrap();
+
+                let bindings = &transaction.get_bindings(handle).unwrap();
+                let answers = &*transaction.get_answers(handle).unwrap();
+                let stdlib = &*transaction.get_stdlib(handle);
+
+                let context = ModuleContext {
+                    handle,
+                    transaction,
+                    bindings,
+                    answers,
+                    stdlib,
+                    module_info,
+                    module_ids: &module_ids,
+                };
+
+                for (key, value) in create_reversed_override_graph_for_module(&context) {
+                    reversed_override_graph.insert(key, value);
+                }
+            });
+        });
+        reversed_override_graph
+    };
+
+    let _override_graph = OverrideGraph::from_reversed(&reversed_override_graph);
+
     // Retrieve and dump information about each module, in parallel.
     ThreadPool::new().install(|| -> anyhow::Result<()> {
         module_info_tasks.into_par_iter().try_for_each(
@@ -1240,7 +1299,13 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 )?);
                 serde_json::to_writer(
                     writer,
-                    &get_module_file(handle, module_id, transaction, &module_ids),
+                    &get_module_file(
+                        handle,
+                        module_id,
+                        transaction,
+                        &module_ids,
+                        &reversed_override_graph,
+                    ),
                 )?;
 
                 if is_test_module(handle, transaction) {
