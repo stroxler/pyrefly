@@ -197,47 +197,19 @@ impl<'a> BindingsBuilder<'a> {
         })
     }
 
-    fn declare_nonlocal_name(&mut self, name: &Identifier) {
+    fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureLookupKind) {
         let key = Key::MutableCapture(ShortIdentifier::new(name));
-        let binding =
-            match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Nonlocal) {
-                Ok(found) => Binding::Forward(found),
-                Err(error) => {
-                    self.error(
-                        name.range,
-                        ErrorInfo::Kind(ErrorKind::UnknownName),
-                        error.message(name),
-                    );
-                    Binding::Type(Type::any_error())
-                }
-            };
-        let binding_key = self.insert_binding(key, binding);
-
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Variable,
-            None,
-            true,
-        );
-
-        self.bind_name(&name.id, binding_key, FlowStyle::Other);
-    }
-
-    fn declare_global_name(&mut self, name: &Identifier) {
-        let key = Key::MutableCapture(ShortIdentifier::new(name));
-        let binding =
-            match self.lookup_mutable_captured_name(&name.id, MutableCaptureLookupKind::Global) {
-                Ok(found) => Binding::Forward(found),
-                Err(error) => {
-                    self.error(
-                        name.range,
-                        ErrorInfo::Kind(ErrorKind::UnknownName),
-                        error.message(name),
-                    );
-                    Binding::Type(Type::any_error())
-                }
-            };
+        let binding = match self.lookup_mutable_captured_name(&name.id, kind) {
+            Ok(found) => Binding::Forward(found),
+            Err(error) => {
+                self.error(
+                    name.range,
+                    ErrorInfo::Kind(ErrorKind::UnknownName),
+                    error.message(name),
+                );
+                Binding::Type(Type::any_error())
+            }
+        };
         let binding_key = self.insert_binding(key, binding);
 
         self.scopes.add_to_current_static(
@@ -1059,12 +1031,12 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Global(x) => {
                 for name in x.names {
-                    self.declare_global_name(&name);
+                    self.declare_mutable_capture(&name, MutableCaptureLookupKind::Global);
                 }
             }
             Stmt::Nonlocal(x) => {
                 for name in x.names {
-                    self.declare_nonlocal_name(&name);
+                    self.declare_mutable_capture(&name, MutableCaptureLookupKind::Nonlocal);
                 }
             }
             Stmt::Expr(mut x) => {
