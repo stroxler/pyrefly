@@ -245,7 +245,7 @@ impl Query {
 
     /// Load the given files and return any errors associated with them
     pub fn add_files(&self, files: Vec<(ModuleName, ModulePath)>) -> Vec<String> {
-        self.files.lock().extend(files.clone());
+        self.files.lock().extend(files.iter().cloned());
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
