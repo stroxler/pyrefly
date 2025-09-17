@@ -138,7 +138,7 @@ const config: Config = {
           tagName: "meta",
           attributes: {
             property: "og:image",
-            content: baseUrl + "img/Pyrefly-Symbol.svg",
+            content: baseUrl + "img/Pyrefly-Preview-Symbol.png",
           },
         },
         {
@@ -159,7 +159,7 @@ const config: Config = {
           tagName: "meta",
           attributes: {
             property: "og:image:type",
-            content: "image/svg+xml",
+            content: "image/png",
           },
         },
       ],
