@@ -170,11 +170,6 @@ def f():
     global x
     x = "foo"
     del x  # Not okay: it will work at runtime, but is not statically analyzable
-# A minor variation on f(), relevant to specific implementation bugs in our scope analysis
-# Here we do error, but for the wrong reason - we think `x` is an immutable capture.
-def g():
-    global x
-    del x
 f()
 f()  # This will crash at runtime!
 "#,
