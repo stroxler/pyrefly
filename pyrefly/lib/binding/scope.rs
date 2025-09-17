@@ -123,8 +123,6 @@ pub struct StaticInfo {
     pub count: usize,
     /// How was this defined? Needed to determine the key for forward lookups.
     style: DefinitionStyle,
-    /// Is this a mutable catpure of a definition in an outer scope (i.e. a global or a nonlocal)?
-    is_mutable_capture: bool,
 }
 
 impl StaticInfo {
@@ -141,10 +139,11 @@ impl StaticInfo {
                         id: name.clone(),
                         range: self.loc,
                     });
-                    if self.is_mutable_capture {
-                        Key::MutableCapture(short_identifier)
-                    } else {
-                        Key::Definition(short_identifier)
+                    match self.style {
+                        DefinitionStyle::MutableCapture(..) => {
+                            Key::MutableCapture(short_identifier)
+                        }
+                        _ => Key::Definition(short_identifier),
                     }
                 }
             }
@@ -161,7 +160,6 @@ impl Static {
         loc: TextRange,
         style: DefinitionStyle,
         annot: Option<Idx<KeyAnnotation>>,
-        is_mutable_capture: bool,
         count: usize,
     ) {
         // Use whichever one we see first
@@ -170,7 +168,6 @@ impl Static {
             annot,
             count: 0,
             style,
-            is_mutable_capture,
         });
         res.count += count;
     }
@@ -181,14 +178,12 @@ impl Static {
         range: TextRange,
         symbol_kind: SymbolKind,
         annot: Option<Idx<KeyAnnotation>>,
-        is_mutable_capture: bool,
     ) {
         self.add_with_count(
             Hashed::new(name),
             range,
             DefinitionStyle::Local(symbol_kind),
             annot,
-            is_mutable_capture,
             1,
         );
     }
@@ -229,7 +224,7 @@ impl Static {
 
         for (name, def) in d.definitions.into_iter_hashed() {
             let annot = def.annot.map(&mut get_annotation_idx);
-            self.add_with_count(name, def.range, def.style, annot, false, def.count);
+            self.add_with_count(name, def.range, def.style, annot, def.count);
         }
         for (range, wildcard) in wildcards {
             for name in wildcard.iter_hashed() {
@@ -239,7 +234,6 @@ impl Static {
                     range,
                     DefinitionStyle::ImportModule(module_info.name()),
                     None,
-                    false,
                     1,
                 )
             }
@@ -247,15 +241,8 @@ impl Static {
     }
 
     fn expr_lvalue(&mut self, x: &Expr) {
-        let mut add = |name: &ExprName| {
-            self.add(
-                name.id.clone(),
-                name.range,
-                SymbolKind::Variable,
-                None,
-                false,
-            )
-        };
+        let mut add =
+            |name: &ExprName| self.add(name.id.clone(), name.range, SymbolKind::Variable, None);
         Ast::expr_lvalue(x, &mut add);
     }
 }
@@ -1031,11 +1018,8 @@ impl Scopes {
         range: TextRange,
         symbol_kind: SymbolKind,
         ann: Option<Idx<KeyAnnotation>>,
-        is_mutable_capture: bool,
     ) {
-        self.current_mut()
-            .stat
-            .add(name, range, symbol_kind, ann, is_mutable_capture);
+        self.current_mut().stat.add(name, range, symbol_kind, ann);
     }
 
     pub fn add_lvalue_to_current_static(&mut self, x: &Expr) {

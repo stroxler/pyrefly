@@ -691,17 +691,6 @@ impl<'a> BindingsBuilder<'a> {
             }
         };
         let binding_key = self.insert_binding(key, binding);
-        // Note: this appears to set `ann = None`, but if the current scope actually contains a
-        // write to this capture, then
-        // - we will have already set the annotation in a side-effect of `lookup_mutable_capture`
-        // - this will actually be a no-op, the add gets skipped
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Variable,
-            None,
-            true,
-        );
         self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
 
@@ -1080,7 +1069,6 @@ impl<'a> BindingsBuilder<'a> {
                 name.range,
                 SymbolKind::TypeParameter,
                 None,
-                false,
             );
             self.bind_definition(
                 &name,
@@ -1119,13 +1107,8 @@ impl<'a> BindingsBuilder<'a> {
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
         );
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Parameter,
-            None,
-            false,
-        );
+        self.scopes
+            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Parameter, None);
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
@@ -1158,7 +1141,6 @@ impl<'a> BindingsBuilder<'a> {
             name.range,
             SymbolKind::Parameter,
             annot,
-            false,
         );
         self.bind_name(&name.id, key, FlowStyle::Other);
     }
@@ -1234,7 +1216,6 @@ impl LegacyTParamBuilder {
                     name.range,
                     SymbolKind::TypeParameter,
                     None,
-                    false,
                 );
                 builder.bind_definition(
                     name,
