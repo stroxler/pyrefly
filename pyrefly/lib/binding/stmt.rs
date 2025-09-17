@@ -263,7 +263,7 @@ impl<'a> BindingsBuilder<'a> {
                     let mut delete_link = self.declare_current_idx(Key::UsageLink(target.range()));
                     if let Expr::Name(name) = target {
                         self.ensure_mutable_name(name, delete_link.usage());
-                        self.scopes.mark_as_not_in_current_flow(&name.id);
+                        self.scopes.mark_as_deleted(&name.id);
                     } else {
                         self.ensure_expr(target, delete_link.usage());
                     }
@@ -800,11 +800,13 @@ impl<'a> BindingsBuilder<'a> {
                     self.stmts(h.body);
 
                     if let Some(name) = &h.name {
-                        // Mark the current caught exception name as
-                        // uninitialized in the current scope, so that it cannot
-                        // be used later.
+                        // Handle the implicit delete Python performs at the end of the `except` clause.
+                        //
+                        // Note that because there is no scoping, even if the name was defined above the
+                        // try/except, it will be unbound below whenever that name was used for a handler.
+                        //
                         // https://docs.python.org/3/reference/compound_stmts.html#except-clause
-                        self.scopes.mark_as_not_in_current_flow(&name.id);
+                        self.scopes.mark_as_deleted(&name.id);
                     }
 
                     self.scopes.swap_current_flow_with(&mut base);
