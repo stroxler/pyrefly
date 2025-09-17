@@ -679,7 +679,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureLookupKind) {
         let key = Key::MutableCapture(ShortIdentifier::new(name));
-        let binding = match self.lookup_mutable_captured_name(&name.id, kind) {
+        let binding = match self.lookup_mutable_capture(&name.id, kind) {
             Ok(found) => Binding::Forward(found),
             Err(error) => {
                 self.error(
@@ -691,7 +691,10 @@ impl<'a> BindingsBuilder<'a> {
             }
         };
         let binding_key = self.insert_binding(key, binding);
-
+        // Note: this appears to set `ann = None`, but if the current scope actually contains a
+        // write to this capture, then
+        // - we will have already set the annotation in a side-effect of `lookup_mutable_capture`
+        // - this will actually be a no-op, the add gets skipped
         self.scopes.add_to_current_static(
             name.id.clone(),
             name.range,
@@ -699,11 +702,10 @@ impl<'a> BindingsBuilder<'a> {
             None,
             true,
         );
-
         self.bind_name(&name.id, binding_key, FlowStyle::Other);
     }
 
-    fn lookup_mutable_captured_name(
+    fn lookup_mutable_capture(
         &mut self,
         name: &Name,
         kind: MutableCaptureLookupKind,
