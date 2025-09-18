@@ -90,21 +90,36 @@ impl ClassId {
 }
 
 /// Represents a unique identifier for a function, inside a module
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum FunctionId {
-    #[serde(serialize_with = "serialize_display_range")]
-    Function { location: DisplayRange },
+    Function {
+        location: DisplayRange,
+    },
     #[expect(dead_code)]
     ModuleTopLevel,
     #[expect(dead_code)]
-    ClassTopLevel { class_id: ClassId },
+    ClassTopLevel {
+        class_id: ClassId,
+    },
 }
 
-fn serialize_display_range<S>(location: &DisplayRange, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&location_key(location))
+impl FunctionId {
+    fn serialize_to_string(&self) -> String {
+        match self {
+            FunctionId::Function { location } => format!("F:{}", location_key(location)),
+            FunctionId::ModuleTopLevel => "MTL".to_owned(),
+            FunctionId::ClassTopLevel { class_id } => format!("CTL:{}", class_id.0),
+        }
+    }
+}
+
+impl Serialize for FunctionId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.serialize_to_string())
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -321,27 +336,9 @@ struct PysaModuleFile {
     source_path: ModulePathDetails,
     type_of_expression: HashMap<String, PysaType>,
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
-    #[serde(serialize_with = "serialize_function_definitions")]
     function_definitions: HashMap<FunctionId, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
     global_variables: HashSet<String>,
-}
-
-fn serialize_function_definitions<S>(
-    function_definitions: &HashMap<FunctionId, FunctionDefinition>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let function_definitions: HashMap<String, &FunctionDefinition> = function_definitions
-        .iter()
-        .map(|(function_id, function_definition)| match function_id {
-            FunctionId::Function { location } => (location_key(location), function_definition),
-            _ => panic!("Expect `FunctionId::Function` but got {:#?}", function_id),
-        })
-        .collect();
-    function_definitions.serialize(serializer)
 }
 
 /// Represents what makes a module unique
