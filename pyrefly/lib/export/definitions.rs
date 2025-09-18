@@ -487,6 +487,11 @@ impl<'a> DefinitionsBuilder<'a> {
                     )
                 }
             }
+            Stmt::Delete(x) => {
+                for target in &x.targets {
+                    self.named_in_expr(target);
+                }
+            }
             Stmt::Expr(StmtExpr { value, .. }) => {
                 self.named_in_expr(value);
                 if let Expr::Call(
@@ -609,7 +614,6 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::Return(..)
-            | Stmt::Delete(..)
             | Stmt::Pass(..)
             | Stmt::Break(..)
             | Stmt::Continue(..)
@@ -932,6 +936,18 @@ import derp.c.d
             true,
         );
         assert_implicitly_imported_submodules(&defs, &["b", "c"]);
+    }
+
+    #[test]
+    fn test_named_in_del() {
+        let defs = calculate_unranged_definitions(
+            r#"
+del (y := {"x": 42})["x"]
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_definition_names(&defs, &["y"]);
     }
 
     #[test]
