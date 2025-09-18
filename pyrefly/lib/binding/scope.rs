@@ -116,7 +116,7 @@ pub struct Static(pub SmallMap<Name, StaticInfo>);
 
 #[derive(Clone, Debug)]
 pub struct StaticInfo {
-    pub loc: TextRange,
+    pub range: TextRange,
     /// The location of the first annotated name for this binding, if any.
     pub annot: Option<Idx<KeyAnnotation>>,
     /// How many times this will be redefined
@@ -128,18 +128,18 @@ pub struct StaticInfo {
 impl StaticInfo {
     pub fn as_key(&self, name: &Name) -> Key {
         if matches!(self.style, DefinitionStyle::Delete) {
-            Key::Delete(self.loc)
+            Key::Delete(self.range)
         } else if self.count == 1 {
             match self.style {
-                DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.loc),
+                DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.range),
                 DefinitionStyle::Global => Key::Global(name.clone()),
                 _ => {
                     // We are constructing an identifier, but it must have been one that we saw earlier
-                    assert_ne!(self.loc, TextRange::default());
+                    assert_ne!(self.range, TextRange::default());
                     let short_identifier = ShortIdentifier::new(&Identifier {
                         node_index: AtomicNodeIndex::dummy(),
                         id: name.clone(),
-                        range: self.loc,
+                        range: self.range,
                     });
                     match self.style {
                         DefinitionStyle::MutableCapture(..) => {
@@ -150,7 +150,7 @@ impl StaticInfo {
                 }
             }
         } else {
-            Key::Anywhere(name.clone(), self.loc)
+            Key::Anywhere(name.clone(), self.range)
         }
     }
 }
@@ -159,14 +159,14 @@ impl Static {
     fn add_with_count(
         &mut self,
         name: Hashed<Name>,
-        loc: TextRange,
+        range: TextRange,
         style: DefinitionStyle,
         annot: Option<Idx<KeyAnnotation>>,
         count: usize,
     ) {
         // Use whichever one we see first
         let res = self.0.entry_hashed(name).or_insert(StaticInfo {
-            loc,
+            range,
             annot,
             count: 0,
             style,
@@ -1215,7 +1215,7 @@ impl Scopes {
                         }
                     }
                 };
-                field_definitions.insert_hashed(name.owned(), (definition, static_info.loc));
+                field_definitions.insert_hashed(name.owned(), (definition, static_info.range));
             }
         });
         class_scope.method_defined_attributes().for_each(
@@ -1316,7 +1316,7 @@ impl Scopes {
         NameWriteInfo {
             annotation: static_info.annot,
             anywhere_range: if static_info.count > 1 {
-                Some(static_info.loc)
+                Some(static_info.range)
             } else {
                 None
             },
