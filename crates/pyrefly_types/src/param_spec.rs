@@ -11,6 +11,7 @@ use std::fmt::Display;
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_python::module::Module;
+use pyrefly_python::qname::QName;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -18,7 +19,6 @@ use ruff_python_ast::Identifier;
 
 use crate::equality::TypeEq;
 use crate::equality::TypeEqCtx;
-use crate::qname::QName;
 use crate::types::Type;
 
 /// Used to represent ParamSpec calls. Each ParamSpec is unique, so use the ArcId to separate them.

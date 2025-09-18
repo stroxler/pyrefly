@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::qname::QName;
 use pyrefly_util::display::Fmt;
 use pyrefly_util::display::append;
 use pyrefly_util::display::commas_iter;
@@ -24,7 +25,6 @@ use starlark_map::smallmap;
 use crate::callable::Function;
 use crate::class::Class;
 use crate::literal::Lit;
-use crate::qname::QName;
 use crate::tuple::Tuple;
 use crate::types::AnyStyle;
 use crate::types::BoundMethod;

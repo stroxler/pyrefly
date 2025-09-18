@@ -14,17 +14,14 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use pyrefly_python::module::Module;
-use pyrefly_python::module_name::ModuleName;
-use pyrefly_python::module_path::ModulePath;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
-use crate::equality::TypeEq;
-use crate::equality::TypeEqCtx;
-
+use crate::module::Module;
+use crate::module_name::ModuleName;
+use crate::module_path::ModulePath;
 /// A name, plus where it is defined.
 #[derive(Clone)]
 pub struct QName {
@@ -58,14 +55,6 @@ impl Hash for QName {
 }
 
 impl Eq for QName {}
-
-impl TypeEq for QName {
-    fn type_eq(&self, other: &Self, _: &mut TypeEqCtx) -> bool {
-        self.name.id == other.name.id
-            && self.module.name() == other.module.name()
-            && self.module.path() == other.module.path()
-    }
-}
 
 impl PartialOrd for QName {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

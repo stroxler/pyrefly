@@ -28,6 +28,7 @@ pub mod keywords;
 pub mod module;
 pub mod module_name;
 pub mod module_path;
+pub mod qname;
 pub mod short_identifier;
 pub mod symbol_kind;
 pub mod sys_info;

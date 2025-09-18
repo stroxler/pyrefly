@@ -22,6 +22,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_python::qname::QName;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Identifier;
@@ -30,7 +31,6 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
 use crate::equality::TypeEq;
-use crate::qname::QName;
 use crate::types::Substitution;
 use crate::types::TArgs;
 use crate::types::TParams;

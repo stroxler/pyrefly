@@ -8,11 +8,11 @@
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::qname::QName;
 use ruff_python_ast::name::Name;
 
 use crate::annotation::Qualifier;
 use crate::class::Class;
-use crate::qname::QName;
 use crate::read_only::ReadOnlyReason;
 use crate::stdlib::Stdlib;
 use crate::types::Substitution;
