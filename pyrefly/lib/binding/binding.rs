@@ -1351,8 +1351,8 @@ impl DisplayWith<Bindings> for Binding {
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
             Self::Type(t) => write!(f, "Type({t})"),
             Self::Global(g) => write!(f, "Global({})", g.name()),
-            Self::TypeParameter(box TypeParameter { unique, kind, .. }) => {
-                write!(f, "TypeParameter({unique}, {kind}, ..)")
+            Self::TypeParameter(tp) => {
+                write!(f, "TypeParameter({}, {}, ..)", tp.unique, tp.kind)
             }
             Self::CheckLegacyTypeParam(k, _) => {
                 write!(f, "CheckLegacyTypeParam({})", ctx.display(*k))

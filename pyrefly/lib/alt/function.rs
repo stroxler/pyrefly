@@ -611,7 +611,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 paramspec_kwargs = Some(q.clone());
             }
 
-            if let Type::Unpack(box Type::TypedDict(typed_dict)) = &ty {
+            if let Type::Unpack(unpack) = &ty
+                && let Type::TypedDict(typed_dict) = &**unpack
+            {
                 for (name, _) in self.typed_dict_fields(typed_dict) {
                     if params.iter().any(|param| {
                         matches!(
