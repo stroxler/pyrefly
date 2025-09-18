@@ -258,7 +258,7 @@ fn test_combine_types_params_different_handle_types() {
 #[test]
 fn test_combine_types_params_different_categories() {
     // Test combining different type categories
-    let categories_and_names = vec![
+    let categories_and_names = [
         (TypeCategory::Class, "ClassType"),
         (TypeCategory::Function, "FunctionType"),
         (TypeCategory::Module, "ModuleType"),
