@@ -1413,71 +1413,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.check_dunder_bool_is_callable(&ty, x.range(), errors);
                 self.check_redundant_condition(&ty, x.range(), errors);
             }
-            BindingExpect::Delete(x) => match x {
-                Expr::Name(_) => {
-                    self.expr_infer(x, errors);
-                }
-                Expr::Attribute(attr) => {
-                    let base = self.expr_infer(&attr.value, errors);
-                    self.check_attr_delete(
-                        &base,
-                        &attr.attr.id,
-                        attr.range,
-                        errors,
-                        None,
-                        "Answers::solve_expectation::Delete",
-                    );
-                }
-                Expr::Subscript(x) => {
-                    let base = self.expr_infer(&x.value, errors);
-                    let slice_ty = self.expr_infer(&x.slice, errors);
-                    match (&base, &slice_ty) {
-                        (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                            let field_name = Name::new(field_name);
-                            self.check_del_typed_dict_literal_key(
-                                typed_dict,
-                                &field_name,
-                                x.slice.range(),
-                                errors,
-                            );
-                        }
-                        (Type::TypedDict(typed_dict), Type::ClassType(cls))
-                            if cls.is_builtin("str")
-                                && self
-                                    .get_typed_dict_value_type_as_builtins_dict(typed_dict)
-                                    .is_some() =>
-                        {
-                            self.check_del_typed_dict_field(
-                                typed_dict.name(),
-                                None,
-                                false,
-                                false,
-                                x.slice.range(),
-                                errors,
-                            )
-                        }
-                        (_, _) => {
-                            self.call_method_or_error(
-                                &base,
-                                &dunder::DELITEM,
-                                x.range,
-                                &[CallArg::ty(&slice_ty, x.slice.range())],
-                                &[],
-                                errors,
-                                Some(&|| ErrorContext::DelItem(self.for_display(base.clone()))),
-                            );
-                        }
-                    }
-                }
-                _ => {
-                    self.error(
-                        errors,
-                        x.range(),
-                        ErrorInfo::Kind(ErrorKind::DeleteError),
-                        "Invalid target for `del`".to_owned(),
-                    );
-                }
-            },
+            BindingExpect::Delete(x) => self.check_del_statement(x, errors),
             BindingExpect::UnpackedLength(b, range, expect) => {
                 let iterable_ty = self.get_idx(*b);
                 let iterables = self.iterate(iterable_ty.ty(), *range, errors);
@@ -3599,6 +3535,76 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
         ty
+    }
+
+    /// Type check a delete expression, including ensuring that the target of the
+    /// delete is legal.
+    fn check_del_statement(&self, delete_target: &Expr, errors: &ErrorCollector) {
+        match delete_target {
+            Expr::Name(_) => {
+                self.expr_infer(delete_target, errors);
+            }
+            Expr::Attribute(attr) => {
+                let base = self.expr_infer(&attr.value, errors);
+                self.check_attr_delete(
+                    &base,
+                    &attr.attr.id,
+                    attr.range,
+                    errors,
+                    None,
+                    "Answers::solve_expectation::Delete",
+                );
+            }
+            Expr::Subscript(x) => {
+                let base = self.expr_infer(&x.value, errors);
+                let slice_ty = self.expr_infer(&x.slice, errors);
+                match (&base, &slice_ty) {
+                    (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
+                        let field_name = Name::new(field_name);
+                        self.check_del_typed_dict_literal_key(
+                            typed_dict,
+                            &field_name,
+                            x.slice.range(),
+                            errors,
+                        );
+                    }
+                    (Type::TypedDict(typed_dict), Type::ClassType(cls))
+                        if cls.is_builtin("str")
+                            && self
+                                .get_typed_dict_value_type_as_builtins_dict(typed_dict)
+                                .is_some() =>
+                    {
+                        self.check_del_typed_dict_field(
+                            typed_dict.name(),
+                            None,
+                            false,
+                            false,
+                            x.slice.range(),
+                            errors,
+                        )
+                    }
+                    (_, _) => {
+                        self.call_method_or_error(
+                            &base,
+                            &dunder::DELITEM,
+                            x.range,
+                            &[CallArg::ty(&slice_ty, x.slice.range())],
+                            &[],
+                            errors,
+                            Some(&|| ErrorContext::DelItem(self.for_display(base.clone()))),
+                        );
+                    }
+                }
+            }
+            _ => {
+                self.error(
+                    errors,
+                    delete_target.range(),
+                    ErrorInfo::Kind(ErrorKind::DeleteError),
+                    "Invalid target for `del`".to_owned(),
+                );
+            }
+        }
     }
 
     pub fn expr_untype(
