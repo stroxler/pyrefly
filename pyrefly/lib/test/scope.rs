@@ -704,6 +704,18 @@ __all__ += []  # E: Could not find name `__all__`
 "#,
 );
 
+testcase!(
+    bug = "We give inconsistent lookup errors when a local is defined only by an augassign",
+    test_aug_assign_lookup_inconsistencies,
+    r#"
+from typing import reveal_type
+def f():
+    reveal_type(x)  # E: revealed type: Unknown  # E: `x` is uninitialized
+    x += 5  # E: Could not find name `x`
+    reveal_type(x)  # E: revealed type: Unknown
+"#,
+);
+
 // Nested scopes - except for parameter scopes - cannot see a containing class
 // body. This applies not only to methods but also other scopes like lambda, inner
 // class bodies, and comprehensions. See https://github.com/facebook/pyrefly/issues/264
