@@ -372,6 +372,8 @@ pub enum Key {
     UsageLink(TextRange),
     /// A yield link - a placeholder used for first-usage type inference specifically for yield expressions.
     YieldLink(TextRange),
+    /// `del` statement
+    Delete(TextRange),
     /// A use of `typing.Self` in an expression. Used to redirect to the appropriate type (which is aware of the current class).
     SelfTypeLiteral(TextRange),
 }
@@ -400,6 +402,7 @@ impl Ranged for Key {
             Self::Unpack(r) => *r,
             Self::UsageLink(r) => *r,
             Self::YieldLink(r) => *r,
+            Self::Delete(r) => *r,
             Self::SelfTypeLiteral(r) => *r,
             Self::PatternNarrow(r) => *r,
         }
@@ -441,6 +444,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::Unpack(r) => write!(f, "Key::Unpack({})", ctx.display(r)),
             Self::UsageLink(r) => write!(f, "Key::UsageLink({})", ctx.display(r)),
             Self::YieldLink(r) => write!(f, "Key::YieldLink({})", ctx.display(r)),
+            Self::Delete(r) => write!(f, "Key::Delete({})", ctx.display(r)),
             Self::SelfTypeLiteral(r) => write!(f, "Key::SelfTypeLiteral({})", ctx.display(r)),
             Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
         }
@@ -501,8 +505,6 @@ pub enum BindingExpect {
         existing: Idx<KeyAnnotation>,
         name: Name,
     },
-    /// `del` statement
-    Delete(Expr),
     /// Expression used in a boolean context (`bool()`, `if`, or `while`)
     Bool(Expr),
 }
@@ -519,9 +521,6 @@ impl DisplayWith<Bindings> for BindingExpect {
             }
             Self::Bool(x) => {
                 write!(f, "Bool({})", m.display(x))
-            }
-            Self::Delete(x) => {
-                write!(f, "Delete({})", m.display(x))
             }
             Self::UnpackedLength(x, range, expect) => {
                 let expectation = match expect {
@@ -1113,6 +1112,7 @@ pub enum LinkedKey {
     Yield(Idx<KeyYield>),
     YieldFrom(Idx<KeyYieldFrom>),
     Expect(Idx<KeyExpect>),
+    Delete(Idx<Key>),
 }
 
 #[derive(Clone, Debug)]
@@ -1270,6 +1270,8 @@ pub enum Binding {
     /// The Idx is the upstream raw `NameAssign`, and the slice has `Idx`s that point at
     /// all the `Pin`s for which that raw `NameAssign` was the first use.
     PinUpstream(Idx<Key>, Box<[Idx<Key>]>),
+    /// `del` statement
+    Delete(Expr),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -1490,6 +1492,7 @@ impl DisplayWith<Bindings> for Binding {
                     LinkedKey::Yield(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                     LinkedKey::YieldFrom(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                     LinkedKey::Expect(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
+                    LinkedKey::Delete(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                 }
                 write!(f, ")")
             }
@@ -1518,6 +1521,7 @@ impl DisplayWith<Bindings> for Binding {
                     commas_iter(|| first_used_by.iter().map(|x| ctx.display(*x)))
                 )
             }
+            Self::Delete(x) => write!(f, "Delete({})", m.display(x)),
         }
     }
 }
@@ -1583,7 +1587,8 @@ impl Binding {
             | Binding::SelfTypeLiteral(..)
             | Binding::AssignToSubscript(_, _)
             | Binding::Pin(..)
-            | Binding::PinUpstream(..) => None,
+            | Binding::PinUpstream(..)
+            | Binding::Delete(_) => None,
         }
     }
 }

@@ -268,12 +268,12 @@ impl<'a> BindingsBuilder<'a> {
                         self.ensure_expr(target, delete_link.usage());
                     }
                     let delete_idx = self.insert_binding(
-                        KeyExpect(target.range()),
-                        BindingExpect::Delete(target.clone()),
+                        Key::Delete(target.range()),
+                        Binding::Delete(target.clone()),
                     );
                     self.insert_binding_current(
                         delete_link,
-                        Binding::UsageLink(LinkedKey::Expect(delete_idx)),
+                        Binding::UsageLink(LinkedKey::Delete(delete_idx)),
                     );
                 }
             }

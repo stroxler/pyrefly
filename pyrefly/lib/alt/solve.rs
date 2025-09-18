@@ -1413,7 +1413,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.check_dunder_bool_is_callable(&ty, x.range(), errors);
                 self.check_redundant_condition(&ty, x.range(), errors);
             }
-            BindingExpect::Delete(x) => self.check_del_statement(x, errors),
             BindingExpect::UnpackedLength(b, range, expect) => {
                 let iterable_ty = self.get_idx(*b);
                 let iterables = self.iterate(iterable_ty.ty(), *range, errors);
@@ -3109,10 +3108,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     LinkedKey::Expect(idx) => {
                         self.get_idx(*idx);
                     }
+                    LinkedKey::Delete(idx) => {
+                        self.get_idx(*idx);
+                    }
                 }
                 // Produce a placeholder type; it will not be used.
                 Type::None
             }
+            Binding::Delete(x) => self.check_del_statement(x, errors),
         }
     }
 
@@ -3539,7 +3542,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Type check a delete expression, including ensuring that the target of the
     /// delete is legal.
-    fn check_del_statement(&self, delete_target: &Expr, errors: &ErrorCollector) {
+    fn check_del_statement(&self, delete_target: &Expr, errors: &ErrorCollector) -> Type {
         match delete_target {
             Expr::Name(_) => {
                 self.expr_infer(delete_target, errors);
@@ -3605,6 +3608,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         }
+        // This is a fallback in case a variable is defined *only* by a `del` - we'll use `Any` as
+        // the type for reads (i.e. `BoundName` / `Forward` key/binding pairs) in that case.
+        Type::any_implicit()
     }
 
     pub fn expr_untype(
