@@ -7,3 +7,4 @@
 
 #![cfg(test)]
 mod model;
+mod view;
