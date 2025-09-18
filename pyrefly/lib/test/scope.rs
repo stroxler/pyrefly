@@ -717,14 +717,14 @@ def f():
 );
 
 testcase!(
-    bug = "In Python, `del` defines a name in the scope - we don't understand this yet",
+    bug = "We give inconsistent lookup errors when a local is defined only by a del",
     test_del_defines_a_local,
     r#"
 from typing import reveal_type
 x = 5
 def f():
-    reveal_type(y)  # E: revealed type: Unknown  # E: Could not find name `y`
-    reveal_type(x)  # E: revealed type: Literal[5]
+    reveal_type(y)  # E: revealed type: Unknown  # E: `y` is uninitialized
+    reveal_type(x)  # E: revealed type: Unknown
     del y  # E: Could not find name `y`
     del x  # E: `x` is not mutable from the current scope
 f()

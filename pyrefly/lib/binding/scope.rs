@@ -127,7 +127,9 @@ pub struct StaticInfo {
 
 impl StaticInfo {
     pub fn as_key(&self, name: &Name) -> Key {
-        if self.count == 1 {
+        if matches!(self.style, DefinitionStyle::Delete) {
+            Key::Delete(self.loc)
+        } else if self.count == 1 {
             match self.style {
                 DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.loc),
                 DefinitionStyle::Global => Key::Global(name.clone()),

@@ -166,8 +166,12 @@ impl Exports {
                         docstring_range: definition.docstring_range,
                         is_deprecated,
                     }),
-                    // If the import is invalid or this is an illegal top-level `global` / `nonlocal`, the final location is this module.
+                    // The final location is this module in several edge cases that can occur analyzing invalid code:
+                    // - An invalid import
+                    // - A variable defined only by a `del` statement but never initialized
+                    // - A mutable capture at the top-level
                     DefinitionStyle::ImportInvalidRelative
+                    | DefinitionStyle::Delete
                     | DefinitionStyle::MutableCapture(..) => ExportLocation::ThisModule(Export {
                         location: definition.range,
                         symbol_kind: None,

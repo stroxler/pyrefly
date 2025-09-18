@@ -68,6 +68,9 @@ pub enum DefinitionStyle {
     ImportModule(ModuleName),
     /// A relative import that does not exist: we do `....` more than we have depth
     ImportInvalidRelative,
+    /// A statement like `del x` defines `x` in the current scope, even if `x` has no
+    /// other definition.
+    Delete,
 }
 
 #[derive(Debug, Clone)]
@@ -490,6 +493,9 @@ impl<'a> DefinitionsBuilder<'a> {
             Stmt::Delete(x) => {
                 for target in &x.targets {
                     self.named_in_expr(target);
+                    if let Expr::Name(name) = target {
+                        self.add_name(&name.id, name.range, DefinitionStyle::Delete, None)
+                    }
                 }
             }
             Stmt::Expr(StmtExpr { value, .. }) => {
@@ -963,5 +969,19 @@ nonlocal y
             true,
         );
         assert_definition_names(&defs, &["x", "y"]);
+    }
+
+    #[test]
+    fn test_unused_del() {
+        // These are illegal at the top-level, but they can occur in functions
+        // and the definitions extraction works the same way.
+        let defs = calculate_unranged_definitions(
+            r#"
+del x
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_definition_names(&defs, &["x"]);
     }
 }
