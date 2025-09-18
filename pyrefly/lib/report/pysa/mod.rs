@@ -93,13 +93,11 @@ impl ClassId {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 enum FunctionId {
     #[serde(serialize_with = "serialize_display_range")]
-    Function {
-        location: DisplayRange,
-    },
+    Function { location: DisplayRange },
+    #[expect(dead_code)]
     ModuleTopLevel,
-    ClassTopLevel {
-        class_id: ClassId,
-    },
+    #[expect(dead_code)]
+    ClassTopLevel { class_id: ClassId },
 }
 
 fn serialize_display_range<S>(location: &DisplayRange, serializer: S) -> Result<S::Ok, S::Error>
