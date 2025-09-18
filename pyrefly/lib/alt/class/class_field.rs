@@ -893,7 +893,7 @@ pub struct WithDefiningClass<T> {
 
 impl<T> WithDefiningClass<T> {
     pub(in crate::alt::class) fn defined_on(&self, module: &str, cls: &str) -> bool {
-        self.defining_class.has_qname(module, cls)
+        self.defining_class.has_toplevel_qname(module, cls)
     }
 }
 

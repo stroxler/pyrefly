@@ -426,7 +426,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         } else if let Some(ty) = ty
             && let Type::ClassDef(cls) = &ty
-            && cls.has_qname("dataclasses", "InitVar")
+            && cls.has_toplevel_qname("dataclasses", "InitVar")
         {
             Some(Qualifier::InitVar)
         } else {

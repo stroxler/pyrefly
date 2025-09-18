@@ -266,12 +266,18 @@ impl Class {
         Some(self.0.fields.get(name)?.range)
     }
 
-    pub fn has_qname(&self, module: &str, name: &str) -> bool {
-        self.0.qname.module_name().as_str() == module && self.0.qname.id() == name
+    pub fn has_qname(&self, module: &str, parent: &NestingContext, name: &str) -> bool {
+        self.0.qname.module_name().as_str() == module
+            && self.0.qname.parent() == parent
+            && self.0.qname.id() == name
+    }
+
+    pub fn has_toplevel_qname(&self, module: &str, name: &str) -> bool {
+        self.has_qname(module, &NestingContext::toplevel(), name)
     }
 
     pub fn is_builtin(&self, name: &str) -> bool {
-        self.has_qname("builtins", name)
+        self.has_toplevel_qname("builtins", name)
     }
 
     /// Key to use for equality purposes. If we have the same module and index,
@@ -353,7 +359,7 @@ impl ClassType {
     }
 
     pub fn has_qname(&self, module: &str, name: &str) -> bool {
-        self.0.has_qname(module, name)
+        self.0.has_toplevel_qname(module, name)
     }
 
     pub fn is_builtin(&self, name: &str) -> bool {

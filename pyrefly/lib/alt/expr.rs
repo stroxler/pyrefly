@@ -1105,7 +1105,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     *ty = Type::type_form(Type::Tuple(Tuple::unbounded(Type::Any(
                         AnyStyle::Implicit,
                     ))));
-                } else if cls.has_qname("typing", "Any") {
+                } else if cls.has_toplevel_qname("typing", "Any") {
                     *ty = Type::type_form(Type::any_explicit())
                 } else {
                     *ty = Type::type_form(self.promote(cls, range));
@@ -1650,7 +1650,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        if matches!(&decoratee, Type::ClassDef(cls) if cls.has_qname("typing", "TypeVar")) {
+        if matches!(&decoratee, Type::ClassDef(cls) if cls.has_toplevel_qname("typing", "TypeVar"))
+        {
             // Avoid recursion in TypeVar, which is decorated with `@final`, whose type signature
             // itself depends on a TypeVar.
             return decoratee;
@@ -1766,8 +1767,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: pyre_extensions.PyreReadOnly is a non-standard type system extension that marks read-only
                 // objects. We don't support it yet.
                 Type::ClassDef(cls)
-                    if cls.has_qname("pyre_extensions", "PyreReadOnly")
-                        || cls.has_qname("pyre_extensions", "ReadOnly") =>
+                    if cls.has_toplevel_qname("pyre_extensions", "PyreReadOnly")
+                        || cls.has_toplevel_qname("pyre_extensions", "ReadOnly") =>
                 {
                     match xs.len() {
                         1 => self.expr_infer(&xs[0], errors),

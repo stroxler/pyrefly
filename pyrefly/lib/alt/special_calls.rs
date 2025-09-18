@@ -317,7 +317,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         for ty in self.as_class_info(ty) {
             if let Type::ClassDef(cls) = &ty {
-                if cls.has_qname("typing", "Any") {
+                if cls.has_toplevel_qname("typing", "Any") {
                     self.error(
                         errors,
                         range,

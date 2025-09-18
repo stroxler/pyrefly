@@ -395,7 +395,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         bases_with_metadata
             .iter()
             .find_map(|(base_class_object, metadata)| {
-                if base_class_object.has_qname(
+                if base_class_object.has_toplevel_qname(
                     ModuleName::type_checker_internals().as_str(),
                     "NamedTupleFallback",
                 ) {
@@ -432,7 +432,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<PydanticMetadata> {
         let has_pydantic_base_model_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object.has_qname(ModuleName::pydantic().as_str(), "BaseModel")
+                base_class_object.has_toplevel_qname(ModuleName::pydantic().as_str(), "BaseModel")
             });
 
         let is_pydantic_base_model = has_pydantic_base_model_base_class
@@ -446,7 +446,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let has_pydantic_root_model_base_class =
             bases_with_metadata.iter().any(|(base_class_object, _)| {
-                base_class_object.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
+                base_class_object
+                    .has_toplevel_qname(ModuleName::pydantic_root_model().as_str(), "RootModel")
             });
 
         let has_root_model_kind = bases_with_metadata.iter().any(|(_, metadata)| {
