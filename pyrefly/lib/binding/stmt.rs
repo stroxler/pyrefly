@@ -7,6 +7,7 @@
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
@@ -249,12 +250,12 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Evaluate the statements and update the bindings.
     /// Every statement should end up in the bindings, perhaps with a location that is never used.
-    pub fn stmt(&mut self, x: Stmt) {
+    pub fn stmt(&mut self, x: Stmt, parent: &NestingContext) {
         match x {
             Stmt::FunctionDef(x) => {
-                self.function_def(x);
+                self.function_def(x, parent);
             }
-            Stmt::ClassDef(x) => self.class_def(x),
+            Stmt::ClassDef(x) => self.class_def(x, parent),
             Stmt::Return(x) => {
                 self.record_return(x);
             }
@@ -493,12 +494,15 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     // Try and continue as much as we can, by throwing away the type or just binding to error
                     match x.value {
-                        Some(value) => self.stmt(Stmt::Assign(StmtAssign {
-                            node_index: AtomicNodeIndex::dummy(),
-                            range: x.range,
-                            targets: vec![target],
-                            value,
-                        })),
+                        Some(value) => self.stmt(
+                            Stmt::Assign(StmtAssign {
+                                node_index: AtomicNodeIndex::dummy(),
+                                range: x.range,
+                                targets: vec![target],
+                                value,
+                            }),
+                            parent,
+                        ),
                         None => {
                             self.bind_target_no_expr(&mut target, &|_| {
                                 Binding::Type(Type::any_error())
@@ -601,8 +605,8 @@ impl<'a> BindingsBuilder<'a> {
                 // Note that we set up the loop *after* the header is fully bound, because the
                 // loop iterator is only evaluated once before the loop begins.
                 self.setup_loop(x.range, &NarrowOps::new());
-                self.stmts(x.body);
-                self.teardown_loop(x.range, &NarrowOps::new(), x.orelse);
+                self.stmts(x.body, parent);
+                self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent);
             }
             Stmt::While(mut x) => {
                 self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
@@ -613,8 +617,8 @@ impl<'a> BindingsBuilder<'a> {
                 // made in the loop (e.g. if we reassign the test variable).
                 // Typecheck the test condition during solving.
                 self.insert_binding(KeyExpect(x.test.range()), BindingExpect::Bool(*x.test));
-                self.stmts(x.body);
-                self.teardown_loop(x.range, &narrow_ops, x.orelse);
+                self.stmts(x.body, parent);
+                self.teardown_loop(x.range, &narrow_ops, x.orelse, parent);
             }
             Stmt::If(x) => {
                 let range = x.range;
@@ -656,7 +660,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     self.bind_narrow_ops(&new_narrow_ops, range);
                     negated_prev_ops.and_all(new_narrow_ops.negate());
-                    self.stmts(body);
+                    self.stmts(body, parent);
                     self.scopes.swap_current_flow_with(&mut base);
                     branches.push(base);
                     if this_branch_chosen == Some(true) {
@@ -709,10 +713,10 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                 }
-                self.stmts(x.body);
+                self.stmts(x.body, parent);
             }
             Stmt::Match(x) => {
-                self.stmt_match(x);
+                self.stmt_match(x, parent);
             }
             Stmt::Raise(x) => {
                 if let Some(mut exc) = x.exc {
@@ -747,8 +751,8 @@ impl<'a> BindingsBuilder<'a> {
                 //   |                     ^
                 //   ----> handler --------|
 
-                self.stmts(x.body);
-                self.stmts(x.orelse);
+                self.stmts(x.body, parent);
+                self.stmts(x.orelse, parent);
                 self.scopes.swap_current_flow_with(&mut base);
                 branches.push(base);
 
@@ -790,7 +794,7 @@ impl<'a> BindingsBuilder<'a> {
                         (None, None) => {}
                     }
 
-                    self.stmts(h.body);
+                    self.stmts(h.body, parent);
 
                     if let Some(name) = &h.name {
                         // Handle the implicit delete Python performs at the end of the `except` clause.
@@ -807,7 +811,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
 
                 self.set_current_flow_to_merged_branches(branches, range);
-                self.stmts(x.finalbody);
+                self.stmts(x.finalbody, parent);
             }
             Stmt::Assert(mut x) => {
                 let assert_range = x.range();

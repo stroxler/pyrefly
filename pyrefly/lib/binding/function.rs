@@ -7,8 +7,10 @@
 
 use std::mem;
 
+use dupe::Dupe as _;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::prelude::VecExt;
@@ -275,6 +277,7 @@ impl<'a> BindingsBuilder<'a> {
         body: Vec<Stmt>,
         range: TextRange,
         func_name: &Identifier,
+        parent: &NestingContext,
         undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
         is_async: bool,
@@ -283,7 +286,10 @@ impl<'a> BindingsBuilder<'a> {
             .push_function_scope(range, func_name, class_key.is_some(), is_async);
         self.parameters(parameters, undecorated_idx, class_key);
         self.init_static_scope(&body, false);
-        self.stmts(body);
+        self.stmts(
+            body,
+            &NestingContext::function(ShortIdentifier::new(func_name), parent.dupe()),
+        );
         self.scopes.pop_function_scope()
     }
 
@@ -460,6 +466,7 @@ impl<'a> BindingsBuilder<'a> {
         is_async: bool,
         return_ann_with_range: Option<(TextRange, Idx<KeyAnnotation>)>,
         func_name: &Identifier,
+        parent: &NestingContext,
         undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
     ) -> (FunctionStubOrImpl, Option<SelfAssignments>) {
@@ -495,6 +502,7 @@ impl<'a> BindingsBuilder<'a> {
                         body,
                         range,
                         func_name,
+                        parent,
                         undecorated_idx,
                         class_key,
                         is_async,
@@ -518,6 +526,7 @@ impl<'a> BindingsBuilder<'a> {
                         body,
                         range,
                         func_name,
+                        parent,
                         undecorated_idx,
                         class_key,
                         is_async,
@@ -541,6 +550,7 @@ impl<'a> BindingsBuilder<'a> {
                         body,
                         range,
                         func_name,
+                        parent,
                         undecorated_idx,
                         class_key,
                         is_async,
@@ -563,7 +573,7 @@ impl<'a> BindingsBuilder<'a> {
         (stub_or_impl, self_assignments)
     }
 
-    pub fn function_def(&mut self, mut x: StmtFunctionDef) {
+    pub fn function_def(&mut self, mut x: StmtFunctionDef, parent: &NestingContext) {
         let func_name = x.name.clone();
         let mut def_idx =
             self.declare_current_idx(Key::Definition(ShortIdentifier::new(&func_name)));
@@ -595,6 +605,7 @@ impl<'a> BindingsBuilder<'a> {
             x.is_async,
             return_ann_with_range,
             &func_name,
+            parent,
             undecorated_idx,
             class_key,
         );

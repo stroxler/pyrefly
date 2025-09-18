@@ -6,6 +6,7 @@
  */
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::nesting_context::NestingContext;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
@@ -308,7 +309,7 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn stmt_match(&mut self, mut x: StmtMatch) {
+    pub fn stmt_match(&mut self, mut x: StmtMatch, parent: &NestingContext) {
         let mut subject = self.declare_current_idx(Key::Anon(x.subject.range()));
         self.ensure_expr(&mut x.subject, subject.usage());
         let subject_idx =
@@ -342,7 +343,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_narrow_ops(&narrow_ops, case.range);
                 self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
             }
-            self.stmts(case.body);
+            self.stmts(case.body, parent);
             self.scopes.swap_current_flow_with(&mut base);
             branches.push(base);
         }

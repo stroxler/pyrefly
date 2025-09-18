@@ -9,6 +9,7 @@ use std::mem;
 
 use itertools::Either;
 use itertools::Itertools;
+use pyrefly_python::nesting_context::NestingContext;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -228,7 +229,13 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_narrow_ops(narrow_ops, range);
     }
 
-    pub fn teardown_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps, orelse: Vec<Stmt>) {
+    pub fn teardown_loop(
+        &mut self,
+        range: TextRange,
+        narrow_ops: &NarrowOps,
+        orelse: Vec<Stmt>,
+        parent: &NestingContext,
+    ) {
         let done = self.scopes.finish_current_loop();
         let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
             done.0.into_iter().partition_map(|(exit, flow)| match exit {
@@ -243,12 +250,12 @@ impl<'a> BindingsBuilder<'a> {
             // and any `orelse` always runs.
             self.merge_loop_into_current(other_exits, range);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range);
-            self.stmts(orelse);
+            self.stmts(orelse, parent);
         } else {
             // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
             self.merge_loop_into_current(other_exits, range);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range);
-            self.stmts(orelse);
+            self.stmts(orelse, parent);
             self.merge_loop_into_current(breaks, other_range);
         }
     }

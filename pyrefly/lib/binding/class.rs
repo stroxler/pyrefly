@@ -8,8 +8,10 @@
 use std::mem;
 use std::sync::LazyLock;
 
+use dupe::Dupe as _;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::prelude::SliceExt;
 use regex::Regex;
@@ -110,7 +112,7 @@ impl<'a> BindingsBuilder<'a> {
         (class_object, class_indices)
     }
 
-    pub fn class_def(&mut self, mut x: StmtClassDef) {
+    pub fn class_def(&mut self, mut x: StmtClassDef, parent: &NestingContext) {
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut pydantic_frozen = None;
         let mut pydantic_config_dict_extra = None;
@@ -224,7 +226,10 @@ impl<'a> BindingsBuilder<'a> {
             x.name.clone(),
         ));
         self.init_static_scope(&body, false);
-        self.stmts(body);
+        self.stmts(
+            body,
+            &NestingContext::class(ShortIdentifier::new(&x.name), parent.dupe()),
+        );
         let field_definitions = self.scopes.finish_class_and_get_field_definitions();
 
         let mut fields = SmallMap::with_capacity(field_definitions.len());

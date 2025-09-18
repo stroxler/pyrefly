@@ -14,6 +14,7 @@ use dupe::Dupe;
 use itertools::Either;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
@@ -296,7 +297,7 @@ impl Bindings {
             builder.inject_builtins();
         }
         builder.inject_globals();
-        builder.stmts(x.body);
+        builder.stmts(x.body, &NestingContext::toplevel());
         assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
         let exported = exports.exports(lookup);
@@ -612,9 +613,9 @@ impl<'a> BindingsBuilder<'a> {
         current.flow.info.reserve(current.stat.0.capacity());
     }
 
-    pub fn stmts(&mut self, xs: Vec<Stmt>) {
+    pub fn stmts(&mut self, xs: Vec<Stmt>, parent: &NestingContext) {
         for x in xs {
-            self.stmt(x);
+            self.stmt(x, parent);
         }
     }
 
