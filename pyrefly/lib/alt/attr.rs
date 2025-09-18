@@ -1727,7 +1727,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
 
         if let Some(ty) = cond_bool_ty
-            && !matches!(ty, Type::Never(_))
+            && !ty.is_never()
             && self.as_call_target(ty.clone()).is_none()
         {
             self.error(
