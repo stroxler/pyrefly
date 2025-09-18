@@ -312,21 +312,15 @@ impl TestClient {
                         ValidationResult::Skip => continue,
                         ValidationResult::Pass => return,
                         ValidationResult::Fail => {
-                            panic!(
-                                "Message validation failed: {}. Message: {:?}",
-                                description, msg
-                            );
+                            panic!("Message validation failed: {description}. Message: {msg:?}");
                         }
                     }
                 }
                 Err(RecvTimeoutError::Timeout) => {
-                    panic!("Timeout waiting for message: {}", description);
+                    panic!("Timeout waiting for message: {description}");
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    panic!(
-                        "Channel disconnected while waiting for message: {}",
-                        description
-                    );
+                    panic!("Channel disconnected while waiting for message: {description}");
                 }
             }
         }
@@ -340,7 +334,7 @@ impl TestClient {
                 assert_eq!(&expected_str, &actual_str, "Response mismatch");
                 ValidationResult::Pass
             },
-            &format!("Expected message: {:?}", expected_message),
+            &format!("Expected message: {expected_message:?}"),
         );
     }
 
@@ -356,7 +350,7 @@ impl TestClient {
                     ValidationResult::Pass
                 }
             },
-            &format!("Expected response: {:?}", expected_response),
+            &format!("Expected response: {expected_response:?}"),
         );
     }
 
@@ -389,7 +383,7 @@ impl TestClient {
                     _ => ValidationResult::Skip
                 }
             },
-            &format!("publishDiagnostics notification with {} errors for file: {}", count, path),
+            &format!("publishDiagnostics notification with {count} errors for file: {path}"),
         );
     }
 
@@ -508,7 +502,7 @@ impl TestClient {
                     ValidationResult::Pass
                 }
             },
-            &format!("Expected configuration request: {:?}", expected_msg),
+            &format!("Expected configuration request: {expected_msg:?}"),
         );
     }
 
