@@ -1129,7 +1129,7 @@ fn export_all_classes(
             .unwrap();
 
         let is_synthesized = match context.bindings.get(class_idx) {
-            BindingClass::FunctionalClassDef(_, _, _) => true,
+            BindingClass::FunctionalClassDef(_, _, _, _) => true,
             BindingClass::ClassDef(_) => false,
         };
 

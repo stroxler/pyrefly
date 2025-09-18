@@ -15,6 +15,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_util::assert_bytes;
@@ -94,7 +95,7 @@ assert_words!(KeyUndecoratedFunction, 1);
 assert_words!(Binding, 11);
 assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
-assert_words!(BindingClass, 22);
+assert_words!(BindingClass, 23);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassBaseType, 3);
 assert_words!(BindingClassMetadata, 8);
@@ -983,6 +984,7 @@ pub struct ClassBinding {
     /// A class definition, but with the body stripped out.
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
+    pub parent: NestingContext,
     /// The fields are all the names declared on the class that we were able to detect
     /// from an AST traversal, which includes:
     /// - any name defined in the class body (e.g. by assignment or a def statement)
@@ -1734,6 +1736,7 @@ pub enum BindingClass {
     FunctionalClassDef(
         ClassDefIndex,
         Identifier,
+        NestingContext,
         SmallMap<Name, ClassFieldProperties>,
     ),
 }
@@ -1742,7 +1745,7 @@ impl DisplayWith<Bindings> for BindingClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
         match self {
             Self::ClassDef(c) => write!(f, "ClassDef({})", c.def.name),
-            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({id})"),
+            Self::FunctionalClassDef(_, id, _, _) => write!(f, "FunctionalClassDef({id})"),
         }
     }
 }

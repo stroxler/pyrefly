@@ -314,6 +314,7 @@ impl<'a> BindingsBuilder<'a> {
                                 {
                                     self.synthesize_enum_def(
                                         name,
+                                        parent,
                                         &mut call.func,
                                         arg_name,
                                         members,
@@ -327,6 +328,7 @@ impl<'a> BindingsBuilder<'a> {
                                 {
                                     self.synthesize_typed_dict_def(
                                         name,
+                                        parent,
                                         &mut call.func,
                                         arg_name,
                                         members,
@@ -341,6 +343,7 @@ impl<'a> BindingsBuilder<'a> {
                                 {
                                     self.synthesize_typing_named_tuple_def(
                                         name,
+                                        parent,
                                         &mut call.func,
                                         arg_name,
                                         members,
@@ -354,6 +357,7 @@ impl<'a> BindingsBuilder<'a> {
                                 {
                                     self.synthesize_collections_named_tuple_def(
                                         name,
+                                        parent,
                                         &mut call.func,
                                         arg_name,
                                         members,
@@ -364,7 +368,12 @@ impl<'a> BindingsBuilder<'a> {
                             }
                             SpecialExport::NewType => {
                                 if let [new_type_name, base] = &mut *call.arguments.args {
-                                    self.synthesize_typing_new_type(name, new_type_name, base);
+                                    self.synthesize_typing_new_type(
+                                        name,
+                                        parent,
+                                        new_type_name,
+                                        base,
+                                    );
                                     return;
                                 }
                             }

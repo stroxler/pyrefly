@@ -312,6 +312,7 @@ impl<'a> BindingsBuilder<'a> {
             BindingClass::ClassDef(ClassBinding {
                 def_index: class_indices.def_index,
                 def: x,
+                parent: parent.dupe(),
                 fields,
                 tparams_require_binding,
                 docstring_range,
@@ -413,6 +414,7 @@ impl<'a> BindingsBuilder<'a> {
         class_name: Identifier,
         class_object: CurrentIdx,
         class_indices: ClassIndices,
+        parent: &NestingContext,
         base: Option<Expr>,
         keywords: Box<[(Name, Expr)]>,
         // name, position, annotation, value
@@ -557,7 +559,12 @@ impl<'a> BindingsBuilder<'a> {
         );
         self.insert_binding_idx(
             class_indices.class_idx,
-            BindingClass::FunctionalClassDef(class_indices.def_index, class_name, fields),
+            BindingClass::FunctionalClassDef(
+                class_indices.def_index,
+                class_name,
+                parent.dupe(),
+                fields,
+            ),
         );
 
         self.insert_binding_idx(
@@ -577,6 +584,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn synthesize_enum_def(
         &mut self,
         name: &ExprName,
+        parent: &NestingContext,
         func: &mut Expr,
         arg_name: &mut Expr,
         members: &mut [Expr],
@@ -678,6 +686,7 @@ impl<'a> BindingsBuilder<'a> {
             class_name,
             class_object,
             class_indices,
+            parent,
             Some(func.clone()),
             Box::new([]),
             member_definitions,
@@ -693,6 +702,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn synthesize_collections_named_tuple_def(
         &mut self,
         name: &ExprName,
+        parent: &NestingContext,
         func: &mut Expr,
         arg_name: &Expr,
         members: &mut [Expr],
@@ -800,6 +810,7 @@ impl<'a> BindingsBuilder<'a> {
             class_name,
             class_object,
             class_indices,
+            parent,
             None,
             Box::new([]),
             member_definitions_with_defaults,
@@ -814,6 +825,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn synthesize_typing_named_tuple_def(
         &mut self,
         name: &ExprName,
+        parent: &NestingContext,
         func: &mut Expr,
         arg_name: &Expr,
         members: &[Expr],
@@ -865,6 +877,7 @@ impl<'a> BindingsBuilder<'a> {
             class_name,
             class_object,
             class_indices,
+            parent,
             Some(func.clone()),
             Box::new([]),
             member_definitions,
@@ -879,6 +892,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn synthesize_typing_new_type(
         &mut self,
         name: &ExprName,
+        parent: &NestingContext,
         new_type_name: &mut Expr,
         base: &mut Expr,
     ) {
@@ -891,6 +905,7 @@ impl<'a> BindingsBuilder<'a> {
             class_name,
             class_object,
             class_indices,
+            parent,
             Some(base.clone()),
             Box::new([]),
             Vec::new(),
@@ -904,6 +919,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn synthesize_typed_dict_def(
         &mut self,
         name: &ExprName,
+        parent: &NestingContext,
         func: &mut Expr,
         arg_name: &Expr,
         args: &mut [Expr],
@@ -983,6 +999,7 @@ impl<'a> BindingsBuilder<'a> {
             class_name,
             class_object,
             class_indices,
+            parent,
             Some(func.clone()),
             base_class_keywords.into_boxed_slice(),
             member_definitions,

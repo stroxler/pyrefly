@@ -1526,12 +1526,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingClass::ClassDef(x) => self.class_definition(
                 x.def_index,
                 &x.def,
+                &x.parent,
                 x.fields.clone(),
                 x.tparams_require_binding,
                 errors,
             ),
-            BindingClass::FunctionalClassDef(def_index, x, fields) => {
-                self.functional_class_definition(*def_index, x, fields)
+            BindingClass::FunctionalClassDef(def_index, x, parent, fields) => {
+                self.functional_class_definition(*def_index, x, parent, fields)
             }
         };
         Arc::new(NoneIfRecursive(Some(cls)))

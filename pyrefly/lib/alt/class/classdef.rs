@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_python::nesting_context::NestingContext;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
@@ -57,6 +58,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         def_index: ClassDefIndex,
         x: &StmtClassDef,
+        _parent: &NestingContext,
         fields: SmallMap<Name, ClassFieldProperties>,
         tparams_require_binding: bool,
         errors: &ErrorCollector,
@@ -80,6 +82,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         def_index: ClassDefIndex,
         name: &Identifier,
+        _parent: &NestingContext,
         fields: &SmallMap<Name, ClassFieldProperties>,
     ) -> Class {
         Class::new(
