@@ -137,6 +137,23 @@ enum ScopeParent {
     TopLevel,
 }
 
+// List of class names that a type refers to, after stripping Optional and Awaitable.
+#[derive(Debug, Clone, Serialize)]
+struct ClassNamesFromType {
+    class_names: Vec<ClassRef>,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    stripped_coroutine: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    stripped_optional: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    stripped_readonly: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    unbound_type_variable: bool,
+    // Is there an element (after stripping) that isn't a class name?
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_exhaustive: bool,
+}
+
 /// Information needed from Pysa about a type.
 #[derive(Debug, Clone, Serialize)]
 struct PysaType {
@@ -153,9 +170,8 @@ struct PysaType {
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_enum: bool,
 
-    // The list of classes that this type refers to, after stripping Optional and Awaitable.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    class_names: Vec<ClassRef>,
+    #[serde(skip_serializing_if = "ClassNamesFromType::skip_serializing")]
+    class_names: ClassNamesFromType,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -204,7 +220,7 @@ struct FunctionSignature {
     return_annotation: PysaType,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 struct ClassRef {
     module_id: ModuleId,
     module_name: String, // For debugging purposes only. Reader should use the module id.
@@ -421,6 +437,60 @@ fn has_superclass(class: &Class, want: &Class, context: &ModuleContext) -> bool 
         .unwrap()
 }
 
+impl ClassNamesFromType {
+    fn from_class(class: Class, context: &ModuleContext) -> ClassNamesFromType {
+        ClassNamesFromType {
+            class_names: vec![ClassRef::from_class(&class, context.module_ids)],
+            stripped_coroutine: false,
+            stripped_optional: false,
+            stripped_readonly: false,
+            unbound_type_variable: false,
+            is_exhaustive: true,
+        }
+    }
+
+    fn not_a_class() -> ClassNamesFromType {
+        ClassNamesFromType {
+            class_names: vec![],
+            stripped_coroutine: false,
+            stripped_optional: false,
+            stripped_readonly: false,
+            unbound_type_variable: false,
+            is_exhaustive: false,
+        }
+    }
+
+    fn skip_serializing(&self) -> bool {
+        self.class_names.is_empty()
+    }
+
+    fn with_strip_optional(mut self) -> ClassNamesFromType {
+        self.stripped_optional = true;
+        self
+    }
+
+    fn with_strip_coroutine(mut self) -> ClassNamesFromType {
+        self.stripped_coroutine = true;
+        self
+    }
+
+    fn join_with(mut self, other: ClassNamesFromType) -> ClassNamesFromType {
+        self.class_names.extend(other.class_names);
+        self.stripped_coroutine |= other.stripped_coroutine;
+        self.stripped_optional |= other.stripped_optional;
+        self.stripped_readonly |= other.stripped_readonly;
+        self.unbound_type_variable |= other.unbound_type_variable;
+        self.is_exhaustive &= other.is_exhaustive;
+        self
+    }
+
+    fn sort_and_dedup(mut self) -> ClassNamesFromType {
+        self.class_names.sort();
+        self.class_names.dedup();
+        self
+    }
+}
+
 fn strip_optional(type_: &Type) -> Option<&Type> {
     match type_ {
         Type::Union(elements) if elements.len() == 2 && elements[0] == Type::None => {
@@ -474,25 +544,32 @@ fn is_scalar_type(get: &Type, want: &Class, context: &ModuleContext) -> bool {
     }
 }
 
-fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> Vec<Class> {
+fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> ClassNamesFromType {
     if let Some(inner) = strip_optional(type_) {
-        return get_classes_of_type(inner, context);
+        return get_classes_of_type(inner, context).with_strip_optional();
     }
     if let Some(inner) = strip_awaitable(type_, context) {
-        return get_classes_of_type(inner, context);
+        return get_classes_of_type(inner, context).with_strip_coroutine();
     }
     if let Some(inner) = strip_coroutine(type_, context) {
-        return get_classes_of_type(inner, context);
+        return get_classes_of_type(inner, context).with_strip_coroutine();
     }
+    // No need to strip ReadOnly[], it is already stripped by pyrefly.
     match type_ {
-        Type::ClassType(class_type) => vec![class_type.class_object().clone()],
-        Type::Tuple(_) => vec![context.stdlib.tuple_object().clone()],
-        Type::Union(elements) => elements
+        Type::ClassType(class_type) => {
+            ClassNamesFromType::from_class(class_type.class_object().clone(), context)
+        }
+        Type::Tuple(_) => {
+            ClassNamesFromType::from_class(context.stdlib.tuple_object().clone(), context)
+        }
+        Type::Union(elements) if !elements.is_empty() => elements
             .iter()
-            .flat_map(|inner| get_classes_of_type(inner, context))
-            .collect(),
+            .map(|inner| get_classes_of_type(inner, context))
+            .reduce(|acc, next| acc.join_with(next))
+            .unwrap()
+            .sort_and_dedup(),
         Type::TypeAlias(alias) => get_classes_of_type(&alias.as_type(), context),
-        _ => Vec::new(),
+        _ => ClassNamesFromType::not_a_class(),
     }
 }
 
@@ -510,15 +587,7 @@ impl PysaType {
             is_int: is_scalar_type(&type_, context.stdlib.int().class_object(), context),
             is_float: is_scalar_type(&type_, context.stdlib.float().class_object(), context),
             is_enum: is_scalar_type(&type_, context.stdlib.enum_class().class_object(), context),
-            class_names: {
-                let mut classes = get_classes_of_type(&type_, context);
-                classes.sort();
-                classes.dedup();
-                classes
-                    .into_iter()
-                    .map(|class_type| ClassRef::from_class(&class_type, context.module_ids))
-                    .collect()
-            },
+            class_names: get_classes_of_type(&type_, context),
         }
     }
 }
