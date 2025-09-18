@@ -3108,9 +3108,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     LinkedKey::Expect(idx) => {
                         self.get_idx(*idx);
                     }
-                    LinkedKey::Delete(idx) => {
-                        self.get_idx(*idx);
-                    }
                 }
                 // Produce a placeholder type; it will not be used.
                 Type::None

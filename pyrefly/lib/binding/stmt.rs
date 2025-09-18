@@ -260,21 +260,14 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Delete(mut x) => {
                 for target in &mut x.targets {
-                    let mut delete_link = self.declare_current_idx(Key::UsageLink(target.range()));
+                    let mut delete_idx = self.declare_current_idx(Key::Delete(target.range()));
                     if let Expr::Name(name) = target {
-                        self.ensure_mutable_name(name, delete_link.usage());
+                        self.ensure_mutable_name(name, delete_idx.usage());
                         self.scopes.mark_as_deleted(&name.id);
                     } else {
-                        self.ensure_expr(target, delete_link.usage());
+                        self.ensure_expr(target, delete_idx.usage());
                     }
-                    let delete_idx = self.insert_binding(
-                        Key::Delete(target.range()),
-                        Binding::Delete(target.clone()),
-                    );
-                    self.insert_binding_current(
-                        delete_link,
-                        Binding::UsageLink(LinkedKey::Delete(delete_idx)),
-                    );
+                    self.insert_binding_current(delete_idx, Binding::Delete(target.clone()));
                 }
             }
             Stmt::Assign(ref x)

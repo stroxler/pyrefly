@@ -372,10 +372,14 @@ pub enum Key {
     UsageLink(TextRange),
     /// A yield link - a placeholder used for first-usage type inference specifically for yield expressions.
     YieldLink(TextRange),
-    /// `del` statement
-    Delete(TextRange),
     /// A use of `typing.Self` in an expression. Used to redirect to the appropriate type (which is aware of the current class).
     SelfTypeLiteral(TextRange),
+    /// A `del` statement. It is a `Binding` associated with a the type `Any` because `del` defines a name in scope,
+    /// so we need to provide a `Key` for any reads of that name in the edge case where there is no other definition
+    ///
+    /// This `Key` is *only* ever used if the variable has only a `del` but is not otherwise defined (which is
+    /// always a type error, since you cannot delete an uninitialized variable).
+    Delete(TextRange),
 }
 
 impl Ranged for Key {
@@ -1112,7 +1116,6 @@ pub enum LinkedKey {
     Yield(Idx<KeyYield>),
     YieldFrom(Idx<KeyYieldFrom>),
     Expect(Idx<KeyExpect>),
-    Delete(Idx<Key>),
 }
 
 #[derive(Clone, Debug)]
@@ -1492,7 +1495,6 @@ impl DisplayWith<Bindings> for Binding {
                     LinkedKey::Yield(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                     LinkedKey::YieldFrom(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                     LinkedKey::Expect(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
-                    LinkedKey::Delete(idx) => write!(f, "{}", m.display(ctx.idx_to_key(*idx)))?,
                 }
                 write!(f, ")")
             }
