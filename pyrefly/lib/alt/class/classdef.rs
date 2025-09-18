@@ -58,7 +58,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         def_index: ClassDefIndex,
         x: &StmtClassDef,
-        _parent: &NestingContext,
+        parent: &NestingContext,
         fields: SmallMap<Name, ClassFieldProperties>,
         tparams_require_binding: bool,
         errors: &ErrorCollector,
@@ -72,6 +72,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Class::new(
             def_index,
             x.name.clone(),
+            parent.dupe(),
             self.module().dupe(),
             precomputed_tparams,
             fields,
@@ -82,12 +83,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         def_index: ClassDefIndex,
         name: &Identifier,
-        _parent: &NestingContext,
+        parent: &NestingContext,
         fields: &SmallMap<Name, ClassFieldProperties>,
     ) -> Class {
         Class::new(
             def_index,
             name.clone(),
+            parent.dupe(),
             self.module().dupe(),
             Some(Arc::new(TParams::default())),
             fields.clone(),

@@ -22,10 +22,12 @@ use ruff_text_size::TextSize;
 use crate::module::Module;
 use crate::module_name::ModuleName;
 use crate::module_path::ModulePath;
+use crate::nesting_context::NestingContext;
 /// A name, plus where it is defined.
 #[derive(Clone)]
 pub struct QName {
     name: Identifier,
+    parent: NestingContext,
     module: Module,
 }
 
@@ -33,6 +35,7 @@ impl Debug for QName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QName")
             .field("name", &self.name)
+            .field("parent", &self.parent)
             // The full details of Module are pretty boring in most cases,
             // and we only cache it so we can defer expanding the range.
             // Therefore, shorten the Debug output, as Module is pretty big.
@@ -85,8 +88,12 @@ impl QName {
         )
     }
 
-    pub fn new(name: Identifier, module: Module) -> Self {
-        Self { name, module }
+    pub fn new(name: Identifier, parent: NestingContext, module: Module) -> Self {
+        Self {
+            name,
+            parent,
+            module,
+        }
     }
 
     pub fn id(&self) -> &Name {
@@ -95,6 +102,10 @@ impl QName {
 
     pub fn range(&self) -> TextRange {
         self.name.range
+    }
+
+    pub fn parent(&self) -> &NestingContext {
+        &self.parent
     }
 
     pub fn module(&self) -> &Module {
@@ -114,14 +125,23 @@ impl QName {
     }
 
     pub fn fmt_with_module(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.module_name(), self.name)
+        if self.parent().is_toplevel() {
+            write!(f, "{}", self.module_name())?;
+        } else {
+            write!(f, "{}", self.module().display(self.parent()))?;
+        }
+        write!(f, ".{}", self.name)
     }
 
     pub fn fmt_with_location(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.parent().is_toplevel() {
+            write!(f, "{}", self.module_name())?;
+        } else {
+            write!(f, "{}", self.module().display(self.parent()))?;
+        }
         write!(
             f,
-            "{}.{}@{}",
-            self.module_name(),
+            ".{}@{}",
             self.name,
             self.module.display_range(self.name.range)
         )

@@ -14,6 +14,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::module::Module;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::qname::QName;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::visit::Visit;
@@ -160,7 +161,8 @@ impl TypeVar {
         variance: PreInferenceVariance,
     ) -> Self {
         Self(ArcId::new(TypeVarInner {
-            qname: QName::new(name, module),
+            // TODO: properly take parent from caller of new()
+            qname: QName::new(name, NestingContext::toplevel(), module),
             restriction,
             default,
             variance,

@@ -22,6 +22,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::qname::QName;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -190,13 +191,14 @@ impl Class {
     pub fn new(
         def_index: ClassDefIndex,
         name: Identifier,
+        parent: NestingContext,
         module: Module,
         precomputed_tparams: Option<Arc<TParams>>,
         fields: SmallMap<Name, ClassFieldProperties>,
     ) -> Self {
         Self(Arc::new(ClassInner {
             def_index,
-            qname: QName::new(name, module),
+            qname: QName::new(name, parent, module),
             precomputed_tparams,
             fields,
         }))

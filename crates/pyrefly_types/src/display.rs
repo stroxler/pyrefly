@@ -503,6 +503,7 @@ pub mod tests {
     use dupe::Dupe;
     use pyrefly_python::module::Module;
     use pyrefly_python::module_path::ModulePath;
+    use pyrefly_python::nesting_context::NestingContext;
     use pyrefly_util::uniques::UniqueFactory;
     use ruff_python_ast::Identifier;
     use ruff_text_size::TextSize;
@@ -539,6 +540,7 @@ pub mod tests {
         Class::new(
             ClassDefIndex(0),
             Identifier::new(Name::new(name), TextRange::empty(TextSize::new(range))),
+            NestingContext::toplevel(),
             mi,
             None,
             SmallMap::new(),
