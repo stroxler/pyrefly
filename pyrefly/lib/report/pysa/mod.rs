@@ -294,10 +294,17 @@ impl DefinitionRef {
 }
 
 #[derive(Debug, Clone, Serialize)]
+enum PysaClassMro {
+    Resolved(Vec<ClassRef>),
+    Cyclic,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ClassDefinition {
     class_id: ClassId,
     name: String,
     bases: Vec<ClassRef>,
+    mro: PysaClassMro,
     parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
@@ -1096,6 +1103,12 @@ fn get_class_field(
         .unwrap()
 }
 
+fn get_class_mro(class: &Class, bindings: &Bindings, answers: &Answers) -> Arc<ClassMro> {
+    answers
+        .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
+        .unwrap()
+}
+
 fn export_all_classes(
     ast: &ModModule,
     context: &ModuleContext,
@@ -1144,15 +1157,29 @@ fn export_all_classes(
             })
             .collect();
 
+        let bases = metadata
+            .base_class_objects()
+            .iter()
+            .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
+            .collect::<Vec<_>>();
+
+        let mro = match &*get_class_mro(&class, context.bindings, context.answers) {
+            ClassMro::Resolved(mro) => PysaClassMro::Resolved(
+                mro.iter()
+                    .map(|class_type| {
+                        ClassRef::from_class(class_type.class_object(), context.module_ids)
+                    })
+                    .collect(),
+            ),
+            ClassMro::Cyclic => PysaClassMro::Cyclic,
+        };
+
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
             name: class.qname().id().to_string(),
             parent,
-            bases: metadata
-                .base_class_objects()
-                .iter()
-                .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
-                .collect::<Vec<_>>(),
+            bases,
+            mro,
             is_synthesized,
             fields,
         };
@@ -1170,10 +1197,7 @@ fn export_all_classes(
 
 fn is_unittest_module(bindings: &Bindings, answers: &Answers) -> bool {
     get_all_classes(bindings, answers).any(|class| {
-        match &*answers
-            .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
-            .unwrap()
-        {
+        match &*get_class_mro(&class, bindings, answers) {
             ClassMro::Resolved(mro) => mro
                 .iter()
                 .any(|base| base.has_qname("unittest.case", "TestCase")),
