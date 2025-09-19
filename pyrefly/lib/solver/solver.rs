@@ -201,13 +201,10 @@ impl Solver {
             *t = Type::any_implicit();
         } else if let Type::Var(x) = t {
             if let Some(_guard) = recurser.recurse(*x) {
-                if let Some(Variable::Answer(w)) = {
-                    // Important we bind this lock in an inner scope, so it is dropped before
-                    // we call expand_with_limit again.
-                    let lock = self.variables.read();
-                    lock.get(x).cloned()
-                } {
-                    *t = w;
+                let lock = self.variables.read();
+                if let Some(Variable::Answer(w)) = lock.get(x) {
+                    *t = w.clone();
+                    drop(lock);
                     self.expand_with_limit(t, limit - 1, recurser);
                 }
             } else {
