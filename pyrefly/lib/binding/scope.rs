@@ -51,7 +51,6 @@ use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
-use crate::binding::bindings::LookupError;
 use crate::binding::bindings::LookupKind;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
@@ -76,6 +75,24 @@ pub enum NameReadInfo {
     Anywhere(Key),
     /// The lookup failed for some reason.
     Error(LookupError),
+}
+
+/// Errors that can occur when we try to look up a name
+#[derive(Debug)]
+pub enum LookupError {
+    /// We can't find the name at all
+    NotFound,
+    /// We expected the name to be mutable from the current scope, but it's not
+    NotMutable,
+}
+
+impl LookupError {
+    pub fn message(&self, name: &Identifier) -> String {
+        match self {
+            Self::NotFound => format!("Could not find name `{name}`"),
+            Self::NotMutable => format!("`{name}` is not mutable from the current scope"),
+        }
+    }
 }
 
 /// The result of a successful lookup of a name for a write operation.

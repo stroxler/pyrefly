@@ -60,6 +60,7 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
+use crate::binding::scope::LookupError;
 use crate::binding::scope::NameReadInfo;
 use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
@@ -390,24 +391,6 @@ impl BindingTable {
             .get_mut(pred_function_idx)
             .unwrap();
         pred_binding.successor = Some(function_idx);
-    }
-}
-
-/// Errors that can occur when we try to look up a name
-#[derive(Debug)]
-pub enum LookupError {
-    /// We can't find the name at all
-    NotFound,
-    /// We expected the name to be mutable from the current scope, but it's not
-    NotMutable,
-}
-
-impl LookupError {
-    pub fn message(&self, name: &Identifier) -> String {
-        match self {
-            Self::NotFound => format!("Could not find name `{name}`"),
-            Self::NotMutable => format!("`{name}` is not mutable from the current scope"),
-        }
     }
 }
 
