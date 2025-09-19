@@ -81,7 +81,7 @@ use crate::state::loader::FindError;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
-use crate::types::globals::Global;
+use crate::types::globals::ImplicitGlobal;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::types::Var;
 
@@ -657,8 +657,8 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn inject_globals(&mut self) {
-        for global in Global::globals(self.has_docstring) {
-            let key = Key::Global(global.name().clone());
+        for global in ImplicitGlobal::implicit_globals(self.has_docstring) {
+            let key = Key::ImplicitGlobal(global.name().clone());
             let idx = self.table.insert(key, Binding::Global(global.clone()));
             self.bind_name(global.name(), idx, FlowStyle::Other);
         }

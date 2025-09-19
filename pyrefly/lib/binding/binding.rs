@@ -66,7 +66,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassFieldProperties;
 use crate::types::equality::TypeEq;
-use crate::types::globals::Global;
+use crate::types::globals::ImplicitGlobal;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
@@ -317,8 +317,8 @@ pub enum Key {
     /// Used for `import foo.x` (the `foo` might not be literally present with `.` modules),
     /// and `from foo import *` (the names are injected from the exports)
     Import(Name, TextRange),
-    /// I am a module-level global variable like `__file__` or `__doc__`.
-    Global(Name),
+    /// I am an implicit module-level global variable like `__file__` or `__doc__`.
+    ImplicitGlobal(Name),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
     /// I am a mutable capture (`global` or `nonlocal`) declared at this location.
@@ -387,7 +387,7 @@ impl Ranged for Key {
     fn range(&self) -> TextRange {
         match self {
             Self::Import(_, r) => *r,
-            Self::Global(_) => TextRange::default(),
+            Self::ImplicitGlobal(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
             Self::MutableCapture(x) => x.range(),
             Self::UpstreamPinnedDefinition(x) => x.range(),
@@ -420,7 +420,7 @@ impl DisplayWith<ModuleInfo> for Key {
 
         match self {
             Self::Import(n, r) => write!(f, "Key::Import({n} {})", ctx.display(r)),
-            Self::Global(n) => write!(f, "Key::Global({n})"),
+            Self::ImplicitGlobal(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
             Self::MutableCapture(x) => write!(f, "Key::Declaration({})", short(x)),
             Self::UpstreamPinnedDefinition(x) => {
@@ -1182,7 +1182,7 @@ pub enum Binding {
     /// An explicit type.
     Type(Type),
     /// A global variable.
-    Global(Global),
+    Global(ImplicitGlobal),
     /// A type parameter.
     TypeParameter(Box<TypeParameter>),
     /// The type of a function. The fields are:

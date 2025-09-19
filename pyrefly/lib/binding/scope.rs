@@ -139,7 +139,7 @@ impl StaticInfo {
         } else if self.count == 1 {
             match self.style {
                 DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.range),
-                DefinitionStyle::Global => Key::Global(name.clone()),
+                DefinitionStyle::ImplicitGlobal => Key::ImplicitGlobal(name.clone()),
                 _ => {
                     // We are constructing an identifier, but it must have been one that we saw earlier
                     assert_ne!(self.range, TextRange::default());
@@ -216,7 +216,7 @@ impl Static {
             if module_info.name() != ModuleName::builtins() {
                 d.inject_builtins();
             }
-            d.inject_globals();
+            d.inject_implicit_globals();
         }
 
         let mut wildcards = Vec::with_capacity(d.import_all.len());

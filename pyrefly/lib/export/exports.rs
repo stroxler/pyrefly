@@ -90,7 +90,7 @@ impl Exports {
             module_info.path().is_init(),
             sys_info,
         );
-        definitions.inject_globals();
+        definitions.inject_implicit_globals();
         definitions.ensure_dunder_all(module_info.path().style());
         if module_info.name() == ModuleName::builtins() {
             // The `builtins` module is a bit weird. It has no `__all__` in TypeShed,
@@ -178,7 +178,7 @@ impl Exports {
                         docstring_range: definition.docstring_range,
                         is_deprecated,
                     }),
-                    DefinitionStyle::Global => ExportLocation::ThisModule(Export {
+                    DefinitionStyle::ImplicitGlobal => ExportLocation::ThisModule(Export {
                         location: definition.range,
                         symbol_kind: Some(SymbolKind::Constant),
                         docstring_range: None,

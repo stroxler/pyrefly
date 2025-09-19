@@ -35,7 +35,7 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::types::globals::Global;
+use crate::types::globals::ImplicitGlobal;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MutableCaptureKind {
@@ -60,7 +60,7 @@ pub enum DefinitionStyle {
     /// We also store what kind of symbol it is
     Local(SymbolKind),
     /// Defined as an implicit global like `__name__`.
-    Global,
+    ImplicitGlobal,
     /// Imported with an alias, e.g. `from x import y as z`
     /// Name is the previous name before the alias
     ImportAs(ModuleName, Name),
@@ -205,13 +205,13 @@ impl Definitions {
         self.import_all.entry(ModuleName::builtins()).or_default();
     }
 
-    pub fn inject_globals(&mut self) {
-        for global in Global::globals(false) {
+    pub fn inject_implicit_globals(&mut self) {
+        for global in ImplicitGlobal::implicit_globals(false) {
             self.definitions.insert(
                 global.name().clone(),
                 Definition {
                     range: TextRange::default(),
-                    style: DefinitionStyle::Global,
+                    style: DefinitionStyle::ImplicitGlobal,
                     annot: None,
                     count: 1,
                     docstring_range: None,
