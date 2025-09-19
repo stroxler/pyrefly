@@ -2009,7 +2009,6 @@ impl<'a> Transaction<'a> {
                 identifier,
                 context: IdentifierContext::ImportedName { module_name, .. },
             }) => {
-                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 if let Ok(handle) = self.import_handle(handle, module_name, None) {
                     // Because of parser error recovery, `from x impo...` looks like `from x import impo...`
                     // If the user might be typing the `import` keyword, add that as an autocomplete option.
@@ -2040,6 +2039,7 @@ impl<'a> Transaction<'a> {
                     }
                 }
             }
+            // TODO: Handle relative import (via ModuleName::new_maybe_relative)
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ImportedModule { .. },
