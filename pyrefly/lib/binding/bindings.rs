@@ -728,8 +728,8 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Type(Type::any_error())
             }
         };
-        let binding_key = self.insert_binding(key, binding);
-        self.bind_name(&name.id, binding_key, FlowStyle::Other);
+        let idx = self.insert_binding(key, binding);
+        self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
     fn lookup_mutable_capture(
