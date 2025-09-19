@@ -50,6 +50,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use serde::Serialize;
+use starlark_map::Hashed;
 use tracing::debug;
 use tracing::info;
 
@@ -58,8 +59,11 @@ use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::BindingClassField;
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyDecoratedFunction;
@@ -315,6 +319,14 @@ enum PysaClassMro {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct PysaClassField {
+    #[serde(rename = "type")]
+    type_: PysaType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    location: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ClassDefinition {
     class_id: ClassId,
     name: String,
@@ -323,7 +335,7 @@ struct ClassDefinition {
     parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
-    fields: Vec<String>,
+    fields: HashMap<String, PysaClassField>,
 }
 
 /// Format of a module file `my.module:id.json`
@@ -1100,10 +1112,55 @@ fn get_class_field(
         .unwrap()
 }
 
+fn get_class_field_declaration<'a>(
+    class: &'a Class,
+    field: &'a Name,
+    context: &'a ModuleContext,
+) -> Option<&'a BindingClassField> {
+    let key_class_field = KeyClassField(class.index(), field.clone());
+    // We use `key_to_idx_hashed_opt` below because the key might not be valid (could be a synthesized field).
+    context
+        .bindings
+        .key_to_idx_hashed_opt(Hashed::new(&key_class_field))
+        .map(|idx| context.bindings.get(idx))
+}
+
 fn get_class_mro(class: &Class, bindings: &Bindings, answers: &Answers) -> Arc<ClassMro> {
     answers
         .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
         .unwrap()
+}
+
+fn export_class_fields(class: &Class, context: &ModuleContext) -> HashMap<String, PysaClassField> {
+    class
+        .fields()
+        .filter_map(|name| get_class_field(class, name, context).map(|field| (name, field)))
+        .filter_map(|(name, field)| {
+            match get_class_field_declaration(class, name, context) {
+                Some(BindingClassField {
+                    definition: ClassFieldDefinition::MethodLike { .. },
+                    ..
+                }) => {
+                    // Exclude fields that are functions definitons, because they are already exported in `function_definitions`.
+                    None
+                }
+                Some(BindingClassField { range, .. }) => Some((
+                    name.to_string(),
+                    PysaClassField {
+                        type_: PysaType::from_type(&field.ty(), context),
+                        location: Some(location_key(&context.module_info.display_range(*range))),
+                    },
+                )),
+                _ => Some((
+                    name.to_string(),
+                    PysaClassField {
+                        type_: PysaType::from_type(&field.ty(), context),
+                        location: None,
+                    },
+                )),
+            }
+        })
+        .collect()
 }
 
 fn export_all_classes(
@@ -1133,26 +1190,7 @@ fn export_all_classes(
             BindingClass::ClassDef(_) => false,
         };
 
-        let fields = class
-            .fields()
-            .filter_map(|field| {
-                match get_class_field(&class, field, context) {
-                    // We want to exclude fields that are function definitions,
-                    // since those are exported in `definitions_of_expression`.
-                    // There is no easy way to know if a field matches a `def ..`
-                    // statement, so just use the type and explicit annotation
-                    // as a heuristic for now.
-                    Some(class_field)
-                        if class_field.ty().is_function_type()
-                            && !class_field.has_explicit_annotation() =>
-                    {
-                        None // This is a method.
-                    }
-                    Some(_) => Some(field.to_string()),
-                    _ => None,
-                }
-            })
-            .collect();
+        let fields = export_class_fields(&class, context);
 
         let bases = metadata
             .base_class_objects()
