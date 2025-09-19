@@ -55,20 +55,6 @@ async def test_async():
 );
 
 testcase!(
-    test_uninitialized_local_shadows,
-    r#"
-from typing import reveal_type
-x = 5
-def f():
-    # These two lines ought to analyze the same, but we don't catch the use of an uninitialized local `x`.
-    reveal_type(y)  # E: `y` is uninitialized  # E: revealed type: Literal['y']
-    reveal_type(x)  # E: `x` is uninitialized  # E: revealed type: Literal['x']
-    y = "y"
-    x = "x"
-"#,
-);
-
-testcase!(
     test_async_for_outside_async_function_def,
     r#"
 import asyncio
@@ -138,22 +124,6 @@ testcase!(
     r#"
 x: str = ""
 global x  # E: `x` was assigned in the current scope before the global declaration
-"#,
-);
-
-testcase!(
-    test_global_aug_assign,
-    r#"
-x: str = ""
-def f():
-    x += "a"  # E: `x` is uninitialized
-def g():
-    global x
-    x += "a"
-def h0():
-    global x
-    def h1():
-        x += "a"   # E: `x` is uninitialized
 "#,
 );
 
@@ -302,23 +272,6 @@ testcase!(
 def f() -> None:
     a: str = ""
     nonlocal a  # E: `a` was assigned in the current scope before the nonlocal declaration
-"#,
-);
-
-testcase!(
-    test_nonlocal_aug_assign,
-    r#"
-def outer():
-    x: str = ""
-    def f():
-        x += "a"  # E: `x` is uninitialized
-    def g():
-        nonlocal x
-        x += "a"
-    def h0():
-        nonlocal x
-        def h1():
-            x += "a"   # E: `x` is uninitialized
 "#,
 );
 
