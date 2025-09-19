@@ -55,7 +55,6 @@ async def test_async():
 );
 
 testcase!(
-    bug = "Pyrefly's uninitialized local checks behave unpredictably depending on parent scopes",
     test_uninitialized_local_shadows,
     r#"
 from typing import reveal_type
@@ -63,7 +62,7 @@ x = 5
 def f():
     # These two lines ought to analyze the same, but we don't catch the use of an uninitialized local `x`.
     reveal_type(y)  # E: `y` is uninitialized  # E: revealed type: Literal['y']
-    reveal_type(x)  # E: revealed type: Literal['x']
+    reveal_type(x)  # E: `x` is uninitialized  # E: revealed type: Literal['x']
     y = "y"
     x = "x"
 "#,
@@ -147,14 +146,14 @@ testcase!(
     r#"
 x: str = ""
 def f():
-    x += "a"  # E: `x` is not mutable from the current scope
+    x += "a"  # E: `x` is uninitialized
 def g():
     global x
     x += "a"
 def h0():
     global x
     def h1():
-        x += "a"   # E: `x` is not mutable from the current scope
+        x += "a"   # E: `x` is uninitialized
 "#,
 );
 
@@ -312,14 +311,14 @@ testcase!(
 def outer():
     x: str = ""
     def f():
-        x += "a"  # E: `x` is not mutable from the current scope
+        x += "a"  # E: `x` is uninitialized
     def g():
         nonlocal x
         x += "a"
     def h0():
         nonlocal x
         def h1():
-            x += "a"   # E: `x` is not mutable from the current scope
+            x += "a"   # E: `x` is uninitialized
 "#,
 );
 
@@ -434,12 +433,13 @@ x = "str"
 );
 
 testcase!(
-    bug = "We don't detect a case that crashes at runtime (the compiler rejects this)",
+    bug = "We detect the error (we didn't at one point) but the error message is not very good",
     test_mutable_capture_read_before_declared,
     r#"
 x = 42
 def f():
-    print(x)  # Should error, the compiler crashes with "SyntaxError: name 'x' is used prior to global declaration"
+    # We should really be producing an error more like the compiler's, which says you can't use `x` before the declaration
+    print(x)  # E: `x` is uninitialized
     global x
 "#,
 );
@@ -466,13 +466,12 @@ z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable 
 );
 
 testcase!(
-    bug = "The duplication of flow and static leads to us accidentally allowing uninitialized reads when a var shadows an enclosing scope",
     test_uninitialized_when_shadowing,
     r#"
 from typing import assert_type
 x: int = 5
 def f():
-    assert_type(x, str)  # This should error, it crashes at runtime. We do understand the type, but we fail to track initialization.
+    assert_type(x, str)  # E: `x` is uninitialized
     x: str = "foo"
     "#,
 );
@@ -534,24 +533,19 @@ testcase!(
     test_local_defined_by_mutation_no_shadowing,
     r#"
 def f() -> None:
-    x += 1  # E: Could not find name `x`
-    del y  # E: Could not find name `y`
+    x += 1  # E: `x` is uninitialized
+    del y  # E: `y` is uninitialized
 "#,
 );
 
 testcase!(
-    bug = "We incorrectly treat mutations as potentially modifying non-mutable captures",
     test_local_defined_by_mutation_with_shadowing,
     r#"
 x: int = 0
 y: int = 0
 def f() -> None:
-    # This is *not* an invalid mutation of the global `x` (that is impossible syntactically).
-    # Instead, it is *defining* a local (and should produce an uninitialaized local error in this case).
-    # The runtime error is pretty clear here: UnboundLocalError: local variable 'x' referenced before assignment
-    x += 1  # E: `x` is not mutable from the current scope
-    # Same problem here, `del` defines a local, and the runtime gives the same error.
-    del y  # E: `y` is not mutable from the current scope
+    x += 1  # E: `x` is uninitialized
+    del y  # E: `y` is uninitialized
 "#,
 );
 
@@ -700,33 +694,31 @@ def check[T](new: T, old: T) -> None:
 testcase!(
     test_dunder_all_mutated_without_def,
     r#"
-__all__ += []  # E: Could not find name `__all__`
+__all__ += []  # E: `__all__` is uninitialized
 "#,
 );
 
 testcase!(
-    bug = "We give inconsistent lookup errors when a local is defined only by an augassign",
     test_aug_assign_lookup_inconsistencies,
     r#"
 from typing import reveal_type
 def f():
     reveal_type(x)  # E: revealed type: Unknown  # E: `x` is uninitialized
-    x += 5  # E: Could not find name `x`
+    x += 5  # E: `x` is uninitialized
     reveal_type(x)  # E: revealed type: Unknown
 "#,
 );
 
 testcase!(
-    bug = "We give inconsistent lookup errors when a local is defined only by a del",
     test_del_defines_a_local,
     r#"
 from typing import reveal_type
 x = 5
 def f():
     reveal_type(y)  # E: revealed type: Unknown  # E: `y` is uninitialized
-    reveal_type(x)  # E: revealed type: Unknown
-    del y  # E: Could not find name `y`
-    del x  # E: `x` is not mutable from the current scope
+    reveal_type(x)  # E: revealed type: Unknown  # E: `x` is uninitialized
+    del y  # E: `y` is uninitialized
+    del x  # E: `x` is uninitialized
 f()
 "#,
 );

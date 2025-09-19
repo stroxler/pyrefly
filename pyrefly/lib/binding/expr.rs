@@ -40,11 +40,10 @@ use crate::binding::binding::LinkedKey;
 use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
-use crate::binding::bindings::LookupKind;
+use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
-use crate::binding::scope::LookupError;
 use crate::binding::scope::Scope;
 use crate::binding::scope::ScopeClass;
 use crate::binding::scope::ScopeKind;
@@ -229,7 +228,6 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_name(
         &mut self,
         name: &Identifier,
-        lookup_kind: LookupKind,
         usage: &mut Usage,
         tparams_builder: &mut Option<LegacyTParamBuilder>,
     ) -> Idx<Key> {
@@ -246,21 +244,22 @@ impl<'a> BindingsBuilder<'a> {
             return self.insert_binding_overwrite(key, Binding::Type(Type::any_error()));
         }
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
-        let value = if used_in_static_type && let Some(tparams_builder) = tparams_builder {
-            tparams_builder
-                .intercept_lookup(self, name)
-                .ok_or(LookupError::NotFound)
+        let lookup_result = if used_in_static_type && let Some(tparams_builder) = tparams_builder {
+            tparams_builder.intercept_lookup(self, name)
         } else {
-            self.lookup_name(Hashed::new(&name.id), lookup_kind, usage)
-                .map(Binding::Forward)
+            self.lookup_name(Hashed::new(&name.id), usage)
+                .map_found(Binding::Forward)
         };
-        match value {
-            Ok(value) => {
+        match lookup_result {
+            NameLookupResult::Found {
+                value,
+                is_initialized,
+            } => {
                 // Uninitialized local errors are only reported when we are neither in a stub
                 // nor a static type context.
                 if !used_in_static_type
                     && !self.module_info.path().is_interface()
-                    && let Some(error_message) = self.scopes.uninitialized_error_message(&name.id)
+                    && let Some(error_message) = is_initialized.as_error_message(&name.id)
                 {
                     self.error(
                         name.range,
@@ -270,12 +269,12 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 self.insert_binding(key, value)
             }
-            Err(error) => {
+            NameLookupResult::NotFound => {
                 // Record a type error and fall back to `Any`.
                 self.error(
                     name.range,
                     ErrorInfo::Kind(ErrorKind::UnknownName),
-                    error.message(name),
+                    format!("Could not find name `{name}`"),
                 );
                 self.insert_binding(key, Binding::Type(Type::any_error()))
             }
@@ -284,7 +283,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
         let name = Ast::expr_name_identifier(x.clone());
-        self.ensure_name(&name, LookupKind::Mutable, usage, &mut None)
+        self.ensure_name(&name, usage, &mut None)
     }
 
     fn bind_comprehensions(
@@ -662,7 +661,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                self.ensure_name(&name, LookupKind::Regular, usage, &mut None);
+                self.ensure_name(&name, usage, &mut None);
             }
             Expr::Yield(x) => {
                 self.record_yield(x.clone());
@@ -710,12 +709,7 @@ impl<'a> BindingsBuilder<'a> {
         match x {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                self.ensure_name(
-                    &name,
-                    LookupKind::Regular,
-                    static_type_usage,
-                    tparams_builder,
-                );
+                self.ensure_name(&name, static_type_usage, tparams_builder);
             }
             Expr::Subscript(ExprSubscript { value, .. })
                 if self.as_special_export(value) == Some(SpecialExport::Literal) =>

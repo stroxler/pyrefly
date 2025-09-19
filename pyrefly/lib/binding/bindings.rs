@@ -60,7 +60,6 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
-use crate::binding::scope::LookupError;
 use crate::binding::scope::NameReadInfo;
 use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
@@ -85,6 +84,68 @@ use crate::table_try_for_each;
 use crate::types::globals::Global;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::types::Var;
+
+/// The result of looking up a name. Similar to `NameReadInfo`, but
+/// differs because the `BindingsBuilder` layer is responsible for both
+/// intercepting first-usage reads and for wrapping forward-reference `Key`s
+/// in `Idx<Key>` by inserting them into the bindings table.
+#[derive(Debug)]
+pub enum NameLookupResult<T> {
+    /// I am the bound key for this name in the current scope stack.
+    /// I might be:
+    /// - initialized (either part of the current flow, or an anywhere-style
+    ///   lookup across a barrier)
+    /// - possibly-initialized (I come from the current flow, but somewhere upstream
+    ///   there is branching flow where I was only defined by some branches)
+    /// - uninitialized (I am definitely not initialized in a way static analysis
+    ///   understands) and this key is either the most recent stale flow key (e.g.
+    ///   if I am used after a `del` or is an anywhere-style lookup)
+    Found {
+        value: T,
+        is_initialized: IsInitialized,
+    },
+    /// This name is not defined in the current scope stack.
+    NotFound,
+}
+
+impl<T> NameLookupResult<T> {
+    fn found(self) -> Option<T> {
+        match self {
+            NameLookupResult::Found { value, .. } => Some(value),
+            NameLookupResult::NotFound => None,
+        }
+    }
+
+    pub fn map_found<S>(self, f: impl FnOnce(T) -> S) -> NameLookupResult<S> {
+        match self {
+            NameLookupResult::Found {
+                value,
+                is_initialized,
+            } => NameLookupResult::Found {
+                value: f(value),
+                is_initialized,
+            },
+            NameLookupResult::NotFound => NameLookupResult::NotFound,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum IsInitialized {
+    Yes,
+    Maybe,
+    No,
+}
+
+impl IsInitialized {
+    pub fn as_error_message(&self, name: &Name) -> Option<String> {
+        match self {
+            IsInitialized::Yes => None,
+            IsInitialized::Maybe => Some(format!("`{name}` may be uninitialized")),
+            IsInitialized::No => Some(format!("`{name}` is uninitialized")),
+        }
+    }
+}
 
 #[derive(Clone, Dupe, Debug)]
 pub struct Bindings(Arc<BindingsInner>);
@@ -392,13 +453,6 @@ impl BindingTable {
             .unwrap();
         pred_binding.successor = Some(function_idx);
     }
-}
-
-#[derive(PartialEq, Eq)]
-pub enum LookupKind {
-    Regular,
-    /// Look up a name that must be mutable from the current scope, like a `del` or augmented assignment statement
-    Mutable,
 }
 
 pub enum MutableCaptureLookupError {
@@ -757,19 +811,30 @@ impl<'a> BindingsBuilder<'a> {
     pub fn lookup_name(
         &mut self,
         name: Hashed<&Name>,
-        kind: LookupKind,
         usage: &mut Usage,
-    ) -> Result<Idx<Key>, LookupError> {
-        match self.scopes.look_up_name_for_read(name, kind) {
-            NameReadInfo::Flow(original_idx) => {
-                let (idx, first_use) = self.detect_first_use(original_idx, usage);
+    ) -> NameLookupResult<Idx<Key>> {
+        match self.scopes.look_up_name_for_read(name) {
+            NameReadInfo::Flow {
+                idx,
+                is_initialized,
+            } => {
+                let (idx, first_use) = self.detect_first_use(idx, usage);
                 if let Some(used_idx) = first_use {
                     self.record_first_use(used_idx, usage);
                 }
-                Ok(idx)
+                NameLookupResult::Found {
+                    value: idx,
+                    is_initialized,
+                }
             }
-            NameReadInfo::Anywhere(key) => Ok(self.table.types.0.insert(key)),
-            NameReadInfo::Error(lookup_error) => Err(lookup_error),
+            NameReadInfo::Anywhere {
+                key,
+                is_initialized,
+            } => NameLookupResult::Found {
+                value: self.table.types.0.insert(key),
+                is_initialized,
+            },
+            NameReadInfo::NotFound => NameLookupResult::NotFound,
         }
     }
 
@@ -859,12 +924,8 @@ impl<'a> BindingsBuilder<'a> {
         name: &Identifier,
     ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
         let found = self
-            .lookup_name(
-                Hashed::new(&name.id),
-                LookupKind::Regular,
-                &mut Usage::StaticTypeInformation,
-            )
-            .ok();
+            .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
+            .found();
         if let Some(idx) = found {
             match self.lookup_legacy_tparam_from_idx(name, idx) {
                 Some(left) => Either::Left(left),
@@ -1049,8 +1110,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
-            if let Ok(name_key) = self.lookup_name(name, LookupKind::Regular, &mut Usage::Narrowing)
-            {
+            if let Some(name_key) = self.lookup_name(name, &mut Usage::Narrowing).found() {
                 let binding_key = self.insert_binding(
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(name_key, Box::new(op.clone()), use_range),
@@ -1139,7 +1199,7 @@ impl LegacyTParamBuilder {
         &mut self,
         builder: &mut BindingsBuilder,
         name: &Identifier,
-    ) -> Option<Binding> {
+    ) -> NameLookupResult<Binding> {
         let result = self
             .legacy_tparams
             .entry(name.id.clone())
@@ -1155,12 +1215,18 @@ impl LegacyTParamBuilder {
                 } else {
                     None
                 };
-                Some(Binding::CheckLegacyTypeParam(
-                    *idx,
-                    range_if_scoped_params_exist,
-                ))
+                NameLookupResult::Found {
+                    value: Binding::CheckLegacyTypeParam(*idx, range_if_scoped_params_exist),
+                    is_initialized: IsInitialized::Maybe,
+                }
             }
-            Either::Right(idx) => idx.map(Binding::Forward),
+            Either::Right(maybe_idx) => match maybe_idx {
+                Some(idx) => NameLookupResult::Found {
+                    value: Binding::Forward(*idx),
+                    is_initialized: IsInitialized::Yes,
+                },
+                None => NameLookupResult::NotFound,
+            },
         }
     }
 

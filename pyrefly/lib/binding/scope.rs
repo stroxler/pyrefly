@@ -51,7 +51,7 @@ use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
-use crate::binding::bindings::LookupKind;
+use crate::binding::bindings::IsInitialized;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
@@ -66,33 +66,23 @@ use crate::types::class::ClassDefIndex;
 #[derive(Debug)]
 pub enum NameReadInfo {
     /// A normal key bound in the current flow. The key is always already in the bindings table.
-    Flow(Idx<Key>),
-    /// A lookup that fell back to an anywhere-style forward-ref lookup using
-    /// only static scope information (note that this isn't always a
-    /// `Key::Anywhere` - when the definition count is one it will use the
-    /// definition directly). This key may or may not already be in the bindings
-    /// table, callers must handle that possibility.
-    Anywhere(Key),
-    /// The lookup failed for some reason.
-    Error(LookupError),
-}
-
-/// Errors that can occur when we try to look up a name
-#[derive(Debug)]
-pub enum LookupError {
-    /// We can't find the name at all
+    ///
+    /// I may be "possibly uninitialized", meaning there is some upstream branching control
+    /// flow such that I am not defined in at least one branch.
+    Flow {
+        idx: Idx<Key>,
+        is_initialized: IsInitialized,
+    },
+    /// The name is an anywhere-style lookup. If it came from a non-barrier scope
+    /// relative to the current one, this means it is uninitialized; otherwise we
+    /// assume delayed evaluation (e.g. inside a function you may call functions defined
+    /// below it) and treat the read as initialized.
+    Anywhere {
+        key: Key,
+        is_initialized: IsInitialized,
+    },
+    /// No such name is defined in the current scope stack.
     NotFound,
-    /// We expected the name to be mutable from the current scope, but it's not
-    NotMutable,
-}
-
-impl LookupError {
-    pub fn message(&self, name: &Identifier) -> String {
-        match self {
-            Self::NotFound => format!("Could not find name `{name}`"),
-            Self::NotMutable => format!("`{name}` is not mutable from the current scope"),
-        }
-    }
 }
 
 /// The result of a successful lookup of a name for a write operation.
@@ -973,16 +963,6 @@ impl Scopes {
         }
     }
 
-    /// If we can tell a variable might not be initialized in the current flow,
-    /// return an error message. Otherwise, return None.
-    pub fn uninitialized_error_message(&self, name: &Name) -> Option<String> {
-        match self.get_flow_style(name) {
-            FlowStyle::Uninitialized => Some(format!("`{name}` is uninitialized")),
-            FlowStyle::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
-            _ => None,
-        }
-    }
-
     /// Look up either `name` or `base_name.name` in the current scope, assuming we are
     /// in the module with name `module_name`. If it is a `SpecialExport`, return it (otherwise None)
     pub fn as_special_export(
@@ -1271,7 +1251,7 @@ impl Scopes {
 
     /// Look up the information needed to create a `Usage` binding for a read of a name
     /// in the current scope stack.
-    pub fn look_up_name_for_read(&self, name: Hashed<&Name>, kind: LookupKind) -> NameReadInfo {
+    pub fn look_up_name_for_read(&self, name: Hashed<&Name>) -> NameReadInfo {
         let mut barrier = false;
         let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
@@ -1292,27 +1272,33 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
-                return NameReadInfo::Flow(flow_info.key);
+                return NameReadInfo::Flow {
+                    idx: flow_info.key,
+                    is_initialized: match flow_info.style {
+                        FlowStyle::Uninitialized => IsInitialized::No,
+                        FlowStyle::PossiblyUninitialized => IsInitialized::Maybe,
+                        _ => IsInitialized::Yes,
+                    },
+                };
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
             // current flow we keep looking. In every other kind of scope, anything the Python
             // compiler has identified as local shadows enclosing scopes, so we should prefer
             // inner static lookups to outer flow lookups.
             if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
-                match kind {
-                    LookupKind::Regular => {
-                        return NameReadInfo::Anywhere(static_info.as_key(name.into_key()));
-                    }
-                    LookupKind::Mutable => {
-                        if barrier {
-                            return NameReadInfo::Error(LookupError::NotMutable);
-                        }
-                    }
-                }
+                let forward_ref_key = static_info.as_key(name.into_key());
+                return NameReadInfo::Anywhere {
+                    key: forward_ref_key,
+                    is_initialized: if barrier {
+                        IsInitialized::Yes
+                    } else {
+                        IsInitialized::No
+                    },
+                };
             }
             barrier = barrier || scope.barrier;
         }
-        NameReadInfo::Error(LookupError::NotFound)
+        NameReadInfo::NotFound
     }
 
     /// Look up a name for a write operation.
