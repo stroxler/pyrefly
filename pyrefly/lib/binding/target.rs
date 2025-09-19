@@ -433,8 +433,8 @@ impl<'a> BindingsBuilder<'a> {
         direct_ann: Option<(&Expr, Idx<KeyAnnotation>)>,
     ) -> Option<Idx<KeyAnnotation>> {
         let identifier = ShortIdentifier::new(name);
-        let mut user = self.declare_current_idx(Key::Definition(identifier.clone()));
-        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier.clone()));
+        let mut user = self.declare_current_idx(Key::Definition(identifier));
+        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier));
         let is_definitely_type_alias = if let Some((e, _)) = direct_ann
             && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
         {

@@ -18,7 +18,7 @@ use ruff_text_size::TextRange;
 use crate::module::Module;
 
 /// An identifier, where we can drop the `Name` part because it came from a `Module`.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ShortIdentifier(TextRange);
 
 impl ShortIdentifier {

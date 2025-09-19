@@ -1016,13 +1016,13 @@ fn get_all_functions(
 
 // Return the function type, considering decorators and overloads.
 fn get_function_type(function: &DecoratedFunction, context: &ModuleContext) -> Type {
-    let definition_binding = Key::Definition(function.undecorated.identifier.clone());
+    let definition_binding = Key::Definition(function.undecorated.identifier);
     let idx = context.bindings.key_to_idx(&definition_binding);
     context.answers.get_idx(idx).unwrap().arc_clone_ty()
 }
 
 fn get_undecorated_return_type(function: &DecoratedFunction, context: &ModuleContext) -> Type {
-    let return_binding = Key::ReturnType(function.undecorated.identifier.clone());
+    let return_binding = Key::ReturnType(function.undecorated.identifier);
     let idx = context.bindings.key_to_idx(&return_binding);
     context.answers.get_idx(idx).unwrap().arc_clone_ty()
 }
