@@ -70,8 +70,8 @@ fn get_last_definition(
     }
     DecoratedFunction::from_bindings_answers(
         last_decorated_function,
-        context.bindings,
-        context.answers,
+        &context.bindings,
+        &context.answers,
     )
 }
 
@@ -120,7 +120,7 @@ pub fn create_reversed_override_graph_for_module(
     context: &ModuleContext,
 ) -> HashMap<DefinitionRef, DefinitionRef> {
     let mut graph = HashMap::new();
-    for function in get_all_functions(context.bindings, context.answers) {
+    for function in get_all_functions(&context.bindings, &context.answers) {
         if !should_export_function(&function, context) {
             continue;
         }

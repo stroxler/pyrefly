@@ -47,6 +47,7 @@ mod pattern_match;
 mod perf;
 mod protocol;
 mod pydantic;
+mod pysa;
 mod redundant_cast;
 mod returns;
 mod scope;
