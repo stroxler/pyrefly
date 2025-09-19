@@ -1208,7 +1208,7 @@ impl Scopes {
                             let annotation = static_info.annot.unwrap_or_else(
                                 || panic!("A class field known in the body but uninitialized always has an annotation.")
                             );
-                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
+                            ClassFieldDefinition::DeclaredByAnnotation { annotation }
                         }
                     }
                 };
