@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
@@ -30,6 +29,7 @@ use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
 use ruff_text_size::TextSize;
 use serde::Serialize;
+use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
@@ -40,12 +40,12 @@ use crate::state::state::Transaction;
 
 #[derive(Debug, Clone)]
 struct PlaygroundSourceDatabase {
-    module_mappings: HashMap<ModuleName, ModulePath>,
+    module_mappings: SmallMap<ModuleName, ModulePath>,
     sys_info: SysInfo,
 }
 
 impl PlaygroundSourceDatabase {
-    fn new(module_mappings: HashMap<ModuleName, ModulePath>, sys_info: SysInfo) -> Self {
+    fn new(module_mappings: SmallMap<ModuleName, ModulePath>, sys_info: SysInfo) -> Self {
         Self {
             module_mappings,
             sys_info,
@@ -176,7 +176,7 @@ pub struct InlayHint {
 
 pub struct Playground {
     state: State,
-    handles: HashMap<String, Handle>,
+    handles: SmallMap<String, Handle>,
     active_filename: String,
     sys_info: SysInfo,
     config_finder: ConfigFinder,
@@ -207,14 +207,14 @@ impl Playground {
 
         Ok(Self {
             state,
-            handles: HashMap::new(),
+            handles: SmallMap::new(),
             active_filename: String::new(),
             sys_info,
             config_finder: config_finder_for_self,
         })
     }
 
-    pub fn update_sandbox_files(&mut self, files: HashMap<String, String>) {
+    pub fn update_sandbox_files(&mut self, files: SmallMap<String, String>) {
         self.handles.clear();
 
         let mut config = ConfigFile::default();
@@ -224,7 +224,7 @@ impl Playground {
         config.python_environment.python_platform = Some(self.sys_info.platform().clone());
 
         let mut file_contents = Vec::new();
-        let mut module_mappings = HashMap::new();
+        let mut module_mappings = SmallMap::new();
 
         for (filename, content) in &files {
             let module_name =
@@ -252,7 +252,7 @@ impl Playground {
 
         if self.handles.contains_key("sandbox.py") {
             self.active_filename = "sandbox.py".to_owned();
-        } else if let Some((first_filename, _)) = self.handles.iter().next() {
+        } else if let Some((first_filename, _)) = self.handles.first() {
             self.active_filename = first_filename.clone();
         }
 
@@ -416,7 +416,7 @@ mod tests {
         let mut state = Playground::new(None).unwrap();
         let expected_errors: Vec<String> = Vec::new();
 
-        let mut files = HashMap::new();
+        let mut files = SmallMap::new();
         files.insert("main.py".to_owned(), "from typing import *".to_owned());
         state.update_sandbox_files(files);
         state.set_active_file("main.py");
@@ -434,7 +434,7 @@ mod tests {
     #[test]
     fn test_invalid_import() {
         let mut state = Playground::new(None).unwrap();
-        let mut files = HashMap::new();
+        let mut files = SmallMap::new();
         files.insert("main.py".to_owned(), "from t".to_owned());
         state.update_sandbox_files(files);
         state.set_active_file("main.py");
@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn test_cross_file_import() {
         let mut state = Playground::new(None).unwrap();
-        let mut files = HashMap::new();
+        let mut files = SmallMap::new();
         files.insert(
             "sandbox.py".to_owned(),
             "from utils import helper_function\nresult = helper_function()".to_owned(),
@@ -499,7 +499,7 @@ mod tests {
     #[test]
     fn test_multi_file_errors_with_filenames() {
         let mut state = Playground::new(None).unwrap();
-        let mut files = HashMap::new();
+        let mut files = SmallMap::new();
         files.insert(
             "sandbox.py".to_owned(),
             "from utils import get_number\nresult: str = get_number()".to_owned(),
@@ -538,7 +538,7 @@ mod tests {
     #[test]
     fn test_incremental_update_with_cross_file_errors() {
         let mut state = Playground::new(None).unwrap();
-        let mut files = HashMap::new();
+        let mut files = SmallMap::new();
         files.insert(
             "sandbox.py".to_owned(),
             "from utils import get_number\nresult: int = get_number()".to_owned(),
