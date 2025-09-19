@@ -1110,12 +1110,12 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
-            if let Some(name_key) = self.lookup_name(name, &mut Usage::Narrowing).found() {
-                let binding_key = self.insert_binding(
+            if let Some(initial_idx) = self.lookup_name(name, &mut Usage::Narrowing).found() {
+                let narrowed_idx = self.insert_binding(
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
-                    Binding::Narrow(name_key, Box::new(op.clone()), use_range),
+                    Binding::Narrow(initial_idx, Box::new(op.clone()), use_range),
                 );
-                self.scopes.upsert_flow_info(name, binding_key, None);
+                self.scopes.upsert_flow_info(name, narrowed_idx, None);
             }
         }
     }
