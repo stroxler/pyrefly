@@ -1014,3 +1014,17 @@ def g[U, *Us, **Q](x: U, xs: tuple[*Us], f: Callable[Q, None]):
     assert_type(f, Callable[Q, None])
     "#,
 );
+
+testcase!(
+    bug = "lib.T is not recognized as a TypeVar",
+    test_legacy_typevar_dotted_name,
+    env_exported_type_var(),
+    r#"
+import lib
+from typing import assert_type
+
+def f(x: lib.T) -> lib.T:
+    return x
+assert_type(f(0), int)  # E: assert_type(TypeVar, int)  # E: `Literal[0]` is not assignable to parameter `x` with type `TypeVar[T]`
+    "#,
+);
