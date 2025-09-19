@@ -777,17 +777,17 @@ impl<'a> BindingsBuilder<'a> {
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
-        let intercepted = match self.scopes.look_up_name_for_read(name, kind) {
-            NameReadInfo::Flow(original_idx) => Ok(self.detect_first_use(original_idx, usage)),
-            NameReadInfo::Anywhere(key) => Ok((self.table.types.0.insert(key), None)),
-            NameReadInfo::Error(lookup_error) => Err(lookup_error),
-        };
-        intercepted.map(|(result, first_use)| {
-            if let Some(used_idx) = first_use {
-                self.record_first_use(used_idx, usage);
+        match self.scopes.look_up_name_for_read(name, kind) {
+            NameReadInfo::Flow(original_idx) => {
+                let (idx, first_use) = self.detect_first_use(original_idx, usage);
+                if let Some(used_idx) = first_use {
+                    self.record_first_use(used_idx, usage);
+                }
+                Ok(idx)
             }
-            result
-        })
+            NameReadInfo::Anywhere(key) => Ok(self.table.types.0.insert(key)),
+            NameReadInfo::Error(lookup_error) => Err(lookup_error),
+        }
     }
 
     /// Look up the idx for a name. The first output is the idx to use for the
