@@ -123,11 +123,11 @@ pub struct Static(pub SmallMap<Name, StaticInfo>);
 
 #[derive(Clone, Debug)]
 pub struct StaticInfo {
-    pub range: TextRange,
+    range: TextRange,
     /// The location of the first annotated name for this binding, if any.
     pub annot: Option<Idx<KeyAnnotation>>,
     /// How many times this will be redefined
-    pub count: usize,
+    count: usize,
     /// How was this defined? Needed to determine the key for forward lookups.
     style: DefinitionStyle,
 }
