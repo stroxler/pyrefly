@@ -326,7 +326,7 @@ impl FlowStyle {
 #[derive(Debug, Clone)]
 pub struct FlowInfo {
     /// The key to use if you need the value of this name.
-    pub key: Idx<Key>,
+    pub idx: Idx<Key>,
     /// The default value - used to create Default bindings inside loops.
     /// - Always set to `key` when a flow is first created.
     /// - Set to `key` whenever a flow is updated outside of loops, but not inside.
@@ -344,20 +344,20 @@ pub enum ClassFieldInBody {
 }
 
 impl FlowInfo {
-    fn new(key: Idx<Key>, style: Option<FlowStyle>) -> Self {
+    fn new(idx: Idx<Key>, style: Option<FlowStyle>) -> Self {
         Self {
-            key,
-            default: key,
+            idx,
+            default: idx,
             style: style.unwrap_or(FlowStyle::Other),
         }
     }
 
     /// Create a new FlowInfo after an update.
-    fn updated(&self, key: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
+    fn updated(&self, idx: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
         let default = if in_loop { Some(self.default) } else { None };
         Self {
-            key,
-            default: default.unwrap_or(key),
+            idx,
+            default: default.unwrap_or(idx),
             style: style.unwrap_or_else(|| self.style.clone()),
         }
     }
@@ -665,7 +665,7 @@ impl ScopeTreeNode {
         }
         if !barrier {
             for info in self.scope.flow.info.values() {
-                visitor(info.key);
+                visitor(info.idx);
             }
         }
         for (name, info) in &self.scope.stat.0 {
@@ -774,7 +774,7 @@ impl Scopes {
         if let Some(flow) = self.current().flow.info.get(name)
             && let FlowStyle::FunctionDef(fidx, _) = flow.style
         {
-            return Some((flow.key, fidx));
+            return Some((flow.idx, fidx));
         }
         None
     }
@@ -896,16 +896,16 @@ impl Scopes {
     pub fn upsert_flow_info(
         &mut self,
         name: Hashed<&Name>,
-        key: Idx<Key>,
+        idx: Idx<Key>,
         style: Option<FlowStyle>,
     ) {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
-                e.insert(FlowInfo::new(key, style));
+                e.insert(FlowInfo::new(idx, style));
             }
             Entry::Occupied(mut e) => {
-                *e.get_mut() = e.get().updated(key, style, in_loop);
+                *e.get_mut() = e.get().updated(idx, style, in_loop);
             }
         }
     }
@@ -1190,7 +1190,7 @@ impl Scopes {
             if let Some(static_info) = class_body.stat.0.get_hashed(name) {
                 let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
                     ClassFieldDefinition::MethodLike {
-                        definition: flow_info.key,
+                        definition: flow_info.idx,
                         has_return_annotation,
                     }
                 } else {
@@ -1202,7 +1202,7 @@ impl Scopes {
                             },
                         ClassFieldInBody::InitializedWithoutAssign =>
                             ClassFieldDefinition::DefinedWithoutAssign {
-                                definition: flow_info.key,
+                                definition: flow_info.idx,
                             },
                         ClassFieldInBody::Uninitialized => {
                             let annotation = static_info.annot.unwrap_or_else(
@@ -1243,7 +1243,7 @@ impl Scopes {
     pub fn existing_module_import_at(&self, module_name: &Name) -> Option<Idx<Key>> {
         match self.current().flow.info.get(module_name) {
             Some(flow_info) if matches!(flow_info.style, FlowStyle::MergeableImport(..)) => {
-                Some(flow_info.key)
+                Some(flow_info.idx)
             }
             _ => None,
         }
@@ -1273,7 +1273,7 @@ impl Scopes {
                 && !barrier
             {
                 return NameReadInfo::Flow {
-                    idx: flow_info.key,
+                    idx: flow_info.idx,
                     is_initialized: match flow_info.style {
                         FlowStyle::Uninitialized => IsInitialized::No,
                         FlowStyle::PossiblyUninitialized => IsInitialized::Maybe,
@@ -1340,7 +1340,7 @@ impl ScopeTrace {
         let scope = self.toplevel_scope();
         for (name, static_info) in scope.stat.0.iter_hashed() {
             let exportable = match scope.flow.info.get_hashed(name) {
-                Some(FlowInfo { key, .. }) => {
+                Some(FlowInfo { idx: key, .. }) => {
                     if let Some(ann) = static_info.annot {
                         Exportable::Initialized(*key, Some(ann))
                     } else {

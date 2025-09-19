@@ -74,10 +74,10 @@ impl MergeItem {
 
     /// Add the flow info at the end of a branch to our merge item.
     fn add_branch(&mut self, info: FlowInfo) {
-        if info.key != self.phi_idx {
+        if info.idx != self.phi_idx {
             // Optimization: instead of x = phi(x, ...), we can skip the x.
             // Avoids a recursive solving step later.
-            self.branch_idxs.insert(info.key);
+            self.branch_idxs.insert(info.idx);
         }
         self.flow_styles.push(info.style);
     }
@@ -120,7 +120,7 @@ impl MergeItem {
             }
         };
         FlowInfo {
-            key: downstream_idx,
+            idx: downstream_idx,
             default: if contained_in_loop {
                 self.default
             } else {
@@ -212,7 +212,7 @@ impl<'a> BindingsBuilder<'a> {
     fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
         for (name, info) in flow.info.iter_mut() {
             // The promise is that we will insert a Phi binding when the control flow merges.
-            info.key = self.idx_for_promise(Key::Phi(name.clone(), range));
+            info.idx = self.idx_for_promise(Key::Phi(name.clone(), range));
         }
         flow
     }
