@@ -121,23 +121,26 @@ impl QName {
     }
 
     pub fn fmt_name(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name)
+        if self.parent().is_toplevel() {
+            write!(f, "{}", self.name)
+        } else {
+            write!(f, "{}", self.module().display(self.parent()))?;
+            write!(f, ".{}", self.name)
+        }
     }
 
     pub fn fmt_with_module(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.parent().is_toplevel() {
-            write!(f, "{}", self.module_name())?;
-        } else {
-            write!(f, "{}", self.module().display(self.parent()))?;
+        write!(f, "{}", self.module_name())?;
+        if !self.parent().is_toplevel() {
+            write!(f, ".{}", self.module().display(self.parent()))?;
         }
         write!(f, ".{}", self.name)
     }
 
     pub fn fmt_with_location(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.parent().is_toplevel() {
-            write!(f, "{}", self.module_name())?;
-        } else {
-            write!(f, "{}", self.module().display(self.parent()))?;
+        write!(f, "{}", self.module_name())?;
+        if !self.parent().is_toplevel() {
+            write!(f, ".{}", self.module().display(self.parent()))?;
         }
         write!(
             f,

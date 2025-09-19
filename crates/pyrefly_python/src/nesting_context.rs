@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_util::display::DisplayWith;
+use pyrefly_util::display::intersperse_iter;
 
 use crate::module::Module;
 use crate::short_identifier::ShortIdentifier;
@@ -71,7 +72,6 @@ impl NestingContext {
 
 impl DisplayWith<Module> for NestingContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Module) -> fmt::Result {
-        write!(f, "{}", ctx.name())?;
         let mut components = Vec::new();
         let mut current = self;
         loop {
@@ -87,10 +87,11 @@ impl DisplayWith<Module> for NestingContext {
                 }
             }
         }
-        for name in components.into_iter().rev() {
-            write!(f, ".{}", ctx.display(name))?;
-        }
-        Ok(())
+        write!(
+            f,
+            "{}",
+            intersperse_iter(".", || components.iter().rev().map(|id| ctx.display(*id)))
+        )
     }
 }
 
@@ -126,11 +127,11 @@ mod tests {
         let class_context = NestingContext::class(class_id, toplevel.clone());
         let function_context = NestingContext::function(func_id, class_context.clone());
 
-        assert_eq!(module.display(&toplevel).to_string(), "test");
-        assert_eq!(module.display(&class_context).to_string(), "test.TestClass");
+        assert_eq!(module.display(&toplevel).to_string(), "");
+        assert_eq!(module.display(&class_context).to_string(), "TestClass");
         assert_eq!(
             module.display(&function_context).to_string(),
-            "test.TestClass.test_func"
+            "TestClass.test_func"
         );
     }
 }
