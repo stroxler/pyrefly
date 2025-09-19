@@ -777,31 +777,17 @@ impl<'a> BindingsBuilder<'a> {
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
-        self.get_bound_key_and_first_use_at_name(name, kind, usage)
-            .map(|(result, first_use)| {
-                if let Some(used_idx) = first_use {
-                    self.record_first_use(used_idx, usage);
-                }
-                result
-            })
-    }
-
-    /// Helper function, needed to work around the borrow checker given heavy use of mutable refs.
-    ///
-    /// When lookup succeeds, returns a pair `idx, maybe_first_use`, where `maybe_first_use`
-    /// is an option of a possible first-use `(used_idx)` to track for deterministic
-    /// type inference.
-    fn get_bound_key_and_first_use_at_name(
-        &mut self,
-        name: Hashed<&Name>,
-        kind: LookupKind,
-        usage: &mut Usage,
-    ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
-        match self.scopes.look_up_name_for_read(name, kind) {
+        let intercepted = match self.scopes.look_up_name_for_read(name, kind) {
             NameReadInfo::Flow(original_idx) => Ok(self.detect_first_use(original_idx, usage)),
             NameReadInfo::Anywhere(key) => Ok((self.table.types.0.insert(key), None)),
             NameReadInfo::Error(lookup_error) => Err(lookup_error),
-        }
+        };
+        intercepted.map(|(result, first_use)| {
+            if let Some(used_idx) = first_use {
+                self.record_first_use(used_idx, usage);
+            }
+            result
+        })
     }
 
     /// Look up the idx for a name. The first output is the idx to use for the
