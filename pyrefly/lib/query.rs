@@ -355,17 +355,11 @@ impl Query {
                         }
                     }
                 }
-                FunctionKind::IsInstance => String::from("isinstance"),
-                FunctionKind::IsSubclass => String::from("issubclass"),
-                FunctionKind::Cast => String::from("typing.cast"),
-                // should never see this in expression context
-                FunctionKind::Dataclass => String::from("dataclasses.dataclass"),
-                FunctionKind::DataclassField => String::from("dataclasses.field"),
                 FunctionKind::CallbackProtocol(cls) => {
                     format!("{}.__call__", qname_to_string(cls.qname()))
                 }
-                FunctionKind::Final => String::from("typing.Final"),
-                _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
+
+                x => x.as_func_id().format(ModuleName::builtins()),
             }
         }
         fn repr_from_arguments(
