@@ -232,6 +232,36 @@ impl<'a> BindingsBuilder<'a> {
         usage: &mut Usage,
         tparams_builder: &mut Option<LegacyTParamBuilder>,
     ) -> Idx<Key> {
+        self.ensure_name_impl(
+            name,
+            usage,
+            tparams_builder
+                .as_mut()
+                .map(|tparams_builder| (tparams_builder, LegacyTParamId::Name(name.clone()))),
+        )
+    }
+
+    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
+        let name = Ast::expr_name_identifier(x.clone());
+        self.ensure_name(&name, usage, &mut None)
+    }
+
+    fn ensure_simple_attr(
+        &mut self,
+        value: &Identifier,
+        _attr: &Identifier,
+        usage: &mut Usage,
+        tparams_builder: &mut Option<LegacyTParamBuilder>,
+    ) -> Idx<Key> {
+        self.ensure_name(value, usage, tparams_builder)
+    }
+
+    fn ensure_name_impl(
+        &mut self,
+        name: &Identifier,
+        usage: &mut Usage,
+        tparams_lookup: Option<(&mut LegacyTParamBuilder, LegacyTParamId)>,
+    ) -> Idx<Key> {
         let key = Key::BoundName(ShortIdentifier::new(name));
         if name.is_empty() {
             // We only get empty identifiers if Ruff has done error correction,
@@ -245,12 +275,13 @@ impl<'a> BindingsBuilder<'a> {
             return self.insert_binding_overwrite(key, Binding::Type(Type::any_error()));
         }
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
-        let lookup_result = if used_in_static_type && let Some(tparams_builder) = tparams_builder {
-            tparams_builder.intercept_lookup(self, LegacyTParamId::Name(name.clone()))
-        } else {
-            self.lookup_name(Hashed::new(&name.id), usage)
-                .map_found(Binding::Forward)
-        };
+        let lookup_result =
+            if used_in_static_type && let Some((tparams_builder, tparam_id)) = tparams_lookup {
+                tparams_builder.intercept_lookup(self, tparam_id)
+            } else {
+                self.lookup_name(Hashed::new(&name.id), usage)
+                    .map_found(Binding::Forward)
+            };
         match lookup_result {
             NameLookupResult::Found {
                 value,
@@ -280,21 +311,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.insert_binding(key, Binding::Type(Type::any_error()))
             }
         }
-    }
-
-    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
-        let name = Ast::expr_name_identifier(x.clone());
-        self.ensure_name(&name, usage, &mut None)
-    }
-
-    fn ensure_simple_attr(
-        &mut self,
-        value: &Identifier,
-        _attr: &Identifier,
-        usage: &mut Usage,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
-    ) -> Idx<Key> {
-        self.ensure_name(value, usage, tparams_builder)
     }
 
     fn bind_comprehensions(
