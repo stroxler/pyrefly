@@ -1979,7 +1979,6 @@ pub enum BindingLegacyTypeParam {
     /// The key points directly to an expression that may be a legacy type parameter.
     ParamKeyed(Idx<Key>),
     /// The key points to a module with an attribute that may be a legacy type parameter.
-    #[expect(dead_code)]
     ModuleKeyed(Idx<Key>, Box<Name>),
 }
 

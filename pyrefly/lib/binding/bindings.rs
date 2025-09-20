@@ -924,17 +924,14 @@ impl<'a> BindingsBuilder<'a> {
         id: &LegacyTParamId,
     ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
         let name = match &id {
-            LegacyTParamId::Attr(..) => {
-                // TODO(rechen): implement this
-                return Either::Right(None);
-            }
             LegacyTParamId::Name(name) => name,
+            LegacyTParamId::Attr(value, _) => value,
         };
         let found = self
             .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found();
         if let Some(idx) = found {
-            match self.lookup_legacy_tparam_from_idx(name, idx) {
+            match self.lookup_legacy_tparam_from_idx(id, idx) {
                 Some(left) => Either::Left(left),
                 None => Either::Right(Some(idx)),
             }
@@ -950,7 +947,11 @@ impl<'a> BindingsBuilder<'a> {
     /// - None if we find something that is definitely not a legacy type variable.
     fn lookup_legacy_tparam_from_idx(
         &mut self,
-        name: &Identifier,
+        id: &LegacyTParamId,
+        // Note that `idx` refers to different things depending on the value of `id`:
+        // If `id` is a LegacyTParamId::Name, then `idx` points to a posible legacy type parameter.
+        // If `id` is a LegacyTParamId::Attr, then `idx` points to an object with an attribute that
+        // may be legacy type parameter.
         mut idx: Idx<Key>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
         // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
@@ -961,13 +962,15 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::Forward(fwd_idx) => {
                         idx = *fwd_idx;
                     }
-                    Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..) => {
+                    Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..)
+                        if let LegacyTParamId::Name(name) = id =>
+                    {
                         return Some(self.insert_binding(
                             KeyLegacyTypeParam(ShortIdentifier::new(name)),
                             BindingLegacyTypeParam::ParamKeyed(idx),
                         ));
                     }
-                    Binding::Import(..) => {
+                    Binding::Import(..) if let LegacyTParamId::Name(name) = id => {
                         // TODO: We need to recursively look through imports to determine
                         // whether it is a legacy type parameter. We can't simply walk through
                         // bindings, because we could recursively reach ourselves, resulting in
@@ -975,6 +978,12 @@ impl<'a> BindingsBuilder<'a> {
                         return Some(self.insert_binding(
                             KeyLegacyTypeParam(ShortIdentifier::new(name)),
                             BindingLegacyTypeParam::ParamKeyed(idx),
+                        ));
+                    }
+                    Binding::Module(..) if let LegacyTParamId::Attr(_, attr) = id => {
+                        return Some(self.insert_binding(
+                            KeyLegacyTypeParam(ShortIdentifier::new(attr)),
+                            BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
                         ));
                     }
                     _ => {
