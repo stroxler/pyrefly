@@ -55,3 +55,19 @@ assert_type(list_view.get_context_object_name(MyModel()), str | None) # E: asser
 assert_type(list_view.get_context_object_name(1), str | None) # E: assert_type(Any, str | None)  
 "#,
 );
+
+testcase!(
+    bug = "Add stubs. After that, address the type error which will surface on the decorator.",
+    test_user_passes_test_decorator,
+    django_env(),
+    r#"
+from django.contrib.auth.decorators import user_passes_test # E: Could not find import of `django.contrib.auth.decorators`
+from django.http import HttpRequest, HttpResponse # E: Could not find import of `django.http` 
+from django.urls import reverse, reverse_lazy # E: Could not find import of `django.urls`
+
+reversed_url = reverse("url")
+
+@user_passes_test(lambda user: user.is_active, login_url=reversed_url)
+def my_view1(request: HttpRequest) -> HttpResponse: ...
+"#,
+);
