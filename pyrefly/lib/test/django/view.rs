@@ -63,7 +63,7 @@ testcase!(
     r#"
 from django.contrib.auth.decorators import user_passes_test # E: Could not find import of `django.contrib.auth.decorators`
 from django.http import HttpRequest, HttpResponse 
-from django.urls import reverse, reverse_lazy # E: Could not find import of `django.urls`
+from django.urls import reverse, reverse_lazy
 
 reversed_url = reverse("url")
 
