@@ -57,6 +57,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::Answers;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::bindings::Bindings;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
@@ -594,6 +595,7 @@ impl Query {
                 None
             }
         }
+
         fn find_init_or_new(
             cls: &Class,
             transaction: &Transaction<'_>,
@@ -601,9 +603,11 @@ impl Query {
         ) -> Vec<Callee> {
             callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
                 // find first class that has __init__ or __new__
-                let class_metadata = solver.get_metadata_for_class(c);
-                if c.contains(&dunder::INIT) || class_metadata.dataclass_metadata().is_some() {
-                    // treat dataclasses as always having __init__
+                let has_init = c.contains(&dunder::NEW)
+                    || solver
+                        .get_from_class(c, &KeyClassSynthesizedFields(c.index()))
+                        .is_some_and(|f| f.get(&dunder::INIT).is_some());
+                if has_init {
                     Some(format!("{}.{}.__init__", c.module_name(), c.name()))
                 } else if c.contains(&dunder::NEW) {
                     Some(format!("{}.{}.__new__", c.module_name(), c.name()))
