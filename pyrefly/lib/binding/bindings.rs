@@ -921,8 +921,15 @@ impl<'a> BindingsBuilder<'a> {
     ///   until the solve stage.
     fn lookup_legacy_tparam(
         &mut self,
-        name: &Identifier,
+        id: &LegacyTParamId,
     ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
+        let name = match &id {
+            LegacyTParamId::Attr(..) => {
+                // TODO(rechen): implement this
+                return Either::Right(None);
+            }
+            LegacyTParamId::Name(name) => name,
+        };
         let found = self
             .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found();
@@ -1168,6 +1175,33 @@ impl<'a> BindingsBuilder<'a> {
     }
 }
 
+#[derive(Debug)]
+pub enum LegacyTParamId {
+    /// A simple name referring to a legacy type parameter.
+    Name(Identifier),
+    /// A <name>.<name> reference to a legacy type parameter.
+    #[expect(dead_code)]
+    Attr(Identifier, Identifier),
+}
+
+impl LegacyTParamId {
+    fn key(&self) -> Name {
+        match self {
+            Self::Name(name) => name.id.clone(),
+            Self::Attr(value, attr) => Name::new(format!("{value}.{attr}")),
+        }
+    }
+}
+
+impl Ranged for LegacyTParamId {
+    fn range(&self) -> TextRange {
+        match self {
+            Self::Name(name) => name.range,
+            Self::Attr(_, attr) => attr.range,
+        }
+    }
+}
+
 /// Handle intercepting names inside either function parameter/return
 /// annotations or base class lists of classes, in order to check whether they
 /// point at type variable declarations and need to be converted to type
@@ -1175,7 +1209,8 @@ impl<'a> BindingsBuilder<'a> {
 pub struct LegacyTParamBuilder {
     /// All of the names used. Each one may or may not point at a type variable
     /// and therefore bind a legacy type parameter.
-    legacy_tparams: SmallMap<Name, Either<(Identifier, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
+    legacy_tparams:
+        SmallMap<Name, Either<(LegacyTParamId, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
     /// Are there scoped type parameters? Used to control downstream errors.
     has_scoped_tparams: bool,
 }
@@ -1198,20 +1233,17 @@ impl LegacyTParamBuilder {
     pub fn intercept_lookup(
         &mut self,
         builder: &mut BindingsBuilder,
-        name: &Identifier,
+        id: LegacyTParamId,
     ) -> NameLookupResult<Binding> {
+        let range = id.range();
         let result = self
             .legacy_tparams
-            .entry(name.id.clone())
-            .or_insert_with(|| {
-                builder
-                    .lookup_legacy_tparam(name)
-                    .map_left(|idx| (name.clone(), idx))
-            });
+            .entry(id.key())
+            .or_insert_with(|| builder.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
         match result {
             Either::Left((_, idx)) => {
                 let range_if_scoped_params_exist = if self.has_scoped_tparams {
-                    Some(name.range())
+                    Some(range)
                 } else {
                     None
                 };
@@ -1238,7 +1270,7 @@ impl LegacyTParamBuilder {
     /// case the name should be treated as a Quantified type parameter inside this scope.
     pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
         for entry in self.legacy_tparams.values() {
-            if let Either::Left((name, idx)) = entry {
+            if let Either::Left((LegacyTParamId::Name(name), idx)) = entry {
                 builder.scopes.add_to_current_static(
                     name.id.clone(),
                     name.range,

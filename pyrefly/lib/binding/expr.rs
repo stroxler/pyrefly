@@ -40,6 +40,7 @@ use crate::binding::binding::LinkedKey;
 use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::bindings::LegacyTParamId;
 use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
@@ -245,7 +246,7 @@ impl<'a> BindingsBuilder<'a> {
         }
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
         let lookup_result = if used_in_static_type && let Some(tparams_builder) = tparams_builder {
-            tparams_builder.intercept_lookup(self, name)
+            tparams_builder.intercept_lookup(self, LegacyTParamId::Name(name.clone()))
         } else {
             self.lookup_name(Hashed::new(&name.id), usage)
                 .map_found(Binding::Forward)
