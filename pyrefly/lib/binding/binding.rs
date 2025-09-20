@@ -102,7 +102,7 @@ assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
-assert_bytes!(BindingLegacyTypeParam, 4);
+assert_bytes!(BindingLegacyTypeParam, 16);
 assert_words!(BindingYield, 4);
 assert_words!(BindingYieldFrom, 4);
 assert_bytes!(BindingDecoratedFunction, 20);
@@ -1974,11 +1974,34 @@ impl DisplayWith<Bindings> for BindingClassMro {
 }
 
 #[derive(Clone, Debug)]
-pub struct BindingLegacyTypeParam(pub Idx<Key>);
+/// A legacy type parameter (`T = typing.TypeVar("T")`).
+pub enum BindingLegacyTypeParam {
+    /// The key points directly to an expression that may be a legacy type parameter.
+    ParamKeyed(Idx<Key>),
+    /// The key points to a module with an attribute that may be a legacy type parameter.
+    #[expect(dead_code)]
+    ModuleKeyed(Idx<Key>, Box<Name>),
+}
 
 impl DisplayWith<Bindings> for BindingLegacyTypeParam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
-        write!(f, "BindingLegacyTypeParam({})", ctx.display(self.0))
+        write!(
+            f,
+            "BindingLegacyTypeParam({})",
+            match self {
+                Self::ParamKeyed(k) => format!("{}", ctx.display(*k)),
+                Self::ModuleKeyed(k, attr) => format!("{}.{attr}", ctx.display(*k)),
+            }
+        )
+    }
+}
+
+impl BindingLegacyTypeParam {
+    pub fn idx(&self) -> Idx<Key> {
+        match self {
+            Self::ParamKeyed(idx) => *idx,
+            Self::ModuleKeyed(idx, _) => *idx,
+        }
     }
 }
 

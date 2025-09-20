@@ -209,7 +209,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         binding: &BindingLegacyTypeParam,
     ) -> Arc<LegacyTypeParameterLookup> {
-        match self.get_idx(binding.0).ty() {
+        let key = match binding {
+            BindingLegacyTypeParam::ModuleKeyed(..) => {
+                // TODO(rechen): implement this
+                return Arc::new(LegacyTypeParameterLookup::NotParameter(Type::any_implicit()));
+            }
+            BindingLegacyTypeParam::ParamKeyed(k) => k,
+        };
+        match self.get_idx(*key).ty() {
             Type::TypeVar(x) => {
                 let q = Quantified::type_var(
                     x.qname().id().clone(),

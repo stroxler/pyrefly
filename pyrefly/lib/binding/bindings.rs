@@ -964,7 +964,7 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..) => {
                         return Some(self.insert_binding(
                             KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                            BindingLegacyTypeParam(idx),
+                            BindingLegacyTypeParam::ParamKeyed(idx),
                         ));
                     }
                     Binding::Import(..) => {
@@ -974,7 +974,7 @@ impl<'a> BindingsBuilder<'a> {
                         // a deadlock.
                         return Some(self.insert_binding(
                             KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                            BindingLegacyTypeParam(idx),
+                            BindingLegacyTypeParam::ParamKeyed(idx),
                         ));
                     }
                     _ => {

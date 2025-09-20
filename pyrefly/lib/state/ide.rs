@@ -79,7 +79,7 @@ fn find_definition_key_from<'a>(bindings: &'a Bindings, key: &'a Key) -> Option<
             Binding::Phi(ks) if !ks.is_empty() => current_idx = *ks.iter().next().unwrap(),
             Binding::CheckLegacyTypeParam(k, _) => {
                 let binding = bindings.get(*k);
-                current_idx = binding.0;
+                current_idx = binding.idx();
             }
             Binding::AssignToSubscript(subscript, _)
                 if let Some(key) =
@@ -116,7 +116,7 @@ fn create_intermediate_definition_from(
             Binding::Forward(k) => current_binding = bindings.get(*k),
             Binding::CheckLegacyTypeParam(k, _) => {
                 let binding = bindings.get(*k);
-                current_binding = bindings.get(binding.0);
+                current_binding = bindings.get(binding.idx());
             }
             Binding::Import(m, name, original_name_range) => {
                 return Some(IntermediateDefinition::NamedImport(
