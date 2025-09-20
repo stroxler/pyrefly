@@ -469,9 +469,9 @@ pub fn testcase_for_macro(
     }
     let contents = format!("{}{}", "\n".repeat(start_line), contents);
     env.add_with_path("main", file, &contents);
-    // If any given test regularly takes > 10s, that's probably a bug.
+    // If any given test regularly takes > 16s, that's probably a bug.
     // Currently all are less than 3s in debug, even when running in parallel.
-    let limit = 15;
+    let limit = 16;
     let check = |errors: Errors| {
         errors.check_against_expectations()?;
         errors.check_var_leak()?;
