@@ -287,6 +287,16 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_name(&name, usage, &mut None)
     }
 
+    fn ensure_simple_attr(
+        &mut self,
+        value: &Identifier,
+        _attr: &Identifier,
+        usage: &mut Usage,
+        tparams_builder: &mut Option<LegacyTParamBuilder>,
+    ) -> Idx<Key> {
+        self.ensure_name(value, usage, tparams_builder)
+    }
+
     fn bind_comprehensions(
         &mut self,
         range: TextRange,
@@ -754,6 +764,19 @@ impl<'a> BindingsBuilder<'a> {
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
             Expr::Call(_) => self.ensure_expr(x, static_type_usage),
+            Expr::Attribute(ExprAttribute { value, attr, .. })
+                if let Expr::Name(value) = &**value
+                // We assume "args" and "kwargs" are ParamSpec attributes rather than imported TypeVars.
+                    && attr.id != "args" && attr.id != "kwargs" =>
+            {
+                // We intercept <name>.<name> to check if this is an imported legacy type parameter.
+                self.ensure_simple_attr(
+                    &Ast::expr_name_identifier(value.clone()),
+                    attr,
+                    static_type_usage,
+                    tparams_builder,
+                );
+            }
             _ => {
                 x.recurse_mut(&mut |x| self.ensure_type_impl(x, tparams_builder, in_string_literal))
             }
