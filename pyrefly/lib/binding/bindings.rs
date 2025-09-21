@@ -1278,22 +1278,25 @@ impl LegacyTParamBuilder {
     /// case the name should be treated as a Quantified type parameter inside this scope.
     pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
         for entry in self.legacy_tparams.values() {
-            if let Either::Left((LegacyTParamId::Name(name), idx)) = entry {
-                builder.scopes.add_to_current_static(
-                    name.id.clone(),
-                    name.range,
-                    SymbolKind::TypeParameter,
-                    None,
-                );
-                builder.bind_definition(
-                    name,
-                    // Note: we use None as the range here because the range is
-                    // used to error if legacy tparams are mixed with scope
-                    // tparams, and we only want to do that once (which we do in
-                    // the binding created by `forward_lookup`).
-                    Binding::CheckLegacyTypeParam(*idx, None),
-                    builder.scopes.get_flow_style(&name.id).clone(),
-                );
+            match entry {
+                Either::Left((LegacyTParamId::Name(name) | LegacyTParamId::Attr(name, _), idx)) => {
+                    builder.scopes.add_to_current_static(
+                        name.id.clone(),
+                        name.range,
+                        SymbolKind::TypeParameter,
+                        None,
+                    );
+                    builder.bind_definition(
+                        name,
+                        // Note: we use None as the range here because the range is
+                        // used to error if legacy tparams are mixed with scope
+                        // tparams, and we only want to do that once (which we do in
+                        // the binding created by `forward_lookup`).
+                        Binding::CheckLegacyTypeParam(*idx, None),
+                        builder.scopes.get_flow_style(&name.id).clone(),
+                    );
+                }
+                _ => {}
             }
         }
     }
