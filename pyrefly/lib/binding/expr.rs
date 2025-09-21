@@ -249,11 +249,20 @@ impl<'a> BindingsBuilder<'a> {
     fn ensure_simple_attr(
         &mut self,
         value: &Identifier,
-        _attr: &Identifier,
+        attr: &Identifier,
         usage: &mut Usage,
         tparams_builder: &mut Option<LegacyTParamBuilder>,
     ) -> Idx<Key> {
-        self.ensure_name(value, usage, tparams_builder)
+        self.ensure_name_impl(
+            value,
+            usage,
+            tparams_builder.as_mut().map(|tparams_builder| {
+                (
+                    tparams_builder,
+                    LegacyTParamId::Attr(value.clone(), attr.clone()),
+                )
+            }),
+        )
     }
 
     fn ensure_name_impl(

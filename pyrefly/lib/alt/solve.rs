@@ -3006,6 +3006,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::CheckLegacyTypeParam(key, range_if_scoped_params_exist) => {
+                let binding = self.bindings().get(*key);
+                if let BindingLegacyTypeParam::ModuleKeyed(idx, _) = binding {
+                    // TODO(rechen): implement this.
+                    return self.get_idx(*idx).ty().clone();
+                }
                 match &*self.get_idx(*key) {
                     LegacyTypeParameterLookup::Parameter(p) => {
                         // This class or function has scoped (PEP 695) type parameters. Mixing legacy-style parameters is an error.

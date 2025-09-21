@@ -1189,7 +1189,6 @@ pub enum LegacyTParamId {
     /// A simple name referring to a legacy type parameter.
     Name(Identifier),
     /// A <name>.<name> reference to a legacy type parameter.
-    #[expect(dead_code)]
     Attr(Identifier, Identifier),
 }
 
