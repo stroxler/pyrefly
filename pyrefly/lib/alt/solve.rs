@@ -209,14 +209,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         binding: &BindingLegacyTypeParam,
     ) -> Arc<LegacyTypeParameterLookup> {
-        let key = match binding {
-            BindingLegacyTypeParam::ModuleKeyed(..) => {
-                // TODO(rechen): implement this
-                return Arc::new(LegacyTypeParameterLookup::NotParameter(Type::any_implicit()));
+        let maybe_parameter = match binding {
+            BindingLegacyTypeParam::ParamKeyed(k) => self.get_idx(*k),
+            BindingLegacyTypeParam::ModuleKeyed(k, attr) => {
+                let module = self.get_idx(*k);
+                // Errors in attribute lookup are reported elsewhere, so we provide dummy values
+                // for arguments related to error reporting.
+                self.attr_infer(
+                    &module,
+                    attr,
+                    TextRange::default(),
+                    &self.error_swallower(),
+                    None,
+                )
+                .into()
             }
-            BindingLegacyTypeParam::ParamKeyed(k) => k,
         };
-        match self.get_idx(*key).ty() {
+        match maybe_parameter.ty() {
             Type::TypeVar(x) => {
                 let q = Quantified::type_var(
                     x.qname().id().clone(),
