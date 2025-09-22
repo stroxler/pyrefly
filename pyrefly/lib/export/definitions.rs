@@ -38,7 +38,7 @@ use starlark_map::small_set::SmallSet;
 use crate::export::special::SpecialExport;
 use crate::types::globals::ImplicitGlobal;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MutableCaptureKind {
     /// Mutable capture coming from a `global` statement
     Global,

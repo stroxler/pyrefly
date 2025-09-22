@@ -639,7 +639,7 @@ impl<'a> BindingsBuilder<'a> {
             top_level,
             self.lookup,
             self.sys_info,
-            |x| {
+            &mut |x| {
                 self.table
                     .annotations
                     .0

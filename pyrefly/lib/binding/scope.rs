@@ -54,8 +54,10 @@ use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::IsInitialized;
 use crate::binding::function::SelfAssignments;
+use crate::export::definitions::Definition;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
+use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
@@ -126,81 +128,103 @@ pub struct Static(pub SmallMap<Name, StaticInfo>);
 #[derive(Clone, Debug)]
 pub struct StaticInfo {
     range: TextRange,
-    /// The location of the first annotated name for this binding, if any.
-    annot: Option<Idx<KeyAnnotation>>,
-    /// How many times this will be redefined
-    count: usize,
-    /// How was this defined? Needed to determine the key for forward lookups.
-    style: DefinitionStyle,
+    style: StaticStyle,
+}
+
+#[derive(Clone, Debug)]
+pub enum StaticStyle {
+    /// I have multiple definitions, lookups should be anywhere-style.
+    ///
+    /// If I have annotations, this is the first one.
+    Anywhere(Option<Idx<KeyAnnotation>>),
+    /// I am a mutable capture of a name defined in some enclosing scope.
+    ///
+    /// My annotation, if any, comes from the parent scope.
+    ///
+    /// TODO(stroxler): At the moment, if any actual assignments occur we will
+    /// get `Multiple` and the annotation will instead come from local code.
+    MutableCapture(MutableCaptureKind, Option<Idx<KeyAnnotation>>),
+    /// I have a single definition, possibly annotated.
+    SingleDef(Option<Idx<KeyAnnotation>>),
+    /// I am an ImplicitGlobal definition.
+    ImplicitGlobal,
+    /// I am defined only by delete statements, with no other definitions.
+    Delete,
+    /// I am either a module import, like `import foo`, or a name defined by a wildcard import
+    MergeableImport,
+}
+
+impl StaticStyle {
+    pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
+        match self {
+            Self::Anywhere(ann) | Self::SingleDef(ann) | Self::MutableCapture(_, ann) => *ann,
+            Self::Delete | Self::ImplicitGlobal | Self::MergeableImport => None,
+        }
+    }
+
+    fn of_definition(
+        definition: Definition,
+        get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
+    ) -> Self {
+        if matches!(definition.style, DefinitionStyle::Delete) {
+            Self::Delete
+        } else if definition.count > 1 {
+            Self::Anywhere(definition.annotation().map(get_annotation_idx))
+        } else {
+            match definition.style {
+                DefinitionStyle::MutableCapture(kind) => Self::MutableCapture(kind, None),
+                DefinitionStyle::Annotated(.., ann) => {
+                    Self::SingleDef(Some(get_annotation_idx(ann)))
+                }
+                DefinitionStyle::ImplicitGlobal => Self::ImplicitGlobal,
+                DefinitionStyle::ImportModule(..) => Self::MergeableImport,
+                DefinitionStyle::Unannotated(..)
+                | DefinitionStyle::ImportAs(..)
+                | DefinitionStyle::Import(..)
+                | DefinitionStyle::ImportAsEq(..)
+                | DefinitionStyle::ImportInvalidRelative => Self::SingleDef(None),
+                DefinitionStyle::Delete => unreachable!("handled above"),
+            }
+        }
+    }
 }
 
 impl StaticInfo {
     pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
-        self.annot
+        self.style.annotation()
     }
 
     pub fn as_key(&self, name: &Name) -> Key {
-        if matches!(self.style, DefinitionStyle::Delete) {
-            Key::Delete(self.range)
-        } else if self.count == 1 {
-            match self.style {
-                DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.range),
-                DefinitionStyle::ImplicitGlobal => Key::ImplicitGlobal(name.clone()),
-                _ => {
-                    // We are constructing an identifier, but it must have been one that we saw earlier
-                    assert_ne!(self.range, TextRange::default());
-                    let short_identifier = ShortIdentifier::new(&Identifier {
-                        node_index: AtomicNodeIndex::dummy(),
-                        id: name.clone(),
-                        range: self.range,
-                    });
-                    match self.style {
-                        DefinitionStyle::MutableCapture(..) => {
-                            Key::MutableCapture(short_identifier)
-                        }
-                        _ => Key::Definition(short_identifier),
-                    }
-                }
-            }
-        } else {
-            Key::Anywhere(name.clone(), self.range)
+        let short_identifier = || {
+            ShortIdentifier::new(&Identifier {
+                node_index: AtomicNodeIndex::dummy(),
+                id: name.clone(),
+                range: self.range,
+            })
+        };
+        match self.style {
+            StaticStyle::Anywhere(..) => Key::Anywhere(name.clone(), self.range),
+            StaticStyle::Delete => Key::Delete(self.range),
+            StaticStyle::MutableCapture(..) => Key::MutableCapture(short_identifier()),
+            StaticStyle::MergeableImport => Key::Import(name.clone(), self.range),
+            StaticStyle::ImplicitGlobal => Key::ImplicitGlobal(name.clone()),
+            StaticStyle::SingleDef(..) => Key::Definition(short_identifier()),
         }
     }
 }
 
 impl Static {
-    fn add_with_count(
-        &mut self,
-        name: Hashed<Name>,
-        range: TextRange,
-        style: DefinitionStyle,
-        annot: Option<Idx<KeyAnnotation>>,
-        count: usize,
-    ) {
-        // Use whichever one we see first
-        let res = self.0.entry_hashed(name).or_insert(StaticInfo {
-            range,
-            annot,
-            count: 0,
-            style,
-        });
-        res.count += count;
-    }
-
-    fn add(
-        &mut self,
-        name: Name,
-        range: TextRange,
-        symbol_kind: SymbolKind,
-        annot: Option<Idx<KeyAnnotation>>,
-    ) {
-        self.add_with_count(
-            Hashed::new(name),
-            range,
-            DefinitionStyle::Unannotated(symbol_kind),
-            annot,
-            1,
-        );
+    fn upsert(&mut self, name: Hashed<Name>, range: TextRange, style: StaticStyle) {
+        match self.0.entry_hashed(name) {
+            Entry::Vacant(e) => {
+                e.insert(StaticInfo { range, style });
+            }
+            Entry::Occupied(mut e) => {
+                let found = e.get_mut();
+                let annotation = found.annotation().or_else(|| style.annotation());
+                found.style = StaticStyle::Anywhere(annotation);
+            }
+        }
     }
 
     pub fn stmts(
@@ -210,7 +234,7 @@ impl Static {
         top_level: bool,
         lookup: &dyn LookupExport,
         sys_info: &SysInfo,
-        mut get_annotation_idx: impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
+        get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) {
         let mut d = Definitions::new(
             x,
@@ -237,27 +261,31 @@ impl Static {
             d.definitions.len() + wildcards.iter().map(|x| x.1.len()).sum::<usize>();
         self.0.reserve(((capacity_guess * 5) / 4) + 25);
 
-        for (name, def) in d.definitions.into_iter_hashed() {
-            let annot = def.annotation().map(&mut get_annotation_idx);
-            self.add_with_count(name, def.range, def.style, annot, def.count);
+        for (name, definition) in d.definitions.into_iter_hashed() {
+            // Note that this really is an upsert: there might already be a parameter of the
+            // same name in this scope.
+            self.upsert(
+                name,
+                definition.range,
+                StaticStyle::of_definition(definition, get_annotation_idx),
+            );
         }
         for (range, wildcard) in wildcards {
             for name in wildcard.iter_hashed() {
                 // TODO: semantics of import * and global var with same name
-                self.add_with_count(
-                    name.cloned(),
-                    range,
-                    DefinitionStyle::ImportModule(module_info.name()),
-                    None,
-                    1,
-                )
+                self.upsert(name.cloned(), range, StaticStyle::MergeableImport)
             }
         }
     }
 
     fn expr_lvalue(&mut self, x: &Expr) {
-        let mut add =
-            |name: &ExprName| self.add(name.id.clone(), name.range, SymbolKind::Variable, None);
+        let mut add = |name: &ExprName| {
+            self.upsert(
+                Hashed::new(name.id.clone()),
+                name.range,
+                StaticStyle::SingleDef(None),
+            )
+        };
         Ast::expr_lvalue(x, &mut add);
     }
 }
@@ -1055,12 +1083,14 @@ impl Scopes {
     pub fn add_parameter_to_current_static(
         &mut self,
         name: &Identifier,
-        symbol_kind: SymbolKind,
+        _symbol_kind: SymbolKind,
         ann: Option<Idx<KeyAnnotation>>,
     ) {
-        self.current_mut()
-            .stat
-            .add(name.id.clone(), name.range, symbol_kind, ann);
+        self.current_mut().stat.upsert(
+            Hashed::new(name.id.clone()),
+            name.range,
+            StaticStyle::SingleDef(ann),
+        )
     }
 
     /// Add an adhoc name - if it does not already exist - to the current static
@@ -1211,7 +1241,12 @@ impl Scopes {
         if ann.is_some()
             && let Some(current_scope_info) = self.current_mut().stat.0.get_mut_hashed(name)
         {
-            current_scope_info.annot = ann;
+            let updated_style = match &current_scope_info.style {
+                StaticStyle::Anywhere(..) => StaticStyle::Anywhere(ann),
+                StaticStyle::MutableCapture(kind, _) => StaticStyle::MutableCapture(*kind, ann),
+                _ => panic!("Expected a mutable capture or multiple static info for {name:?}"),
+            };
+            current_scope_info.style = updated_style;
         }
     }
 
@@ -1249,14 +1284,14 @@ impl Scopes {
                         ClassFieldInBody::InitializedByAssign(e) =>
                             ClassFieldDefinition::AssignedInBody {
                                 value: ExprOrBinding::Expr(e.clone()),
-                                annotation: static_info.annot,
+                                annotation: static_info.annotation(),
                             },
                         ClassFieldInBody::InitializedWithoutAssign =>
                             ClassFieldDefinition::DefinedWithoutAssign {
                                 definition: flow_info.idx,
                             },
                         ClassFieldInBody::Uninitialized => {
-                            let annotation = static_info.annot.unwrap_or_else(
+                            let annotation = static_info.annotation().unwrap_or_else(
                                 || panic!("A class field known in the body but uninitialized always has an annotation.")
                             );
                             ClassFieldDefinition::DeclaredByAnnotation { annotation }
@@ -1368,8 +1403,8 @@ impl Scopes {
             panic!("Name `{name}` not found in static scope of module `{module}`")
         });
         NameWriteInfo {
-            annotation: static_info.annot,
-            anywhere_range: if static_info.count > 1 {
+            annotation: static_info.annotation(),
+            anywhere_range: if matches!(static_info.style, StaticStyle::Anywhere(..)) {
                 Some(static_info.range)
             } else {
                 None
@@ -1392,7 +1427,7 @@ impl ScopeTrace {
         for (name, static_info) in scope.stat.0.iter_hashed() {
             let exportable = match scope.flow.info.get_hashed(name) {
                 Some(FlowInfo { idx: key, .. }) => {
-                    if let Some(ann) = static_info.annot {
+                    if let Some(ann) = static_info.annotation() {
                         Exportable::Initialized(*key, Some(ann))
                     } else {
                         Exportable::Initialized(*key, None)
