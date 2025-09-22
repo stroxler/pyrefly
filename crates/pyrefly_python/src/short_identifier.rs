@@ -32,6 +32,21 @@ impl ShortIdentifier {
     }
 }
 
+impl PartialOrd for ShortIdentifier {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ShortIdentifier {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.0.start().cmp(&other.0.start()) {
+            std::cmp::Ordering::Equal => self.0.end().cmp(&other.0.end()),
+            ord => ord,
+        }
+    }
+}
+
 impl Ranged for ShortIdentifier {
     fn range(&self) -> TextRange {
         self.0

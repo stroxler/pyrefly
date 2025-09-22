@@ -57,9 +57,10 @@ pub enum DefinitionStyle {
     /// A name defined by a mutable capture. In valid code, the current scope
     /// must be nested in some enclosing scope that defines the name.
     MutableCapture(MutableCaptureKind),
-    /// Defined in this module, e.g. `x = 1` or `def x(): ...`
-    /// We also store what kind of symbol it is
-    Local(SymbolKind),
+    /// An annotated definition or declaration, e.g. `x: int = 1` or `x: int`
+    Annotated(SymbolKind, ShortIdentifier),
+    /// An unannotated definition in this module, e.g. `x = 1` or `def x(): ...`
+    Unannotated(SymbolKind),
     /// Defined as an implicit global like `__name__`.
     ImplicitGlobal,
     /// Imported with an alias, e.g. `from x import y as z`
@@ -84,13 +85,20 @@ pub struct Definition {
     pub range: TextRange,
     /// If the definition occurs multiple times, the lowest `DefinitionStyle` is used (e.g. prefer `Local`).
     pub style: DefinitionStyle,
-    /// The location of the first annotated name for this definition, if any.
-    pub annot: Option<ShortIdentifier>,
     /// The number is the distinct times this variable was defined.
     pub count: usize,
     /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
     /// states that is the docstring.
     pub docstring_range: Option<TextRange>,
+}
+
+impl Definition {
+    pub fn annotation(&self) -> Option<ShortIdentifier> {
+        match &self.style {
+            DefinitionStyle::Annotated(_, ann) => Some(*ann),
+            _ => None,
+        }
+    }
 }
 
 /// Find the definitions available in a scope. Does not traverse inside classes/functions,
@@ -215,7 +223,6 @@ impl Definitions {
                 Definition {
                     range: TextRange::default(),
                     style: DefinitionStyle::ImplicitGlobal,
-                    annot: None,
                     count: 1,
                     docstring_range: None,
                 },
@@ -239,7 +246,9 @@ impl Definitions {
                 && (style == ModuleStyle::Executable
                     || matches!(
                         def.style,
-                        DefinitionStyle::Local(_) | DefinitionStyle::ImportAsEq(_)
+                        DefinitionStyle::Annotated(..)
+                            | DefinitionStyle::Unannotated(..)
+                            | DefinitionStyle::ImportAsEq(_)
                     ))
             {
                 self.dunder_all
@@ -271,22 +280,17 @@ impl<'a> DefinitionsBuilder<'a> {
         x: &Name,
         range: TextRange,
         style: DefinitionStyle,
-        annot: Option<ShortIdentifier>,
         body: Option<&[Stmt]>,
     ) {
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
                 e.get_mut().style = cmp::min(&e.get().style, &style).clone();
-                if e.get().annot.is_none() {
-                    e.get_mut().annot = annot;
-                }
                 e.get_mut().count += 1;
             }
             Entry::Vacant(e) => {
                 e.insert(Definition {
                     range,
                     style,
-                    annot,
                     count: 1,
                     docstring_range: body.and_then(Docstring::range_from_stmts),
                 });
@@ -294,24 +298,20 @@ impl<'a> DefinitionsBuilder<'a> {
         }
     }
 
-    fn add_name(
-        &mut self,
-        x: &Name,
-        range: TextRange,
-        style: DefinitionStyle,
-        annot: Option<ShortIdentifier>,
-    ) {
-        if matches!(style, DefinitionStyle::Local(_))
-            && let Some(special_export) = SpecialExport::new(x)
+    fn add_name(&mut self, x: &Name, range: TextRange, style: DefinitionStyle) {
+        if matches!(
+            style,
+            DefinitionStyle::Annotated(..) | DefinitionStyle::Unannotated(..)
+        ) && let Some(special_export) = SpecialExport::new(x)
             && special_export.defined_in(self.module_name)
         {
             self.inner.special_exports.insert(x.clone(), special_export);
         }
-        self.add_name_with_body(x, range, style, annot, None)
+        self.add_name_with_body(x, range, style, None)
     }
 
     fn add_identifier(&mut self, x: &Identifier, style: DefinitionStyle) {
-        self.add_name(&x.id, x.range, style, None);
+        self.add_name(&x.id, x.range, style);
     }
 
     fn add_identifier_with_body(
@@ -320,7 +320,7 @@ impl<'a> DefinitionsBuilder<'a> {
         style: DefinitionStyle,
         body: Option<&[Stmt]>,
     ) {
-        self.add_name_with_body(&x.id, x.range, style, None, body);
+        self.add_name_with_body(&x.id, x.range, style, body);
     }
 
     fn expr_lvalue(&mut self, x: &Expr) {
@@ -328,8 +328,7 @@ impl<'a> DefinitionsBuilder<'a> {
             self.add_name(
                 &x.id,
                 x.range,
-                DefinitionStyle::Local(SymbolKind::Variable),
-                None,
+                DefinitionStyle::Unannotated(SymbolKind::Variable),
             )
         };
         Ast::expr_lvalue(x, &mut add_name);
@@ -338,7 +337,7 @@ impl<'a> DefinitionsBuilder<'a> {
 
     fn pattern(&mut self, x: &Pattern) {
         Ast::pattern_lvalue(x, &mut |x| {
-            self.add_identifier(x, DefinitionStyle::Local(SymbolKind::Variable))
+            self.add_identifier(x, DefinitionStyle::Unannotated(SymbolKind::Variable))
         });
     }
 
@@ -358,7 +357,6 @@ impl<'a> DefinitionsBuilder<'a> {
                             &imported_module.first_component(),
                             a.name.range,
                             DefinitionStyle::ImportModule(imported_module),
-                            None,
                         ),
                         Some(alias) => self.add_identifier(
                             alias,
@@ -428,7 +426,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
                 self.add_identifier_with_body(
                     name,
-                    DefinitionStyle::Local(SymbolKind::Class),
+                    DefinitionStyle::Unannotated(SymbolKind::Class),
                     Some(body),
                 );
                 return; // These things are inside a scope
@@ -439,7 +437,6 @@ impl<'a> DefinitionsBuilder<'a> {
                         &name.id,
                         name.range,
                         DefinitionStyle::MutableCapture(MutableCaptureKind::Nonlocal),
-                        None,
                     );
                 }
             }
@@ -449,7 +446,6 @@ impl<'a> DefinitionsBuilder<'a> {
                         &name.id,
                         name.range,
                         DefinitionStyle::MutableCapture(MutableCaptureKind::Global),
-                        None,
                     );
                 }
             }
@@ -476,8 +472,10 @@ impl<'a> DefinitionsBuilder<'a> {
                         self.add_name(
                             &x.id,
                             x.range,
-                            DefinitionStyle::Local(SymbolKind::Variable),
-                            Some(ShortIdentifier::expr_name(x)),
+                            DefinitionStyle::Annotated(
+                                SymbolKind::Variable,
+                                ShortIdentifier::expr_name(x),
+                            ),
                         );
                     }
                     _ => self.expr_lvalue(&x.target),
@@ -494,8 +492,7 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.add_name(
                         &name.id,
                         name.range,
-                        DefinitionStyle::Local(SymbolKind::Variable),
-                        None,
+                        DefinitionStyle::Unannotated(SymbolKind::Variable),
                     )
                 }
             }
@@ -503,7 +500,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 for target in &x.targets {
                     self.named_in_expr(target);
                     if let Expr::Name(name) = target {
-                        self.add_name(&name.id, name.range, DefinitionStyle::Delete, None)
+                        self.add_name(&name.id, name.range, DefinitionStyle::Delete)
                     }
                 }
             }
@@ -567,7 +564,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
                 self.add_identifier_with_body(
                     name,
-                    DefinitionStyle::Local(SymbolKind::Function),
+                    DefinitionStyle::Unannotated(SymbolKind::Function),
                     Some(body),
                 );
                 return; // don't recurse because a separate scope
@@ -597,7 +594,7 @@ impl<'a> DefinitionsBuilder<'a> {
                             if let Some(name) = &x.name {
                                 self.add_identifier(
                                     name,
-                                    DefinitionStyle::Local(SymbolKind::Variable),
+                                    DefinitionStyle::Unannotated(SymbolKind::Variable),
                                 );
                             }
                         }
@@ -846,11 +843,17 @@ def bar(x: str) -> str: ...
         assert_definition_names(&defs, &["overload", "foo", "bar"]);
 
         let foo = defs.definitions.get(&Name::new_static("foo")).unwrap();
-        assert_eq!(foo.style, DefinitionStyle::Local(SymbolKind::Function));
+        assert_eq!(
+            foo.style,
+            DefinitionStyle::Unannotated(SymbolKind::Function)
+        );
         assert_eq!(foo.count, 3);
 
         let bar = defs.definitions.get(&Name::new_static("bar")).unwrap();
-        assert_eq!(bar.style, DefinitionStyle::Local(SymbolKind::Function));
+        assert_eq!(
+            bar.style,
+            DefinitionStyle::Unannotated(SymbolKind::Function)
+        );
         assert_eq!(bar.count, 2);
     }
 

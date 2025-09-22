@@ -193,7 +193,7 @@ impl Static {
         self.add_with_count(
             Hashed::new(name),
             range,
-            DefinitionStyle::Local(symbol_kind),
+            DefinitionStyle::Unannotated(symbol_kind),
             annot,
             1,
         );
@@ -234,7 +234,7 @@ impl Static {
         self.0.reserve(((capacity_guess * 5) / 4) + 25);
 
         for (name, def) in d.definitions.into_iter_hashed() {
-            let annot = def.annot.map(&mut get_annotation_idx);
+            let annot = def.annotation().map(&mut get_annotation_idx);
             self.add_with_count(name, def.range, def.style, annot, def.count);
         }
         for (range, wildcard) in wildcards {

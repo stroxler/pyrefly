@@ -163,13 +163,16 @@ impl Exports {
                 let is_deprecated = self.0.definitions.deprecated.contains_hashed(name);
                 let special_export = self.0.definitions.special_exports.get_hashed(name).copied();
                 let export = match &definition.style {
-                    DefinitionStyle::Local(symbol_kind) => ExportLocation::ThisModule(Export {
-                        location: definition.range,
-                        symbol_kind: Some(*symbol_kind),
-                        docstring_range: definition.docstring_range,
-                        is_deprecated,
-                        special_export,
-                    }),
+                    DefinitionStyle::Annotated(symbol_kind, ..)
+                    | DefinitionStyle::Unannotated(symbol_kind) => {
+                        ExportLocation::ThisModule(Export {
+                            location: definition.range,
+                            symbol_kind: Some(*symbol_kind),
+                            docstring_range: definition.docstring_range,
+                            is_deprecated,
+                            special_export,
+                        })
+                    }
                     // The final location is this module in several edge cases that can occur analyzing invalid code:
                     // - An invalid import
                     // - A variable defined only by a `del` statement but never initialized
