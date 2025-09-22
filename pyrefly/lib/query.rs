@@ -290,23 +290,29 @@ impl Query {
             })
             .last()?;
         let class_ty = transaction.get_type_at(&handle, cls.name.start());
+        fn get_kind_and_field_type(ty: &Type) -> (Option<String>, &Type) {
+            match ty {
+                Type::Function(f) if f.metadata.flags.is_property_getter => {
+                    (Some(String::from("property")), ty)
+                }
+                Type::ClassType(c) if c.name() == "classproperty" => {
+                    let result_ty = c.targs().as_slice().get(1).unwrap();
+                    (Some(String::from("property")), result_ty)
+                }
+                _ => (None, ty),
+            }
+        }
         if let Some(Type::ClassDef(cd)) = &class_ty {
             let res = cd
                 .fields()
                 .filter_map(|n| {
                     let range = cd.field_decl_range(n)?;
                     let field_ty = transaction.get_type_at(&handle, range.start())?;
-                    let kind = if let Type::Function(f) = &field_ty
-                        && f.metadata.flags.is_property_getter
-                    {
-                        Some(String::from("property"))
-                    } else {
-                        None
-                    };
+                    let (kind, field_ty) = get_kind_and_field_type(&field_ty);
                     Some(Attribute {
                         name: n.to_string(),
                         kind,
-                        annotation: type_to_string(&field_ty),
+                        annotation: type_to_string(field_ty),
                     })
                 })
                 .collect_vec();
