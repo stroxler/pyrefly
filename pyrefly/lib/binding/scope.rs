@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
 
@@ -55,6 +56,7 @@ use crate::binding::bindings::IsInitialized;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
+use crate::export::exports::ExportLocation;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
@@ -963,6 +965,40 @@ impl Scopes {
         }
     }
 
+    // This helper handles re-exported symbols during special export lookups
+    fn lookup_special_export(
+        &self,
+        mut name: Name,
+        mut module: ModuleName,
+        lookup: &dyn LookupExport,
+    ) -> Option<SpecialExport> {
+        let mut seen = HashSet::new();
+        let mut exports = lookup.get(module).ok()?.exports(lookup);
+        loop {
+            if let Some(special) = SpecialExport::new(&name)
+                && special.defined_in(module)
+            {
+                return Some(special);
+            }
+            if !seen.insert(module) {
+                break;
+            }
+            match exports.as_ref().get(&name)? {
+                ExportLocation::ThisModule(export) => {
+                    return export.special_export;
+                }
+                ExportLocation::OtherModule(other_module, original_name) => {
+                    if let Some(original_name) = original_name {
+                        name = original_name.clone();
+                    }
+                    module = *other_module;
+                    exports = lookup.get(module).ok()?.exports(lookup);
+                }
+            }
+        }
+        None
+    }
+
     /// Look up either `name` or `base_name.name` in the current scope, assuming we are
     /// in the module with name `module_name`. If it is a `SpecialExport`, return it (otherwise None)
     pub fn as_special_export(
@@ -970,19 +1006,18 @@ impl Scopes {
         name: &Name,
         base_name: Option<&Name>,
         current_module: ModuleName,
+        lookup: &dyn LookupExport,
     ) -> Option<SpecialExport> {
         if let Some(base_name) = base_name {
             // Check to see whether there's an imported module `base_name` such that `base_name.name`
             // is a special export.
-            let special = SpecialExport::new(name)?;
             let flow = self.get_flow_info(base_name)?;
             match &flow.style {
                 FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
-                    if special.defined_in(*m) {
-                        Some(special)
-                    } else {
-                        None
-                    }
+                    self.lookup_special_export(name.clone(), *m, lookup)
+                }
+                FlowStyle::Import(m, upstream_name) => {
+                    self.lookup_special_export(upstream_name.clone(), *m, lookup)
                 }
                 _ => None,
             }
@@ -991,13 +1026,11 @@ impl Scopes {
             // defined in the current module, or be an imported name from some other module.
             let flow = self.get_flow_info(name)?;
             match &flow.style {
+                FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
+                    self.lookup_special_export(name.clone(), *m, lookup)
+                }
                 FlowStyle::Import(m, upstream_name) => {
-                    let special = SpecialExport::new(upstream_name)?;
-                    if special.defined_in(*m) {
-                        Some(special)
-                    } else {
-                        None
-                    }
+                    self.lookup_special_export(upstream_name.clone(), *m, lookup)
                 }
                 _ => {
                     let special = SpecialExport::new(name)?;

@@ -41,7 +41,6 @@ pub struct Export {
     pub symbol_kind: Option<SymbolKind>,
     pub docstring_range: Option<TextRange>,
     pub is_deprecated: bool,
-    #[expect(dead_code)]
     pub special_export: Option<SpecialExport>,
 }
 

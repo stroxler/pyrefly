@@ -694,7 +694,7 @@ impl<'a> BindingsBuilder<'a> {
         match e {
             Expr::Name(name) => {
                 self.scopes
-                    .as_special_export(&name.id, None, self.module_info.name())
+                    .as_special_export(&name.id, None, self.module_info.name(), self.lookup)
             }
             Expr::Attribute(ExprAttribute {
                 value, attr: name, ..
@@ -702,6 +702,7 @@ impl<'a> BindingsBuilder<'a> {
                 &name.id,
                 Some(&base_name.id),
                 self.module_info.name(),
+                self.lookup,
             ),
             _ => None,
         }
