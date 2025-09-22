@@ -609,7 +609,7 @@ impl Query {
         ) -> Vec<Callee> {
             callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
                 // find first class that has __init__ or __new__
-                let has_init = c.contains(&dunder::NEW)
+                let has_init = c.contains(&dunder::INIT)
                     || solver
                         .get_from_class(c, &KeyClassSynthesizedFields(c.index()))
                         .is_some_and(|f| f.get(&dunder::INIT).is_some());
