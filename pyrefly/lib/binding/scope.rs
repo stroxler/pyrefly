@@ -127,7 +127,7 @@ pub struct Static(pub SmallMap<Name, StaticInfo>);
 pub struct StaticInfo {
     range: TextRange,
     /// The location of the first annotated name for this binding, if any.
-    pub annot: Option<Idx<KeyAnnotation>>,
+    annot: Option<Idx<KeyAnnotation>>,
     /// How many times this will be redefined
     count: usize,
     /// How was this defined? Needed to determine the key for forward lookups.
@@ -135,6 +135,10 @@ pub struct StaticInfo {
 }
 
 impl StaticInfo {
+    pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
+        self.annot
+    }
+
     pub fn as_key(&self, name: &Name) -> Key {
         if matches!(self.style, DefinitionStyle::Delete) {
             Key::Delete(self.range)

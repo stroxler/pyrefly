@@ -782,7 +782,7 @@ impl<'a> BindingsBuilder<'a> {
                             result = Ok(self.table.types.0.insert(key));
                             // We can't return immediately, because we need to override
                             // the static annotation in the current scope with the one we found
-                            static_annot_override = info.annot;
+                            static_annot_override = info.annotation();
                             break;
                         } else if !in_current_scope {
                             return Err(MutableCaptureLookupError::NonlocalScope);
@@ -794,7 +794,7 @@ impl<'a> BindingsBuilder<'a> {
                             result = Ok(self.table.types.0.insert(key));
                             // We can't return immediately, because we need to override
                             // the static annotation in the current scope with the one we found
-                            static_annot_override = info.annot;
+                            static_annot_override = info.annotation();
                             break;
                         } else if !in_current_scope {
                             return Err(MutableCaptureLookupError::GlobalScope);
