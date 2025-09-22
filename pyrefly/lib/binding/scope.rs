@@ -232,6 +232,7 @@ impl Static {
         lookup: &dyn LookupExport,
         sys_info: &SysInfo,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
+        _scopes: Option<&Scopes>,
     ) {
         let mut d = Definitions::new(
             x,
@@ -834,17 +835,31 @@ impl Scopes {
         sys_info: &SysInfo,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) {
-        let current = self.current_mut();
-        current.stat.stmts(
-            x,
-            module_info,
-            top_level,
-            lookup,
-            sys_info,
-            get_annotation_idx,
-        );
-        // Presize the flow, as its likely to need as much space as static
-        current.flow.info.reserve(current.stat.0.capacity());
+        let mut initialize = |scope: &mut Scope, myself: Option<&Self>| {
+            scope.stat.stmts(
+                x,
+                module_info,
+                top_level,
+                lookup,
+                sys_info,
+                get_annotation_idx,
+                myself,
+            );
+            // Presize the flow, as its likely to need as much space as static
+            scope.flow.info.reserve(scope.stat.0.capacity());
+        };
+        if top_level {
+            // If we are in the top-level scope, all `global` / `nonlocal` directives fail, so we can
+            // pass `None` to `initialize`
+            let current = self.current_mut();
+            initialize(current, None);
+        } else {
+            // If we are in any other scope, we want to pass `self` to `initialize`. To satisfy
+            // the borrow checker, we pop the current scope first and then push it back after.
+            let mut current = self.pop();
+            initialize(&mut current, Some(self));
+            self.push(current);
+        }
     }
 
     pub fn push(&mut self, scope: Scope) {
