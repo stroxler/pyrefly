@@ -167,8 +167,8 @@ impl StaticStyle {
     ) -> Self {
         match (definition.count > 1, &definition.style) {
             (_, DefinitionStyle::Delete) => Self::Delete,
+            (_, DefinitionStyle::MutableCapture(kind)) => Self::MutableCapture(*kind, None),
             (true, _) => Self::Anywhere(definition.annotation().map(get_annotation_idx)),
-            (false, DefinitionStyle::MutableCapture(kind)) => Self::MutableCapture(*kind, None),
             (false, DefinitionStyle::Annotated(.., ann)) => {
                 Self::SingleDef(Some(get_annotation_idx(*ann)))
             }
