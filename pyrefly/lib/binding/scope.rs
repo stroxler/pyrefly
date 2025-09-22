@@ -1048,14 +1048,15 @@ impl Scopes {
         }
     }
 
-    pub fn add_to_current_static(
+    pub fn add_parameter_to_current_static(
         &mut self,
-        name: Name,
-        range: TextRange,
+        name: &Identifier,
         symbol_kind: SymbolKind,
         ann: Option<Idx<KeyAnnotation>>,
     ) {
-        self.current_mut().stat.add(name, range, symbol_kind, ann);
+        self.current_mut()
+            .stat
+            .add(name.id.clone(), name.range, symbol_kind, ann);
     }
 
     pub fn add_lvalue_to_current_static(&mut self, x: &Expr) {

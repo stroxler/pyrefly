@@ -1129,12 +1129,8 @@ impl<'a> BindingsBuilder<'a> {
                     QuantifiedKind::TypeVarTuple
                 }
             };
-            self.scopes.add_to_current_static(
-                name.id.clone(),
-                name.range,
-                SymbolKind::TypeParameter,
-                None,
-            );
+            self.scopes
+                .add_parameter_to_current_static(&name, SymbolKind::TypeParameter, None);
             self.bind_definition(
                 &name,
                 Binding::TypeParameter(Box::new(TypeParameter {
@@ -1172,7 +1168,7 @@ impl<'a> BindingsBuilder<'a> {
             Binding::LambdaParameter(var),
         );
         self.scopes
-            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Parameter, None);
+            .add_parameter_to_current_static(name, SymbolKind::Parameter, None);
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
@@ -1200,12 +1196,8 @@ impl<'a> BindingsBuilder<'a> {
                 ),
             }),
         );
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Parameter,
-            annot,
-        );
+        self.scopes
+            .add_parameter_to_current_static(name, SymbolKind::Parameter, annot);
         self.bind_name(&name.id, key, FlowStyle::Other);
     }
 }
@@ -1306,9 +1298,8 @@ impl LegacyTParamBuilder {
         for entry in self.legacy_tparams.values() {
             match entry {
                 Either::Left((LegacyTParamId::Name(name) | LegacyTParamId::Attr(name, _), idx)) => {
-                    builder.scopes.add_to_current_static(
-                        name.id.clone(),
-                        name.range,
+                    builder.scopes.add_parameter_to_current_static(
+                        name,
                         SymbolKind::TypeParameter,
                         None,
                     );
