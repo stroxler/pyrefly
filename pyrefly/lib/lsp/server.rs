@@ -178,6 +178,7 @@ use crate::lsp::module_helpers::make_open_handle;
 use crate::lsp::module_helpers::module_info_to_uri;
 use crate::lsp::module_helpers::to_lsp_location;
 use crate::lsp::module_helpers::to_real_path;
+use crate::lsp::queue::HeavyTaskQueue;
 use crate::lsp::queue::LspEvent;
 use crate::lsp::queue::LspQueue;
 use crate::lsp::transaction_manager::TransactionManager;
@@ -266,6 +267,8 @@ impl ServerConnection {
 pub struct Server {
     connection: ServerConnection,
     lsp_queue: LspQueue,
+    recheck_queue: HeavyTaskQueue,
+    find_reference_queue: HeavyTaskQueue,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
     workspace_indexing_limit: usize,
@@ -464,6 +467,14 @@ pub fn lsp_loop(
     std::thread::spawn(move || {
         dispatch_lsp_events(&connection_for_dispatcher, lsp_queue2);
     });
+    let recheck_queue = server.recheck_queue.dupe();
+    std::thread::spawn(move || {
+        recheck_queue.run_until_stopped();
+    });
+    let find_reference_queue = server.find_reference_queue.dupe();
+    std::thread::spawn(move || {
+        find_reference_queue.run_until_stopped();
+    });
     let mut ide_transaction_manager = TransactionManager::default();
     let mut canceled_requests = HashSet::new();
     while let Ok((subsequent_mutation, event)) = lsp_queue.recv() {
@@ -478,6 +489,8 @@ pub fn lsp_loop(
         }
     }
     eprintln!("waiting for connection to close");
+    server.recheck_queue.stop();
+    server.find_reference_queue.stop();
     drop(server); // close connection
     Ok(())
 }
@@ -881,6 +894,8 @@ impl Server {
         let s = Self {
             connection: ServerConnection(connection),
             lsp_queue,
+            recheck_queue: HeavyTaskQueue::new(),
+            find_reference_queue: HeavyTaskQueue::new(),
             initialize_params,
             indexing_mode,
             workspace_indexing_limit,
@@ -1054,9 +1069,9 @@ impl Server {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         let state = self.state.dupe();
                         let lsp_queue = self.lsp_queue.dupe();
-                        std::thread::spawn(move || {
+                        self.recheck_queue.queue_task(Box::new(move || {
                             Self::populate_all_project_files_in_config(config, state, lsp_queue);
-                        });
+                        }));
                     }
                 }
                 IndexingMode::LazyBlocking => {
@@ -1091,14 +1106,14 @@ impl Server {
                 drop(indexed_workspaces);
                 let state = self.state.dupe();
                 let lsp_queue = self.lsp_queue.dupe();
-                std::thread::spawn(move || {
+                self.recheck_queue.queue_task(Box::new(move || {
                     Self::populate_all_workspaces_files(
                         roots_to_populate_files,
                         state,
                         workspace_indexing_limit,
                         lsp_queue,
                     );
-                });
+                }));
             }
             IndexingMode::LazyBlocking => {
                 indexed_workspaces.extend(roots_to_populate_files.iter().cloned());
@@ -1115,12 +1130,12 @@ impl Server {
 
     /// Perform an invalidation of elements on `State` and commit them.
     /// Runs asynchronously. Returns immediately and may wait a while for a committable transaction.
-    fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + 'static) {
+    fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + Sync + 'static) {
         let state = self.state.dupe();
         let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
         let open_files = self.open_files.dupe();
-        std::thread::spawn(move || {
+        self.recheck_queue.queue_task(Box::new(move || {
             let mut transaction = state.new_committable_transaction(Require::Indexing, None);
             f(transaction.as_mut());
 
@@ -1138,7 +1153,7 @@ impl Server {
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
-        });
+        }));
     }
 
     /// Certain IDE features (e.g. find-references) require us to know the dependency graph of the
@@ -1301,7 +1316,7 @@ impl Server {
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         let state = self.state.dupe();
         let open_files = self.open_files.dupe();
-        std::thread::spawn(move || {
+        self.recheck_queue.queue_task(Box::new(move || {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
@@ -1309,7 +1324,7 @@ impl Server {
             transaction.as_mut().set_memory(vec![(uri, None)]);
             Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             state.commit_transaction(transaction);
-        });
+        }));
     }
 
     fn workspace_folders_changed(&self, params: DidChangeWorkspaceFoldersParams) {
@@ -1543,7 +1558,7 @@ impl Server {
         ide_transaction_manager: &mut TransactionManager<'a>,
         uri: &Url,
         position: Position,
-        map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + 'static,
+        map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + Sync + 'static,
     ) {
         let Some(handle) = self.make_handle_if_enabled(uri) else {
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
@@ -1581,7 +1596,7 @@ impl Server {
         let cancellation_handles = self.cancellation_handles.dupe();
 
         let connection = self.connection.dupe();
-        std::thread::spawn(move || {
+        self.find_reference_queue.queue_task(Box::new(move || {
             let mut transaction = state.cancellable_transaction();
             cancellation_handles
                 .lock()
@@ -1618,7 +1633,7 @@ impl Server {
                     )))
                 }
             }
-        });
+        }));
     }
 
     fn references<'a>(
