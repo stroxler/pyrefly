@@ -102,6 +102,16 @@ def f():
 );
 
 testcase!(
+    test_nonlocal_simple,
+    r#"
+def f(x: int) -> None:
+    def g():
+        nonlocal x
+        x = 1
+"#,
+);
+
+testcase!(
     test_global_ref_before_def,
     r#"
 def f():
@@ -112,10 +122,73 @@ x: str = ""
 );
 
 testcase!(
+    test_nonlocal_ref_before_def,
+    r#"
+def f(x: int) -> None:
+    def g():
+        nonlocal x
+        x = 1
+"#,
+);
+
+testcase!(
     test_global_not_found,
     r#"
 x: str = ""
 global a  # E: Could not find name `a`
+"#,
+);
+
+testcase!(
+    test_nonlocal_not_found,
+    r#"
+def f() -> None:
+    def g() -> None:
+        nonlocal a
+        a = "foo"
+    a: str = ""
+"#,
+);
+
+testcase!(
+    test_global_can_see_past_enclosing_scopes,
+    r#"
+from typing import assert_type
+x: str = ""
+def outer():
+    x: int = 5
+    def f():
+        global x
+        assert_type(x, str)
+"#,
+);
+
+testcase!(
+    test_nonlocal_finds_global,
+    r#"
+from typing import reveal_type
+x: str = ""
+def f() -> None:
+    nonlocal x  # E: Found `x`, but it is coming from the global scope
+def outer():
+    x: int = 5
+    def middle():
+        global x
+        reveal_type(x)  # E: revealed type: str
+        def inner():
+            nonlocal x  # E: Found `x`, but it is coming from the global scope
+            reveal_type(x)  # E: revealed type: Unknown
+"#,
+);
+
+testcase!(
+    test_global_reference_in_nested_function,
+    r#"
+x: str = ""
+def f() -> None:
+    global x
+    def g() -> str:
+        return x
 "#,
 );
 
@@ -183,19 +256,6 @@ def f() -> None:
 );
 
 testcase!(
-    test_global_can_see_past_enclosing_scopes,
-    r#"
-from typing import assert_type
-x: str = ""
-def outer():
-    x: int = 5
-    def f():
-        global x
-        assert_type(x, str)
-"#,
-);
-
-testcase!(
     bug = "We currently never complain on aug assign, but when we fix it we need to be careful about type changes",
     test_global_aug_assign_incompatible_type,
     r#"
@@ -219,48 +279,6 @@ def f():
 f()
 # This shows what would go wrong if we allow the aug assign on `c2`
 assert_type(c2, C)
-"#,
-);
-
-testcase!(
-    test_global_reference_in_nested_function,
-    r#"
-x: str = ""
-def f() -> None:
-    global x
-    def g() -> str:
-        return x
-"#,
-);
-
-testcase!(
-    test_nonlocal_simple,
-    r#"
-def f(x: int) -> None:
-    def g():
-        nonlocal x
-        x = 1
-"#,
-);
-
-testcase!(
-    test_nonlocal_ref_before_def,
-    r#"
-def f(x: int) -> None:
-    def g():
-        nonlocal x
-        x = 1
-"#,
-);
-
-testcase!(
-    test_nonlocal_not_found,
-    r#"
-def f() -> None:
-    def g() -> None:
-        nonlocal a
-        a = "foo"
-    a: str = ""
 "#,
 );
 
@@ -332,24 +350,6 @@ def f() -> None:
     def g() -> None:
         nonlocal a
         a: int = 1  # E: `a` cannot be annotated with `int`, it is already defined with type `str`
-"#,
-);
-
-testcase!(
-    test_nonlocal_finds_global,
-    r#"
-from typing import reveal_type
-x: str = ""
-def f() -> None:
-    nonlocal x  # E: Found `x`, but it is coming from the global scope
-def outer():
-    x: int = 5
-    def middle():
-        global x
-        reveal_type(x)  # E: revealed type: str
-        def inner():
-            nonlocal x  # E: Found `x`, but it is coming from the global scope
-            reveal_type(x)  # E: revealed type: Unknown
 "#,
 );
 
