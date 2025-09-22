@@ -52,6 +52,7 @@ use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::IsInitialized;
+use crate::binding::bindings::MutableCaptureLookupError;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::Definition;
 use crate::export::definitions::DefinitionStyle;
@@ -150,35 +151,72 @@ pub enum StaticStyle {
 
 /// Information about a mutable capture.
 ///
-/// My annotation, if any, comes from the parent scope.
+/// We track:
+/// - The kind of the mutable capture
+/// - The original definition, if any was found, otherwise an error from searching
 ///
 /// TODO(stroxler): At the moment, if any actual assignments occur we will
 /// get `Multiple` and the annotation will instead come from local code.
 #[derive(Clone, Debug)]
 pub struct MutableCapture {
     kind: MutableCaptureKind,
-    ann: Option<Idx<KeyAnnotation>>,
+    original: Result<Box<StaticInfo>, MutableCaptureLookupError>,
+}
+
+impl MutableCapture {
+    fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
+        match &self.original {
+            Result::Ok(static_info) => static_info.annotation(),
+            Result::Err(_) => None,
+        }
+    }
+
+    fn key_or_error(
+        &self,
+        name: &Name,
+        kind: MutableCaptureKind,
+    ) -> Result<Key, MutableCaptureLookupError> {
+        match &self.original {
+            Result::Ok(static_info) => {
+                if self.kind == kind {
+                    Ok(static_info.as_key(name))
+                } else {
+                    // TODO(stroxler): this error isn't quite right but preserves existing behavior
+                    Err(MutableCaptureLookupError::AssignedBeforeNonlocal)
+                }
+            }
+            Result::Err(e) => Err(e.clone()),
+        }
+    }
 }
 
 impl StaticStyle {
     pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
         match self {
-            Self::MutableCapture(capture) => capture.ann,
+            Self::MutableCapture(capture) => capture.annotation(),
             Self::Anywhere(ann) | Self::SingleDef(ann) => *ann,
             Self::Delete | Self::ImplicitGlobal | Self::MergeableImport => None,
         }
     }
 
     fn of_definition(
+        name: Hashed<&Name>,
         definition: Definition,
+        scopes: Option<&Scopes>,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) -> Self {
         match (definition.count > 1, &definition.style) {
             (_, DefinitionStyle::Delete) => Self::Delete,
-            (_, DefinitionStyle::MutableCapture(kind)) => Self::MutableCapture(MutableCapture {
-                kind: *kind,
-                ann: None,
-            }),
+            (_, DefinitionStyle::MutableCapture(kind)) => {
+                let original = scopes
+                    .map_or(Result::Err(MutableCaptureLookupError::NotFound), |scopes| {
+                        scopes.look_up_name_for_mutable_capture(name, *kind)
+                    });
+                Self::MutableCapture(MutableCapture {
+                    kind: *kind,
+                    original,
+                })
+            }
             (true, _) => Self::Anywhere(definition.annotation().map(get_annotation_idx)),
             (false, DefinitionStyle::Annotated(.., ann)) => {
                 Self::SingleDef(Some(get_annotation_idx(*ann)))
@@ -243,7 +281,7 @@ impl Static {
         lookup: &dyn LookupExport,
         sys_info: &SysInfo,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
-        _scopes: Option<&Scopes>,
+        scopes: Option<&Scopes>,
     ) {
         let mut d = Definitions::new(
             x,
@@ -273,11 +311,10 @@ impl Static {
         for (name, definition) in d.definitions.into_iter_hashed() {
             // Note that this really is an upsert: there might already be a parameter of the
             // same name in this scope.
-            self.upsert(
-                name,
-                definition.range,
-                StaticStyle::of_definition(definition, get_annotation_idx),
-            );
+            let range = definition.range;
+            let style =
+                StaticStyle::of_definition(name.as_ref(), definition, scopes, get_annotation_idx);
+            self.upsert(name, range, style);
         }
         for (range, wildcard) in wildcards {
             for name in wildcard.iter_hashed() {
@@ -1275,27 +1312,6 @@ impl Scopes {
         }
     }
 
-    /// Insert an annotation pulled from some ancestor scope for a name
-    /// defined by a `global` or `nonlocal` declaration.
-    pub fn set_annotation_for_mutable_capture(
-        &mut self,
-        name: Hashed<&Name>,
-        ann: Option<Idx<KeyAnnotation>>,
-    ) {
-        if ann.is_some()
-            && let Some(current_scope_info) = self.current_mut().stat.0.get_mut_hashed(name)
-        {
-            let updated_style = match &current_scope_info.style {
-                StaticStyle::Anywhere(..) => StaticStyle::Anywhere(ann),
-                StaticStyle::MutableCapture(MutableCapture { kind, .. }) => {
-                    StaticStyle::MutableCapture(MutableCapture { kind: *kind, ann })
-                }
-                _ => panic!("Expected a mutable capture or multiple static info for {name:?}"),
-            };
-            current_scope_info.style = updated_style;
-        }
-    }
-
     /// Finish traversing a class body: pop both the class body scope and the annotation scope
     /// that wraps it, and extract the class field definitions.
     ///
@@ -1455,6 +1471,80 @@ impl Scopes {
             } else {
                 None
             },
+        }
+    }
+
+    /// Look up a name for a mutable capture during initialization of static scope.
+    ///
+    /// Returns either a `StaticInfo` that we found, or an error indicating why we
+    /// failed to find a match.
+    fn look_up_name_for_mutable_capture(
+        &self,
+        name: Hashed<&Name>,
+        kind: MutableCaptureKind,
+    ) -> Result<Box<StaticInfo>, MutableCaptureLookupError> {
+        let found = match kind {
+            MutableCaptureKind::Global => self
+                .scopes
+                .first()
+                .scope
+                .stat
+                .0
+                .get_hashed(name)
+                .map(|static_info| Result::Ok(Box::new(static_info.clone()))),
+            MutableCaptureKind::Nonlocal => self.iter_rev().find_map(|scope| {
+                if matches!(scope.kind, ScopeKind::Class(..)) {
+                    None
+                } else {
+                    scope
+                        .stat
+                        .0
+                        .get_hashed(name)
+                        .map(|static_info| match &static_info.style {
+                            // If the enclosing name is a capture, look through it and also catch
+                            // any mismatches between `nonlocal` and `global`.
+                            StaticStyle::MutableCapture(MutableCapture {
+                                kind, original, ..
+                            }) => match kind {
+                                MutableCaptureKind::Nonlocal => original.clone(),
+                                MutableCaptureKind::Global => {
+                                    Result::Err(MutableCaptureLookupError::NonlocalScope)
+                                }
+                            },
+                            // Otherwise, the enclosing name *is* the original, but we need
+                            // to check whether we fell all the way back to the global scope.
+                            _ => match scope.kind {
+                                ScopeKind::Module => {
+                                    Result::Err(MutableCaptureLookupError::NonlocalScope)
+                                }
+                                _ => Result::Ok(Box::new(static_info.clone())),
+                            },
+                        })
+                }
+            }),
+        };
+        found.unwrap_or(Result::Err(MutableCaptureLookupError::NotFound))
+    }
+
+    pub fn validate_mutable_capture_and_get_key(
+        &self,
+        name: Hashed<&Name>,
+        kind: MutableCaptureKind,
+    ) -> Result<Key, MutableCaptureLookupError> {
+        if self.current().flow.info.get_hashed(name).is_some() {
+            return match kind {
+                MutableCaptureKind::Global => Err(MutableCaptureLookupError::AssignedBeforeGlobal),
+                MutableCaptureKind::Nonlocal => {
+                    Err(MutableCaptureLookupError::AssignedBeforeNonlocal)
+                }
+            };
+        }
+        match self.current().stat.0.get_hashed(name) {
+            Some(StaticInfo {
+                style: StaticStyle::MutableCapture(capture),
+                ..
+            }) => capture.key_or_error(name.into_key(), kind),
+            Some(_) | None => Err(MutableCaptureLookupError::NotFound),
         }
     }
 }

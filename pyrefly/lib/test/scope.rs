@@ -183,7 +183,6 @@ def f() -> None:
 );
 
 testcase!(
-    bug = "We fail to add x to the global scope so that it's visible from `outer`",
     test_global_can_see_past_enclosing_scopes,
     r#"
 from typing import assert_type
@@ -191,9 +190,8 @@ x: str = ""
 def outer():
     x: int = 5
     def f():
-        # This works fine in Python, `x` is the global `x`, not the one from `outer`.
-        global x # E: Found `x`, but it was not the global scope
-        assert_type(x, str)  # E: assert_type(Any, str)
+        global x
+        assert_type(x, str)
 "#,
 );
 
@@ -338,7 +336,6 @@ def f() -> None:
 );
 
 testcase!(
-    bug = "We handle the case of a nonlocal finding a nested global declaration incorrectly",
     test_nonlocal_finds_global,
     r#"
 from typing import reveal_type
@@ -348,13 +345,10 @@ def f() -> None:
 def outer():
     x: int = 5
     def middle():
-        # This error is incorrect, the `global x` is legal.
-        global x  # E: Found `x`, but it was not the global scope
-        reveal_type(x)  # E: revealed type: Unknown
+        global x
+        reveal_type(x)  # E: revealed type: str
         def inner():
-            # This should be an error - the `nonlocal` finds the `x` immediately
-            # above it, but that `x` is actually global. The runtime gives a compile error.
-            nonlocal x
+            nonlocal x  # E: Found `x`, but it was not in a valid enclosing scope
             reveal_type(x)  # E: revealed type: Unknown
 "#,
 );

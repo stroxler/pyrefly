@@ -60,7 +60,6 @@ use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::NameReadInfo;
-use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
 use crate::binding::table::TableKeyed;
@@ -455,6 +454,7 @@ impl BindingTable {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum MutableCaptureLookupError {
     /// We can't find the name at all
     NotFound,
@@ -462,8 +462,6 @@ pub enum MutableCaptureLookupError {
     NonlocalScope,
     /// This variable was assigned before the nonlocal declaration
     AssignedBeforeNonlocal,
-    /// We expected the name to be in the global scope, but it's not
-    GlobalScope,
     /// This variable was assigned before the global declaration
     AssignedBeforeGlobal,
 }
@@ -479,9 +477,6 @@ impl MutableCaptureLookupError {
                 format!(
                     "`{name}` was assigned in the current scope before the nonlocal declaration"
                 )
-            }
-            Self::GlobalScope => {
-                format!("Found `{name}`, but it was not the global scope")
             }
             Self::AssignedBeforeGlobal => {
                 format!("`{name}` was assigned in the current scope before the global declaration")
@@ -727,75 +722,10 @@ impl<'a> BindingsBuilder<'a> {
         name: &Name,
         kind: MutableCaptureKind,
     ) -> Result<Idx<Key>, MutableCaptureLookupError> {
-        let name = Hashed::new(name);
-        let mut barrier = false;
-        let allow_nonlocal_reference = kind == MutableCaptureKind::Nonlocal;
-        let allow_global_reference = kind == MutableCaptureKind::Global;
-        let mut result = Err(MutableCaptureLookupError::NotFound);
-        // If there is static info for the name in the current scope and this value is not None
-        // set the `annot` field to this value
-        let mut static_annot_override = None;
-        for (idx, scope) in self.scopes.iter_rev().enumerate() {
-            let in_current_scope = idx == 0;
-            let valid_nonlocal_reference = allow_nonlocal_reference
-                && !in_current_scope
-                && !matches!(scope.kind, ScopeKind::Module | ScopeKind::Class(_));
-            let valid_global_reference = allow_global_reference
-                && !in_current_scope
-                && matches!(scope.kind, ScopeKind::Module);
-            if scope.flow.info.get_hashed(name).is_some() {
-                match kind {
-                    MutableCaptureKind::Nonlocal => {
-                        if in_current_scope {
-                            // If there's a flow type for the name in the current scope
-                            // it must have been assigned before
-                            return Err(MutableCaptureLookupError::AssignedBeforeNonlocal);
-                        }
-                    }
-                    MutableCaptureKind::Global => {
-                        if in_current_scope {
-                            // If there's a flow type for the name in the current scope
-                            // it must have been assigned before
-                            return Err(MutableCaptureLookupError::AssignedBeforeGlobal);
-                        }
-                    }
-                }
-            }
-            if !matches!(scope.kind, ScopeKind::Class(_))
-                && let Some(info) = scope.stat.0.get_hashed(name)
-            {
-                match kind {
-                    MutableCaptureKind::Nonlocal => {
-                        if valid_nonlocal_reference {
-                            let key = info.as_key(name.into_key());
-                            result = Ok(self.table.types.0.insert(key));
-                            // We can't return immediately, because we need to override
-                            // the static annotation in the current scope with the one we found
-                            static_annot_override = info.annotation();
-                            break;
-                        } else if !in_current_scope {
-                            return Err(MutableCaptureLookupError::NonlocalScope);
-                        }
-                    }
-                    MutableCaptureKind::Global => {
-                        if valid_global_reference {
-                            let key = info.as_key(name.into_key());
-                            result = Ok(self.table.types.0.insert(key));
-                            // We can't return immediately, because we need to override
-                            // the static annotation in the current scope with the one we found
-                            static_annot_override = info.annotation();
-                            break;
-                        } else if !in_current_scope {
-                            return Err(MutableCaptureLookupError::GlobalScope);
-                        }
-                    }
-                }
-            }
-            barrier = barrier || scope.barrier;
-        }
-        self.scopes
-            .set_annotation_for_mutable_capture(name, static_annot_override);
-        result
+        let result = self
+            .scopes
+            .validate_mutable_capture_and_get_key(Hashed::new(name), kind);
+        result.map(|key| self.table.types.0.insert(key))
     }
 
     pub fn lookup_name(

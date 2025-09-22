@@ -5981,26 +5981,6 @@
       "name": "not-a-type",
       "stop_column": 18,
       "stop_line": 44
-    },
-    {
-      "code": -2,
-      "column": 20,
-      "concise_description": "Found `S`, but it was not the global scope",
-      "description": "Found `S`, but it was not the global scope",
-      "line": 66,
-      "name": "unknown-name",
-      "stop_column": 21,
-      "stop_line": 66
-    },
-    {
-      "code": -2,
-      "column": 24,
-      "concise_description": "assert_type(Any, int) failed",
-      "description": "assert_type(Any, int) failed",
-      "line": 67,
-      "name": "assert-type",
-      "stop_column": 32,
-      "stop_line": 67
     }
   ],
   "generics_type_erasure.py": [
