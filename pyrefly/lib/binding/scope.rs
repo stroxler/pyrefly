@@ -287,6 +287,17 @@ impl StaticInfo {
             StaticStyle::SingleDef(..) => Key::Definition(short_identifier()),
         }
     }
+
+    fn as_name_write_info(&self) -> NameWriteInfo {
+        NameWriteInfo {
+            annotation: self.annotation(),
+            anywhere_range: if matches!(self.style, StaticStyle::Anywhere(..)) {
+                Some(self.range)
+            } else {
+                None
+            },
+        }
+    }
 }
 
 impl Static {
@@ -1494,14 +1505,7 @@ impl Scopes {
             let module = module_info.name();
             panic!("Name `{name}` not found in static scope of module `{module}`")
         });
-        NameWriteInfo {
-            annotation: static_info.annotation(),
-            anywhere_range: if matches!(static_info.style, StaticStyle::Anywhere(..)) {
-                Some(static_info.range)
-            } else {
-                None
-            },
-        }
+        static_info.as_name_write_info()
     }
 
     /// Look up a name for a mutable capture during initialization of static scope.
