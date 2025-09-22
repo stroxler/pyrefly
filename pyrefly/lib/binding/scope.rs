@@ -137,12 +137,7 @@ pub enum StaticStyle {
     /// If I have annotations, this is the first one.
     Anywhere(Option<Idx<KeyAnnotation>>),
     /// I am a mutable capture of a name defined in some enclosing scope.
-    ///
-    /// My annotation, if any, comes from the parent scope.
-    ///
-    /// TODO(stroxler): At the moment, if any actual assignments occur we will
-    /// get `Multiple` and the annotation will instead come from local code.
-    MutableCapture(MutableCaptureKind, Option<Idx<KeyAnnotation>>),
+    MutableCapture(MutableCapture),
     /// I have a single definition, possibly annotated.
     SingleDef(Option<Idx<KeyAnnotation>>),
     /// I am an ImplicitGlobal definition.
@@ -153,10 +148,23 @@ pub enum StaticStyle {
     MergeableImport,
 }
 
+/// Information about a mutable capture.
+///
+/// My annotation, if any, comes from the parent scope.
+///
+/// TODO(stroxler): At the moment, if any actual assignments occur we will
+/// get `Multiple` and the annotation will instead come from local code.
+#[derive(Clone, Debug)]
+pub struct MutableCapture {
+    kind: MutableCaptureKind,
+    ann: Option<Idx<KeyAnnotation>>,
+}
+
 impl StaticStyle {
     pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
         match self {
-            Self::Anywhere(ann) | Self::SingleDef(ann) | Self::MutableCapture(_, ann) => *ann,
+            Self::MutableCapture(capture) => capture.ann,
+            Self::Anywhere(ann) | Self::SingleDef(ann) => *ann,
             Self::Delete | Self::ImplicitGlobal | Self::MergeableImport => None,
         }
     }
@@ -167,7 +175,10 @@ impl StaticStyle {
     ) -> Self {
         match (definition.count > 1, &definition.style) {
             (_, DefinitionStyle::Delete) => Self::Delete,
-            (_, DefinitionStyle::MutableCapture(kind)) => Self::MutableCapture(*kind, None),
+            (_, DefinitionStyle::MutableCapture(kind)) => Self::MutableCapture(MutableCapture {
+                kind: *kind,
+                ann: None,
+            }),
             (true, _) => Self::Anywhere(definition.annotation().map(get_annotation_idx)),
             (false, DefinitionStyle::Annotated(.., ann)) => {
                 Self::SingleDef(Some(get_annotation_idx(*ann)))
@@ -1276,7 +1287,9 @@ impl Scopes {
         {
             let updated_style = match &current_scope_info.style {
                 StaticStyle::Anywhere(..) => StaticStyle::Anywhere(ann),
-                StaticStyle::MutableCapture(kind, _) => StaticStyle::MutableCapture(*kind, ann),
+                StaticStyle::MutableCapture(MutableCapture { kind, .. }) => {
+                    StaticStyle::MutableCapture(MutableCapture { kind: *kind, ann })
+                }
                 _ => panic!("Expected a mutable capture or multiple static info for {name:?}"),
             };
             current_scope_info.style = updated_style;
