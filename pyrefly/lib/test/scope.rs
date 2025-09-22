@@ -341,14 +341,14 @@ testcase!(
 from typing import reveal_type
 x: str = ""
 def f() -> None:
-    nonlocal x  # E: Found `x`, but it was not in a valid enclosing scope
+    nonlocal x  # E: Found `x`, but it is coming from the global scope
 def outer():
     x: int = 5
     def middle():
         global x
         reveal_type(x)  # E: revealed type: str
         def inner():
-            nonlocal x  # E: Found `x`, but it was not in a valid enclosing scope
+            nonlocal x  # E: Found `x`, but it is coming from the global scope
             reveal_type(x)  # E: revealed type: Unknown
 "#,
 );

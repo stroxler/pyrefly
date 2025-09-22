@@ -455,7 +455,7 @@ impl BindingTable {
 }
 
 #[derive(Clone, Debug)]
-pub enum MutableCaptureLookupError {
+pub enum MutableCaptureError {
     /// We can't find the name at all
     NotFound,
     /// We expected the name to be in an enclosing, non-global scope, but it's not
@@ -466,12 +466,12 @@ pub enum MutableCaptureLookupError {
     AssignedBeforeGlobal,
 }
 
-impl MutableCaptureLookupError {
+impl MutableCaptureError {
     pub fn message(&self, name: &Identifier) -> String {
         match self {
             Self::NotFound => format!("Could not find name `{name}`"),
             Self::NonlocalScope => {
-                format!("Found `{name}`, but it was not in a valid enclosing scope")
+                format!("Found `{name}`, but it is coming from the global scope")
             }
             Self::AssignedBeforeNonlocal => {
                 format!(

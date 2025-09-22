@@ -52,7 +52,7 @@ use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::IsInitialized;
-use crate::binding::bindings::MutableCaptureLookupError;
+use crate::binding::bindings::MutableCaptureError;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::Definition;
 use crate::export::definitions::DefinitionStyle;
@@ -160,7 +160,7 @@ pub enum StaticStyle {
 #[derive(Clone, Debug)]
 pub struct MutableCapture {
     kind: MutableCaptureKind,
-    original: Result<Box<StaticInfo>, MutableCaptureLookupError>,
+    original: Result<Box<StaticInfo>, MutableCaptureError>,
 }
 
 impl MutableCapture {
@@ -175,14 +175,14 @@ impl MutableCapture {
         &self,
         name: &Name,
         kind: MutableCaptureKind,
-    ) -> Result<Key, MutableCaptureLookupError> {
+    ) -> Result<Key, MutableCaptureError> {
         match &self.original {
             Result::Ok(static_info) => {
                 if self.kind == kind {
                     Ok(static_info.as_key(name))
                 } else {
                     // TODO(stroxler): this error isn't quite right but preserves existing behavior
-                    Err(MutableCaptureLookupError::AssignedBeforeNonlocal)
+                    Err(MutableCaptureError::AssignedBeforeNonlocal)
                 }
             }
             Result::Err(e) => Err(e.clone()),
@@ -209,7 +209,7 @@ impl StaticStyle {
             (_, DefinitionStyle::Delete) => Self::Delete,
             (_, DefinitionStyle::MutableCapture(kind)) => {
                 let original = scopes
-                    .map_or(Result::Err(MutableCaptureLookupError::NotFound), |scopes| {
+                    .map_or(Result::Err(MutableCaptureError::NotFound), |scopes| {
                         scopes.look_up_name_for_mutable_capture(name, *kind)
                     });
                 Self::MutableCapture(MutableCapture {
@@ -1482,7 +1482,7 @@ impl Scopes {
         &self,
         name: Hashed<&Name>,
         kind: MutableCaptureKind,
-    ) -> Result<Box<StaticInfo>, MutableCaptureLookupError> {
+    ) -> Result<Box<StaticInfo>, MutableCaptureError> {
         let found = match kind {
             MutableCaptureKind::Global => self
                 .scopes
@@ -1508,14 +1508,14 @@ impl Scopes {
                             }) => match kind {
                                 MutableCaptureKind::Nonlocal => original.clone(),
                                 MutableCaptureKind::Global => {
-                                    Result::Err(MutableCaptureLookupError::NonlocalScope)
+                                    Result::Err(MutableCaptureError::NonlocalScope)
                                 }
                             },
                             // Otherwise, the enclosing name *is* the original, but we need
                             // to check whether we fell all the way back to the global scope.
                             _ => match scope.kind {
                                 ScopeKind::Module => {
-                                    Result::Err(MutableCaptureLookupError::NonlocalScope)
+                                    Result::Err(MutableCaptureError::NonlocalScope)
                                 }
                                 _ => Result::Ok(Box::new(static_info.clone())),
                             },
@@ -1523,20 +1523,18 @@ impl Scopes {
                 }
             }),
         };
-        found.unwrap_or(Result::Err(MutableCaptureLookupError::NotFound))
+        found.unwrap_or(Result::Err(MutableCaptureError::NotFound))
     }
 
     pub fn validate_mutable_capture_and_get_key(
         &self,
         name: Hashed<&Name>,
         kind: MutableCaptureKind,
-    ) -> Result<Key, MutableCaptureLookupError> {
+    ) -> Result<Key, MutableCaptureError> {
         if self.current().flow.info.get_hashed(name).is_some() {
             return match kind {
-                MutableCaptureKind::Global => Err(MutableCaptureLookupError::AssignedBeforeGlobal),
-                MutableCaptureKind::Nonlocal => {
-                    Err(MutableCaptureLookupError::AssignedBeforeNonlocal)
-                }
+                MutableCaptureKind::Global => Err(MutableCaptureError::AssignedBeforeGlobal),
+                MutableCaptureKind::Nonlocal => Err(MutableCaptureError::AssignedBeforeNonlocal),
             };
         }
         match self.current().stat.0.get_hashed(name) {
@@ -1544,7 +1542,7 @@ impl Scopes {
                 style: StaticStyle::MutableCapture(capture),
                 ..
             }) => capture.key_or_error(name.into_key(), kind),
-            Some(_) | None => Err(MutableCaptureLookupError::NotFound),
+            Some(_) | None => Err(MutableCaptureError::NotFound),
         }
     }
 }
