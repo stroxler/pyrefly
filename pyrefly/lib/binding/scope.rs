@@ -52,7 +52,6 @@ use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::IsInitialized;
-use crate::binding::bindings::MutableCaptureError;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::Definition;
 use crate::export::definitions::DefinitionStyle;
@@ -103,6 +102,37 @@ pub struct NameWriteInfo {
     /// If this name only has one assignment, we will skip the `Anywhere` as
     /// an optimization, and this field will be `None`.
     pub anywhere_range: Option<TextRange>,
+}
+
+#[derive(Clone, Debug)]
+pub enum MutableCaptureError {
+    /// We can't find the name at all
+    NotFound,
+    /// We expected the name to be in an enclosing, non-global scope, but it's not
+    NonlocalScope,
+    /// This variable was assigned before the nonlocal declaration
+    AssignedBeforeNonlocal,
+    /// This variable was assigned before the global declaration
+    AssignedBeforeGlobal,
+}
+
+impl MutableCaptureError {
+    pub fn message(&self, name: &Identifier) -> String {
+        match self {
+            Self::NotFound => format!("Could not find name `{name}`"),
+            Self::NonlocalScope => {
+                format!("Found `{name}`, but it is coming from the global scope")
+            }
+            Self::AssignedBeforeNonlocal => {
+                format!(
+                    "`{name}` was assigned in the current scope before the nonlocal declaration"
+                )
+            }
+            Self::AssignedBeforeGlobal => {
+                format!("`{name}` was assigned in the current scope before the global declaration")
+            }
+        }
+    }
 }
 
 /// A name defined in a module, which needs to be convertable to an export.

@@ -454,37 +454,6 @@ impl BindingTable {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum MutableCaptureError {
-    /// We can't find the name at all
-    NotFound,
-    /// We expected the name to be in an enclosing, non-global scope, but it's not
-    NonlocalScope,
-    /// This variable was assigned before the nonlocal declaration
-    AssignedBeforeNonlocal,
-    /// This variable was assigned before the global declaration
-    AssignedBeforeGlobal,
-}
-
-impl MutableCaptureError {
-    pub fn message(&self, name: &Identifier) -> String {
-        match self {
-            Self::NotFound => format!("Could not find name `{name}`"),
-            Self::NonlocalScope => {
-                format!("Found `{name}`, but it is coming from the global scope")
-            }
-            Self::AssignedBeforeNonlocal => {
-                format!(
-                    "`{name}` was assigned in the current scope before the nonlocal declaration"
-                )
-            }
-            Self::AssignedBeforeGlobal => {
-                format!("`{name}` was assigned in the current scope before the global declaration")
-            }
-        }
-    }
-}
-
 /// An abstraction representing the `Idx<Key>` for a binding that we
 /// are currently constructing, which can be used as a factory to create
 /// usage values for `ensure_expr`.
