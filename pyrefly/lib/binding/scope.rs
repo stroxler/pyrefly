@@ -14,7 +14,6 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
@@ -1083,7 +1082,6 @@ impl Scopes {
     pub fn add_parameter_to_current_static(
         &mut self,
         name: &Identifier,
-        _symbol_kind: SymbolKind,
         ann: Option<Idx<KeyAnnotation>>,
     ) {
         self.current_mut().stat.upsert(

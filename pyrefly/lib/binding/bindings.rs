@@ -16,7 +16,6 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::types::Type;
 use pyrefly_util::display::DisplayWithCtx;
@@ -1129,8 +1128,7 @@ impl<'a> BindingsBuilder<'a> {
                     QuantifiedKind::TypeVarTuple
                 }
             };
-            self.scopes
-                .add_parameter_to_current_static(&name, SymbolKind::TypeParameter, None);
+            self.scopes.add_parameter_to_current_static(&name, None);
             self.bind_definition(
                 &name,
                 Binding::TypeParameter(Box::new(TypeParameter {
@@ -1167,8 +1165,7 @@ impl<'a> BindingsBuilder<'a> {
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
         );
-        self.scopes
-            .add_parameter_to_current_static(name, SymbolKind::Parameter, None);
+        self.scopes.add_parameter_to_current_static(name, None);
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
@@ -1196,8 +1193,7 @@ impl<'a> BindingsBuilder<'a> {
                 ),
             }),
         );
-        self.scopes
-            .add_parameter_to_current_static(name, SymbolKind::Parameter, annot);
+        self.scopes.add_parameter_to_current_static(name, annot);
         self.bind_name(&name.id, key, FlowStyle::Other);
     }
 }
@@ -1298,11 +1294,7 @@ impl LegacyTParamBuilder {
         for entry in self.legacy_tparams.values() {
             match entry {
                 Either::Left((LegacyTParamId::Name(name) | LegacyTParamId::Attr(name, _), idx)) => {
-                    builder.scopes.add_parameter_to_current_static(
-                        name,
-                        SymbolKind::TypeParameter,
-                        None,
-                    );
+                    builder.scopes.add_parameter_to_current_static(name, None);
                     builder.bind_definition(
                         name,
                         // Note: we use None as the range here because the range is
