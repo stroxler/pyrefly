@@ -701,9 +701,13 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureKind) {
-        let key = Key::MutableCapture(ShortIdentifier::new(name));
-        let binding = match self.lookup_mutable_capture(&name.id, kind) {
-            Ok(found) => Binding::Forward(found),
+        // Record any errors finding the identity of the mutable capture, and get a binding
+        // that provides the type coming from the parent scope.
+        let binding = match self
+            .scopes
+            .validate_mutable_capture_and_get_key(Hashed::new(&name.id), kind)
+        {
+            Ok(key) => Binding::Forward(self.table.types.0.insert(key)),
             Err(error) => {
                 self.error(
                     name.range,
@@ -713,19 +717,9 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Type(Type::any_error())
             }
         };
-        let idx = self.insert_binding(key, binding);
+        // Insert that type into the current flow.
+        let idx = self.insert_binding(Key::MutableCapture(ShortIdentifier::new(name)), binding);
         self.bind_name(&name.id, idx, FlowStyle::Other);
-    }
-
-    fn lookup_mutable_capture(
-        &mut self,
-        name: &Name,
-        kind: MutableCaptureKind,
-    ) -> Result<Idx<Key>, MutableCaptureLookupError> {
-        let result = self
-            .scopes
-            .validate_mutable_capture_and_get_key(Hashed::new(name), kind);
-        result.map(|key| self.table.types.0.insert(key))
     }
 
     pub fn lookup_name(
