@@ -193,97 +193,7 @@ def f() -> None:
 );
 
 testcase!(
-    test_global_assign_before_def,
-    r#"
-x: str = ""
-global x  # E: `x` was assigned in the current scope before the global declaration
-"#,
-);
-
-// Note: the root cause of behavior in this test is that if there is no assignment, we ignore the
-// mutable capture entirely (leading to an error saying the mutation is invalid), whereas
-// if there is an assignment we incorrectly mark the name as defined in the local scope.
-testcase!(
-    bug = "We fail to mark a del of a mutable capture as illegal",
-    test_global_del,
-    r#"
-x: str = ""
-def f():
-    global x
-    x = "foo"
-    del x  # Not okay: it will work at runtime, but is not statically analyzable
-f()
-f()  # This will crash at runtime!
-"#,
-);
-
-testcase!(
-    bug = "It is not safe to treat global as a normal flow-sensitive definition",
-    test_unannotated_global_with_reassignment,
-    r#"
-from typing import assert_type, Literal
-x = "x"
-def f():
-    global x
-    x = 42  # Should be a type error, does not respect module-level static analysis
-    assert_type(x, Literal[42])
-f()
-# This is why allowing the reassignment is unsafe
-assert_type(x, Literal['x'])
-"#,
-);
-
-testcase!(
-    test_global_assign_incompatible,
-    r#"
-x: str = ""
-def f():
-    global x
-    x = 1  # E: `Literal[1]` is not assignable to variable `x` with type `str`
-def g():
-    x = 1  # OK, this is a new x
-"#,
-);
-
-testcase!(
-    test_global_after_local_define,
-    r#"
-x: str = ""
-def f() -> None:
-    y: int = 1
-    global y  # E: `y` was assigned in the current scope before the global declaration
-"#,
-);
-
-testcase!(
-    bug = "We currently never complain on aug assign, but when we fix it we need to be careful about type changes",
-    test_global_aug_assign_incompatible_type,
-    r#"
-from typing import assert_type
-class C:
-    def __iadd__(self, other: C) -> C: ...
-    def __sub__(self, other: C) -> C: ...
-    def __mul__(self, other: C) -> int: ...
-c0, c1, c2 = C(), C(), C()
-def f():
-    global c0
-    global c1
-    global c2
-    # Should be permitted, the resulting operation is in-place
-    c0 += C()
-    # Should be permitted, the resulting operation returns a new C which is okay
-    c1 -= C()
-    # Should *not* be permitted, this changes the type of the global in a way
-    # that is incompatible with static analysis of the global scope
-    c2 *= C()
-f()
-# This shows what would go wrong if we allow the aug assign on `c2`
-assert_type(c2, C)
-"#,
-);
-
-testcase!(
-    test_nonlocal_assign_before_def,
+    test_mutable_capture_assign_before_def,
     r#"
 def f() -> None:
     a: str = ""
@@ -296,7 +206,7 @@ def f() -> None:
 // if there is an assignment we incorrectly mark the name as defined in the local scope.
 testcase!(
     bug = "We fail to mark a del of a mutable capture as illegal",
-    test_nonlocal_del,
+    test_mutable_capture_del,
     r#"
 def outer():
     x: str = ""
@@ -315,7 +225,7 @@ def outer():
 
 testcase!(
     bug = "It is not safe to treat nonlocal as a normal flow-sensitive definition",
-    test_unannotated_nonlocal_with_reassignment,
+    test_unannotated_mutable_capture_with_reassignment,
     r#"
 from typing import assert_type, Literal
 def outer():
@@ -330,7 +240,7 @@ def outer():
 "#,
 );
 testcase!(
-    test_nonlocal_assign_incompatible,
+    test_mutable_capture_assign_incompatible,
     r#"
 def f() -> None:
     a: str = ""
@@ -343,7 +253,7 @@ def f() -> None:
 );
 
 testcase!(
-    test_nonlocal_multiple_annotations,
+    test_mutable_capture_multiple_annotations,
     r#"
 def f() -> None:
     a: str = ""
@@ -354,7 +264,7 @@ def f() -> None:
 );
 
 testcase!(
-    test_nonlocal_reference_in_nested_function,
+    test_mutable_capture_reference_in_nested_function,
     r#"
 def f() -> None:
     x: str = ""
