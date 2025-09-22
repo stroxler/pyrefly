@@ -10,7 +10,6 @@ mod override_graph;
 
 use core::panic;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
 use std::ops::Not;
@@ -28,6 +27,7 @@ use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
@@ -327,6 +327,13 @@ struct PysaClassField {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct GlobalVariable {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    type_: Option<PysaType>,
+    location: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct ClassDefinition {
     class_id: ClassId,
     name: String,
@@ -350,7 +357,7 @@ struct PysaModuleFile {
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
     function_definitions: HashMap<FunctionId, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
-    global_variables: HashSet<String>,
+    global_variables: HashMap<String, GlobalVariable>,
 }
 
 /// Represents what makes a module unique
@@ -634,7 +641,7 @@ struct VisitorContext<'a> {
     module_context: &'a ModuleContext<'a>,
     type_of_expression: &'a mut HashMap<String, PysaType>,
     definitions_of_expression: &'a mut HashMap<String, Vec<DefinitionRef>>,
-    global_variables: &'a mut HashSet<String>,
+    global_variables: &'a mut HashMap<String, GlobalVariable>,
 }
 
 fn add_expression_definitions(
@@ -813,7 +820,32 @@ fn visit_assign_target(target: &Expr, is_top_level: bool, context: &mut VisitorC
     }
 
     Ast::expr_lvalue(target, &mut |global: &ExprName| {
-        context.global_variables.insert(global.id.to_string());
+        let type_ = context
+            .module_context
+            .bindings
+            .key_to_idx_hashed_opt(Hashed::new(&Key::Definition(ShortIdentifier::expr_name(
+                global,
+            ))))
+            .and_then(|idx| context.module_context.answers.get_idx(idx));
+        if let Some(type_) = type_.as_ref()
+            && type_.ty().is_type_variable()
+        {
+            // Don't export type variable globals.
+            return;
+        }
+        let location = location_key(
+            &context
+                .module_context
+                .module_info
+                .display_range(global.range()),
+        );
+        context
+            .global_variables
+            .entry(global.id.to_string())
+            .or_insert(GlobalVariable {
+                type_: type_.map(|type_| PysaType::from_type(type_.ty(), context.module_context)),
+                location,
+            });
     });
 }
 
@@ -1309,7 +1341,7 @@ fn get_module_file(
 ) -> PysaModuleFile {
     let mut type_of_expression = HashMap::new();
     let mut definitions_of_expression = HashMap::new();
-    let mut global_variables = HashSet::new();
+    let mut global_variables = HashMap::new();
 
     for stmt in &context.ast.body {
         visit_statement(
