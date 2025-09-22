@@ -34,7 +34,6 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::MutableCaptureLookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
@@ -42,6 +41,7 @@ use crate::binding::scope::LoopExit;
 use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
+use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::special::SpecialExport;
@@ -1012,12 +1012,12 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Global(x) => {
                 for name in x.names {
-                    self.declare_mutable_capture(&name, MutableCaptureLookupKind::Global);
+                    self.declare_mutable_capture(&name, MutableCaptureKind::Global);
                 }
             }
             Stmt::Nonlocal(x) => {
                 for name in x.names {
-                    self.declare_mutable_capture(&name, MutableCaptureLookupKind::Nonlocal);
+                    self.declare_mutable_capture(&name, MutableCaptureKind::Nonlocal);
                 }
             }
             Stmt::Expr(mut x) => {

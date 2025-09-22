@@ -68,6 +68,7 @@ use crate::config::base::UntypedDefBehavior;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
@@ -489,14 +490,6 @@ impl MutableCaptureLookupError {
     }
 }
 
-#[derive(PartialEq, Eq)]
-pub enum MutableCaptureLookupKind {
-    /// Look up a name in a `global` statement
-    Global,
-    /// Look up a name in a `nonlocal` statement
-    Nonlocal,
-}
-
 /// An abstraction representing the `Idx<Key>` for a binding that we
 /// are currently constructing, which can be used as a factory to create
 /// usage values for `ensure_expr`.
@@ -712,7 +705,7 @@ impl<'a> BindingsBuilder<'a> {
         self.errors.add(range, info, msg);
     }
 
-    pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureLookupKind) {
+    pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureKind) {
         let key = Key::MutableCapture(ShortIdentifier::new(name));
         let binding = match self.lookup_mutable_capture(&name.id, kind) {
             Ok(found) => Binding::Forward(found),
@@ -732,12 +725,12 @@ impl<'a> BindingsBuilder<'a> {
     fn lookup_mutable_capture(
         &mut self,
         name: &Name,
-        kind: MutableCaptureLookupKind,
+        kind: MutableCaptureKind,
     ) -> Result<Idx<Key>, MutableCaptureLookupError> {
         let name = Hashed::new(name);
         let mut barrier = false;
-        let allow_nonlocal_reference = kind == MutableCaptureLookupKind::Nonlocal;
-        let allow_global_reference = kind == MutableCaptureLookupKind::Global;
+        let allow_nonlocal_reference = kind == MutableCaptureKind::Nonlocal;
+        let allow_global_reference = kind == MutableCaptureKind::Global;
         let mut result = Err(MutableCaptureLookupError::NotFound);
         // If there is static info for the name in the current scope and this value is not None
         // set the `annot` field to this value
@@ -752,14 +745,14 @@ impl<'a> BindingsBuilder<'a> {
                 && matches!(scope.kind, ScopeKind::Module);
             if scope.flow.info.get_hashed(name).is_some() {
                 match kind {
-                    MutableCaptureLookupKind::Nonlocal => {
+                    MutableCaptureKind::Nonlocal => {
                         if in_current_scope {
                             // If there's a flow type for the name in the current scope
                             // it must have been assigned before
                             return Err(MutableCaptureLookupError::AssignedBeforeNonlocal);
                         }
                     }
-                    MutableCaptureLookupKind::Global => {
+                    MutableCaptureKind::Global => {
                         if in_current_scope {
                             // If there's a flow type for the name in the current scope
                             // it must have been assigned before
@@ -772,7 +765,7 @@ impl<'a> BindingsBuilder<'a> {
                 && let Some(info) = scope.stat.0.get_hashed(name)
             {
                 match kind {
-                    MutableCaptureLookupKind::Nonlocal => {
+                    MutableCaptureKind::Nonlocal => {
                         if valid_nonlocal_reference {
                             let key = info.as_key(name.into_key());
                             result = Ok(self.table.types.0.insert(key));
@@ -784,7 +777,7 @@ impl<'a> BindingsBuilder<'a> {
                             return Err(MutableCaptureLookupError::NonlocalScope);
                         }
                     }
-                    MutableCaptureLookupKind::Global => {
+                    MutableCaptureKind::Global => {
                         if valid_global_reference {
                             let key = info.as_key(name.into_key());
                             result = Ok(self.table.types.0.insert(key));
