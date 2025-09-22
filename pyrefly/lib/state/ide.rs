@@ -135,6 +135,7 @@ fn create_intermediate_definition_from(
                     symbol_kind: Some(SymbolKind::Function),
                     docstring_range: func.docstring_range,
                     is_deprecated: false,
+                    special_export: None,
                 }));
             }
             Binding::ClassDef(idx, ..) => {
@@ -145,6 +146,7 @@ fn create_intermediate_definition_from(
                             symbol_kind: Some(SymbolKind::Class),
                             docstring_range: None,
                             is_deprecated: false,
+                            special_export: None,
                         }))
                     }
                     BindingClass::ClassDef(ClassBinding {
@@ -156,6 +158,7 @@ fn create_intermediate_definition_from(
                         symbol_kind: Some(SymbolKind::Class),
                         docstring_range: *docstring_range,
                         is_deprecated: false,
+                        special_export: None,
                     })),
                 };
             }
@@ -165,6 +168,7 @@ fn create_intermediate_definition_from(
                     symbol_kind: current_binding.symbol_kind(),
                     docstring_range: None,
                     is_deprecated: false,
+                    special_export: None,
                 }));
             }
         }

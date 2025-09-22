@@ -24,6 +24,7 @@ use starlark_map::small_set::SmallSet;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::definitions::DunderAllEntry;
+use crate::export::special::SpecialExport;
 use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
 use crate::state::loader::FindError;
@@ -40,6 +41,8 @@ pub struct Export {
     pub symbol_kind: Option<SymbolKind>,
     pub docstring_range: Option<TextRange>,
     pub is_deprecated: bool,
+    #[expect(dead_code)]
+    pub special_export: Option<SpecialExport>,
 }
 
 /// Where is this export defined?
@@ -159,12 +162,14 @@ impl Exports {
             let mut result: SmallMap<Name, ExportLocation> = SmallMap::new();
             for (name, definition) in self.0.definitions.definitions.iter_hashed() {
                 let is_deprecated = self.0.definitions.deprecated.contains_hashed(name);
+                let special_export = self.0.definitions.special_exports.get_hashed(name).copied();
                 let export = match &definition.style {
                     DefinitionStyle::Local(symbol_kind) => ExportLocation::ThisModule(Export {
                         location: definition.range,
                         symbol_kind: Some(*symbol_kind),
                         docstring_range: definition.docstring_range,
                         is_deprecated,
+                        special_export,
                     }),
                     // The final location is this module in several edge cases that can occur analyzing invalid code:
                     // - An invalid import
@@ -177,12 +182,14 @@ impl Exports {
                         symbol_kind: None,
                         docstring_range: definition.docstring_range,
                         is_deprecated,
+                        special_export,
                     }),
                     DefinitionStyle::ImplicitGlobal => ExportLocation::ThisModule(Export {
                         location: definition.range,
                         symbol_kind: Some(SymbolKind::Constant),
                         docstring_range: None,
                         is_deprecated,
+                        special_export,
                     }),
                     DefinitionStyle::ImportAs(from, name) => {
                         ExportLocation::OtherModule(*from, Some(name.clone()))

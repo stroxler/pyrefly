@@ -35,6 +35,7 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::export::special::SpecialExport;
 use crate::types::globals::ImplicitGlobal;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -109,6 +110,8 @@ pub struct Definitions {
     pub implicitly_imported_submodules: SmallSet<Name>,
     /// Deprecated names that are defined in this module.
     pub deprecated: SmallSet<Name>,
+    /// Special exports defined in this module
+    pub special_exports: SmallMap<Name, SpecialExport>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -298,6 +301,12 @@ impl<'a> DefinitionsBuilder<'a> {
         style: DefinitionStyle,
         annot: Option<ShortIdentifier>,
     ) {
+        if matches!(style, DefinitionStyle::Local(_))
+            && let Some(special_export) = SpecialExport::new(x)
+            && special_export.defined_in(self.module_name)
+        {
+            self.inner.special_exports.insert(x.clone(), special_export);
+        }
         self.add_name_with_body(x, range, style, annot, None)
     }
 
