@@ -1048,6 +1048,10 @@ impl Scopes {
         }
     }
 
+    /// Add a parameter to the current static.
+    ///
+    /// Callers must always define the name via a `Key::Definition` immediately
+    /// afterward or downstream lookups may panic.
     pub fn add_parameter_to_current_static(
         &mut self,
         name: &Identifier,
@@ -1059,6 +1063,15 @@ impl Scopes {
             .add(name.id.clone(), name.range, symbol_kind, ann);
     }
 
+    /// Add an adhoc name - if it does not already exist - to the current static
+    /// scope. If the name already exists, nothing happens.
+    ///
+    /// Callers must always define the name via a `Key::Definition` immediately
+    /// afterward or downstream lookups may panic.
+    ///
+    /// Used to bind names in comprehension and lambda scopes, where we
+    /// don't have `Definitions` to work from so we discover the names during
+    /// the main AST traversal in bindings.
     pub fn add_lvalue_to_current_static(&mut self, x: &Expr) {
         self.current_mut().stat.expr_lvalue(x);
     }
