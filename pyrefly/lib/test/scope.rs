@@ -338,11 +338,24 @@ def f() -> None:
 );
 
 testcase!(
-    test_nonlocal_not_in_local_scope,
+    bug = "We handle the case of a nonlocal finding a nested global declaration incorrectly",
+    test_nonlocal_finds_global,
     r#"
+from typing import reveal_type
 x: str = ""
 def f() -> None:
     nonlocal x  # E: Found `x`, but it was not in a valid enclosing scope
+def outer():
+    x: int = 5
+    def middle():
+        # This error is incorrect, the `global x` is legal.
+        global x  # E: Found `x`, but it was not the global scope
+        reveal_type(x)  # E: revealed type: Unknown
+        def inner():
+            # This should be an error - the `nonlocal` finds the `x` immediately
+            # above it, but that `x` is actually global. The runtime gives a compile error.
+            nonlocal x
+            reveal_type(x)  # E: revealed type: Unknown
 "#,
 );
 
