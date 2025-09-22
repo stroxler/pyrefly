@@ -165,25 +165,23 @@ impl StaticStyle {
         definition: Definition,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) -> Self {
-        if matches!(definition.style, DefinitionStyle::Delete) {
-            Self::Delete
-        } else if definition.count > 1 {
-            Self::Anywhere(definition.annotation().map(get_annotation_idx))
-        } else {
-            match definition.style {
-                DefinitionStyle::MutableCapture(kind) => Self::MutableCapture(kind, None),
-                DefinitionStyle::Annotated(.., ann) => {
-                    Self::SingleDef(Some(get_annotation_idx(ann)))
-                }
-                DefinitionStyle::ImplicitGlobal => Self::ImplicitGlobal,
-                DefinitionStyle::ImportModule(..) => Self::MergeableImport,
+        match (definition.count > 1, &definition.style) {
+            (_, DefinitionStyle::Delete) => Self::Delete,
+            (true, _) => Self::Anywhere(definition.annotation().map(get_annotation_idx)),
+            (false, DefinitionStyle::MutableCapture(kind)) => Self::MutableCapture(*kind, None),
+            (false, DefinitionStyle::Annotated(.., ann)) => {
+                Self::SingleDef(Some(get_annotation_idx(*ann)))
+            }
+            (false, DefinitionStyle::ImplicitGlobal) => Self::ImplicitGlobal,
+            (false, DefinitionStyle::ImportModule(..)) => Self::MergeableImport,
+            (
+                false,
                 DefinitionStyle::Unannotated(..)
                 | DefinitionStyle::ImportAs(..)
                 | DefinitionStyle::Import(..)
                 | DefinitionStyle::ImportAsEq(..)
-                | DefinitionStyle::ImportInvalidRelative => Self::SingleDef(None),
-                DefinitionStyle::Delete => unreachable!("handled above"),
-            }
+                | DefinitionStyle::ImportInvalidRelative,
+            ) => Self::SingleDef(None),
         }
     }
 }
