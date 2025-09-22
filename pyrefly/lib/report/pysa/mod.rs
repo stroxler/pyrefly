@@ -289,9 +289,9 @@ pub struct FunctionDefinition {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct DefinitionRef {
     module_id: ModuleId,
-    module_name: String, // For debugging purposes only. Reader should use the module id.
+    pub(crate) module_name: String, // For debugging purposes only. Reader should use the module id.
     function_id: FunctionId,
-    identifier: String, // For debugging purposes only
+    pub(crate) identifier: String, // For debugging purposes only
 }
 
 impl DefinitionRef {
@@ -309,6 +309,31 @@ impl DefinitionRef {
             },
             identifier: name.to_string(),
         }
+    }
+
+    fn from_find_definition_item_with_docstring(
+        item: &FindDefinitionItemWithDocstring,
+        function_names: &DashMap<ModuleId, HashMap<FunctionId, String>>,
+        context: &ModuleContext,
+    ) -> Option<Self> {
+        // TODO: For overloads, return the last definition instead of the one from go-to-definitions.
+        let display_range = item.module.display_range(item.definition_range);
+        let function_id = FunctionId::Function {
+            location: display_range,
+        };
+        let module_id = context
+            .module_ids
+            .get(ModuleKey::from_module(&item.module))
+            .unwrap();
+        function_names
+            .get(&module_id)
+            .and_then(|function_names| function_names.get(&function_id).cloned())
+            .map(|function_name| DefinitionRef {
+                module_id,
+                module_name: item.module.name().to_string(),
+                function_id,
+                identifier: function_name,
+            })
     }
 }
 
@@ -419,7 +444,7 @@ impl ModuleIds {
     }
 }
 
-fn location_key(range: &DisplayRange) -> String {
+pub fn location_key(range: &DisplayRange) -> String {
     format!(
         "{}:{}-{}:{}",
         range.start.line, range.start.column, range.end.line, range.end.column
@@ -443,18 +468,18 @@ impl ModuleContext<'_> {
         handle: &'a Handle,
         transaction: &'a Transaction<'a>,
         module_ids: &'a ModuleIds,
-    ) -> ModuleContext<'a> {
-        ModuleContext {
+    ) -> Option<ModuleContext<'a>> {
+        Some(ModuleContext {
             handle,
             transaction,
-            bindings: transaction.get_bindings(handle).unwrap(),
-            answers: transaction.get_answers(handle).unwrap(),
+            bindings: transaction.get_bindings(handle)?,
+            answers: transaction.get_answers(handle)?,
             stdlib: transaction.get_stdlib(handle),
-            ast: transaction.get_ast(handle).unwrap(),
-            module_info: transaction.get_module_info(handle).unwrap(),
-            module_id: module_ids.get(ModuleKey::from_handle(handle)).unwrap(),
+            ast: transaction.get_ast(handle)?,
+            module_info: transaction.get_module_info(handle)?,
+            module_id: module_ids.get(ModuleKey::from_handle(handle))?,
             module_ids,
-        }
+        })
     }
 }
 
@@ -1372,6 +1397,39 @@ fn get_module_file(
     }
 }
 
+#[allow(dead_code)]
+fn collect_function_names_for_module(context: &ModuleContext) -> HashMap<FunctionId, String> {
+    let mut function_names = HashMap::new();
+    for function in get_all_functions(&context.bindings, &context.answers) {
+        if !should_export_function(&function, context) {
+            continue;
+        }
+        let current_function = DefinitionRef::from_decorated_function(&function, context);
+        function_names.insert(current_function.function_id, current_function.identifier);
+    }
+    function_names
+}
+
+#[allow(dead_code)]
+pub fn collect_function_names(
+    handles: &Vec<Handle>,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+) -> DashMap<ModuleId, HashMap<FunctionId, String>> {
+    let all_function_names = DashMap::new();
+    ThreadPool::new().install(|| {
+        handles.par_iter().for_each(|handle| {
+            let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
+            let function_names = ModuleContext::create(handle, transaction, module_ids)
+                .map_or(HashMap::new(), |context| {
+                    collect_function_names_for_module(&context)
+                });
+            all_function_names.insert(module_id, function_names);
+        });
+    });
+    all_function_names
+}
+
 pub fn write_results(results_directory: &Path, transaction: &Transaction) -> anyhow::Result<()> {
     let start = Instant::now();
     info!("Writing results to `{}`", results_directory.display());
@@ -1438,7 +1496,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
         let reversed_override_graph = DashMap::new();
         ThreadPool::new().install(|| {
             module_info_tasks.par_iter().for_each(|(handle, _, _)| {
-                let context = ModuleContext::create(handle, transaction, &module_ids);
+                let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
 
                 for (key, value) in create_reversed_override_graph_for_module(&context) {
                     reversed_override_graph.insert(key, value);
@@ -1457,7 +1515,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 let writer = BufWriter::new(File::create(
                     results_directory.join("modules").join(info_path),
                 )?);
-                let context = ModuleContext::create(handle, transaction, &module_ids);
+                let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
                 serde_json::to_writer(
                     writer,
                     &get_module_file(&context, &reversed_override_graph),

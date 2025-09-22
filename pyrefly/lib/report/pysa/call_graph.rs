@@ -7,30 +7,62 @@
 
 use std::collections::HashMap;
 
+use dashmap::DashMap;
+use pyrefly_python::ast::Ast;
 use pyrefly_util::lined_buffer::DisplayRange;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::identifier::Identifier;
 use ruff_python_ast::visitor;
 use ruff_python_ast::visitor::Visitor;
+use ruff_text_size::Ranged;
 
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleId;
+use crate::state::lsp::FindPreference;
 
 #[allow(dead_code)]
-pub struct CallCallees {
-    call_targets: Vec<DefinitionRef>,
+#[derive(Debug, PartialEq, Eq)]
+pub struct CallCallees<Target> {
+    pub(crate) call_targets: Vec<Target>,
 }
 
-#[allow(dead_code)]
-pub struct CallGraphs(HashMap<DefinitionRef, HashMap<DisplayRange, CallCallees>>);
+impl<Target> CallCallees<Target> {}
 
-impl CallGraphs {
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct CallGraphs<Target, Location>(
+    pub(crate) HashMap<Target, HashMap<Location, CallCallees<Target>>>,
+);
+
+impl<Target, Location> PartialEq for CallGraphs<Target, Location>
+where
+    Target: PartialEq + Eq + std::hash::Hash,
+    Location: PartialEq + Eq + std::hash::Hash,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<Target, Location> Eq for CallGraphs<Target, Location>
+where
+    Target: PartialEq + Eq + std::hash::Hash,
+    Location: PartialEq + Eq + std::hash::Hash,
+{
+}
+
+impl<Target, Location> CallGraphs<Target, Location> {
     #[allow(dead_code)]
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self(HashMap::new())
+    }
+
+    #[allow(dead_code)]
+    pub fn new_with_map(map: HashMap<Target, HashMap<Location, CallCallees<Target>>>) -> Self {
+        Self(map)
     }
 }
 
@@ -39,13 +71,19 @@ struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: String,
-    function_names: &'a HashMap<FunctionId, String>,
+    function_names: &'a DashMap<ModuleId, HashMap<FunctionId, String>>,
     // A stack where the top element is always the current callable that we are
     // building a call graph for. The stack is updated each time we enter and exit
     // a function definition or a class definition.
     definition_nesting: Vec<DefinitionRef>,
-    call_graphs: &'a mut CallGraphs,
+    call_graphs: &'a mut CallGraphs<DefinitionRef, DisplayRange>,
     ignore_calls_if_cannot_find_current_definition: bool,
+}
+
+impl<'a> CallGraphVisitor<'a> {
+    fn current_definition(&self) -> DefinitionRef {
+        self.definition_nesting.last().unwrap().clone()
+    }
 }
 
 impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
@@ -58,7 +96,11 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                         .module_info
                         .display_range(function_def.identifier()),
                 };
-                if let Some(function_name) = self.function_names.get(&function_id) {
+                if let Some(function_name) = self
+                    .function_names
+                    .get(&self.module_id)
+                    .and_then(|function_names| function_names.get(&function_id).cloned())
+                {
                     self.definition_nesting.push(DefinitionRef {
                         module_id: self.module_id,
                         module_name: self.module_name.clone(),
@@ -84,6 +126,65 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         visitor::walk_expr(self, expr);
+
+        let callees = match expr {
+            Expr::Call(call) => match &*call.func {
+                Expr::Name(name) => {
+                    let identifier = Ast::expr_name_identifier(name.clone());
+                    self.module_context
+                        .transaction
+                        .find_definition_for_name_use(
+                            self.module_context.handle,
+                            &identifier,
+                            &FindPreference::default(),
+                        )
+                        .map_or(vec![], |d| vec![d])
+                        .iter()
+                        .filter_map(|definition| {
+                            DefinitionRef::from_find_definition_item_with_docstring(
+                                definition,
+                                self.function_names,
+                                self.module_context,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                }
+                Expr::Attribute(attribute) => self
+                    .module_context
+                    .transaction
+                    .find_definition_for_attribute(
+                        self.module_context.handle,
+                        attribute.value.range(),
+                        &attribute.attr,
+                        &FindPreference::default(),
+                    )
+                    .iter()
+                    .filter_map(|definition| {
+                        DefinitionRef::from_find_definition_item_with_docstring(
+                            definition,
+                            self.function_names,
+                            self.module_context,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
+        };
+
+        if !callees.is_empty() {
+            let call_callees = CallCallees {
+                call_targets: callees,
+            };
+            self.call_graphs
+                .0
+                .entry(self.current_definition())
+                .or_default()
+                .insert(
+                    self.module_context.module_info.display_range(expr.range()),
+                    call_callees,
+                );
+        }
     }
 }
 
@@ -91,8 +192,8 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
     ignore_calls_if_cannot_find_current_definition: bool,
-    function_names: &HashMap<FunctionId, String>,
-) -> CallGraphs {
+    function_names: &DashMap<ModuleId, HashMap<FunctionId, String>>,
+) -> CallGraphs<DefinitionRef, DisplayRange> {
     let mut call_graphs = CallGraphs::new();
 
     let module_name = context.module_info.name().to_string();
