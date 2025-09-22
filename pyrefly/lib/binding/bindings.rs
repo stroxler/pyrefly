@@ -930,13 +930,22 @@ impl<'a> BindingsBuilder<'a> {
         let found = self
             .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found();
-        if let Some(idx) = found {
-            match self.lookup_legacy_tparam_from_idx(id, idx) {
-                Some(left) => Either::Left(left),
-                None => Either::Right(Some(idx)),
+        let key = {
+            match (id, found) {
+                (LegacyTParamId::Name(name), Some(idx)) => self
+                    .lookup_legacy_tparam_from_idx(idx, |binding| {
+                        Self::make_legacy_tparam_from_tparam_binding(binding, name, idx)
+                    }),
+                (LegacyTParamId::Attr(_, attr), Some(idx)) => self
+                    .lookup_legacy_tparam_from_idx(idx, |binding| {
+                        Self::make_legacy_tparam_from_module_binding(binding, attr, idx)
+                    }),
+                (_, None) => None,
             }
-        } else {
-            Either::Right(None)
+        };
+        match key {
+            Some(left) => Either::Left(left),
+            None => Either::Right(found),
         }
     }
 
@@ -947,51 +956,21 @@ impl<'a> BindingsBuilder<'a> {
     /// - None if we find something that is definitely not a legacy type variable.
     fn lookup_legacy_tparam_from_idx(
         &mut self,
-        id: &LegacyTParamId,
-        // Note that `idx` refers to different things depending on the value of `id`:
-        // If `id` is a LegacyTParamId::Name, then `idx` points to a posible legacy type parameter.
-        // If `id` is a LegacyTParamId::Attr, then `idx` points to an object with an attribute that
-        // may be legacy type parameter.
         mut idx: Idx<Key>,
+        make_legacy_tparam_from: impl Fn(
+            &Binding,
+        )
+            -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
         // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
         // Therefore we arbitrarily cut off at 100 forward hops.
         for _ in 1..100 {
             if let Some(b) = self.table.types.1.get(idx) {
-                match b {
-                    Binding::Forward(fwd_idx) => {
-                        idx = *fwd_idx;
-                    }
-                    Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..)
-                        if let LegacyTParamId::Name(name) = id =>
-                    {
-                        return Some(self.insert_binding(
-                            KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                            BindingLegacyTypeParam::ParamKeyed(idx),
-                        ));
-                    }
-                    Binding::Import(..) if let LegacyTParamId::Name(name) = id => {
-                        // TODO: We need to recursively look through imports to determine
-                        // whether it is a legacy type parameter. We can't simply walk through
-                        // bindings, because we could recursively reach ourselves, resulting in
-                        // a deadlock.
-                        return Some(self.insert_binding(
-                            KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                            BindingLegacyTypeParam::ParamKeyed(idx),
-                        ));
-                    }
-                    Binding::Module(..) if let LegacyTParamId::Attr(_, attr) = id => {
-                        return Some(self.insert_binding(
-                            KeyLegacyTypeParam(ShortIdentifier::new(attr)),
-                            BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
-                        ));
-                    }
-                    _ => {
-                        // If we hit anything other than a type variable, an import, or a Forward,
-                        // then we know this name does not point at a type variable
-                        return None;
-                    }
+                if let Binding::Forward(fwd_idx) = b {
+                    idx = *fwd_idx;
+                    continue;
                 }
+                return make_legacy_tparam_from(b).map(|(k, v)| self.insert_binding(k, v));
             } else {
                 // This case happens if the name is associated with a promised binding
                 // that is not yet in the table. I'm fuzzy when exactly this occurs, but
@@ -1003,6 +982,52 @@ impl<'a> BindingsBuilder<'a> {
             }
         }
         None
+    }
+
+    /// Make a BindingLegacyTypeParam if the given Binding may be a legacy tparam.
+    /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a key.
+    fn make_legacy_tparam_from_tparam_binding(
+        binding: &Binding,
+        name: &Identifier,
+        idx: Idx<Key>,
+    ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
+        match binding {
+            Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..) => Some((
+                KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                BindingLegacyTypeParam::ParamKeyed(idx),
+            )),
+            Binding::Import(..) => {
+                // TODO: We need to recursively look through imports to determine
+                // whether it is a legacy type parameter. We can't simply walk through
+                // bindings, because we could recursively reach ourselves, resulting in
+                // a deadlock.
+                Some((
+                    KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                    BindingLegacyTypeParam::ParamKeyed(idx),
+                ))
+            }
+            _ => {
+                // If we hit anything other than a type variable, an import, or a Forward,
+                // then we know this name does not point at a type variable
+                None
+            }
+        }
+    }
+
+    /// Make a BindingLegacyTypeParam if the given Binding may be a module containing a legacy tparam.
+    /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a module key.
+    fn make_legacy_tparam_from_module_binding(
+        binding: &Binding,
+        attr: &Identifier,
+        idx: Idx<Key>,
+    ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
+        match binding {
+            Binding::Module(..) => Some((
+                KeyLegacyTypeParam(ShortIdentifier::new(attr)),
+                BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
+            )),
+            _ => None,
+        }
     }
 
     pub fn bind_definition(
