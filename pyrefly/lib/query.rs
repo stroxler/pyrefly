@@ -34,7 +34,7 @@ use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
 use pyrefly_types::types::Type;
 use pyrefly_util::events::CategorizedEvents;
-use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
@@ -52,6 +52,8 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::Answers;
@@ -101,12 +103,61 @@ pub struct Attribute {
     pub annotation: String,
 }
 
-fn display_range_for_expr(
+#[derive(Debug, Clone)]
+pub struct PythonASTRange {
+    pub start_line: LineNumber,
+    pub start_col: u32,
+    pub end_line: LineNumber,
+    pub end_col: u32,
+}
+
+impl Serialize for PythonASTRange {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("PythonASTRange", 4)?;
+        state.serialize_field("start_line", &self.start_line.get())?;
+        state.serialize_field("start_col", &self.start_col)?;
+        state.serialize_field("end_line", &self.end_line.get())?;
+        state.serialize_field("end_col", &self.end_col)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for PythonASTRange {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de;
+        #[derive(Deserialize)]
+        struct PythonASTRangeHelper {
+            start_line: u32,
+            start_col: u32,
+            end_line: u32,
+            end_col: u32,
+        }
+
+        let helper = PythonASTRangeHelper::deserialize(deserializer)?;
+        Ok(PythonASTRange {
+            start_line: LineNumber::new(helper.start_line)
+                .ok_or_else(|| de::Error::custom("Invalid start line number"))?,
+            start_col: helper.start_col,
+            end_line: LineNumber::new(helper.end_line)
+                .ok_or_else(|| de::Error::custom("Invalid end line number"))?,
+            end_col: helper.end_col,
+        })
+    }
+}
+
+fn python_ast_range_for_expr(
     module_info: &ModuleInfo,
     original_range: TextRange,
     expr: &Expr,
     parent_expr: Option<&Expr>,
-) -> DisplayRange {
+) -> PythonASTRange {
     let expression_range = if let Expr::Generator(e) = expr {
         // python AST module reports locations of all generator expressions as if they are parenthesized
         // i.e any(any(a.b is not None for a in [l2]) for l2 in l1)
@@ -133,7 +184,24 @@ fn display_range_for_expr(
     } else {
         original_range
     };
-    module_info.display_range(expression_range)
+
+    let start_location = module_info.lined_buffer().line_index().source_location(
+        expression_range.start(),
+        module_info.lined_buffer().contents(),
+        ruff_source_file::PositionEncoding::Utf8,
+    );
+    let end_location = module_info.lined_buffer().line_index().source_location(
+        expression_range.end(),
+        module_info.lined_buffer().contents(),
+        ruff_source_file::PositionEncoding::Utf8,
+    );
+
+    PythonASTRange {
+        start_line: LineNumber::new(start_location.line.get() as u32).unwrap(),
+        start_col: start_location.character_offset.to_zero_indexed() as u32,
+        end_line: LineNumber::new(end_location.line.get() as u32).unwrap(),
+        end_col: end_location.character_offset.to_zero_indexed() as u32,
+    }
 }
 
 fn is_static_method(ty: &Type) -> bool {
@@ -327,7 +395,7 @@ impl Query {
         &self,
         name: ModuleName,
         path: ModulePath,
-    ) -> Option<Vec<(DisplayRange, Callee)>> {
+    ) -> Option<Vec<(PythonASTRange, Callee)>> {
         let transaction = self.state.transaction();
         let handle = self.make_handle(name, path);
         let module_info = transaction.get_module_info(&handle)?;
@@ -815,7 +883,7 @@ impl Query {
             answers: &Answers,
             transaction: &Transaction<'a>,
             handle: &Handle,
-            res: &mut Vec<(DisplayRange, Callee)>,
+            res: &mut Vec<(PythonASTRange, Callee)>,
         ) {
             let (callee_ty, callee_range, call_target, call_arguments) =
                 if let Expr::Attribute(attr) = x {
@@ -848,7 +916,10 @@ impl Query {
                 )
                 .into_iter()
                 .for_each(|callee| {
-                    res.push((module_info.display_range(callee_range), callee));
+                    res.push((
+                        python_ast_range_for_expr(module_info, callee_range, x, None),
+                        callee,
+                    ));
                 });
             }
 
@@ -861,7 +932,7 @@ impl Query {
             answers: &Answers,
             transaction: &Transaction<'a>,
             handle: &Handle,
-            res: &mut Vec<(DisplayRange, Callee)>,
+            res: &mut Vec<(PythonASTRange, Callee)>,
         ) {
             for dec in decorators {
                 if matches!(dec.expression, Expr::Name(_) | Expr::Attribute(_))
@@ -879,7 +950,15 @@ impl Query {
                     )
                     .into_iter()
                     .for_each(|callee| {
-                        res.push((module_info.display_range(dec.expression.range()), callee));
+                        res.push((
+                            python_ast_range_for_expr(
+                                module_info,
+                                dec.expression.range(),
+                                &dec.expression,
+                                None,
+                            ),
+                            callee,
+                        ));
                     });
                 }
             }
@@ -909,7 +988,7 @@ impl Query {
         &self,
         name: ModuleName,
         path: ModulePath,
-    ) -> Option<Vec<(DisplayRange, String)>> {
+    ) -> Option<Vec<(PythonASTRange, String)>> {
         let handle = self.make_handle(name, path);
 
         let transaction = self.state.transaction();
@@ -926,10 +1005,10 @@ impl Query {
             parent: Option<&Expr>,
             range: TextRange,
             module_info: &ModuleInfo,
-            res: &mut Vec<(DisplayRange, String)>,
+            res: &mut Vec<(PythonASTRange, String)>,
         ) {
             res.push((
-                display_range_for_expr(module_info, range, e, parent),
+                python_ast_range_for_expr(module_info, range, e, parent),
                 type_to_string(ty),
             ));
         }
@@ -951,7 +1030,7 @@ impl Query {
             module_info: &ModuleInfo,
             answers: &Answers,
             bindings: &Bindings,
-            res: &mut Vec<(DisplayRange, String)>,
+            res: &mut Vec<(PythonASTRange, String)>,
         ) {
             let range = x.range();
             if let Expr::Name(name) = x
