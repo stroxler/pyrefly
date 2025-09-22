@@ -631,8 +631,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn init_static_scope(&mut self, x: &[Stmt], top_level: bool) {
-        let current = self.scopes.current_mut();
-        current.stat.stmts(
+        self.scopes.init_current_static(
             x,
             &self.module_info,
             top_level,
@@ -645,8 +644,6 @@ impl<'a> BindingsBuilder<'a> {
                     .insert(KeyAnnotation::Annotation(x))
             },
         );
-        // Presize the flow, as its likely to need as much space as static
-        current.flow.info.reserve(current.stat.0.capacity());
     }
 
     pub fn stmts(&mut self, xs: Vec<Stmt>, parent: &NestingContext) {

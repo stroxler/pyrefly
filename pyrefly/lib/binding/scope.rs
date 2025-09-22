@@ -825,6 +825,28 @@ impl Scopes {
         ScopeTrace(b)
     }
 
+    pub fn init_current_static(
+        &mut self,
+        x: &[Stmt],
+        module_info: &ModuleInfo,
+        top_level: bool,
+        lookup: &dyn LookupExport,
+        sys_info: &SysInfo,
+        get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
+    ) {
+        let current = self.current_mut();
+        current.stat.stmts(
+            x,
+            module_info,
+            top_level,
+            lookup,
+            sys_info,
+            get_annotation_idx,
+        );
+        // Presize the flow, as its likely to need as much space as static
+        current.flow.info.reserve(current.stat.0.capacity());
+    }
+
     pub fn push(&mut self, scope: Scope) {
         self.scopes.push(ScopeTreeNode {
             scope,
