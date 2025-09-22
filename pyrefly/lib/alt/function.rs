@@ -1078,15 +1078,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             sig
         };
         for (range, overload) in overloads.iter() {
+            let (overload_tparams, original_overload_func) = match overload {
+                OverloadType::Function(func) => (None, func),
+                OverloadType::Forall(forall) => (Some(&forall.tparams), &forall.body),
+            };
             let overload_func = {
-                let (tparams, func) = match overload {
-                    OverloadType::Function(func) => (None, func),
-                    OverloadType::Forall(forall) => (Some(&forall.tparams), &forall.body),
-                };
-                if let Some(tparams) = all_tparams(tparams) {
-                    self.subst_function(&tparams, func.clone())
+                if let Some(tparams) = all_tparams(overload_tparams) {
+                    self.subst_function(&tparams, original_overload_func.clone())
                 } else {
-                    func.clone()
+                    original_overload_func.clone()
                 }
             };
             let impl_func = {
@@ -1112,7 +1112,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 &|| {
                     TypeCheckContext::of_kind(TypeCheckKind::OverloadInput(
-                        overload_func.signature.clone(),
+                        original_overload_func.signature.clone(),
                         impl_sig.clone(),
                     ))
                 },

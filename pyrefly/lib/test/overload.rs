@@ -700,7 +700,7 @@ S = TypeVar("S")
 # (`exception` is kw-only in the implementation) so that we can test how legacy TypeVars are
 # printed in the error message.
 @overload
-def catch(exception: T) -> T: ...  # E: Implementation signature `(f: S | None = None, *, exception: T) -> S | T` does not accept all arguments that overload signature `(exception: object) -> object` accepts
+def catch(exception: T) -> T: ...  # E: Implementation signature `(f: S | None = None, *, exception: T) -> S | T` does not accept all arguments that overload signature `(exception: T) -> T` accepts
 
 @overload
 def catch(f: S, *, exception: T) -> S | T: ...
