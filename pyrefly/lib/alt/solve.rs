@@ -12,6 +12,7 @@ use dupe::Dupe;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::facet::FacetKind;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
@@ -1965,12 +1966,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::CheckLegacyTypeParam(key, range_if_scoped_params_exist) => {
-                let binding = self.bindings().get(*key);
-                if let BindingLegacyTypeParam::ModuleKeyed(idx, _) = binding {
-                    // TODO(rechen): implement this.
-                    return (*self.get_idx(*idx)).clone();
-                }
-                match &*self.get_idx(*key) {
+                let ty = match &*self.get_idx(*key) {
                     LegacyTypeParameterLookup::Parameter(p) => {
                         // This class or function has scoped (PEP 695) type parameters. Mixing legacy-style parameters is an error.
                         if let Some(r) = range_if_scoped_params_exist {
@@ -1984,9 +1980,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ),
                             );
                         }
-                        TypeInfo::of_ty(p.quantified.clone().to_value())
+                        p.quantified.clone().to_value()
                     }
-                    LegacyTypeParameterLookup::NotParameter(ty) => TypeInfo::of_ty(ty.clone()),
+                    LegacyTypeParameterLookup::NotParameter(ty) => ty.clone(),
+                };
+                match self.bindings().get(*key) {
+                    BindingLegacyTypeParam::ModuleKeyed(idx, attr) => {
+                        // `idx` points to a module whose `attr` attribute may be a legacy type
+                        // variable that needs to be replaced with a QuantifiedValue. Since the
+                        // ModuleKeyed binding is for the module itself, we use the mechanism for
+                        // attribute ("facet") type narrowing to change the type that will be
+                        // produced when `attr` is accessed.
+                        let module = (*self.get_idx(*idx)).clone();
+                        if matches!(ty, Type::QuantifiedValue(_)) {
+                            module.with_narrow(&vec1![FacetKind::Attribute((**attr).clone())], ty)
+                        } else {
+                            module
+                        }
+                    }
+                    BindingLegacyTypeParam::ParamKeyed(_) => TypeInfo::of_ty(ty),
                 }
             }
             _ => {

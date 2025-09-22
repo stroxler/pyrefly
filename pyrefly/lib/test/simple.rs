@@ -1777,11 +1777,10 @@ import foo
 );
 
 testcase!(
-    bug = "Spurious overload error and wrong return type on type() call",
     test_functional_type_creation,
     r#"
 from typing import assert_type
-X = type("X", (object,), {"foo": "bar"})  # E: No matching overload
-assert_type(X, type)  # E: assert_type(Any, type)
+X = type("X", (object,), {"foo": "bar"})
+assert_type(X, type)
     "#,
 );
