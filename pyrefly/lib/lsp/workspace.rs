@@ -35,7 +35,7 @@ use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::ImportFormat;
 use crate::state::lsp::InlayHintConfig;
 
-/// Information about the Python environment p
+/// Information about the Python environment provided by this workspace.
 #[derive(Debug, Clone)]
 pub struct PythonInfo {
     /// The path to the interpreter used to query this `PythonInfo`'s [`PythonEnvironment`].
@@ -163,9 +163,23 @@ pub struct LspAnalysisConfig {
     pub inlay_hints: Option<InlayHintConfig>,
 }
 
+fn deserialize_analysis<'de, D>(deserializer: D) -> Result<Option<LspAnalysisConfig>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Option::<LspAnalysisConfig>::deserialize(deserializer) {
+        Ok(value) => Ok(value),
+        Err(e) => {
+            eprintln!("Could not decode analysis config: {e}");
+            Ok(None)
+        }
+    }
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LspConfig {
+    #[serde(default, deserialize_with = "deserialize_analysis")]
     analysis: Option<LspAnalysisConfig>,
     python_path: Option<String>,
     pyrefly: Option<PyreflyClientConfig>,
@@ -406,5 +420,69 @@ impl Workspaces {
                 self.default.write().search_path = Some(search_paths);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn test_broken_analysis_config_still_creates_lsp_config() {
+        let broken_config = json!({
+            "pythonPath": "/usr/bin/python3",
+            "analysis": {
+                "invalidField": true,
+                "diagnosticMode": "invalidMode",
+                "importFormat": "invalidFormat"
+            },
+            "pyrefly": {
+                "disableLanguageServices": false,
+                "extraPaths": ["/some/path"]
+            }
+        });
+
+        let lsp_config: Result<LspConfig, _> = serde_json::from_value(broken_config);
+
+        assert!(lsp_config.is_ok());
+        let config = lsp_config.unwrap();
+        assert!(config.analysis.is_none());
+        assert_eq!(config.python_path, Some("/usr/bin/python3".to_owned()));
+        assert!(config.pyrefly.is_some());
+        let pyrefly = config.pyrefly.unwrap();
+        assert_eq!(pyrefly.disable_language_services, Some(false));
+        assert_eq!(pyrefly.extra_paths, Some(vec![PathBuf::from("/some/path")]));
+    }
+
+    #[test]
+    fn test_valid_analysis_config_creates_lsp_config_with_analysis() {
+        let valid_config = json!({
+            "pythonPath": "/usr/bin/python3",
+            "analysis": {
+                "diagnosticMode": "workspace",
+                "importFormat": "absolute"
+            },
+            "pyrefly": {
+                "disableLanguageServices": false
+            }
+        });
+
+        let lsp_config: Result<LspConfig, _> = serde_json::from_value(valid_config);
+        assert!(lsp_config.is_ok());
+        let config = lsp_config.unwrap();
+        assert!(config.analysis.is_some());
+        let analysis = config.analysis.unwrap();
+        assert!(matches!(
+            analysis.diagnostic_mode,
+            Some(DiagnosticMode::Workspace)
+        ));
+        assert!(matches!(
+            analysis.import_format,
+            Some(ImportFormat::Absolute)
+        ));
+        assert_eq!(config.python_path, Some("/usr/bin/python3".to_owned()));
+        assert!(config.pyrefly.is_some());
     }
 }
