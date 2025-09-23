@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::cmp;
-
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
@@ -101,7 +99,9 @@ impl Definition {
     }
 
     fn merge(&mut self, other: DefinitionStyle) {
-        self.style = cmp::min(&self.style, &other).clone();
+        if other < self.style {
+            self.style = other;
+        }
         self.count += 1;
     }
 }
