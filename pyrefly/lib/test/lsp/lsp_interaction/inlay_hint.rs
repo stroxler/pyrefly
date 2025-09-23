@@ -107,7 +107,7 @@ fn test_inlay_hint_disable_all() {
                     {
                         "analysis": {
                             "inlayHints": {
-                                "callArgumentNames": "on",
+                                "callArgumentNames": "all",
                                 "functionReturnTypes": false,
                                 "pytestParameters": false,
                                 "variableTypes": false
