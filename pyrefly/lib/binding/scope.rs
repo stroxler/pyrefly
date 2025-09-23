@@ -681,7 +681,7 @@ pub struct Scope {
     /// Updated if there are multiple assignments. E.g. `x = 1; x = 2` would update the `x` binding twice.
     /// All flow bindings will have a static binding, _usually_ in this scope, but occasionally
     /// in a parent scope (e.g. for narrowing operations).
-    pub flow: Flow,
+    flow: Flow,
     /// Are Flow types from containing scopes unreachable from this scope?
     ///
     /// Set when we enter a scope like a function body with deferred evaluation, where the
@@ -694,7 +694,7 @@ pub struct Scope {
     kind: ScopeKind,
     /// Stack of for/while loops we're in. Does not include comprehensions, which
     /// define a new scope.
-    pub loops: Vec<Loop>,
+    loops: Vec<Loop>,
 }
 
 impl Scope {
@@ -908,7 +908,7 @@ impl Scopes {
         None
     }
 
-    pub fn current_mut(&mut self) -> &mut Scope {
+    fn current_mut(&mut self) -> &mut Scope {
         &mut self.current_mut_node().scope
     }
 
