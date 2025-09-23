@@ -23,6 +23,7 @@ use anstream::stdout;
 use anyhow::Context as _;
 use clap::Parser;
 use clap::ValueEnum;
+use dupe::Dupe as _;
 use pyrefly_build::handle::Handle;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_python::module_name::ModuleName;
@@ -365,7 +366,7 @@ impl OutputFormat {
 pub struct Handles {
     /// A mapping from a file to all other information needed to create a `Handle`.
     /// The value type is basically everything else in `Handle` except for the file path.
-    path_data: HashSet<PathBuf>,
+    path_data: HashSet<ModulePath>,
 }
 
 impl Handles {
@@ -374,7 +375,7 @@ impl Handles {
             path_data: HashSet::new(),
         };
         for file in files {
-            handles.path_data.insert(file);
+            handles.path_data.insert(ModulePath::filesystem(file));
         }
         handles
     }
@@ -382,19 +383,18 @@ impl Handles {
     pub fn all(&self, config_finder: &ConfigFinder) -> Vec<Handle> {
         let mut configs = SmallMap::new();
         for path in &self.path_data {
-            let module_path = ModulePath::filesystem(path.to_path_buf());
             let unknown = ModuleName::unknown();
             configs
-                .entry(config_finder.python_file(unknown, &module_path))
+                .entry(config_finder.python_file(unknown, path))
                 .or_insert_with(SmallSet::new)
-                .insert(path);
+                .insert(path.dupe());
         }
         configs
             .iter()
             .flat_map(|(c, files)| {
-                files
-                    .iter()
-                    .map(|p| c.handle_from_module_path(ModulePath::filesystem(p.to_path_buf())))
+                // TODO(connernilsen): propagate up result
+                let _ = c.requery_source_db(files);
+                files.iter().map(|p| c.handle_from_module_path(p.dupe()))
             })
             .collect()
     }
@@ -405,10 +405,12 @@ impl Handles {
         removed_files: impl Iterator<Item = &'a PathBuf>,
     ) {
         for file in created_files {
-            self.path_data.insert(file.to_path_buf());
+            self.path_data
+                .insert(ModulePath::filesystem(file.to_path_buf()));
         }
         for file in removed_files {
-            self.path_data.remove(file);
+            self.path_data
+                .remove(&ModulePath::filesystem(file.to_path_buf()));
         }
     }
 }
