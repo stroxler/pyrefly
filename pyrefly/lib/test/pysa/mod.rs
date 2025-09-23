@@ -6,3 +6,4 @@
  */
 
 mod call_graph;
+mod functions;

@@ -32,6 +32,8 @@ use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
+#[cfg(test)]
+use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Overload;
 use pyrefly_types::types::Type;
 use pyrefly_util::fs_anyhow;
@@ -84,7 +86,7 @@ pub struct ModuleId(u32);
 pub struct ClassId(u32);
 
 impl ClassId {
-    fn from_class(class: &Class) -> ClassId {
+    pub fn from_class(class: &Class) -> ClassId {
         ClassId(class.index().0)
     }
 }
@@ -144,15 +146,15 @@ struct PysaProjectFile {
     object_class_id: ClassId,
 }
 
-#[derive(Debug, Clone, Serialize)]
-enum ScopeParent {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum ScopeParent {
     Function { location: String },
     Class { location: String },
     TopLevel,
 }
 
 // List of class names that a type refers to, after stripping Optional and Awaitable.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 struct ClassNamesFromType {
     class_names: Vec<ClassRef>,
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -169,8 +171,8 @@ struct ClassNamesFromType {
 }
 
 /// Information needed from Pysa about a type.
-#[derive(Debug, Clone, Serialize)]
-struct PysaType {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PysaType {
     // Pretty string representation of the type. Usually meant for the user.
     string: String,
 
@@ -188,8 +190,8 @@ struct PysaType {
     class_names: ClassNamesFromType,
 }
 
-#[derive(Debug, Clone, Serialize)]
-enum FunctionParameter {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum FunctionParameter {
     PosOnly {
         #[serde(skip_serializing_if = "Option::is_none")]
         name: Option<String>,
@@ -221,25 +223,25 @@ enum FunctionParameter {
     },
 }
 
-#[derive(Debug, Clone, Serialize)]
-enum FunctionParameters {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum FunctionParameters {
     List(Vec<FunctionParameter>),
     Ellipsis,
     ParamSpec,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct FunctionSignature {
-    parameters: FunctionParameters,
-    return_annotation: PysaType,
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct FunctionSignature {
+    pub parameters: FunctionParameters,
+    pub return_annotation: PysaType,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClassRef {
-    module_id: ModuleId,
-    module_name: String, // For debugging purposes only. Reader should use the module id.
-    class_id: ClassId,
-    class_name: String, // For debugging purposes only. Reader should use the class id.
+    pub module_id: ModuleId,
+    pub module_name: String, // For debugging purposes only. Reader should use the module id.
+    pub class_id: ClassId,
+    pub class_name: String, // For debugging purposes only. Reader should use the class id.
 }
 
 impl ClassRef {
@@ -255,30 +257,68 @@ impl ClassRef {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct FunctionDefinition {
-    name: String,
-    parent: ScopeParent,
-    undecorated_signatures: Vec<FunctionSignature>,
+    pub name: String,
+    pub parent: ScopeParent,
+    pub undecorated_signatures: Vec<FunctionSignature>,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_overload: bool,
+    pub is_overload: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_staticmethod: bool,
+    pub is_staticmethod: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_classmethod: bool,
+    pub is_classmethod: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_property_getter: bool,
+    pub is_property_getter: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_property_setter: bool,
+    pub is_property_setter: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_stub: bool,
+    pub is_stub: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// If this is a method, record the class it is defined in.
-    defining_class: Option<ClassRef>,
+    pub defining_class: Option<ClassRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// If the method directly overrides a method in a parent class, we record that class.
     /// This is used for building overriding graphs.
-    overridden_base_method: Option<DefinitionRef>,
+    pub overridden_base_method: Option<DefinitionRef>,
+}
+
+impl FunctionDefinition {
+    #[cfg(test)]
+    pub fn with_is_staticmethod(mut self, is_staticmethod: bool) -> Self {
+        self.is_staticmethod = is_staticmethod;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_classmethod(mut self, is_classmethod: bool) -> Self {
+        self.is_classmethod = is_classmethod;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_stub(mut self, is_stub: bool) -> Self {
+        self.is_stub = is_stub;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_property_getter(mut self, is_property_getter: bool) -> Self {
+        self.is_property_getter = is_property_getter;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_property_setter(mut self, is_property_setter: bool) -> Self {
+        self.is_property_setter = is_property_setter;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_defining_class(mut self, defining_class: ClassRef) -> Self {
+        self.defining_class = Some(defining_class);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
@@ -396,7 +436,7 @@ impl ModuleKey {
         }
     }
 
-    fn from_module(module: &Module) -> ModuleKey {
+    pub fn from_module(module: &Module) -> ModuleKey {
         ModuleKey {
             name: module.name(),
             path: module.path().clone(),
@@ -441,15 +481,15 @@ pub fn location_key(range: &DisplayRange) -> String {
 }
 
 pub struct ModuleContext<'a> {
-    handle: &'a Handle,
-    transaction: &'a Transaction<'a>,
-    bindings: Bindings,
-    answers: Arc<Answers>,
-    stdlib: Arc<Stdlib>,
-    ast: Arc<ModModule>,
-    module_info: Module,
-    module_id: ModuleId,
-    module_ids: &'a ModuleIds,
+    pub handle: &'a Handle,
+    pub transaction: &'a Transaction<'a>,
+    pub bindings: Bindings,
+    pub answers: Arc<Answers>,
+    pub stdlib: Arc<Stdlib>,
+    pub ast: Arc<ModModule>,
+    pub module_info: Module,
+    pub module_id: ModuleId,
+    pub module_ids: &'a ModuleIds,
 }
 
 impl ModuleContext<'_> {
@@ -633,7 +673,7 @@ fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> ClassNamesFromT
 }
 
 impl PysaType {
-    fn from_type(type_: &Type, context: &ModuleContext) -> PysaType {
+    pub fn from_type(type_: &Type, context: &ModuleContext) -> PysaType {
         // Promote `Literal[..]` into `str` or `int`.
         let type_ = type_.clone().promote_literals(&context.stdlib);
         let type_ = strip_self_type(type_);
@@ -648,6 +688,19 @@ impl PysaType {
             is_enum: is_scalar_type(&type_, context.stdlib.enum_class().class_object(), context),
             class_names: get_classes_of_type(&type_, context),
         }
+    }
+
+    #[cfg(test)]
+    pub fn from_class_type(class_type: &ClassType, context: &ModuleContext) -> PysaType {
+        PysaType::from_type(&Type::ClassType(class_type.clone()), context)
+    }
+
+    #[cfg(test)]
+    pub fn from_class(class: &Class, context: &ModuleContext) -> PysaType {
+        PysaType::from_type(
+            &Type::ClassType(ClassType::new(class.clone(), Default::default())),
+            context,
+        )
     }
 }
 
@@ -981,7 +1034,7 @@ fn should_export_function(function: &DecoratedFunction, context: &ModuleContext)
     !has_successor || !function.is_overload()
 }
 
-fn export_all_functions(
+pub fn export_all_functions(
     reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
     context: &ModuleContext,
 ) -> HashMap<FunctionId, FunctionDefinition> {
