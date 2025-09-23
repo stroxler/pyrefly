@@ -157,7 +157,7 @@ pub enum DiagnosticMode {
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LspAnalysisConfig {
-    #[expect(unused)]
+    #[allow(dead_code)]
     pub diagnostic_mode: Option<DiagnosticMode>,
     pub import_format: Option<ImportFormat>,
     pub inlay_hints: Option<InlayHintConfig>,
