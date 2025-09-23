@@ -153,10 +153,10 @@ pub enum Exportable {
 /// Many names may map to the same TextRange (e.g. from foo import *).
 /// But no other static will point at the same TextRange.
 #[derive(Default, Clone, Debug)]
-pub struct Static(pub SmallMap<Name, StaticInfo>);
+struct Static(SmallMap<Name, StaticInfo>);
 
 #[derive(Clone, Debug)]
-pub struct StaticInfo {
+struct StaticInfo {
     range: TextRange,
     style: StaticStyle,
 }
@@ -667,7 +667,7 @@ pub struct Scope {
     range: TextRange,
     /// Things that are defined in this scope, statically, e.g. `x = 1` or `def f():`.
     /// Populated at the beginning before entering the scope.
-    pub stat: Static,
+    stat: Static,
     /// Things that are defined in this scope as they are reached.
     /// Initially starts out empty, but is populated as statements are encountered.
     /// Updated if there are multiple assignments. E.g. `x = 1; x = 2` would update the `x` binding twice.
