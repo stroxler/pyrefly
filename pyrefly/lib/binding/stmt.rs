@@ -52,6 +52,33 @@ use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
 
 impl<'a> BindingsBuilder<'a> {
+    fn assert(&mut self, assert_range: TextRange, mut test: Expr, msg: Option<Expr>) {
+        let test_range = test.range();
+        self.ensure_expr(&mut test, &mut Usage::Narrowing);
+        let narrow_ops = NarrowOps::from_expr(self, Some(&test));
+        let static_test = self.sys_info.evaluate_bool(&test);
+        self.insert_binding(Key::Anon(test_range), Binding::Expr(None, test));
+        if let Some(mut msg_expr) = msg {
+            let mut base = self.scopes.clone_current_flow();
+            // Negate the narrowing of the test expression when typechecking
+            // the error message, since we know the assertion was false
+            let negated_narrow_ops = narrow_ops.negate();
+            self.bind_narrow_ops(&negated_narrow_ops, msg_expr.range());
+            let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
+            self.ensure_expr(&mut msg_expr, msg.usage());
+            let idx = self.insert_binding(
+                KeyExpect(msg_expr.range()),
+                BindingExpect::TypeCheckExpr(msg_expr),
+            );
+            self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
+            self.scopes.swap_current_flow_with(&mut base);
+        };
+        self.bind_narrow_ops(&narrow_ops, assert_range);
+        if let Some(false) = static_test {
+            self.scopes.mark_flow_termination();
+        }
+    }
+
     fn bind_unimportable_names(&mut self, x: &StmtImportFrom, as_error: bool) {
         let any = if as_error {
             Type::any_error()
@@ -822,32 +849,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.set_current_flow_to_merged_branches(branches, range);
                 self.stmts(x.finalbody, parent);
             }
-            Stmt::Assert(mut x) => {
-                let assert_range = x.range();
-                let test_range = x.test.range();
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
-                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                let static_test = self.sys_info.evaluate_bool(&x.test);
-                self.insert_binding(Key::Anon(test_range), Binding::Expr(None, *x.test));
-                if let Some(mut msg_expr) = x.msg {
-                    let mut base = self.scopes.clone_current_flow();
-                    // Negate the narrowing of the test expression when typechecking
-                    // the error message, since we know the assertion was false
-                    let negated_narrow_ops = narrow_ops.negate();
-                    self.bind_narrow_ops(&negated_narrow_ops, msg_expr.range());
-                    let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
-                    self.ensure_expr(&mut msg_expr, msg.usage());
-                    let idx = self.insert_binding(
-                        KeyExpect(msg_expr.range()),
-                        BindingExpect::TypeCheckExpr(*msg_expr),
-                    );
-                    self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
-                    self.scopes.swap_current_flow_with(&mut base);
-                };
-                self.bind_narrow_ops(&narrow_ops, assert_range);
-                if let Some(false) = static_test {
-                    self.scopes.mark_flow_termination();
-                }
+            Stmt::Assert(x) => {
+                self.assert(x.range(), *x.test, x.msg.map(|m| *m));
             }
             Stmt::Import(x) => {
                 for x in x.names {
