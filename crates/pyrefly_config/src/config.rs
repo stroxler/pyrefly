@@ -597,7 +597,7 @@ impl ConfigFile {
             .source_db
             .read()
             .as_ref()
-            .map(|db| db.handle_from_module_path(module_path.dupe()))
+            .and_then(|db| db.handle_from_module_path(module_path.dupe()))
         {
             Some(handle) => handle.dupe(),
             None => {

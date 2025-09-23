@@ -13,7 +13,6 @@ use std::sync::Arc;
 use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
-use pyrefly_python::sys_info::SysInfo;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -110,13 +109,9 @@ impl SourceDatabase for BuckSourceDatabase {
         None
     }
 
-    fn handle_from_module_path(&self, _module_path: ModulePath) -> Handle {
+    fn handle_from_module_path(&self, _module_path: ModulePath) -> Option<Handle> {
         // TODO(connernilsen): implement handles_from_module_path
-        Handle::new(
-            ModuleName::unknown(),
-            ModulePath::memory(PathBuf::new()),
-            SysInfo::default(),
-        )
+        None
     }
 
     fn requery_source_db(&mut self, files: SmallSet<PathBuf>) -> anyhow::Result<bool> {

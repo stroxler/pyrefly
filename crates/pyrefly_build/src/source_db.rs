@@ -71,7 +71,7 @@ pub trait SourceDatabase: Send + Sync + fmt::Debug {
     fn lookup(&self, module: &ModuleName, origin: Option<&Path>) -> Option<ModulePath>;
     /// Get the handle for the given module path, including its Python platform and version
     /// settings.
-    fn handle_from_module_path(&self, module_path: ModulePath) -> Handle;
+    fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle>;
     /// Requeries this sourcedb if the set of files provided differs from the files
     /// previously queried for. This is a blocking operation.
     /// Returns `Err` if the shellout to the build system failed
