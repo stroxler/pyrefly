@@ -664,7 +664,7 @@ pub struct Loop(pub Vec<(LoopExit, Flow)>);
 
 #[derive(Clone, Debug)]
 pub struct Scope {
-    pub range: TextRange,
+    range: TextRange,
     /// Things that are defined in this scope, statically, e.g. `x = 1` or `def f():`.
     /// Populated at the beginning before entering the scope.
     pub stat: Static,
@@ -678,7 +678,7 @@ pub struct Scope {
     ///
     /// Set when we enter a scope like a function body with deferred evaluation, where the
     /// values we might see from containing scopes may not match their current values.
-    pub barrier: bool,
+    barrier: bool,
     /// What kind of scope is this? Used for a few purposes, including propagating
     /// information down from scopes (e.g. to figure out when we're in a class) and
     /// storing data from the current AST traversal for later analysis, especially
