@@ -658,6 +658,19 @@ impl ConfigFile {
             self.root.permissive_ignores = Some(false);
         }
 
+        if let Some(build_system) = &self.build_system {
+            match &self.source {
+                ConfigSource::File(path) => {
+                    let mut root = path.to_path_buf();
+                    root.pop();
+                    self.source_db = Some(Arc::new(build_system.get_source_db(root)));
+                }
+                _ => configure_errors.push(anyhow::anyhow!(
+                    "Invalid config state: `build-system` is set on project without config."
+                )),
+            }
+        }
+
         fn validate<'a>(
             paths: &'a [PathBuf],
             field: &'a str,

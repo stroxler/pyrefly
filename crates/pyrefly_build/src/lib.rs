@@ -47,12 +47,10 @@ pub enum BuildSystem {
 impl BuildSystem {
     pub fn get_source_db(
         &self,
-        mut config_path: PathBuf,
+        config_root: PathBuf,
     ) -> Box<dyn source_db::SourceDatabase + 'static> {
-        // pop off the config file name from the path
-        config_path.pop();
         match &self {
-            Self::Buck => Box::new(buck::bxl::BuckSourceDatabase::new(config_path)),
+            Self::Buck => Box::new(buck::bxl::BuckSourceDatabase::new(config_root)),
         }
     }
 }
