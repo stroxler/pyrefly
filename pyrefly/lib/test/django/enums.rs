@@ -44,3 +44,34 @@ class Suit(IntegerChoices):
 assert_type(Suit.CLUB.value, int) # E: assert_type(tuple[Literal[4], _StrPromise], int)
 "#,
 );
+
+testcase!(
+    bug = "Properly interpret TextChoices properly as enums so that this test does not raise these false positives.",
+    test_enum_iterable,
+    django_env(),
+    r#"
+import enum
+
+from django.db.models import TextChoices
+from django.utils.functional import _StrOrPromise
+
+from typing_extensions import assert_type
+
+class Gender(TextChoices):
+    MALE = "M"
+    FEMALE = "F"
+    NOT_SPECIFIED = "X"
+
+    __empty__ = "(Undeclared)"
+
+class Medal(TextChoices):
+    GOLD = enum.auto()
+    SILVER = enum.auto()
+    BRONZE = enum.auto()
+
+# Assertions for mixing multiple choices types with consistent base types - only `TextChoices`.
+x1 = (Medal, Gender)
+assert_type([member.label for choices in x1 for member in choices], list[_StrOrPromise]) # E: Type `type[Gender]` is not iterable  # E: Type `type[Medal]` is not iterable 
+assert_type([member.value for choices in x1 for member in choices], list[str]) # E: Type `type[Gender]` is not iterable  # E: Type `type[Medal]` is not iterable 
+"#,
+);
