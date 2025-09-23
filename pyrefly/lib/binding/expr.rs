@@ -206,7 +206,14 @@ impl TestAssertion {
 }
 
 impl<'a> BindingsBuilder<'a> {
-    pub fn ensure_name(
+    /// Ensure the name in an `ExprName`. Note that unlike `ensure_expr`, it
+    /// does not require a mutable ref.
+    pub fn ensure_expr_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
+        let name = Ast::expr_name_identifier(x.clone());
+        self.ensure_name(&name, usage, &mut None)
+    }
+
+    fn ensure_name(
         &mut self,
         name: &Identifier,
         usage: &mut Usage,
@@ -219,11 +226,6 @@ impl<'a> BindingsBuilder<'a> {
                 .as_mut()
                 .map(|tparams_builder| (tparams_builder, LegacyTParamId::Name(name.clone()))),
         )
-    }
-
-    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
-        let name = Ast::expr_name_identifier(x.clone());
-        self.ensure_name(&name, usage, &mut None)
     }
 
     fn ensure_simple_attr(

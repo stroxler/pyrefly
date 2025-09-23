@@ -289,7 +289,7 @@ impl<'a> BindingsBuilder<'a> {
                 for target in &mut x.targets {
                     let mut delete_idx = self.declare_current_idx(Key::Delete(target.range()));
                     if let Expr::Name(name) = target {
-                        self.ensure_mutable_name(name, delete_idx.usage());
+                        self.ensure_expr_name(name, delete_idx.usage());
                         self.scopes.mark_as_deleted(&name.id);
                     } else {
                         self.ensure_expr(target, delete_idx.usage());
@@ -552,7 +552,7 @@ impl<'a> BindingsBuilder<'a> {
                         let mut assigned = self
                             .declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
                         // Make sure the name is already initialized - it's current value is part of AugAssign semantics.
-                        self.ensure_mutable_name(name, assigned.usage());
+                        self.ensure_expr_name(name, assigned.usage());
                         self.ensure_expr(&mut x.value, assigned.usage());
                         let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
                         let binding = Binding::AugAssign(ann, x.clone());
