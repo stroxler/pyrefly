@@ -577,21 +577,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 let nargs = posargs.len();
                 let style = if nargs == 0 {
-                    let mut method_name = None;
-                    let mut class_key = None;
-                    for scope in self.scopes.iter_rev() {
-                        match &scope.kind {
-                            ScopeKind::Method(method_scope) => {
-                                method_name = Some(method_scope.name.clone());
-                            }
-                            ScopeKind::Class(class_scope) if method_name.is_some() => {
-                                class_key = Some(class_scope.indices.class_idx);
-                                break;
-                            }
-                            _ => {}
-                        }
-                    }
-                    match (class_key, method_name) {
+                    match self.scopes.current_class_and_method() {
                         (Some(class_idx), Some(method)) => {
                             SuperStyle::ImplicitArgs(class_idx, method)
                         }

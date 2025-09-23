@@ -1424,6 +1424,24 @@ impl Scopes {
         field_definitions
     }
 
+    pub fn current_class_and_method(&self) -> (Option<Idx<KeyClass>>, Option<Identifier>) {
+        let mut class_key = None;
+        let mut method_name = None;
+        for scope in self.iter_rev() {
+            match &scope.kind {
+                ScopeKind::Method(method_scope) => {
+                    method_name = Some(method_scope.name.clone());
+                }
+                ScopeKind::Class(class_scope) if method_name.is_some() => {
+                    class_key = Some(class_scope.indices.class_idx);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        (class_key, method_name)
+    }
+
     /// Check whether the current flow has a module import at a given name.
     ///
     /// Used when binding imports, because the semantics of multiple imports from
