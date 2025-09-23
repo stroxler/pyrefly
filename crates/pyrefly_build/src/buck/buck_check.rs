@@ -18,6 +18,7 @@ use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::fs_anyhow;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use vec1::Vec1;
 
@@ -156,6 +157,10 @@ impl SourceDatabase for BuckCheckSourceDatabase {
         } else {
             Handle::new(ModuleName::unknown(), module_path, self.sys_info.dupe())
         }
+    }
+
+    fn requery_source_db(&mut self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+        Ok(false)
     }
 }
 

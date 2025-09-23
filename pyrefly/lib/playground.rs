@@ -30,6 +30,7 @@ use pyrefly_util::prelude::VecExt;
 use ruff_text_size::TextSize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
@@ -76,6 +77,10 @@ impl SourceDatabase for PlaygroundSourceDatabase {
             .find(|(_, p)| *p == &path)
             .map_or_else(ModuleName::unknown, |(n, _)| n.dupe());
         Handle::new(name, path, self.sys_info.dupe())
+    }
+
+    fn requery_source_db(&mut self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+        Ok(false)
     }
 }
 

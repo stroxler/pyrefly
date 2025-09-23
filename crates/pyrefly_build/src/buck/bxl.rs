@@ -56,4 +56,8 @@ impl SourceDatabase for BuckSourceDatabase {
             SysInfo::default(),
         )
     }
+
+    fn requery_source_db(&mut self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+        Ok(false)
+    }
 }
