@@ -727,3 +727,24 @@ class C2(Y): pass  # Should work - legacy explicit type alias
 class C3(Z): pass  # Should work - legacy implicit type alias
     "#,
 );
+
+testcase!(
+    test_string_annotations,
+    r#"
+from typing import Annotated, Callable, Dict, List, Tuple, Type
+from collections.abc import Callable as Callable2
+X1 = Annotated["A", "foo"]
+X2 = Callable[..., "A"]
+X3 = Callable2[..., "A"]
+X4 = Dict[str, "A"]
+X5 = dict[str, "A"]
+X6 = List["A"]
+X7 = list["A"]
+X8 = Tuple["A", ...]
+X9 = tuple["A", ...]
+XA = type["A"]
+XB = Type["A"]
+class A:
+    pass
+    "#,
+);

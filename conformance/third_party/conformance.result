@@ -17,16 +17,12 @@
     "Line 50: Expected 1 errors",
     "Line 51: Expected 1 errors",
     "Line 52: Expected 1 errors",
+    "Line 63: Expected 1 errors",
+    "Line 69: Expected 1 errors",
     "Line 72: Expected 1 errors",
     "Line 75: Expected 1 errors",
     "Line 30: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveTuple']`\"]",
-    "Line 42: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMapping']`\"]",
-    "Line 58: Unexpected errors ['Expected a type form, got instance of `_SpecialForm`']",
-    "Line 59: Unexpected errors ['`type[list[Unknown]]` is not subscriptable']",
-    "Line 62: Unexpected errors ['`type[list[Unknown]]` is not subscriptable']",
-    "Line 65: Unexpected errors ['Expected a type form, got instance of `_SpecialForm`']",
-    "Line 67: Unexpected errors ['`type[list[Unknown]]` is not subscriptable']",
-    "Line 68: Unexpected errors ['`type[list[Unknown]]` is not subscriptable']"
+    "Line 42: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMapping']`\"]"
   ],
   "aliases_type_statement.py": [
     "Line 82: Expected 1 errors",

@@ -486,7 +486,20 @@ impl<'a> BindingsBuilder<'a> {
         match x {
             Expr::Subscript(x) => matches!(
                 self.as_special_export(&x.value),
-                Some(SpecialExport::Union | SpecialExport::Optional)
+                Some(
+                    SpecialExport::Union
+                        | SpecialExport::Optional
+                        | SpecialExport::Annotated
+                        | SpecialExport::Callable
+                        | SpecialExport::BuiltinsDict
+                        | SpecialExport::TypingDict
+                        | SpecialExport::BuiltinsList
+                        | SpecialExport::TypingList
+                        | SpecialExport::BuiltinsTuple
+                        | SpecialExport::TypingTuple
+                        | SpecialExport::BuiltinsType
+                        | SpecialExport::TypingType
+                )
             ),
             _ => false,
         }
