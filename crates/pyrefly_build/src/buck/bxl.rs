@@ -109,9 +109,24 @@ impl SourceDatabase for BuckSourceDatabase {
         None
     }
 
-    fn handle_from_module_path(&self, _module_path: ModulePath) -> Option<Handle> {
-        // TODO(connernilsen): implement handles_from_module_path
-        None
+    fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle> {
+        let target = self.path_lookup.get(&module_path.as_path().to_path_buf())?;
+
+        // if we get a target from `path_lookup`, it must exist in manifest
+        let manifest = self.db.get(target).unwrap();
+        let module_name = manifest
+            .srcs
+            .iter()
+            .find(|(_, paths)| paths.iter().any(|p| **p == module_path.as_path()))
+            // similarly, if we get a target for a path in `path_lookup`, it must exist
+            // in that target's srcs
+            .unwrap()
+            .0;
+        Some(Handle::new(
+            module_name.dupe(),
+            module_path.dupe(),
+            manifest.sys_info.dupe(),
+        ))
     }
 
     fn requery_source_db(&mut self, files: SmallSet<PathBuf>) -> anyhow::Result<bool> {
