@@ -34,6 +34,7 @@ use pyrefly_util::globs::Globs;
 use pyrefly_util::prelude::VecExt;
 use serde::Deserialize;
 use serde::Serialize;
+use starlark_map::small_set::SmallSet;
 use tracing::debug;
 
 use crate::base::ConfigBase;
@@ -604,6 +605,15 @@ impl ConfigFile {
                 Handle::new(name, module_path, self.get_sys_info())
             }
         }
+    }
+
+    pub fn requery_source_db(&self, files: &SmallSet<ModulePath>) -> anyhow::Result<bool> {
+        let Some(source_db) = &self.source_db else {
+            return Ok(false);
+        };
+
+        let files = files.iter().map(|p| p.as_path().to_path_buf()).collect();
+        source_db.requery_source_db(files)
     }
 
     /// Configures values that must be updated *after* overwriting with CLI flag values,
