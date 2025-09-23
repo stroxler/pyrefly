@@ -48,8 +48,7 @@ pub enum MutableCaptureKind {
 /// module, we additionally store the module we got it from.
 ///
 /// This type is ordered - if there are multiple statements defining
-/// the name (in which case the `Definition` count will be greater than 1),
-/// then the minimal style is the one we track.
+/// the name, then the minimal style is the one we track.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DefinitionStyle {
     /// A name defined by a mutable capture. In valid code, the current scope
@@ -83,8 +82,9 @@ pub struct Definition {
     pub range: TextRange,
     /// If the definition occurs multiple times, the lowest `DefinitionStyle` is used (e.g. prefer `Local`).
     pub style: DefinitionStyle,
-    /// The number is the distinct times this variable was defined.
-    pub count: usize,
+    /// Does this definition require an `Anywhere` binding at binding time? Typically yes if there
+    /// are multiple definitions, but mutable captures and `del` both require special handling.
+    pub needs_anywhere: bool,
     /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
     /// states that is the docstring.
     pub docstring_range: Option<TextRange>,
@@ -102,7 +102,18 @@ impl Definition {
         if other < self.style {
             self.style = other;
         }
-        self.count += 1;
+        // If we've merged a Definition, then there are multiple definition sites.
+        //
+        // We want an Anywhere at bindings time unless either:
+        // - it is defined only by `del` statements (in which case we have to
+        //   avoid `Anywhere` because no one will ever actually populate it - this
+        //   is an implementation detail but can lead to panics if mis-handled).
+        // - this is a mutable capture (in which case it's not actually owned
+        //   by the current scope)
+        self.needs_anywhere = match &self.style {
+            DefinitionStyle::MutableCapture(..) | DefinitionStyle::Delete => false,
+            _ => true,
+        };
     }
 }
 
@@ -228,7 +239,7 @@ impl Definitions {
                 Definition {
                     range: TextRange::default(),
                     style: DefinitionStyle::ImplicitGlobal,
-                    count: 1,
+                    needs_anywhere: false,
                     docstring_range: None,
                 },
             );
@@ -295,7 +306,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 e.insert(Definition {
                     range,
                     style,
-                    count: 1,
+                    needs_anywhere: false,
                     docstring_range: body.and_then(Docstring::range_from_stmts),
                 });
             }
@@ -851,14 +862,14 @@ def bar(x: str) -> str: ...
             foo.style,
             DefinitionStyle::Unannotated(SymbolKind::Function)
         );
-        assert_eq!(foo.count, 3);
+        assert!(foo.needs_anywhere);
 
         let bar = defs.definitions.get(&Name::new_static("bar")).unwrap();
         assert_eq!(
             bar.style,
             DefinitionStyle::Unannotated(SymbolKind::Function)
         );
-        assert_eq!(bar.count, 2);
+        assert!(bar.needs_anywhere);
     }
 
     #[test]
@@ -980,11 +991,14 @@ del (y := {"x": 42})["x"]
             r#"
 global x
 nonlocal y
+x = 5
 "#,
             ModuleName::from_str("derp"),
             true,
         );
         assert_definition_names(&defs, &["x", "y"]);
+        let x = defs.definitions.get(&Name::new_static("x")).unwrap();
+        assert!(!x.needs_anywhere);
     }
 
     #[test]
@@ -994,10 +1008,13 @@ nonlocal y
         let defs = calculate_unranged_definitions(
             r#"
 del x
+del x
 "#,
             ModuleName::from_str("derp"),
             true,
         );
         assert_definition_names(&defs, &["x"]);
+        let x = defs.definitions.get(&Name::new_static("x")).unwrap();
+        assert!(!x.needs_anywhere);
     }
 }

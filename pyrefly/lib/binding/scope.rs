@@ -235,32 +235,32 @@ impl StaticStyle {
         scopes: Option<&Scopes>,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) -> Self {
-        match (definition.count > 1, &definition.style) {
-            (_, DefinitionStyle::Delete) => Self::Delete,
-            (_, DefinitionStyle::MutableCapture(kind)) => {
-                let original = scopes
-                    .map_or(Result::Err(MutableCaptureError::NotFound), |scopes| {
-                        scopes.look_up_name_for_mutable_capture(name, *kind)
-                    });
-                Self::MutableCapture(MutableCapture {
-                    kind: *kind,
-                    original,
-                })
-            }
-            (true, _) => Self::Anywhere(definition.annotation().map(get_annotation_idx)),
-            (false, DefinitionStyle::Annotated(.., ann)) => {
-                Self::SingleDef(Some(get_annotation_idx(*ann)))
-            }
-            (false, DefinitionStyle::ImplicitGlobal) => Self::ImplicitGlobal,
-            (false, DefinitionStyle::ImportModule(..)) => Self::MergeableImport,
-            (
-                false,
+        if definition.needs_anywhere {
+            Self::Anywhere(definition.annotation().map(get_annotation_idx))
+        } else {
+            match &definition.style {
+                DefinitionStyle::Delete => Self::Delete,
+                DefinitionStyle::MutableCapture(kind) => {
+                    let original = scopes
+                        .map_or(Result::Err(MutableCaptureError::NotFound), |scopes| {
+                            scopes.look_up_name_for_mutable_capture(name, *kind)
+                        });
+                    Self::MutableCapture(MutableCapture {
+                        kind: *kind,
+                        original,
+                    })
+                }
+                DefinitionStyle::Annotated(.., ann) => {
+                    Self::SingleDef(Some(get_annotation_idx(*ann)))
+                }
+                DefinitionStyle::ImplicitGlobal => Self::ImplicitGlobal,
+                DefinitionStyle::ImportModule(..) => Self::MergeableImport,
                 DefinitionStyle::Unannotated(..)
                 | DefinitionStyle::ImportAs(..)
                 | DefinitionStyle::Import(..)
                 | DefinitionStyle::ImportAsEq(..)
-                | DefinitionStyle::ImportInvalidRelative,
-            ) => Self::SingleDef(None),
+                | DefinitionStyle::ImportInvalidRelative => Self::SingleDef(None),
+            }
         }
     }
 }
