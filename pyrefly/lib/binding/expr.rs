@@ -577,11 +577,9 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 let nargs = posargs.len();
                 let style = if nargs == 0 {
-                    match self.scopes.current_class_and_method() {
-                        (Some(class_idx), Some(method)) => {
-                            SuperStyle::ImplicitArgs(class_idx, method)
-                        }
-                        _ => {
+                    match self.scopes.current_method_and_class() {
+                        Some((method, class_idx)) => SuperStyle::ImplicitArgs(class_idx, method),
+                        None => {
                             self.error(
                                 *range,
                                 ErrorInfo::Kind(ErrorKind::InvalidSuperCall),

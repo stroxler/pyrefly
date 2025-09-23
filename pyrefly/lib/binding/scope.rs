@@ -1424,9 +1424,13 @@ impl Scopes {
         field_definitions
     }
 
-    pub fn current_class_and_method(&self) -> (Option<Idx<KeyClass>>, Option<Identifier>) {
-        let mut class_key = None;
+    /// Return a pair Some((method_name, class_key)) if we are currently in a method
+    /// (if we are in nested classes, we'll get the innermost).
+    ///
+    /// Used to resolve `super()` behaviors.
+    pub fn current_method_and_class(&self) -> Option<(Identifier, Idx<KeyClass>)> {
         let mut method_name = None;
+        let mut class_key = None;
         for scope in self.iter_rev() {
             match &scope.kind {
                 ScopeKind::Method(method_scope) => {
@@ -1439,7 +1443,10 @@ impl Scopes {
                 _ => {}
             }
         }
-        (class_key, method_name)
+        match (method_name, class_key) {
+            (Some(method_name), Some(class_key)) => Some((method_name, class_key)),
+            _ => None,
+        }
     }
 
     /// Check whether the current flow has a module import at a given name.
