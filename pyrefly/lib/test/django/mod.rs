@@ -7,5 +7,6 @@
 
 #![cfg(test)]
 mod config;
+mod enums;
 mod model;
 mod view;
