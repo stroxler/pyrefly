@@ -1784,3 +1784,15 @@ X = type("X", (object,), {"foo": "bar"})
 assert_type(X, type)
     "#,
 );
+
+testcase!(
+    test_typing_annotated_validation,
+    r#"
+from typing import Annotated, ClassVar
+X = Annotated[int, 'ok']
+class A:
+    x: Annotated[ClassVar[int], 'also ok']
+Y = Annotated[ClassVar[int], 'wrong context']  # E: `ClassVar` is not allowed in this context
+Z = Annotated[0, 'not a type']  # E: Expected a type form, got instance of `Literal[0]`
+    "#,
+);
