@@ -939,7 +939,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // By invariant, hint will be None if we are calling a constructor.
             if let Some(hint) = hint {
                 let (qs_, callable_) = self.instantiate_fresh_callable(tparams, callable.clone());
-                if self.is_subset_eq(&callable_.ret, hint.ty()) {
+                if self.is_subset_eq(&callable_.ret, hint.ty())
+                    && !self.solver().has_instantiation_errors(&qs_)
+                {
                     (qs_, callable_)
                 } else {
                     self.instantiate_fresh_callable(tparams, callable)

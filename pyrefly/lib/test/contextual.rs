@@ -380,6 +380,15 @@ z: list[A] = y # E: `list[B]` is not assignable to `list[A]`
 );
 
 testcase!(
+    test_context_return_incompatible_bound,
+    r#"
+def f(x: int | str) -> None: ...
+def g[T: int](x: T) -> T: ...
+f(g(0)) # OK
+"#,
+);
+
+testcase!(
     bug = "Propagating the hint should still allow for a narrower inferred type",
     test_context_return_narrow,
     r#"
