@@ -1011,3 +1011,20 @@ h = g(f)
 reveal_type(h)  # E: revealed type: (x: Literal[1]) -> Literal[1]
     "#,
 );
+
+testcase!(
+    test_boundmethod_union,
+    r#"
+from typing import assert_type
+def _(flag: bool):
+    class C:
+        if flag:
+            def __getitem__(self, key: int) -> str:
+                return str(key)
+        else:
+            def __getitem__(self, key: int) -> bytes:
+                return bytes()
+    c = C()
+    assert_type(c[0], bytes | str)
+    "#,
+);

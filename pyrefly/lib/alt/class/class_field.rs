@@ -802,7 +802,7 @@ fn bind_class_attribute(
     }
 }
 
-/// Return the type of making it bound, or if not,
+/// Return the type of making it bound, or if not, the unbound type.
 fn make_bound_method_helper(
     obj: Type,
     attr: Type,
@@ -810,20 +810,30 @@ fn make_bound_method_helper(
 ) -> Result<Type, Type> {
     // Don't bind functions originating from callback protocols, because the self param
     // has already been removed.
-    let should_bind = |metadata: &FuncMetadata| {
+    let should_bind2 = |metadata: &FuncMetadata| {
         !matches!(metadata.kind, FunctionKind::CallbackProtocol(_)) && should_bind(metadata)
     };
     let func = match attr {
         Type::Forall(box Forall {
             tparams,
             body: Forallable::Function(func),
-        }) if should_bind(&func.metadata) => BoundMethodType::Forall(Forall {
+        }) if should_bind2(&func.metadata) => BoundMethodType::Forall(Forall {
             tparams,
             body: func,
         }),
-        Type::Function(func) if should_bind(&func.metadata) => BoundMethodType::Function(*func),
-        Type::Overload(overload) if should_bind(&overload.metadata) => {
+        Type::Function(func) if should_bind2(&func.metadata) => BoundMethodType::Function(*func),
+        Type::Overload(overload) if should_bind2(&overload.metadata) => {
             BoundMethodType::Overload(overload)
+        }
+        Type::Union(ref ts) => {
+            let mut bound_methods = Vec::with_capacity(ts.len());
+            for t in ts {
+                match make_bound_method_helper(obj.clone(), t.clone(), should_bind) {
+                    Ok(x) => bound_methods.push(x),
+                    Err(_) => return Err(attr),
+                }
+            }
+            return Ok(unions(bound_methods));
         }
         _ => return Err(attr),
     };
