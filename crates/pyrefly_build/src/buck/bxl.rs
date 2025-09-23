@@ -15,14 +15,15 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::buck::query::Include;
-use crate::buck::query::TargetManifestDatabase;
+use crate::buck::query::PythonLibraryManifest;
 use crate::handle::Handle;
 use crate::source_db::SourceDatabase;
+use crate::source_db::Target;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct BuckSourceDatabase {
     cwd: PathBuf,
-    db: TargetManifestDatabase,
+    db: SmallMap<Target, PythonLibraryManifest>,
     includes: SmallSet<Include>,
 }
 
@@ -30,7 +31,7 @@ impl BuckSourceDatabase {
     pub fn new(config_path: PathBuf) -> Self {
         BuckSourceDatabase {
             cwd: config_path,
-            db: TargetManifestDatabase::new(SmallMap::new(), PathBuf::new()),
+            db: SmallMap::new(),
             includes: SmallSet::new(),
         }
     }
