@@ -60,6 +60,7 @@ use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
@@ -341,6 +342,8 @@ enum PysaClassMro {
 struct PysaClassField {
     #[serde(rename = "type")]
     type_: PysaType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    explicit_annotation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     location: Option<String>,
 }
@@ -1100,7 +1103,49 @@ fn export_class_fields(class: &Class, context: &ModuleContext) -> HashMap<String
         .fields()
         .filter_map(|name| get_class_field(class, name, context).map(|field| (name, field)))
         .filter_map(|(name, field)| {
-            match get_class_field_declaration(class, name, context) {
+            let field_binding = get_class_field_declaration(class, name, context);
+
+            let explicit_annotation = match field_binding {
+                Some(BindingClassField {
+                    definition: ClassFieldDefinition::DeclaredByAnnotation { annotation },
+                    ..
+                }) => Some(*annotation),
+                Some(BindingClassField {
+                    definition: ClassFieldDefinition::AssignedInBody { annotation, .. },
+                    ..
+                }) => *annotation,
+                Some(BindingClassField {
+                    definition: ClassFieldDefinition::DefinedInMethod { annotation, .. },
+                    ..
+                }) => *annotation,
+                _ => None,
+            }
+            .map(|idx| context.bindings.idx_to_key(idx))
+            .and_then(|key_annotation| match key_annotation {
+                // We want to export the annotation as it is in the source code.
+                // We cannot use the answer for `key_annotation` (which wraps a `Type`),
+                // because it contains a normalized type where some elements have
+                // been stripped out (most notably, `typing.Annotated`).
+                KeyAnnotation::Annotation(identifier) => {
+                    // `Ast::locate_node` returns all covering AST nodes, from innermost to outermost.
+                    // The innermost will be the Name node, so we need the second node.
+                    match Ast::locate_node(&context.ast, identifier.range().start()).get(1) {
+                        Some(AnyNodeRef::StmtAnnAssign(assign)) => Some(
+                            context
+                                .module_info
+                                .code_at(assign.annotation.range())
+                                .to_owned(),
+                        ),
+                        _ => None,
+                    }
+                }
+                KeyAnnotation::AttrAnnotation(range) => {
+                    Some(context.module_info.code_at(*range).to_owned())
+                }
+                _ => None,
+            });
+
+            match field_binding {
                 Some(BindingClassField {
                     definition: ClassFieldDefinition::MethodLike { .. },
                     ..
@@ -1112,6 +1157,7 @@ fn export_class_fields(class: &Class, context: &ModuleContext) -> HashMap<String
                     name.to_string(),
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
+                        explicit_annotation,
                         location: Some(location_key(&context.module_info.display_range(*range))),
                     },
                 )),
@@ -1119,6 +1165,7 @@ fn export_class_fields(class: &Class, context: &ModuleContext) -> HashMap<String
                     name.to_string(),
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
+                        explicit_annotation,
                         location: None,
                     },
                 )),
