@@ -549,16 +549,6 @@
   "aliases_recursive.py": [
     {
       "code": -2,
-      "column": 36,
-      "concise_description": "Expected a type form, got instance of `Literal['RecursiveTuple']`",
-      "description": "Expected a type form, got instance of `Literal['RecursiveTuple']`",
-      "line": 30,
-      "name": "not-a-type",
-      "stop_column": 52,
-      "stop_line": 30
-    },
-    {
-      "code": -2,
       "column": 45,
       "concise_description": "Expected a type form, got instance of `Literal['RecursiveMapping']`",
       "description": "Expected a type form, got instance of `Literal['RecursiveMapping']`",

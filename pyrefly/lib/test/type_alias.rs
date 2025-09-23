@@ -374,7 +374,7 @@ def g(x2: X2, x3: X3):
 );
 
 testcase!(
-    test_recursive_alias,
+    test_recursive_alias_explicit,
     r#"
 from typing import TypeAlias, assert_type
 
@@ -384,6 +384,16 @@ x: Alias = 1
 y: Alias = [1]
 z: Alias = [[1, 2]]
 "#,
+);
+
+testcase!(
+    test_recursive_alias_implicit,
+    r#"
+X = int | list["X"]
+x: X = 1
+x: X = [1]
+x: X = [[1, 2]]
+    "#,
 );
 
 testcase!(

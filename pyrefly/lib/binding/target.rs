@@ -8,9 +8,11 @@
 use pyrefly_python::short_identifier::ShortIdentifier;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::Operator;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
@@ -501,6 +503,14 @@ impl<'a> BindingsBuilder<'a> {
                         | SpecialExport::TypingType
                 )
             ),
+            Expr::BinOp(ExprBinOp {
+                left,
+                op: Operator::BitOr,
+                right,
+                ..
+            }) => {
+                self.is_definitely_type_alias_rhs(left) || self.is_definitely_type_alias_rhs(right)
+            }
             _ => false,
         }
     }
