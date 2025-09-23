@@ -28,7 +28,6 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Params;
@@ -42,7 +41,6 @@ use pyrefly_util::visit::Visit;
 use rayon::prelude::*;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
-use ruff_python_ast::ExprContext;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -52,7 +50,6 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use serde::Serialize;
 use starlark_map::Hashed;
-use tracing::debug;
 use tracing::info;
 
 use crate::alt::answers::Answers;
@@ -69,13 +66,10 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
-use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::override_graph::create_reversed_override_graph_for_module;
-use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
-use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::display::TypeDisplayContext;
 use crate::types::stdlib::Stdlib;
@@ -379,7 +373,6 @@ struct PysaModuleFile {
     module_name: String,
     source_path: ModulePathDetails,
     type_of_expression: HashMap<String, PysaType>,
-    goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
     function_definitions: HashMap<FunctionId, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
     global_variables: HashMap<String, GlobalVariable>,
@@ -397,13 +390,6 @@ impl ModuleKey {
         ModuleKey {
             name: handle.module(),
             path: handle.path().clone(),
-        }
-    }
-
-    fn from_module_info(module_info: &ModuleInfo) -> ModuleKey {
-        ModuleKey {
-            name: module_info.name(),
-            path: module_info.path().clone(),
         }
     }
 
@@ -665,63 +651,7 @@ impl PysaType {
 struct VisitorContext<'a> {
     module_context: &'a ModuleContext<'a>,
     type_of_expression: &'a mut HashMap<String, PysaType>,
-    definitions_of_expression: &'a mut HashMap<String, Vec<DefinitionRef>>,
     global_variables: &'a mut HashMap<String, GlobalVariable>,
-}
-
-fn add_expression_definitions(
-    range: &DisplayRange,
-    definitions: Vec<FindDefinitionItemWithDocstring>,
-    identifier: &str,
-    context: &mut VisitorContext,
-) {
-    let callees = definitions
-        .iter()
-        .filter(|definition| {
-            matches!(
-                definition.metadata,
-                DefinitionMetadata::Variable(Some(SymbolKind::Function | SymbolKind::Class))
-                    | DefinitionMetadata::Attribute(_)
-            )
-        })
-        .filter_map(|definition| {
-            let module_info = &definition.module;
-            let display_range = module_info.display_range(definition.definition_range);
-            match context
-                .module_context
-                .module_ids
-                .get(ModuleKey::from_module_info(module_info))
-            {
-                Some(module_id) => Some(DefinitionRef {
-                    module_id,
-                    module_name: module_info.name().to_string(),
-                    function_id: FunctionId::Function {
-                        location: display_range,
-                    },
-                    identifier: identifier.to_owned(),
-                }),
-                None => {
-                    debug!(
-                        "Module {} was not type checked, ignoring.",
-                        module_info.name()
-                    );
-                    None
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-
-    if callees.is_empty() {
-        return;
-    }
-
-    assert!(
-        context
-            .definitions_of_expression
-            .insert(location_key(range), callees)
-            .is_none(),
-        "Found expressions with the same location"
-    );
 }
 
 fn export_function_parameter(param: &Param, context: &ModuleContext) -> FunctionParameter {
@@ -791,50 +721,6 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
             "Found expressions with the same location"
         );
     }
-
-    // For some AST nodes, try to find the definitions.
-    match e {
-        Expr::Name(name)
-            if matches!(
-                name.ctx,
-                ExprContext::Load | ExprContext::Del | ExprContext::Invalid
-            ) =>
-        {
-            let identifier = Ast::expr_name_identifier(name.clone());
-            let display_range = context.module_context.module_info.display_range(range);
-
-            let definitions = context
-                .module_context
-                .transaction
-                .find_definition_for_name_use(
-                    context.module_context.handle,
-                    &identifier,
-                    &FindPreference::default(),
-                )
-                .map_or(vec![], |d| vec![d]);
-
-            add_expression_definitions(&display_range, definitions, name.id.as_str(), context);
-        }
-        Expr::Attribute(attribute) => {
-            let display_range = context.module_context.module_info.display_range(range);
-            let definitions = context
-                .module_context
-                .transaction
-                .find_definition_for_attribute(
-                    context.module_context.handle,
-                    attribute.value.range(),
-                    &attribute.attr,
-                    &FindPreference::default(),
-                );
-            add_expression_definitions(
-                &display_range,
-                definitions,
-                attribute.attr.as_str(),
-                context,
-            );
-        }
-        _ => {}
-    };
 
     e.recurse(&mut |e| visit_expression(e, context));
 }
@@ -1365,7 +1251,6 @@ fn get_module_file(
     reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
 ) -> PysaModuleFile {
     let mut type_of_expression = HashMap::new();
-    let mut definitions_of_expression = HashMap::new();
     let mut global_variables = HashMap::new();
 
     for stmt in &context.ast.body {
@@ -1375,7 +1260,6 @@ fn get_module_file(
             &mut VisitorContext {
                 module_context: context,
                 type_of_expression: &mut type_of_expression,
-                definitions_of_expression: &mut definitions_of_expression,
                 global_variables: &mut global_variables,
             },
         );
@@ -1390,7 +1274,6 @@ fn get_module_file(
         module_name: context.module_info.name().to_string(),
         source_path: context.module_info.path().details().clone(),
         type_of_expression,
-        goto_definitions_of_expression: definitions_of_expression,
         function_definitions,
         class_definitions,
         global_variables,
