@@ -29,12 +29,10 @@ use crate::source_db::Target;
 pub enum Include {
     #[expect(unused)]
     Target(Target),
-    #[allow(unused)]
     Path(Arc<PathBuf>),
 }
 
 impl Include {
-    #[expect(unused)]
     pub fn path(path: PathBuf) -> Self {
         Self::Path(Arc::new(path))
     }
@@ -47,7 +45,6 @@ impl Include {
     }
 }
 
-#[expect(unused)]
 pub fn query_source_db<'a>(
     files: impl Iterator<Item = &'a Include>,
     cwd: &Path,
@@ -131,7 +128,6 @@ pub(crate) struct TargetManifestDatabase {
 }
 
 impl TargetManifestDatabase {
-    #[allow(unused)]
     pub fn produce_map(self) -> SmallMap<Target, PythonLibraryManifest> {
         let mut result = SmallMap::new();
         let aliases: SmallMap<Target, Target> = self
