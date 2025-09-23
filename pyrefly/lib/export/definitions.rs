@@ -99,6 +99,11 @@ impl Definition {
             _ => None,
         }
     }
+
+    fn merge(&mut self, other: DefinitionStyle) {
+        self.style = cmp::min(&self.style, &other).clone();
+        self.count += 1;
+    }
 }
 
 /// Find the definitions available in a scope. Does not traverse inside classes/functions,
@@ -284,8 +289,7 @@ impl<'a> DefinitionsBuilder<'a> {
     ) {
         match self.inner.definitions.entry(x.clone()) {
             Entry::Occupied(mut e) => {
-                e.get_mut().style = cmp::min(&e.get().style, &style).clone();
-                e.get_mut().count += 1;
+                e.get_mut().merge(style);
             }
             Entry::Vacant(e) => {
                 e.insert(Definition {
