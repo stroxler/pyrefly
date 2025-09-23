@@ -206,24 +206,6 @@ impl TestAssertion {
 }
 
 impl<'a> BindingsBuilder<'a> {
-    /// Given a name appearing in an expression, create a `Usage` key for that
-    /// name at the current location. The binding will indicate how to compute
-    /// the type if we found that name in scope; if we do not find the name we
-    /// record an error and fall back to `Any`.
-    ///
-    /// This function is the core scope lookup logic for binding creation.
-    ///
-    /// To do the ensure, we need:
-    /// - Information about what binding it is being used in, which is used both
-    ///   - to track first-use to get deterministic inference of placeholder
-    ///     types like empty list
-    ///   - to determine when we are in a static typing usage
-    /// - The lookup kind, which is used to distinguish between normal lookups,
-    ///   which allow uses of nonlocals, versus mutable lookups that do not
-    ///   (unless the nonlocal was explicitly mutably captured by a `global`
-    ///   or `nonlocal` statement).
-    /// - An optional `tparams_builder`, which intercepts names - but only
-    ///   in static type contexts - that map to legacy type variables.
     pub fn ensure_name(
         &mut self,
         name: &Identifier,
@@ -263,6 +245,27 @@ impl<'a> BindingsBuilder<'a> {
         )
     }
 
+    /// Given a name appearing in an expression, create a `Usage` key for that
+    /// name at the current location. The binding will indicate how to compute
+    /// the type if we found that name in scope; if we do not find the name we
+    /// record an error and fall back to `Any`.
+    ///
+    /// This function is the core scope lookup logic for binding creation.
+    ///
+    /// To do the ensure, we need:
+    /// - Information about what binding it is being used in, which is used both
+    ///   - to track first-use to get deterministic inference of placeholder
+    ///     types like empty list
+    ///   - to determine when we are in a static typing usage
+    /// - The lookup kind, which is used to distinguish between normal lookups,
+    ///   which allow uses of nonlocals, versus mutable lookups that do not
+    ///   (unless the nonlocal was explicitly mutably captured by a `global`
+    ///   or `nonlocal` statement).
+    /// - An optional `tparams_lookup`, which intercepts names - but only
+    ///   in static type contexts - that map to legacy type variables. It
+    ///   is a flexible callback in order to handle not only bare name type
+    ///   variables, but also `<module>.<name>` type variables, which have
+    ///   to be modeled as attribute narrows of the module at solve time.
     fn ensure_name_impl(
         &mut self,
         name: &Identifier,
