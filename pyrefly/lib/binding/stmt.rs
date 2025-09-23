@@ -549,16 +549,11 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::AugAssign(mut x) => {
                 match x.target.as_ref() {
                     Expr::Name(name) => {
-                        // TODO(stroxler): Is this really a good key for an augmented assignment?
-                        // It works okay for type checking, but might have weird effects on the IDE.
                         let mut assigned = self
                             .declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
-                        // Ensure the target name, which must already be in scope (it is part of the implicit dunder method call
-                        // used in augmented assignment).
+                        // Make sure the name is already initialized - it's current value is part of AugAssign semantics.
                         self.ensure_mutable_name(name, assigned.usage());
                         self.ensure_expr(&mut x.value, assigned.usage());
-                        // TODO(stroxler): Should we really be using `bind_key` here? This will update the
-                        // flow info to define the name, even if it was not previously defined.
                         let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
                         let binding = Binding::AugAssign(ann, x.clone());
                         self.insert_binding_current(assigned, binding);
