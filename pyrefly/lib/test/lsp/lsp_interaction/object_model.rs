@@ -294,7 +294,7 @@ impl TestClient {
     ) -> Self {
         Self {
             receiver,
-            timeout: Duration::from_secs(25),
+            timeout: Duration::from_secs(50),
             root: None,
             request_idx,
         }

@@ -31,11 +31,11 @@ assert_type(p.first_name, str) # E: assert_type(Any, str) failed
 );
 
 testcase!(
-    bug = "We should add type stubs here. Even with stubs, we do not have the correct behavior. We error on the definition of PersonFieldsetTupleAdmin.",
+    bug = "We error on the definition of PersonFieldsetTupleAdmin, which is wrong.",
     test_model_admin_tuple,
     django_env(),
     r#"
-from django.contrib import admin # E: Could not find import of `django.contrib`
+from django.contrib import admin
 from django.db import models
 
 class Person(models.Model):
@@ -44,7 +44,7 @@ class Person(models.Model):
     birthday = models.DateField()
 
 class PersonFieldsetTupleAdmin(admin.ModelAdmin[Person]):
-    fieldsets = (
+    fieldsets = ( # E: `tuple[tuple[Literal['Personal Details'], dict[str, str | tuple[tuple[str, str], str]]]]` is not assignable to attribute `fieldsets` with type `list[tuple[_StrPromise | str | None, TypedDict[_FieldOpts]]] | tuple[()] | tuple[tuple[_StrPromise | str | None, TypedDict[_FieldOpts]], ...] | None`
         (
             "Personal Details",
             {
@@ -58,11 +58,10 @@ class PersonFieldsetTupleAdmin(admin.ModelAdmin[Person]):
 );
 
 testcase!(
-    bug = "We should add stubs here, which should fix this testcase.",
     test_model_admin_list,
     django_env(),
     r#"
-from django.contrib import admin # E: Could not find import of `django.contrib`
+from django.contrib import admin 
 from django.db import models
 
 class Person(models.Model):
