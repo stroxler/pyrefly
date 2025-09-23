@@ -26,8 +26,11 @@ use clap::ValueEnum;
 use dupe::Dupe as _;
 use pyrefly_build::handle::Handle;
 use pyrefly_config::args::ConfigOverrideArgs;
+use pyrefly_config::config::ConfigFile;
+use pyrefly_config::finder::ConfigError;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::display;
 use pyrefly_util::display::count;
 use pyrefly_util::display::number_thousands;
@@ -380,7 +383,10 @@ impl Handles {
         handles
     }
 
-    pub fn all(&self, config_finder: &ConfigFinder) -> Vec<Handle> {
+    pub fn all(
+        &self,
+        config_finder: &ConfigFinder,
+    ) -> (Vec<Handle>, Vec<ArcId<ConfigFile>>, Vec<ConfigError>) {
         let mut configs = SmallMap::new();
         for path in &self.path_data {
             let unknown = ModuleName::unknown();
@@ -389,14 +395,25 @@ impl Handles {
                 .or_insert_with(SmallSet::new)
                 .insert(path.dupe());
         }
-        configs
+
+        let mut errors = Vec::new();
+        let mut reloaded_configs = Vec::new();
+        for (config, files) in &configs {
+            match config.requery_source_db(files) {
+                Ok(reload) if reload => {
+                    reloaded_configs.push(config.dupe());
+                }
+                Err(error) => {
+                    errors.push(ConfigError::error(error));
+                }
+                _ => (),
+            }
+        }
+        let result = configs
             .iter()
-            .flat_map(|(c, files)| {
-                // TODO(connernilsen): propagate up result
-                let _ = c.requery_source_db(files);
-                files.iter().map(|p| c.handle_from_module_path(p.dupe()))
-            })
-            .collect()
+            .flat_map(|(c, files)| files.iter().map(|p| c.handle_from_module_path(p.dupe())))
+            .collect();
+        (result, reloaded_configs, errors)
     }
 
     fn update<'a>(
@@ -526,10 +543,12 @@ impl CheckArgs {
                 .new_transaction(require_levels.default, None),
             true,
         );
+        let (loaded_handles, _, sourcedb_errors) = handles.all(holder.as_ref().config_finder());
         self.run_inner(
             timings,
             transaction.as_mut(),
-            &handles.all(holder.as_ref().config_finder()),
+            &loaded_handles,
+            sourcedb_errors,
             require_levels.specified,
         )
     }
@@ -572,6 +591,7 @@ impl CheckArgs {
             Timings::new(),
             transaction.as_mut(),
             &[handle],
+            vec![],
             require_levels.specified,
         )
     }
@@ -591,10 +611,14 @@ impl CheckArgs {
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
             let timings = Timings::new();
+            // TODO(connernilsen): clear out find for reloaded configs
+            let (loaded_handles, _reloaded_configs, sourcedb_errors) =
+                handles.all(state.config_finder());
             let res = self.run_inner(
                 timings,
                 transaction.as_mut(),
-                &handles.all(state.config_finder()),
+                &loaded_handles,
+                sourcedb_errors,
                 require_levels.specified,
             );
             state.commit_transaction(transaction);
@@ -644,6 +668,7 @@ impl CheckArgs {
         mut timings: Timings,
         transaction: &mut Transaction,
         handles: &[Handle],
+        mut sourcedb_errors: Vec<ConfigError>,
         require: Require,
     ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
@@ -661,7 +686,8 @@ impl CheckArgs {
         timings.type_check = type_check_start.elapsed();
 
         let report_errors_start = Instant::now();
-        let config_errors = transaction.get_config_errors();
+        let mut config_errors = transaction.get_config_errors();
+        config_errors.append(&mut sourcedb_errors);
         let config_errors_count = config_errors.len();
         for error in config_errors {
             error.print();
