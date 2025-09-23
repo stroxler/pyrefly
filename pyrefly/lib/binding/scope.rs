@@ -763,6 +763,16 @@ impl Scope {
     fn module(range: TextRange) -> Self {
         Self::new(range, false, ScopeKind::Module)
     }
+
+    fn class_and_metadata_keys(&self) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
+        match &self.kind {
+            ScopeKind::Class(class_scope) => Some((
+                class_scope.indices.class_idx,
+                class_scope.indices.metadata_idx,
+            )),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -839,7 +849,7 @@ impl Scopes {
         }
     }
 
-    pub fn current(&self) -> &Scope {
+    fn current(&self) -> &Scope {
         &self.scopes.last().scope
     }
 
@@ -854,17 +864,11 @@ impl Scopes {
         }
     }
 
-    // Is this scope a class scope? If so, return the keys for the class and its metadata.
-    pub fn get_class_and_metadata_keys(
-        scope: &Scope,
+    // Are we currently in a class body. If so, return the keys for the class and its metadata.
+    pub fn current_class_and_metadata_keys(
+        &self,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
-        match &scope.kind {
-            ScopeKind::Class(class_scope) => Some((
-                class_scope.indices.class_idx,
-                class_scope.indices.metadata_idx,
-            )),
-            _ => None,
-        }
+        self.current().class_and_metadata_keys()
     }
 
     // Are we anywhere inside a class? If so, return the keys for the class and its metadata.
@@ -873,7 +877,7 @@ impl Scopes {
         &self,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
         for scope in self.iter_rev() {
-            if let Some(class_and_metadata) = Self::get_class_and_metadata_keys(scope) {
+            if let Some(class_and_metadata) = scope.class_and_metadata_keys() {
                 return Some(class_and_metadata);
             }
         }
