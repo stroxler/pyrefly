@@ -77,5 +77,5 @@ pub trait SourceDatabase: Send + Sync + fmt::Debug {
     /// Returns `Err` if the shellout to the build system failed
     /// The resulting bool represents whether find caches
     /// related to this sourcedb should be invalidated.
-    fn requery_source_db(&mut self, files: SmallSet<PathBuf>) -> anyhow::Result<bool>;
+    fn requery_source_db(&self, files: SmallSet<PathBuf>) -> anyhow::Result<bool>;
 }

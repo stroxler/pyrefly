@@ -29,7 +29,6 @@ use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::init_thread_pool;
@@ -219,7 +218,7 @@ impl TestEnv {
         for (name, path, _) in self.modules.iter() {
             sourcedb.insert(*name, path.dupe());
         }
-        config.source_db = Arc::new(RwLock::new(Some(Box::new(sourcedb))));
+        config.source_db = Some(Arc::new(Box::new(sourcedb)));
         config.interpreters.skip_interpreter_query = true;
         config.configure();
         ArcId::new(config)

@@ -13,6 +13,8 @@ use std::sync::Arc;
 use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_util::lock::Mutex;
+use pyrefly_util::lock::RwLock;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -25,7 +27,7 @@ use crate::source_db::SourceDatabase;
 use crate::source_db::Target;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct BuckSourceDatabase {
+struct Inner {
     /// The mapping from targets to their manifests, including sources, dependencies,
     /// and metadata. This is the source of truth.
     db: SmallMap<Target, PythonLibraryManifest>,
@@ -35,10 +37,24 @@ pub struct BuckSourceDatabase {
     /// - if a path exists in `path_lookup`, its target's `srcs` must have a
     ///   module name with `path` as a module path.
     path_lookup: SmallMap<Arc<PathBuf>, Target>,
+}
+
+impl Inner {
+    fn new() -> Self {
+        Inner {
+            db: SmallMap::new(),
+            path_lookup: SmallMap::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct BuckSourceDatabase {
+    inner: RwLock<Inner>,
     /// The set of items the sourcedb has been queried for. Not all of the targets
     /// or files listed here will necessarily appear in the sourcedb, for example,
     /// if the given target does not exist, or if the file is not tracked by Buck.
-    includes: SmallSet<Include>,
+    includes: Mutex<SmallSet<Include>>,
     /// The directory that will be passed into the sourcedb query shell-out. Should
     /// be the same as the directory containing the config this sourcedb is a part of.
     cwd: PathBuf,
@@ -48,29 +64,31 @@ impl BuckSourceDatabase {
     pub fn new(cwd: PathBuf) -> Self {
         BuckSourceDatabase {
             cwd,
-            db: SmallMap::new(),
-            path_lookup: SmallMap::new(),
-            includes: SmallSet::new(),
+            inner: RwLock::new(Inner::new()),
+            includes: Mutex::new(SmallSet::new()),
         }
     }
 
-    fn update_with_target_manifest(&mut self, raw_db: TargetManifestDatabase) -> bool {
+    fn update_with_target_manifest(&self, raw_db: TargetManifestDatabase) -> bool {
         let new_db = raw_db.produce_map();
-        if new_db == self.db {
+        let read = self.inner.read();
+        if new_db == read.db {
             return false;
         }
-        self.db = new_db;
-        self.path_lookup = SmallMap::new();
-        for (target, manifest) in self.db.iter() {
+        drop(read);
+        let mut write = self.inner.write();
+        write.path_lookup = SmallMap::new();
+        for (target, manifest) in new_db.iter() {
             for source in manifest.srcs.values().flatten() {
-                if let Some(old_target) = self.path_lookup.get_mut(&**source) {
+                if let Some(old_target) = write.path_lookup.get_mut(&**source) {
                     let new_target = (&*old_target).min(target);
                     *old_target = new_target.dupe();
                 } else {
-                    self.path_lookup.insert(source.clone(), target.dupe());
+                    write.path_lookup.insert(source.clone(), target.dupe());
                 }
             }
         }
+        write.db = new_db;
         true
     }
 }
@@ -83,7 +101,8 @@ impl SourceDatabase for BuckSourceDatabase {
 
     fn lookup(&self, module: &ModuleName, origin: Option<&Path>) -> Option<ModulePath> {
         let origin = origin?;
-        let start_target = self.path_lookup.get(&origin.to_path_buf())?;
+        let read = self.inner.read();
+        let start_target = read.path_lookup.get(&origin.to_path_buf())?;
         let mut queue = VecDeque::new();
         let mut visited = SmallSet::new();
         queue.push_front(start_target);
@@ -93,7 +112,7 @@ impl SourceDatabase for BuckSourceDatabase {
                 continue;
             }
             visited.insert(current_target);
-            let Some(manifest) = self.db.get(current_target) else {
+            let Some(manifest) = read.db.get(current_target) else {
                 continue;
             };
 
@@ -110,10 +129,11 @@ impl SourceDatabase for BuckSourceDatabase {
     }
 
     fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle> {
-        let target = self.path_lookup.get(&module_path.as_path().to_path_buf())?;
+        let read = self.inner.read();
+        let target = read.path_lookup.get(&module_path.as_path().to_path_buf())?;
 
         // if we get a target from `path_lookup`, it must exist in manifest
-        let manifest = self.db.get(target).unwrap();
+        let manifest = read.db.get(target).unwrap();
         let module_name = manifest
             .srcs
             .iter()
@@ -129,13 +149,14 @@ impl SourceDatabase for BuckSourceDatabase {
         ))
     }
 
-    fn requery_source_db(&mut self, files: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+    fn requery_source_db(&self, files: SmallSet<PathBuf>) -> anyhow::Result<bool> {
         let new_includes = files.into_iter().map(Include::path).collect();
-        if self.includes == new_includes {
+        let mut includes = self.includes.lock();
+        if *includes == new_includes {
             return Ok(false);
         }
-        self.includes = new_includes;
-        let raw_db = query_source_db(self.includes.iter(), &self.cwd)?;
+        *includes = new_includes;
+        let raw_db = query_source_db(includes.iter(), &self.cwd)?;
         Ok(self.update_with_target_manifest(raw_db))
     }
 }
@@ -158,13 +179,14 @@ mod tests {
             raw_db: TargetManifestDatabase,
             files: &SmallSet<PathBuf>,
         ) -> Self {
-            let mut new = Self {
-                db: SmallMap::new(),
-                path_lookup: SmallMap::new(),
-                includes: files
-                    .iter()
-                    .map(|p| Include::path(p.to_path_buf()))
-                    .collect(),
+            let new = Self {
+                inner: RwLock::new(Inner::new()),
+                includes: Mutex::new(
+                    files
+                        .iter()
+                        .map(|p| Include::path(p.to_path_buf()))
+                        .collect(),
+                ),
                 cwd: PathBuf::new(),
             };
             new.update_with_target_manifest(raw_db);
@@ -189,7 +211,7 @@ mod tests {
     #[test]
     fn test_path_lookup_index_creation() {
         let (db, root) = get_db();
-        let path_lookup = db.path_lookup;
+        let path_lookup = db.inner.read().path_lookup.clone();
         let expected = smallmap! {
             Arc::new(root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py")) =>
                 Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
@@ -313,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_update_with_target_manifest() {
-        let (mut db, root) = get_db();
+        let (db, root) = get_db();
         let manifest = TargetManifestDatabase::get_test_database();
 
         assert!(!db.update_with_target_manifest(manifest));
@@ -355,7 +377,8 @@ mod tests {
         );
         let manifest_db = manifest.clone().produce_map();
         assert!(db.update_with_target_manifest(manifest));
-        assert_eq!(db.db, manifest_db);
+        let inner = db.inner.read();
+        assert_eq!(inner.db, manifest_db);
         let expected_path_lookup = smallmap! {
             Arc::new(root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py")) =>
                 Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
@@ -368,6 +391,6 @@ mod tests {
             Arc::new(root.join("sub_root/pyre/client/log/log.pyi")) =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
         };
-        assert_eq!(db.path_lookup, expected_path_lookup);
+        assert_eq!(inner.path_lookup, expected_path_lookup);
     }
 }

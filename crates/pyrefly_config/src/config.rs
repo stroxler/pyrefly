@@ -31,7 +31,6 @@ use pyrefly_util::fs_anyhow;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Glob;
 use pyrefly_util::globs::Globs;
-use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
 use serde::Deserialize;
 use serde::Serialize;
@@ -300,7 +299,7 @@ pub struct ConfigFile {
     /// for a path and doing module finding.
     #[serde(skip, default)]
     #[derivative(PartialEq = "ignore")]
-    pub source_db: Arc<RwLock<Option<Box<dyn SourceDatabase>>>>,
+    pub source_db: Option<Arc<Box<dyn SourceDatabase>>>,
 
     /// Skips the check to ensure any `-stubs` `site_package_path` entries have an
     /// installed non-stubs package.
@@ -595,7 +594,6 @@ impl ConfigFile {
     pub fn handle_from_module_path(&self, module_path: ModulePath) -> Handle {
         match &self
             .source_db
-            .read()
             .as_ref()
             .and_then(|db| db.handle_from_module_path(module_path.dupe()))
         {

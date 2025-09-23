@@ -156,7 +156,7 @@ impl SourceDatabase for BuckCheckSourceDatabase {
         Some(Handle::new(name, module_path, self.sys_info.dupe()))
     }
 
-    fn requery_source_db(&mut self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+    fn requery_source_db(&self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
         Ok(false)
     }
 }

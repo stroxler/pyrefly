@@ -20,7 +20,6 @@ use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::fs_anyhow;
-use pyrefly_util::lock::RwLock;
 use serde::Deserialize;
 use tracing::info;
 
@@ -67,7 +66,7 @@ fn compute_errors(sys_info: SysInfo, sourcedb: Box<impl SourceDatabase + 'static
     config.python_environment.python_platform = Some(sys_info.platform().clone());
     config.python_environment.python_version = Some(sys_info.version());
     config.python_environment.site_package_path = Some(Vec::new());
-    config.source_db = Arc::new(RwLock::new(Some(sourcedb)));
+    config.source_db = Some(Arc::new(sourcedb));
     config.interpreters.skip_interpreter_query = true;
     config.disable_search_path_heuristics = true;
     config.configure();

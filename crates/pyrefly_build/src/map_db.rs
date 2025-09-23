@@ -75,7 +75,7 @@ impl SourceDatabase for MapDatabase {
         Some(Handle::new(name.dupe(), module_path, self.1.dupe()))
     }
 
-    fn requery_source_db(&mut self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+    fn requery_source_db(&self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
         Ok(false)
     }
 }

@@ -25,7 +25,6 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LineNumber;
-use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
 use ruff_text_size::TextSize;
 use serde::Serialize;
@@ -75,7 +74,7 @@ impl SourceDatabase for PlaygroundSourceDatabase {
         Some(Handle::new(name.dupe(), path, self.sys_info.dupe()))
     }
 
-    fn requery_source_db(&mut self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
+    fn requery_source_db(&self, _: SmallSet<PathBuf>) -> anyhow::Result<bool> {
         Ok(false)
     }
 }
@@ -242,7 +241,7 @@ impl Playground {
         }
 
         let source_db = PlaygroundSourceDatabase::new(module_mappings, self.sys_info.dupe());
-        config.source_db = Arc::new(RwLock::new(Some(Box::new(source_db))));
+        config.source_db = Some(Arc::new(Box::new(source_db)));
 
         config.configure();
         let config = ArcId::new(config);
