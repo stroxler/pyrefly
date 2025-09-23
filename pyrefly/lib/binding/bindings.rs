@@ -825,9 +825,8 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Bind a name in the current flow. Panics if the name is not in the current static scope.
     ///
-    /// Return a pair of:
-    /// 1. The annotation that should be used at the moment, if one was provided.
-    /// 2. The default that should be used if you are in a loop.
+    /// Return the first annotation for this variable, if one exists, which the binding we
+    /// eventually produce for `idx` will often use to verify we don't assign an incompatible type.
     pub fn bind_name(
         &mut self,
         name: &Name,
