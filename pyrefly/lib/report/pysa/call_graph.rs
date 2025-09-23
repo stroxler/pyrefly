@@ -11,11 +11,14 @@ use dashmap::DashMap;
 use pyrefly_python::ast::Ast;
 use pyrefly_util::lined_buffer::DisplayRange;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprName;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::identifier::Identifier;
 use ruff_python_ast::visitor;
 use ruff_python_ast::visitor::Visitor;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionId;
@@ -29,12 +32,95 @@ pub struct CallCallees<Target> {
     pub(crate) call_targets: Vec<Target>,
 }
 
-impl<Target> CallCallees<Target> {}
+impl<Target> CallCallees<Target> {
+    #[cfg(test)]
+    fn map_target<TargetForTest, MapTarget>(&self, map: MapTarget) -> CallCallees<TargetForTest>
+    where
+        MapTarget: Fn(&Target) -> TargetForTest,
+    {
+        CallCallees {
+            call_targets: self.call_targets.iter().map(map).collect(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq)]
+pub struct AttributeAccessCallees<Target> {
+    pub(crate) callable_targets: Vec<Target>,
+}
+
+impl<Target> AttributeAccessCallees<Target> {
+    #[cfg(test)]
+    fn map_target<TargetForTest, MapTarget>(
+        &self,
+        map: MapTarget,
+    ) -> AttributeAccessCallees<TargetForTest>
+    where
+        MapTarget: Fn(&Target) -> TargetForTest,
+    {
+        AttributeAccessCallees {
+            callable_targets: self.callable_targets.iter().map(map).collect(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq)]
+pub struct IdentifierCallees<Target> {
+    pub(crate) callable_targets: Vec<Target>,
+}
+
+impl<Target> IdentifierCallees<Target> {
+    #[cfg(test)]
+    fn map_target<TargetForTest, MapTarget>(
+        &self,
+        map: MapTarget,
+    ) -> IdentifierCallees<TargetForTest>
+    where
+        MapTarget: Fn(&Target) -> TargetForTest,
+    {
+        IdentifierCallees {
+            callable_targets: self.callable_targets.iter().map(map).collect(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExpressionCallees<Target> {
+    Call(CallCallees<Target>),
+    Identifier(IdentifierCallees<Target>),
+    AttributeAccess(AttributeAccessCallees<Target>),
+}
+
+impl<Target> ExpressionCallees<Target> {
+    #[cfg(test)]
+    pub fn map_target<TargetForTest, MapTarget>(
+        &self,
+        map: MapTarget,
+    ) -> ExpressionCallees<TargetForTest>
+    where
+        MapTarget: Fn(&Target) -> TargetForTest,
+    {
+        match self {
+            ExpressionCallees::Call(call_callees) => {
+                ExpressionCallees::Call(call_callees.map_target(map))
+            }
+            ExpressionCallees::Identifier(identifier_callees) => {
+                ExpressionCallees::Identifier(identifier_callees.map_target(map))
+            }
+            ExpressionCallees::AttributeAccess(attribute_access_callees) => {
+                ExpressionCallees::AttributeAccess(attribute_access_callees.map_target(map))
+            }
+        }
+    }
+}
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct CallGraphs<Target, Location>(
-    pub(crate) HashMap<Target, HashMap<Location, CallCallees<Target>>>,
+    pub(crate) HashMap<Target, HashMap<Location, ExpressionCallees<Target>>>,
 );
 
 impl<Target, Location> PartialEq for CallGraphs<Target, Location>
@@ -61,7 +147,7 @@ impl<Target, Location> CallGraphs<Target, Location> {
     }
 
     #[allow(dead_code)]
-    pub fn new_with_map(map: HashMap<Target, HashMap<Location, CallCallees<Target>>>) -> Self {
+    pub fn from_map(map: HashMap<Target, HashMap<Location, ExpressionCallees<Target>>>) -> Self {
         Self(map)
     }
 }
@@ -83,6 +169,62 @@ struct CallGraphVisitor<'a> {
 impl<'a> CallGraphVisitor<'a> {
     fn current_definition(&self) -> DefinitionRef {
         self.definition_nesting.last().unwrap().clone()
+    }
+
+    fn add_callees(&mut self, location: TextRange, callees: ExpressionCallees<DefinitionRef>) {
+        assert!(
+            self.call_graphs
+                .0
+                .entry(self.current_definition())
+                .or_default()
+                .insert(
+                    self.module_context.module_info.display_range(location),
+                    callees,
+                )
+                .is_none(),
+            "Adding callees to the same location"
+        );
+    }
+
+    fn resolve_name(&self, name: &ExprName) -> Vec<DefinitionRef> {
+        let identifier = Ast::expr_name_identifier(name.clone());
+        self.module_context
+            .transaction
+            .find_definition_for_name_use(
+                self.module_context.handle,
+                &identifier,
+                &FindPreference::default(),
+            )
+            .map_or(vec![], |d| vec![d])
+            .iter()
+            .filter_map(|definition| {
+                DefinitionRef::from_find_definition_item_with_docstring(
+                    definition,
+                    self.function_names,
+                    self.module_context,
+                )
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn resolve_attribute_access(&self, attribute: &ExprAttribute) -> Vec<DefinitionRef> {
+        self.module_context
+            .transaction
+            .find_definition_for_attribute(
+                self.module_context.handle,
+                attribute.value.range(),
+                &attribute.attr,
+                &FindPreference::default(),
+            )
+            .iter()
+            .filter_map(|definition| {
+                DefinitionRef::from_find_definition_item_with_docstring(
+                    definition,
+                    self.function_names,
+                    self.module_context,
+                )
+            })
+            .collect::<Vec<_>>()
     }
 }
 
@@ -127,64 +269,44 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         visitor::walk_expr(self, expr);
 
-        let callees = match expr {
-            Expr::Call(call) => match &*call.func {
-                Expr::Name(name) => {
-                    let identifier = Ast::expr_name_identifier(name.clone());
-                    self.module_context
-                        .transaction
-                        .find_definition_for_name_use(
-                            self.module_context.handle,
-                            &identifier,
-                            &FindPreference::default(),
-                        )
-                        .map_or(vec![], |d| vec![d])
-                        .iter()
-                        .filter_map(|definition| {
-                            DefinitionRef::from_find_definition_item_with_docstring(
-                                definition,
-                                self.function_names,
-                                self.module_context,
-                            )
-                        })
-                        .collect::<Vec<_>>()
+        match expr {
+            Expr::Call(call) => {
+                let call_targets = match &*call.func {
+                    Expr::Name(name) => self.resolve_name(name),
+                    Expr::Attribute(attribute) => self.resolve_attribute_access(attribute),
+                    _ => Vec::new(),
+                };
+                if !call_targets.is_empty() {
+                    self.add_callees(
+                        expr.range(),
+                        ExpressionCallees::Call(CallCallees { call_targets }),
+                    );
                 }
-                Expr::Attribute(attribute) => self
-                    .module_context
-                    .transaction
-                    .find_definition_for_attribute(
-                        self.module_context.handle,
-                        attribute.value.range(),
-                        &attribute.attr,
-                        &FindPreference::default(),
-                    )
-                    .iter()
-                    .filter_map(|definition| {
-                        DefinitionRef::from_find_definition_item_with_docstring(
-                            definition,
-                            self.function_names,
-                            self.module_context,
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-                _ => Vec::new(),
-            },
-            _ => Vec::new(),
+            }
+            Expr::Name(name) => {
+                // TODO: Avoid visiting when the parent expression is a `Call`
+                let callable_targets = self.resolve_name(name);
+                if !callable_targets.is_empty() {
+                    self.add_callees(
+                        expr.range(),
+                        ExpressionCallees::Identifier(IdentifierCallees { callable_targets }),
+                    );
+                }
+            }
+            Expr::Attribute(attribute) => {
+                // TODO: Avoid visiting when the parent expression is a `Call`
+                let callable_targets = self.resolve_attribute_access(attribute);
+                if !callable_targets.is_empty() {
+                    self.add_callees(
+                        expr.range(),
+                        ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+                            callable_targets,
+                        }),
+                    );
+                }
+            }
+            _ => (),
         };
-
-        if !callees.is_empty() {
-            let call_callees = CallCallees {
-                call_targets: callees,
-            };
-            self.call_graphs
-                .0
-                .entry(self.current_definition())
-                .or_default()
-                .insert(
-                    self.module_context.module_info.display_range(expr.range()),
-                    call_callees,
-                );
-        }
     }
 }
 
