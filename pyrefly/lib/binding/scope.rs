@@ -388,12 +388,12 @@ impl Static {
 /// Flow-sensitive information about a name.
 #[derive(Default, Clone, Debug)]
 pub struct Flow {
-    pub info: SmallMap<Name, FlowInfo>,
+    info: SmallMap<Name, FlowInfo>,
     // Have we seen control flow terminate?
     //
     // We continue to analyze the rest of the code after a flow terminates, but
     // we don't include terminated flows when merging after loops and branches.
-    pub has_terminated: bool,
+    has_terminated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -529,7 +529,7 @@ pub struct ClassIndices {
 }
 
 #[derive(Clone, Debug)]
-pub struct ScopeClass {
+struct ScopeClass {
     pub name: Identifier,
     pub indices: ClassIndices,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
@@ -633,7 +633,7 @@ pub struct InstanceAttribute(
 );
 
 #[derive(Clone, Debug)]
-pub struct ScopeMethod {
+struct ScopeMethod {
     pub name: Identifier,
     pub self_name: Option<Identifier>,
     pub instance_attributes: SmallMap<Name, InstanceAttribute>,
@@ -642,13 +642,13 @@ pub struct ScopeMethod {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ScopeFunction {
+struct ScopeFunction {
     pub yields_and_returns: YieldsAndReturns,
     pub is_async: bool,
 }
 
 #[derive(Clone, Debug)]
-pub enum ScopeKind {
+enum ScopeKind {
     Annotation,
     Class(ScopeClass),
     Comprehension,
