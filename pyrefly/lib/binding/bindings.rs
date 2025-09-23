@@ -1183,7 +1183,7 @@ impl LegacyTParamBuilder {
                         // Note: we use None as the range here because the range is
                         // used to error if legacy tparams are mixed with scope
                         // tparams, and we only want to do that once (which we do in
-                        // the binding created by `forward_lookup`).
+                        // the binding created by `intercept_lookup`).
                         Binding::CheckLegacyTypeParam(*idx, None),
                         builder.scopes.get_flow_style(&name.id).clone(),
                     );
