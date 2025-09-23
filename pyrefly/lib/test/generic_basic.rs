@@ -1040,3 +1040,36 @@ class A(Generic[lib.T]):
 assert_type(A[int]().x, int)
     "#,
 );
+
+testcase!(
+    test_legacy_typevar_defined_after_use,
+    r#"
+from __future__ import annotations
+from typing import TypeVar
+
+class Session:
+    def __enter__(self: _S) -> _S:
+        return self
+    def __exit__(self, type_, value, traceback):
+        pass
+    def begin(self):
+        pass
+
+_S = TypeVar("_S", bound="Session")
+
+with Session() as session:
+    session.begin()
+    "#,
+);
+
+testcase!(
+    test_legacy_typevar_imported_after_use,
+    TestEnv::one("foo", "from typing import TypeVar\nT = TypeVar('T')"),
+    r#"
+from typing import assert_type
+def f(x: "foo.T") -> "foo.T":
+    return x
+import foo
+assert_type(f(0), int)
+    "#,
+);

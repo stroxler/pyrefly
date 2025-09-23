@@ -1008,27 +1008,21 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         mut idx: Idx<Key>,
         make_legacy_tparam_from: impl Fn(
-            &Binding,
+            Option<&Binding>,
         )
             -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
         // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
         // Therefore we arbitrarily cut off at 100 forward hops.
         for _ in 1..100 {
-            if let Some(b) = self.table.types.1.get(idx) {
-                if let Binding::Forward(fwd_idx) = b {
+            match self.table.types.1.get(idx) {
+                Some(Binding::Forward(fwd_idx)) => {
                     idx = *fwd_idx;
                     continue;
                 }
-                return make_legacy_tparam_from(b).map(|(k, v)| self.insert_binding(k, v));
-            } else {
-                // This case happens if the name is associated with a promised binding
-                // that is not yet in the table. I'm fuzzy when exactly this occurs, but
-                // such names cannot point at legacy type variables.
-                //
-                // TODO(stroxler): it would be nice to have an actual example here, but I am
-                // still not sure when exactly it happens.
-                return None;
+                b => {
+                    return make_legacy_tparam_from(b).map(|(k, v)| self.insert_binding(k, v));
+                }
             }
         }
         None
@@ -1037,25 +1031,27 @@ impl<'a> BindingsBuilder<'a> {
     /// Make a BindingLegacyTypeParam if the given Binding may be a legacy tparam.
     /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a key.
     fn make_legacy_tparam_from_tparam_binding(
-        binding: &Binding,
+        binding: Option<&Binding>,
         name: &Identifier,
         idx: Idx<Key>,
     ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
         match binding {
-            Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..) => Some((
-                KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                BindingLegacyTypeParam::ParamKeyed(idx),
-            )),
-            Binding::Import(..) => {
+            Some(
+                Binding::TypeVar(..)
+                | Binding::ParamSpec(..)
+                | Binding::TypeVarTuple(..)
                 // TODO: We need to recursively look through imports to determine
                 // whether it is a legacy type parameter. We can't simply walk through
                 // bindings, because we could recursively reach ourselves, resulting in
                 // a deadlock.
-                Some((
-                    KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                    BindingLegacyTypeParam::ParamKeyed(idx),
-                ))
-            }
+                | Binding::Import(..),
+            )
+            // This name is associated with a promised binding that is not yet in the table.
+            // Since we know nothing about it, we have to assume it may be a type variable.
+            | None => Some((
+                KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                BindingLegacyTypeParam::ParamKeyed(idx),
+            )),
             _ => {
                 // If we hit anything other than a type variable, an import, or a Forward,
                 // then we know this name does not point at a type variable
@@ -1067,12 +1063,14 @@ impl<'a> BindingsBuilder<'a> {
     /// Make a BindingLegacyTypeParam if the given Binding may be a module containing a legacy tparam.
     /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a module key.
     fn make_legacy_tparam_from_module_binding(
-        binding: &Binding,
+        binding: Option<&Binding>,
         attr: &Identifier,
         idx: Idx<Key>,
     ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
         match binding {
-            Binding::Module(..) => Some((
+            // `None` means this name is associated with a promised binding that is not yet in the table.
+            // Since we know nothing about it, we have to assume it may be a module containing a type variable.
+            Some(Binding::Module(..)) | None => Some((
                 KeyLegacyTypeParam(ShortIdentifier::new(attr)),
                 BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
             )),
