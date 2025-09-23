@@ -116,7 +116,7 @@ impl PythonLibraryManifest {
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 #[serde(untagged)]
-enum TargetManifest {
+pub(crate) enum TargetManifest {
     Library(PythonLibraryManifest),
     Alias { alias: Target },
 }
@@ -162,7 +162,7 @@ mod tests {
     use super::*;
 
     impl TargetManifestDatabase {
-        fn new(db: SmallMap<Target, TargetManifest>, root: PathBuf) -> Self {
+        pub fn new(db: SmallMap<Target, TargetManifest>, root: PathBuf) -> Self {
             TargetManifestDatabase { db, root }
         }
 
@@ -285,7 +285,7 @@ mod tests {
             }
         }
 
-        fn lib(srcs: &[(&str, &[&str])], deps: &[&str]) -> Self {
+        pub fn lib(srcs: &[(&str, &[&str])], deps: &[&str]) -> Self {
             TargetManifest::Library(PythonLibraryManifest {
                 srcs: map_srcs(srcs, None),
                 deps: map_deps(deps),
