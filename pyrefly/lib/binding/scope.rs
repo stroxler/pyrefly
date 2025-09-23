@@ -162,7 +162,7 @@ pub struct StaticInfo {
 }
 
 #[derive(Clone, Debug)]
-pub enum StaticStyle {
+enum StaticStyle {
     /// I have multiple definitions, lookups should be anywhere-style.
     ///
     /// If I have annotations, this is the first one.
@@ -188,7 +188,7 @@ pub enum StaticStyle {
 /// TODO(stroxler): At the moment, if any actual assignments occur we will
 /// get `Multiple` and the annotation will instead come from local code.
 #[derive(Clone, Debug)]
-pub struct MutableCapture {
+struct MutableCapture {
     kind: MutableCaptureKind,
     original: Result<Box<StaticInfo>, MutableCaptureError>,
 }
@@ -221,7 +221,7 @@ impl MutableCapture {
 }
 
 impl StaticStyle {
-    pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
+    fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
         match self {
             Self::MutableCapture(capture) => capture.annotation(),
             Self::Anywhere(ann) | Self::SingleDef(ann) => *ann,
@@ -266,11 +266,11 @@ impl StaticStyle {
 }
 
 impl StaticInfo {
-    pub fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
+    fn annotation(&self) -> Option<Idx<KeyAnnotation>> {
         self.style.annotation()
     }
 
-    pub fn as_key(&self, name: &Name) -> Key {
+    fn as_key(&self, name: &Name) -> Key {
         let short_identifier = || {
             ShortIdentifier::new(&Identifier {
                 node_index: AtomicNodeIndex::dummy(),
