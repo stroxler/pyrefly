@@ -864,15 +864,15 @@ impl Scopes {
         }
     }
 
-    // Are we currently in a class body. If so, return the keys for the class and its metadata.
+    /// Are we currently in a class body. If so, return the keys for the class and its metadata.
     pub fn current_class_and_metadata_keys(
         &self,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
         self.current().class_and_metadata_keys()
     }
 
-    // Are we anywhere inside a class? If so, return the keys for the class and its metadata.
-    // This function looks at enclosing scopes, unlike `current_class_and_metadata_keys`.
+    /// Are we anywhere inside a class? If so, return the keys for the class and its metadata.
+    /// This function looks at enclosing scopes, unlike `current_class_and_metadata_keys`.
     pub fn enclosing_class_and_metadata_keys(
         &self,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
@@ -884,7 +884,7 @@ impl Scopes {
         None
     }
 
-    // Are we inside an async function or method?
+    /// Are we inside an async function or method?
     pub fn is_in_async_def(&self) -> bool {
         for scope in self.iter_rev() {
             match &scope.kind {
