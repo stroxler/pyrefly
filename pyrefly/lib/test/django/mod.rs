@@ -6,5 +6,6 @@
  */
 
 #![cfg(test)]
+mod config;
 mod model;
 mod view;
