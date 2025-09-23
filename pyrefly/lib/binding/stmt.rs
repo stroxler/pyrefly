@@ -104,7 +104,6 @@ impl<'a> BindingsBuilder<'a> {
         make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
         let assigned = self.declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
-        // TODO(stroxler): It probably should be an error if the annotation is ever non-None
         let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
         let binding = make_binding(ann);
         self.insert_binding_current(assigned, binding);
