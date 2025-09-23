@@ -683,7 +683,7 @@ pub struct Scope {
     /// information down from scopes (e.g. to figure out when we're in a class) and
     /// storing data from the current AST traversal for later analysis, especially
     /// self-attribute-assignments in methods.
-    pub kind: ScopeKind,
+    kind: ScopeKind,
     /// Stack of for/while loops we're in. Does not include comprehensions, which
     /// define a new scope.
     pub loops: Vec<Loop>,
@@ -1457,6 +1457,10 @@ impl Scopes {
             }
         }
         None
+    }
+
+    pub fn in_module_or_class_top_level(&self) -> bool {
+        matches!(self.current().kind, ScopeKind::Module | ScopeKind::Class(_))
     }
 
     /// Check whether the current flow has a module import at a given name.

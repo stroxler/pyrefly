@@ -38,7 +38,6 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
-use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::export::definitions::MutableCaptureKind;
@@ -594,10 +593,7 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::TypeAlias(mut x) => {
-                if !matches!(
-                    self.scopes.current().kind,
-                    ScopeKind::Module | ScopeKind::Class(_)
-                ) {
+                if !self.scopes.in_module_or_class_top_level() {
                     self.error(
                         x.range,
                         ErrorInfo::Kind(ErrorKind::InvalidSyntax),
