@@ -1449,6 +1449,16 @@ impl Scopes {
         }
     }
 
+    /// Get the name of the (innermost) enclosing class, if any.
+    pub fn enclosing_class_name(&self) -> Option<&Identifier> {
+        for scope in self.iter_rev() {
+            if let ScopeKind::Class(ScopeClass { name, .. }) = &scope.kind {
+                return Some(name);
+            }
+        }
+        None
+    }
+
     /// Check whether the current flow has a module import at a given name.
     ///
     /// Used when binding imports, because the semantics of multiple imports from

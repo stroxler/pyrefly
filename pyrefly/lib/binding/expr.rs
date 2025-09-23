@@ -46,8 +46,6 @@ use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
 use crate::binding::scope::Scope;
-use crate::binding::scope::ScopeClass;
-use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::export::special::SpecialExport;
@@ -398,20 +396,11 @@ impl<'a> BindingsBuilder<'a> {
         self.merge_branches_into_current(vec![else_branch], range);
     }
 
-    fn enclosing_class_name(&self) -> Option<&Identifier> {
-        for scope in self.scopes.iter_rev() {
-            if let ScopeKind::Class(ScopeClass { name, .. }) = &scope.kind {
-                return Some(name);
-            }
-        }
-        None
-    }
-
     // We want to special-case `self.assertXXX()` methods in unit tests.
     // The logic is intentionally syntax-based as we want to avoid checking whether the base type
     // is `unittest.TestCase` on every single method invocation.
     fn as_assert_in_test(&self, func: &Expr) -> Option<TestAssertion> {
-        if let Some(class_name) = self.enclosing_class_name() {
+        if let Some(class_name) = self.scopes.enclosing_class_name() {
             let class_name_str = class_name.as_str();
             if !(class_name_str.contains("test") || class_name_str.contains("Test")) {
                 return None;
