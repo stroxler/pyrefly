@@ -997,7 +997,7 @@ impl Scopes {
         }
     }
 
-    pub fn iter_rev(&self) -> impl ExactSizeIterator<Item = &Scope> {
+    fn iter_rev(&self) -> impl ExactSizeIterator<Item = &Scope> {
         self.scopes.iter().map(|node| &node.scope).rev()
     }
 
