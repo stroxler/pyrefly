@@ -9,6 +9,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -16,6 +17,7 @@ use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtAssign;
+use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::StmtReturn;
 use ruff_text_size::Ranged;
@@ -1012,6 +1014,33 @@ impl<'a> BindingsBuilder<'a> {
                 for name in x.names {
                     self.declare_mutable_capture(&name, MutableCaptureKind::Nonlocal);
                 }
+            }
+            Stmt::Expr(StmtExpr {
+                range: expr_range,
+                value:
+                    box Expr::Call(ExprCall {
+                        range: call_range,
+                        func: box Expr::Name(name),
+                        arguments:
+                            Arguments {
+                                range: _,
+                                keywords: _,
+                                args,
+                                ..
+                            },
+                        ..
+                    }),
+                ..
+            }) if name.id.as_str() == "prod_assert" && (args.len() == 1 || args.len() == 2) => {
+                let (test, msg) = if args.len() == 1 {
+                    (args[0].clone(), None)
+                } else if args.len() == 2 {
+                    (args[0].clone(), Some(args[1].clone()))
+                } else {
+                    unreachable!("args.len() can only be 1 or 2")
+                };
+                self.insert_binding(Key::StmtExpr(expr_range), Binding::Type(Type::None));
+                self.assert(call_range, test, msg);
             }
             Stmt::Expr(mut x) => {
                 let mut current = self.declare_current_idx(Key::StmtExpr(x.value.range()));

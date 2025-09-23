@@ -333,6 +333,22 @@ def f(x: str | None):
 );
 
 testcase!(
+    test_prod_assert,
+    r#"
+from typing import assert_type
+def prod_assert(x: object, msg: str | None = None): ...
+
+def test_only(x: str | None) -> None:
+    prod_assert(x is not None)
+    assert_type(x, str)
+
+def test_and_message(x: str | None) -> None:
+    prod_assert(x is not None, "x is None")
+    assert_type(x, str)
+    "#,
+);
+
+testcase!(
     test_while_else,
     r#"
 from typing import assert_type
