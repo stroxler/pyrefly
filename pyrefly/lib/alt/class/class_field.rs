@@ -667,6 +667,7 @@ impl ClassField {
     }
 }
 
+#[derive(Debug)]
 enum InstanceKind {
     ClassType,
     TypedDict,
@@ -677,6 +678,7 @@ enum InstanceKind {
 }
 
 /// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
+#[derive(Debug)]
 struct Instance<'a> {
     kind: InstanceKind,
     class: &'a Class,
