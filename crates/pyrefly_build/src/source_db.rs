@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::ffi::OsStr;
 use std::fmt;
 use std::path::Path;
 
@@ -51,6 +52,10 @@ impl Target {
     pub fn from_string(x: String) -> Self {
         Target(TARGET_INTERNER.intern(x))
     }
+
+    pub fn to_os_str(&self) -> &OsStr {
+        OsStr::new(self.0.as_str())
+    }
 }
 
 /// Represents a virtual filesystem provided by a build system. A build system
@@ -59,8 +64,5 @@ impl Target {
 pub trait SourceDatabase: Send + Sync + fmt::Debug {
     fn modules_to_check(&self) -> Vec<Handle>;
     fn lookup(&self, module: &ModuleName, origin: Option<&Path>) -> Option<ModulePath>;
-    /// From a given [`ModulePath`], return the [`Handle`] that corresponds to it.
-    /// When no `ModulePath` can be found that corresponds, return a handle
-    /// with [`ModuleName::unknown()`], and [`pyrefly_python::sys_info::SysInfo::default()`].
     fn handle_from_module_path(&self, module_path: ModulePath) -> Handle;
 }
