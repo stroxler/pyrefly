@@ -19,6 +19,7 @@ use regex::Regex;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::error;
+use tracing::info;
 
 use crate::error::error::Error;
 use crate::state::errors::Errors;
@@ -112,21 +113,21 @@ pub fn suppress_errors(errors: Vec<Error>) {
             path_errors.entry(path.clone()).or_default().push(e);
         }
     }
-    eprintln!("Inserting error suppressions...");
+    info!("Inserting error suppressions...");
     if path_errors.is_empty() {
-        eprintln!("No errors to suppress!");
+        info!("No errors to suppress!");
         return;
     }
     let (failures, successes) = add_suppressions(&path_errors);
-    eprintln!(
+    info!(
         "Finished suppressing errors in {}/{} files",
         successes.len(),
         path_errors.len()
     );
     if !failures.is_empty() {
-        eprintln!("Failed to suppress errors in {} files:", failures.len());
+        info!("Failed to suppress errors in {} files:", failures.len());
         for (path, e) in failures {
-            eprintln!("  {path:#?}: {e}");
+            info!("  {path:#?}: {e}");
         }
     }
 }
@@ -215,7 +216,7 @@ pub fn remove_unused_ignores(loads: &Errors, all: bool) {
             }
         }
     }
-    eprintln!(
+    info!(
         "Removed {} unused error suppression(s) in {} file(s)",
         removed_ignores.values().sum::<usize>(),
         removed_ignores.len(),
