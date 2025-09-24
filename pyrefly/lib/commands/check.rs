@@ -70,6 +70,7 @@ pub struct FullCheckArgs {
     pub files: FilesArgs,
 
     /// Watch for file changes and re-check them.
+    /// (Warning: This mode is highly experimental!)
     #[arg(long, conflicts_with = "check_all")]
     watch: bool,
 
