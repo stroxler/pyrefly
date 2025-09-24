@@ -8,7 +8,6 @@
 use std::collections::VecDeque;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
@@ -36,7 +35,7 @@ struct Inner {
     /// - if a path exists in `path_lookup`, its target must exist in `db`.
     /// - if a path exists in `path_lookup`, its target's `srcs` must have a
     ///   module name with `path` as a module path.
-    path_lookup: SmallMap<Arc<PathBuf>, Target>,
+    path_lookup: SmallMap<PathBuf, Target>,
 }
 
 impl Inner {
@@ -137,7 +136,7 @@ impl SourceDatabase for BuckSourceDatabase {
         let module_name = manifest
             .srcs
             .iter()
-            .find(|(_, paths)| paths.iter().any(|p| **p == module_path.as_path()))
+            .find(|(_, paths)| paths.iter().any(|p| *p == module_path.as_path()))
             // similarly, if we get a target for a path in `path_lookup`, it must exist
             // in that target's srcs
             .unwrap()
@@ -213,19 +212,19 @@ mod tests {
         let (db, root) = get_db();
         let path_lookup = db.inner.read().path_lookup.clone();
         let expected = smallmap! {
-            Arc::new(root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py")) =>
+            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py") =>
                 Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            Arc::new(root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.pyi")) =>
+            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.pyi") =>
                 Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            Arc::new(root.join("third-party/pypi/click/8.1.7/src/click/__init__.pyi")) =>
+            root.join("third-party/pypi/click/8.1.7/src/click/__init__.pyi") =>
                 Target::from_string("build_root//third-party/pypi/click/8.1.7:py".to_owned()),
-            Arc::new(root.join("third-party/pypi/click/8.1.7/src/click/__init__.py")) =>
+            root.join("third-party/pypi/click/8.1.7/src/click/__init__.py") =>
                 Target::from_string("build_root//third-party/pypi/click/8.1.7:py".to_owned()),
-            Arc::new(root.join("sub_root/pyre/client/log/__init__.py")) =>
+            root.join("sub_root/pyre/client/log/__init__.py") =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            Arc::new(root.join("sub_root/pyre/client/log/log.py")) =>
+            root.join("sub_root/pyre/client/log/log.py") =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            Arc::new(root.join("sub_root/pyre/client/log/log.pyi")) =>
+            root.join("sub_root/pyre/client/log/log.pyi") =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
         };
 
@@ -380,15 +379,15 @@ mod tests {
         let inner = db.inner.read();
         assert_eq!(inner.db, manifest_db);
         let expected_path_lookup = smallmap! {
-            Arc::new(root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py")) =>
+            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py") =>
                 Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            Arc::new(root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.pyi")) =>
+            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.pyi") =>
                 Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            Arc::new(root.join("sub_root/pyre/client/log/__init__.py")) =>
+            root.join("sub_root/pyre/client/log/__init__.py") =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            Arc::new(root.join("sub_root/pyre/client/log/log.py")) =>
+            root.join("sub_root/pyre/client/log/log.py") =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            Arc::new(root.join("sub_root/pyre/client/log/log.pyi")) =>
+            root.join("sub_root/pyre/client/log/log.pyi") =>
                 Target::from_string("sub_root//pyre/client/log:log".to_owned()),
         };
         assert_eq!(inner.path_lookup, expected_path_lookup);

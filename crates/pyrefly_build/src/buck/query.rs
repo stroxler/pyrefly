@@ -10,7 +10,6 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::Arc;
 
 use anyhow::Context as _;
 use dupe::Dupe as _;
@@ -29,16 +28,16 @@ use crate::source_db::Target;
 pub enum Include {
     #[expect(unused)]
     Target(Target),
-    Path(Arc<PathBuf>),
+    Path(PathBuf),
 }
 
 impl Include {
     pub fn path(path: PathBuf) -> Self {
-        Self::Path(Arc::new(path))
+        Self::Path(path)
     }
 
-    fn to_bxl_args(this: &Self) -> impl Iterator<Item = &OsStr> {
-        match this {
+    fn to_bxl_args(&self) -> impl Iterator<Item = &OsStr> {
+        match self {
             Include::Target(target) => [OsStr::new("--target"), target.to_os_str()].into_iter(),
             Include::Path(path) => [OsStr::new("--file"), path.as_os_str()].into_iter(),
         }
@@ -85,7 +84,7 @@ pub fn query_source_db<'a>(
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 pub(crate) struct PythonLibraryManifest {
     pub deps: SmallSet<Target>,
-    pub srcs: SmallMap<ModuleName, Vec1<Arc<PathBuf>>>,
+    pub srcs: SmallMap<ModuleName, Vec1<PathBuf>>,
     #[serde(flatten)]
     pub sys_info: SysInfo,
 }
@@ -106,11 +105,9 @@ impl PythonLibraryManifest {
     }
 
     fn rewrite_relative_to_root(&mut self, root: &Path) {
-        self.srcs.iter_mut().for_each(|(_, paths)| {
-            paths
-                .iter_mut()
-                .for_each(|p| *p = Arc::new(root.join(&**p)))
-        });
+        self.srcs
+            .iter_mut()
+            .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&**p)));
     }
 }
 
@@ -254,14 +251,9 @@ mod tests {
     fn map_srcs(
         srcs: &[(&str, &[&str])],
         prefix_paths: Option<&str>,
-    ) -> SmallMap<ModuleName, Vec1<Arc<PathBuf>>> {
+    ) -> SmallMap<ModuleName, Vec1<PathBuf>> {
         let prefix = prefix_paths.map(Path::new);
-        let map_path = |p| {
-            prefix.map_or_else(
-                || Arc::new(PathBuf::from(p)),
-                |prefix| Arc::new(prefix.join(p)),
-            )
-        };
+        let map_path = |p| prefix.map_or_else(|| PathBuf::from(p), |prefix| prefix.join(p));
         srcs.iter()
             .map(|(n, paths)| {
                 (
