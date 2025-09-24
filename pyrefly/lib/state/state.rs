@@ -1301,6 +1301,47 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Called if the `find` portion of loading might have changed for specific configs,
+    /// without wanting to fully reload all configs (and pay the performance penalty of
+    /// requerying a build system).
+    /// E.g. a file was opened or closed, changing the set of 'open' build system targets,
+    /// and affecting how a go-to-definition or hover result would be produced.
+    pub fn invalidate_find_for_configs(&mut self, configs: SmallSet<ArcId<ConfigFile>>) {
+        // First do the work of clearing out the loaders for our config, but preserve all the other
+        // loaders.
+        let new_loaders = LockedMap::new();
+        self.data
+            .updated_loaders
+            .iter_unordered()
+            .chain(self.readable.loaders.iter())
+            .filter(|(c, _)| !configs.contains(*c))
+            .for_each(|(c, l)| {
+                new_loaders.insert(c.dupe(), l.dupe());
+            });
+        configs.iter().for_each(|config| {
+            new_loaders.insert(config.dupe(), Arc::new(LoaderFindCache::new(config.dupe())));
+        });
+        self.data.updated_loaders = new_loaders;
+
+        // Then mark all handles under that config as dirty.
+        let mut dirty_set = self.data.dirty.lock();
+        for module_data in self.data.updated_modules.values() {
+            if configs.contains(&*module_data.config.read()) {
+                module_data.state.write(Step::Load).unwrap().dirty.find = true;
+                dirty_set.insert(module_data.dupe());
+            }
+        }
+        for (handle, module_data) in self.readable.modules.iter() {
+            if self.data.updated_modules.get(handle).is_none()
+                && configs.contains(&module_data.config)
+            {
+                let module_data = self.get_module(handle);
+                module_data.state.write(Step::Load).unwrap().dirty.find = true;
+                dirty_set.insert(module_data.dupe());
+            }
+        }
+    }
+
     /// Called if the `load_from_memory` portion of loading might have changed.
     /// Specify which in-memory files might have changed, use None to say they don't exist anymore.
     pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<String>>)>) {

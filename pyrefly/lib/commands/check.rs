@@ -386,7 +386,7 @@ impl Handles {
     pub fn all(
         &self,
         config_finder: &ConfigFinder,
-    ) -> (Vec<Handle>, Vec<ArcId<ConfigFile>>, Vec<ConfigError>) {
+    ) -> (Vec<Handle>, SmallSet<ArcId<ConfigFile>>, Vec<ConfigError>) {
         let mut configs = SmallMap::new();
         for path in &self.path_data {
             let unknown = ModuleName::unknown();
@@ -397,11 +397,11 @@ impl Handles {
         }
 
         let mut errors = Vec::new();
-        let mut reloaded_configs = Vec::new();
+        let mut reloaded_configs = SmallSet::new();
         for (config, files) in &configs {
             match config.requery_source_db(files) {
                 Ok(reload) if reload => {
-                    reloaded_configs.push(config.dupe());
+                    reloaded_configs.insert(config.dupe());
                 }
                 Err(error) => {
                     errors.push(ConfigError::error(error));
@@ -611,12 +611,13 @@ impl CheckArgs {
         let mut transaction = state.new_committable_transaction(require_levels.default, None);
         loop {
             let timings = Timings::new();
-            // TODO(connernilsen): clear out find for reloaded configs
-            let (loaded_handles, _reloaded_configs, sourcedb_errors) =
+            let (loaded_handles, reloaded_configs, sourcedb_errors) =
                 handles.all(state.config_finder());
+            let mut_transaction = transaction.as_mut();
+            mut_transaction.invalidate_find_for_configs(reloaded_configs);
             let res = self.run_inner(
                 timings,
-                transaction.as_mut(),
+                mut_transaction,
                 &loaded_handles,
                 sourcedb_errors,
                 require_levels.specified,
