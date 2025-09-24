@@ -218,7 +218,7 @@ impl<'a> BindingsBuilder<'a> {
         );
 
         let legacy_tparam_builder = legacy.unwrap();
-        legacy_tparam_builder.add_name_definitions(self);
+        self.add_name_definitions(&legacy_tparam_builder);
 
         self.scopes.push(Scope::class_body(
             x.range,

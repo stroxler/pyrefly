@@ -289,7 +289,7 @@ impl<'a> BindingsBuilder<'a> {
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
         let lookup_result =
             if used_in_static_type && let Some((tparams_builder, tparam_id)) = tparams_lookup {
-                tparams_builder.intercept_lookup(self, tparam_id)
+                self.intercept_lookup(tparams_builder, tparam_id)
             } else {
                 self.lookup_name(Hashed::new(&name.id), usage)
                     .map_found(Binding::Forward)

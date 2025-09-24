@@ -261,7 +261,7 @@ impl<'a> BindingsBuilder<'a> {
             .map(|e| self.to_return_annotation_with_range(*e, func_name, class_key, &mut legacy));
 
         let legacy_tparam_builder = legacy.unwrap();
-        legacy_tparam_builder.add_name_definitions(self);
+        self.add_name_definitions(&legacy_tparam_builder);
         let legacy_tparams = legacy_tparam_builder.lookup_keys();
         (return_ann_with_range, legacy_tparams)
     }

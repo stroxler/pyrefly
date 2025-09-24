@@ -1023,7 +1023,11 @@ impl LegacyTParamBuilder {
             .filter_map(|x| x.as_ref().left().as_ref().map(|(_, idx)| *idx))
             .collect()
     }
+}
 
+/// The legacy-tparams-specifc logic is in a second impl because that lets us define it
+/// just under where the key data structures live.
+impl<'a> BindingsBuilder<'a> {
     /// Perform a lookup of a name used in either base classes of a class or
     /// parameter/return annotations of a function.
     ///
@@ -1033,17 +1037,17 @@ impl LegacyTParamBuilder {
     /// parameter in the current scope.
     pub fn intercept_lookup(
         &mut self,
-        builder: &mut BindingsBuilder,
+        legacy_tparams: &mut LegacyTParamBuilder,
         id: LegacyTParamId,
     ) -> NameLookupResult<Binding> {
         let range = id.range();
-        let result = self
+        let result = legacy_tparams
             .legacy_tparams
             .entry(id.tvar_name())
-            .or_insert_with(|| builder.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
+            .or_insert_with(|| self.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
         match result {
             Either::Left((_, idx)) => {
-                let range_if_scoped_params_exist = if self.has_scoped_tparams {
+                let range_if_scoped_params_exist = if legacy_tparams.has_scoped_tparams {
                     Some(range)
                 } else {
                     None
@@ -1069,33 +1073,28 @@ impl LegacyTParamBuilder {
     /// We do this so that AnswersSolver has the opportunity to determine whether any
     /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
     /// case the name should be treated as a Quantified type parameter inside this scope.
-    pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
-        for entry in self.legacy_tparams.values() {
+    pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamBuilder) {
+        for entry in legacy_tparams.legacy_tparams.values() {
             match entry {
                 Either::Left((id, idx)) => {
                     let identifier = id.as_identifier();
-                    builder
-                        .scopes
+                    self.scopes
                         .add_parameter_to_current_static(identifier, None);
-                    builder.bind_definition(
+                    self.bind_definition(
                         identifier,
                         // Note: we use None as the range here because the range is
                         // used to error if legacy tparams are mixed with scope
                         // tparams, and we only want to do that once (which we do in
                         // the binding created by `intercept_lookup`).
                         Binding::CheckLegacyTypeParam(*idx, None),
-                        builder.scopes.get_flow_style(&identifier.id).clone(),
+                        self.scopes.get_flow_style(&identifier.id).clone(),
                     );
                 }
                 _ => {}
             }
         }
     }
-}
 
-/// The legacy-tparams-specifc logic is in a second impl because that lets us define it
-/// just under where the key data structures live.
-impl<'a> BindingsBuilder<'a> {
     /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
     /// when in a setting where we have to check values currently in scope to see if they are
     /// legacy type parameters and need to be re-bound into quantified type variables.
