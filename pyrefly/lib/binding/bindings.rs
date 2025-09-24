@@ -917,7 +917,7 @@ impl<'a> BindingsBuilder<'a> {
         // Create a parameter var; the binding for the lambda expr itself will use this to pass
         // any contextual typing information as a side-effect to the parameter binding used in
         // the lambda body.
-        let var = self.solver.fresh_parameter(self.uniques);
+        let var = self.solver.fresh_unwrap(self.uniques);
         let idx = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),

@@ -466,6 +466,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self_type: &mut Option<Type>,
         errors: &ErrorCollector,
     ) -> (Type, Required) {
+        // We only want to use self for the first param, so take & replace with None
+        let self_type = std::mem::take(self_type);
         let (ty, required) = match self.bindings().get_function_param(name) {
             FunctionParameter::Annotated(idx) => {
                 // If the parameter is annotated, we check the default value against the annotation
@@ -489,17 +491,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // are also Var. If a default value of type T is provided, it will resolve to Any | T.
                 // Otherwise, it will be forced to Any
                 if let Some(ty) = self_type {
-                    self.is_subset_eq(&var.to_type(), ty);
+                    self.solver().solve_parameter(*var, ty);
                 } else if let Required::Optional(Some(default_ty)) = &required {
-                    self.is_subset_eq(
-                        &self.union(Type::any_implicit(), default_ty.clone()),
-                        &var.to_type(),
+                    self.solver().solve_parameter(
+                        *var,
+                        self.union(
+                            Type::any_implicit(),
+                            default_ty.clone().promote_literals(self.stdlib),
+                        ),
                     );
                 }
                 (self.solver().force_var(*var), required)
             }
         };
-        *self_type = None; // Stop using `self` type solve Var params after the first param.
         (ty, required)
     }
 
