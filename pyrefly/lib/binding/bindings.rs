@@ -1061,10 +1061,7 @@ impl<'a> BindingsBuilder<'a> {
         let result = legacy_tparams
             .legacy_tparams
             .entry(id.tvar_name())
-            .or_insert_with(|| {
-                self.lookup_legacy_tparam(&id, legacy_tparams.has_scoped_tparams)
-                    .map_left(|(idx, tparam_idx)| (id, idx, tparam_idx))
-            });
+            .or_insert_with(|| self.lookup_legacy_tparam(id, legacy_tparams.has_scoped_tparams));
         match result {
             Either::Left((_, idx, _tparam_idx)) => NameLookupResult::Found {
                 value: Binding::Forward(*idx),
@@ -1096,9 +1093,9 @@ impl<'a> BindingsBuilder<'a> {
     ///   until the solve stage.
     fn lookup_legacy_tparam(
         &mut self,
-        id: &LegacyTParamId,
+        id: LegacyTParamId,
         has_scoped_type_params: bool,
-    ) -> Either<(Idx<Key>, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>> {
+    ) -> Either<(LegacyTParamId, Idx<Key>, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>> {
         let name = match &id {
             LegacyTParamId::Name(name) => name,
             LegacyTParamId::Attr(value, _) => value,
@@ -1109,7 +1106,7 @@ impl<'a> BindingsBuilder<'a> {
         match found
             .and_then(|idx| self.lookup_legacy_tparam_from_idx(id, idx, has_scoped_type_params))
         {
-            Some((idx, idx_tparam)) => Either::Left((idx, idx_tparam)),
+            Some(possible_tparam) => Either::Left(possible_tparam),
             None => Either::Right(found),
         }
     }
@@ -1121,10 +1118,10 @@ impl<'a> BindingsBuilder<'a> {
     /// - None if we find something that is definitely not a legacy type variable.
     fn lookup_legacy_tparam_from_idx(
         &mut self,
-        id: &LegacyTParamId,
+        id: LegacyTParamId,
         mut idx: Idx<Key>,
         has_scoped_type_params: bool,
-    ) -> Option<(Idx<Key>, Idx<KeyLegacyTypeParam>)> {
+    ) -> Option<(LegacyTParamId, Idx<Key>, Idx<KeyLegacyTypeParam>)> {
         // Follow Forwards to get to the actual original binding.
         // Short circuit if there are too many forwards - it may mean there's a cycle.
         let mut original_binding = self.table.types.1.get(idx);
@@ -1141,7 +1138,7 @@ impl<'a> BindingsBuilder<'a> {
         // If we found a potential legacy type variable, first insert the key / binding pair
         // for the raw lookup, then insert another key / binding pair for the
         // `CheckLegacyTypeParam`, and return the `Idx<Key>`.
-        let tparam_idx = Self::make_legacy_tparam(id, original_binding, idx)
+        let tparam_idx = Self::make_legacy_tparam(&id, original_binding, idx)
             .map(|(k, v)| self.insert_binding(k, v))?;
         let idx = self.insert_binding(
             id.as_check_legacy_tparam_key(),
@@ -1154,7 +1151,7 @@ impl<'a> BindingsBuilder<'a> {
                 },
             ),
         );
-        Some((idx, tparam_idx))
+        Some((id, idx, tparam_idx))
     }
 
     /// Given a name (either a bare name or a `<base>.<attribute>`) name, produce
