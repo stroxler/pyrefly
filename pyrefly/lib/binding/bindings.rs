@@ -1107,9 +1107,9 @@ impl<'a> BindingsBuilder<'a> {
         let found = self
             .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found();
-        match found
-            .and_then(|idx| self.lookup_legacy_tparam_from_idx(id, idx, has_scoped_type_params))
-        {
+        match found.and_then(|original_idx| {
+            self.lookup_legacy_tparam_from_idx(id, original_idx, has_scoped_type_params)
+        }) {
             Some(possible_tparam) => Either::Left(possible_tparam),
             None => Either::Right(found),
         }
@@ -1123,26 +1123,26 @@ impl<'a> BindingsBuilder<'a> {
     fn lookup_legacy_tparam_from_idx(
         &mut self,
         id: LegacyTParamId,
-        mut idx: Idx<Key>,
+        mut original_idx: Idx<Key>,
         has_scoped_type_params: bool,
     ) -> Option<PossibleTParam> {
         // Follow Forwards to get to the actual original binding.
         // Short circuit if there are too many forwards - it may mean there's a cycle.
-        let mut original_binding = self.table.types.1.get(idx);
+        let mut original_binding = self.table.types.1.get(original_idx);
         let mut counter = 0;
         while let Some(Binding::Forward(fwd_idx)) = original_binding {
             if counter > 100 {
                 return None;
             } else {
                 counter += 1;
-                idx = *fwd_idx;
-                original_binding = self.table.types.1.get(idx);
+                original_idx = *fwd_idx;
+                original_binding = self.table.types.1.get(original_idx);
             }
         }
         // If we found a potential legacy type variable, first insert the key / binding pair
         // for the raw lookup, then insert another key / binding pair for the
         // `CheckLegacyTypeParam`, and return the `Idx<Key>`.
-        let tparam_idx = Self::make_legacy_tparam(&id, original_binding, idx)
+        let tparam_idx = Self::make_legacy_tparam(&id, original_binding, original_idx)
             .map(|(k, v)| self.insert_binding(k, v))?;
         let idx = self.insert_binding(
             id.as_check_legacy_tparam_key(),
@@ -1179,7 +1179,7 @@ impl<'a> BindingsBuilder<'a> {
     fn make_legacy_tparam(
         id: &LegacyTParamId,
         binding: Option<&Binding>,
-        idx: Idx<Key>,
+        original_idx: Idx<Key>,
     ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
         match id {
             LegacyTParamId::Name(name) => match binding {
@@ -1191,14 +1191,14 @@ impl<'a> BindingsBuilder<'a> {
                 )
                 | None => Some((
                     KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                    BindingLegacyTypeParam::ParamKeyed(idx),
+                    BindingLegacyTypeParam::ParamKeyed(original_idx),
                 )),
                 Some(_) => None,
             },
             LegacyTParamId::Attr(_, attr) => match binding {
                 Some(Binding::Module(..)) | None => Some((
                     KeyLegacyTypeParam(ShortIdentifier::new(attr)),
-                    BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
+                    BindingLegacyTypeParam::ModuleKeyed(original_idx, Box::new(attr.id.clone())),
                 )),
                 Some(_) => None,
             },
