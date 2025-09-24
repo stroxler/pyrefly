@@ -979,19 +979,14 @@ impl<'a> BindingsBuilder<'a> {
         let found = self
             .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found();
-        let key = {
-            match (id, found) {
-                (LegacyTParamId::Name(name), Some(idx)) => self
-                    .lookup_legacy_tparam_from_idx(idx, |binding| {
-                        Self::make_legacy_tparam_from_tparam_binding(binding, name, idx)
-                    }),
-                (LegacyTParamId::Attr(_, attr), Some(idx)) => self
-                    .lookup_legacy_tparam_from_idx(idx, |binding| {
-                        Self::make_legacy_tparam_from_module_binding(binding, attr, idx)
-                    }),
-                (_, None) => None,
-            }
-        };
+        let key = found.and_then(|idx| match id {
+            LegacyTParamId::Name(name) => self.lookup_legacy_tparam_from_idx(idx, |binding| {
+                Self::make_legacy_tparam_from_tparam_binding(binding, name, idx)
+            }),
+            LegacyTParamId::Attr(_, attr) => self.lookup_legacy_tparam_from_idx(idx, |binding| {
+                Self::make_legacy_tparam_from_module_binding(binding, attr, idx)
+            }),
+        });
         match key {
             Some(left) => Either::Left(left),
             None => Either::Right(found),
