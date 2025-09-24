@@ -51,7 +51,7 @@ const VAR_LEAK: &str = "Internal error: a variable has leaked from one module to
 
 const INITIAL_GAS: Gas = Gas::new(25);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 enum Variable {
     /// A variable in a container with an unspecified element type, e.g. `[]: list[V]`
     Contained,
