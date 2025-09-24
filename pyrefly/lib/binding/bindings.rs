@@ -1004,66 +1004,54 @@ impl<'a> BindingsBuilder<'a> {
                     continue;
                 }
                 b => {
-                    let tparam = match id {
-                        LegacyTParamId::Name(name) => {
-                            Self::make_legacy_tparam_from_tparam_binding(b, name, idx)
-                        }
-                        LegacyTParamId::Attr(_, attr) => {
-                            Self::make_legacy_tparam_from_module_binding(b, attr, idx)
-                        }
-                    };
-                    return tparam.map(|(k, v)| self.insert_binding(k, v));
+                    return Self::make_legacy_tparam(id, b, idx)
+                        .map(|(k, v)| self.insert_binding(k, v));
                 }
             }
         }
         None
     }
 
-    /// Make a BindingLegacyTypeParam if the given Binding may be a legacy tparam.
-    /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a key.
+    /// Given a name (either a bare name or a `<base>.<attribute>`) name, produce
+    /// `Some((key, binding))` if we cannot rule out that the name is a legacy type
+    /// variable; the solver will make the final decision.
     ///
-    /// We'll produce `None` whenever we can tell for sure that a name *isn't* a type variable.
-    ///
-    /// If we can see that it definitely is a type variable or we can't tell yet
-    /// (for example, it's an imported name, or the binding is `None` which means
-    /// it's a forward reference to something we haven't seen yet) we'll produce
-    /// `Some((key, binding))`.
-    fn make_legacy_tparam_from_tparam_binding(
+    /// To break down "when we cannot rule out":
+    /// - We know for certain that a bare name whose binding is a legacy type
+    ///   variable *is* a legacy type varaible
+    /// - We cannot be sure in a few cases:
+    ///   - a bare name that is an imported name
+    ///   - a `module.attr` name, where the base is an imported module
+    ///   - either kind of name and a forward reference where we don't yet know
+    ///     what it will be
+    /// - In all other cases, we know for sure the name is *not* a legacy
+    ///   type variable, and we will return `None`
+    fn make_legacy_tparam(
+        id: &LegacyTParamId,
         binding: Option<&Binding>,
-        name: &Identifier,
         idx: Idx<Key>,
     ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
-        match binding {
-            Some(
-                Binding::TypeVar(..)
-                | Binding::ParamSpec(..)
-                | Binding::TypeVarTuple(..)
-                | Binding::Import(..),
-            )
-            | None => Some((
-                KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                BindingLegacyTypeParam::ParamKeyed(idx),
-            )),
-            // If it's any other binding, then we know it can't be a legacy type variable.
-            Some(_) => None,
-        }
-    }
-
-    /// Make a BindingLegacyTypeParam if the given Binding may be a module containing a legacy tparam.
-    /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a module key.
-    fn make_legacy_tparam_from_module_binding(
-        binding: Option<&Binding>,
-        attr: &Identifier,
-        idx: Idx<Key>,
-    ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
-        match binding {
-            // `None` means this name is associated with a promised binding that is not yet in the table.
-            // Since we know nothing about it, we have to assume it may be a module containing a type variable.
-            Some(Binding::Module(..)) | None => Some((
-                KeyLegacyTypeParam(ShortIdentifier::new(attr)),
-                BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
-            )),
-            _ => None,
+        match id {
+            LegacyTParamId::Name(name) => match binding {
+                Some(
+                    Binding::TypeVar(..)
+                    | Binding::ParamSpec(..)
+                    | Binding::TypeVarTuple(..)
+                    | Binding::Import(..),
+                )
+                | None => Some((
+                    KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                    BindingLegacyTypeParam::ParamKeyed(idx),
+                )),
+                Some(_) => None,
+            },
+            LegacyTParamId::Attr(_, attr) => match binding {
+                Some(Binding::Module(..)) | None => Some((
+                    KeyLegacyTypeParam(ShortIdentifier::new(attr)),
+                    BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
+                )),
+                Some(_) => None,
+            },
         }
     }
 }
