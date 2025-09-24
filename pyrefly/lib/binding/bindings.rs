@@ -995,21 +995,20 @@ impl<'a> BindingsBuilder<'a> {
         id: &LegacyTParamId,
         mut idx: Idx<Key>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
-        // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
-        // Therefore we arbitrarily cut off at 100 forward hops.
-        for _ in 1..100 {
-            match self.table.types.1.get(idx) {
-                Some(Binding::Forward(fwd_idx)) => {
-                    idx = *fwd_idx;
-                    continue;
-                }
-                b => {
-                    return Self::make_legacy_tparam(id, b, idx)
-                        .map(|(k, v)| self.insert_binding(k, v));
-                }
+        // Follow Forwards to get to the actual original binding.
+        // Short circuit if there are too many forwards - it may mean there's a cycle.
+        let mut original_binding = self.table.types.1.get(idx);
+        let mut counter = 0;
+        while let Some(Binding::Forward(fwd_idx)) = original_binding {
+            if counter > 100 {
+                return None;
+            } else {
+                counter += 1;
+                idx = *fwd_idx;
+                original_binding = self.table.types.1.get(idx);
             }
         }
-        None
+        Self::make_legacy_tparam(id, original_binding, idx).map(|(k, v)| self.insert_binding(k, v))
     }
 
     /// Given a name (either a bare name or a `<base>.<attribute>`) name, produce
