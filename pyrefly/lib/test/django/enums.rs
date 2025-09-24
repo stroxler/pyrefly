@@ -75,3 +75,36 @@ assert_type([member.label for choices in x1 for member in choices], list[_StrOrP
 assert_type([member.value for choices in x1 for member in choices], list[str]) # E: Type `type[Gender]` is not iterable  # E: Type `type[Medal]` is not iterable 
 "#,
 );
+
+testcase!(
+    bug = "Add full support for django enum Choices. Currently, not all cases are supported.",
+    test_enum_choices,
+    django_env(),
+    r#"
+
+import enum
+from typing import Any, Literal
+
+from django.db.models import Choices
+from typing_extensions import assert_type
+
+class BaseEmptyChoices(Choices):
+    __empty__ = "Python's None"
+
+class VoidChoices(BaseEmptyChoices):
+    ABYSS = enum.auto()
+    CHASM = enum.auto()
+
+
+assert_type(VoidChoices.names, list[str])
+assert_type(VoidChoices.labels, list[str]) # E: assert_type(list[_StrPromise | str], list[str])
+assert_type(VoidChoices.values, list[Any | None]) # E: assert_type(list[Any], list[Any | None])
+assert_type(VoidChoices.choices, list[tuple[Any | None, str]]) # E: assert_type(list[tuple[Any, _StrPromise | str]]
+assert_type(VoidChoices.ABYSS, Literal[VoidChoices.ABYSS])
+assert_type(VoidChoices.ABYSS.name, Literal["ABYSS"])
+assert_type(VoidChoices.ABYSS.label, str) # E: assert_type(_StrPromise | str, str) failed 
+assert_type(VoidChoices.ABYSS.value, Any) # E: assert_type(auto, Any)
+assert_type(VoidChoices.ABYSS.do_not_call_in_templates, Literal[True])
+assert_type(VoidChoices.__empty__, str)
+"#,
+);
