@@ -53,18 +53,6 @@ def f(x: str | None):
 );
 
 testcase!(
-    test_bool_special_exports_bug,
-    r#"
-from typing import assert_type, Literal
-def f(x: bool):
-    if bool(x):
-        assert_type(x, Literal[True])
-    else:
-        assert_type(x, Literal[False])
-    "#,
-);
-
-testcase!(
     test_eq,
     r#"
 from typing import assert_type

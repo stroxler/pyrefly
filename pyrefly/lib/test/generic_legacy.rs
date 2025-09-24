@@ -697,3 +697,24 @@ import foo
 assert_type(f(0), int)
     "#,
 );
+
+// This test case is needed to avoid a regression resolving special binding-time
+// information that travels through a legacy tparam builder.
+//
+// It is necessary because Pyrefly sees the `bool` in a type annotation and has
+// to account for the possiblity that `bool` (which is an import from builtins)
+// might actually be a legacy type variable.
+//
+// We have to make sure that the way we do this doesn't break special export
+// lookups in the binding code; this test guards against regressions.
+testcase!(
+    test_bool_special_exports_bug,
+    r#"
+from typing import assert_type, Literal
+def f(x: bool):
+    if bool(x):
+        assert_type(x, Literal[True])
+    else:
+        assert_type(x, Literal[False])
+    "#,
+);
