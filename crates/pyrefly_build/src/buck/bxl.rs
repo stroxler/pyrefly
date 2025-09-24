@@ -197,8 +197,8 @@ mod tests {
         let raw_db = TargetManifestDatabase::get_test_database();
         let root = raw_db.root.to_path_buf();
         let files = smallset! {
-            root.join("sub_root/pyre/client/log/log.py"),
-            root.join("sub_root/pyre/client/log/log.pyi"),
+            root.join("pyre/client/log/log.py"),
+            root.join("pyre/client/log/log.pyi"),
         };
 
         (
@@ -212,20 +212,20 @@ mod tests {
         let (db, root) = get_db();
         let path_lookup = db.inner.read().path_lookup.clone();
         let expected = smallmap! {
-            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py") =>
-                Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.pyi") =>
-                Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            root.join("third-party/pypi/click/8.1.7/src/click/__init__.pyi") =>
-                Target::from_string("build_root//third-party/pypi/click/8.1.7:py".to_owned()),
-            root.join("third-party/pypi/click/8.1.7/src/click/__init__.py") =>
-                Target::from_string("build_root//third-party/pypi/click/8.1.7:py".to_owned()),
-            root.join("sub_root/pyre/client/log/__init__.py") =>
-                Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            root.join("sub_root/pyre/client/log/log.py") =>
-                Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            root.join("sub_root/pyre/client/log/log.pyi") =>
-                Target::from_string("sub_root//pyre/client/log:log".to_owned()),
+            root.join("colorama/__init__.py") =>
+                Target::from_string("//colorama:py".to_owned()),
+            root.join("colorama/__init__.pyi") =>
+                Target::from_string("//colorama:py".to_owned()),
+            root.join("click/__init__.pyi") =>
+                Target::from_string("//click:py".to_owned()),
+            root.join("click/__init__.py") =>
+                Target::from_string("//click:py".to_owned()),
+            root.join("pyre/client/log/__init__.py") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("pyre/client/log/log.py") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("pyre/client/log/log.pyi") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
         };
 
         assert_eq!(expected, path_lookup);
@@ -244,48 +244,32 @@ mod tests {
         };
 
         assert_eq!(db.lookup(&ModuleName::from_str("log.log"), None), None,);
-        assert_lookup(
-            "does_not_exist",
-            "sub_root/pyre/client/log/__init__.py",
-            None,
-        );
+        assert_lookup("does_not_exist", "pyre/client/log/__init__.py", None);
         // can't be found, since the path's target only has `pyre.client.log.log` as reachable
-        assert_lookup("log.log", "sub_root/pyre/client/log/__init__.py", None);
+        assert_lookup("log.log", "pyre/client/log/__init__.py", None);
         assert_lookup(
             "pyre.client.log.log",
-            "sub_root/pyre/client/log/__init__.py",
-            Some("sub_root/pyre/client/log/log.py"),
+            "pyre/client/log/__init__.py",
+            Some("pyre/client/log/log.py"),
         );
         assert_lookup(
             "click",
-            "sub_root/pyre/client/log/__init__.py",
-            Some("third-party/pypi/click/8.1.7/src/click/__init__.pyi"),
+            "pyre/client/log/__init__.py",
+            Some("click/__init__.pyi"),
         );
         assert_lookup(
             "colorama",
-            "sub_root/pyre/client/log/__init__.py",
-            Some("third-party/pypi/colorama/0.4.6/colorama/__init__.py"),
+            "pyre/client/log/__init__.py",
+            Some("colorama/__init__.py"),
         );
         assert_lookup(
             "colorama",
-            "third-party/pypi/click/8.1.7/src/click/__init__.pyi",
-            Some("third-party/pypi/colorama/0.4.6/colorama/__init__.py"),
+            "click/__init__.pyi",
+            Some("colorama/__init__.py"),
         );
-        assert_lookup(
-            "log.log",
-            "third-party/pypi/click/8.1.7/src/click/__init__.pyi",
-            None,
-        );
-        assert_lookup(
-            "log.log",
-            "third-party/pypi/colorama/0.4.6/colorama/__init__.pyi",
-            None,
-        );
-        assert_lookup(
-            "pyre.client.log.log",
-            "third-party/pypi/click/8.1.7/src/click/__init__.py",
-            None,
-        );
+        assert_lookup("log.log", "click/__init__.pyi", None);
+        assert_lookup("log.log", "colorama/__init__.pyi", None);
+        assert_lookup("pyre.client.log.log", "click/__init__.py", None);
     }
 
     #[test]
@@ -307,29 +291,14 @@ mod tests {
             db.handle_from_module_path(ModulePath::filesystem(root.join("does_not_exist"))),
             None,
         );
-        assert_handle("sub_root/pyre/client/log/__init__.py", "pyre.client.log");
-        assert_handle("sub_root/pyre/client/log/log.py", "pyre.client.log.log");
-        assert_handle("sub_root/pyre/client/log/log.pyi", "pyre.client.log.log");
-        assert_handle(
-            "third-party/pypi/click/8.1.7/src/click/__init__.pyi",
-            "click",
-        );
-        assert_handle(
-            "third-party/pypi/click/8.1.7/src/click/__init__.py",
-            "click",
-        );
-        assert_handle(
-            "third-party/pypi/click/8.1.7/src/click/__init__.py",
-            "click",
-        );
-        assert_handle(
-            "third-party/pypi/colorama/0.4.6/colorama/__init__.py",
-            "colorama",
-        );
-        assert_handle(
-            "third-party/pypi/colorama/0.4.6/colorama/__init__.pyi",
-            "colorama",
-        );
+        assert_handle("pyre/client/log/__init__.py", "pyre.client.log");
+        assert_handle("pyre/client/log/log.py", "pyre.client.log.log");
+        assert_handle("pyre/client/log/log.pyi", "pyre.client.log.log");
+        assert_handle("click/__init__.pyi", "click");
+        assert_handle("click/__init__.py", "click");
+        assert_handle("click/__init__.py", "click");
+        assert_handle("colorama/__init__.py", "colorama");
+        assert_handle("colorama/__init__.pyi", "colorama");
     }
 
     #[test]
@@ -341,31 +310,31 @@ mod tests {
 
         let manifest = TargetManifestDatabase::new(
             smallmap! {
-                    Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()) => TargetManifest::lib(
+                    Target::from_string("//colorama:py".to_owned()) => TargetManifest::lib(
                         &[
                         (
                             "colorama",
                             &[
-                            "third-party/pypi/colorama/0.4.6/colorama/__init__.py",
-                            "third-party/pypi/colorama/0.4.6/colorama/__init__.pyi",
+                            "colorama/__init__.py",
+                            "colorama/__init__.pyi",
                             ]
                         ),
                         ],
                         &[],
                     ),
-                    Target::from_string("sub_root//pyre/client/log:log".to_owned()) => TargetManifest::lib(
+                    Target::from_string("//pyre/client/log:log".to_owned()) => TargetManifest::lib(
                         &[
                         (
                             "pyre.client.log",
                             &[
-                            "sub_root/pyre/client/log/__init__.py"
+                            "pyre/client/log/__init__.py"
                             ]
                         ),
                         (
                             "pyre.client.log.log",
                             &[
-                            "sub_root/pyre/client/log/log.py",
-                            "sub_root/pyre/client/log/log.pyi",
+                            "pyre/client/log/log.py",
+                            "pyre/client/log/log.pyi",
                             ]
                         ),
                         ],
@@ -379,16 +348,16 @@ mod tests {
         let inner = db.inner.read();
         assert_eq!(inner.db, manifest_db);
         let expected_path_lookup = smallmap! {
-            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.py") =>
-                Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            root.join("third-party/pypi/colorama/0.4.6/colorama/__init__.pyi") =>
-                Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()),
-            root.join("sub_root/pyre/client/log/__init__.py") =>
-                Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            root.join("sub_root/pyre/client/log/log.py") =>
-                Target::from_string("sub_root//pyre/client/log:log".to_owned()),
-            root.join("sub_root/pyre/client/log/log.pyi") =>
-                Target::from_string("sub_root//pyre/client/log:log".to_owned()),
+            root.join("colorama/__init__.py") =>
+                Target::from_string("//colorama:py".to_owned()),
+            root.join("colorama/__init__.pyi") =>
+                Target::from_string("//colorama:py".to_owned()),
+            root.join("pyre/client/log/__init__.py") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("pyre/client/log/log.py") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("pyre/client/log/log.pyi") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
         };
         assert_eq!(inner.path_lookup, expected_path_lookup);
     }

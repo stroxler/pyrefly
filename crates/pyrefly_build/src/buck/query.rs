@@ -170,76 +170,76 @@ mod tests {
         pub fn get_test_database() -> Self {
             TargetManifestDatabase::new(
                 smallmap! {
-                    Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()) => TargetManifest::lib(
+                    Target::from_string("//colorama:py".to_owned()) => TargetManifest::lib(
                         &[
                         (
                             "colorama",
                             &[
-                            "third-party/pypi/colorama/0.4.6/colorama/__init__.py",
-                            "third-party/pypi/colorama/0.4.6/colorama/__init__.pyi",
+                            "colorama/__init__.py",
+                            "colorama/__init__.pyi",
                             ]
                         ),
                         ],
                         &[],
                     ),
-                    Target::from_string("build_root//third-party/pypi/colorama:colorama".to_owned()) => TargetManifest::alias(
-                        "build_root//third-party/pypi/colorama/0.4.6:py"
+                    Target::from_string("//colorama:colorama".to_owned()) => TargetManifest::alias(
+                        "//colorama:py"
                     ),
-                    Target::from_string("build_root//third-party/pypi/click/8.1.7:py".to_owned()) => TargetManifest::lib(
+                    Target::from_string("//click:py".to_owned()) => TargetManifest::lib(
                         &[
                         (
                             "click",
                             &[
-                            "third-party/pypi/click/8.1.7/src/click/__init__.pyi",
-                            "third-party/pypi/click/8.1.7/src/click/__init__.py",
+                            "click/__init__.pyi",
+                            "click/__init__.py",
                             ],
                         )
                         ],
                         &[
-                        "build_root//third-party/pypi/colorama:colorama"
+                        "//colorama:colorama"
                         ],
                     ),
-                    Target::from_string("build_root//third-party/pypi/click:click".to_owned()) => TargetManifest::alias(
-                        "build_root//third-party/pypi/click/8.1.7:py"
+                    Target::from_string("//click:click".to_owned()) => TargetManifest::alias(
+                        "//click:py"
                     ),
-                    Target::from_string("sub_root//pyre/client/log:log".to_owned()) => TargetManifest::lib(
+                    Target::from_string("//pyre/client/log:log".to_owned()) => TargetManifest::lib(
                         &[
                         (
                             "pyre.client.log",
                             &[
-                            "sub_root/pyre/client/log/__init__.py"
+                            "pyre/client/log/__init__.py"
                             ]
                         ),
                         (
                             "pyre.client.log.log",
                             &[
-                            "sub_root/pyre/client/log/log.py",
-                            "sub_root/pyre/client/log/log.pyi",
+                            "pyre/client/log/log.py",
+                            "pyre/client/log/log.pyi",
                             ]
                         ),
                         ],
                         &[
-                        "build_root//third-party/pypi/click:click"
+                        "//click:click"
                         ],
                     ),
-                    Target::from_string("sub_root//pyre/client/log:log2".to_owned()) => TargetManifest::lib(
+                    Target::from_string("//pyre/client/log:log2".to_owned()) => TargetManifest::lib(
                         &[
                         (
                             "log",
                             &[
-                            "sub_root/pyre/client/log/__init__.py"
+                            "pyre/client/log/__init__.py"
                             ]
                         ),
                         (
                             "log.log",
                             &[
-                            "sub_root/pyre/client/log/log.py",
-                            "sub_root/pyre/client/log/log.pyi",
+                            "pyre/client/log/log.py",
+                            "pyre/client/log/log.pyi",
                             ]
                         )
                         ],
                         &[
-                        "build_root//third-party/pypi/click:click"
+                        "//click:click"
                         ],
                     )
                 },
@@ -301,64 +301,64 @@ mod tests {
         const EXAMPLE_JSON: &str = r#"
 {
   "db": {
-    "build_root//third-party/pypi/colorama/0.4.6:py": {
+    "//colorama:py": {
       "srcs": {
         "colorama": [
-          "third-party/pypi/colorama/0.4.6/colorama/__init__.py",
-          "third-party/pypi/colorama/0.4.6/colorama/__init__.pyi"
+          "colorama/__init__.py",
+          "colorama/__init__.pyi"
         ]
       },
       "deps": [],
       "python_version": "3.12",
       "python_platform": "linux"
     },
-    "build_root//third-party/pypi/colorama:colorama": {
-      "alias": "build_root//third-party/pypi/colorama/0.4.6:py"
+    "//colorama:colorama": {
+      "alias": "//colorama:py"
     },
-    "build_root//third-party/pypi/click/8.1.7:py": {
+    "//click:py": {
       "srcs": {
         "click": [
-          "third-party/pypi/click/8.1.7/src/click/__init__.pyi",
-          "third-party/pypi/click/8.1.7/src/click/__init__.py"
+          "click/__init__.pyi",
+          "click/__init__.py"
         ]
       },
       "deps": [
-        "build_root//third-party/pypi/colorama:colorama"
+        "//colorama:colorama"
       ],
       "python_version": "3.12",
       "python_platform": "linux"
     },
-    "build_root//third-party/pypi/click:click": {
-      "alias": "build_root//third-party/pypi/click/8.1.7:py"
+    "//click:click": {
+      "alias": "//click:py"
     },
-    "sub_root//pyre/client/log:log": {
+    "//pyre/client/log:log": {
       "srcs": {
         "pyre.client.log": [
-          "sub_root/pyre/client/log/__init__.py"
+          "pyre/client/log/__init__.py"
         ],
         "pyre.client.log.log": [
-          "sub_root/pyre/client/log/log.py",
-          "sub_root/pyre/client/log/log.pyi"
+          "pyre/client/log/log.py",
+          "pyre/client/log/log.pyi"
         ]
       },
       "deps": [
-        "build_root//third-party/pypi/click:click"
+        "//click:click"
       ],
       "python_version": "3.12",
       "python_platform": "linux"
     },
-    "sub_root//pyre/client/log:log2": {
+    "//pyre/client/log:log2": {
       "srcs": {
         "log": [
-          "sub_root/pyre/client/log/__init__.py"
+          "pyre/client/log/__init__.py"
         ],
         "log.log": [
-          "sub_root/pyre/client/log/log.py",
-          "sub_root/pyre/client/log/log.pyi"
+          "pyre/client/log/log.py",
+          "pyre/client/log/log.pyi"
         ]
       },
       "deps": [
-        "build_root//third-party/pypi/click:click"
+        "//click:click"
       ],
       "python_version": "3.12",
       "python_platform": "linux"
@@ -374,70 +374,70 @@ mod tests {
     #[test]
     fn test_produce_db() {
         let expected = smallmap! {
-            Target::from_string("build_root//third-party/pypi/colorama/0.4.6:py".to_owned()) => PythonLibraryManifest::new(
+            Target::from_string("//colorama:py".to_owned()) => PythonLibraryManifest::new(
                 &[
                     (
                         "colorama",
                         &[
-                            "third-party/pypi/colorama/0.4.6/colorama/__init__.py",
-                            "third-party/pypi/colorama/0.4.6/colorama/__init__.pyi",
+                            "colorama/__init__.py",
+                            "colorama/__init__.pyi",
                         ]
                     ),
                 ],
                 &[],
             ),
-            Target::from_string("build_root//third-party/pypi/click/8.1.7:py".to_owned()) => PythonLibraryManifest::new(
+            Target::from_string("//click:py".to_owned()) => PythonLibraryManifest::new(
                 &[
                     (
                         "click",
                         &[
-                            "third-party/pypi/click/8.1.7/src/click/__init__.pyi",
-                            "third-party/pypi/click/8.1.7/src/click/__init__.py",
+                            "click/__init__.pyi",
+                            "click/__init__.py",
                         ],
                     )
                 ],
                 &[
-                    "build_root//third-party/pypi/colorama/0.4.6:py"
+                    "//colorama:py"
                 ],
             ),
-            Target::from_string("sub_root//pyre/client/log:log".to_owned()) => PythonLibraryManifest::new(
+            Target::from_string("//pyre/client/log:log".to_owned()) => PythonLibraryManifest::new(
                 &[
                     (
                         "pyre.client.log",
                         &[
-                            "sub_root/pyre/client/log/__init__.py"
+                            "pyre/client/log/__init__.py"
                         ]
                     ),
                     (
                         "pyre.client.log.log",
                         &[
-                            "sub_root/pyre/client/log/log.py",
-                            "sub_root/pyre/client/log/log.pyi",
+                            "pyre/client/log/log.py",
+                            "pyre/client/log/log.pyi",
                         ]
                     ),
                 ],
                 &[
-                    "build_root//third-party/pypi/click/8.1.7:py"
+                    "//click:py"
                 ],
             ),
-            Target::from_string("sub_root//pyre/client/log:log2".to_owned()) => PythonLibraryManifest::new(
+            Target::from_string("//pyre/client/log:log2".to_owned()) => PythonLibraryManifest::new(
                 &[
                     (
                         "log",
                         &[
-                            "sub_root/pyre/client/log/__init__.py"
+                            "pyre/client/log/__init__.py"
                         ]
                     ),
                     (
                         "log.log",
                         &[
-                            "sub_root/pyre/client/log/log.py",
-                            "sub_root/pyre/client/log/log.pyi",
+                            "pyre/client/log/log.py",
+                            "pyre/client/log/log.pyi",
                         ]
                     )
                 ],
                 &[
-                    "build_root//third-party/pypi/click/8.1.7:py"
+                    "//click:py"
                 ],
             )
         };
