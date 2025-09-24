@@ -696,8 +696,8 @@ Definition Result:
 7 | def f(x: ip.Foo, y: F):
                         ^
 Definition Result:
-2 | from import_provider import Foo as F
-                                       ^
+7 | def f(x: ip.Foo, y: F):
+                        ^
 
 
 # import_provider.py

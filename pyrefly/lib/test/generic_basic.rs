@@ -34,7 +34,7 @@ from typing import TypeVar, assert_type
 U = TypeVar("U")
 def foo[T](
       x: U  # E: Type parameter U is not included in the type parameter list
-    ) -> U:  # E: Type parameter U is not included in the type parameter list
+    ) -> U:
     return x
 
 assert_type(foo(1), int)

@@ -5545,16 +5545,6 @@
       "name": "invalid-type-var",
       "stop_column": 36,
       "stop_line": 26
-    },
-    {
-      "code": -2,
-      "column": 45,
-      "concise_description": "Type parameter K is not included in the type parameter list",
-      "description": "Type parameter K is not included in the type parameter list",
-      "line": 26,
-      "name": "invalid-type-var",
-      "stop_column": 46,
-      "stop_line": 26
     }
   ],
   "generics_syntax_declarations.py": [
