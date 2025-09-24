@@ -56,7 +56,7 @@ enum Variable {
     /// A variable in a container with an unspecified element type, e.g. `[]: list[V]`
     Contained,
     /// A variable due to generic instantiation, `def f[T](x: T): T` with `f(1)`
-    Quantified(Quantified),
+    Quantified(Box<Quantified>),
     /// A variable caused by recursion, e.g. `x = f(); def f(): return x`.
     /// The second value is the default value of the Var, if one exists.
     Recursive(Option<Type>),
@@ -76,16 +76,14 @@ impl Display for Variable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Variable::Contained => write!(f, "Contained"),
-            Variable::Quantified(Quantified {
-                kind: k,
-                default: Some(t),
-                ..
-            }) => write!(f, "Quantified({k}, default={t})"),
-            Variable::Quantified(Quantified {
-                kind: k,
-                default: None,
-                ..
-            }) => write!(f, "Quantified({k})"),
+            Variable::Quantified(q) => {
+                let k = q.kind;
+                if let Some(t) = &q.default {
+                    write!(f, "Quantified({k}, default={t})")
+                } else {
+                    write!(f, "Quantified({k})")
+                }
+            }
             Variable::Recursive(Some(t)) => write!(f, "Recursive(default={t})"),
             Variable::Recursive(None) => write!(f, "Recursive"),
             Variable::Parameter => write!(f, "Parameter"),
@@ -382,7 +380,7 @@ impl Solver {
         let t = t.subst(&params.iter().map(|p| &p.quantified).zip(&ts).collect());
         let mut lock = self.variables.write();
         for (v, param) in vs.iter().zip(params.iter()) {
-            lock.insert(*v, Variable::Quantified(param.quantified.clone()));
+            lock.insert(*v, Variable::Quantified(Box::new(param.quantified.clone())));
         }
         (QuantifiedHandle(vs), t)
     }
@@ -427,7 +425,7 @@ impl Solver {
 
         let mut lock = self.variables.write();
         for (v, q) in vs.iter().zip(qs.into_iter()) {
-            lock.insert(*v, Variable::Quantified(q));
+            lock.insert(*v, Variable::Quantified(Box::new(q)));
         }
         drop(lock);
 
@@ -497,7 +495,7 @@ impl Solver {
             {
                 let v = Var::new(uniques);
                 *t = v.to_type();
-                lock.insert(v, Variable::Quantified(param.quantified.clone()));
+                lock.insert(v, Variable::Quantified(Box::new(param.quantified.clone())));
             }
         })
     }
@@ -512,7 +510,7 @@ impl Solver {
         targs.iter_paired_mut().for_each(|(param, t)| {
             if let Type::Var(v) = t
                 && let Some(Variable::Quantified(q)) = lock.get(v)
-                && *q == param.quantified
+                && **q == param.quantified
             {
                 *t = param.quantified.clone().to_type();
             }
