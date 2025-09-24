@@ -125,6 +125,12 @@ fn get_globs_and_config_for_project(
         }
     }
 
+    if config.build_system.is_some() {
+        return Err(anyhow::anyhow!(
+            "Cannot run build system in project mode, you must provide files to check"
+        ));
+    }
+
     // We want our config_finder to never actually
     let config_finder = ConfigFinder::new_constant(config.dupe());
 
