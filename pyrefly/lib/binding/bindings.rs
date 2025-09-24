@@ -979,15 +979,7 @@ impl<'a> BindingsBuilder<'a> {
         let found = self
             .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found();
-        let key = found.and_then(|idx| match id {
-            LegacyTParamId::Name(name) => self.lookup_legacy_tparam_from_idx(idx, |binding| {
-                Self::make_legacy_tparam_from_tparam_binding(binding, name, idx)
-            }),
-            LegacyTParamId::Attr(_, attr) => self.lookup_legacy_tparam_from_idx(idx, |binding| {
-                Self::make_legacy_tparam_from_module_binding(binding, attr, idx)
-            }),
-        });
-        match key {
+        match found.and_then(|idx| self.lookup_legacy_tparam_from_idx(id, idx)) {
             Some(left) => Either::Left(left),
             None => Either::Right(found),
         }
@@ -1000,11 +992,8 @@ impl<'a> BindingsBuilder<'a> {
     /// - None if we find something that is definitely not a legacy type variable.
     fn lookup_legacy_tparam_from_idx(
         &mut self,
+        id: &LegacyTParamId,
         mut idx: Idx<Key>,
-        make_legacy_tparam_from: impl Fn(
-            Option<&Binding>,
-        )
-            -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)>,
     ) -> Option<Idx<KeyLegacyTypeParam>> {
         // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
         // Therefore we arbitrarily cut off at 100 forward hops.
@@ -1015,7 +1004,15 @@ impl<'a> BindingsBuilder<'a> {
                     continue;
                 }
                 b => {
-                    return make_legacy_tparam_from(b).map(|(k, v)| self.insert_binding(k, v));
+                    let tparam = match id {
+                        LegacyTParamId::Name(name) => {
+                            Self::make_legacy_tparam_from_tparam_binding(b, name, idx)
+                        }
+                        LegacyTParamId::Attr(_, attr) => {
+                            Self::make_legacy_tparam_from_module_binding(b, attr, idx)
+                        }
+                    };
+                    return tparam.map(|(k, v)| self.insert_binding(k, v));
                 }
             }
         }
