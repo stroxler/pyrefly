@@ -116,9 +116,30 @@ impl QuantifiedHandle {
     }
 }
 
+#[derive(Debug, Default)]
+struct Variables(SmallMap<Var, Variable>);
+
+impl Variables {
+    fn get(&self, x: Var) -> &Variable {
+        self.0.get(&x).expect(VAR_LEAK)
+    }
+
+    fn get_mut(&mut self, x: Var) -> &mut Variable {
+        self.0.get_mut(&x).expect(VAR_LEAK)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&Var, &Variable)> {
+        self.0.iter()
+    }
+
+    fn insert(&mut self, x: Var, v: Variable) {
+        self.0.insert(x, v);
+    }
+}
+
 #[derive(Debug)]
 pub struct Solver {
-    variables: Mutex<SmallMap<Var, Variable>>,
+    variables: Mutex<Variables>,
     instantiation_errors: RwLock<SmallMap<Var, TypeVarSpecializationError>>,
     pub infer_with_first_use: bool,
 }
@@ -151,26 +172,21 @@ impl Solver {
     /// TODO: deduplicate Variable-to-gradual-type logic with `force_var`.
     pub fn pin_placeholder_type(&self, var: Var) {
         let mut variables = self.variables.lock();
-        if let Some(variable) = variables.get_mut(&var) {
-            match variable {
-                Variable::Recursive(..) | Variable::Answer(..) => {
-                    // Nothing to do if we have an answer already, and we want to skip recursive Vars
-                    // which do not represent placeholder types.
-                }
-                Variable::Quantified(q) => {
-                    *variable = Variable::Answer(q.as_gradual_type());
-                }
-                Variable::Contained | Variable::Unwrap => {
-                    *variable = Variable::Answer(Type::any_implicit());
-                }
-                Variable::Parameter => {
-                    unreachable!("Unexpected Variable::Parameter")
-                }
+        let variable = variables.get_mut(var);
+        match variable {
+            Variable::Recursive(..) | Variable::Answer(..) => {
+                // Nothing to do if we have an answer already, and we want to skip recursive Vars
+                // which do not represent placeholder types.
             }
-        } else {
-            // TODO(stroxler): I'm pretty sure this is unreachable?
-            // If it *were* reachable, this would be the right thing to do but maybe we should panic instead.
-            variables.insert(var, Variable::Answer(Type::any_implicit()));
+            Variable::Quantified(q) => {
+                *variable = Variable::Answer(q.as_gradual_type());
+            }
+            Variable::Contained | Variable::Unwrap => {
+                *variable = Variable::Answer(Type::any_implicit());
+            }
+            Variable::Parameter => {
+                unreachable!("Unexpected Variable::Parameter")
+            }
         }
     }
 
@@ -201,7 +217,7 @@ impl Solver {
         } else if let Type::Var(x) = t {
             if let Some(_guard) = recurser.recurse(*x) {
                 let lock = self.variables.lock();
-                if let Some(Variable::Answer(w)) = lock.get(x) {
+                if let Variable::Answer(w) = lock.get(*x) {
                     *t = w.clone();
                     drop(lock);
                     self.expand_with_limit(t, limit - 1, recurser);
@@ -224,7 +240,7 @@ impl Solver {
             "Cannot force Var::ZERO, which is a dummy value"
         );
         let mut lock = self.variables.lock();
-        let e = lock.get_mut(&v).expect(VAR_LEAK);
+        let e = lock.get_mut(v);
         match e {
             Variable::Answer(t) => t.clone(),
             _ => {
@@ -363,7 +379,7 @@ impl Solver {
     /// before the var can appear in a constraint, or else we will panic.
     pub fn solve_parameter(&self, v: Var, t: Type) {
         let mut lock = self.variables.lock();
-        let v = lock.get_mut(&v).expect(VAR_LEAK);
+        let v = lock.get_mut(v);
         match v {
             Variable::Answer(_) => {}
             Variable::Parameter => {
@@ -479,7 +495,7 @@ impl Solver {
         let mut lock = self.variables.lock();
         let mut err = Vec::new();
         for v in vs.0 {
-            let e = lock.get_mut(&v).expect(VAR_LEAK);
+            let e = lock.get_mut(v);
             match e {
                 Variable::Answer(_) => {
                     // We pin the quantified var to a type when it first appears in a subset constraint,
@@ -529,7 +545,7 @@ impl Solver {
         let lock = self.variables.lock();
         targs.iter_paired_mut().for_each(|(param, t)| {
             if let Type::Var(v) = t
-                && let Some(Variable::Quantified(q)) = lock.get(v)
+                && let Variable::Quantified(q) = lock.get(*v)
                 && **q == param.quantified
             {
                 *t = param.quantified.clone().to_type();
@@ -691,15 +707,10 @@ impl Solver {
         errors: &ErrorCollector,
         loc: TextRange,
     ) {
-        fn expand(
-            t: Type,
-            variables: &SmallMap<Var, Variable>,
-            recurser: &Recurser<Var>,
-            res: &mut Vec<Type>,
-        ) {
+        fn expand(t: Type, variables: &Variables, recurser: &Recurser<Var>, res: &mut Vec<Type>) {
             match t {
-                Type::Var(v) if let Some(_guard) = recurser.recurse(v) => match variables.get(&v) {
-                    Some(Variable::Answer(t)) => {
+                Type::Var(v) if let Some(_guard) = recurser.recurse(v) => match variables.get(v) {
+                    Variable::Answer(t) => {
                         expand(t.clone(), variables, recurser, res);
                     }
                     _ => res.push(v.to_type()),
@@ -714,8 +725,8 @@ impl Solver {
         }
 
         let mut lock = self.variables.lock();
-        match lock.get(&v) {
-            Some(Variable::Answer(forced)) => {
+        match lock.get(v) {
+            Variable::Answer(forced) => {
                 let forced = forced.clone();
                 drop(lock);
                 // We got forced into choosing a type to satisfy a subset constraint, so check we are OK with that.
@@ -848,10 +859,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             _ if got == want => Ok(()),
             (Type::Var(v1), Type::Var(v2)) => {
                 let mut variables = self.solver.variables.lock();
-                match (
-                    variables.get(v1).expect(VAR_LEAK),
-                    variables.get(v2).expect(VAR_LEAK),
-                ) {
+                match (variables.get(*v1), variables.get(*v2)) {
                     (Variable::Parameter, _) | (_, Variable::Parameter) => {
                         unreachable!("Unexpected Variable::Parameter in constraint")
                     }
@@ -883,7 +891,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Type::Var(v1), t2) => {
                 let mut variables = self.solver.variables.lock();
-                match variables.get(v1).expect(VAR_LEAK) {
+                match variables.get(*v1) {
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
@@ -919,7 +927,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (t1, Type::Var(v2)) => {
                 let mut variables = self.solver.variables.lock();
-                match variables.get(v2).expect(VAR_LEAK) {
+                match variables.get(*v2) {
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
