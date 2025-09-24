@@ -1024,6 +1024,13 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Make a BindingLegacyTypeParam if the given Binding may be a legacy tparam.
     /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a key.
+    ///
+    /// We'll produce `None` whenever we can tell for sure that a name *isn't* a type variable.
+    ///
+    /// If we can see that it definitely is a type variable or we can't tell yet
+    /// (for example, it's an imported name, or the binding is `None` which means
+    /// it's a forward reference to something we haven't seen yet) we'll produce
+    /// `Some((key, binding))`.
     fn make_legacy_tparam_from_tparam_binding(
         binding: Option<&Binding>,
         name: &Identifier,
@@ -1034,23 +1041,14 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::TypeVar(..)
                 | Binding::ParamSpec(..)
                 | Binding::TypeVarTuple(..)
-                // TODO: We need to recursively look through imports to determine
-                // whether it is a legacy type parameter. We can't simply walk through
-                // bindings, because we could recursively reach ourselves, resulting in
-                // a deadlock.
                 | Binding::Import(..),
             )
-            // This name is associated with a promised binding that is not yet in the table.
-            // Since we know nothing about it, we have to assume it may be a type variable.
             | None => Some((
                 KeyLegacyTypeParam(ShortIdentifier::new(name)),
                 BindingLegacyTypeParam::ParamKeyed(idx),
             )),
-            _ => {
-                // If we hit anything other than a type variable, an import, or a Forward,
-                // then we know this name does not point at a type variable
-                None
-            }
+            // If it's any other binding, then we know it can't be a legacy type variable.
+            Some(_) => None,
         }
     }
 
