@@ -1002,6 +1002,14 @@ impl Ranged for LegacyTParamId {
     }
 }
 
+/// A name we found that might either be a legacy type variable or be a module
+/// that has a legacy type variable as an attribute.
+struct PossibleTParam {
+    id: LegacyTParamId,
+    idx: Idx<Key>,
+    tparam_idx: Idx<KeyLegacyTypeParam>,
+}
+
 /// Handle intercepting names inside either function parameter/return
 /// annotations or base class lists of classes, in order to check whether they
 /// point at type variable declarations and need to be converted to type
@@ -1009,10 +1017,7 @@ impl Ranged for LegacyTParamId {
 pub struct LegacyTParamCollector {
     /// All of the names used. Each one may or may not point at a type variable
     /// and therefore bind a legacy type parameter.
-    legacy_tparams: SmallMap<
-        String,
-        Either<(LegacyTParamId, Idx<Key>, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>,
-    >,
+    legacy_tparams: SmallMap<String, Either<PossibleTParam, Option<Idx<Key>>>>,
     /// Are there scoped type parameters? Used to control downstream errors.
     has_scoped_tparams: bool,
 }
@@ -1036,8 +1041,7 @@ impl LegacyTParamCollector {
             .filter_map(|x| {
                 x.as_ref()
                     .left()
-                    .as_ref()
-                    .map(|(_, _, tparam_idx)| *tparam_idx)
+                    .map(|possible_tparam| possible_tparam.tparam_idx)
             })
             .collect()
     }
@@ -1063,8 +1067,8 @@ impl<'a> BindingsBuilder<'a> {
             .entry(id.tvar_name())
             .or_insert_with(|| self.lookup_legacy_tparam(id, legacy_tparams.has_scoped_tparams));
         match result {
-            Either::Left((_, idx, _tparam_idx)) => NameLookupResult::Found {
-                value: Binding::Forward(*idx),
+            Either::Left(possible_tparam) => NameLookupResult::Found {
+                value: Binding::Forward(possible_tparam.idx),
                 is_initialized: IsInitialized::Maybe,
             },
             Either::Right(maybe_idx) => match maybe_idx {
@@ -1095,7 +1099,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         id: LegacyTParamId,
         has_scoped_type_params: bool,
-    ) -> Either<(LegacyTParamId, Idx<Key>, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>> {
+    ) -> Either<PossibleTParam, Option<Idx<Key>>> {
         let name = match &id {
             LegacyTParamId::Name(name) => name,
             LegacyTParamId::Attr(value, _) => value,
@@ -1121,7 +1125,7 @@ impl<'a> BindingsBuilder<'a> {
         id: LegacyTParamId,
         mut idx: Idx<Key>,
         has_scoped_type_params: bool,
-    ) -> Option<(LegacyTParamId, Idx<Key>, Idx<KeyLegacyTypeParam>)> {
+    ) -> Option<PossibleTParam> {
         // Follow Forwards to get to the actual original binding.
         // Short circuit if there are too many forwards - it may mean there's a cycle.
         let mut original_binding = self.table.types.1.get(idx);
@@ -1151,7 +1155,11 @@ impl<'a> BindingsBuilder<'a> {
                 },
             ),
         );
-        Some((id, idx, tparam_idx))
+        Some(PossibleTParam {
+            id,
+            idx,
+            tparam_idx,
+        })
     }
 
     /// Given a name (either a bare name or a `<base>.<attribute>`) name, produce
@@ -1206,9 +1214,9 @@ impl<'a> BindingsBuilder<'a> {
     pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
         for entry in legacy_tparams.legacy_tparams.values() {
             match entry {
-                Either::Left((id, _idx, _tparam_idx)) => {
-                    let identifier = id.as_identifier();
-                    self.scopes.add_possible_legacy_tparam(identifier)
+                Either::Left(possible_tparam) => {
+                    self.scopes
+                        .add_possible_legacy_tparam(possible_tparam.id.as_identifier());
                 }
                 _ => {}
             }
