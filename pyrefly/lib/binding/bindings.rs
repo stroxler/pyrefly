@@ -1064,10 +1064,11 @@ pub enum LegacyTParamId {
 }
 
 impl LegacyTParamId {
-    fn key(&self) -> Name {
+    /// Get the key used to track this potential legacy tparam in the `legacy_tparams` map.
+    fn tvar_name(&self) -> String {
         match self {
-            Self::Name(name) => name.id.clone(),
-            Self::Attr(value, attr) => Name::new(format!("{value}.{attr}")),
+            Self::Name(name) => name.id.as_str().to_owned(),
+            Self::Attr(base, attr) => format!("{base}.{attr}"),
         }
     }
 }
@@ -1089,7 +1090,7 @@ pub struct LegacyTParamBuilder {
     /// All of the names used. Each one may or may not point at a type variable
     /// and therefore bind a legacy type parameter.
     legacy_tparams:
-        SmallMap<Name, Either<(LegacyTParamId, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
+        SmallMap<String, Either<(LegacyTParamId, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
     /// Are there scoped type parameters? Used to control downstream errors.
     has_scoped_tparams: bool,
 }
@@ -1117,7 +1118,7 @@ impl LegacyTParamBuilder {
         let range = id.range();
         let result = self
             .legacy_tparams
-            .entry(id.key())
+            .entry(id.tvar_name())
             .or_insert_with(|| builder.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
         match result {
             Either::Left((_, idx)) => {
