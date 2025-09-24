@@ -375,6 +375,12 @@ pub enum Key {
     YieldLink(TextRange),
     /// A use of `typing.Self` in an expression. Used to redirect to the appropriate type (which is aware of the current class).
     SelfTypeLiteral(TextRange),
+    /// I am the type of a name that may involve a legacy type param (this may involve attribute narrows
+    /// of a module in the case of imported names like `foo.T`).
+    ///
+    /// The resulting type may not actually involve a legacy type param, since it may turn out I am
+    /// some other kind of type.
+    PossibleLegacyTParam(TextRange),
     /// A `del` statement. It is a `Binding` associated with a the type `Any` because `del` defines a name in scope,
     /// so we need to provide a `Key` for any reads of that name in the edge case where there is no other definition
     ///
@@ -409,6 +415,7 @@ impl Ranged for Key {
             Self::YieldLink(r) => *r,
             Self::Delete(r) => *r,
             Self::SelfTypeLiteral(r) => *r,
+            Self::PossibleLegacyTParam(r) => *r,
             Self::PatternNarrow(r) => *r,
         }
     }
@@ -451,6 +458,9 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::YieldLink(r) => write!(f, "Key::YieldLink({})", ctx.display(r)),
             Self::Delete(r) => write!(f, "Key::Delete({})", ctx.display(r)),
             Self::SelfTypeLiteral(r) => write!(f, "Key::SelfTypeLiteral({})", ctx.display(r)),
+            Self::PossibleLegacyTParam(r) => {
+                write!(f, "Key::CheckLegacyTypeParam({})", ctx.display(r))
+            }
             Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
         }
     }

@@ -973,10 +973,15 @@ impl LegacyTParamId {
         }
     }
 
-    /// Create the `Key::Definition` used to look up the actual name bound
-    /// by the legacy type variable resolution.
-    fn as_definition_key(&self) -> Key {
-        Key::Definition(ShortIdentifier::new(self.as_identifier()))
+    /// Create the `Key` actually used to model the legacy type parameter
+    /// name (or an attribute narrow of the base name, if this is an attribute
+    /// of an imported module like `foo.T`) as a type.
+    ///
+    /// Note that the range here is not the range of the full `LegacyTParamId`, but
+    /// just of the name being bound (which in the `Attr` case is just the base
+    /// rather than the entire identifier).
+    fn as_check_legacy_tparam_key(&self) -> Key {
+        Key::PossibleLegacyTParam(self.as_identifier().range)
     }
 
     /// Get the key used to track this potential legacy tparam in the `legacy_tparams` map.
@@ -1139,7 +1144,7 @@ impl<'a> BindingsBuilder<'a> {
         let tparam_idx = Self::make_legacy_tparam(id, original_binding, idx)
             .map(|(k, v)| self.insert_binding(k, v))?;
         let idx = self.insert_binding(
-            id.as_definition_key(),
+            id.as_check_legacy_tparam_key(),
             Binding::CheckLegacyTypeParam(
                 tparam_idx,
                 if has_scoped_type_params {
@@ -1204,15 +1209,9 @@ impl<'a> BindingsBuilder<'a> {
     pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
         for entry in legacy_tparams.legacy_tparams.values() {
             match entry {
-                Either::Left((id, idx, _tparam_idx)) => {
+                Either::Left((id, _idx, _tparam_idx)) => {
                     let identifier = id.as_identifier();
-                    self.scopes
-                        .add_parameter_to_current_static(identifier, None);
-                    self.bind_name(
-                        &identifier.id,
-                        *idx,
-                        self.scopes.get_flow_style(&identifier.id).clone(),
-                    );
+                    self.scopes.add_possible_legacy_tparam(identifier)
                 }
                 _ => {}
             }

@@ -185,6 +185,8 @@ enum StaticStyle {
     Delete,
     /// I am either a module import, like `import foo`, or a name defined by a wildcard import
     MergeableImport,
+    /// I am a name that might be a scoped legacy type parameter.
+    PossibleLegacyTParam,
 }
 
 /// Information about a mutable capture.
@@ -233,7 +235,10 @@ impl StaticStyle {
         match self {
             Self::MutableCapture(capture) => capture.annotation(),
             Self::Anywhere(ann) | Self::SingleDef(ann) => *ann,
-            Self::Delete | Self::ImplicitGlobal | Self::MergeableImport => None,
+            Self::Delete
+            | Self::ImplicitGlobal
+            | Self::MergeableImport
+            | Self::PossibleLegacyTParam => None,
         }
     }
 
@@ -293,6 +298,7 @@ impl StaticInfo {
             StaticStyle::MergeableImport => Key::Import(name.clone(), self.range),
             StaticStyle::ImplicitGlobal => Key::ImplicitGlobal(name.clone()),
             StaticStyle::SingleDef(..) => Key::Definition(short_identifier()),
+            StaticStyle::PossibleLegacyTParam => Key::PossibleLegacyTParam(self.range),
         }
     }
 
@@ -316,8 +322,23 @@ impl Static {
             }
             Entry::Occupied(mut e) => {
                 let found = e.get_mut();
-                let annotation = found.annotation().or_else(|| style.annotation());
-                found.style = StaticStyle::Anywhere(annotation);
+                if matches!(style, StaticStyle::PossibleLegacyTParam) {
+                    // This case is reachable when the same module has multiple attributes accessed
+                    // on it, each of which produces a separate possible-legacy-tparam binding that
+                    // narrows a different attribute.
+                    //
+                    // At the moment, this is a flaw in the design - we really should have all
+                    // of the narrows, but that is currently not possible.
+                    //
+                    // For now, we'll let the last one win: this is arbitrary, but is probably more
+                    // compatible with a future in which the `BindingsBuilder` tracks multiple attributes
+                    // and combines them properly.
+                    found.style = style;
+                    found.range = range;
+                } else {
+                    let annotation = found.annotation().or_else(|| style.annotation());
+                    found.style = StaticStyle::Anywhere(annotation);
+                }
             }
         }
     }
@@ -1227,6 +1248,18 @@ impl Scopes {
         )
     }
 
+    /// Add an intercepted possible legacy TParam - this is a name that's part
+    /// of the scope, but only for static type lookups, and might potentially
+    /// intercept the raw runtime value of a pre-PEP-695 legacy type variable
+    /// to turn it into a quantified type parameter.
+    pub fn add_possible_legacy_tparam(&mut self, name: &Identifier) {
+        self.current_mut().stat.upsert(
+            Hashed::new(name.id.clone()),
+            name.range,
+            StaticStyle::PossibleLegacyTParam,
+        )
+    }
+
     /// Add an adhoc name - if it does not already exist - to the current static
     /// scope. If the name already exists, nothing happens.
     ///
@@ -1529,7 +1562,9 @@ impl Scopes {
                 let forward_ref_key = static_info.as_key(name.into_key());
                 return NameReadInfo::Anywhere {
                     key: forward_ref_key,
-                    is_initialized: if barrier {
+                    is_initialized: if barrier
+                        || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
+                    {
                         IsInitialized::Yes
                     } else {
                         IsInitialized::No
