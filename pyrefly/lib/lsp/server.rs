@@ -1061,9 +1061,21 @@ impl Server {
             }
         }
 
+        let lsp_queue = self.lsp_queue.dupe();
+        let state = self.state.dupe();
+        let recheck_queue = self.recheck_queue.dupe();
+        Self::queue_source_db_rebuild_and_recheck(&state, recheck_queue, lsp_queue, &handles);
+    }
+
+    fn queue_source_db_rebuild_and_recheck(
+        state: &State,
+        recheck_queue: HeavyTaskQueue,
+        lsp_queue: LspQueue,
+        handles: &[Handle],
+    ) {
         let mut configs_to_paths: SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>> =
             SmallMap::new();
-        let config_finder = self.state.config_finder();
+        let config_finder = state.config_finder();
         for handle in handles {
             let config = config_finder.python_file(handle.module(), handle.path());
             configs_to_paths
@@ -1071,8 +1083,7 @@ impl Server {
                 .or_default()
                 .insert(handle.path().dupe());
         }
-        let lsp_queue = self.lsp_queue.dupe();
-        self.recheck_queue.queue_task(Box::new(move || {
+        recheck_queue.queue_task(Box::new(move || {
             let invalidated_configs: SmallSet<ArcId<ConfigFile>> = configs_to_paths
                 .into_iter()
                 .filter(|(c, files)| match c.requery_source_db(files) {
@@ -1351,15 +1362,19 @@ impl Server {
         self.connection
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         let state = self.state.dupe();
+        let lsp_queue = self.lsp_queue.dupe();
         let open_files = self.open_files.dupe();
+        let recheck_queue = self.recheck_queue.dupe();
         self.recheck_queue.queue_task(Box::new(move || {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
             let mut transaction = state.new_committable_transaction(Require::Indexing, None);
             transaction.as_mut().set_memory(vec![(uri, None)]);
-            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+            let handles =
+                Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             state.commit_transaction(transaction);
+            Self::queue_source_db_rebuild_and_recheck(&state, recheck_queue, lsp_queue, &handles);
         }));
     }
 
