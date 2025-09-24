@@ -6,4 +6,6 @@
  */
 
 mod call_graph;
+mod classes;
 mod functions;
+mod utils;

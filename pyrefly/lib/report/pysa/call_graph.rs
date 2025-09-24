@@ -24,6 +24,7 @@ use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleId;
+use crate::report::pysa::PysaLocation;
 use crate::state::lsp::FindPreference;
 
 #[allow(dead_code)]
@@ -233,10 +234,11 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
         match stmt {
             Stmt::FunctionDef(function_def) => {
                 let function_id = FunctionId::Function {
-                    location: self
-                        .module_context
-                        .module_info
-                        .display_range(function_def.identifier()),
+                    location: PysaLocation(
+                        self.module_context
+                            .module_info
+                            .display_range(function_def.identifier()),
+                    ),
                 };
                 if let Some(function_name) = self
                     .function_names

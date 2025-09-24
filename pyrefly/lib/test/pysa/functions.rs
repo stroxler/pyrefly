@@ -7,26 +7,23 @@
 
 use dashmap::DashMap;
 use pretty_assertions::assert_eq;
-use pyrefly_build::handle::Handle;
-use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Type;
 
-use crate::binding::binding::KeyClass;
-use crate::report::pysa::ClassId;
-use crate::report::pysa::ClassRef;
 use crate::report::pysa::FunctionDefinition;
 use crate::report::pysa::FunctionParameter;
 use crate::report::pysa::FunctionParameters;
 use crate::report::pysa::FunctionSignature;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleIds;
-use crate::report::pysa::ModuleKey;
 use crate::report::pysa::PysaType;
 use crate::report::pysa::ScopeParent;
 use crate::report::pysa::export_all_functions;
-use crate::state::state::State;
-use crate::test::util::TestEnv;
+use crate::test::pysa::utils::create_location;
+use crate::test::pysa::utils::create_state;
+use crate::test::pysa::utils::get_class;
+use crate::test::pysa::utils::get_class_ref;
+use crate::test::pysa::utils::get_handle_for_module_name;
 
 fn create_function_definition(
     name: &str,
@@ -58,34 +55,21 @@ fn create_simple_signature(
     }
 }
 
-fn create_state(module_name: &str, python_code: &str) -> State {
-    let mut test_env = TestEnv::new();
-    test_env.add(module_name, python_code);
-    let (state, _) = test_env.to_state();
-    state
-}
-
 fn test_exported_functions(
     module_name: &str,
     python_code: &str,
-    expected_function_definitions: &dyn Fn(&ModuleContext) -> Vec<FunctionDefinition>,
+    create_expected_function_definitions: &dyn Fn(&ModuleContext) -> Vec<FunctionDefinition>,
 ) {
     let state = create_state(module_name, python_code);
     let transaction = state.transaction();
     let handles = transaction.handles();
     let module_ids = ModuleIds::new(&handles);
 
-    let test_module_handle = handles
-        .iter()
-        .find(|handle| {
-            let module_info = transaction.get_module_info(handle).unwrap();
-            module_info.name().to_string() == module_name
-        })
-        .unwrap();
+    let test_module_handle = get_handle_for_module_name(module_name, &transaction);
 
-    let context = ModuleContext::create(test_module_handle, &transaction, &module_ids).unwrap();
+    let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
 
-    let expected_function_definitions = expected_function_definitions(&context);
+    let expected_function_definitions = create_expected_function_definitions(&context);
 
     let reversed_override_graph = DashMap::new();
     let actual_function_definitions = export_all_functions(&reversed_override_graph, &context);
@@ -100,44 +84,6 @@ fn test_exported_functions(
         .collect::<Vec<_>>();
 
     assert_eq!(expected_function_definitions, actual_function_definitions);
-}
-
-fn get_handle_for_module_name(module_name: &str, context: &ModuleContext) -> Handle {
-    // This is slow, but we don't care in tests.
-    context
-        .transaction
-        .handles()
-        .into_iter()
-        .find(|handle| handle.module().as_str() == module_name)
-        .expect("valid module name")
-}
-
-fn get_class(module_name: &str, class_name: &str, context: &ModuleContext) -> Class {
-    let handle = get_handle_for_module_name(module_name, context);
-
-    // This is slow, but we don't care in tests.
-    let bindings = context.transaction.get_bindings(&handle).unwrap();
-    let answers = context.transaction.get_answers(&handle).unwrap();
-    bindings
-        .keys::<KeyClass>()
-        .map(|idx| answers.get_idx(idx).unwrap().0.clone().unwrap())
-        .find(|class| class.name() == class_name)
-        .expect("valid class name")
-}
-
-fn get_class_ref(module_name: &str, class_name: &str, context: &ModuleContext) -> ClassRef {
-    let class = get_class(module_name, class_name, context);
-    let module_id = context
-        .module_ids
-        .get(ModuleKey::from_module(class.module()))
-        .expect("indexed module");
-
-    ClassRef {
-        module_name: module_name.to_owned(),
-        class_name: class_name.to_owned(),
-        class_id: ClassId::from_class(&class),
-        module_id,
-    }
 }
 
 #[macro_export]
@@ -242,7 +188,7 @@ class MyClass:
         create_function_definition(
             "method",
             ScopeParent::Class {
-                location: "2:7-2:14".to_owned(),
+                location: create_location(2, 7, 2, 14),
             },
             /* overloads */
             vec![create_simple_signature(
@@ -273,7 +219,7 @@ class MyClass:
         create_function_definition(
             "static_method",
             ScopeParent::Class {
-                location: "2:7-2:14".to_owned(),
+                location: create_location(2, 7, 2, 14),
             },
             /* overloads */
             vec![create_simple_signature(
@@ -302,7 +248,7 @@ class MyClass:
         create_function_definition(
             "class_method",
             ScopeParent::Class {
-                location: "2:7-2:14".to_owned(),
+                location: create_location(2, 7, 2, 14),
             },
             /* overloads */
             vec![create_simple_signature(
@@ -401,7 +347,7 @@ class MyClass:
             create_function_definition(
                 "foo",
                 ScopeParent::Class {
-                    location: "2:7-2:14".to_owned(),
+                    location: create_location(2, 7, 2, 14),
                 },
                 /* overloads */
                 vec![create_simple_signature(
@@ -421,7 +367,7 @@ class MyClass:
             create_function_definition(
                 "foo",
                 ScopeParent::Class {
-                    location: "2:7-2:14".to_owned(),
+                    location: create_location(2, 7, 2, 14),
                 },
                 /* overloads */
                 vec![create_simple_signature(

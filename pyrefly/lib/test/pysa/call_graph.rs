@@ -20,8 +20,8 @@ use crate::report::pysa::call_graph::IdentifierCallees;
 use crate::report::pysa::call_graph::build_call_graphs_for_module;
 use crate::report::pysa::collect_function_names;
 use crate::report::pysa::location_key;
-use crate::state::state::State;
-use crate::test::util::TestEnv;
+use crate::test::pysa::utils::create_state;
+use crate::test::pysa::utils::get_handle_for_module_name;
 
 // Omit fields from `DefinitionRef` so that we can easily write the expected results
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -98,13 +98,6 @@ fn call_graph_for_test_from_expected(
     CallGraphs::from_map(call_graph_for_test)
 }
 
-fn create_state(module_name: &str, python_code: &str) -> State {
-    let mut test_env = TestEnv::new();
-    test_env.add(module_name, python_code);
-    let (state, _) = test_env.to_state();
-    state
-}
-
 fn test_building_call_graph_for_module(
     test_module_name: &str,
     code: &str,
@@ -117,15 +110,8 @@ fn test_building_call_graph_for_module(
     let module_ids = ModuleIds::new(&handles);
     let all_function_names = collect_function_names(&handles, &transaction, &module_ids);
 
-    let test_module_handle = handles
-        .iter()
-        .find(|handle| {
-            let module_info = &transaction.get_module_info(handle).unwrap();
-            let module_name = module_info.name().to_string();
-            test_module_name == module_name
-        })
-        .unwrap();
-    let context = ModuleContext::create(test_module_handle, &transaction, &module_ids).unwrap();
+    let test_module_handle = get_handle_for_module_name(test_module_name, &transaction);
+    let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
     let actual_call_graph = build_call_graphs_for_module(&context, true, &all_function_names);
     let expected_call_graph = call_graph_for_test_from_expected(expected);
     assert_eq!(

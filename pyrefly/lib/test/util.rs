@@ -104,6 +104,7 @@ pub struct TestEnv {
     infer_with_first_use: bool,
     site_package_path: Vec<PathBuf>,
     implicitly_defined_attribute_error: bool,
+    default_require_level: Require,
 }
 
 impl TestEnv {
@@ -117,6 +118,7 @@ impl TestEnv {
             infer_with_first_use: true,
             site_package_path: Vec::new(),
             implicitly_defined_attribute_error: false,
+            default_require_level: Require::Exports,
         }
     }
 
@@ -146,6 +148,11 @@ impl TestEnv {
 
     pub fn enable_implicitly_defined_attribute_error(mut self) -> Self {
         self.implicitly_defined_attribute_error = true;
+        self
+    }
+
+    pub fn with_default_require_level(mut self, level: Require) -> Self {
+        self.default_require_level = level;
         self
     }
 
@@ -241,8 +248,10 @@ impl TestEnv {
             .collect::<Vec<_>>();
         let state = State::new(self.config_finder());
         let subscriber = TestSubscriber::new();
-        let mut transaction =
-            state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
+        let mut transaction = state.new_committable_transaction(
+            self.default_require_level,
+            Some(Box::new(subscriber.dupe())),
+        );
         transaction.as_mut().set_memory(self.get_memory());
         transaction.as_mut().run(&handles, Require::Everything);
         state.commit_transaction(transaction);

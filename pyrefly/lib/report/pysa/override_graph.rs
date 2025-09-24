@@ -21,6 +21,7 @@ use crate::report::pysa::ClassRef;
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::PysaLocation;
 use crate::report::pysa::get_all_functions;
 use crate::report::pysa::get_class_field_declaration;
 use crate::report::pysa::should_export_function;
@@ -109,7 +110,9 @@ fn get_super_class_member(
                 module_id: class.module_id,
                 module_name: class.module_name,
                 function_id: FunctionId::Function {
-                    location: context.module_info.display_range(last_function.id_range()),
+                    location: PysaLocation(
+                        context.module_info.display_range(last_function.id_range()),
+                    ),
                 },
                 identifier: field.to_string(),
             }

@@ -89,13 +89,43 @@ impl ClassId {
     pub fn from_class(class: &Class) -> ClassId {
         ClassId(class.index().0)
     }
+
+    #[cfg(test)]
+    pub fn from_int(id: u32) -> ClassId {
+        ClassId(id)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PysaLocation(pub DisplayRange);
+
+pub fn location_key(range: &DisplayRange) -> String {
+    format!(
+        "{}:{}-{}:{}",
+        range.start.line, range.start.column, range.end.line, range.end.column
+    )
+}
+
+impl std::fmt::Debug for PysaLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PysaLocation({})", location_key(&self.0))
+    }
+}
+
+impl Serialize for PysaLocation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&location_key(&self.0))
+    }
 }
 
 /// Represents a unique identifier for a function, inside a module
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FunctionId {
     Function {
-        location: DisplayRange,
+        location: PysaLocation,
     },
     ModuleTopLevel,
     #[expect(dead_code)]
@@ -107,7 +137,7 @@ pub enum FunctionId {
 impl FunctionId {
     fn serialize_to_string(&self) -> String {
         match self {
-            FunctionId::Function { location } => format!("F:{}", location_key(location)),
+            FunctionId::Function { location } => format!("F:{}", location_key(&location.0)),
             FunctionId::ModuleTopLevel => "MTL".to_owned(),
             FunctionId::ClassTopLevel { class_id } => format!("CTL:{}", class_id.0),
         }
@@ -148,8 +178,8 @@ struct PysaProjectFile {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum ScopeParent {
-    Function { location: String },
-    Class { location: String },
+    Function { location: PysaLocation },
+    Class { location: PysaLocation },
     TopLevel,
 }
 
@@ -245,7 +275,7 @@ pub struct ClassRef {
 }
 
 impl ClassRef {
-    fn from_class(class: &Class, module_ids: &ModuleIds) -> ClassRef {
+    pub fn from_class(class: &Class, module_ids: &ModuleIds) -> ClassRef {
         ClassRef {
             module_id: module_ids
                 .get(ModuleKey::from_module(class.module()))
@@ -340,7 +370,7 @@ impl DefinitionRef {
                 .unwrap(),
             module_name: context.module_info.name().to_string(),
             function_id: FunctionId::Function {
-                location: display_range,
+                location: PysaLocation(display_range),
             },
             identifier: name.to_string(),
         }
@@ -354,7 +384,7 @@ impl DefinitionRef {
         // TODO: For overloads, return the last definition instead of the one from go-to-definitions.
         let display_range = item.module.display_range(item.definition_range);
         let function_id = FunctionId::Function {
-            location: display_range,
+            location: PysaLocation(display_range),
         };
         let module_id = context
             .module_ids
@@ -372,39 +402,59 @@ impl DefinitionRef {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-enum PysaClassMro {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum PysaClassMro {
     Resolved(Vec<ClassRef>),
     Cyclic,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct PysaClassField {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PysaClassField {
     #[serde(rename = "type")]
-    type_: PysaType,
+    pub type_: PysaType,
     #[serde(skip_serializing_if = "Option::is_none")]
-    explicit_annotation: Option<String>,
+    pub explicit_annotation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    location: Option<String>,
+    pub location: Option<PysaLocation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 struct GlobalVariable {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     type_: Option<PysaType>,
-    location: String,
+    location: PysaLocation,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct ClassDefinition {
-    class_id: ClassId,
-    name: String,
-    bases: Vec<ClassRef>,
-    mro: PysaClassMro,
-    parent: ScopeParent,
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ClassDefinition {
+    pub class_id: ClassId,
+    pub name: String,
+    pub bases: Vec<ClassRef>,
+    pub mro: PysaClassMro,
+    pub parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
-    is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
-    fields: HashMap<String, PysaClassField>,
+    pub is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
+    pub fields: HashMap<String, PysaClassField>,
+}
+
+impl ClassDefinition {
+    #[cfg(test)]
+    pub fn with_bases(mut self, bases: Vec<ClassRef>) -> Self {
+        self.bases = bases;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_mro(mut self, mro: PysaClassMro) -> Self {
+        self.mro = mro;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_fields(mut self, fields: HashMap<String, PysaClassField>) -> Self {
+        self.fields = fields;
+        self
+    }
 }
 
 /// Format of a module file `my.module:id.json`
@@ -415,9 +465,9 @@ struct PysaModuleFile {
     module_id: ModuleId,
     module_name: String,
     source_path: ModulePathDetails,
-    type_of_expression: HashMap<String, PysaType>,
+    type_of_expression: HashMap<PysaLocation, PysaType>,
     function_definitions: HashMap<FunctionId, FunctionDefinition>,
-    class_definitions: HashMap<String, ClassDefinition>,
+    class_definitions: HashMap<PysaLocation, ClassDefinition>,
     global_variables: HashMap<String, GlobalVariable>,
 }
 
@@ -471,13 +521,6 @@ impl ModuleIds {
     pub fn get(&self, key: ModuleKey) -> Option<ModuleId> {
         self.0.get(&key).copied()
     }
-}
-
-pub fn location_key(range: &DisplayRange) -> String {
-    format!(
-        "{}:{}-{}:{}",
-        range.start.line, range.start.column, range.end.line, range.end.column
-    )
 }
 
 pub struct ModuleContext<'a> {
@@ -702,11 +745,23 @@ impl PysaType {
             context,
         )
     }
+
+    #[cfg(test)]
+    pub fn any_implicit() -> PysaType {
+        PysaType {
+            string: "Unknown".to_owned(),
+            is_bool: false,
+            is_int: false,
+            is_float: false,
+            is_enum: false,
+            class_names: ClassNamesFromType::not_a_class(),
+        }
+    }
 }
 
 struct VisitorContext<'a> {
     module_context: &'a ModuleContext<'a>,
-    type_of_expression: &'a mut HashMap<String, PysaType>,
+    type_of_expression: &'a mut HashMap<PysaLocation, PysaType>,
     global_variables: &'a mut HashMap<String, GlobalVariable>,
 }
 
@@ -770,7 +825,7 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
             context
                 .type_of_expression
                 .insert(
-                    location_key(&display_range),
+                    PysaLocation(display_range),
                     PysaType::from_type(&type_, context.module_context)
                 )
                 .is_none(),
@@ -800,8 +855,8 @@ fn visit_assign_target(target: &Expr, is_top_level: bool, context: &mut VisitorC
             // Don't export type variable globals.
             return;
         }
-        let location = location_key(
-            &context
+        let location = PysaLocation(
+            context
                 .module_context
                 .module_info
                 .display_range(global.range()),
@@ -994,10 +1049,10 @@ fn get_scope_parent(ast: &ModModule, module_info: &Module, range: TextRange) -> 
             AnyNodeRef::StmtClassDef(class_def) if class_def.name.range() == range => None,
             AnyNodeRef::StmtFunctionDef(fun_def) if fun_def.name.range() == range => None,
             AnyNodeRef::StmtClassDef(class_def) => Some(ScopeParent::Class {
-                location: location_key(&module_info.display_range(class_def.name.range())),
+                location: PysaLocation(module_info.display_range(class_def.name.range())),
             }),
             AnyNodeRef::StmtFunctionDef(fun_def) => Some(ScopeParent::Function {
-                location: location_key(&module_info.display_range(fun_def.name.range())),
+                location: PysaLocation(module_info.display_range(fun_def.name.range())),
             }),
             _ => None,
         })
@@ -1211,7 +1266,7 @@ fn export_class_fields(class: &Class, context: &ModuleContext) -> HashMap<String
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
                         explicit_annotation,
-                        location: Some(location_key(&context.module_info.display_range(*range))),
+                        location: Some(PysaLocation(context.module_info.display_range(*range))),
                     },
                 )),
                 _ => Some((
@@ -1227,10 +1282,7 @@ fn export_class_fields(class: &Class, context: &ModuleContext) -> HashMap<String
         .collect()
 }
 
-fn export_all_classes(
-    ast: &ModModule,
-    context: &ModuleContext,
-) -> HashMap<String, ClassDefinition> {
+pub fn export_all_classes(context: &ModuleContext) -> HashMap<PysaLocation, ClassDefinition> {
     let mut class_definitions = HashMap::new();
 
     for class_idx in context.bindings.keys::<KeyClass>() {
@@ -1243,7 +1295,7 @@ fn export_all_classes(
             .unwrap();
         let display_range = context.module_info.display_range(class.qname().range());
         let class_index = class.index();
-        let parent = get_scope_parent(ast, &context.module_info, class.qname().range());
+        let parent = get_scope_parent(&context.ast, &context.module_info, class.qname().range());
         let metadata = context
             .answers
             .get_idx(context.bindings.key_to_idx(&KeyClassMetadata(class_index)))
@@ -1285,7 +1337,7 @@ fn export_all_classes(
 
         assert!(
             class_definitions
-                .insert(location_key(&display_range), class_definition)
+                .insert(PysaLocation(display_range), class_definition)
                 .is_none(),
             "Found class definitions with the same location"
         );
@@ -1366,7 +1418,7 @@ fn get_module_file(
     }
 
     let function_definitions = export_all_functions(reversed_override_graph, context);
-    let class_definitions = export_all_classes(&context.ast, context);
+    let class_definitions = export_all_classes(context);
 
     PysaModuleFile {
         format_version: 1,
