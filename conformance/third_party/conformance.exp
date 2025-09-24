@@ -7575,7 +7575,7 @@
       "concise_description": "Overload return type `str` is not assignable to implementation return type `int`",
       "description": "Overload return type `str` is not assignable to implementation return type `int`",
       "line": 25,
-      "name": "invalid-overload",
+      "name": "inconsistent-overload",
       "stop_column": 16,
       "stop_line": 25
     },
@@ -7585,7 +7585,7 @@
       "concise_description": "Implementation signature `(x: int) -> int | str` does not accept all arguments that overload signature `(x: str) -> str` accepts",
       "description": "Implementation signature `(x: int) -> int | str` does not accept all arguments that overload signature `(x: str) -> str` accepts",
       "line": 41,
-      "name": "invalid-overload",
+      "name": "inconsistent-overload",
       "stop_column": 19,
       "stop_line": 41
     }
@@ -7657,7 +7657,7 @@
       "concise_description": "Implementation signature `(cls: type[Self@C], *args: int | str) -> int | str` does not accept all arguments that overload signature `(self: Self@C, x: str, /) -> str` accepts",
       "description": "Implementation signature `(cls: type[Self@C], *args: int | str) -> int | str` does not accept all arguments that overload signature `(self: Self@C, x: str, /) -> str` accepts",
       "line": 90,
-      "name": "invalid-overload",
+      "name": "inconsistent-overload",
       "stop_column": 14,
       "stop_line": 90
     },
