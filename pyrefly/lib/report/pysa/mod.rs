@@ -418,11 +418,11 @@ pub struct PysaClassField {
     pub location: Option<PysaLocation>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct GlobalVariable {
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct GlobalVariable {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    type_: Option<PysaType>,
-    location: PysaLocation,
+    pub type_: Option<PysaType>,
+    pub location: PysaLocation,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -460,7 +460,7 @@ impl ClassDefinition {
 /// Format of a module file `my.module:id.json`
 /// Represents all the information Pysa needs about a given module.
 #[derive(Debug, Clone, Serialize)]
-struct PysaModuleFile {
+pub struct PysaModuleFile {
     format_version: u32,
     module_id: ModuleId,
     module_name: String,
@@ -469,6 +469,13 @@ struct PysaModuleFile {
     function_definitions: HashMap<FunctionId, FunctionDefinition>,
     class_definitions: HashMap<PysaLocation, ClassDefinition>,
     global_variables: HashMap<String, GlobalVariable>,
+}
+
+impl PysaModuleFile {
+    #[cfg(test)]
+    pub fn global_variables(&self) -> &HashMap<String, GlobalVariable> {
+        &self.global_variables
+    }
 }
 
 /// Represents what makes a module unique
@@ -1410,7 +1417,7 @@ pub fn is_test_module(context: &ModuleContext) -> bool {
         || is_pytest_module(&context.bindings, &context.answers, &context.ast)
 }
 
-fn get_module_file(
+pub fn get_module_file(
     context: &ModuleContext,
     reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
 ) -> PysaModuleFile {
