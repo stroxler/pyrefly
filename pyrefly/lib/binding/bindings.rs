@@ -1064,6 +1064,15 @@ pub enum LegacyTParamId {
 }
 
 impl LegacyTParamId {
+    /// Get the identifier of the name that will actually be bound (for a normal name, this is
+    /// just itself; for a `<base>.<attr>` attribute it is the base portion, which gets narrowed).
+    fn as_identifier(&self) -> &Identifier {
+        match self {
+            Self::Name(name) => name,
+            Self::Attr(base, _) => base,
+        }
+    }
+
     /// Get the key used to track this potential legacy tparam in the `legacy_tparams` map.
     fn tvar_name(&self) -> String {
         match self {
@@ -1151,16 +1160,19 @@ impl LegacyTParamBuilder {
     pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
         for entry in self.legacy_tparams.values() {
             match entry {
-                Either::Left((LegacyTParamId::Name(name) | LegacyTParamId::Attr(name, _), idx)) => {
-                    builder.scopes.add_parameter_to_current_static(name, None);
+                Either::Left((id, idx)) => {
+                    let identifier = id.as_identifier();
+                    builder
+                        .scopes
+                        .add_parameter_to_current_static(identifier, None);
                     builder.bind_definition(
-                        name,
+                        identifier,
                         // Note: we use None as the range here because the range is
                         // used to error if legacy tparams are mixed with scope
                         // tparams, and we only want to do that once (which we do in
                         // the binding created by `intercept_lookup`).
                         Binding::CheckLegacyTypeParam(*idx, None),
-                        builder.scopes.get_flow_style(&name.id).clone(),
+                        builder.scopes.get_flow_style(&identifier.id).clone(),
                     );
                 }
                 _ => {}
