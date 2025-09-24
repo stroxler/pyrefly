@@ -60,7 +60,7 @@ use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
-use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::bindings::LegacyTParamCollector;
 use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
@@ -131,7 +131,7 @@ impl<'a> BindingsBuilder<'a> {
             self.type_params(x);
         });
 
-        let mut legacy = Some(LegacyTParamBuilder::new(x.type_params.is_some()));
+        let mut legacy = Some(LegacyTParamCollector::new(x.type_params.is_some()));
         let bases = x.bases().map(|base| {
             let mut base = base.clone();
             // Forward refs are fine *inside* of a base expression in the type arguments,
@@ -217,8 +217,8 @@ impl<'a> BindingsBuilder<'a> {
             BindingClassSynthesizedFields(class_indices.class_idx),
         );
 
-        let legacy_tparam_builder = legacy.unwrap();
-        self.add_name_definitions(&legacy_tparam_builder);
+        let legacy_tparam_collector = legacy.unwrap();
+        self.add_name_definitions(&legacy_tparam_collector);
 
         self.scopes.push(Scope::class_body(
             x.range,
@@ -284,7 +284,7 @@ impl<'a> BindingsBuilder<'a> {
 
         // Insert a `KeyTParams` / `BindingTParams` pair, but only if there is at least
         // one generic base class - otherwise, it is not possible that legacy tparams are used.
-        let legacy_tparams = legacy_tparam_builder.lookup_keys();
+        let legacy_tparams = legacy_tparam_collector.lookup_keys();
         let tparams_require_binding = !legacy_tparams.is_empty();
         if tparams_require_binding {
             let scoped_type_params = mem::take(&mut x.type_params);

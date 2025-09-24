@@ -995,7 +995,7 @@ impl Ranged for LegacyTParamId {
 /// annotations or base class lists of classes, in order to check whether they
 /// point at type variable declarations and need to be converted to type
 /// parameters.
-pub struct LegacyTParamBuilder {
+pub struct LegacyTParamCollector {
     /// All of the names used. Each one may or may not point at a type variable
     /// and therefore bind a legacy type parameter.
     legacy_tparams:
@@ -1004,7 +1004,7 @@ pub struct LegacyTParamBuilder {
     has_scoped_tparams: bool,
 }
 
-impl LegacyTParamBuilder {
+impl LegacyTParamCollector {
     pub fn new(has_scoped_tparams: bool) -> Self {
         Self {
             legacy_tparams: SmallMap::new(),
@@ -1037,7 +1037,7 @@ impl<'a> BindingsBuilder<'a> {
     /// parameter in the current scope.
     pub fn intercept_lookup(
         &mut self,
-        legacy_tparams: &mut LegacyTParamBuilder,
+        legacy_tparams: &mut LegacyTParamCollector,
         id: LegacyTParamId,
     ) -> NameLookupResult<Binding> {
         let range = id.range();
@@ -1073,7 +1073,7 @@ impl<'a> BindingsBuilder<'a> {
     /// We do this so that AnswersSolver has the opportunity to determine whether any
     /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
     /// case the name should be treated as a Quantified type parameter inside this scope.
-    pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamBuilder) {
+    pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
         for entry in legacy_tparams.legacy_tparams.values() {
             match entry {
                 Either::Left((id, idx)) => {

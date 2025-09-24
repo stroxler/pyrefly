@@ -49,7 +49,7 @@ use crate::binding::binding::ReturnImplicit;
 use crate::binding::binding::ReturnType;
 use crate::binding::binding::ReturnTypeKind;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::bindings::LegacyTParamCollector;
 use crate::binding::expr::Usage;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::InstanceAttribute;
@@ -215,7 +215,7 @@ impl<'a> BindingsBuilder<'a> {
         mut x: Expr,
         func_name: &Identifier,
         class_key: Option<Idx<KeyClass>>,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
     ) -> (TextRange, Idx<KeyAnnotation>) {
         self.ensure_type(&mut x, tparams_builder);
         (
@@ -246,7 +246,7 @@ impl<'a> BindingsBuilder<'a> {
             .as_mut()
             .map(|tparams| self.type_params(tparams));
 
-        let mut legacy = Some(LegacyTParamBuilder::new(tparams.is_some()));
+        let mut legacy = Some(LegacyTParamCollector::new(tparams.is_some()));
 
         // We need to bind all the parameters expressions _after_ the type params, but before the parameter names,
         // which might shadow some types.
@@ -260,9 +260,9 @@ impl<'a> BindingsBuilder<'a> {
         let return_ann_with_range = mem::take(&mut x.returns)
             .map(|e| self.to_return_annotation_with_range(*e, func_name, class_key, &mut legacy));
 
-        let legacy_tparam_builder = legacy.unwrap();
-        self.add_name_definitions(&legacy_tparam_builder);
-        let legacy_tparams = legacy_tparam_builder.lookup_keys();
+        let legacy_tparam_collector = legacy.unwrap();
+        self.add_name_definitions(&legacy_tparam_collector);
+        let legacy_tparams = legacy_tparam_collector.lookup_keys();
         (return_ann_with_range, legacy_tparams)
     }
 

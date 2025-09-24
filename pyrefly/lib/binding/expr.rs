@@ -39,7 +39,7 @@ use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::bindings::LegacyTParamCollector;
 use crate::binding::bindings::LegacyTParamId;
 use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
@@ -217,7 +217,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Identifier,
         usage: &mut Usage,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
     ) -> Idx<Key> {
         self.ensure_name_impl(
             name,
@@ -233,7 +233,7 @@ impl<'a> BindingsBuilder<'a> {
         value: &Identifier,
         attr: &Identifier,
         usage: &mut Usage,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
     ) -> Idx<Key> {
         self.ensure_name_impl(
             value,
@@ -272,7 +272,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Identifier,
         usage: &mut Usage,
-        tparams_lookup: Option<(&mut LegacyTParamBuilder, LegacyTParamId)>,
+        tparams_lookup: Option<(&mut LegacyTParamCollector, LegacyTParamId)>,
     ) -> Idx<Key> {
         let key = Key::BoundName(ShortIdentifier::new(name));
         if name.is_empty() {
@@ -288,8 +288,8 @@ impl<'a> BindingsBuilder<'a> {
         }
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
         let lookup_result =
-            if used_in_static_type && let Some((tparams_builder, tparam_id)) = tparams_lookup {
-                self.intercept_lookup(tparams_builder, tparam_id)
+            if used_in_static_type && let Some((tparams_collector, tparam_id)) = tparams_lookup {
+                self.intercept_lookup(tparams_collector, tparam_id)
             } else {
                 self.lookup_name(Hashed::new(&name.id), usage)
                     .map_found(Binding::Forward)
@@ -707,14 +707,18 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Execute through the expr, ensuring every name has a binding.
-    pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
+    pub fn ensure_type(
+        &mut self,
+        x: &mut Expr,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
+    ) {
         self.ensure_type_impl(x, tparams_builder, false);
     }
 
     fn ensure_type_impl(
         &mut self,
         x: &mut Expr,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
         in_string_literal: bool,
     ) {
         self.track_potential_typing_self(x);
@@ -811,7 +815,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_type_opt(
         &mut self,
         x: Option<&mut Expr>,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
     ) {
         if let Some(x) = x {
             self.ensure_type(x, tparams_builder);
