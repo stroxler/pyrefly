@@ -12,19 +12,21 @@ use pyrefly_util::lined_buffer::DisplayRange;
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleIds;
+use crate::report::pysa::build_reversed_override_graph;
 use crate::report::pysa::call_graph::AttributeAccessCallees;
 use crate::report::pysa::call_graph::CallCallees;
 use crate::report::pysa::call_graph::CallGraphs;
+use crate::report::pysa::call_graph::CallTarget;
 use crate::report::pysa::call_graph::ExpressionCallees;
 use crate::report::pysa::call_graph::IdentifierCallees;
 use crate::report::pysa::call_graph::build_call_graphs_for_module;
-use crate::report::pysa::collect_function_names;
+use crate::report::pysa::collect_function_definitions;
 use crate::report::pysa::location_key;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_handle_for_module_name;
 
 // Omit fields from `DefinitionRef` so that we can easily write the expected results
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 struct DefinitionRefForTest {
     module_name: String,
     identifier: String,
@@ -54,6 +56,13 @@ impl DefinitionRefForTest {
 impl std::fmt::Display for DefinitionRefForTest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.module_name, self.identifier)
+    }
+}
+
+fn create_call_target(target: &str) -> CallTarget<DefinitionRefForTest> {
+    CallTarget {
+        target: DefinitionRefForTest::from_string(target),
+        implicit_receiver: false,
     }
 }
 
@@ -108,48 +117,52 @@ fn test_building_call_graph_for_module(
 
     let handles = transaction.handles();
     let module_ids = ModuleIds::new(&handles);
-    let all_function_names = collect_function_names(&handles, &transaction, &module_ids);
+
+    let reversed_override_graph =
+        build_reversed_override_graph(&handles, &transaction, &module_ids);
+    let all_function_definitions = collect_function_definitions(
+        &handles,
+        &transaction,
+        &module_ids,
+        &reversed_override_graph,
+    );
 
     let test_module_handle = get_handle_for_module_name(test_module_name, &transaction);
     let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
-    let actual_call_graph = build_call_graphs_for_module(&context, true, &all_function_names);
+    let actual_call_graph = call_graph_for_test_from_actual(&build_call_graphs_for_module(
+        &context,
+        true,
+        &all_function_definitions,
+    ));
     let expected_call_graph = call_graph_for_test_from_expected(expected);
     assert_eq!(
-        expected_call_graph,
-        call_graph_for_test_from_actual(&actual_call_graph),
+        expected_call_graph, actual_call_graph,
+        "Expected: {:#?}. Actual: {:#?}",
+        expected_call_graph, actual_call_graph,
     );
 }
 
 fn call_callees_from_expected(
-    expected: &[&str], // Slice of a fixed-sized array
+    expected: Vec<CallTarget<DefinitionRefForTest>>,
 ) -> ExpressionCallees<DefinitionRefForTest> {
     ExpressionCallees::Call(CallCallees {
-        call_targets: expected
-            .iter()
-            .map(|x| DefinitionRefForTest::from_string(x))
-            .collect(),
+        call_targets: expected.to_vec(),
     })
 }
 
 fn attribute_access_callees_from_expected(
-    expected: &[&str], // Slice of a fixed-sized array
+    expected: Vec<CallTarget<DefinitionRefForTest>>,
 ) -> ExpressionCallees<DefinitionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-        callable_targets: expected
-            .iter()
-            .map(|x| DefinitionRefForTest::from_string(x))
-            .collect(),
+        callable_targets: expected.to_vec(),
     })
 }
 
 fn identifier_callees_from_expected(
-    expected: &[&str], // Slice of a fixed-sized array
+    expected: Vec<CallTarget<DefinitionRefForTest>>,
 ) -> ExpressionCallees<DefinitionRefForTest> {
     ExpressionCallees::Identifier(IdentifierCallees {
-        callable_targets: expected
-            .iter()
-            .map(|x| DefinitionRefForTest::from_string(x))
-            .collect(),
+        callable_targets: expected.to_vec(),
     })
 }
 
@@ -182,8 +195,8 @@ def bar():
     vec![(
         TEST_DEFINITION_NAME,
         vec![
-            ("3:3-3:6", identifier_callees_from_expected(&["test.bar"])),
-            ("3:3-3:8", call_callees_from_expected(&["test.bar"])),
+            ("3:3-3:6", identifier_callees_from_expected(vec![create_call_target("test.bar")])),
+            ("3:3-3:8", call_callees_from_expected(vec![create_call_target("test.bar")])),
         ],
     )],
 }
@@ -192,21 +205,20 @@ call_graph_testcase! {
     test_method_call_on_class,
     TEST_MODULE_NAME,
     r#"
-def foo(c: C):
-  c.m()
-
 class C:
   def m(self):
     pass
+def foo(c: C):
+  c.m()
 "#,
     vec![(
         TEST_DEFINITION_NAME,
         vec![
             (
-                "3:3-3:6",
-                attribute_access_callees_from_expected(&["test.m"]),
+                "6:3-6:6",
+                attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
             ),
-            ("3:3-3:8", call_callees_from_expected(&["test.m"])),
+            ("6:3-6:8", call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
         ],
     )],
 }
@@ -215,20 +227,20 @@ call_graph_testcase! {
     test_conditional_function_assignment,
     TEST_MODULE_NAME,
     r#"
+def baz() -> int: ...
+def bar() -> bool: ...
 def foo(b: bool):
   if b:
     f = bar
   else:
     f = baz
   f()
-def baz() -> int: ...
-def bar() -> bool: ...
 "#,
     vec![(
         TEST_DEFINITION_NAME,
         vec![
-            ("4:9-4:12", identifier_callees_from_expected(&["test.bar"])),
-            ("6:9-6:12", identifier_callees_from_expected(&["test.baz"])),
+            ("6:9-6:12", identifier_callees_from_expected(vec![create_call_target("test.bar")])),
+            ("8:9-8:12", identifier_callees_from_expected(vec![create_call_target("test.baz")])),
         ],
     )],
 }
@@ -237,16 +249,67 @@ call_graph_testcase! {
     test_conditional_function_with_none,
     TEST_MODULE_NAME,
     r#"
+def bar() -> bool: ...
 def foo(b: bool):
   if b:
     f = bar
   else:
-    f = None
+    f = False
   f()
-def bar() -> bool: ...
 "#,
     vec![(
         TEST_DEFINITION_NAME,
-        vec![("4:9-4:12", identifier_callees_from_expected(&["test.bar"]))],
+        vec![("5:9-5:12", identifier_callees_from_expected(vec![create_call_target("test.bar")]))],
+    )],
+}
+
+call_graph_testcase! {
+    test_method_call_on_optional_class,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Optional
+class C:
+  def m():
+    ...
+def foo(c: Optional[C]):
+  c.m()
+"#,
+    vec![(
+        TEST_DEFINITION_NAME,
+        vec![
+            ("7:3-7:8", call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
+            (
+                "7:3-7:6",
+                attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
+            )
+        ],
+    )],
+}
+
+call_graph_testcase! {
+    test_method_call_on_class_with_inheritance,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def m():
+    ...
+class D(C):
+  def m():
+    ...
+class E(D):
+  def m():
+    ...
+def foo(c: C):
+  c.m()
+"#,
+    vec![(
+        TEST_DEFINITION_NAME,
+        vec![
+            ("12:3-12:8", call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
+            (
+                "12:3-12:6",
+                attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
+            )
+        ],
     )],
 }

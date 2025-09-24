@@ -21,6 +21,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::report::pysa::DefinitionRef;
+use crate::report::pysa::FunctionDefinition;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleId;
@@ -28,9 +29,35 @@ use crate::report::pysa::PysaLocation;
 use crate::state::lsp::FindPreference;
 
 #[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CallTarget<Target> {
+    pub(crate) target: Target,
+    pub(crate) implicit_receiver: bool,
+}
+
+impl<Target> CallTarget<Target> {
+    #[cfg(test)]
+    fn map_target<TargetForTest, MapTarget>(&self, map: MapTarget) -> CallTarget<TargetForTest>
+    where
+        MapTarget: Fn(&Target) -> TargetForTest,
+    {
+        CallTarget {
+            target: map(&self.target),
+            implicit_receiver: self.implicit_receiver,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn with_implicit_receiver(mut self, implicit_receiver: bool) -> Self {
+        self.implicit_receiver = implicit_receiver;
+        self
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct CallCallees<Target> {
-    pub(crate) call_targets: Vec<Target>,
+    pub(crate) call_targets: Vec<CallTarget<Target>>,
 }
 
 impl<Target> CallCallees<Target> {
@@ -40,7 +67,11 @@ impl<Target> CallCallees<Target> {
         MapTarget: Fn(&Target) -> TargetForTest,
     {
         CallCallees {
-            call_targets: self.call_targets.iter().map(map).collect(),
+            call_targets: self
+                .call_targets
+                .iter()
+                .map(|call_target| CallTarget::map_target(call_target, &map))
+                .collect(),
         }
     }
 }
@@ -48,7 +79,7 @@ impl<Target> CallCallees<Target> {
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct AttributeAccessCallees<Target> {
-    pub(crate) callable_targets: Vec<Target>,
+    pub(crate) callable_targets: Vec<CallTarget<Target>>,
 }
 
 impl<Target> AttributeAccessCallees<Target> {
@@ -61,7 +92,11 @@ impl<Target> AttributeAccessCallees<Target> {
         MapTarget: Fn(&Target) -> TargetForTest,
     {
         AttributeAccessCallees {
-            callable_targets: self.callable_targets.iter().map(map).collect(),
+            callable_targets: self
+                .callable_targets
+                .iter()
+                .map(|call_target| CallTarget::map_target(call_target, &map))
+                .collect(),
         }
     }
 }
@@ -69,7 +104,7 @@ impl<Target> AttributeAccessCallees<Target> {
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct IdentifierCallees<Target> {
-    pub(crate) callable_targets: Vec<Target>,
+    pub(crate) callable_targets: Vec<CallTarget<Target>>,
 }
 
 impl<Target> IdentifierCallees<Target> {
@@ -82,7 +117,11 @@ impl<Target> IdentifierCallees<Target> {
         MapTarget: Fn(&Target) -> TargetForTest,
     {
         IdentifierCallees {
-            callable_targets: self.callable_targets.iter().map(map).collect(),
+            callable_targets: self
+                .callable_targets
+                .iter()
+                .map(|call_target| CallTarget::map_target(call_target, &map))
+                .collect(),
         }
     }
 }
@@ -158,7 +197,7 @@ struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: String,
-    function_names: &'a DashMap<ModuleId, HashMap<FunctionId, String>>,
+    function_definitions: &'a DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
     // A stack where the top element is always the current callable that we are
     // building a call graph for. The stack is updated each time we enter and exit
     // a function definition or a class definition.
@@ -187,7 +226,37 @@ impl<'a> CallGraphVisitor<'a> {
         );
     }
 
-    fn resolve_name(&self, name: &ExprName) -> Vec<DefinitionRef> {
+    fn has_implicit_receiver(
+        &self,
+        definition_ref: &DefinitionRef,
+        explicit_receiver: bool,
+    ) -> bool {
+        let (is_staticmethod, is_classmethod, is_method) = self
+            .function_definitions
+            .get(&self.module_id)
+            .and_then(|function_definitions| {
+                function_definitions
+                    .get(&definition_ref.function_id)
+                    .map(|function_definition| {
+                        (
+                            function_definition.is_staticmethod,
+                            function_definition.is_classmethod,
+                            FunctionDefinition::is_method(function_definition),
+                        )
+                    })
+            })
+            .unwrap_or((false, false, false));
+
+        if is_staticmethod {
+            false
+        } else if is_classmethod {
+            true
+        } else {
+            !explicit_receiver && is_method
+        }
+    }
+
+    fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<DefinitionRef>> {
         let identifier = Ast::expr_name_identifier(name.clone());
         self.module_context
             .transaction
@@ -201,14 +270,27 @@ impl<'a> CallGraphVisitor<'a> {
             .filter_map(|definition| {
                 DefinitionRef::from_find_definition_item_with_docstring(
                     definition,
-                    self.function_names,
+                    self.function_definitions,
                     self.module_context,
                 )
+                .map(|definition_ref| {
+                    let implicit_receiver = self.has_implicit_receiver(
+                        &definition_ref,
+                        false, // explicit_receiver
+                    );
+                    CallTarget {
+                        target: definition_ref,
+                        implicit_receiver,
+                    }
+                })
             })
             .collect::<Vec<_>>()
     }
 
-    fn resolve_attribute_access(&self, attribute: &ExprAttribute) -> Vec<DefinitionRef> {
+    fn resolve_attribute_access(
+        &self,
+        attribute: &ExprAttribute,
+    ) -> Vec<CallTarget<DefinitionRef>> {
         self.module_context
             .transaction
             .find_definition_for_attribute(
@@ -221,9 +303,19 @@ impl<'a> CallGraphVisitor<'a> {
             .filter_map(|definition| {
                 DefinitionRef::from_find_definition_item_with_docstring(
                     definition,
-                    self.function_names,
+                    self.function_definitions,
                     self.module_context,
                 )
+                .map(|definition_ref| {
+                    let implicit_receiver = self.has_implicit_receiver(
+                        &definition_ref,
+                        false, // explicit_receiver
+                    );
+                    CallTarget {
+                        target: definition_ref,
+                        implicit_receiver,
+                    }
+                })
             })
             .collect::<Vec<_>>()
     }
@@ -241,15 +333,19 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                     ),
                 };
                 if let Some(function_name) = self
-                    .function_names
+                    .function_definitions
                     .get(&self.module_id)
-                    .and_then(|function_names| function_names.get(&function_id).cloned())
+                    .and_then(|function_definitions| {
+                        function_definitions
+                            .get(&function_id)
+                            .map(|function_definition| function_definition.name.clone())
+                    })
                 {
                     self.definition_nesting.push(DefinitionRef {
                         module_id: self.module_id,
                         module_name: self.module_name.clone(),
                         function_id,
-                        identifier: function_name.clone(),
+                        identifier: function_name,
                     });
                     visitor::walk_stmt(self, stmt);
                     self.definition_nesting.pop();
@@ -316,7 +412,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
     ignore_calls_if_cannot_find_current_definition: bool,
-    function_names: &DashMap<ModuleId, HashMap<FunctionId, String>>,
+    function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
 ) -> CallGraphs<DefinitionRef, DisplayRange> {
     let mut call_graphs = CallGraphs::new();
 
@@ -333,7 +429,7 @@ pub fn build_call_graphs_for_module(
         module_name: module_name.clone(),
         definition_nesting: vec![module_toplevel],
         call_graphs: &mut call_graphs,
-        function_names,
+        function_definitions,
         ignore_calls_if_cannot_find_current_definition,
     };
 

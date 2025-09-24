@@ -351,6 +351,12 @@ impl FunctionDefinition {
     }
 }
 
+impl FunctionDefinition {
+    pub fn is_method(&self) -> bool {
+        self.defining_class.is_some()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct DefinitionRef {
     module_id: ModuleId,
@@ -378,7 +384,7 @@ impl DefinitionRef {
 
     fn from_find_definition_item_with_docstring(
         item: &FindDefinitionItemWithDocstring,
-        function_names: &DashMap<ModuleId, HashMap<FunctionId, String>>,
+        function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
         context: &ModuleContext,
     ) -> Option<Self> {
         // TODO: For overloads, return the last definition instead of the one from go-to-definitions.
@@ -390,14 +396,14 @@ impl DefinitionRef {
             .module_ids
             .get(ModuleKey::from_module(&item.module))
             .unwrap();
-        function_names
+        function_definitions
             .get(&module_id)
-            .and_then(|function_names| function_names.get(&function_id).cloned())
-            .map(|function_name| DefinitionRef {
+            .and_then(|function_definitions| function_definitions.get(&function_id).cloned())
+            .map(|function_definition| DefinitionRef {
                 module_id,
                 module_name: item.module.name().to_string(),
                 function_id,
-                identifier: function_name,
+                identifier: function_definition.name,
             })
     }
 }
@@ -1419,7 +1425,7 @@ pub fn is_test_module(context: &ModuleContext) -> bool {
 
 pub fn get_module_file(
     context: &ModuleContext,
-    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
+    function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
 ) -> PysaModuleFile {
     let mut type_of_expression = HashMap::new();
     let mut global_variables = HashMap::new();
@@ -1436,7 +1442,10 @@ pub fn get_module_file(
         );
     }
 
-    let function_definitions = export_all_functions(reversed_override_graph, context);
+    let function_definitions = function_definitions
+        .get(&context.module_id)
+        .unwrap()
+        .clone();
     let class_definitions = export_all_classes(context);
 
     PysaModuleFile {
@@ -1451,37 +1460,42 @@ pub fn get_module_file(
     }
 }
 
-#[allow(dead_code)]
-fn collect_function_names_for_module(context: &ModuleContext) -> HashMap<FunctionId, String> {
-    let mut function_names = HashMap::new();
-    for function in get_all_functions(&context.bindings, &context.answers) {
-        if !should_export_function(&function, context) {
-            continue;
-        }
-        let current_function = DefinitionRef::from_decorated_function(&function, context);
-        function_names.insert(current_function.function_id, current_function.identifier);
-    }
-    function_names
-}
-
-#[allow(dead_code)]
-pub fn collect_function_names(
+pub fn collect_function_definitions(
     handles: &Vec<Handle>,
     transaction: &Transaction,
     module_ids: &ModuleIds,
-) -> DashMap<ModuleId, HashMap<FunctionId, String>> {
-    let all_function_names = DashMap::new();
+    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
+) -> DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>> {
+    let all_function_definitions = DashMap::new();
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
             let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
-            let function_names = ModuleContext::create(handle, transaction, module_ids)
+            let function_definitions = ModuleContext::create(handle, transaction, module_ids)
                 .map_or(HashMap::new(), |context| {
-                    collect_function_names_for_module(&context)
+                    export_all_functions(reversed_override_graph, &context)
                 });
-            all_function_names.insert(module_id, function_names);
+            all_function_definitions.insert(module_id, function_definitions);
         });
     });
-    all_function_names
+    all_function_definitions
+}
+
+pub fn build_reversed_override_graph(
+    handles: &Vec<Handle>,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+) -> DashMap<DefinitionRef, DefinitionRef> {
+    let reversed_override_graph = DashMap::new();
+    ThreadPool::new().install(|| {
+        handles.par_iter().for_each(|handle| {
+            if let Some(context) = ModuleContext::create(handle, transaction, module_ids) {
+                for (key, value) in create_reversed_override_graph_for_module(&context) {
+                    reversed_override_graph.insert(key, value);
+                }
+            }
+        });
+    });
+    reversed_override_graph
 }
 
 pub fn write_results(results_directory: &Path, transaction: &Transaction) -> anyhow::Result<()> {
@@ -1546,19 +1560,9 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
 
     let project_modules = Arc::new(Mutex::new(project_modules));
 
-    let reversed_override_graph = {
-        let reversed_override_graph = DashMap::new();
-        ThreadPool::new().install(|| {
-            module_info_tasks.par_iter().for_each(|(handle, _, _)| {
-                let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
-
-                for (key, value) in create_reversed_override_graph_for_module(&context) {
-                    reversed_override_graph.insert(key, value);
-                }
-            });
-        });
-        reversed_override_graph
-    };
+    let reversed_override_graph = build_reversed_override_graph(&handles, transaction, &module_ids);
+    let all_function_definitions =
+        collect_function_definitions(&handles, transaction, &module_ids, &reversed_override_graph);
 
     let _override_graph = OverrideGraph::from_reversed(&reversed_override_graph);
 
@@ -1572,7 +1576,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
                 serde_json::to_writer(
                     writer,
-                    &get_module_file(&context, &reversed_override_graph),
+                    &get_module_file(&context, &all_function_definitions),
                 )?;
 
                 if is_test_module(&context) {
