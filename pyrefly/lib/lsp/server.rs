@@ -162,6 +162,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::commands::lsp::IndexingMode;
 use crate::config::config::ConfigFile;
@@ -543,6 +544,9 @@ impl Server {
                     cancellation_handle.cancel();
                 }
                 canceled_requests.insert(id);
+            }
+            LspEvent::InvalidateConfigFind(invalidated_configs) => {
+                self.invalidate_find_for_configs(invalidated_configs);
             }
             LspEvent::DidOpenTextDocument(params) => {
                 self.did_open(ide_transaction_manager, subsequent_mutation, params)?;
@@ -1056,6 +1060,38 @@ impl Server {
                 ide_transaction_manager.save(transaction);
             }
         }
+
+        let mut configs_to_paths: SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>> =
+            SmallMap::new();
+        let config_finder = self.state.config_finder();
+        for handle in handles {
+            let config = config_finder.python_file(handle.module(), handle.path());
+            configs_to_paths
+                .entry(config)
+                .or_default()
+                .insert(handle.path().dupe());
+        }
+        let lsp_queue = self.lsp_queue.dupe();
+        self.recheck_queue.queue_task(Box::new(move || {
+            let invalidated_configs: SmallSet<ArcId<ConfigFile>> = configs_to_paths
+                .into_iter()
+                .filter(|(c, files)| match c.requery_source_db(files) {
+                    Ok(reloaded) => reloaded,
+                    Err(error) => {
+                        eprintln!("Error reloading source database for config: {error}");
+                        false
+                    }
+                })
+                .map(|(c, _)| c)
+                .collect();
+            if !invalidated_configs.is_empty() {
+                let _ = lsp_queue.send(LspEvent::InvalidateConfigFind(invalidated_configs));
+            }
+        }));
+    }
+
+    fn invalidate_find_for_configs(&self, invalidated_configs: SmallSet<ArcId<ConfigFile>>) {
+        self.invalidate(|t| t.invalidate_find_for_configs(invalidated_configs));
     }
 
     fn populate_project_files_if_necessary(
