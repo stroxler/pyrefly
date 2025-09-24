@@ -171,7 +171,7 @@ def complex_function(pos_arg: int, /, pos_or_kw: str, *args: float, kw_only: boo
                         annotation: PysaType::from_class_type(context.stdlib.int(), context),
                     },
                 ],
-                PysaType::from_type(&Type::None, context),
+                PysaType::none(),
             )],
         )
     },
@@ -200,7 +200,7 @@ class MyClass:
                     ),
                     required: true,
                 }],
-                PysaType::from_type(&Type::None, context),
+                PysaType::none(),
             )],
         )
         .with_defining_class(get_class_ref("test", "MyClass", context))
@@ -263,7 +263,7 @@ class MyClass:
                     ),
                     required: true,
                 }],
-                PysaType::from_type(&Type::None, context),
+                PysaType::none(),
             )],
         )
         .with_is_classmethod(true)
@@ -317,15 +317,12 @@ exported_function_testcase!(
 def foo() -> None:
     ...
 "#,
-    &|context: &ModuleContext| {
+    &|_: &ModuleContext| {
         create_function_definition(
             "foo",
             ScopeParent::TopLevel,
             /* overloads */
-            vec![create_simple_signature(
-                vec![],
-                PysaType::from_type(&Type::None, context),
-            )],
+            vec![create_simple_signature(vec![], PysaType::none())],
         )
         .with_is_stub(true)
     },
@@ -386,11 +383,39 @@ class MyClass:
                             required: true,
                         },
                     ],
-                    PysaType::from_type(&Type::None, context),
+                    PysaType::none(),
                 )],
             )
             .with_is_property_setter(true)
             .with_defining_class(get_class_ref("test", "MyClass", context)),
+        ]
+    },
+);
+
+exported_functions_testcase!(
+    test_export_nested_functions,
+    r#"
+def foo():
+    def bar():
+        pass
+    return
+"#,
+    &|_: &ModuleContext| {
+        vec![
+            create_function_definition(
+                "foo",
+                ScopeParent::TopLevel,
+                /* overloads */
+                vec![create_simple_signature(vec![], PysaType::none())],
+            ),
+            create_function_definition(
+                "bar",
+                ScopeParent::Function {
+                    location: create_location(2, 5, 2, 8),
+                },
+                /* overloads */
+                vec![create_simple_signature(vec![], PysaType::none())],
+            ),
         ]
     },
 );

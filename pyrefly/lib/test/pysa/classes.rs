@@ -291,3 +291,117 @@ Point = namedtuple('Point', ['x', 'y'])
         }
     },
 );
+
+exported_class_testcase!(
+    test_export_class_fields_declared_by_annotation,
+    r#"
+import typing
+class Foo:
+    x: int
+    y: str
+    z: typing.Annotated[bool, "annotation for z"]
+"#,
+    &|context: &ModuleContext| {
+        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_fields(HashMap::from([
+            (
+                "x".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.int(), context),
+                    explicit_annotation: Some("int".to_owned()),
+                    location: Some(create_location(4, 5, 4, 6)),
+                },
+            ),
+            (
+                "y".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.str(), context),
+                    explicit_annotation: Some("str".to_owned()),
+                    location: Some(create_location(5, 5, 5, 6)),
+                },
+            ),
+            (
+                "z".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.bool(), context),
+                    explicit_annotation: Some(
+                        "typing.Annotated[bool, \"annotation for z\"]".to_owned(),
+                    ),
+                    location: Some(create_location(6, 5, 6, 6)),
+                },
+            ),
+        ]))
+    },
+);
+
+exported_class_testcase!(
+    test_export_class_fields_assigned_in_body,
+    r#"
+import typing
+class Foo:
+    def __init__(self, x: int, y: str, z: bool) -> None:
+        self.x: int = x
+        self.y: str = y
+        self.z: typing.Annotated[bool, "annotation for z"] = z
+"#,
+    &|context: &ModuleContext| {
+        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_fields(HashMap::from([
+            (
+                "x".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.int(), context),
+                    explicit_annotation: Some("int".to_owned()),
+                    location: Some(create_location(5, 14, 5, 15)),
+                },
+            ),
+            (
+                "y".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.str(), context),
+                    explicit_annotation: Some("str".to_owned()),
+                    location: Some(create_location(6, 14, 6, 15)),
+                },
+            ),
+            (
+                "z".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.bool(), context),
+                    explicit_annotation: Some(
+                        "typing.Annotated[bool, \"annotation for z\"]".to_owned(),
+                    ),
+                    location: Some(create_location(7, 14, 7, 15)),
+                },
+            ),
+        ]))
+    },
+);
+
+exported_class_testcase!(
+    test_export_dataclass,
+    r#"
+from dataclasses import dataclass
+@dataclass
+class Foo:
+    x: int
+    y: str
+"#,
+    &|context: &ModuleContext| {
+        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_fields(HashMap::from([
+            (
+                "x".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.int(), context),
+                    explicit_annotation: Some("int".to_owned()),
+                    location: Some(create_location(5, 5, 5, 6)),
+                },
+            ),
+            (
+                "y".to_owned(),
+                PysaClassField {
+                    type_: PysaType::from_class_type(context.stdlib.str(), context),
+                    explicit_annotation: Some("str".to_owned()),
+                    location: Some(create_location(6, 5, 6, 6)),
+                },
+            ),
+        ]))
+    },
+);

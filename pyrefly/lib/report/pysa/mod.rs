@@ -757,6 +757,18 @@ impl PysaType {
             class_names: ClassNamesFromType::not_a_class(),
         }
     }
+
+    #[cfg(test)]
+    pub fn none() -> PysaType {
+        PysaType {
+            string: "None".to_owned(),
+            is_bool: false,
+            is_int: false,
+            is_float: false,
+            is_enum: false,
+            class_names: ClassNamesFromType::not_a_class(),
+        }
+    }
 }
 
 struct VisitorContext<'a> {
