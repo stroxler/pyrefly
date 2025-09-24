@@ -1405,7 +1405,7 @@ fn is_pytest_module(bindings: &Bindings, answers: &Answers, ast: &ModModule) -> 
 /// We currently use the following heuristics:
 /// - If a class inherits from `unittest.TestCase`, we assume this is a test file.
 /// - If `pytest` is imported and at least one function starts with `test_`, we assume this is a test file.
-fn is_test_module(context: &ModuleContext) -> bool {
+pub fn is_test_module(context: &ModuleContext) -> bool {
     is_unittest_module(&context.bindings, &context.answers)
         || is_pytest_module(&context.bindings, &context.answers, &context.ast)
 }

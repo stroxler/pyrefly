@@ -8,4 +8,5 @@
 mod call_graph;
 mod classes;
 mod functions;
+mod is_test_module;
 mod utils;
