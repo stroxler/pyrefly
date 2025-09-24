@@ -8,6 +8,7 @@
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fmt;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::path::Component;
@@ -58,7 +59,7 @@ static IGNORE_FILES_SEARCH: LazyLock<Vec<UpwardSearch<Arc<(PathBuf, PathBuf)>>>>
             .collect::<Vec<_>>()
     });
 
-#[derive(Debug, Clone, Eq, Default)]
+#[derive(Clone, Eq, Default)]
 
 /// A glob pattern for matching files.
 ///
@@ -238,6 +239,12 @@ impl Glob {
         // we attempted to do this automatically, and the pattern we're constructing should be valid
         // (i.e. the previous pattern we constructed should have failed before we get to here).
         glob::Pattern::new(&pattern_str).is_ok_and(|pattern| pattern.matches_path(file))
+    }
+}
+
+impl Debug for Glob {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.as_str())
     }
 }
 
