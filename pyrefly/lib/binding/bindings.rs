@@ -1067,34 +1067,6 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    /// Add `Definition` bindings to a class or function body scope for all the names
-    /// referenced in the function parameter/return annotations or the class bases.
-    ///
-    /// We do this so that AnswersSolver has the opportunity to determine whether any
-    /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
-    /// case the name should be treated as a Quantified type parameter inside this scope.
-    pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
-        for entry in legacy_tparams.legacy_tparams.values() {
-            match entry {
-                Either::Left((id, idx)) => {
-                    let identifier = id.as_identifier();
-                    self.scopes
-                        .add_parameter_to_current_static(identifier, None);
-                    self.bind_definition(
-                        identifier,
-                        // Note: we use None as the range here because the range is
-                        // used to error if legacy tparams are mixed with scope
-                        // tparams, and we only want to do that once (which we do in
-                        // the binding created by `intercept_lookup`).
-                        Binding::CheckLegacyTypeParam(*idx, None),
-                        self.scopes.get_flow_style(&identifier.id).clone(),
-                    );
-                }
-                _ => {}
-            }
-        }
-    }
-
     /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
     /// when in a setting where we have to check values currently in scope to see if they are
     /// legacy type parameters and need to be re-bound into quantified type variables.
@@ -1192,6 +1164,34 @@ impl<'a> BindingsBuilder<'a> {
                 )),
                 Some(_) => None,
             },
+        }
+    }
+
+    /// Add `Definition` bindings to a class or function body scope for all the names
+    /// referenced in the function parameter/return annotations or the class bases.
+    ///
+    /// We do this so that AnswersSolver has the opportunity to determine whether any
+    /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
+    /// case the name should be treated as a Quantified type parameter inside this scope.
+    pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
+        for entry in legacy_tparams.legacy_tparams.values() {
+            match entry {
+                Either::Left((id, idx)) => {
+                    let identifier = id.as_identifier();
+                    self.scopes
+                        .add_parameter_to_current_static(identifier, None);
+                    self.bind_definition(
+                        identifier,
+                        // Note: we use None as the range here because the range is
+                        // used to error if legacy tparams are mixed with scope
+                        // tparams, and we only want to do that once (which we do in
+                        // the binding created by `intercept_lookup`).
+                        Binding::CheckLegacyTypeParam(*idx, None),
+                        self.scopes.get_flow_style(&identifier.id).clone(),
+                    );
+                }
+                _ => {}
+            }
         }
     }
 }
