@@ -29,6 +29,7 @@ mod django;
 mod enums;
 mod flow;
 mod generic_basic;
+mod generic_legacy;
 mod generic_restrictions;
 mod generic_sub;
 mod imports;
