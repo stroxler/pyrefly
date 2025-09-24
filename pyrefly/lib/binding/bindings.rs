@@ -953,7 +953,149 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.add_parameter_to_current_static(name, annot);
         self.bind_name(&name.id, key, FlowStyle::Other);
     }
+}
 
+#[derive(Debug)]
+pub enum LegacyTParamId {
+    /// A simple name referring to a legacy type parameter.
+    Name(Identifier),
+    /// A <name>.<name> reference to a legacy type parameter.
+    Attr(Identifier, Identifier),
+}
+
+impl LegacyTParamId {
+    /// Get the identifier of the name that will actually be bound (for a normal name, this is
+    /// just itself; for a `<base>.<attr>` attribute it is the base portion, which gets narrowed).
+    fn as_identifier(&self) -> &Identifier {
+        match self {
+            Self::Name(name) => name,
+            Self::Attr(base, _) => base,
+        }
+    }
+
+    /// Get the key used to track this potential legacy tparam in the `legacy_tparams` map.
+    fn tvar_name(&self) -> String {
+        match self {
+            Self::Name(name) => name.id.as_str().to_owned(),
+            Self::Attr(base, attr) => format!("{base}.{attr}"),
+        }
+    }
+}
+
+impl Ranged for LegacyTParamId {
+    fn range(&self) -> TextRange {
+        match self {
+            Self::Name(name) => name.range,
+            Self::Attr(_, attr) => attr.range,
+        }
+    }
+}
+
+/// Handle intercepting names inside either function parameter/return
+/// annotations or base class lists of classes, in order to check whether they
+/// point at type variable declarations and need to be converted to type
+/// parameters.
+pub struct LegacyTParamBuilder {
+    /// All of the names used. Each one may or may not point at a type variable
+    /// and therefore bind a legacy type parameter.
+    legacy_tparams:
+        SmallMap<String, Either<(LegacyTParamId, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
+    /// Are there scoped type parameters? Used to control downstream errors.
+    has_scoped_tparams: bool,
+}
+
+impl LegacyTParamBuilder {
+    pub fn new(has_scoped_tparams: bool) -> Self {
+        Self {
+            legacy_tparams: SmallMap::new(),
+            has_scoped_tparams,
+        }
+    }
+
+    /// Get the keys that correspond to the result of checking whether a name
+    /// corresponds to a legacy type param. This is used when actually computing
+    /// the final type parameters for classes and functions, which have to take
+    /// all the names that *do* map to type variable declarations and combine
+    /// them (potentially) with scoped type parameters.
+    pub fn lookup_keys(&self) -> Vec<Idx<KeyLegacyTypeParam>> {
+        self.legacy_tparams
+            .values()
+            .filter_map(|x| x.as_ref().left().as_ref().map(|(_, idx)| *idx))
+            .collect()
+    }
+
+    /// Perform a lookup of a name used in either base classes of a class or
+    /// parameter/return annotations of a function.
+    ///
+    /// We have a special "intercepted" lookup to create bindings that allow us
+    /// to later determine whether this name points at a type variable
+    /// declaration, in which case we intercept it to treat it as a type
+    /// parameter in the current scope.
+    pub fn intercept_lookup(
+        &mut self,
+        builder: &mut BindingsBuilder,
+        id: LegacyTParamId,
+    ) -> NameLookupResult<Binding> {
+        let range = id.range();
+        let result = self
+            .legacy_tparams
+            .entry(id.tvar_name())
+            .or_insert_with(|| builder.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
+        match result {
+            Either::Left((_, idx)) => {
+                let range_if_scoped_params_exist = if self.has_scoped_tparams {
+                    Some(range)
+                } else {
+                    None
+                };
+                NameLookupResult::Found {
+                    value: Binding::CheckLegacyTypeParam(*idx, range_if_scoped_params_exist),
+                    is_initialized: IsInitialized::Maybe,
+                }
+            }
+            Either::Right(maybe_idx) => match maybe_idx {
+                Some(idx) => NameLookupResult::Found {
+                    value: Binding::Forward(*idx),
+                    is_initialized: IsInitialized::Yes,
+                },
+                None => NameLookupResult::NotFound,
+            },
+        }
+    }
+
+    /// Add `Definition` bindings to a class or function body scope for all the names
+    /// referenced in the function parameter/return annotations or the class bases.
+    ///
+    /// We do this so that AnswersSolver has the opportunity to determine whether any
+    /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
+    /// case the name should be treated as a Quantified type parameter inside this scope.
+    pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
+        for entry in self.legacy_tparams.values() {
+            match entry {
+                Either::Left((id, idx)) => {
+                    let identifier = id.as_identifier();
+                    builder
+                        .scopes
+                        .add_parameter_to_current_static(identifier, None);
+                    builder.bind_definition(
+                        identifier,
+                        // Note: we use None as the range here because the range is
+                        // used to error if legacy tparams are mixed with scope
+                        // tparams, and we only want to do that once (which we do in
+                        // the binding created by `intercept_lookup`).
+                        Binding::CheckLegacyTypeParam(*idx, None),
+                        builder.scopes.get_flow_style(&identifier.id).clone(),
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// The legacy-tparams-specifc logic is in a second impl because that lets us define it
+/// just under where the key data structures live.
+impl<'a> BindingsBuilder<'a> {
     /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
     /// when in a setting where we have to check values currently in scope to see if they are
     /// legacy type parameters and need to be re-bound into quantified type variables.
@@ -1052,143 +1194,5 @@ impl<'a> BindingsBuilder<'a> {
                 Some(_) => None,
             },
         }
-    }
-}
-
-#[derive(Debug)]
-pub enum LegacyTParamId {
-    /// A simple name referring to a legacy type parameter.
-    Name(Identifier),
-    /// A <name>.<name> reference to a legacy type parameter.
-    Attr(Identifier, Identifier),
-}
-
-impl LegacyTParamId {
-    /// Get the identifier of the name that will actually be bound (for a normal name, this is
-    /// just itself; for a `<base>.<attr>` attribute it is the base portion, which gets narrowed).
-    fn as_identifier(&self) -> &Identifier {
-        match self {
-            Self::Name(name) => name,
-            Self::Attr(base, _) => base,
-        }
-    }
-
-    /// Get the key used to track this potential legacy tparam in the `legacy_tparams` map.
-    fn tvar_name(&self) -> String {
-        match self {
-            Self::Name(name) => name.id.as_str().to_owned(),
-            Self::Attr(base, attr) => format!("{base}.{attr}"),
-        }
-    }
-}
-
-impl Ranged for LegacyTParamId {
-    fn range(&self) -> TextRange {
-        match self {
-            Self::Name(name) => name.range,
-            Self::Attr(_, attr) => attr.range,
-        }
-    }
-}
-
-/// Handle intercepting names inside either function parameter/return
-/// annotations or base class lists of classes, in order to check whether they
-/// point at type variable declarations and need to be converted to type
-/// parameters.
-pub struct LegacyTParamBuilder {
-    /// All of the names used. Each one may or may not point at a type variable
-    /// and therefore bind a legacy type parameter.
-    legacy_tparams:
-        SmallMap<String, Either<(LegacyTParamId, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
-    /// Are there scoped type parameters? Used to control downstream errors.
-    has_scoped_tparams: bool,
-}
-
-impl LegacyTParamBuilder {
-    pub fn new(has_scoped_tparams: bool) -> Self {
-        Self {
-            legacy_tparams: SmallMap::new(),
-            has_scoped_tparams,
-        }
-    }
-
-    /// Perform a lookup of a name used in either base classes of a class or
-    /// parameter/return annotations of a function.
-    ///
-    /// We have a special "intercepted" lookup to create bindings that allow us
-    /// to later determine whether this name points at a type variable
-    /// declaration, in which case we intercept it to treat it as a type
-    /// parameter in the current scope.
-    pub fn intercept_lookup(
-        &mut self,
-        builder: &mut BindingsBuilder,
-        id: LegacyTParamId,
-    ) -> NameLookupResult<Binding> {
-        let range = id.range();
-        let result = self
-            .legacy_tparams
-            .entry(id.tvar_name())
-            .or_insert_with(|| builder.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
-        match result {
-            Either::Left((_, idx)) => {
-                let range_if_scoped_params_exist = if self.has_scoped_tparams {
-                    Some(range)
-                } else {
-                    None
-                };
-                NameLookupResult::Found {
-                    value: Binding::CheckLegacyTypeParam(*idx, range_if_scoped_params_exist),
-                    is_initialized: IsInitialized::Maybe,
-                }
-            }
-            Either::Right(maybe_idx) => match maybe_idx {
-                Some(idx) => NameLookupResult::Found {
-                    value: Binding::Forward(*idx),
-                    is_initialized: IsInitialized::Yes,
-                },
-                None => NameLookupResult::NotFound,
-            },
-        }
-    }
-
-    /// Add `Definition` bindings to a class or function body scope for all the names
-    /// referenced in the function parameter/return annotations or the class bases.
-    ///
-    /// We do this so that AnswersSolver has the opportunity to determine whether any
-    /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
-    /// case the name should be treated as a Quantified type parameter inside this scope.
-    pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
-        for entry in self.legacy_tparams.values() {
-            match entry {
-                Either::Left((id, idx)) => {
-                    let identifier = id.as_identifier();
-                    builder
-                        .scopes
-                        .add_parameter_to_current_static(identifier, None);
-                    builder.bind_definition(
-                        identifier,
-                        // Note: we use None as the range here because the range is
-                        // used to error if legacy tparams are mixed with scope
-                        // tparams, and we only want to do that once (which we do in
-                        // the binding created by `intercept_lookup`).
-                        Binding::CheckLegacyTypeParam(*idx, None),
-                        builder.scopes.get_flow_style(&identifier.id).clone(),
-                    );
-                }
-                _ => {}
-            }
-        }
-    }
-
-    /// Get the keys that correspond to the result of checking whether a name
-    /// corresponds to a legacy type param. This is used when actually computing
-    /// the final type parameters for classes and functions, which have to take
-    /// all the names that *do* map to type variable declarations and combine
-    /// them (potentially) with scoped type parameters.
-    pub fn lookup_keys(&self) -> Vec<Idx<KeyLegacyTypeParam>> {
-        self.legacy_tparams
-            .values()
-            .filter_map(|x| x.as_ref().left().as_ref().map(|(_, idx)| *idx))
-            .collect()
     }
 }
