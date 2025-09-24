@@ -203,7 +203,7 @@ struct CallGraphVisitor<'a> {
     // a function definition or a class definition.
     definition_nesting: Vec<DefinitionRef>,
     call_graphs: &'a mut CallGraphs<DefinitionRef, DisplayRange>,
-    ignore_calls_if_cannot_find_current_definition: bool,
+    in_exported_definition: bool,
 }
 
 impl<'a> CallGraphVisitor<'a> {
@@ -349,8 +349,11 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                     });
                     visitor::walk_stmt(self, stmt);
                     self.definition_nesting.pop();
-                } else if !self.ignore_calls_if_cannot_find_current_definition {
+                } else {
+                    let current_in_exported_definition = self.in_exported_definition;
+                    self.in_exported_definition = false;
                     visitor::walk_stmt(self, stmt);
+                    self.in_exported_definition = current_in_exported_definition;
                 }
             }
             Stmt::ClassDef(_class_def) => {
@@ -366,6 +369,9 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         visitor::walk_expr(self, expr);
+        if !self.in_exported_definition {
+            return;
+        }
 
         match expr {
             Expr::Call(call) => {
@@ -411,7 +417,6 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 #[allow(dead_code)]
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
-    ignore_calls_if_cannot_find_current_definition: bool,
     function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
 ) -> CallGraphs<DefinitionRef, DisplayRange> {
     let mut call_graphs = CallGraphs::new();
@@ -430,7 +435,7 @@ pub fn build_call_graphs_for_module(
         definition_nesting: vec![module_toplevel],
         call_graphs: &mut call_graphs,
         function_definitions,
-        ignore_calls_if_cannot_find_current_definition,
+        in_exported_definition: true,
     };
 
     for stmt in &context.ast.body {

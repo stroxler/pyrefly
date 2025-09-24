@@ -131,7 +131,6 @@ fn test_building_call_graph_for_module(
     let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
     let actual_call_graph = call_graph_for_test_from_actual(&build_call_graphs_for_module(
         &context,
-        true,
         &all_function_definitions,
     ));
     let expected_call_graph = call_graph_for_test_from_expected(expected);
