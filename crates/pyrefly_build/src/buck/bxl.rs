@@ -107,10 +107,9 @@ impl SourceDatabase for BuckSourceDatabase {
         queue.push_front(start_target);
 
         while let Some(current_target) = queue.pop_front() {
-            if visited.contains(current_target) {
+            if !visited.insert(current_target) {
                 continue;
             }
-            visited.insert(current_target);
             let Some(manifest) = read.db.get(current_target) else {
                 continue;
             };
