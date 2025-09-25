@@ -878,7 +878,9 @@ impl Query {
                 Type::Function(f) if f.metadata.flags.is_property_getter => {
                     (Some(String::from("property")), ty)
                 }
-                Type::ClassType(c) if c.name() == "classproperty" => {
+                Type::ClassType(c)
+                    if c.name() == "classproperty" || c.name() == "cached_classproperty" =>
+                {
                     let result_ty = c.targs().as_slice().get(1).unwrap();
                     (Some(String::from("property")), result_ty)
                 }
