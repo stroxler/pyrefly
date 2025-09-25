@@ -10,4 +10,5 @@ mod classes;
 mod functions;
 mod global_variables;
 mod is_test_module;
+mod types;
 mod utils;

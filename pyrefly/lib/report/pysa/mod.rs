@@ -185,7 +185,7 @@ pub enum ScopeParent {
 
 // List of class names that a type refers to, after stripping Optional and Awaitable.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-struct ClassNamesFromType {
+pub struct ClassNamesFromType {
     class_names: Vec<ClassRef>,
     #[serde(skip_serializing_if = "<&bool>::not")]
     stripped_coroutine: bool,
@@ -593,9 +593,9 @@ fn has_superclass(class: &Class, want: &Class, context: &ModuleContext) -> bool 
 }
 
 impl ClassNamesFromType {
-    fn from_class(class: Class, context: &ModuleContext) -> ClassNamesFromType {
+    pub fn from_class(class: &Class, context: &ModuleContext) -> ClassNamesFromType {
         ClassNamesFromType {
-            class_names: vec![ClassRef::from_class(&class, context.module_ids)],
+            class_names: vec![ClassRef::from_class(class, context.module_ids)],
             stripped_coroutine: false,
             stripped_optional: false,
             stripped_readonly: false,
@@ -604,7 +604,19 @@ impl ClassNamesFromType {
         }
     }
 
-    fn not_a_class() -> ClassNamesFromType {
+    #[cfg(test)]
+    pub fn from_classes(class_names: Vec<ClassRef>, is_exhaustive: bool) -> ClassNamesFromType {
+        ClassNamesFromType {
+            class_names,
+            stripped_coroutine: false,
+            stripped_optional: false,
+            stripped_readonly: false,
+            unbound_type_variable: false,
+            is_exhaustive,
+        }
+    }
+
+    pub fn not_a_class() -> ClassNamesFromType {
         ClassNamesFromType {
             class_names: vec![],
             stripped_coroutine: false,
@@ -619,13 +631,13 @@ impl ClassNamesFromType {
         self.class_names.is_empty()
     }
 
-    fn with_strip_optional(mut self) -> ClassNamesFromType {
-        self.stripped_optional = true;
+    pub fn with_strip_optional(mut self, stripped_optional: bool) -> ClassNamesFromType {
+        self.stripped_optional = stripped_optional;
         self
     }
 
-    fn with_strip_coroutine(mut self) -> ClassNamesFromType {
-        self.stripped_coroutine = true;
+    pub fn with_strip_coroutine(mut self, stripped_coroutine: bool) -> ClassNamesFromType {
+        self.stripped_coroutine = stripped_coroutine;
         self
     }
 
@@ -701,22 +713,20 @@ fn is_scalar_type(get: &Type, want: &Class, context: &ModuleContext) -> bool {
 
 fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> ClassNamesFromType {
     if let Some(inner) = strip_optional(type_) {
-        return get_classes_of_type(inner, context).with_strip_optional();
+        return get_classes_of_type(inner, context).with_strip_optional(true);
     }
     if let Some(inner) = strip_awaitable(type_, context) {
-        return get_classes_of_type(inner, context).with_strip_coroutine();
+        return get_classes_of_type(inner, context).with_strip_coroutine(true);
     }
     if let Some(inner) = strip_coroutine(type_, context) {
-        return get_classes_of_type(inner, context).with_strip_coroutine();
+        return get_classes_of_type(inner, context).with_strip_coroutine(true);
     }
     // No need to strip ReadOnly[], it is already stripped by pyrefly.
     match type_ {
         Type::ClassType(class_type) => {
-            ClassNamesFromType::from_class(class_type.class_object().clone(), context)
+            ClassNamesFromType::from_class(class_type.class_object(), context)
         }
-        Type::Tuple(_) => {
-            ClassNamesFromType::from_class(context.stdlib.tuple_object().clone(), context)
-        }
+        Type::Tuple(_) => ClassNamesFromType::from_class(context.stdlib.tuple_object(), context),
         Type::Union(elements) if !elements.is_empty() => elements
             .iter()
             .map(|inner| get_classes_of_type(inner, context))
@@ -729,6 +739,42 @@ fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> ClassNamesFromT
 }
 
 impl PysaType {
+    #[cfg(test)]
+    pub fn new(string: String, class_names: ClassNamesFromType) -> PysaType {
+        PysaType {
+            string,
+            is_bool: false,
+            is_int: false,
+            is_float: false,
+            is_enum: false,
+            class_names,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn with_is_bool(mut self, is_bool: bool) -> PysaType {
+        self.is_bool = is_bool;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_int(mut self, is_int: bool) -> PysaType {
+        self.is_int = is_int;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_float(mut self, is_float: bool) -> PysaType {
+        self.is_float = is_float;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_enum(mut self, is_enum: bool) -> PysaType {
+        self.is_enum = is_enum;
+        self
+    }
+
     pub fn from_type(type_: &Type, context: &ModuleContext) -> PysaType {
         // Promote `Literal[..]` into `str` or `int`.
         let type_ = type_.clone().promote_literals(&context.stdlib);
