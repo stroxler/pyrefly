@@ -49,6 +49,9 @@ use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
+use ruff_source_file::OneIndexed;
+use ruff_source_file::PositionEncoding;
+use ruff_source_file::SourceLocation;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -123,32 +126,6 @@ impl Serialize for PythonASTRange {
         state.serialize_field("end_line", &self.end_line.get())?;
         state.serialize_field("end_col", &self.end_col)?;
         state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for PythonASTRange {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de;
-        #[derive(Deserialize)]
-        struct PythonASTRangeHelper {
-            start_line: u32,
-            start_col: u32,
-            end_line: u32,
-            end_col: u32,
-        }
-
-        let helper = PythonASTRangeHelper::deserialize(deserializer)?;
-        Ok(PythonASTRange {
-            start_line: LineNumber::new(helper.start_line)
-                .ok_or_else(|| de::Error::custom("Invalid start line number"))?,
-            start_col: helper.start_col,
-            end_line: LineNumber::new(helper.end_line)
-                .ok_or_else(|| de::Error::custom("Invalid end line number"))?,
-            end_col: helper.end_col,
-        })
     }
 }
 
@@ -395,6 +372,7 @@ impl Query {
         &self,
         name: ModuleName,
         path: ModulePath,
+        location: Option<PythonASTRange>,
     ) -> Option<Vec<(PythonASTRange, Callee)>> {
         let transaction = self.state.transaction();
         let handle = self.make_handle(name, path);
@@ -859,6 +837,7 @@ impl Query {
                     },
                 ),
                 Type::Any(_) => vec![],
+                Type::Literal(_) => vec![],
                 Type::TypeAlias(t) => callee_from_type(
                     &t.as_type(),
                     call_target,
@@ -964,21 +943,70 @@ impl Query {
             }
         }
 
-        for stmt in &ast.body {
-            match &stmt {
-                Stmt::ClassDef(StmtClassDef {
-                    decorator_list: d, ..
-                })
-                | Stmt::FunctionDef(StmtFunctionDef {
-                    decorator_list: d, ..
-                }) => {
-                    add_decorators(d, &module_info, &answers, &transaction, &handle, &mut res);
-                }
-                _ => {}
+        if let Some(target_location) = location {
+            // Helper function to convert line/column to TextSize
+            fn line_col_to_text_size(
+                module_info: &ModuleInfo,
+                line: LineNumber,
+                col: u32,
+            ) -> TextSize {
+                module_info.lined_buffer().line_index().offset(
+                    SourceLocation {
+                        line: OneIndexed::new(line.get() as usize).unwrap(),
+                        character_offset: OneIndexed::from_zero_indexed(col as usize),
+                    },
+                    module_info.lined_buffer().contents(),
+                    PositionEncoding::Utf8,
+                )
             }
-            stmt.visit(&mut |x| {
-                process_expr(x, &module_info, &answers, &transaction, &handle, &mut res)
-            });
+
+            // Convert PythonASTRange to TextRange using SourceLocation directly
+            let start_pos = line_col_to_text_size(
+                &module_info,
+                target_location.start_line,
+                target_location.start_col,
+            );
+            let end_pos = line_col_to_text_size(
+                &module_info,
+                target_location.end_line,
+                target_location.end_col,
+            );
+            let target_range = TextRange::new(start_pos, end_pos);
+
+            // Query the type information directly at the target location
+            if let Some(func_ty) = answers.get_type_trace(target_range) {
+                let callees = callee_from_type(
+                    &func_ty,
+                    None,
+                    target_range,
+                    None,
+                    &module_info,
+                    &transaction,
+                    &handle,
+                    &answers,
+                );
+
+                for callee in callees {
+                    res.push((target_location.clone(), callee));
+                }
+            }
+        } else {
+            for stmt in &ast.body {
+                match &stmt {
+                    Stmt::ClassDef(StmtClassDef {
+                        decorator_list: d, ..
+                    })
+                    | Stmt::FunctionDef(StmtFunctionDef {
+                        decorator_list: d, ..
+                    }) => {
+                        add_decorators(d, &module_info, &answers, &transaction, &handle, &mut res);
+                    }
+                    _ => {}
+                }
+                stmt.visit(&mut |x| {
+                    process_expr(x, &module_info, &answers, &transaction, &handle, &mut res)
+                });
+            }
         }
 
         Some(res)
