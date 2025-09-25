@@ -20,6 +20,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 
 use dashmap::DashMap;
+use dupe::Dupe;
 use itertools::Itertools;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
@@ -542,14 +543,14 @@ impl ModuleKey {
     pub fn from_handle(handle: &Handle) -> ModuleKey {
         ModuleKey {
             name: handle.module(),
-            path: handle.path().clone(),
+            path: handle.path().dupe(),
         }
     }
 
     pub fn from_module(module: &Module) -> ModuleKey {
         ModuleKey {
             name: module.name(),
-            path: module.path().clone(),
+            path: module.path().dupe(),
         }
     }
 }
@@ -847,7 +848,7 @@ impl PysaType {
     #[cfg(test)]
     pub fn from_class(class: &Class, context: &ModuleContext) -> PysaType {
         PysaType::from_type(
-            &Type::ClassType(ClassType::new(class.clone(), Default::default())),
+            &Type::ClassType(ClassType::new(class.dupe(), Default::default())),
             context,
         )
     }
@@ -1303,7 +1304,7 @@ pub fn export_all_functions(
 fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item = Class> {
     bindings
         .keys::<KeyClass>()
-        .map(|idx| answers.get_idx(idx).unwrap().0.clone().unwrap())
+        .map(|idx| answers.get_idx(idx).unwrap().0.dupe().unwrap())
 }
 
 fn get_class_field(
@@ -1423,7 +1424,7 @@ pub fn export_all_classes(context: &ModuleContext) -> HashMap<PysaLocation, Clas
             .get_idx(class_idx)
             .unwrap()
             .0
-            .clone()
+            .dupe()
             .unwrap();
         let display_range = context.module_info.display_range(class.qname().range());
         let class_index = class.index();
