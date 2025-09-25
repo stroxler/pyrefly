@@ -681,7 +681,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } in self.completions(base.clone(), Some(attribute_name), false)
             {
                 match definition {
-                    Some(AttrDefinition::FullyResolved(TextRangeWithModule { module, range })) => {
+                    Some(AttrDefinition::FullyResolved {
+                        definition_range: TextRangeWithModule { module, range },
+                        docstring_range: _,
+                    }) => {
                         if module.path() != self.bindings().module().path() {
                             index
                                 .lock()
