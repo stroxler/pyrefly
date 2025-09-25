@@ -1605,10 +1605,9 @@ pub fn build_reversed_override_graph(
 
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
-            if let Some(context) = ModuleContext::create(handle, transaction, module_ids) {
-                for (key, value) in create_reversed_override_graph_for_module(&context).0 {
-                    reversed_override_graph.0.insert(key, value);
-                }
+            let context = ModuleContext::create(handle, transaction, module_ids).unwrap();
+            for (key, value) in create_reversed_override_graph_for_module(&context).0 {
+                reversed_override_graph.0.insert(key, value);
             }
         });
     });
