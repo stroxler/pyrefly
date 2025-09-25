@@ -7,11 +7,10 @@
 
 use std::collections::HashMap;
 
-use pyrefly_util::lined_buffer::DisplayRange;
-
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleIds;
+use crate::report::pysa::PysaLocation;
 use crate::report::pysa::build_reversed_override_graph;
 use crate::report::pysa::call_graph::AttributeAccessCallees;
 use crate::report::pysa::call_graph::CallCallees;
@@ -23,6 +22,7 @@ use crate::report::pysa::call_graph::build_call_graphs_for_module;
 use crate::report::pysa::collect_function_definitions;
 use crate::report::pysa::location_key;
 use crate::test::pysa::utils::create_state;
+use crate::test::pysa::utils::get_class_ref;
 use crate::test::pysa::utils::get_handle_for_module_name;
 
 // Omit fields from `DefinitionRef` so that we can easily write the expected results
@@ -30,6 +30,15 @@ use crate::test::pysa::utils::get_handle_for_module_name;
 struct DefinitionRefForTest {
     module_name: String,
     identifier: String,
+}
+
+fn split_module_name_and_identifier(string: &str) -> (String, String) {
+    let parts: Vec<&str> = string.split('.').collect();
+    if let Some((last, rest)) = parts.split_last() {
+        (rest.join("."), (*last).to_owned())
+    } else {
+        panic!("Invalid string: {}", string);
+    }
 }
 
 impl DefinitionRefForTest {
@@ -41,14 +50,10 @@ impl DefinitionRefForTest {
     }
 
     fn from_string(string: &str) -> Self {
-        let parts: Vec<&str> = string.split('.').collect();
-        if let Some((last, rest)) = parts.split_last() {
-            Self {
-                module_name: rest.join("."),
-                identifier: (*last).to_owned(),
-            }
-        } else {
-            panic!("Invalid string: {}", string);
+        let (module_name, identifier) = split_module_name_and_identifier(string);
+        Self {
+            module_name,
+            identifier,
         }
     }
 }
@@ -59,15 +64,26 @@ impl std::fmt::Display for DefinitionRefForTest {
     }
 }
 
+impl<Target> CallTarget<Target> {
+    fn with_receiver_class(mut self, receiver_class: String, context: &ModuleContext) -> Self {
+        self.receiver_class = Some({
+            let (module_name, class_name) = split_module_name_and_identifier(&receiver_class);
+            get_class_ref(&module_name, &class_name, context)
+        });
+        self
+    }
+}
+
 fn create_call_target(target: &str) -> CallTarget<DefinitionRefForTest> {
     CallTarget {
         target: DefinitionRefForTest::from_string(target),
         implicit_receiver: false,
+        receiver_class: None,
     }
 }
 
 fn call_graph_for_test_from_actual(
-    call_graph: &CallGraphs<DefinitionRef, DisplayRange>,
+    call_graph: &CallGraphs<DefinitionRef, PysaLocation>,
 ) -> CallGraphs<DefinitionRefForTest, String> {
     let call_graph_for_test = call_graph
         .0
@@ -78,7 +94,7 @@ fn call_graph_for_test_from_actual(
                 .iter()
                 .map(|(location, expression_callees)| {
                     (
-                        location_key(location),
+                        location_key(&location.0),
                         expression_callees.map_target(DefinitionRefForTest::from_definition_ref),
                     )
                 })
@@ -90,7 +106,10 @@ fn call_graph_for_test_from_actual(
 }
 
 fn call_graph_for_test_from_expected(
-    call_graph: Vec<(&str, Vec<(&str, ExpressionCallees<DefinitionRefForTest>)>)>,
+    call_graph: Vec<(
+        String,
+        Vec<(String, ExpressionCallees<DefinitionRefForTest>)>,
+    )>,
 ) -> CallGraphs<DefinitionRefForTest, String> {
     let call_graph_for_test = call_graph
         .into_iter()
@@ -101,7 +120,7 @@ fn call_graph_for_test_from_expected(
                     ((*location).to_owned(), expression_callees_for_test)
                 })
                 .collect::<HashMap<_, _>>();
-            (DefinitionRefForTest::from_string(caller), callees_for_test)
+            (DefinitionRefForTest::from_string(&caller), callees_for_test)
         })
         .collect::<HashMap<_, _>>();
     CallGraphs::from_map(call_graph_for_test)
@@ -110,7 +129,12 @@ fn call_graph_for_test_from_expected(
 fn test_building_call_graph_for_module(
     test_module_name: &str,
     code: &str,
-    expected: Vec<(&str, Vec<(&str, ExpressionCallees<DefinitionRefForTest>)>)>,
+    create_expected: &dyn Fn(
+        &ModuleContext,
+    ) -> Vec<(
+        String,
+        Vec<(String, ExpressionCallees<DefinitionRefForTest>)>,
+    )>,
 ) {
     let state = create_state(test_module_name, code);
     let transaction = state.transaction();
@@ -133,7 +157,7 @@ fn test_building_call_graph_for_module(
         &context,
         &all_function_definitions,
     ));
-    let expected_call_graph = call_graph_for_test_from_expected(expected);
+    let expected_call_graph = call_graph_for_test_from_expected(create_expected(&context));
     assert_eq!(
         expected_call_graph, actual_call_graph,
         "Expected: {:#?}. Actual: {:#?}",
@@ -170,13 +194,13 @@ static TEST_DEFINITION_NAME: &str = "test.foo";
 
 #[macro_export]
 macro_rules! call_graph_testcase {
-    ($name:ident, $module_name:ident, $code:literal, $expected:expr,) => {
+    ($name:ident, $module_name:ident, $code:literal, $create_expected:expr,) => {
         #[test]
         fn $name() {
             $crate::test::pysa::call_graph::test_building_call_graph_for_module(
                 $module_name,
                 $code,
-                $expected,
+                $create_expected,
             );
         }
     };
@@ -191,13 +215,13 @@ def foo():
 def bar():
   pass
 "#,
-    vec![(
-        TEST_DEFINITION_NAME,
+   &|_context: &ModuleContext| { vec![(
+        TEST_DEFINITION_NAME.to_owned(),
         vec![
-            ("3:3-3:6", identifier_callees_from_expected(vec![create_call_target("test.bar")])),
-            ("3:3-3:8", call_callees_from_expected(vec![create_call_target("test.bar")])),
+            ("3:3-3:6".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.bar")])),
+            ("3:3-3:8".to_owned(), call_callees_from_expected(vec![create_call_target("test.bar")])),
         ],
-    )],
+    )] },
 }
 
 call_graph_testcase! {
@@ -210,16 +234,18 @@ class C:
 def foo(c: C):
   c.m()
 "#,
-    vec![(
-        TEST_DEFINITION_NAME,
-        vec![
-            (
-                "6:3-6:6",
-                attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
-            ),
-            ("6:3-6:8", call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
-        ],
-    )],
+    &|context: &ModuleContext| {
+        let call_target = vec![
+            create_call_target("test.m").with_implicit_receiver(true).with_receiver_class("test.C".to_owned(), context)
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("6:3-6:6".to_owned(), attribute_access_callees_from_expected(call_target.clone())),
+                ("6:3-6:8".to_owned(), call_callees_from_expected(call_target.clone())),
+            ],
+        )]
+    },
 }
 
 call_graph_testcase! {
@@ -235,13 +261,15 @@ def foo(b: bool):
     f = baz
   f()
 "#,
-    vec![(
-        TEST_DEFINITION_NAME,
-        vec![
-            ("6:9-6:12", identifier_callees_from_expected(vec![create_call_target("test.bar")])),
-            ("8:9-8:12", identifier_callees_from_expected(vec![create_call_target("test.baz")])),
-        ],
-    )],
+    &|_context: &ModuleContext| {
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("6:9-6:12".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.bar")])),
+                ("8:9-8:12".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.baz")])),
+            ],
+        )]
+    },
 }
 
 call_graph_testcase! {
@@ -256,10 +284,12 @@ def foo(b: bool):
     f = False
   f()
 "#,
-    vec![(
-        TEST_DEFINITION_NAME,
-        vec![("5:9-5:12", identifier_callees_from_expected(vec![create_call_target("test.bar")]))],
-    )],
+    &|_context: &ModuleContext| {
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![("5:9-5:12".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.bar")]))],
+        )]
+    },
 }
 
 call_graph_testcase! {
@@ -273,16 +303,20 @@ class C:
 def foo(c: Optional[C]):
   c.m()
 "#,
-    vec![(
-        TEST_DEFINITION_NAME,
-        vec![
-            ("7:3-7:8", call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
-            (
-                "7:3-7:6",
-                attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
-            )
-        ],
-    )],
+    &|_context: &ModuleContext| {
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                (
+                    "7:3-7:8".to_owned(),
+                    call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
+                (
+                    "7:3-7:6".to_owned(),
+                    attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
+                )
+            ],
+        )]
+    },
 }
 
 call_graph_testcase! {
@@ -301,14 +335,16 @@ class E(D):
 def foo(c: C):
   c.m()
 "#,
-    vec![(
-        TEST_DEFINITION_NAME,
-        vec![
-            ("12:3-12:8", call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
-            (
-                "12:3-12:6",
-                attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
-            )
-        ],
-    )],
+    &|context: &ModuleContext| {
+        let call_target = vec![
+            create_call_target("test.m").with_implicit_receiver(true).with_receiver_class("test.C".to_owned(), context)
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("12:3-12:8".to_owned(), call_callees_from_expected(call_target.clone())),
+                ("12:3-12:6".to_owned(), attribute_access_callees_from_expected(call_target.clone()))
+            ],
+        )]
+    },
 }

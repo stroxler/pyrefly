@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
-use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_types::types::Type;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
@@ -20,6 +20,7 @@ use ruff_python_ast::visitor::Visitor;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
+use crate::report::pysa::ClassRef;
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionDefinition;
 use crate::report::pysa::FunctionId;
@@ -34,6 +35,7 @@ use crate::state::lsp::FindPreference;
 pub struct CallTarget<Target> {
     pub(crate) target: Target,
     pub(crate) implicit_receiver: bool,
+    pub(crate) receiver_class: Option<ClassRef>,
 }
 
 impl<Target> CallTarget<Target> {
@@ -45,6 +47,7 @@ impl<Target> CallTarget<Target> {
         CallTarget {
             target: map(&self.target),
             implicit_receiver: self.implicit_receiver,
+            receiver_class: self.receiver_class.clone(),
         }
     }
 
@@ -203,7 +206,7 @@ struct CallGraphVisitor<'a> {
     // building a call graph for. The stack is updated each time we enter and exit
     // a function definition or a class definition.
     definition_nesting: Vec<DefinitionRef>,
-    call_graphs: &'a mut CallGraphs<DefinitionRef, DisplayRange>,
+    call_graphs: &'a mut CallGraphs<DefinitionRef, PysaLocation>,
     in_exported_definition: bool,
 }
 
@@ -219,7 +222,7 @@ impl<'a> CallGraphVisitor<'a> {
                 .entry(self.current_definition())
                 .or_default()
                 .insert(
-                    self.module_context.module_info.display_range(location),
+                    PysaLocation(self.module_context.module_info.display_range(location)),
                     callees,
                 )
                 .is_none(),
@@ -281,6 +284,7 @@ impl<'a> CallGraphVisitor<'a> {
                     CallTarget {
                         target: definition_ref,
                         implicit_receiver,
+                        receiver_class: None,
                     }
                 })
             })
@@ -311,9 +315,21 @@ impl<'a> CallGraphVisitor<'a> {
                         &definition_ref,
                         false, // explicit_receiver
                     );
+                    let receiver_class = self
+                        .module_context
+                        .answers
+                        .get_type_trace(attribute.value.range())
+                        .and_then(|type_| match type_ {
+                            Type::ClassType(class_type) => Some(ClassRef::from_class(
+                                class_type.class_object(),
+                                self.module_context.module_ids,
+                            )),
+                            _ => None,
+                        });
                     CallTarget {
                         target: definition_ref,
                         implicit_receiver,
+                        receiver_class,
                     }
                 })
             })
@@ -414,7 +430,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
     function_definitions: &WholeProgramFunctionDefinitions,
-) -> CallGraphs<DefinitionRef, DisplayRange> {
+) -> CallGraphs<DefinitionRef, PysaLocation> {
     let mut call_graphs = CallGraphs::new();
 
     let module_name = context.module_info.name();
