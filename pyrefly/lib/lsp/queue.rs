@@ -191,7 +191,12 @@ impl HeavyTaskQueue {
         loop {
             let selected = receiver_selector.select();
             match selected.index() {
-                i if i == stop_receiver_index => return,
+                i if i == stop_receiver_index => {
+                    selected
+                        .recv(&self.0.stop_receiver)
+                        .expect("Failed to receive stop signal");
+                    return;
+                }
                 i if i == task_receiver_index => {
                     let task = selected
                         .recv(&self.0.task_receiver)
