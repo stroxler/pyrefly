@@ -44,6 +44,7 @@ use ruff_python_ast::Arguments;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -269,33 +270,49 @@ impl<'a> CalleesWithLocation<'a> {
         })
     }
     fn process_expr(&self, x: &Expr, res: &mut Vec<(PythonASTRange, Callee)>) {
-        let (callee_ty, callee_range, call_target, call_arguments) =
-            if let Expr::Attribute(attr) = x {
-                (
-                    self.answers.try_get_getter_for_range(attr.range()),
-                    attr.range(),
-                    None,
-                    None,
-                )
-            } else if let Expr::Call(call) = x {
-                (
-                    self.answers.get_type_trace(call.func.range()),
-                    call.func.range(),
-                    Some(&*call.func),
-                    Some(&call.arguments),
-                )
-            } else {
-                (None, x.range(), None, None)
-            };
-        if let Some(func_ty) = callee_ty {
-            self.callee_from_type(&func_ty, call_target, callee_range, call_arguments)
-                .into_iter()
-                .for_each(|callee| {
-                    res.push((
-                        python_ast_range_for_expr(&self.module_info, callee_range, x, None),
-                        callee,
-                    ));
-                });
+        let (callees, callee_range) = match x {
+            Expr::Attribute(attr) => {
+                let callees =
+                    if let Some(func_ty) = self.answers.try_get_getter_for_range(attr.range()) {
+                        self.callee_from_type(&func_ty, None, attr.range(), None)
+                    } else {
+                        vec![]
+                    };
+                (callees, attr.range())
+            }
+            Expr::Call(ExprCall {
+                func: box Expr::Name(name),
+                ..
+            }) if name.id() == "prod_assert" => {
+                // pyrefly has special treatment for prod_assert but for our purposes we still want to see this call
+                let callees = vec![Callee {
+                    kind: String::from(CALLEE_KIND_FUNCTION),
+                    target: String::from("util.prod_assert"),
+                    class_name: None,
+                }];
+                (callees, name.range())
+            }
+            Expr::Call(call) => {
+                let callees = if let Some(func_ty) = self.answers.get_type_trace(call.func.range())
+                {
+                    self.callee_from_type(
+                        &func_ty,
+                        Some(&*call.func),
+                        call.func.range(),
+                        Some(&call.arguments),
+                    )
+                } else {
+                    vec![]
+                };
+                (callees, call.func.range())
+            }
+            _ => (vec![], x.range()),
+        };
+        for callee in callees {
+            res.push((
+                python_ast_range_for_expr(&self.module_info, callee_range, x, None),
+                callee,
+            ));
         }
 
         x.recurse(&mut |x| self.process_expr(x, res));
