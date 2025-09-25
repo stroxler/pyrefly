@@ -1104,15 +1104,14 @@ impl<'a> BindingsBuilder<'a> {
             LegacyTParamId::Name(name) => name,
             LegacyTParamId::Attr(value, _) => value,
         };
-        let found = self
-            .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
-            .found();
-        match found.and_then(|original_idx| {
-            self.lookup_legacy_tparam_from_idx(id, original_idx, has_scoped_type_params)
-        }) {
-            Some(possible_tparam) => Either::Left(possible_tparam),
-            None => Either::Right(found),
-        }
+        self.lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
+            .found()
+            .map_or(Either::Right(None), |original_idx| {
+                match self.lookup_legacy_tparam_from_idx(id, original_idx, has_scoped_type_params) {
+                    Some(possible_tparam) => Either::Left(possible_tparam),
+                    None => Either::Right(Some(original_idx)),
+                }
+            })
     }
 
     /// Perform the inner loop of looking up a possible legacy type parameter, given a starting
