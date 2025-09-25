@@ -55,7 +55,6 @@ use ruff_source_file::SourceLocation;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
-use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
