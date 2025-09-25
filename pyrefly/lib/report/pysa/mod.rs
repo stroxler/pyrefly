@@ -156,7 +156,7 @@ impl Serialize for FunctionId {
 #[derive(Debug, Clone, Serialize)]
 struct PysaProjectModule {
     module_id: ModuleId,
-    module_name: String,            // e.g, `foo.bar`
+    module_name: ModuleName,        // e.g, `foo.bar`
     source_path: ModulePathDetails, // Path to the source code
     info_path: Option<PathBuf>,     // Path to the PysaModuleFile
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -269,7 +269,7 @@ pub struct FunctionSignature {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClassRef {
     pub module_id: ModuleId,
-    pub module_name: String, // For debugging purposes only. Reader should use the module id.
+    pub module_name: ModuleName, // For debugging purposes only. Reader should use the module id.
     pub class_id: ClassId,
     pub class_name: String, // For debugging purposes only. Reader should use the class id.
 }
@@ -280,7 +280,7 @@ impl ClassRef {
             module_id: module_ids
                 .get(ModuleKey::from_module(class.module()))
                 .unwrap(),
-            module_name: class.module_name().to_string(),
+            module_name: class.module_name(),
             class_id: ClassId::from_class(class),
             class_name: class.qname().id().to_string(),
         }
@@ -398,7 +398,7 @@ impl WholeProgramFunctionDefinitions {
     pub fn get_definition_ref(
         &self,
         module_id: ModuleId,
-        module_name: String,
+        module_name: ModuleName,
         function_id: &FunctionId,
     ) -> Option<DefinitionRef> {
         self.get_and_map(module_id, function_id, |function_definition| {
@@ -415,7 +415,7 @@ impl WholeProgramFunctionDefinitions {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct DefinitionRef {
     module_id: ModuleId,
-    pub(crate) module_name: String, // For debugging purposes only. Reader should use the module id.
+    pub(crate) module_name: ModuleName, // For debugging purposes only. Reader should use the module id.
     function_id: FunctionId,
     pub(crate) identifier: String, // For debugging purposes only
 }
@@ -429,7 +429,7 @@ impl DefinitionRef {
                 .module_ids
                 .get(ModuleKey::from_module(&context.module_info))
                 .unwrap(),
-            module_name: context.module_info.name().to_string(),
+            module_name: context.module_info.name(),
             function_id: FunctionId::Function {
                 location: PysaLocation(display_range),
             },
@@ -451,11 +451,7 @@ impl DefinitionRef {
             .module_ids
             .get(ModuleKey::from_module(&item.module))
             .unwrap();
-        function_definitions.get_definition_ref(
-            module_id,
-            item.module.name().to_string(),
-            &function_id,
-        )
+        function_definitions.get_definition_ref(module_id, item.module.name(), &function_id)
     }
 }
 
@@ -520,7 +516,7 @@ impl ClassDefinition {
 pub struct PysaModuleFile {
     format_version: u32,
     module_id: ModuleId,
-    module_name: String,
+    module_name: ModuleName,
     source_path: ModulePathDetails,
     type_of_expression: HashMap<PysaLocation, PysaType>,
     function_definitions: ModuleFunctionDefinitions,
@@ -1563,7 +1559,7 @@ pub fn get_module_file(
     PysaModuleFile {
         format_version: 1,
         module_id: context.module_id,
-        module_name: context.module_info.name().to_string(),
+        module_name: context.module_info.name(),
         source_path: context.module_info.path().details().clone(),
         type_of_expression,
         function_definitions,
@@ -1658,7 +1654,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                     module_id,
                     PysaProjectModule {
                         module_id,
-                        module_name: handle.module().to_string(),
+                        module_name: handle.module(),
                         source_path: handle.path().details().clone(),
                         info_path: info_path.clone(),
                         is_test: false,

@@ -8,6 +8,7 @@
 use std::num::NonZeroU32;
 
 use pyrefly_build::handle::Handle;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::class::Class;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
@@ -63,7 +64,7 @@ pub fn get_class_ref(module_name: &str, class_name: &str, context: &ModuleContex
         .expect("indexed module");
 
     ClassRef {
-        module_name: module_name.to_owned(),
+        module_name: ModuleName::from_str(module_name),
         class_name: class_name.to_owned(),
         class_id: ClassId::from_class(&class),
         module_id,

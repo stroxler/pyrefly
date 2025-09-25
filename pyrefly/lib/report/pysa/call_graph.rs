@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_util::lined_buffer::DisplayRange;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -196,7 +197,7 @@ impl<Target, Location> CallGraphs<Target, Location> {
 struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
-    module_name: String,
+    module_name: ModuleName,
     function_definitions: &'a WholeProgramFunctionDefinitions,
     // A stack where the top element is always the current callable that we are
     // building a call graph for. The stack is updated each time we enter and exit
@@ -338,7 +339,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                 ) {
                     self.definition_nesting.push(DefinitionRef {
                         module_id: self.module_id,
-                        module_name: self.module_name.clone(),
+                        module_name: self.module_name,
                         function_id,
                         identifier: function_name,
                     });
@@ -416,17 +417,17 @@ pub fn build_call_graphs_for_module(
 ) -> CallGraphs<DefinitionRef, DisplayRange> {
     let mut call_graphs = CallGraphs::new();
 
-    let module_name = context.module_info.name().to_string();
+    let module_name = context.module_info.name();
     let module_toplevel = DefinitionRef {
         module_id: context.module_id,
-        module_name: module_name.clone(),
+        module_name,
         function_id: FunctionId::ModuleTopLevel,
         identifier: "$module_top_level".to_owned(),
     };
     let mut visitor = CallGraphVisitor {
         module_context: context,
         module_id: context.module_id,
-        module_name: module_name.clone(),
+        module_name,
         definition_nesting: vec![module_toplevel],
         call_graphs: &mut call_graphs,
         function_definitions,

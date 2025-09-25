@@ -35,7 +35,7 @@ struct DefinitionRefForTest {
 impl DefinitionRefForTest {
     fn from_definition_ref(definition_ref: &DefinitionRef) -> Self {
         Self {
-            module_name: definition_ref.module_name.clone(),
+            module_name: definition_ref.module_name.to_string(),
             identifier: definition_ref.identifier.clone(),
         }
     }
