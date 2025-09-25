@@ -47,8 +47,6 @@ fn test_did_change_configuration() {
     interaction.shutdown();
 }
 
-// TODO: fix and re-enable. The test is currently flaky.
-#[ignore]
 #[test]
 fn test_pythonpath_change() {
     let test_files_root = get_test_files_root();
@@ -113,11 +111,11 @@ fi
     );
 
     interaction.server.did_change_configuration();
-    interaction.client.expect_message(Message::Request(Request {
+    interaction.client.expect_request(Request {
         id: RequestId::from(2),
         method: "workspace/configuration".to_owned(),
         params: serde_json::json!({"items":[{"section":"python"}]}),
-    }));
+    });
     interaction.server.send_configuration_response(
         2,
         serde_json::json!([
@@ -126,13 +124,6 @@ fi
             }
         ]),
     );
-    interaction.client.expect_publish_diagnostics_error_count(
-        Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))
-            .unwrap()
-            .to_string(),
-        1,
-    );
-
     // After the new config takes effect, publish diagnostics should have 0 errors
     interaction.client.expect_publish_diagnostics_error_count(
         Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))

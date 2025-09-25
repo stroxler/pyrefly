@@ -567,18 +567,14 @@ impl Server {
                 self.workspace_folders_changed(params);
             }
             LspEvent::DidChangeConfiguration(params) => {
-                self.did_change_configuration(ide_transaction_manager, params);
+                self.did_change_configuration(params);
             }
             LspEvent::LspResponse(x) => {
                 if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
                     if let Some((request, response)) =
                         as_request_response_pair::<WorkspaceConfiguration>(&request, &x)
                     {
-                        self.workspace_configuration_response(
-                            ide_transaction_manager,
-                            &request,
-                            &response,
-                        );
+                        self.workspace_configuration_response(&request, &response);
                     }
                 } else {
                     eprintln!("Response for unknown request: {x:?}");
@@ -1384,11 +1380,7 @@ impl Server {
         self.request_settings_for_all_workspaces();
     }
 
-    fn did_change_configuration<'a>(
-        &'a self,
-        ide_transaction_manager: &mut TransactionManager<'a>,
-        params: DidChangeConfigurationParams,
-    ) {
+    fn did_change_configuration<'a>(&'a self, params: DidChangeConfigurationParams) {
         if let Some(workspace) = &self.initialize_params.capabilities.workspace
             && workspace.configuration == Some(true)
         {
@@ -1403,16 +1395,12 @@ impl Server {
         }
 
         if modified {
-            // Once the config finishes changing, we'll recheck
-            self.invalidate_config();
-            // If disable_type_errors has changed, we want that to take effect immediately.
-            self.validate_in_memory(ide_transaction_manager);
+            self.invalidate_config_and_validate_in_memory();
         }
     }
 
     fn workspace_configuration_response<'a>(
         &'a self,
-        ide_transaction_manager: &mut TransactionManager<'a>,
         request: &ConfigurationParams,
         response: &[Value],
     ) {
@@ -1427,9 +1415,7 @@ impl Server {
             }
         }
         if modified {
-            self.invalidate_config();
-            // If disable_type_errors has changed, we want that to take effect immediately.
-            self.validate_in_memory(ide_transaction_manager);
+            self.invalidate_config_and_validate_in_memory();
         }
     }
 
@@ -2042,9 +2028,32 @@ impl Server {
         }
     }
 
-    /// Asynchronously invalidate configuration
-    fn invalidate_config(&self) {
-        self.invalidate(|t| t.invalidate_config());
+    /// Asynchronously invalidate configuration and then validate in-memory files
+    /// This ensures validate_in_memory() only runs after config invalidation completes
+    fn invalidate_config_and_validate_in_memory(&self) {
+        let state = self.state.dupe();
+        let lsp_queue = self.lsp_queue.dupe();
+        let cancellation_handles = self.cancellation_handles.dupe();
+        let open_files = self.open_files.dupe();
+        self.recheck_queue.queue_task(Box::new(move || {
+            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+            transaction.as_mut().invalidate_config();
+
+            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+
+            // Commit will be blocked until there are no ongoing reads.
+            // If we have some long running read jobs that can be cancelled, we should cancel them
+            // to unblock committing transactions.
+            for (_, cancellation_handle) in cancellation_handles.lock().drain() {
+                cancellation_handle.cancel();
+            }
+            // we have to run, not just commit to process updates
+            state.run_with_committing_transaction(transaction, &[], Require::Everything);
+            // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
+            // the main event loop of the server. As a result, the server can do a revalidation of
+            // all the in-memory files based on the fresh main State as soon as possible.
+            let _ = lsp_queue.send(LspEvent::RecheckFinished);
+        }));
     }
 }
 

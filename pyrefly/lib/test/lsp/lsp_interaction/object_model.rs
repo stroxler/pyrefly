@@ -373,6 +373,22 @@ impl TestClient {
         );
     }
 
+    pub fn expect_request(&self, expected_request: Request) {
+        let expected_str =
+            serde_json::to_string(&Message::Request(expected_request.clone())).unwrap();
+        self.expect_message_helper(
+            |msg| match msg {
+                Message::Notification(_) | Message::Response(_) => ValidationResult::Skip,
+                Message::Request(_) => {
+                    let actual_str = serde_json::to_string(msg).unwrap();
+                    assert_eq!(&expected_str, &actual_str, "Request mismatch");
+                    ValidationResult::Pass
+                }
+            },
+            &format!("Expected Request: {expected_request:?}"),
+        );
+    }
+
     pub fn expect_response(&self, expected_response: Response) {
         let expected_str =
             serde_json::to_string(&Message::Response(expected_response.clone())).unwrap();
