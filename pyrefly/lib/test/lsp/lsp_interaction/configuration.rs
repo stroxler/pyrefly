@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#[cfg(unix)]
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -93,9 +94,7 @@ fi
     interaction.server.did_open("custom_interpreter/src/foo.py");
     // Prior to the config taking effect, there should be 1 diagnostic showing an import error
     interaction.client.expect_publish_diagnostics_error_count(
-        Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))
-            .unwrap()
-            .to_string(),
+        test_files_root.path().join("custom_interpreter/src/foo.py"),
         1,
     );
     interaction
@@ -126,9 +125,7 @@ fi
     );
     // After the new config takes effect, publish diagnostics should have 0 errors
     interaction.client.expect_publish_diagnostics_error_count(
-        Url::from_file_path(test_files_root.path().join("custom_interpreter/src/foo.py"))
-            .unwrap()
-            .to_string(),
+        test_files_root.path().join("custom_interpreter/src/foo.py"),
         0,
     );
     // The definition can now be found in site-packages

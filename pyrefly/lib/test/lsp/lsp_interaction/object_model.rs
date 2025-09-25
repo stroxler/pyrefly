@@ -406,8 +406,7 @@ impl TestClient {
     }
 
     /// Wait until we get a publishDiagnostics notification with the correct number of errors
-    pub fn expect_publish_diagnostics_error_count(&self, path: String, count: usize) {
-        let path_clone = path.clone();
+    pub fn expect_publish_diagnostics_error_count(&self, path: PathBuf, count: usize) {
         self.expect_message_helper(
             |msg| {
                 match msg {
@@ -415,26 +414,34 @@ impl TestClient {
                         // Check if this notification is for the expected file
                         if let Some(uri) = params.get("uri")
                             && let Some(uri_str) = uri.as_str()
-                                && uri_str == path_clone {
-                                    // Count the diagnostics
-                                    if let Some(diagnostics) = params.get("diagnostics")
-                                        && let Some(diagnostics_array) = diagnostics.as_array() {
-                                            let actual_count = diagnostics_array.len();
-                                            if actual_count == count {
-                                                return ValidationResult::Pass;
-                                            } else {
-                                                // If the counts do not match, we continue waiting
-                                                return ValidationResult::Skip;
-                                            }
+                            && let (Ok(expected_url), Ok(actual_url)) = (Url::parse(Url::from_file_path(&path).unwrap().as_ref()), Url::parse(uri_str))
+                            && let (Ok(expected_path), Ok(actual_path)) = (expected_url.to_file_path(), actual_url.to_file_path()) {
+                                // Canonicalize both paths for comparison to handle symlinks and normalize case
+                                // This is very relevant for publish diagnostics, where the LS might send a notification for 
+                                // a file that does not exactly match the file_open message. 
+                                let expected_canonical = expected_path.canonicalize().unwrap_or(expected_path);
+                                let actual_canonical = actual_path.canonicalize().unwrap_or(actual_path);
+
+                                if expected_canonical == actual_canonical
+                                    && let Some(diagnostics) = params.get("diagnostics")
+                                    && let Some(diagnostics_array) = diagnostics.as_array() {
+                                        let actual_count = diagnostics_array.len();
+                                        if actual_count == count {
+                                            return ValidationResult::Pass;
+                                        } else {
+                                            // If the counts do not match, we continue waiting
+                                            return ValidationResult::Skip;
                                         }
-                                    panic!("publishDiagnostics notification malformed: missing or invalid 'diagnostics' field");
-                                }
+                                    } else if expected_canonical == actual_canonical {
+                                        panic!("publishDiagnostics notification malformed: missing or invalid 'diagnostics' field");
+                                    }
+                            }
                         ValidationResult::Skip
                     }
                     _ => ValidationResult::Skip
                 }
             },
-            &format!("publishDiagnostics notification with {count} errors for file: {path}"),
+            &format!("publishDiagnostics notification with {count} errors for file: {}", path.display()),
         );
     }
 
