@@ -214,7 +214,8 @@ impl Workspaces {
         let workspace = workspaces
             .iter()
             .filter(|(key, _)| uri.starts_with(key))
-            .max_by(|(key1, _), (key2, _)| key2.ancestors().count().cmp(&key1.ancestors().count()))
+            // select the LONGEST match (most specific workspace folder)
+            .max_by(|(key1, _), (key2, _)| key1.ancestors().count().cmp(&key2.ancestors().count()))
             .map(|(_, workspace)| workspace);
         f(workspace.unwrap_or(&default_workspace))
     }
@@ -418,6 +419,87 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn test_get_with_selects_longest_match() {
+        let workspace_root = PathBuf::from("/projects");
+        let workspace_nested = PathBuf::from("/projects/my_project");
+
+        let folders = vec![workspace_root.clone(), workspace_nested.clone()];
+
+        let workspaces = Workspaces::new(Workspace::new(), &folders);
+        {
+            let mut workspaces_map = workspaces.workspaces.write();
+            // Set root workspace to have a search_path
+            workspaces_map.get_mut(&workspace_root).unwrap().search_path =
+                Some(vec![PathBuf::from("/projects/search_root")]);
+            // Set nested workspace to have a different search_path
+            workspaces_map
+                .get_mut(&workspace_nested)
+                .unwrap()
+                .search_path = Some(vec![PathBuf::from("/projects/my_project/search_nested")]);
+        }
+
+        let result = workspaces
+            .get_with(PathBuf::from("/projects/my_project/nested_file.py"), |w| {
+                w.search_path.clone()
+            });
+        assert_eq!(
+            result,
+            Some(vec![PathBuf::from("/projects/my_project/search_nested")]),
+            "Nested file should match nested workspace (longest match), not root"
+        );
+
+        let result = workspaces.get_with(PathBuf::from("/projects/file.py"), |w| {
+            w.search_path.clone()
+        });
+        assert_eq!(
+            result,
+            Some(vec![PathBuf::from("/projects/search_root")]),
+            "Root file should match root workspace"
+        );
+
+        let result = workspaces.get_with(PathBuf::from("/other/path/file.py"), |w| {
+            w.search_path.clone()
+        });
+        assert_eq!(
+            result, None,
+            "File outside workspaces should use default workspace"
+        );
+    }
+
+    #[test]
+    fn test_get_with_filters_prefixes() {
+        let workspace_a = PathBuf::from("/workspace");
+        let workspace_b = PathBuf::from("/workspace_other");
+
+        let folders = vec![workspace_a.clone(), workspace_b.clone()];
+        let workspaces = Workspaces::new(Workspace::new(), &folders);
+
+        {
+            let mut workspaces_map = workspaces.workspaces.write();
+            workspaces_map.get_mut(&workspace_a).unwrap().search_path =
+                Some(vec![PathBuf::from("/workspace/search_a")]);
+            workspaces_map.get_mut(&workspace_b).unwrap().search_path =
+                Some(vec![PathBuf::from("/workspace_other/search_b")]);
+        }
+
+        let file_a = PathBuf::from("/workspace/file.py");
+        let result = workspaces.get_with(file_a, |w| w.search_path.clone());
+        assert_eq!(
+            result,
+            Some(vec![PathBuf::from("/workspace/search_a")]),
+            "File in /workspace should match /workspace workspace"
+        );
+
+        let file_b = PathBuf::from("/workspace_other/file.py");
+        let result = workspaces.get_with(file_b, |w| w.search_path.clone());
+        assert_eq!(
+            result,
+            Some(vec![PathBuf::from("/workspace_other/search_b")]),
+            "File in /workspace_other should match /workspace_other workspace"
+        );
+    }
 
     #[test]
     fn test_broken_analysis_config_still_creates_lsp_config() {
