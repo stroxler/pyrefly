@@ -357,6 +357,61 @@ impl FunctionDefinition {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ModuleFunctionDefinitions(HashMap<FunctionId, FunctionDefinition>);
+
+impl ModuleFunctionDefinitions {
+    pub fn new() -> ModuleFunctionDefinitions {
+        ModuleFunctionDefinitions(HashMap::new())
+    }
+
+    #[cfg(test)]
+    pub fn iter(&self) -> impl Iterator<Item = (&FunctionId, &FunctionDefinition)> {
+        self.0.iter()
+    }
+}
+
+pub struct WholeProgramFunctionDefinitions(DashMap<ModuleId, ModuleFunctionDefinitions>);
+
+impl WholeProgramFunctionDefinitions {
+    pub fn new() -> WholeProgramFunctionDefinitions {
+        WholeProgramFunctionDefinitions(DashMap::new())
+    }
+
+    pub fn get_and_map<T, F>(
+        &self,
+        module_id: ModuleId,
+        function_id: &FunctionId,
+        f: F,
+    ) -> Option<T>
+    where
+        F: FnOnce(&FunctionDefinition) -> T,
+    {
+        // We cannot return a &FunctionDefinition since the reference is only valid
+        // while we are holding a lock on the hash map.
+        // Instead, we allow to call a function f that will and copy the information we need.
+        self.0
+            .get(&module_id)
+            .and_then(|functions| functions.0.get(function_id).map(f))
+    }
+
+    pub fn get_definition_ref(
+        &self,
+        module_id: ModuleId,
+        module_name: String,
+        function_id: &FunctionId,
+    ) -> Option<DefinitionRef> {
+        self.get_and_map(module_id, function_id, |function_definition| {
+            DefinitionRef {
+                module_id,
+                module_name,
+                function_id: function_id.clone(),
+                identifier: function_definition.name.clone(),
+            }
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct DefinitionRef {
     module_id: ModuleId,
@@ -384,7 +439,7 @@ impl DefinitionRef {
 
     fn from_find_definition_item_with_docstring(
         item: &FindDefinitionItemWithDocstring,
-        function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
+        function_definitions: &WholeProgramFunctionDefinitions,
         context: &ModuleContext,
     ) -> Option<Self> {
         // TODO: For overloads, return the last definition instead of the one from go-to-definitions.
@@ -396,15 +451,11 @@ impl DefinitionRef {
             .module_ids
             .get(ModuleKey::from_module(&item.module))
             .unwrap();
-        function_definitions
-            .get(&module_id)
-            .and_then(|function_definitions| function_definitions.get(&function_id).cloned())
-            .map(|function_definition| DefinitionRef {
-                module_id,
-                module_name: item.module.name().to_string(),
-                function_id,
-                identifier: function_definition.name,
-            })
+        function_definitions.get_definition_ref(
+            module_id,
+            item.module.name().to_string(),
+            &function_id,
+        )
     }
 }
 
@@ -472,7 +523,7 @@ pub struct PysaModuleFile {
     module_name: String,
     source_path: ModulePathDetails,
     type_of_expression: HashMap<PysaLocation, PysaType>,
-    function_definitions: HashMap<FunctionId, FunctionDefinition>,
+    function_definitions: ModuleFunctionDefinitions,
     class_definitions: HashMap<PysaLocation, ClassDefinition>,
     global_variables: HashMap<String, GlobalVariable>,
 }
@@ -1160,11 +1211,23 @@ fn should_export_function(function: &DecoratedFunction, context: &ModuleContext)
     !has_successor || !function.is_overload()
 }
 
+pub struct ModuleReversedOverrideGraph(HashMap<DefinitionRef, DefinitionRef>);
+
+impl ModuleReversedOverrideGraph {}
+
+pub struct WholeProgramReversedOverrideGraph(DashMap<DefinitionRef, DefinitionRef>);
+
+impl WholeProgramReversedOverrideGraph {
+    pub fn new() -> WholeProgramReversedOverrideGraph {
+        WholeProgramReversedOverrideGraph(DashMap::new())
+    }
+}
+
 pub fn export_all_functions(
-    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
+    reversed_override_graph: &WholeProgramReversedOverrideGraph,
     context: &ModuleContext,
-) -> HashMap<FunctionId, FunctionDefinition> {
-    let mut function_definitions = HashMap::new();
+) -> ModuleFunctionDefinitions {
+    let mut function_definitions = ModuleFunctionDefinitions::new();
 
     for function in get_all_functions(&context.bindings, &context.answers) {
         if !should_export_function(&function, context) {
@@ -1207,6 +1270,7 @@ pub fn export_all_functions(
         let parent = get_scope_parent(&context.ast, &context.module_info, function.id_range());
         assert!(
             function_definitions
+                .0
                 .insert(
                     current_function.function_id.clone(),
                     FunctionDefinition {
@@ -1227,6 +1291,7 @@ pub fn export_all_functions(
                             .defining_cls()
                             .map(|class| ClassRef::from_class(class, context.module_ids)),
                         overridden_base_method: reversed_override_graph
+                            .0
                             .get(&current_function)
                             .map(|r| r.clone()),
                     }
@@ -1471,7 +1536,7 @@ pub fn is_test_module(context: &ModuleContext) -> bool {
 
 pub fn get_module_file(
     context: &ModuleContext,
-    function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
+    function_definitions: &WholeProgramFunctionDefinitions,
 ) -> PysaModuleFile {
     let mut type_of_expression = HashMap::new();
     let mut global_variables = HashMap::new();
@@ -1489,6 +1554,7 @@ pub fn get_module_file(
     }
 
     let function_definitions = function_definitions
+        .0
         .get(&context.module_id)
         .unwrap()
         .clone();
@@ -1510,19 +1576,23 @@ pub fn collect_function_definitions(
     handles: &Vec<Handle>,
     transaction: &Transaction,
     module_ids: &ModuleIds,
-    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
-) -> DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>> {
-    let all_function_definitions = DashMap::new();
+    reversed_override_graph: &WholeProgramReversedOverrideGraph,
+) -> WholeProgramFunctionDefinitions {
+    let all_function_definitions = WholeProgramFunctionDefinitions::new();
+
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
             let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
-            let function_definitions = ModuleContext::create(handle, transaction, module_ids)
-                .map_or(HashMap::new(), |context| {
-                    export_all_functions(reversed_override_graph, &context)
-                });
-            all_function_definitions.insert(module_id, function_definitions);
+            let function_definitions = export_all_functions(
+                reversed_override_graph,
+                &ModuleContext::create(handle, transaction, module_ids).unwrap(),
+            );
+            all_function_definitions
+                .0
+                .insert(module_id, function_definitions);
         });
     });
+
     all_function_definitions
 }
 
@@ -1530,17 +1600,19 @@ pub fn build_reversed_override_graph(
     handles: &Vec<Handle>,
     transaction: &Transaction,
     module_ids: &ModuleIds,
-) -> DashMap<DefinitionRef, DefinitionRef> {
-    let reversed_override_graph = DashMap::new();
+) -> WholeProgramReversedOverrideGraph {
+    let reversed_override_graph = WholeProgramReversedOverrideGraph::new();
+
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
             if let Some(context) = ModuleContext::create(handle, transaction, module_ids) {
-                for (key, value) in create_reversed_override_graph_for_module(&context) {
-                    reversed_override_graph.insert(key, value);
+                for (key, value) in create_reversed_override_graph_for_module(&context).0 {
+                    reversed_override_graph.0.insert(key, value);
                 }
             }
         });
     });
+
     reversed_override_graph
 }
 

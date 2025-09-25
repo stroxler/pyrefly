@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 
-use dashmap::DashMap;
 use pyrefly_python::ast::Ast;
 use pyrefly_util::lined_buffer::DisplayRange;
 use ruff_python_ast::Expr;
@@ -26,6 +25,7 @@ use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleId;
 use crate::report::pysa::PysaLocation;
+use crate::report::pysa::WholeProgramFunctionDefinitions;
 use crate::state::lsp::FindPreference;
 
 #[allow(dead_code)]
@@ -197,7 +197,7 @@ struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: String,
-    function_definitions: &'a DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
+    function_definitions: &'a WholeProgramFunctionDefinitions,
     // A stack where the top element is always the current callable that we are
     // building a call graph for. The stack is updated each time we enter and exit
     // a function definition or a class definition.
@@ -233,18 +233,17 @@ impl<'a> CallGraphVisitor<'a> {
     ) -> bool {
         let (is_staticmethod, is_classmethod, is_method) = self
             .function_definitions
-            .get(&self.module_id)
-            .and_then(|function_definitions| {
-                function_definitions
-                    .get(&definition_ref.function_id)
-                    .map(|function_definition| {
-                        (
-                            function_definition.is_staticmethod,
-                            function_definition.is_classmethod,
-                            FunctionDefinition::is_method(function_definition),
-                        )
-                    })
-            })
+            .get_and_map(
+                self.module_id,
+                &definition_ref.function_id,
+                |function_definition| {
+                    (
+                        function_definition.is_staticmethod,
+                        function_definition.is_classmethod,
+                        FunctionDefinition::is_method(function_definition),
+                    )
+                },
+            )
             .unwrap_or((false, false, false));
 
         if is_staticmethod {
@@ -332,15 +331,11 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                             .display_range(function_def.identifier()),
                     ),
                 };
-                if let Some(function_name) = self
-                    .function_definitions
-                    .get(&self.module_id)
-                    .and_then(|function_definitions| {
-                        function_definitions
-                            .get(&function_id)
-                            .map(|function_definition| function_definition.name.clone())
-                    })
-                {
+                if let Some(function_name) = self.function_definitions.get_and_map(
+                    self.module_id,
+                    &function_id,
+                    |function_definition| function_definition.name.clone(),
+                ) {
                     self.definition_nesting.push(DefinitionRef {
                         module_id: self.module_id,
                         module_name: self.module_name.clone(),
@@ -417,7 +412,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 #[allow(dead_code)]
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
-    function_definitions: &DashMap<ModuleId, HashMap<FunctionId, FunctionDefinition>>,
+    function_definitions: &WholeProgramFunctionDefinitions,
 ) -> CallGraphs<DefinitionRef, DisplayRange> {
     let mut call_graphs = CallGraphs::new();
 

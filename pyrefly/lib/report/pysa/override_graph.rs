@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use dashmap::DashMap;
 use pyrefly_types::class::Class;
 use ruff_python_ast::name::Name;
 
@@ -21,7 +20,9 @@ use crate::report::pysa::ClassRef;
 use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::ModuleReversedOverrideGraph;
 use crate::report::pysa::PysaLocation;
+use crate::report::pysa::WholeProgramReversedOverrideGraph;
 use crate::report::pysa::get_all_functions;
 use crate::report::pysa::get_class_field_declaration;
 use crate::report::pysa::should_export_function;
@@ -46,9 +47,9 @@ impl OverrideGraph {
             .insert(overriding_method);
     }
 
-    pub fn from_reversed(reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>) -> Self {
+    pub fn from_reversed(reversed_override_graph: &WholeProgramReversedOverrideGraph) -> Self {
         let mut graph = OverrideGraph::new();
-        for entry in reversed_override_graph.iter() {
+        for entry in reversed_override_graph.0.iter() {
             graph.add_edge(entry.value().clone(), entry.key().clone());
         }
         graph
@@ -121,8 +122,8 @@ fn get_super_class_member(
 
 pub fn create_reversed_override_graph_for_module(
     context: &ModuleContext,
-) -> HashMap<DefinitionRef, DefinitionRef> {
-    let mut graph = HashMap::new();
+) -> ModuleReversedOverrideGraph {
+    let mut graph = ModuleReversedOverrideGraph(HashMap::new());
     for function in get_all_functions(&context.bindings, &context.answers) {
         if !should_export_function(&function, context) {
             continue;
@@ -136,6 +137,7 @@ pub fn create_reversed_override_graph_for_module(
                 let current_function = DefinitionRef::from_decorated_function(&function, context);
                 assert!(
                     graph
+                        .0
                         .insert(current_function, overridden_base_method)
                         .is_none(),
                     "Found function definitions with the same location"
@@ -144,5 +146,6 @@ pub fn create_reversed_override_graph_for_module(
             _ => (),
         }
     }
+
     graph
 }

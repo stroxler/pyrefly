@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use dashmap::DashMap;
 use pretty_assertions::assert_eq;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Type;
@@ -18,6 +17,7 @@ use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleIds;
 use crate::report::pysa::PysaType;
 use crate::report::pysa::ScopeParent;
+use crate::report::pysa::WholeProgramReversedOverrideGraph;
 use crate::report::pysa::export_all_functions;
 use crate::test::pysa::utils::create_location;
 use crate::test::pysa::utils::create_state;
@@ -71,12 +71,14 @@ fn test_exported_functions(
 
     let expected_function_definitions = create_expected_function_definitions(&context);
 
-    let reversed_override_graph = DashMap::new();
+    let reversed_override_graph = WholeProgramReversedOverrideGraph::new();
     let actual_function_definitions = export_all_functions(&reversed_override_graph, &context);
 
     // Sort definitions by function Id.
-    let mut actual_function_definitions =
-        actual_function_definitions.into_iter().collect::<Vec<_>>();
+    let mut actual_function_definitions = actual_function_definitions
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect::<Vec<_>>();
     actual_function_definitions.sort_by_key(|(function_id, _)| function_id.clone());
     let actual_function_definitions = actual_function_definitions
         .into_iter()

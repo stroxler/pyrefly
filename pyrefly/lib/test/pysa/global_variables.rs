@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 
-use dashmap::DashMap;
 use pretty_assertions::assert_eq;
 
 use crate::report::pysa::GlobalVariable;
@@ -15,6 +14,7 @@ use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleIds;
 use crate::report::pysa::PysaLocation;
 use crate::report::pysa::PysaType;
+use crate::report::pysa::WholeProgramReversedOverrideGraph;
 use crate::report::pysa::collect_function_definitions;
 use crate::report::pysa::get_module_file;
 use crate::test::pysa::utils::create_location;
@@ -41,7 +41,7 @@ fn test_exported_global_variables(
 
     let expected_globals = create_expected_globals(&context);
 
-    let reverse_override_graph = DashMap::new();
+    let reverse_override_graph = WholeProgramReversedOverrideGraph::new();
     let function_definitions =
         collect_function_definitions(&handles, &transaction, &module_ids, &reverse_override_graph);
     let module_file = get_module_file(&context, &function_definitions);
