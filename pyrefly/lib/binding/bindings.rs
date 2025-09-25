@@ -11,7 +11,6 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Either;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
@@ -1010,6 +1009,12 @@ struct PossibleTParam {
     tparam_idx: Idx<KeyLegacyTypeParam>,
 }
 
+enum TParamLookupResult {
+    MaybeTParam(PossibleTParam),
+    NotTParam(Idx<Key>),
+    NotFound,
+}
+
 /// Handle intercepting names inside either function parameter/return
 /// annotations or base class lists of classes, in order to check whether they
 /// point at type variable declarations and need to be converted to type
@@ -1017,7 +1022,7 @@ struct PossibleTParam {
 pub struct LegacyTParamCollector {
     /// All of the names used. Each one may or may not point at a type variable
     /// and therefore bind a legacy type parameter.
-    legacy_tparams: SmallMap<String, Either<PossibleTParam, Option<Idx<Key>>>>,
+    legacy_tparams: SmallMap<String, TParamLookupResult>,
     /// Are there scoped type parameters? Used to control downstream errors.
     has_scoped_tparams: bool,
 }
@@ -1038,10 +1043,11 @@ impl LegacyTParamCollector {
     pub fn lookup_keys(&self) -> Vec<Idx<KeyLegacyTypeParam>> {
         self.legacy_tparams
             .values()
-            .filter_map(|x| {
-                x.as_ref()
-                    .left()
-                    .map(|possible_tparam| possible_tparam.tparam_idx)
+            .filter_map(|x| match x {
+                TParamLookupResult::MaybeTParam(possible_tparam) => {
+                    Some(possible_tparam.tparam_idx)
+                }
+                _ => None,
             })
             .collect()
     }
@@ -1067,17 +1073,15 @@ impl<'a> BindingsBuilder<'a> {
             .entry(id.tvar_name())
             .or_insert_with(|| self.lookup_legacy_tparam(id, legacy_tparams.has_scoped_tparams));
         match result {
-            Either::Left(possible_tparam) => NameLookupResult::Found {
+            TParamLookupResult::MaybeTParam(possible_tparam) => NameLookupResult::Found {
                 value: Binding::Forward(possible_tparam.idx),
                 is_initialized: IsInitialized::Maybe,
             },
-            Either::Right(maybe_idx) => match maybe_idx {
-                Some(idx) => NameLookupResult::Found {
-                    value: Binding::Forward(*idx),
-                    is_initialized: IsInitialized::Yes,
-                },
-                None => NameLookupResult::NotFound,
+            TParamLookupResult::NotTParam(idx) => NameLookupResult::Found {
+                value: Binding::Forward(*idx),
+                is_initialized: IsInitialized::Yes,
             },
+            TParamLookupResult::NotFound => NameLookupResult::NotFound,
         }
     }
 
@@ -1099,17 +1103,17 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         id: LegacyTParamId,
         has_scoped_type_params: bool,
-    ) -> Either<PossibleTParam, Option<Idx<Key>>> {
+    ) -> TParamLookupResult {
         let name = match &id {
             LegacyTParamId::Name(name) => name,
             LegacyTParamId::Attr(value, _) => value,
         };
         self.lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found()
-            .map_or(Either::Right(None), |original_idx| {
+            .map_or(TParamLookupResult::NotFound, |original_idx| {
                 match self.lookup_legacy_tparam_from_idx(id, original_idx, has_scoped_type_params) {
-                    Some(possible_tparam) => Either::Left(possible_tparam),
-                    None => Either::Right(Some(original_idx)),
+                    Some(possible_tparam) => TParamLookupResult::MaybeTParam(possible_tparam),
+                    None => TParamLookupResult::NotTParam(original_idx),
                 }
             })
     }
@@ -1213,7 +1217,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
         for entry in legacy_tparams.legacy_tparams.values() {
             match entry {
-                Either::Left(possible_tparam) => {
+                TParamLookupResult::MaybeTParam(possible_tparam) => {
                     self.scopes
                         .add_possible_legacy_tparam(possible_tparam.id.as_identifier());
                 }
