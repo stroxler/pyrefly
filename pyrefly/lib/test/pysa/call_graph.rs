@@ -19,7 +19,7 @@ use crate::report::pysa::call_graph::CallTarget;
 use crate::report::pysa::call_graph::ExpressionCallees;
 use crate::report::pysa::call_graph::IdentifierCallees;
 use crate::report::pysa::call_graph::build_call_graphs_for_module;
-use crate::report::pysa::collect_function_definitions;
+use crate::report::pysa::collect_function_base_definitions;
 use crate::report::pysa::location_key;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_class_ref;
@@ -144,7 +144,7 @@ fn test_building_call_graph_for_module(
 
     let reversed_override_graph =
         build_reversed_override_graph(&handles, &transaction, &module_ids);
-    let all_function_definitions = collect_function_definitions(
+    let function_base_definitions = collect_function_base_definitions(
         &handles,
         &transaction,
         &module_ids,
@@ -155,7 +155,7 @@ fn test_building_call_graph_for_module(
     let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
     let actual_call_graph = call_graph_for_test_from_actual(&build_call_graphs_for_module(
         &context,
-        &all_function_definitions,
+        &function_base_definitions,
     ));
     let expected_call_graph = call_graph_for_test_from_expected(create_expected(&context));
     assert_eq!(

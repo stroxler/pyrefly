@@ -22,7 +22,7 @@ use ruff_text_size::TextRange;
 
 use crate::report::pysa::ClassRef;
 use crate::report::pysa::DefinitionRef;
-use crate::report::pysa::FunctionDefinition;
+use crate::report::pysa::FunctionBaseDefinition;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleId;
@@ -201,7 +201,7 @@ struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: ModuleName,
-    function_definitions: &'a WholeProgramFunctionDefinitions,
+    function_base_definitions: &'a WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     // A stack where the top element is always the current callable that we are
     // building a call graph for. The stack is updated each time we enter and exit
     // a function definition or a class definition.
@@ -236,7 +236,7 @@ impl<'a> CallGraphVisitor<'a> {
         explicit_receiver: bool,
     ) -> bool {
         let (is_staticmethod, is_classmethod, is_method) = self
-            .function_definitions
+            .function_base_definitions
             .get_and_map(
                 self.module_id,
                 &definition_ref.function_id,
@@ -244,7 +244,7 @@ impl<'a> CallGraphVisitor<'a> {
                     (
                         function_definition.is_staticmethod,
                         function_definition.is_classmethod,
-                        FunctionDefinition::is_method(function_definition),
+                        FunctionBaseDefinition::is_method(function_definition),
                     )
                 },
             )
@@ -273,7 +273,7 @@ impl<'a> CallGraphVisitor<'a> {
             .filter_map(|definition| {
                 DefinitionRef::from_find_definition_item_with_docstring(
                     definition,
-                    self.function_definitions,
+                    self.function_base_definitions,
                     self.module_context,
                 )
                 .map(|definition_ref| {
@@ -307,7 +307,7 @@ impl<'a> CallGraphVisitor<'a> {
             .filter_map(|definition| {
                 DefinitionRef::from_find_definition_item_with_docstring(
                     definition,
-                    self.function_definitions,
+                    self.function_base_definitions,
                     self.module_context,
                 )
                 .map(|definition_ref| {
@@ -348,7 +348,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                             .display_range(function_def.identifier()),
                     ),
                 };
-                if let Some(function_name) = self.function_definitions.get_and_map(
+                if let Some(function_name) = self.function_base_definitions.get_and_map(
                     self.module_id,
                     &function_id,
                     |function_definition| function_definition.name.clone(),
@@ -429,7 +429,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 #[allow(dead_code)]
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
-    function_definitions: &WholeProgramFunctionDefinitions,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
 ) -> CallGraphs<DefinitionRef, PysaLocation> {
     let mut call_graphs = CallGraphs::new();
 
@@ -446,7 +446,7 @@ pub fn build_call_graphs_for_module(
         module_name,
         definition_nesting: vec![module_toplevel],
         call_graphs: &mut call_graphs,
-        function_definitions,
+        function_base_definitions,
         in_exported_definition: true,
     };
 

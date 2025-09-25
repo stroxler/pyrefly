@@ -9,6 +9,7 @@ use pretty_assertions::assert_eq;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Type;
 
+use crate::report::pysa::FunctionBaseDefinition;
 use crate::report::pysa::FunctionDefinition;
 use crate::report::pysa::FunctionParameter;
 use crate::report::pysa::FunctionParameters;
@@ -18,6 +19,7 @@ use crate::report::pysa::ModuleIds;
 use crate::report::pysa::PysaType;
 use crate::report::pysa::ScopeParent;
 use crate::report::pysa::WholeProgramReversedOverrideGraph;
+use crate::report::pysa::add_undecorated_signatures;
 use crate::report::pysa::export_all_functions;
 use crate::test::pysa::utils::create_location;
 use crate::test::pysa::utils::create_state;
@@ -31,17 +33,19 @@ fn create_function_definition(
     undecorated_signatures: Vec<FunctionSignature>,
 ) -> FunctionDefinition {
     FunctionDefinition {
-        name: name.to_owned(),
-        parent,
+        base: FunctionBaseDefinition {
+            name: name.to_owned(),
+            parent,
+            is_overload: false,
+            is_staticmethod: false,
+            is_classmethod: false,
+            is_property_getter: false,
+            is_property_setter: false,
+            is_stub: false,
+            defining_class: None,
+            overridden_base_method: None,
+        },
         undecorated_signatures,
-        is_overload: false,
-        is_staticmethod: false,
-        is_classmethod: false,
-        is_property_getter: false,
-        is_property_setter: false,
-        is_stub: false,
-        defining_class: None,
-        overridden_base_method: None,
     }
 }
 
@@ -72,7 +76,10 @@ fn test_exported_functions(
     let expected_function_definitions = create_expected_function_definitions(&context);
 
     let reversed_override_graph = WholeProgramReversedOverrideGraph::new();
-    let actual_function_definitions = export_all_functions(&reversed_override_graph, &context);
+    let actual_function_definitions = add_undecorated_signatures(
+        &export_all_functions(&reversed_override_graph, &context),
+        &context,
+    );
 
     // Sort definitions by function Id.
     let mut actual_function_definitions = actual_function_definitions

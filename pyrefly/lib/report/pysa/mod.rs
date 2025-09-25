@@ -288,11 +288,11 @@ impl ClassRef {
     }
 }
 
+/// Only store memory-efficient information from `FunctionDefinition`
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct FunctionDefinition {
+pub struct FunctionBaseDefinition {
     pub name: String,
     pub parent: ScopeParent,
-    pub undecorated_signatures: Vec<FunctionSignature>,
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub is_overload: bool,
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -314,68 +314,79 @@ pub struct FunctionDefinition {
     pub overridden_base_method: Option<DefinitionRef>,
 }
 
-impl FunctionDefinition {
-    #[cfg(test)]
-    pub fn with_is_staticmethod(mut self, is_staticmethod: bool) -> Self {
-        self.is_staticmethod = is_staticmethod;
-        self
-    }
-
-    #[cfg(test)]
-    pub fn with_is_classmethod(mut self, is_classmethod: bool) -> Self {
-        self.is_classmethod = is_classmethod;
-        self
-    }
-
-    #[cfg(test)]
-    pub fn with_is_stub(mut self, is_stub: bool) -> Self {
-        self.is_stub = is_stub;
-        self
-    }
-
-    #[cfg(test)]
-    pub fn with_is_property_getter(mut self, is_property_getter: bool) -> Self {
-        self.is_property_getter = is_property_getter;
-        self
-    }
-
-    #[cfg(test)]
-    pub fn with_is_property_setter(mut self, is_property_setter: bool) -> Self {
-        self.is_property_setter = is_property_setter;
-        self
-    }
-
-    #[cfg(test)]
-    pub fn with_defining_class(mut self, defining_class: ClassRef) -> Self {
-        self.defining_class = Some(defining_class);
-        self
-    }
-}
-
-impl FunctionDefinition {
+impl FunctionBaseDefinition {
     pub fn is_method(&self) -> bool {
         self.defining_class.is_some()
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ModuleFunctionDefinitions(HashMap<FunctionId, FunctionDefinition>);
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct FunctionDefinition {
+    #[serde(flatten)]
+    pub base: FunctionBaseDefinition,
+    pub undecorated_signatures: Vec<FunctionSignature>,
+}
 
-impl ModuleFunctionDefinitions {
-    pub fn new() -> ModuleFunctionDefinitions {
+impl FunctionDefinition {
+    #[cfg(test)]
+    pub fn with_is_staticmethod(mut self, is_staticmethod: bool) -> Self {
+        self.base.is_staticmethod = is_staticmethod;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_classmethod(mut self, is_classmethod: bool) -> Self {
+        self.base.is_classmethod = is_classmethod;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_stub(mut self, is_stub: bool) -> Self {
+        self.base.is_stub = is_stub;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_property_getter(mut self, is_property_getter: bool) -> Self {
+        self.base.is_property_getter = is_property_getter;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_property_setter(mut self, is_property_setter: bool) -> Self {
+        self.base.is_property_setter = is_property_setter;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_defining_class(mut self, defining_class: ClassRef) -> Self {
+        self.base.defining_class = Some(defining_class);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ModuleFunctionDefinitions<GenericFunctionDefinition>(
+    HashMap<FunctionId, GenericFunctionDefinition>,
+);
+
+impl<GenericFunctionDefinition> ModuleFunctionDefinitions<GenericFunctionDefinition> {
+    pub fn new() -> Self {
         ModuleFunctionDefinitions(HashMap::new())
     }
 
     #[cfg(test)]
-    pub fn iter(&self) -> impl Iterator<Item = (&FunctionId, &FunctionDefinition)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&FunctionId, &GenericFunctionDefinition)> {
         self.0.iter()
     }
 }
 
-pub struct WholeProgramFunctionDefinitions(DashMap<ModuleId, ModuleFunctionDefinitions>);
+pub struct WholeProgramFunctionDefinitions<FunctionDefinition>(
+    DashMap<ModuleId, ModuleFunctionDefinitions<FunctionDefinition>>,
+);
 
-impl WholeProgramFunctionDefinitions {
-    pub fn new() -> WholeProgramFunctionDefinitions {
+impl<GenericFunctionDefinition> WholeProgramFunctionDefinitions<GenericFunctionDefinition> {
+    pub fn new() -> WholeProgramFunctionDefinitions<GenericFunctionDefinition> {
         WholeProgramFunctionDefinitions(DashMap::new())
     }
 
@@ -386,30 +397,14 @@ impl WholeProgramFunctionDefinitions {
         f: F,
     ) -> Option<T>
     where
-        F: FnOnce(&FunctionDefinition) -> T,
+        F: FnOnce(&GenericFunctionDefinition) -> T,
     {
-        // We cannot return a &FunctionDefinition since the reference is only valid
+        // We cannot return a &GenericFunctionDefinition since the reference is only valid
         // while we are holding a lock on the hash map.
         // Instead, we allow to call a function f that will and copy the information we need.
         self.0
             .get(&module_id)
             .and_then(|functions| functions.0.get(function_id).map(f))
-    }
-
-    pub fn get_definition_ref(
-        &self,
-        module_id: ModuleId,
-        module_name: ModuleName,
-        function_id: &FunctionId,
-    ) -> Option<DefinitionRef> {
-        self.get_and_map(module_id, function_id, |function_definition| {
-            DefinitionRef {
-                module_id,
-                module_name,
-                function_id: function_id.clone(),
-                identifier: function_definition.name.clone(),
-            }
-        })
     }
 }
 
@@ -440,7 +435,7 @@ impl DefinitionRef {
 
     fn from_find_definition_item_with_docstring(
         item: &FindDefinitionItemWithDocstring,
-        function_definitions: &WholeProgramFunctionDefinitions,
+        function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
         context: &ModuleContext,
     ) -> Option<Self> {
         // TODO: For overloads, return the last definition instead of the one from go-to-definitions.
@@ -452,7 +447,14 @@ impl DefinitionRef {
             .module_ids
             .get(ModuleKey::from_module(&item.module))
             .unwrap();
-        function_definitions.get_definition_ref(module_id, item.module.name(), &function_id)
+        function_base_definitions.get_and_map(module_id, &function_id, |function_base_definition| {
+            DefinitionRef {
+                module_id,
+                module_name: item.module.name(),
+                function_id: function_id.clone(),
+                identifier: function_base_definition.name.clone(),
+            }
+        })
     }
 }
 
@@ -520,7 +522,7 @@ pub struct PysaModuleFile {
     module_name: ModuleName,
     source_path: ModulePathDetails,
     type_of_expression: HashMap<PysaLocation, PysaType>,
-    function_definitions: ModuleFunctionDefinitions,
+    function_definitions: ModuleFunctionDefinitions<FunctionDefinition>,
     class_definitions: HashMap<PysaLocation, ClassDefinition>,
     global_variables: HashMap<String, GlobalVariable>,
 }
@@ -1220,60 +1222,64 @@ impl WholeProgramReversedOverrideGraph {
     }
 }
 
+fn get_undecorated_signatures(
+    function: DecoratedFunction,
+    context: &ModuleContext,
+) -> Vec<FunctionSignature> {
+    // We need the list of raw parameters, ignoring decorators.
+    // For overloads, we need the list of all overloads, not just the current one.
+    // To get it, we check if `get_function_type` returns `Type::Overload`.
+    let decorated_type = get_function_type(&function, context);
+    match decorated_type {
+        Type::Overload(Overload { signatures, .. }) => signatures
+            .iter()
+            .map(|overload_type| match overload_type {
+                pyrefly_types::types::OverloadType::Function(f) => f,
+                pyrefly_types::types::OverloadType::Forall(pyrefly_types::types::Forall {
+                    body,
+                    ..
+                }) => body,
+            })
+            .map(|function| export_function_signature(&function.signature, context))
+            .collect::<Vec<_>>(),
+        _ => vec![FunctionSignature {
+            parameters: FunctionParameters::List(
+                function
+                    .undecorated
+                    .params
+                    .iter()
+                    .map(|param| export_function_parameter(param, context))
+                    .collect(),
+            ),
+            return_annotation: PysaType::from_type(
+                &get_undecorated_return_type(&function, context),
+                context,
+            ),
+        }],
+    }
+}
+
 pub fn export_all_functions(
     reversed_override_graph: &WholeProgramReversedOverrideGraph,
     context: &ModuleContext,
-) -> ModuleFunctionDefinitions {
-    let mut function_definitions = ModuleFunctionDefinitions::new();
+) -> ModuleFunctionDefinitions<FunctionBaseDefinition> {
+    let mut function_base_definitions = ModuleFunctionDefinitions::new();
 
     for function in get_all_functions(&context.bindings, &context.answers) {
         if !should_export_function(&function, context) {
             continue;
         }
 
-        // We need the list of raw parameters, ignoring decorators.
-        // For overloads, we need the list of all overloads, not just the current one.
-        // To get it, we check if `get_function_type` returns `Type::Overload`.
-        let decorated_type = get_function_type(&function, context);
-        let undecorated_signatures = match decorated_type {
-            Type::Overload(Overload { signatures, .. }) => signatures
-                .iter()
-                .map(|overload_type| match overload_type {
-                    pyrefly_types::types::OverloadType::Function(f) => f,
-                    pyrefly_types::types::OverloadType::Forall(pyrefly_types::types::Forall {
-                        body,
-                        ..
-                    }) => body,
-                })
-                .map(|function| export_function_signature(&function.signature, context))
-                .collect::<Vec<_>>(),
-            _ => vec![FunctionSignature {
-                parameters: FunctionParameters::List(
-                    function
-                        .undecorated
-                        .params
-                        .iter()
-                        .map(|param| export_function_parameter(param, context))
-                        .collect(),
-                ),
-                return_annotation: PysaType::from_type(
-                    &get_undecorated_return_type(&function, context),
-                    context,
-                ),
-            }],
-        };
-
         let current_function = DefinitionRef::from_decorated_function(&function, context);
         let parent = get_scope_parent(&context.ast, &context.module_info, function.id_range());
         assert!(
-            function_definitions
+            function_base_definitions
                 .0
                 .insert(
                     current_function.function_id.clone(),
-                    FunctionDefinition {
+                    FunctionBaseDefinition {
                         name: current_function.identifier.clone(),
                         parent,
-                        undecorated_signatures,
                         is_overload: function.metadata().flags.is_overload,
                         is_staticmethod: function.metadata().flags.is_staticmethod,
                         is_classmethod: function.metadata().flags.is_classmethod,
@@ -1298,7 +1304,7 @@ pub fn export_all_functions(
         );
     }
 
-    function_definitions
+    function_base_definitions
 }
 
 fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item = Class> {
@@ -1531,9 +1537,37 @@ pub fn is_test_module(context: &ModuleContext) -> bool {
         || is_pytest_module(&context.bindings, &context.answers, &context.ast)
 }
 
+pub fn add_undecorated_signatures(
+    function_base_definitions: &ModuleFunctionDefinitions<FunctionBaseDefinition>,
+    context: &ModuleContext,
+) -> ModuleFunctionDefinitions<FunctionDefinition> {
+    let mut function_definitions = HashMap::new();
+    for function in get_all_functions(&context.bindings, &context.answers) {
+        let current_function = DefinitionRef::from_decorated_function(&function, context);
+        if let Some(function_base_definition) = function_base_definitions
+            .0
+            .get(&current_function.function_id)
+        {
+            assert!(
+                function_definitions
+                    .insert(
+                        current_function.function_id.clone(),
+                        FunctionDefinition {
+                            base: function_base_definition.to_owned(),
+                            undecorated_signatures: get_undecorated_signatures(function, context),
+                        },
+                    )
+                    .is_none(),
+                "Found undecorated signatures for the same function"
+            );
+        }
+    }
+    ModuleFunctionDefinitions(function_definitions)
+}
+
 pub fn get_module_file(
     context: &ModuleContext,
-    function_definitions: &WholeProgramFunctionDefinitions,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
 ) -> PysaModuleFile {
     let mut type_of_expression = HashMap::new();
     let mut global_variables = HashMap::new();
@@ -1550,11 +1584,10 @@ pub fn get_module_file(
         );
     }
 
-    let function_definitions = function_definitions
-        .0
-        .get(&context.module_id)
-        .unwrap()
-        .clone();
+    let function_base_definitions_for_module =
+        function_base_definitions.0.get(&context.module_id).unwrap();
+    let function_definitions =
+        add_undecorated_signatures(&function_base_definitions_for_module, context);
     let class_definitions = export_all_classes(context);
 
     PysaModuleFile {
@@ -1569,28 +1602,29 @@ pub fn get_module_file(
     }
 }
 
-pub fn collect_function_definitions(
+pub fn collect_function_base_definitions(
     handles: &Vec<Handle>,
     transaction: &Transaction,
     module_ids: &ModuleIds,
     reversed_override_graph: &WholeProgramReversedOverrideGraph,
-) -> WholeProgramFunctionDefinitions {
-    let all_function_definitions = WholeProgramFunctionDefinitions::new();
+) -> WholeProgramFunctionDefinitions<FunctionBaseDefinition> {
+    let base_definitions: WholeProgramFunctionDefinitions<FunctionBaseDefinition> =
+        WholeProgramFunctionDefinitions::new();
 
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
             let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
-            let function_definitions = export_all_functions(
+            let base_definitions_for_module = export_all_functions(
                 reversed_override_graph,
                 &ModuleContext::create(handle, transaction, module_ids).unwrap(),
             );
-            all_function_definitions
+            base_definitions
                 .0
-                .insert(module_id, function_definitions);
+                .insert(module_id, base_definitions_for_module);
         });
     });
 
-    all_function_definitions
+    base_definitions
 }
 
 pub fn build_reversed_override_graph(
@@ -1675,8 +1709,12 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
     let project_modules = Arc::new(Mutex::new(project_modules));
 
     let reversed_override_graph = build_reversed_override_graph(&handles, transaction, &module_ids);
-    let all_function_definitions =
-        collect_function_definitions(&handles, transaction, &module_ids, &reversed_override_graph);
+    let function_base_definitions = collect_function_base_definitions(
+        &handles,
+        transaction,
+        &module_ids,
+        &reversed_override_graph,
+    );
 
     let _override_graph = OverrideGraph::from_reversed(&reversed_override_graph);
 
@@ -1690,7 +1728,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
                 serde_json::to_writer(
                     writer,
-                    &get_module_file(&context, &all_function_definitions),
+                    &get_module_file(&context, &function_base_definitions),
                 )?;
 
                 if is_test_module(&context) {
