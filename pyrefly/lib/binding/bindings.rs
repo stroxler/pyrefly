@@ -1104,10 +1104,7 @@ impl<'a> BindingsBuilder<'a> {
         id: LegacyTParamId,
         has_scoped_type_params: bool,
     ) -> TParamLookupResult {
-        let name = match &id {
-            LegacyTParamId::Name(name) => name,
-            LegacyTParamId::Attr(value, _) => value,
-        };
+        let name = id.as_identifier();
         self.lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
             .found()
             .map_or(TParamLookupResult::NotFound, |original_idx| {
