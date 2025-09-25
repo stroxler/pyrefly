@@ -459,7 +459,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::Delete(r) => write!(f, "Key::Delete({})", ctx.display(r)),
             Self::SelfTypeLiteral(r) => write!(f, "Key::SelfTypeLiteral({})", ctx.display(r)),
             Self::PossibleLegacyTParam(r) => {
-                write!(f, "Key::CheckLegacyTypeParam({})", ctx.display(r))
+                write!(f, "Key::PossibleLegacyTParam({})", ctx.display(r))
             }
             Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
         }
@@ -1226,13 +1226,10 @@ pub enum Binding {
     /// with the previous import to this binding (in which case merge the modules).
     Module(ModuleName, Vec<Name>, Option<Idx<Key>>),
     /// A name that might be a legacy type parameter. Solving this gives the Quantified type if so.
-    /// The TextRange is optional and should be set at most once per identifier
-    /// to avoid duplicate type errors (this is not type safe, because we might
-    /// produce multiple `CheckLegacyTypeParam` bindings for the same
-    /// identifier).
-    /// It controls whether to produce an error saying there are scoped type parameters for this
-    /// function / class, and therefore the use of legacy type parameters is invalid.
-    CheckLegacyTypeParam(Idx<KeyLegacyTypeParam>, Option<TextRange>),
+    /// The TextRange is optional and controls whether to produce an error
+    /// saying there are scoped type parameters for this function / class, and
+    /// therefore the use of legacy type parameters is invalid.
+    PossibleLegacyTParam(Idx<KeyLegacyTypeParam>, Option<TextRange>),
     /// An assignment to a name.
     NameAssign(
         Name,
@@ -1371,8 +1368,8 @@ impl DisplayWith<Bindings> for Binding {
             Self::TypeParameter(tp) => {
                 write!(f, "TypeParameter({}, {}, ..)", tp.unique, tp.kind)
             }
-            Self::CheckLegacyTypeParam(k, _) => {
-                write!(f, "CheckLegacyTypeParam({})", ctx.display(*k))
+            Self::PossibleLegacyTParam(k, _) => {
+                write!(f, "PossibleLegacyTParam({})", ctx.display(*k))
             }
             Self::AnnotatedType(k1, k2) => {
                 write!(
@@ -1549,7 +1546,7 @@ impl Binding {
             | Binding::ParamSpec(_, _, _)
             | Binding::TypeVarTuple(_, _, _)
             | Binding::TypeParameter(_)
-            | Binding::CheckLegacyTypeParam(_, _) => Some(SymbolKind::TypeParameter),
+            | Binding::PossibleLegacyTParam(_, _) => Some(SymbolKind::TypeParameter),
             Binding::Global(_) => Some(SymbolKind::Variable),
             Binding::Function(_, _, _) => Some(SymbolKind::Function),
             Binding::Import(_, _, _) => {

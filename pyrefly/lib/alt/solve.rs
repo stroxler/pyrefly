@@ -1965,7 +1965,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::of_ty(Type::never())
                 }
             }
-            Binding::CheckLegacyTypeParam(key, range_if_scoped_params_exist) => {
+            Binding::PossibleLegacyTParam(key, range_if_scoped_params_exist) => {
                 let ty = match &*self.get_idx(*key) {
                     LegacyTypeParameterLookup::Parameter(p) => {
                         // This class or function has scoped (PEP 695) type parameters. Mixing legacy-style parameters is an error.
@@ -2270,7 +2270,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Binding::Narrow(..)
             | Binding::AssignToAttribute(..)
             | Binding::AssignToSubscript(..)
-            | Binding::CheckLegacyTypeParam(..) => {
+            | Binding::PossibleLegacyTParam(..) => {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()

@@ -979,7 +979,7 @@ impl LegacyTParamId {
     /// Note that the range here is not the range of the full `LegacyTParamId`, but
     /// just of the name being bound (which in the `Attr` case is just the base
     /// rather than the entire identifier).
-    fn as_check_legacy_tparam_key(&self) -> Key {
+    fn as_possible_legacy_tparam_key(&self) -> Key {
         Key::PossibleLegacyTParam(self.as_identifier().range)
     }
 
@@ -1145,8 +1145,8 @@ impl<'a> BindingsBuilder<'a> {
         let tparam_idx = Self::make_legacy_tparam(&id, original_binding, original_idx)
             .map(|(k, v)| self.insert_binding(k, v))?;
         let idx = self.insert_binding(
-            id.as_check_legacy_tparam_key(),
-            Binding::CheckLegacyTypeParam(
+            id.as_possible_legacy_tparam_key(),
+            Binding::PossibleLegacyTParam(
                 tparam_idx,
                 if has_scoped_type_params {
                     Some(id.range())

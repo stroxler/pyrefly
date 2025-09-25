@@ -77,7 +77,7 @@ fn find_definition_key_from<'a>(bindings: &'a Bindings, key: &'a Key) -> Option<
                 current_idx = *k;
             }
             Binding::Phi(ks) if !ks.is_empty() => current_idx = *ks.iter().next().unwrap(),
-            Binding::CheckLegacyTypeParam(k, _) => {
+            Binding::PossibleLegacyTParam(k, _) => {
                 let binding = bindings.get(*k);
                 current_idx = binding.idx();
             }
@@ -114,7 +114,7 @@ fn create_intermediate_definition_from(
     while !gas.stop() {
         match current_binding {
             Binding::Forward(k) => current_binding = bindings.get(*k),
-            Binding::CheckLegacyTypeParam(k, _) => {
+            Binding::PossibleLegacyTParam(k, _) => {
                 let binding = bindings.get(*k);
                 current_binding = bindings.get(binding.idx());
             }
