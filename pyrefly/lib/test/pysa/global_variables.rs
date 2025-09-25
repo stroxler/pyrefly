@@ -15,6 +15,7 @@ use crate::report::pysa::ModuleContext;
 use crate::report::pysa::ModuleIds;
 use crate::report::pysa::PysaLocation;
 use crate::report::pysa::PysaType;
+use crate::report::pysa::collect_function_definitions;
 use crate::report::pysa::get_module_file;
 use crate::test::pysa::utils::create_location;
 use crate::test::pysa::utils::create_state;
@@ -40,8 +41,10 @@ fn test_exported_global_variables(
 
     let expected_globals = create_expected_globals(&context);
 
-    let reversed_override_graph = DashMap::new();
-    let module_file = get_module_file(&context, &reversed_override_graph);
+    let reverse_override_graph = DashMap::new();
+    let function_definitions =
+        collect_function_definitions(&handles, &transaction, &module_ids, &reverse_override_graph);
+    let module_file = get_module_file(&context, &function_definitions);
 
     assert_eq!(&expected_globals, module_file.global_variables());
 }

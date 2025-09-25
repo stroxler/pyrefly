@@ -1490,7 +1490,8 @@ pub fn get_module_file(
 
     let function_definitions = function_definitions
         .get(&context.module_id)
-        .map_or_else(HashMap::new, |definitions| definitions.clone());
+        .unwrap()
+        .clone();
     let class_definitions = export_all_classes(context);
 
     PysaModuleFile {
