@@ -505,10 +505,9 @@ impl FlowInfo {
 
     /// Create a new FlowInfo after an update.
     fn updated(&self, idx: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
-        let default = if in_loop { Some(self.default) } else { None };
         Self {
             idx,
-            default: default.unwrap_or(idx),
+            default: if in_loop { self.default } else { idx },
             style: style.unwrap_or_else(|| self.style.clone()),
         }
     }
