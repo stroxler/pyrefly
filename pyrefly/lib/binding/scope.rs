@@ -478,9 +478,9 @@ impl FlowStyle {
 pub struct FlowInfo {
     /// The key to use if you need the value of this name.
     pub idx: Idx<Key>,
-    /// The default value - used to create Default bindings inside loops.
-    /// - Always set to `key` when a flow is first created.
-    /// - Set to `key` whenever a flow is updated outside of loops, but not inside.
+    /// The loop default - used to wrap loop Phi with our guess at the type above the loop.
+    /// - Always set to our current inferred type when a flow info is created
+    /// - Updated whenever we update the inferred type outside of all loops, but not inside
     pub default: Idx<Key>,
     /// The style of this binding.
     pub style: FlowStyle,
