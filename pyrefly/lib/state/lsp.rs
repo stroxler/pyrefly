@@ -1899,8 +1899,16 @@ impl<'a> Transaction<'a> {
                         k.to_lsp_completion_item_kind()
                     });
                 let ty = self.get_type(handle, key);
-                let is_deprecated = matches!(kind, CompletionItemKind::FUNCTION)
-                    && ty.as_ref().is_some_and(|t| t.is_deprecated_function());
+                let is_deprecated = ty.as_ref().is_some_and(|t| {
+                    if let Type::ClassDef(cls) = t {
+                        self.ad_hoc_solve(handle, |solver| {
+                            solver.get_metadata_for_class(cls).is_deprecated()
+                        })
+                        .unwrap_or(false)
+                    } else {
+                        t.is_deprecated_function()
+                    }
+                });
                 let detail = ty.map(|t| t.to_string());
                 has_added_any = true;
                 completions.push(CompletionItem {

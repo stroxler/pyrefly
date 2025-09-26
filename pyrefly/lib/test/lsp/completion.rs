@@ -147,6 +147,30 @@ Completion Results:
 }
 
 #[test]
+fn complete_deprecated_class() {
+    let code = r#"
+from warnings import deprecated
+@deprecated("this class is deprecated")
+class MyDeprecatedClass: pass
+MyDe 
+#   ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+5 | MyDe 
+        ^
+Completion Results:
+- (Class) [DEPRECATED] MyDeprecatedClass: type[MyDeprecatedClass]
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn dot_complete_types_test() {
     let code = r#"
 class Foo:
