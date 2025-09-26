@@ -323,16 +323,13 @@ pub enum Key {
     Definition(ShortIdentifier),
     /// I am a mutable capture (`global` or `nonlocal`) declared at this location.
     MutableCapture(ShortIdentifier),
-    /// I am a name assignment that is also a first use of some other name assign.
+    /// I am a wrapper around a assignment that is also a first use of some other name assign.
     ///
-    /// My raw definition contains unpinned placeholder types from both myself
-    /// and upstream definitions, this binding will have all upstream
-    /// placeholders (but not those originating from me) pinned.
+    /// See [Binding::PinUpstream] for more details.
     UpstreamPinnedDefinition(ShortIdentifier),
     /// I am the pinned version of a definition corresponding to a name assignment.
     ///
-    /// Used in cases where the raw definition might introduce placeholder `Var` types
-    /// that need to be hidden from all lookups except the first usage to avoid nondeterminism.
+    /// See [Binding::Pin] for more details.
     PinnedDefinition(ShortIdentifier),
     /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
     FacetAssign(ShortIdentifier),
@@ -1264,23 +1261,57 @@ pub enum Binding {
     AssignToSubscript(ExprSubscript, Box<ExprOrBinding>),
     /// A placeholder binding, used to force the solving of some other `K::Value` (for
     /// example, forcing a `BindingExpect` to be solved) in the context of first-usage-based
-    /// type inference.
+    /// inference of partial types.
     UsageLink(LinkedKey),
     /// Inside of a class body, we check whether an expression resolves to the `SelfType` special
     /// export. If so, we create a `SelfTypeLiteral` key/binding pair so that the AnswersSolver can
     /// later synthesize the correct `Type::SelfType` (this binding is needed
     /// because we need access to the current class to do so).
     SelfTypeLiteral(Idx<KeyClass>, TextRange),
-    /// Binding used to pin placeholder types from `NameAssign` bindings. The first
-    /// entry should always correspond to a `Key::Definition` from a name assignment
-    /// and the second entry tells us if and where this definition is first used.
+    /// Binding used to pin placeholder types from `NameAssign` bindings, which
+    /// can produce partial types that have `Var`s representing still-unknown
+    /// type parameters not determine by the initial assignment (e.g. empty
+    /// containers).
+    ///
+    /// The first entry should always correspond to a `Key::Definition` from a
+    /// name assignment and the second entry tells us if and where this
+    /// definition is first used.
+    ///
+    /// For example, in
+    /// ```python
+    /// x = []
+    /// x.append(1)
+    /// y = []
+    /// print(y)
+    /// z = []
+    /// ```
+    /// all three of the raw `NameAssign`s will result in a partial type `list[@_]`,
+    /// and downstream:
+    /// - the `Pin` for `x` will depend on the `Binding::Expr` for `x.append(1)`, which
+    ///   will force the type to `list[int]`.
+    /// - the `Pin` for `y` will depend on the `Binding::Expr` for `print(y)`, which
+    ///   will not force anything. Then the `Pin` itself will pin placeholders,
+    ///   resulting in `list[Any]`
+    /// - the `Pin` for `z` will have an empty `FirstUse`, so as with `y` it will
+    ///   simply force the placeholder and produce list[`Any`]
     Pin(Idx<Key>, FirstUse),
     /// Binding used to pin any *upstream* placeholder types for a NameAssign that is also
-    /// a first use. First uses depend on this binding, so that upstream `Var`s cannot
-    /// leak into them but `Var`s originating from this assignment can.
+    /// a first use. Any first use of the name defined here depend on this binding rather
+    /// than directly on the `NameAssign` so that upstream `Var`s cannot leak into the
+    /// partial type into them but `Var`s originating from this assignment can.
     ///
     /// The Idx is the upstream raw `NameAssign`, and the slice has `Idx`s that point at
     /// all the `Pin`s for which that raw `NameAssign` was the first use.
+    ///
+    /// For example:
+    /// ```python
+    /// x = []
+    /// y = [], x
+    /// ```
+    /// the raw `NameAssign` for `y` will produce `tuple[list[@0], list[@1]]`,
+    /// but the `UpstreamPinnedDefinition` for `y` will use the "completed"
+    /// partial type of `x` (which it achieves by forcing the `Binding::Pin` for
+    /// `x` before expanding types) and result in `tuple[list[@_], Any]`.
     PinUpstream(Idx<Key>, Box<[Idx<Key>]>),
     /// `del` statement
     Delete(Expr),

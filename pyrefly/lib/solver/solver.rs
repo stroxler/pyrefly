@@ -54,7 +54,12 @@ const INITIAL_GAS: Gas = Gas::new(25);
 
 #[derive(Debug)]
 enum Variable {
-    /// A variable in a container with an unspecified element type, e.g. `[]: list[V]`
+    /// A placeholder representing an unknown type parameter in a "partial
+    /// type". Used when a type variable is not determined by solving a function
+    /// call (most often a constructor) and for empty containers.
+    ///
+    /// Pyrefly only creates these for assignments, and will attempt to
+    /// determine the type ("pin" it) using the first use of the name assigned.
     Contained,
     /// A variable due to generic instantiation, `def f[T](x: T): T` with `f(1)`
     Quantified(Box<Quantified>),
