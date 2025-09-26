@@ -88,7 +88,7 @@ use crate::types::types::Var;
 /// intercepting first-usage reads and for wrapping forward-reference `Key`s
 /// in `Idx<Key>` by inserting them into the bindings table.
 #[derive(Debug)]
-pub enum NameLookupResult<T> {
+pub enum NameLookupResult {
     /// I am the bound key for this name in the current scope stack.
     /// I might be:
     /// - initialized (either part of the current flow, or an anywhere-style
@@ -99,17 +99,17 @@ pub enum NameLookupResult<T> {
     ///   understands) and this key is either the most recent stale flow key (e.g.
     ///   if I am used after a `del` or is an anywhere-style lookup)
     Found {
-        value: T,
+        idx: Idx<Key>,
         is_initialized: IsInitialized,
     },
     /// This name is not defined in the current scope stack.
     NotFound,
 }
 
-impl<T> NameLookupResult<T> {
-    fn found(self) -> Option<T> {
+impl NameLookupResult {
+    fn found(self) -> Option<Idx<Key>> {
         match self {
-            NameLookupResult::Found { value, .. } => Some(value),
+            NameLookupResult::Found { idx, .. } => Some(idx),
             NameLookupResult::NotFound => None,
         }
     }
@@ -677,11 +677,7 @@ impl<'a> BindingsBuilder<'a> {
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
-    pub fn lookup_name(
-        &mut self,
-        name: Hashed<&Name>,
-        usage: &mut Usage,
-    ) -> NameLookupResult<Idx<Key>> {
+    pub fn lookup_name(&mut self, name: Hashed<&Name>, usage: &mut Usage) -> NameLookupResult {
         match self.scopes.look_up_name_for_read(name) {
             NameReadInfo::Flow {
                 idx,
@@ -692,7 +688,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.record_first_use(used_idx, usage);
                 }
                 NameLookupResult::Found {
-                    value: idx,
+                    idx,
                     is_initialized,
                 }
             }
@@ -700,7 +696,7 @@ impl<'a> BindingsBuilder<'a> {
                 key,
                 is_initialized,
             } => NameLookupResult::Found {
-                value: self.table.types.0.insert(key),
+                idx: self.table.types.0.insert(key),
                 is_initialized,
             },
             NameReadInfo::NotFound => NameLookupResult::NotFound,
@@ -1011,10 +1007,10 @@ impl TParamLookupResult {
         }
     }
 
-    fn as_name_lookup_result(&self) -> NameLookupResult<Idx<Key>> {
+    fn as_name_lookup_result(&self) -> NameLookupResult {
         self.idx()
             .map_or(NameLookupResult::NotFound, |idx| NameLookupResult::Found {
-                value: idx,
+                idx,
                 is_initialized: IsInitialized::Yes,
             })
     }
@@ -1072,7 +1068,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         legacy_tparams: &mut LegacyTParamCollector,
         id: LegacyTParamId,
-    ) -> NameLookupResult<Idx<Key>> {
+    ) -> NameLookupResult {
         let result = legacy_tparams
             .legacy_tparams
             .entry(id.tvar_name())

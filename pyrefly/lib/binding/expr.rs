@@ -295,7 +295,7 @@ impl<'a> BindingsBuilder<'a> {
             };
         match lookup_result {
             NameLookupResult::Found {
-                value,
+                idx: value,
                 is_initialized,
             } => {
                 // Uninitialized local errors are only reported when we are neither in a stub
