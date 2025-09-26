@@ -1283,6 +1283,20 @@ def test2() -> int:  # E: Function declared to return `int` but is missing an ex
 );
 
 testcase!(
+    bug = "Merge flow is lax about possibly-undefined locals, so we don't catch that `x` may be uninitialized.",
+    test_if_defines_variable_in_one_side,
+    r#"
+from typing import assert_type, Literal
+def condition() -> bool: ...
+if condition():
+    x = 1
+else:
+    pass
+assert_type(x, Literal[1])  # Here, we did not catch that `x` may not be initialized
+    "#,
+);
+
+testcase!(
     bug = "Merge flow is lax about possibly-undefined locals, so we don't catch that `z` may be uninitialized.",
     test_named_inside_boolean_op,
     r#"
