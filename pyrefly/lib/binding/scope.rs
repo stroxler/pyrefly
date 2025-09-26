@@ -1108,8 +1108,18 @@ impl Scopes {
     ///   that `x` is uninitialized)
     ///
     /// A caller of this function promises to create a binding for `idx`.
-    pub fn define_in_current_flow(&mut self, name: Hashed<&Name>, idx: Idx<Key>, style: FlowStyle) {
+    ///
+    /// Returns a `NameWriteInfo` with information that bindings code may need,
+    /// e.g. to validate against annotations and/or keep track of `Anywhere` bindings.
+    pub fn define_in_current_flow(
+        &mut self,
+        name: Hashed<&Name>,
+        idx: Idx<Key>,
+        style: FlowStyle,
+    ) -> Option<NameWriteInfo> {
         self.upsert_flow_info(name, idx, Some(style));
+        let static_info = self.current().stat.0.get_hashed(name)?;
+        Some(static_info.as_name_write_info())
     }
 
     /// Handle a delete operation by marking a name as uninitialized in this flow.
@@ -1579,24 +1589,6 @@ impl Scopes {
             barrier = barrier || scope.barrier;
         }
         NameReadInfo::NotFound
-    }
-
-    /// Look up a name for a write operation.
-    ///
-    /// Panics if the name is not found in static scopes - we rely on this panic to
-    /// ensure that the scope construction powered by Definitions always includes
-    /// names that the bindings stage believes are defined. If you encounter a panic
-    /// here, most likely the two have diverged.
-    pub fn look_up_name_for_write(
-        &self,
-        name: Hashed<&Name>,
-        module_info: &ModuleInfo,
-    ) -> NameWriteInfo {
-        let static_info = self.current().stat.0.get_hashed(name).unwrap_or_else(|| {
-            let module = module_info.name();
-            panic!("Name `{name}` not found in static scope of module `{module}`")
-        });
-        static_info.as_name_write_info()
     }
 
     /// Look up a name for a mutable capture during initialization of static scope.

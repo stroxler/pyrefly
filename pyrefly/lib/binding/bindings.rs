@@ -820,8 +820,15 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
-        let write_info = self.scopes.look_up_name_for_write(name, &self.module_info);
-        self.scopes.define_in_current_flow(name, idx, style);
+        let write_info = self
+            .scopes
+            .define_in_current_flow(name, idx, style)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Name `{name}` not found in static scope of module `{}`.",
+                    self.module_info.name(),
+                )
+            });
         if let Some(range) = write_info.anywhere_range {
             self.table
                 .record_bind_in_anywhere(name.into_key().clone(), range, idx);
