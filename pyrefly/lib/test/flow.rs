@@ -1002,12 +1002,15 @@ def f(condition) -> None:
 );
 
 testcase!(
-    bug = "A recursive redefinition in a loop does not work as before after first-use variable pinning.",
-    test_while_infinite,
+    bug = "A recursive redefinition in a loop produces a hard-to-follow error message + location",
+    test_while_creates_recursive_type,
     r#"
 from typing import assert_type, Any, Literal
 def f(condition) -> None:
     x = 1
+    # It's fine to error here, but ideally we would error at the assignment
+    # rather than the `while`, and ideally we would note that the type is recursive
+    # in a way we don't support.
     while condition():  # E: `Literal[1] | list[int]` is not assignable to `int`
         assert_type(x, Literal[1] | list[int])
         x = [x]
