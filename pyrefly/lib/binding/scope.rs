@@ -1545,6 +1545,19 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
+                // Because class body scopes are dynamic, if we know that the the name is
+                // definitely not initialized in the flow, we should skip it.
+                if is_class
+                    && matches!(
+                        flow_info.style,
+                        FlowStyle::Uninitialized
+                            | FlowStyle::ClassField {
+                                initial_value: None
+                            }
+                    )
+                {
+                    continue;
+                }
                 return NameReadInfo::Flow {
                     idx: flow_info.idx,
                     is_initialized: match flow_info.style {
