@@ -1773,6 +1773,12 @@ impl MergeItem {
                 // phi idx (which might be unused, but because of speculative phi if this
                 // is a loop we may have to put something at the phi) and use the original
                 // idx downstream.
+                //
+                // For ordinary branching, this happens when no branch narrows or assigns.
+                //
+                // For loops, we always have at least two different `idx`s in merged flows,
+                // the one from above the loop and the Phi. This only works because
+                // `add_branch` skips over the phi.
                 let upstream_idx = self.branch_idxs.into_iter().next().unwrap();
                 insert_binding_idx(self.phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
