@@ -232,6 +232,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_final = decorators.iter().any(|(decorator, _)| {
             decorator.ty().callee_kind() == Some(CalleeKind::Function(FunctionKind::Final))
         });
+        let is_deprecated = decorators.iter().any(|(decorator, _)| {
+             matches!(decorator.ty(), Type::ClassType(cls) if cls.has_qname("warnings", "deprecated"))
+        });
 
         let total_ordering_metadata = decorators.iter().find_map(|(decorator, decorator_range)| {
             decorator.ty().callee_kind().and_then(|kind| {
@@ -311,6 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             has_base_any,
             is_new_type,
             is_final,
+            is_deprecated,
             total_ordering_metadata,
             dataclass_transform_metadata,
             pydantic_model_kind,
