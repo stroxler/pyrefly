@@ -1843,9 +1843,9 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // For each name and merge item, produce the merged FlowInfo for our new Flow
-        let mut res = SmallMap::with_capacity(merge_items.len());
+        let mut merged_info = SmallMap::with_capacity(merge_items.len());
         for (name, merge_item) in merge_items.into_iter_hashed() {
-            res.insert_hashed(
+            merged_info.insert_hashed(
                 name,
                 merge_item.merged_flow_info(is_loop, self.scopes.loop_depth() > 0, |key, value| {
                     self.insert_binding_idx(key, value);
@@ -1853,7 +1853,7 @@ impl<'a> BindingsBuilder<'a> {
             );
         }
         Flow {
-            info: res,
+            info: merged_info,
             has_terminated,
         }
     }
