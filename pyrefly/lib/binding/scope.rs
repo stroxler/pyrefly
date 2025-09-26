@@ -1121,37 +1121,12 @@ impl Scopes {
         None
     }
 
-    fn static_info_from_any_enclosing(&self, name: &Name) -> Option<&StaticInfo> {
-        let name = Hashed::new(name);
-        let mut iter = self.iter_rev();
-        iter.next();
-        for scope in iter {
-            if let Some(info) = scope.stat.0.get_hashed(name) {
-                return Some(info);
-            }
-        }
-        None
-    }
-
-    /// Get the flow style for `name`, depending on whether `name` is used in a
-    /// static type.
+    /// Get the flow style for `name` in the current scope.
     ///
-    /// If we can find a flow info for `name`, return its style. Otherwise, we
-    /// check the static type information to see if we have a uninitialized
-    /// binding, in which case, `FlowStyle::Uninitialized` is returned.
-    /// Otherwise we return `FlowStyle::Other` to indicate no information
-    /// available.
-    pub fn get_flow_style(&self, name: &Name) -> &FlowStyle {
-        match self.get_flow_info(name) {
-            Some(flow) => &flow.style,
-            None => {
-                if self.static_info_from_any_enclosing(name).is_some() {
-                    &FlowStyle::Other
-                } else {
-                    &FlowStyle::Uninitialized
-                }
-            }
-        }
+    /// Returns `None` if there is no current flow (which may mean the
+    /// name is uninitialized in the current scope, or is not in scope at all).
+    pub fn current_flow_style(&self, name: &Name) -> Option<FlowStyle> {
+        Some(self.current().flow.info.get(name)?.style.clone())
     }
 
     // This helper handles re-exported symbols during special export lookups

@@ -464,12 +464,11 @@ impl<'a> BindingsBuilder<'a> {
                                     initial_value: maybe_ellipses,
                                 }
                             } else {
-                                // A flow style might be already set for the
-                                // name, e.g. if it was defined previously.
-                                // If so, we use that style; otherwise, the flow
-                                // style lookup would return an uninitialized
-                                // flow style, which is what we want here.
-                                self.scopes.get_flow_style(&name.id).clone()
+                                // A flow style might be already set for the name, e.g. if it was defined
+                                // already. Otherwise it is uninitialized.
+                                self.scopes
+                                    .current_flow_style(&name.id)
+                                    .unwrap_or(FlowStyle::Uninitialized)
                             },
                         ),
                     };
