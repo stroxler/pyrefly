@@ -40,7 +40,7 @@ use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
 use crate::report::pysa::types::PysaType;
 
-/// Represents a unique identifier for a class, inside a module
+/// Represents a unique identifier for a class **within a module**.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 pub struct ClassId(u32);
 

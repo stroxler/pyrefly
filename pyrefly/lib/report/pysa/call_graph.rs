@@ -22,9 +22,9 @@ use ruff_text_size::TextRange;
 
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::context::ModuleContext;
-use crate::report::pysa::function::DefinitionRef;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionId;
+use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
@@ -205,17 +205,17 @@ struct CallGraphVisitor<'a> {
     // A stack where the top element is always the current callable that we are
     // building a call graph for. The stack is updated each time we enter and exit
     // a function definition or a class definition.
-    definition_nesting: Vec<DefinitionRef>,
-    call_graphs: &'a mut CallGraphs<DefinitionRef, PysaLocation>,
+    definition_nesting: Vec<FunctionRef>,
+    call_graphs: &'a mut CallGraphs<FunctionRef, PysaLocation>,
     in_exported_definition: bool,
 }
 
 impl<'a> CallGraphVisitor<'a> {
-    fn current_definition(&self) -> DefinitionRef {
+    fn current_definition(&self) -> FunctionRef {
         self.definition_nesting.last().unwrap().clone()
     }
 
-    fn add_callees(&mut self, location: TextRange, callees: ExpressionCallees<DefinitionRef>) {
+    fn add_callees(&mut self, location: TextRange, callees: ExpressionCallees<FunctionRef>) {
         assert!(
             self.call_graphs
                 .0
@@ -230,11 +230,7 @@ impl<'a> CallGraphVisitor<'a> {
         );
     }
 
-    fn has_implicit_receiver(
-        &self,
-        definition_ref: &DefinitionRef,
-        explicit_receiver: bool,
-    ) -> bool {
+    fn has_implicit_receiver(&self, definition_ref: &FunctionRef, explicit_receiver: bool) -> bool {
         let (is_staticmethod, is_classmethod, is_method) = self
             .function_base_definitions
             .get_and_map(
@@ -259,7 +255,7 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<DefinitionRef>> {
+    fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
         let identifier = Ast::expr_name_identifier(name.clone());
         self.module_context
             .transaction
@@ -271,7 +267,7 @@ impl<'a> CallGraphVisitor<'a> {
             .map_or(vec![], |d| vec![d])
             .iter()
             .filter_map(|definition| {
-                DefinitionRef::from_find_definition_item_with_docstring(
+                FunctionRef::from_find_definition_item_with_docstring(
                     definition,
                     self.function_base_definitions,
                     self.module_context,
@@ -291,10 +287,7 @@ impl<'a> CallGraphVisitor<'a> {
             .collect::<Vec<_>>()
     }
 
-    fn resolve_attribute_access(
-        &self,
-        attribute: &ExprAttribute,
-    ) -> Vec<CallTarget<DefinitionRef>> {
+    fn resolve_attribute_access(&self, attribute: &ExprAttribute) -> Vec<CallTarget<FunctionRef>> {
         self.module_context
             .transaction
             .find_definition_for_attribute(
@@ -305,7 +298,7 @@ impl<'a> CallGraphVisitor<'a> {
             )
             .iter()
             .filter_map(|definition| {
-                DefinitionRef::from_find_definition_item_with_docstring(
+                FunctionRef::from_find_definition_item_with_docstring(
                     definition,
                     self.function_base_definitions,
                     self.module_context,
@@ -353,7 +346,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                     &function_id,
                     |function_definition| function_definition.name.clone(),
                 ) {
-                    self.definition_nesting.push(DefinitionRef {
+                    self.definition_nesting.push(FunctionRef {
                         module_id: self.module_id,
                         module_name: self.module_name,
                         function_id,
@@ -430,11 +423,11 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 pub fn build_call_graphs_for_module(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
-) -> CallGraphs<DefinitionRef, PysaLocation> {
+) -> CallGraphs<FunctionRef, PysaLocation> {
     let mut call_graphs = CallGraphs::new();
 
     let module_name = context.module_info.name();
-    let module_toplevel = DefinitionRef {
+    let module_toplevel = FunctionRef {
         module_id: context.module_id,
         module_name,
         function_id: FunctionId::ModuleTopLevel,

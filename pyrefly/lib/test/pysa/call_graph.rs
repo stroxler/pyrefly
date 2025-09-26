@@ -15,7 +15,7 @@ use crate::report::pysa::call_graph::ExpressionCallees;
 use crate::report::pysa::call_graph::IdentifierCallees;
 use crate::report::pysa::call_graph::build_call_graphs_for_module;
 use crate::report::pysa::context::ModuleContext;
-use crate::report::pysa::function::DefinitionRef;
+use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::collect_function_base_definitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
@@ -41,7 +41,7 @@ fn split_module_name_and_identifier(string: &str) -> (String, String) {
 }
 
 impl DefinitionRefForTest {
-    fn from_definition_ref(definition_ref: &DefinitionRef) -> Self {
+    fn from_definition_ref(definition_ref: &FunctionRef) -> Self {
         Self {
             module_name: definition_ref.module_name.to_string(),
             identifier: definition_ref.identifier.clone(),
@@ -82,7 +82,7 @@ fn create_call_target(target: &str) -> CallTarget<DefinitionRefForTest> {
 }
 
 fn call_graph_for_test_from_actual(
-    call_graph: &CallGraphs<DefinitionRef, PysaLocation>,
+    call_graph: &CallGraphs<FunctionRef, PysaLocation>,
 ) -> CallGraphs<DefinitionRefForTest, String> {
     let call_graph_for_test = call_graph
         .0

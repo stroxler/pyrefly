@@ -23,8 +23,8 @@ use crate::graph::index::Idx;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::class::get_class_field_declaration;
-use crate::report::pysa::function::DefinitionRef;
 use crate::report::pysa::function::FunctionId;
+use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::get_all_functions;
 use crate::report::pysa::function::should_export_function;
 use crate::report::pysa::location::PysaLocation;
@@ -34,12 +34,12 @@ use crate::state::state::Transaction;
 /// A map from a (base) method to methods that directly override it
 #[derive(Debug)]
 pub(crate) struct OverrideGraph {
-    edges: HashMap<DefinitionRef, HashSet<DefinitionRef>>,
+    edges: HashMap<FunctionRef, HashSet<FunctionRef>>,
 }
 
-pub struct ModuleReversedOverrideGraph(HashMap<DefinitionRef, DefinitionRef>);
+pub struct ModuleReversedOverrideGraph(HashMap<FunctionRef, FunctionRef>);
 
-pub struct WholeProgramReversedOverrideGraph(DashMap<DefinitionRef, DefinitionRef>);
+pub struct WholeProgramReversedOverrideGraph(DashMap<FunctionRef, FunctionRef>);
 
 impl OverrideGraph {
     pub fn new() -> Self {
@@ -48,7 +48,7 @@ impl OverrideGraph {
         }
     }
 
-    fn add_edge(&mut self, base_method: DefinitionRef, overriding_method: DefinitionRef) {
+    fn add_edge(&mut self, base_method: FunctionRef, overriding_method: FunctionRef) {
         self.edges
             .entry(base_method)
             .or_default()
@@ -69,7 +69,7 @@ impl WholeProgramReversedOverrideGraph {
         WholeProgramReversedOverrideGraph(DashMap::new())
     }
 
-    pub fn get(&self, method: &DefinitionRef) -> Option<DefinitionRef> {
+    pub fn get(&self, method: &FunctionRef) -> Option<FunctionRef> {
         self.0.get(method).map(|v| v.clone())
     }
 }
@@ -99,7 +99,7 @@ fn get_super_class_member(
     class: &Class,
     field: &Name,
     context: &ModuleContext,
-) -> Option<DefinitionRef> {
+) -> Option<FunctionRef> {
     let super_class_member = context
         .transaction
         .ad_hoc_solve(context.handle, |solver| {
@@ -125,7 +125,7 @@ fn get_super_class_member(
             let last_function = get_last_definition(key_decorated_function, context);
             let class =
                 ClassRef::from_class(&super_class_member.defining_class, context.module_ids);
-            DefinitionRef {
+            FunctionRef {
                 module_id: class.module_id,
                 module_name: class.module_name,
                 function_id: FunctionId::Function {
@@ -152,7 +152,7 @@ pub fn create_reversed_override_graph_for_module(
             .and_then(|class| get_super_class_member(class, &name, context));
         match overridden_base_method {
             Some(overridden_base_method) => {
-                let current_function = DefinitionRef::from_decorated_function(&function, context);
+                let current_function = FunctionRef::from_decorated_function(&function, context);
                 assert!(
                     graph
                         .0

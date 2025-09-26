@@ -39,7 +39,7 @@ use crate::report::pysa::types::PysaType;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::state::Transaction;
 
-/// Represents a unique identifier for a function, inside a module
+/// Represents a unique identifier for a function **within a module**.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FunctionId {
     Function {
@@ -72,18 +72,18 @@ impl Serialize for FunctionId {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
-pub struct DefinitionRef {
+pub struct FunctionRef {
     pub module_id: ModuleId,
     pub module_name: ModuleName, // For debugging purposes only. Reader should use the module id.
     pub function_id: FunctionId,
-    pub identifier: String, // For debugging purposes only
+    pub identifier: String, // For debugging purposes only. Reader should use the function id.
 }
 
-impl DefinitionRef {
+impl FunctionRef {
     pub fn from_decorated_function(function: &DecoratedFunction, context: &ModuleContext) -> Self {
         let name = function.metadata().kind.as_func_id().func;
         let display_range = context.module_info.display_range(function.id_range());
-        DefinitionRef {
+        FunctionRef {
             module_id: context
                 .module_ids
                 .get(ModuleKey::from_module(&context.module_info))
@@ -111,7 +111,7 @@ impl DefinitionRef {
             .get(ModuleKey::from_module(&item.module))
             .unwrap();
         function_base_definitions.get_and_map(module_id, &function_id, |function_base_definition| {
-            DefinitionRef {
+            FunctionRef {
                 module_id,
                 module_name: item.module.name(),
                 function_id: function_id.clone(),
@@ -190,7 +190,7 @@ pub struct FunctionBaseDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// If the method directly overrides a method in a parent class, we record that class.
     /// This is used for building overriding graphs.
-    pub overridden_base_method: Option<DefinitionRef>,
+    pub overridden_base_method: Option<FunctionRef>,
 }
 
 impl FunctionBaseDefinition {
@@ -427,7 +427,7 @@ pub fn export_all_functions(
             continue;
         }
 
-        let current_function = DefinitionRef::from_decorated_function(&function, context);
+        let current_function = FunctionRef::from_decorated_function(&function, context);
         let parent = get_scope_parent(&context.ast, &context.module_info, function.id_range());
         assert!(
             function_base_definitions
@@ -468,7 +468,7 @@ pub fn add_undecorated_signatures(
     let mut function_definitions = ModuleFunctionDefinitions::new();
 
     for function in get_all_functions(&context.bindings, &context.answers) {
-        let current_function = DefinitionRef::from_decorated_function(&function, context);
+        let current_function = FunctionRef::from_decorated_function(&function, context);
         if let Some(function_base_definition) = function_base_definitions
             .0
             .get(&current_function.function_id)
