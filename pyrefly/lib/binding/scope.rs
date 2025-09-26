@@ -511,21 +511,6 @@ impl FlowInfo {
             style: style.unwrap_or_else(|| self.style.clone()),
         }
     }
-
-    fn as_initial_value(&self) -> ClassFieldInBody {
-        match &self.style {
-            FlowStyle::ClassField {
-                initial_value: Some(e),
-            } => ClassFieldInBody::InitializedByAssign(e.clone()),
-            // This is only reachable via `AnnAssign` with no value.
-            FlowStyle::ClassField {
-                initial_value: None,
-            } => ClassFieldInBody::Uninitialized,
-            // All other styles (e.g. function def, import) indicate we do have
-            // a value, but it is not coming from a simple style.
-            _ => ClassFieldInBody::InitializedWithoutAssign,
-        }
-    }
 }
 
 /// Because of complications related both to recursion in the binding graph and to
@@ -1424,7 +1409,19 @@ impl Scopes {
                         has_return_annotation,
                     }
                 } else {
-                    match flow_info.as_initial_value() {
+                    let class_field_in_body = match &flow_info.style {
+                        FlowStyle::ClassField {
+                            initial_value: Some(e),
+                        } => ClassFieldInBody::InitializedByAssign(e.clone()),
+                        // This is only reachable via `AnnAssign` with no value.
+                        FlowStyle::ClassField {
+                            initial_value: None,
+                        } => ClassFieldInBody::Uninitialized,
+                        // All other styles (e.g. function def, import) indicate we do have
+                        // a value, but it is not coming from a simple style.
+                        _ => ClassFieldInBody::InitializedWithoutAssign,
+                    };
+                    match class_field_in_body {
                         ClassFieldInBody::InitializedByAssign(e) =>
                             ClassFieldDefinition::AssignedInBody {
                                 value: ExprOrBinding::Expr(e.clone()),
