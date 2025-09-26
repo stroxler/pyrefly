@@ -291,15 +291,23 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(f, "]")
             }
             Type::LiteralString => write!(f, "LiteralString"),
-            Type::Callable(box c)
-            | Type::Function(box Function {
-                signature: c,
-                metadata: _,
-            }) => {
+            Type::Callable(box c) => {
                 if self.hover && is_toplevel {
                     c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                 } else {
                     c.fmt_with_type(f, &|t| self.display_internal(t))
+                }
+            }
+            Type::Function(box Function {
+                signature,
+                metadata,
+            }) => {
+                if self.hover && is_toplevel {
+                    let func_name = metadata.kind.as_func_id().func;
+                    write!(f, "def {func_name}")?;
+                    signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                } else {
+                    signature.fmt_with_type(f, &|t| self.display_internal(t))
                 }
             }
             Type::Overload(overload) => {
@@ -321,15 +329,26 @@ impl<'a> TypeDisplayContext<'a> {
             Type::BoundMethod(box BoundMethod { obj, func }) => {
                 if self.hover && is_toplevel {
                     match func {
-                        BoundMethodType::Function(func) => func
-                            .signature
-                            .fmt_with_type_with_newlines(f, &|t| self.display_internal(t)),
+                        BoundMethodType::Function(Function {
+                            signature,
+                            metadata,
+                        }) => {
+                            let func_name = metadata.kind.as_func_id().func;
+                            write!(f, "def {func_name}")?;
+                            signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                        }
                         BoundMethodType::Forall(Forall {
                             tparams,
-                            body: Function { signature: c, .. },
+                            body:
+                                Function {
+                                    signature,
+                                    metadata,
+                                },
                         }) => {
+                            let func_name = metadata.kind.as_func_id().func;
+                            write!(f, "def {func_name}")?;
                             write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
-                            c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                            signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                         }
                         BoundMethodType::Overload(_) => {
                             write!(f, "{}", self.display_internal(&func.clone().as_type()))
@@ -389,13 +408,34 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Tuple(t) => t.fmt_with_type(f, |t| self.display_internal(t)),
             Type::Forall(box Forall {
                 tparams,
-                body:
-                    body @ (Forallable::Function(Function { signature: c, .. })
-                    | Forallable::Callable(c)),
+                body: body @ Forallable::Callable(c),
             }) => {
                 if self.hover && is_toplevel {
                     write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
                     c.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
+                } else {
+                    write!(
+                        f,
+                        "[{}]{}",
+                        commas_iter(|| tparams.iter()),
+                        self.display_internal(&body.clone().as_type()),
+                    )
+                }
+            }
+            Type::Forall(box Forall {
+                tparams,
+                body:
+                    body @ Forallable::Function(Function {
+                        signature,
+                        metadata,
+                        ..
+                    }),
+            }) => {
+                if self.hover && is_toplevel {
+                    let func_name = metadata.kind.as_func_id().func;
+                    write!(f, "def {func_name}")?;
+                    write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
+                    signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                 } else {
                     write!(
                         f,
@@ -1104,7 +1144,7 @@ pub mod tests {
         ctx.set_display_mode_to_hover();
         assert_eq!(
             ctx.display(&bound_method).to_string(),
-            r#"(
+            r#"def foo(
     self: Any,
     x: Any,
     y: Any
@@ -1129,7 +1169,7 @@ pub mod tests {
         ctx.set_display_mode_to_hover();
         assert_eq!(
             ctx.display(&bound_method).to_string(),
-            r#"[T](
+            r#"def foo[T](
     self: Any,
     x: Any,
     y: Any

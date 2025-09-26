@@ -115,7 +115,7 @@ Completion Results:
 }
 
 #[test]
-fn dot_complete_with_deprecated() {
+fn dot_complete_with_deprecated_method() {
     let code = r#"
 from warnings import deprecated
 class Foo:
@@ -138,7 +138,7 @@ foo.
          ^
 Completion Results:
 - (Field) [DEPRECATED] also_not_ok: int
-- (Method) [DEPRECATED] not_ok: (self: Foo) -> None
+- (Method) [DEPRECATED] not_ok: def not_ok(self: Foo) -> None
 - (Field) x: int
 "#
         .trim(),
@@ -192,9 +192,9 @@ foo.
 10 | foo.
          ^
 Completion Results:
-- (Method) class_method: (cls: type[Foo]) -> None
-- (Method) method: (self: Foo) -> None
-- (Function) static_method: () -> None
+- (Method) class_method: def class_method(cls: type[Foo]) -> None
+- (Method) method: def method(self: Foo) -> None
+- (Function) static_method: def static_method() -> None
 - (Field) x: int
 "#
         .trim(),
@@ -307,7 +307,7 @@ Completion Results:
 }
 
 #[test]
-fn variable_complete_with_deprecation() {
+fn variable_complete_with_deprecated_function() {
     let code = r#"
 from warnings import deprecated
 @deprecated("this is not ok")
@@ -1377,7 +1377,7 @@ def foo(x: B) -> None:
 9 |     x.
           ^
 Completion Results:
-- (Method) foo: (self: B) -> int
+- (Method) foo: def foo(self: B) -> int
 "#
         .trim(),
         report.trim(),
