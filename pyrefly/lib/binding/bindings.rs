@@ -1015,6 +1015,24 @@ enum TParamLookupResult {
     NotFound,
 }
 
+impl TParamLookupResult {
+    fn idx(&self) -> Option<Idx<Key>> {
+        match self {
+            Self::MaybeTParam(possible_tparam) => Some(possible_tparam.idx),
+            Self::NotTParam(idx) => Some(*idx),
+            Self::NotFound => None,
+        }
+    }
+
+    fn as_name_lookup_result(&self) -> NameLookupResult<Binding> {
+        self.idx()
+            .map_or(NameLookupResult::NotFound, |idx| NameLookupResult::Found {
+                value: Binding::Forward(idx),
+                is_initialized: IsInitialized::Yes,
+            })
+    }
+}
+
 /// Handle intercepting names inside either function parameter/return
 /// annotations or base class lists of classes, in order to check whether they
 /// point at type variable declarations and need to be converted to type
@@ -1072,17 +1090,7 @@ impl<'a> BindingsBuilder<'a> {
             .legacy_tparams
             .entry(id.tvar_name())
             .or_insert_with(|| self.lookup_legacy_tparam(id, legacy_tparams.has_scoped_tparams));
-        match result {
-            TParamLookupResult::MaybeTParam(possible_tparam) => NameLookupResult::Found {
-                value: Binding::Forward(possible_tparam.idx),
-                is_initialized: IsInitialized::Yes,
-            },
-            TParamLookupResult::NotTParam(idx) => NameLookupResult::Found {
-                value: Binding::Forward(*idx),
-                is_initialized: IsInitialized::Yes,
-            },
-            TParamLookupResult::NotFound => NameLookupResult::NotFound,
-        }
+        result.as_name_lookup_result()
     }
 
     /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
