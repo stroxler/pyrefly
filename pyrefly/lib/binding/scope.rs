@@ -1562,6 +1562,11 @@ impl Scopes {
                 let forward_ref_key = static_info.as_key(name.into_key());
                 return NameReadInfo::Anywhere {
                     key: forward_ref_key,
+                    // If we look up static info from the a non-barrier scope because we didn't find
+                    // flow, it is not initialized. PossibleLegacyTParam scope entries are an
+                    // exception because they are synthesized scope entries that don't exist at all
+                    // in the runtime; we treat them as always initialized to avoid false positives
+                    // for uninitialized local checks in class bodies.
                     is_initialized: if barrier
                         || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
                     {

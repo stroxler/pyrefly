@@ -719,6 +719,26 @@ def f(x: bool):
     "#,
 );
 
+// Because the scoped versions of legacy tparams are a static-only concept
+// but scope is well-defined runtime concept, we wind up with weird edge cases
+// where Pyrefy's scope can do the wrong thing.
+//
+// One thing to watch out for is that it would be a false positive if reading
+// a possible legacy tparam as a value triggers an uninitialized local error.
+//
+// This came up in a refactor and was only caught by end-to-end pydantic tests;
+// this unit test checks against a regression.
+testcase!(
+    test_possible_legacy_tparams_used_as_values,
+    TestEnv::one("foo", "class A: pass"),
+    r#"
+from foo import A
+class C[T]: pass
+class D(C[A]):
+    x: A = A()
+"#,
+);
+
 testcase!(
     bug = "We model tparam intercepts in static scope, which shadows parents and can lead to edge case bugs involving mutable captures",
     test_shadowing_interaction_with_mutable_capture,
