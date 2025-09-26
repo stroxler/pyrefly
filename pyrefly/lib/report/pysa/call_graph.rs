@@ -197,6 +197,27 @@ impl<Target, Location> CallGraphs<Target, Location> {
     }
 }
 
+macro_rules! debug_println {
+    ($debug:expr, $($arg:tt)*) => {
+        if $debug {
+            tracing::info!($($arg)*);
+        }
+    };
+}
+
+fn has_toplevel_call(body: &[Stmt], callee_name: &'static str) -> bool {
+    body.iter().any(|stmt| match stmt {
+        Stmt::Expr(stmt_expr) => match &*stmt_expr.value {
+            Expr::Call(call) => match &*call.func {
+                Expr::Name(name) => name.id == callee_name,
+                _ => false,
+            },
+            _ => false,
+        },
+        _ => false,
+    })
+}
+
 #[allow(dead_code)]
 struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
@@ -209,6 +230,7 @@ struct CallGraphVisitor<'a> {
     definition_nesting: Vec<FunctionRef>,
     call_graphs: &'a mut CallGraphs<FunctionRef, PysaLocation>,
     in_exported_definition: bool,
+    debug_current_definition: bool,
 }
 
 impl<'a> CallGraphVisitor<'a> {
@@ -329,6 +351,17 @@ impl<'a> CallGraphVisitor<'a> {
             })
             .collect::<Vec<_>>()
     }
+
+    // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
+    const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
+
+    fn set_debug_for_body(&mut self, body: &[Stmt]) {
+        self.debug_current_definition = has_toplevel_call(body, Self::DEBUG_FUNCTION_NAME);
+    }
+
+    fn unset_debug(&mut self) {
+        self.debug_current_definition = false;
+    }
 }
 
 impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
@@ -347,6 +380,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                     &function_id,
                     |function_definition| function_definition.name.clone(),
                 ) {
+                    self.set_debug_for_body(&function_def.body);
                     self.definition_nesting.push(FunctionRef {
                         module_id: self.module_id,
                         module_name: self.module_name,
@@ -355,6 +389,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                     });
                     visitor::walk_stmt(self, stmt);
                     self.definition_nesting.pop();
+                    self.unset_debug();
                 } else {
                     let current_in_exported_definition = self.in_exported_definition;
                     self.in_exported_definition = false;
@@ -381,6 +416,8 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
 
         match expr {
             Expr::Call(call) => {
+                debug_println!(self.debug_current_definition, "Visiting call: {:#?}", call);
+
                 let call_targets = match &*call.func {
                     Expr::Name(name) => self.resolve_name(name),
                     Expr::Attribute(attribute) => self.resolve_attribute_access(attribute),
@@ -442,6 +479,7 @@ pub fn build_call_graphs_for_module(
         call_graphs: &mut call_graphs,
         function_base_definitions,
         in_exported_definition: true,
+        debug_current_definition: false,
     };
 
     for stmt in &context.ast.body {
