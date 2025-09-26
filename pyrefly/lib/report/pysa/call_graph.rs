@@ -33,9 +33,17 @@ use crate::state::lsp::FindPreference;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ImplicitReceiver {
+    TrueWithClassReceiver,
+    TrueWithObjectReceiver,
+    False,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CallTarget<Target> {
     pub(crate) target: Target,
-    pub(crate) implicit_receiver: bool,
+    pub(crate) implicit_receiver: ImplicitReceiver,
     pub(crate) receiver_class: Option<ClassRef>,
 }
 
@@ -47,13 +55,13 @@ impl<Target> CallTarget<Target> {
     {
         CallTarget {
             target: map(&self.target),
-            implicit_receiver: self.implicit_receiver,
+            implicit_receiver: self.implicit_receiver.clone(),
             receiver_class: self.receiver_class.clone(),
         }
     }
 
     #[cfg(test)]
-    pub fn with_implicit_receiver(mut self, implicit_receiver: bool) -> Self {
+    pub fn with_implicit_receiver(mut self, implicit_receiver: ImplicitReceiver) -> Self {
         self.implicit_receiver = implicit_receiver;
         self
     }
@@ -238,6 +246,39 @@ fn strip_none_from_union(type_: &Type) -> Type {
     }
 }
 
+struct MethodMetadata {
+    is_staticmethod: bool,
+    is_classmethod: bool,
+    is_method: bool,
+}
+
+fn has_implicit_receiver(
+    method_metadata: &MethodMetadata,
+    is_receiver_class_def: bool,
+) -> ImplicitReceiver {
+    if method_metadata.is_staticmethod {
+        ImplicitReceiver::False
+    } else if method_metadata.is_classmethod {
+        if is_receiver_class_def {
+            // C.f() where f is a class method
+            ImplicitReceiver::TrueWithClassReceiver
+        } else {
+            // c.f() where f is a class method
+            ImplicitReceiver::TrueWithObjectReceiver
+        }
+    } else if method_metadata.is_method {
+        if is_receiver_class_def {
+            // C.g(c) where g is a method
+            ImplicitReceiver::False
+        } else {
+            // c.g() where g is a method
+            ImplicitReceiver::TrueWithObjectReceiver
+        }
+    } else {
+        ImplicitReceiver::False
+    }
+}
+
 #[allow(dead_code)]
 struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
@@ -273,40 +314,55 @@ impl<'a> CallGraphVisitor<'a> {
         );
     }
 
-    fn has_implicit_receiver(&self, definition_ref: &FunctionRef, explicit_receiver: bool) -> bool {
-        let (is_staticmethod, is_classmethod, is_method) = self
-            .function_base_definitions
-            .get_and_map(
-                self.module_id,
-                &definition_ref.function_id,
-                |function_definition| {
-                    (
-                        function_definition.is_staticmethod,
-                        function_definition.is_classmethod,
-                        FunctionBaseDefinition::is_method(function_definition),
-                    )
-                },
-            )
-            .unwrap_or((false, false, false));
-
-        if is_staticmethod {
-            false
-        } else if is_classmethod {
-            true
-        } else {
-            !explicit_receiver && is_method
+    fn receiver_class_from_type(
+        &self,
+        receiver_type: &Type,
+        is_class_method: bool,
+    ) -> (Option<ClassRef>, bool) {
+        let receiver_type = strip_none_from_union(receiver_type);
+        match receiver_type {
+            Type::ClassType(class_type) => (
+                Some(ClassRef::from_class(
+                    class_type.class_object(),
+                    self.module_context.module_ids,
+                )),
+                false, // Whether the receiver is `type(SomeClass)`
+            ),
+            Type::ClassDef(class_def) => {
+                // The receiver is the class itself. Technically, the receiver class type should be `type(SomeClass)`.
+                // However, we strip away the `type` part since it is implied by the `is_class_method` flag.
+                (
+                    if is_class_method {
+                        Some(ClassRef::from_class(
+                            &class_def,
+                            self.module_context.module_ids,
+                        ))
+                    } else {
+                        None
+                    },
+                    true,
+                )
+            }
+            _ => (None, false),
         }
     }
 
-    fn receiver_class_from_type(&self, type_: &Type) -> Option<ClassRef> {
-        let type_ = strip_none_from_union(type_);
-        match type_ {
-            Type::ClassType(class_type) => Some(ClassRef::from_class(
-                class_type.class_object(),
-                self.module_context.module_ids,
-            )),
-            _ => None,
-        }
+    fn get_method_metadata(&self, function_ref: &FunctionRef) -> MethodMetadata {
+        self.function_base_definitions
+            .get_and_map(
+                self.module_id,
+                &function_ref.function_id,
+                |function_definition| MethodMetadata {
+                    is_staticmethod: function_definition.is_staticmethod,
+                    is_classmethod: function_definition.is_classmethod,
+                    is_method: FunctionBaseDefinition::is_method(function_definition),
+                },
+            )
+            .unwrap_or(MethodMetadata {
+                is_staticmethod: false,
+                is_classmethod: false,
+                is_method: false,
+            })
     }
 
     fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
@@ -326,13 +382,14 @@ impl<'a> CallGraphVisitor<'a> {
                     self.function_base_definitions,
                     self.module_context,
                 )
-                .map(|definition_ref| {
-                    let implicit_receiver = self.has_implicit_receiver(
-                        &definition_ref,
-                        false, // explicit_receiver
+                .map(|function_ref| {
+                    let method_metadata = self.get_method_metadata(&function_ref);
+                    let implicit_receiver = has_implicit_receiver(
+                        &method_metadata,
+                        false, // We don't know receiver type
                     );
                     CallTarget {
-                        target: definition_ref,
+                        target: function_ref,
                         implicit_receiver,
                         receiver_class: None,
                     }
@@ -357,18 +414,22 @@ impl<'a> CallGraphVisitor<'a> {
                     self.function_base_definitions,
                     self.module_context,
                 )
-                .map(|definition_ref| {
-                    let implicit_receiver = self.has_implicit_receiver(
-                        &definition_ref,
-                        false, // explicit_receiver
-                    );
-                    let receiver_class = self
+                .map(|function_ref| {
+                    let method_metadata = self.get_method_metadata(&function_ref);
+                    let (receiver_class, is_receiver_class_def) = self
                         .module_context
                         .answers
                         .get_type_trace(attribute.value.range())
-                        .and_then(|type_| self.receiver_class_from_type(&type_));
+                        .map_or((None, false), |receiver_type| {
+                            self.receiver_class_from_type(
+                                &receiver_type,
+                                method_metadata.is_classmethod,
+                            )
+                        });
+                    let implicit_receiver =
+                        has_implicit_receiver(&method_metadata, is_receiver_class_def);
                     CallTarget {
-                        target: definition_ref,
+                        target: function_ref,
                         implicit_receiver,
                         receiver_class,
                     }
