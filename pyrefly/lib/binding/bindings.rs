@@ -1075,7 +1075,7 @@ impl<'a> BindingsBuilder<'a> {
         match result {
             TParamLookupResult::MaybeTParam(possible_tparam) => NameLookupResult::Found {
                 value: Binding::Forward(possible_tparam.idx),
-                is_initialized: IsInitialized::Maybe,
+                is_initialized: IsInitialized::Yes,
             },
             TParamLookupResult::NotTParam(idx) => NameLookupResult::Found {
                 value: Binding::Forward(*idx),
