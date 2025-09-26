@@ -172,6 +172,7 @@ impl SnippetCheckArgs {
                 expectations: false,
                 remove_unused_ignores: false,
                 all: false,
+                same_line: false,
             },
             config_override: self.config_override,
         };
@@ -276,6 +277,9 @@ struct BehaviorArgs {
     /// If we are removing unused ignores, should we remove all unsused ignores or only Pyre-fly specific `pyrefly: ignore`s?
     #[arg(long, requires("remove_unused_ignores"))]
     all: bool,
+    /// If we are removing unused ignores, should we remove all unsused ignores or only Pyre-fly specific `pyrefly: ignore`s?
+    #[arg(long, requires("suppress_errors"))]
+    same_line: bool,
 }
 
 impl OutputFormat {
@@ -790,7 +794,7 @@ impl CheckArgs {
             fs_anyhow::write(path, report::trace::trace(transaction))?;
         }
         if self.behavior.suppress_errors {
-            suppress::suppress_errors(errors.shown.clone());
+            suppress::suppress_errors(errors.shown.clone(), self.behavior.same_line);
         }
         if self.behavior.remove_unused_ignores {
             suppress::remove_unused_ignores(&loads, self.behavior.all);
