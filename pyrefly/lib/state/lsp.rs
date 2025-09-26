@@ -1024,10 +1024,10 @@ impl<'a> Transaction<'a> {
         preference: &FindPreference,
     ) -> Option<(TextRangeWithModule, Option<TextRange>)> {
         match definition {
-            AttrDefinition::FullyResolved {
-                definition_range: text_range_with_module_info,
-                docstring_range,
-            } => Some((text_range_with_module_info, docstring_range)),
+            AttrDefinition::FullyResolved(text_range_with_module_info) => {
+                // TODO(kylei): attribute docstrings
+                Some((text_range_with_module_info, None))
+            }
             AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {
                 let (handle, export) =
                     self.resolve_named_import(handle, module_name, attr_name.clone(), preference)?;

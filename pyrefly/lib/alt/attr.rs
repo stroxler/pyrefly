@@ -8,8 +8,6 @@
 use std::iter;
 
 use dupe::Dupe;
-use pyrefly_python::ast::Ast;
-use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -17,8 +15,6 @@ use pyrefly_types::literal::LitEnum;
 use pyrefly_types::special_form::SpecialForm;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::Var;
-use ruff_python_ast::AnyNodeRef;
-use ruff_python_ast::ModModule;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
@@ -1749,13 +1745,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
 #[derive(Debug)]
 pub enum AttrDefinition {
-    FullyResolved {
-        definition_range: TextRangeWithModule,
-        docstring_range: Option<TextRange>,
-    },
-    PartiallyResolvedImportedModuleAttribute {
-        module_name: ModuleName,
-    },
+    FullyResolved(TextRangeWithModule),
+    PartiallyResolvedImportedModuleAttribute { module_name: ModuleName },
 }
 
 #[derive(Debug)]
@@ -1767,27 +1758,6 @@ pub struct AttrInfo {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn compute_docstring_range_for_definition(
-        &self,
-        ast: &ModModule,
-        text_range_with_module: &TextRangeWithModule,
-    ) -> Option<TextRange> {
-        let covering_nodes = Ast::locate_node(ast, text_range_with_module.range.start());
-
-        for node in covering_nodes.iter() {
-            match node {
-                AnyNodeRef::StmtFunctionDef(stmt) => {
-                    return Docstring::range_from_stmts(&stmt.body);
-                }
-                AnyNodeRef::StmtClassDef(stmt) => {
-                    return Docstring::range_from_stmts(&stmt.body);
-                }
-                _ => continue,
-            }
-        }
-        None
-    }
-
     fn completions_mro<T>(
         &self,
         mro: T,
@@ -1798,45 +1768,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     {
         let mut seen = SmallSet::new();
         for c in mro {
-            let ast = Ast::parse(c.module().dupe().contents()).0;
             match expected_attribute_name {
                 None => {
                     for fld in c.fields() {
                         if seen.insert(fld)
                             && let Some(range) = c.field_decl_range(fld)
                         {
-                            let text_range_with_module =
-                                TextRangeWithModule::new(c.module().dupe(), range);
-                            let docstring_range = self.compute_docstring_range_for_definition(
-                                &ast,
-                                &text_range_with_module,
-                            );
                             res.push(AttrInfo {
                                 name: fld.clone(),
                                 ty: None,
                                 is_deprecated: false,
-                                definition: Some(AttrDefinition::FullyResolved {
-                                    definition_range: text_range_with_module,
-                                    docstring_range,
-                                }),
+                                definition: Some(AttrDefinition::FullyResolved(
+                                    TextRangeWithModule::new(c.module().dupe(), range),
+                                )),
                             });
                         }
                     }
                 }
                 Some(expected_attribute_name) => {
                     if let Some(range) = c.field_decl_range(expected_attribute_name) {
-                        let text_range_with_module =
-                            TextRangeWithModule::new(c.module().dupe(), range);
-                        let docstring_range = self
-                            .compute_docstring_range_for_definition(&ast, &text_range_with_module);
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
                             is_deprecated: false,
-                            definition: Some(AttrDefinition::FullyResolved {
-                                definition_range: text_range_with_module,
-                                docstring_range,
-                            }),
+                            definition: Some(AttrDefinition::FullyResolved(
+                                TextRangeWithModule::new(c.module().dupe(), range),
+                            )),
                         });
                     }
                 }
@@ -1996,7 +1953,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if include_types {
             for info in res {
                 if let Some(definition) = &info.definition
-                    && matches!(definition, AttrDefinition::FullyResolved { .. })
+                    && matches!(definition, AttrDefinition::FullyResolved(..))
                 {
                     let found_attrs = self
                         .lookup_attr_from_attribute_base(base.clone(), &info.name)
