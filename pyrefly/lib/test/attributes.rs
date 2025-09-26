@@ -9,6 +9,35 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
+    test_class_body_attribute_edge_cases,
+    r#"
+from typing import assert_type, Any
+def condition() -> bool: ...
+class A:
+    # Annotated with no value
+    b: int
+    # Annotated twice with no value
+    c: str
+    c: str
+    # Defined in conditional control flow, with and without annotation
+    if condition():
+        d = 42
+        e: int = 42
+    # Defined (with or without annotation) but only in terminating control flow
+    if condition():
+        f = 42
+        g: int = 42
+        exit()
+assert_type(A.b, int)
+assert_type(A.c, str)
+assert_type(A.d, int)
+assert_type(A.e, int)
+assert_type(A.f, Any)  # E: Class `A` has no class attribute `f`
+assert_type(A.g, Any)  # E: Class `A` has no class attribute `g`
+    "#,
+);
+
+testcase!(
     test_set_attribute,
     r#"
 class A:
