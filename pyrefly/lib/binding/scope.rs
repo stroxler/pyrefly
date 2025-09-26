@@ -344,7 +344,7 @@ impl Static {
         }
     }
 
-    pub fn stmts(
+    fn stmts(
         &mut self,
         x: &[Stmt],
         module_info: &ModuleInfo,
@@ -450,7 +450,7 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    pub fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
+    fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
         let mut it = styles.into_iter();
         let mut merged = it.next().unwrap_or(FlowStyle::Other);
         for x in it {
@@ -512,7 +512,7 @@ impl FlowInfo {
         }
     }
 
-    pub fn as_initial_value(&self) -> ClassFieldInBody {
+    fn as_initial_value(&self) -> ClassFieldInBody {
         match &self.style {
             FlowStyle::ClassField {
                 initial_value: Some(e),
@@ -551,8 +551,8 @@ pub struct ClassIndices {
 
 #[derive(Clone, Debug)]
 struct ScopeClass {
-    pub name: Identifier,
-    pub indices: ClassIndices,
+    name: Identifier,
+    indices: ClassIndices,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
     attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
 }
