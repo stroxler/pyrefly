@@ -34,6 +34,7 @@ use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::thread_pool::ThreadPool;
 use rayon::prelude::*;
+use ruff_python_ast::name::Name;
 use serde::Serialize;
 use tracing::info;
 
@@ -94,7 +95,7 @@ pub struct PysaModuleFile {
     type_of_expression: HashMap<PysaLocation, PysaType>,
     function_definitions: ModuleFunctionDefinitions<FunctionDefinition>,
     class_definitions: HashMap<PysaLocation, ClassDefinition>,
-    global_variables: HashMap<String, GlobalVariable>,
+    global_variables: HashMap<Name, GlobalVariable>,
 }
 
 pub fn get_module_file(

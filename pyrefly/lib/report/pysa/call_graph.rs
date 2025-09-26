@@ -15,6 +15,7 @@ use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::identifier::Identifier;
+use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor;
 use ruff_python_ast::visitor::Visitor;
 use ruff_text_size::Ranged;
@@ -350,7 +351,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                         module_id: self.module_id,
                         module_name: self.module_name,
                         function_id,
-                        identifier: function_name,
+                        function_name,
                     });
                     visitor::walk_stmt(self, stmt);
                     self.definition_nesting.pop();
@@ -431,7 +432,7 @@ pub fn build_call_graphs_for_module(
         module_id: context.module_id,
         module_name,
         function_id: FunctionId::ModuleTopLevel,
-        identifier: "$module_top_level".to_owned(),
+        function_name: Name::from("$toplevel"),
     };
     let mut visitor = CallGraphVisitor {
         module_context: context,

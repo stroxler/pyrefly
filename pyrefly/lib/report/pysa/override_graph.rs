@@ -133,7 +133,7 @@ fn get_super_class_member(
                         context.module_info.display_range(last_function.id_range()),
                     ),
                 },
-                identifier: field.to_string(),
+                function_name: field.clone(),
             }
         })
 }

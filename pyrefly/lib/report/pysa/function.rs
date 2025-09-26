@@ -18,6 +18,7 @@ use pyrefly_types::types::Overload;
 use pyrefly_types::types::Type;
 use pyrefly_util::thread_pool::ThreadPool;
 use rayon::prelude::*;
+use ruff_python_ast::name::Name;
 use serde::Serialize;
 
 use crate::alt::answers::Answers;
@@ -76,7 +77,7 @@ pub struct FunctionRef {
     pub module_id: ModuleId,
     pub module_name: ModuleName, // For debugging purposes only. Reader should use the module id.
     pub function_id: FunctionId,
-    pub identifier: String, // For debugging purposes only. Reader should use the function id.
+    pub function_name: Name, // For debugging purposes only. Reader should use the function id.
 }
 
 impl FunctionRef {
@@ -92,7 +93,7 @@ impl FunctionRef {
             function_id: FunctionId::Function {
                 location: PysaLocation::new(display_range),
             },
-            identifier: name.to_string(),
+            function_name: name,
         }
     }
 
@@ -115,7 +116,7 @@ impl FunctionRef {
                 module_id,
                 module_name: item.module.name(),
                 function_id: function_id.clone(),
-                identifier: function_base_definition.name.clone(),
+                function_name: function_base_definition.name.clone(),
             }
         })
     }
@@ -125,31 +126,31 @@ impl FunctionRef {
 pub enum FunctionParameter {
     PosOnly {
         #[serde(skip_serializing_if = "Option::is_none")]
-        name: Option<String>,
+        name: Option<Name>,
         annotation: PysaType,
         #[serde(skip_serializing_if = "<&bool>::not")]
         required: bool,
     },
     Pos {
-        name: String,
+        name: Name,
         annotation: PysaType,
         #[serde(skip_serializing_if = "<&bool>::not")]
         required: bool,
     },
     VarArg {
         #[serde(skip_serializing_if = "Option::is_none")]
-        name: Option<String>,
+        name: Option<Name>,
         annotation: PysaType,
     },
     KwOnly {
-        name: String,
+        name: Name,
         annotation: PysaType,
         #[serde(skip_serializing_if = "<&bool>::not")]
         required: bool,
     },
     Kwargs {
         #[serde(skip_serializing_if = "Option::is_none")]
-        name: Option<String>,
+        name: Option<Name>,
         annotation: PysaType,
     },
 }
@@ -170,7 +171,7 @@ pub struct FunctionSignature {
 /// Only store memory-efficient information from `FunctionDefinition`
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct FunctionBaseDefinition {
-    pub name: String,
+    pub name: Name,
     pub parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub is_overload: bool,
@@ -303,26 +304,26 @@ impl<GenericFunctionDefinition> WholeProgramFunctionDefinitions<GenericFunctionD
 fn export_function_parameter(param: &Param, context: &ModuleContext) -> FunctionParameter {
     match param {
         Param::PosOnly(name, ty, required) => FunctionParameter::PosOnly {
-            name: name.as_ref().map(|n| n.to_string()),
+            name: name.clone(),
             annotation: PysaType::from_type(ty, context),
             required: matches!(required, pyrefly_types::callable::Required::Required),
         },
         Param::Pos(name, ty, required) => FunctionParameter::Pos {
-            name: name.to_string(),
+            name: name.clone(),
             annotation: PysaType::from_type(ty, context),
             required: matches!(required, pyrefly_types::callable::Required::Required),
         },
         Param::VarArg(name, ty) => FunctionParameter::VarArg {
-            name: name.as_ref().map(|n| n.to_string()),
+            name: name.clone(),
             annotation: PysaType::from_type(ty, context),
         },
         Param::KwOnly(name, ty, required) => FunctionParameter::KwOnly {
-            name: name.to_string(),
+            name: name.clone(),
             annotation: PysaType::from_type(ty, context),
             required: matches!(required, pyrefly_types::callable::Required::Required),
         },
         Param::Kwargs(name, ty) => FunctionParameter::Kwargs {
-            name: name.as_ref().map(|n| n.to_string()),
+            name: name.clone(),
             annotation: PysaType::from_type(ty, context),
         },
     }
@@ -435,7 +436,7 @@ pub fn export_all_functions(
                 .insert(
                     current_function.function_id.clone(),
                     FunctionBaseDefinition {
-                        name: current_function.identifier.clone(),
+                        name: current_function.function_name.clone(),
                         parent,
                         is_overload: function.metadata().flags.is_overload,
                         is_staticmethod: function.metadata().flags.is_staticmethod,

@@ -44,7 +44,7 @@ impl DefinitionRefForTest {
     fn from_definition_ref(definition_ref: &FunctionRef) -> Self {
         Self {
             module_name: definition_ref.module_name.to_string(),
-            identifier: definition_ref.identifier.clone(),
+            identifier: definition_ref.function_name.to_string(),
         }
     }
 

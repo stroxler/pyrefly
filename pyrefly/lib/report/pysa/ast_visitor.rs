@@ -13,6 +13,7 @@ use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use serde::Serialize;
 use starlark_map::Hashed;
@@ -33,13 +34,13 @@ pub struct GlobalVariable {
 
 pub struct ModuleAstVisitorResult {
     pub type_of_expression: HashMap<PysaLocation, PysaType>,
-    pub global_variables: HashMap<String, GlobalVariable>,
+    pub global_variables: HashMap<Name, GlobalVariable>,
 }
 
 struct VisitorContext<'a> {
     module_context: &'a ModuleContext<'a>,
     type_of_expression: &'a mut HashMap<PysaLocation, PysaType>,
-    global_variables: &'a mut HashMap<String, GlobalVariable>,
+    global_variables: &'a mut HashMap<Name, GlobalVariable>,
 }
 
 fn visit_expression(e: &Expr, context: &mut VisitorContext) {
@@ -91,7 +92,7 @@ fn visit_assign_target(target: &Expr, is_top_level: bool, context: &mut VisitorC
         );
         context
             .global_variables
-            .entry(global.id.to_string())
+            .entry(global.id.clone())
             .or_insert(GlobalVariable {
                 type_: type_.map(|type_| PysaType::from_type(type_.ty(), context.module_context)),
                 location,

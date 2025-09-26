@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
+use ruff_python_ast::name::Name;
 
 use crate::report::pysa::ast_visitor::GlobalVariable;
 use crate::report::pysa::ast_visitor::ModuleAstVisitorResult;
@@ -27,7 +28,7 @@ fn create_global_variable(type_: Option<PysaType>, location: PysaLocation) -> Gl
 fn test_exported_global_variables(
     module_name: &str,
     python_code: &str,
-    create_expected_globals: &dyn Fn(&ModuleContext) -> HashMap<String, GlobalVariable>,
+    create_expected_globals: &dyn Fn(&ModuleContext) -> HashMap<Name, GlobalVariable>,
 ) {
     let state = create_state(module_name, python_code);
     let transaction = state.transaction();
@@ -67,7 +68,7 @@ x: int = 42
 "#,
     &|context: &ModuleContext| {
         HashMap::from([(
-            "x".to_owned(),
+            "x".into(),
             create_global_variable(
                 Some(PysaType::from_class_type(context.stdlib.int(), context)),
                 create_location(2, 1, 2, 2),
@@ -83,7 +84,7 @@ y = "hello"
 "#,
     &|context: &ModuleContext| {
         HashMap::from([(
-            "y".to_owned(),
+            "y".into(),
             create_global_variable(
                 Some(PysaType::from_class_type(context.stdlib.str(), context)),
                 create_location(2, 1, 2, 2),
@@ -99,7 +100,7 @@ z = None
 "#,
     &|_: &ModuleContext| {
         HashMap::from([(
-            "z".to_owned(),
+            "z".into(),
             create_global_variable(Some(PysaType::none()), create_location(2, 1, 2, 2)),
         )])
     },
@@ -115,21 +116,21 @@ c = 3.14
     &|context: &ModuleContext| {
         HashMap::from([
             (
-                "a".to_owned(),
+                "a".into(),
                 create_global_variable(
                     Some(PysaType::from_class_type(context.stdlib.int(), context)),
                     create_location(2, 1, 2, 2),
                 ),
             ),
             (
-                "b".to_owned(),
+                "b".into(),
                 create_global_variable(
                     Some(PysaType::from_class_type(context.stdlib.str(), context)),
                     create_location(3, 1, 3, 2),
                 ),
             ),
             (
-                "c".to_owned(),
+                "c".into(),
                 create_global_variable(
                     Some(PysaType::from_class_type(context.stdlib.float(), context)),
                     create_location(4, 1, 4, 2),
@@ -147,14 +148,14 @@ x, y = 1, "hello"
     &|context: &ModuleContext| {
         HashMap::from([
             (
-                "x".to_owned(),
+                "x".into(),
                 create_global_variable(
                     Some(PysaType::from_class_type(context.stdlib.int(), context)),
                     create_location(2, 1, 2, 2),
                 ),
             ),
             (
-                "y".to_owned(),
+                "y".into(),
                 create_global_variable(
                     Some(PysaType::from_class_type(context.stdlib.str(), context)),
                     create_location(2, 4, 2, 5),
@@ -175,7 +176,7 @@ def my_function():
 "#,
     &|context: &ModuleContext| {
         HashMap::from([(
-            "global_var".to_owned(),
+            "global_var".into(),
             create_global_variable(
                 Some(PysaType::from_class_type(context.stdlib.int(), context)),
                 create_location(2, 1, 2, 11),
@@ -194,7 +195,7 @@ class MyClass:
 "#,
     &|context: &ModuleContext| {
         HashMap::from([(
-            "global_var".to_owned(),
+            "global_var".into(),
             create_global_variable(
                 Some(PysaType::from_class_type(context.stdlib.int(), context)),
                 create_location(2, 1, 2, 11),
@@ -211,7 +212,7 @@ counter += 1
 "#,
     &|context: &ModuleContext| {
         HashMap::from([(
-            "counter".to_owned(),
+            "counter".into(),
             create_global_variable(
                 Some(PysaType::from_class_type(context.stdlib.int(), context)),
                 create_location(2, 1, 2, 8),

@@ -454,6 +454,7 @@ dependencies = [
  "itoa 1.0.14",
  "rustversion",
  "ryu 1.0.17",
+ "serde",
  "static_assertions",
 ]
 
@@ -2465,6 +2466,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruff_cache"
+version = "0.0.0"
+source = "git+https://github.com/astral-sh/ruff/?rev=9bee8376a17401f9736b45fdefffb62edc2f1668#9bee8376a17401f9736b45fdefffb62edc2f1668"
+dependencies = [
+ "filetime",
+ "glob",
+ "globset",
+ "itertools 0.14.0",
+ "regex",
+ "seahash",
+]
+
+[[package]]
 name = "ruff_python_ast"
 version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff/?rev=9bee8376a17401f9736b45fdefffb62edc2f1668#9bee8376a17401f9736b45fdefffb62edc2f1668"
@@ -2476,10 +2490,12 @@ dependencies = [
  "is-macro",
  "itertools 0.14.0",
  "memchr",
+ "ruff_cache",
  "ruff_python_trivia",
  "ruff_source_file",
  "ruff_text_size",
  "rustc-hash",
+ "serde",
  "thiserror 2.0.12",
 ]
 
@@ -2529,6 +2545,7 @@ version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff/?rev=9bee8376a17401f9736b45fdefffb62edc2f1668#9bee8376a17401f9736b45fdefffb62edc2f1668"
 dependencies = [
  "get-size2",
+ "serde",
 ]
 
 [[package]]
@@ -2607,6 +2624,12 @@ name = "scratch"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "764cad9e7e1ca5fe15b552859ff5d96a314e6ed2934f2260168cd5dfa5891409"
+
+[[package]]
+name = "seahash"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "serde"
