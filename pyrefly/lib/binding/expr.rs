@@ -69,11 +69,32 @@ pub enum Usage {
     /// - Because narrowing introduces duplicate expressions, it is difficult
     ///   to ensure unpinned Vars cannot leak into the binding graph and cause
     ///   nondeterminism.
-    Narrowing,
+    ///
+    /// It carries an optional current idx so we could detect mutliple usages to
+    /// the same key within the same binding.
+    Narrowing(Option<Idx<Key>>),
     /// I'm a usage in some context (a type variable declaration, an annotation,
     /// a cast, etc) where we are dealing with static types. I will not pin
     /// any placeholder types.
     StaticTypeInformation,
+}
+
+impl Usage {
+    pub fn narrowing_from(other: &Self) -> Self {
+        match other {
+            Self::CurrentIdx(idx, _) => Self::Narrowing(Some(*idx)),
+            Self::Narrowing(idx) => Self::Narrowing(*idx),
+            Self::StaticTypeInformation => Self::Narrowing(None),
+        }
+    }
+
+    pub fn current_idx(&self) -> Option<Idx<Key>> {
+        match self {
+            Self::CurrentIdx(idx, _) => Some(*idx),
+            Self::Narrowing(idx) => *idx,
+            Self::StaticTypeInformation => None,
+        }
+    }
 }
 
 enum TestAssertion {
@@ -351,9 +372,9 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Forward(iterable_value_idx)
             });
             for x in comp.ifs.iter_mut() {
-                self.ensure_expr(x, &mut Usage::Narrowing);
+                self.ensure_expr(x, &mut Usage::narrowing_from(usage));
                 let narrow_ops = NarrowOps::from_expr(self, Some(x));
-                self.bind_narrow_ops(&narrow_ops, comp.range);
+                self.bind_narrow_ops(&narrow_ops, comp.range, usage);
             }
         }
     }
@@ -393,7 +414,7 @@ impl<'a> BindingsBuilder<'a> {
         usage: &mut Usage,
     ) {
         let if_branch = self.scopes.replace_current_flow(base);
-        self.bind_narrow_ops(&ops.negate(), range);
+        self.bind_narrow_ops(&ops.negate(), range, usage);
         self.ensure_expr_opt(orelse, usage);
         // Swap them back again, to make sure that the merge order is if, then else
         let else_branch = self.scopes.replace_current_flow(if_branch);
@@ -466,9 +487,9 @@ impl<'a> BindingsBuilder<'a> {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
                 let base = self.scopes.clone_current_flow();
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
+                self.ensure_expr(&mut x.test, &mut Usage::narrowing_from(usage));
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.bind_narrow_ops(&narrow_ops, x.body.range());
+                self.bind_narrow_ops(&narrow_ops, x.body.range(), usage);
                 self.ensure_expr(&mut x.body, usage);
                 let range = x.range();
                 self.negate_and_merge_flow(base, &narrow_ops, Some(&mut x.orelse), range, usage);
@@ -482,8 +503,8 @@ impl<'a> BindingsBuilder<'a> {
                 let base = self.scopes.clone_current_flow();
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
-                    self.bind_narrow_ops(&narrow_ops, value.range());
-                    self.ensure_expr(value, &mut Usage::Narrowing);
+                    self.bind_narrow_ops(&narrow_ops, value.range(), usage);
+                    self.ensure_expr(value, &mut Usage::narrowing_from(usage));
                     let new_narrow_ops = NarrowOps::from_expr(self, Some(value));
                     match op {
                         BoolOp::And => {
@@ -623,12 +644,12 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_expr(func, usage);
                 for arg in arguments.args.iter_mut() {
-                    self.ensure_expr(arg, &mut Usage::Narrowing);
+                    self.ensure_expr(arg, &mut Usage::narrowing_from(usage));
                 }
                 for kw in arguments.keywords.iter_mut() {
                     self.ensure_expr(&mut kw.value, usage);
                 }
-                self.bind_narrow_ops(&narrow_op, *range);
+                self.bind_narrow_ops(&narrow_op, *range, usage);
             }
             Expr::Named(x) => {
                 // For scopes defined in terms of Definitions, we should normally already have the name in Static, but

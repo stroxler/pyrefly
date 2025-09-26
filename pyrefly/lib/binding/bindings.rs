@@ -725,22 +725,26 @@ impl<'a> BindingsBuilder<'a> {
     ) -> (Idx<Key>, Option<Idx<Key>>) {
         match self.table.types.1.get(flow_idx) {
             Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
-                Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
+                Usage::StaticTypeInformation | Usage::Narrowing(_) => (flow_idx, Some(flow_idx)),
                 Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
             },
             Some(Binding::Pin(unpinned_idx, first_use)) => match first_use {
                 FirstUse::DoesNotPin => (flow_idx, None),
                 FirstUse::Undetermined => match usage {
-                    Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
+                    Usage::StaticTypeInformation | Usage::Narrowing(_) => {
+                        (flow_idx, Some(flow_idx))
+                    }
                     Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
                 },
                 FirstUse::UsedBy(usage_idx) => {
                     // Detect secondary reads of the same name from a first use, and make
                     // sure they all use the raw binding rather than the `Pin`.
-                    let currently_in_first_use = match usage {
-                        Usage::CurrentIdx(idx, ..) => idx == usage_idx,
-                        Usage::Narrowing | Usage::StaticTypeInformation => false,
-                    };
+                    // TODO(grievejia): This would eliminate cycles formed on the secondary reads,
+                    // but may cause nondeterminism in presence of multiple walrus operators
+                    // nested in a single expression. We really need to re-think how first-usage
+                    // pinning can interact with things like narrowing and walrus.
+                    let currently_in_first_use =
+                        usage.current_idx().is_some_and(|idx| &idx == usage_idx);
                     if currently_in_first_use {
                         (*unpinned_idx, None)
                     } else {
@@ -761,7 +765,7 @@ impl<'a> BindingsBuilder<'a> {
                         first_uses_of.insert(used);
                         FirstUse::UsedBy(*use_idx)
                     }
-                    Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
+                    Usage::StaticTypeInformation | Usage::Narrowing(_) => FirstUse::DoesNotPin,
                 };
             }
             b => {
@@ -883,9 +887,12 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange) {
+    pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange, usage: &Usage) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
-            if let Some(initial_idx) = self.lookup_name(name, &mut Usage::Narrowing).found() {
+            if let Some(initial_idx) = self
+                .lookup_name(name, &mut Usage::narrowing_from(usage))
+                .found()
+            {
                 let narrowed_idx = self.insert_binding(
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(initial_idx, Box::new(op.clone()), use_range),

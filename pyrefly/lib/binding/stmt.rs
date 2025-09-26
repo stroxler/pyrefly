@@ -55,7 +55,7 @@ use crate::types::types::Type;
 impl<'a> BindingsBuilder<'a> {
     fn assert(&mut self, assert_range: TextRange, mut test: Expr, msg: Option<Expr>) {
         let test_range = test.range();
-        self.ensure_expr(&mut test, &mut Usage::Narrowing);
+        self.ensure_expr(&mut test, &mut Usage::Narrowing(None));
         let narrow_ops = NarrowOps::from_expr(self, Some(&test));
         let static_test = self.sys_info.evaluate_bool(&test);
         self.insert_binding(Key::Anon(test_range), Binding::Expr(None, test));
@@ -64,7 +64,11 @@ impl<'a> BindingsBuilder<'a> {
             // Negate the narrowing of the test expression when typechecking
             // the error message, since we know the assertion was false
             let negated_narrow_ops = narrow_ops.negate();
-            self.bind_narrow_ops(&negated_narrow_ops, msg_expr.range());
+            self.bind_narrow_ops(
+                &negated_narrow_ops,
+                msg_expr.range(),
+                &Usage::Narrowing(None),
+            );
             let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
             self.ensure_expr(&mut msg_expr, msg.usage());
             let idx = self.insert_binding(
@@ -74,7 +78,7 @@ impl<'a> BindingsBuilder<'a> {
             self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
             self.scopes.swap_current_flow_with(&mut base);
         };
-        self.bind_narrow_ops(&narrow_ops, assert_range);
+        self.bind_narrow_ops(&narrow_ops, assert_range, &Usage::Narrowing(None));
         if let Some(false) = static_test {
             self.scopes.mark_flow_termination();
         }
@@ -637,7 +641,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent);
             }
             Stmt::While(mut x) => {
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
+                self.ensure_expr(&mut x.test, &mut Usage::Narrowing(None));
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
                 // Note that it is important we ensure *after* we set up the loop, so that both the
@@ -670,12 +674,12 @@ impl<'a> BindingsBuilder<'a> {
                     if this_branch_chosen == Some(false) {
                         // We definitely won't pick this branch. We still ensure the test
                         // expression to pick up any names it defines.
-                        self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing);
+                        self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
                         continue;
                     }
-                    self.bind_narrow_ops(&negated_prev_ops, range);
+                    self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
                     let mut base = self.scopes.clone_current_flow();
-                    self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing);
+                    self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(test_expr) = test {
                         // Typecheck the test condition during solving.
@@ -686,7 +690,7 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         implicit_else = false;
                     }
-                    self.bind_narrow_ops(&new_narrow_ops, range);
+                    self.bind_narrow_ops(&new_narrow_ops, range, &Usage::Narrowing(None));
                     negated_prev_ops.and_all(new_narrow_ops.negate());
                     self.stmts(body, parent);
                     self.scopes.swap_current_flow_with(&mut base);
@@ -709,7 +713,11 @@ impl<'a> BindingsBuilder<'a> {
                         // from the previous branches into the flow env.
                         // Note, using a default use_range is OK. The range is only needed to make the
                         // key distinct from other keys.
-                        self.bind_narrow_ops(&negated_prev_ops, TextRange::default());
+                        self.bind_narrow_ops(
+                            &negated_prev_ops,
+                            TextRange::default(),
+                            &Usage::Narrowing(None),
+                        );
                     }
                     self.merge_branches_into_current(branches, range);
                 }

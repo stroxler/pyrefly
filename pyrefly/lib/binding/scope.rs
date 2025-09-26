@@ -57,6 +57,7 @@ use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::InitializedInFlow;
+use crate::binding::expr::Usage;
 use crate::binding::function::SelfAssignments;
 use crate::binding::narrow::NarrowOps;
 use crate::config::error_kind::ErrorKind;
@@ -1941,7 +1942,7 @@ impl<'a> BindingsBuilder<'a> {
             .current_mut()
             .loops
             .push(Loop(vec![(LoopExit::NeverRan, base)]));
-        self.bind_narrow_ops(narrow_ops, range);
+        self.bind_narrow_ops(narrow_ops, range, &Usage::Narrowing(None));
     }
 
     pub fn teardown_loop(
@@ -1964,12 +1965,12 @@ impl<'a> BindingsBuilder<'a> {
             // When there are no `break`s, the loop condition is always false once the body has exited,
             // and any `orelse` always runs.
             self.merge_loop_into_current(other_exits, range);
-            self.bind_narrow_ops(&narrow_ops.negate(), other_range);
+            self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
         } else {
             // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
             self.merge_loop_into_current(other_exits, range);
-            self.bind_narrow_ops(&narrow_ops.negate(), other_range);
+            self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
             self.merge_loop_into_current(breaks, other_range);
         }
