@@ -100,7 +100,7 @@ pub enum NameLookupResult {
     ///   if I am used after a `del` or is an anywhere-style lookup)
     Found {
         idx: Idx<Key>,
-        is_initialized: IsInitialized,
+        is_initialized: InitializedInFlow,
     },
     /// This name is not defined in the current scope stack.
     NotFound,
@@ -116,18 +116,18 @@ impl NameLookupResult {
 }
 
 #[derive(Debug)]
-pub enum IsInitialized {
+pub enum InitializedInFlow {
     Yes,
     Maybe,
     No,
 }
 
-impl IsInitialized {
+impl InitializedInFlow {
     pub fn as_error_message(&self, name: &Name) -> Option<String> {
         match self {
-            IsInitialized::Yes => None,
-            IsInitialized::Maybe => Some(format!("`{name}` may be uninitialized")),
-            IsInitialized::No => Some(format!("`{name}` is uninitialized")),
+            InitializedInFlow::Yes => None,
+            InitializedInFlow::Maybe => Some(format!("`{name}` may be uninitialized")),
+            InitializedInFlow::No => Some(format!("`{name}` is uninitialized")),
         }
     }
 }
@@ -1011,7 +1011,7 @@ impl TParamLookupResult {
         self.idx()
             .map_or(NameLookupResult::NotFound, |idx| NameLookupResult::Found {
                 idx,
-                is_initialized: IsInitialized::Yes,
+                is_initialized: InitializedInFlow::Yes,
             })
     }
 }
