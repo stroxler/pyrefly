@@ -603,6 +603,12 @@ class B:
     # `A` still refers to the global.
     A: A
     x: A = A()
+class C:
+    # The use of `del` is more of an edge case, but our implementation has to
+    # define the behavior and we should test it. It behaves the same.
+    A = A()
+    del A
+    y: A = A()
 "#,
 );
 
