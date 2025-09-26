@@ -8,8 +8,10 @@
 use crate::test::util::TestEnv;
 use crate::testcase;
 
+// Test case for various edge cases where a name isn't in the flow, and we might
+// or might not decide an attribute has been defined.
 testcase!(
-    test_class_body_attribute_edge_cases,
+    test_semantics_for_when_class_body_defines_attributes,
     r#"
 from typing import assert_type, Any
 def condition() -> bool: ...
@@ -28,12 +30,18 @@ class A:
         f = 42
         g: int = 42
         exit()
+    h = 42
+    i: int = 42
+    del h
+    del i
 assert_type(A.b, int)
 assert_type(A.c, str)
 assert_type(A.d, int)
 assert_type(A.e, int)
 assert_type(A.f, Any)  # E: Class `A` has no class attribute `f`
 assert_type(A.g, Any)  # E: Class `A` has no class attribute `g`
+assert_type(A.h, int)
+assert_type(A.i, int)
     "#,
 );
 

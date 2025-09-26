@@ -603,7 +603,7 @@ class B:
     # This sets `A` in `__annotations__`, but because class scopes are dynamic,
     # `A` still refers to the global.
     A: A
-    X: A = A()  # E: Expected a type form, got instance of `A`  # E: Expected a callable, got `A`
+    x: A = A()  # E: Expected a type form, got instance of `A`  # E: Expected a callable, got `A`
 "#,
 );
 
