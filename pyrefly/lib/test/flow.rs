@@ -1466,13 +1466,11 @@ def f():
 );
 
 testcase!(
-    test_loop_fails_to_reveal,
+    test_reveal_type_in_loop,
     r#"
 # This used to get confused by what reveal_type is
 from typing import *
-
 x = 1
-
 while True:
     reveal_type(x) # E: revealed type: Literal[1]
     break
