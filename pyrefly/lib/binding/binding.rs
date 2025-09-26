@@ -323,14 +323,14 @@ pub enum Key {
     Definition(ShortIdentifier),
     /// I am a mutable capture (`global` or `nonlocal`) declared at this location.
     MutableCapture(ShortIdentifier),
-    /// I am a wrapper around a assignment that is also a first use of some other name assign.
-    ///
-    /// See [Binding::PinUpstream] for more details.
-    UpstreamPinnedDefinition(ShortIdentifier),
     /// I am the pinned version of a definition corresponding to a name assignment.
     ///
     /// See [Binding::Pin] for more details.
     PinnedDefinition(ShortIdentifier),
+    /// I am a wrapper around a assignment that is also a first use of some other name assign.
+    ///
+    /// See [Binding::PinUpstream] for more details.
+    UpstreamPinnedDefinition(ShortIdentifier),
     /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
     FacetAssign(ShortIdentifier),
     /// The type at a specific return point.
@@ -393,8 +393,8 @@ impl Ranged for Key {
             Self::ImplicitGlobal(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
             Self::MutableCapture(x) => x.range(),
-            Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
+            Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::FacetAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
@@ -427,10 +427,10 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::ImplicitGlobal(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
             Self::MutableCapture(x) => write!(f, "Key::Declaration({})", short(x)),
+            Self::PinnedDefinition(x) => write!(f, "Key::PinnedDefinition({})", short(x)),
             Self::UpstreamPinnedDefinition(x) => {
                 write!(f, "Key::UpstreamPinnedDefinition({})", short(x))
             }
-            Self::PinnedDefinition(x) => write!(f, "Key::PinnedDefinition({})", short(x)),
             Self::FacetAssign(x) => write!(f, "Key::FacetAssign({})", short(x)),
             Self::BoundName(x) => write!(f, "Key::BoundName({})", short(x)),
             Self::Anon(r) => write!(f, "Key::Anon({})", ctx.display(r)),
