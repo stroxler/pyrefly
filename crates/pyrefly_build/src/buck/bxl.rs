@@ -16,6 +16,8 @@ use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::debug;
+use tracing::info;
 
 use crate::buck::query::Include;
 use crate::buck::query::PythonLibraryManifest;
@@ -72,6 +74,7 @@ impl BuckSourceDatabase {
         let new_db = raw_db.produce_map();
         let read = self.inner.read();
         if new_db == read.db {
+            debug!("No source DB changes from Buck query");
             return false;
         }
         drop(read);
@@ -88,6 +91,7 @@ impl BuckSourceDatabase {
             }
         }
         write.db = new_db;
+        debug!("Finished updating source DB with Buck response");
         true
     }
 }
@@ -151,10 +155,13 @@ impl SourceDatabase for BuckSourceDatabase {
         let new_includes = files.into_iter().map(Include::path).collect();
         let mut includes = self.includes.lock();
         if *includes == new_includes {
+            debug!("Not querying Buck source DB, since no inputs have changed");
             return Ok(false);
         }
         *includes = new_includes;
+        info!("Querying Buck for source DB");
         let raw_db = query_source_db(includes.iter(), &self.cwd)?;
+        info!("Finished querying Buck for source DB");
         Ok(self.update_with_target_manifest(raw_db))
     }
 }
