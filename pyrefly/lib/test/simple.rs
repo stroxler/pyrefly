@@ -32,6 +32,18 @@ def foo(x: A | B) -> None:
 );
 
 testcase!(
+    test_distribute_type_over_union,
+    r#"
+from typing import assert_type
+def f(x: type[int] | type[str], y: type[int | str]) -> None:
+    assert_type(x, type[int] | type[str])
+    assert_type(x, type[int | str])  
+    assert_type(y, type[int] | type[str])
+    assert_type(y, type[int | str])  
+"#,
+);
+
+testcase!(
     test_simple_call,
     r#"
 from typing import assert_type

@@ -1281,6 +1281,15 @@ impl Type {
         })
     }
 
+    /// type[a | b] -> type[a] | type[b]
+    pub fn distribute_type_over_union(self) -> Self {
+        self.transform(&mut |ty| {
+            if let Type::Type(box Type::Union(members)) = ty {
+                *ty = unions(members.drain(..).map(Type::type_form).collect());
+            }
+        })
+    }
+
     pub fn anon_callables(self) -> Self {
         self.transform(&mut |mut ty| {
             if let Type::Function(func) = ty {
