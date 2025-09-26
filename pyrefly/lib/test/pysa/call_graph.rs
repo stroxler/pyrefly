@@ -7,11 +7,6 @@
 
 use std::collections::HashMap;
 
-use crate::report::pysa::DefinitionRef;
-use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleIds;
-use crate::report::pysa::PysaLocation;
-use crate::report::pysa::build_reversed_override_graph;
 use crate::report::pysa::call_graph::AttributeAccessCallees;
 use crate::report::pysa::call_graph::CallCallees;
 use crate::report::pysa::call_graph::CallGraphs;
@@ -19,8 +14,12 @@ use crate::report::pysa::call_graph::CallTarget;
 use crate::report::pysa::call_graph::ExpressionCallees;
 use crate::report::pysa::call_graph::IdentifierCallees;
 use crate::report::pysa::call_graph::build_call_graphs_for_module;
-use crate::report::pysa::collect_function_base_definitions;
-use crate::report::pysa::location_key;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::function::DefinitionRef;
+use crate::report::pysa::function::collect_function_base_definitions;
+use crate::report::pysa::location::PysaLocation;
+use crate::report::pysa::module::ModuleIds;
+use crate::report::pysa::override_graph::build_reversed_override_graph;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_class_ref;
 use crate::test::pysa::utils::get_handle_for_module_name;
@@ -94,7 +93,7 @@ fn call_graph_for_test_from_actual(
                 .iter()
                 .map(|(location, expression_callees)| {
                     (
-                        location_key(&location.0),
+                        location.as_key(),
                         expression_callees.map_target(DefinitionRefForTest::from_definition_ref),
                     )
                 })

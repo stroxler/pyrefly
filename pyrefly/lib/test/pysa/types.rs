@@ -14,11 +14,11 @@ use pyrefly_types::literal::Lit;
 use pyrefly_types::simplify::unions;
 use pyrefly_types::types::Type;
 
-use crate::report::pysa::ClassNamesFromType;
-use crate::report::pysa::ClassRef;
-use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleIds;
-use crate::report::pysa::PysaType;
+use crate::report::pysa::class::ClassRef;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::module::ModuleIds;
+use crate::report::pysa::types::ClassNamesFromType;
+use crate::report::pysa::types::PysaType;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_class;
 use crate::test::pysa::utils::get_class_ref;

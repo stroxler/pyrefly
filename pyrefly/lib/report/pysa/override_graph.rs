@@ -8,7 +8,11 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use dashmap::DashMap;
+use pyrefly_build::handle::Handle;
 use pyrefly_types::class::Class;
+use pyrefly_util::thread_pool::ThreadPool;
+use rayon::prelude::*;
 use ruff_python_ast::name::Name;
 
 use crate::alt::types::decorated_function::DecoratedFunction;
@@ -16,22 +20,26 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::graph::index::Idx;
-use crate::report::pysa::ClassRef;
-use crate::report::pysa::DefinitionRef;
-use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleReversedOverrideGraph;
-use crate::report::pysa::PysaLocation;
-use crate::report::pysa::WholeProgramReversedOverrideGraph;
-use crate::report::pysa::get_all_functions;
-use crate::report::pysa::get_class_field_declaration;
-use crate::report::pysa::should_export_function;
+use crate::report::pysa::class::ClassRef;
+use crate::report::pysa::class::get_class_field_declaration;
+use crate::report::pysa::function::DefinitionRef;
+use crate::report::pysa::function::FunctionId;
+use crate::report::pysa::function::get_all_functions;
+use crate::report::pysa::function::should_export_function;
+use crate::report::pysa::location::PysaLocation;
+use crate::report::pysa::module::ModuleIds;
+use crate::state::state::Transaction;
 
 /// A map from a (base) method to methods that directly override it
 #[derive(Debug)]
 pub(crate) struct OverrideGraph {
     edges: HashMap<DefinitionRef, HashSet<DefinitionRef>>,
 }
+
+pub struct ModuleReversedOverrideGraph(HashMap<DefinitionRef, DefinitionRef>);
+
+pub struct WholeProgramReversedOverrideGraph(DashMap<DefinitionRef, DefinitionRef>);
 
 impl OverrideGraph {
     pub fn new() -> Self {
@@ -53,6 +61,16 @@ impl OverrideGraph {
             graph.add_edge(entry.value().clone(), entry.key().clone());
         }
         graph
+    }
+}
+
+impl WholeProgramReversedOverrideGraph {
+    pub fn new() -> WholeProgramReversedOverrideGraph {
+        WholeProgramReversedOverrideGraph(DashMap::new())
+    }
+
+    pub fn get(&self, method: &DefinitionRef) -> Option<DefinitionRef> {
+        self.0.get(method).map(|v| v.clone())
     }
 }
 
@@ -111,7 +129,7 @@ fn get_super_class_member(
                 module_id: class.module_id,
                 module_name: class.module_name,
                 function_id: FunctionId::Function {
-                    location: PysaLocation(
+                    location: PysaLocation::new(
                         context.module_info.display_range(last_function.id_range()),
                     ),
                 },
@@ -148,4 +166,23 @@ pub fn create_reversed_override_graph_for_module(
     }
 
     graph
+}
+
+pub fn build_reversed_override_graph(
+    handles: &Vec<Handle>,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+) -> WholeProgramReversedOverrideGraph {
+    let reversed_override_graph = WholeProgramReversedOverrideGraph::new();
+
+    ThreadPool::new().install(|| {
+        handles.par_iter().for_each(|handle| {
+            let context = ModuleContext::create(handle, transaction, module_ids).unwrap();
+            for (key, value) in create_reversed_override_graph_for_module(&context).0 {
+                reversed_override_graph.0.insert(key, value);
+            }
+        });
+    });
+
+    reversed_override_graph
 }

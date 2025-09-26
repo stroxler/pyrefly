@@ -9,14 +9,13 @@ use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use crate::report::pysa::GlobalVariable;
-use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleIds;
-use crate::report::pysa::PysaLocation;
-use crate::report::pysa::PysaType;
-use crate::report::pysa::WholeProgramReversedOverrideGraph;
-use crate::report::pysa::collect_function_base_definitions;
-use crate::report::pysa::get_module_file;
+use crate::report::pysa::ast_visitor::GlobalVariable;
+use crate::report::pysa::ast_visitor::ModuleAstVisitorResult;
+use crate::report::pysa::ast_visitor::visit_module_ast;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::location::PysaLocation;
+use crate::report::pysa::module::ModuleIds;
+use crate::report::pysa::types::PysaType;
 use crate::test::pysa::utils::create_location;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_handle_for_module_name;
@@ -41,16 +40,12 @@ fn test_exported_global_variables(
 
     let expected_globals = create_expected_globals(&context);
 
-    let reverse_override_graph = WholeProgramReversedOverrideGraph::new();
-    let function_definitions = collect_function_base_definitions(
-        &handles,
-        &transaction,
-        &module_ids,
-        &reverse_override_graph,
-    );
-    let module_file = get_module_file(&context, &function_definitions);
+    let ModuleAstVisitorResult {
+        global_variables: actual_globals,
+        ..
+    } = visit_module_ast(&context);
 
-    assert_eq!(&expected_globals, module_file.global_variables());
+    assert_eq!(expected_globals, actual_globals);
 }
 
 #[macro_export]

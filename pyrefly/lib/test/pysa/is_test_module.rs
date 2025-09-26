@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleIds;
-use crate::report::pysa::is_test_module;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::is_test_module::is_test_module;
+use crate::report::pysa::module::ModuleIds;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_handle_for_module_name;
 

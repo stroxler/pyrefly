@@ -15,11 +15,11 @@ use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LineNumber;
 
 use crate::binding::binding::KeyClass;
-use crate::report::pysa::ClassId;
-use crate::report::pysa::ClassRef;
-use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleKey;
-use crate::report::pysa::PysaLocation;
+use crate::report::pysa::class::ClassId;
+use crate::report::pysa::class::ClassRef;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::location::PysaLocation;
+use crate::report::pysa::module::ModuleKey;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
@@ -77,7 +77,7 @@ pub fn create_location(
     end_line: u32,
     end_column: u32,
 ) -> PysaLocation {
-    PysaLocation(DisplayRange {
+    PysaLocation::new(DisplayRange {
         start: DisplayPos {
             line: LineNumber::new(start_line).expect("line must be greater than 0"),
             column: NonZeroU32::new(start_column).expect("Column must be greater than 0"),

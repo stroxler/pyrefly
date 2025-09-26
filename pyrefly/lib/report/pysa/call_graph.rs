@@ -20,14 +20,14 @@ use ruff_python_ast::visitor::Visitor;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
-use crate::report::pysa::ClassRef;
-use crate::report::pysa::DefinitionRef;
-use crate::report::pysa::FunctionBaseDefinition;
-use crate::report::pysa::FunctionId;
-use crate::report::pysa::ModuleContext;
-use crate::report::pysa::ModuleId;
-use crate::report::pysa::PysaLocation;
-use crate::report::pysa::WholeProgramFunctionDefinitions;
+use crate::report::pysa::class::ClassRef;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::function::DefinitionRef;
+use crate::report::pysa::function::FunctionBaseDefinition;
+use crate::report::pysa::function::FunctionId;
+use crate::report::pysa::function::WholeProgramFunctionDefinitions;
+use crate::report::pysa::location::PysaLocation;
+use crate::report::pysa::module::ModuleId;
 use crate::state::lsp::FindPreference;
 
 #[allow(dead_code)]
@@ -222,7 +222,7 @@ impl<'a> CallGraphVisitor<'a> {
                 .entry(self.current_definition())
                 .or_default()
                 .insert(
-                    PysaLocation(self.module_context.module_info.display_range(location)),
+                    PysaLocation::new(self.module_context.module_info.display_range(location)),
                     callees,
                 )
                 .is_none(),
@@ -342,7 +342,7 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
         match stmt {
             Stmt::FunctionDef(function_def) => {
                 let function_id = FunctionId::Function {
-                    location: PysaLocation(
+                    location: PysaLocation::new(
                         self.module_context
                             .module_info
                             .display_range(function_def.identifier()),
