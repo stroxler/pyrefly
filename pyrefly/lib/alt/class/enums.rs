@@ -97,7 +97,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<ClassAttribute> {
         if metadata.is_enum() && (name == &VALUE || name == &VALUE_PROP) {
-            if self.field_is_inherited_from_enum(class.class_object(), &VALUE) {
+            if !self.field_is_inherited_from_enum(class.class_object(), &VALUE_PROP) {
+                // If `value` has been overridden, do not use the type of `_value_`
+                self.get_instance_attribute(class, &VALUE_PROP)
+            } else if self.field_is_inherited_from_enum(class.class_object(), &VALUE) {
                 // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
                 let enum_value_types: Vec<_> = self
                     .get_enum_members(class.class_object())

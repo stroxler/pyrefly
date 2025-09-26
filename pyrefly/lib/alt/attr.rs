@@ -1072,9 +1072,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::EnumLiteral(e) if matches!(attr_name.as_str(), "name" | "_name_") => {
                 acc.found_type(Type::Literal(Lit::Str(e.member.as_str().into())), base)
             }
-            AttributeBase1::EnumLiteral(e) if matches!(attr_name.as_str(), "value" | "_value_") => {
-                acc.found_type(e.ty.clone(), base)
-            }
             AttributeBase1::ClassInstance(class)
             | AttributeBase1::EnumLiteral(LitEnum { class, .. }) => {
                 let metadata = self.get_metadata_for_class(class.class_object());

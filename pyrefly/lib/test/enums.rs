@@ -412,6 +412,20 @@ assert_type(f(True, MyEnum.X, MyEnum.X), MyEnum)
 "#,
 );
 
+testcase!(
+    test_enum_override_value,
+    r#"
+from enum import Enum
+from typing import assert_type
+
+class MyIntEnum(int, Enum):
+    TWENTYSIX = '1a', 16
+    value: int
+
+assert_type(MyIntEnum.TWENTYSIX.value, int)
+"#,
+);
+
 // In 3.10 and lower versions, _magic_enum_attr is a different type than in 3.11+
 testcase!(
     test_magic_enum_attr_3_10,

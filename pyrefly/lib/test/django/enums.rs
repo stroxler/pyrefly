@@ -101,7 +101,7 @@ assert_type(VoidChoices.choices, list[tuple[Any | None, str]]) # E: assert_type(
 assert_type(VoidChoices.ABYSS, Literal[VoidChoices.ABYSS])
 assert_type(VoidChoices.ABYSS.name, Literal["ABYSS"])
 assert_type(VoidChoices.ABYSS.label, str) # E: assert_type(_StrPromise | str, str) failed 
-assert_type(VoidChoices.ABYSS.value, Any) # E: assert_type(auto, Any)
+assert_type(VoidChoices.ABYSS.value, Any)
 assert_type(VoidChoices.ABYSS.do_not_call_in_templates, Literal[True])
 assert_type(VoidChoices.__empty__, str)
 "#,
