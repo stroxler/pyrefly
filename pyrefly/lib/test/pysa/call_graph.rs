@@ -302,16 +302,19 @@ class C:
 def foo(c: Optional[C]):
   c.m()
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
+        let call_target = vec![
+            create_call_target("test.m").with_implicit_receiver(true).with_receiver_class("test.C".to_owned(), context)
+        ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 (
                     "7:3-7:8".to_owned(),
-                    call_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)])),
+                    call_callees_from_expected(call_target.clone())),
                 (
                     "7:3-7:6".to_owned(),
-                    attribute_access_callees_from_expected(vec![create_call_target("test.m").with_implicit_receiver(true)]),
+                    attribute_access_callees_from_expected(call_target.clone()),
                 )
             ],
         )]

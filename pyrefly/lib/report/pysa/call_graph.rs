@@ -218,6 +218,26 @@ fn has_toplevel_call(body: &[Stmt], callee_name: &'static str) -> bool {
     })
 }
 
+// This also strips `Optional[T]` since that is represented by `Union`
+fn strip_none_from_union(type_: &Type) -> Type {
+    match type_ {
+        Type::Union(types) => {
+            if let Ok(none_index) = types.binary_search(&Type::None) {
+                let mut new_types = types.clone();
+                new_types.remove(none_index);
+                match new_types.len() {
+                    0 => panic!("Unexpected union type `{:#?}`", type_),
+                    1 => new_types.into_iter().next().unwrap(),
+                    _ => Type::Union(new_types),
+                }
+            } else {
+                type_.clone()
+            }
+        }
+        _ => type_.clone(),
+    }
+}
+
 #[allow(dead_code)]
 struct CallGraphVisitor<'a> {
     module_context: &'a ModuleContext<'a>,
@@ -278,6 +298,17 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn receiver_class_from_type(&self, type_: &Type) -> Option<ClassRef> {
+        let type_ = strip_none_from_union(type_);
+        match type_ {
+            Type::ClassType(class_type) => Some(ClassRef::from_class(
+                class_type.class_object(),
+                self.module_context.module_ids,
+            )),
+            _ => None,
+        }
+    }
+
     fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
         let identifier = Ast::expr_name_identifier(name.clone());
         self.module_context
@@ -335,13 +366,7 @@ impl<'a> CallGraphVisitor<'a> {
                         .module_context
                         .answers
                         .get_type_trace(attribute.value.range())
-                        .and_then(|type_| match type_ {
-                            Type::ClassType(class_type) => Some(ClassRef::from_class(
-                                class_type.class_object(),
-                                self.module_context.module_ids,
-                            )),
-                            _ => None,
-                        });
+                        .and_then(|type_| self.receiver_class_from_type(&type_));
                     CallTarget {
                         target: definition_ref,
                         implicit_receiver,
