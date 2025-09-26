@@ -724,11 +724,15 @@ impl<'a> BindingsBuilder<'a> {
         usage: &mut Usage,
     ) -> (Idx<Key>, Option<Idx<Key>>) {
         match self.table.types.1.get(flow_idx) {
-            Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
-                Usage::StaticTypeInformation | Usage::Narrowing(_) => (flow_idx, Some(flow_idx)),
-                Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
-            },
-            Some(Binding::Pin(unpinned_idx, first_use)) => match first_use {
+            Some(Binding::CompletedPartialType(unpinned_idx, FirstUse::Undetermined)) => {
+                match usage {
+                    Usage::StaticTypeInformation | Usage::Narrowing(_) => {
+                        (flow_idx, Some(flow_idx))
+                    }
+                    Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
+                }
+            }
+            Some(Binding::CompletedPartialType(unpinned_idx, first_use)) => match first_use {
                 FirstUse::DoesNotPin => (flow_idx, None),
                 FirstUse::Undetermined => match usage {
                     Usage::StaticTypeInformation | Usage::Narrowing(_) => {
@@ -759,7 +763,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Record a first use detected in `detect_possible_first_use`.
     fn record_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
         match self.table.types.1.get_mut(used) {
-            Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
+            Some(Binding::CompletedPartialType(.., first_use @ FirstUse::Undetermined)) => {
                 *first_use = match usage {
                     Usage::CurrentIdx(use_idx, first_uses_of) => {
                         first_uses_of.insert(used);

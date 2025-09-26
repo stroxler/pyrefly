@@ -436,7 +436,7 @@ impl<'a> BindingsBuilder<'a> {
     ) -> Option<Idx<KeyAnnotation>> {
         let identifier = ShortIdentifier::new(name);
         let mut user = self.declare_current_idx(Key::Definition(identifier));
-        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier));
+        let pinned_idx = self.idx_for_promise(Key::CompletedPartialType(identifier));
         let is_definitely_type_alias = if let Some((e, _)) = direct_ann
             && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
         {
@@ -470,14 +470,17 @@ impl<'a> BindingsBuilder<'a> {
             def_idx
         } else {
             self.insert_binding(
-                Key::UpstreamPinnedDefinition(identifier),
-                Binding::PinUpstream(def_idx, first_used_by.into_iter().collect()),
+                Key::PartialTypeWithUpstreamsCompleted(identifier),
+                Binding::PartialTypeWithUpstreamsCompleted(
+                    def_idx,
+                    first_used_by.into_iter().collect(),
+                ),
             )
         };
         // Insert the Pin binding that will pin any types, potentially after evaluating the first downstream use.
         self.insert_binding_idx(
             pinned_idx,
-            Binding::Pin(unpinned_idx, FirstUse::Undetermined),
+            Binding::CompletedPartialType(unpinned_idx, FirstUse::Undetermined),
         );
         canonical_ann
     }

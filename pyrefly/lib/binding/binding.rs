@@ -325,12 +325,12 @@ pub enum Key {
     MutableCapture(ShortIdentifier),
     /// I am the pinned version of a definition corresponding to a name assignment.
     ///
-    /// See [Binding::Pin] for more details.
-    PinnedDefinition(ShortIdentifier),
+    /// See [Binding::CompletedPartialType] for more details.
+    CompletedPartialType(ShortIdentifier),
     /// I am a wrapper around a assignment that is also a first use of some other name assign.
     ///
-    /// See [Binding::PinUpstream] for more details.
-    UpstreamPinnedDefinition(ShortIdentifier),
+    /// See [Binding::PartialTypeWithUpstreamCompleted] for more details.
+    PartialTypeWithUpstreamsCompleted(ShortIdentifier),
     /// I am a name with possible attribute/subscript narrowing coming from an assignment at this location.
     FacetAssign(ShortIdentifier),
     /// The type at a specific return point.
@@ -393,8 +393,8 @@ impl Ranged for Key {
             Self::ImplicitGlobal(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
             Self::MutableCapture(x) => x.range(),
-            Self::PinnedDefinition(x) => x.range(),
-            Self::UpstreamPinnedDefinition(x) => x.range(),
+            Self::PartialTypeWithUpstreamsCompleted(x) => x.range(),
+            Self::CompletedPartialType(x) => x.range(),
             Self::FacetAssign(x) => x.range(),
             Self::ReturnExplicit(r) => *r,
             Self::ReturnImplicit(x) => x.range(),
@@ -427,9 +427,9 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::ImplicitGlobal(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
             Self::MutableCapture(x) => write!(f, "Key::Declaration({})", short(x)),
-            Self::PinnedDefinition(x) => write!(f, "Key::PinnedDefinition({})", short(x)),
-            Self::UpstreamPinnedDefinition(x) => {
-                write!(f, "Key::UpstreamPinnedDefinition({})", short(x))
+            Self::CompletedPartialType(x) => write!(f, "Key::CompletedPartialType({})", short(x)),
+            Self::PartialTypeWithUpstreamsCompleted(x) => {
+                write!(f, "Key::PartialTypeWithUpstreamsCompleted({})", short(x))
             }
             Self::FacetAssign(x) => write!(f, "Key::FacetAssign({})", short(x)),
             Self::BoundName(x) => write!(f, "Key::BoundName({})", short(x)),
@@ -1294,7 +1294,7 @@ pub enum Binding {
     ///   resulting in `list[Any]`
     /// - the `Pin` for `z` will have an empty `FirstUse`, so as with `y` it will
     ///   simply force the placeholder and produce list[`Any`]
-    Pin(Idx<Key>, FirstUse),
+    CompletedPartialType(Idx<Key>, FirstUse),
     /// Binding used to pin any *upstream* placeholder types for a NameAssign that is also
     /// a first use. Any first use of the name defined here depend on this binding rather
     /// than directly on the `NameAssign` so that upstream `Var`s cannot leak into the
@@ -1309,10 +1309,10 @@ pub enum Binding {
     /// y = [], x
     /// ```
     /// the raw `NameAssign` for `y` will produce `tuple[list[@0], list[@1]]`,
-    /// but the `UpstreamPinnedDefinition` for `y` will use the "completed"
+    /// but the `PartialTypeWithUpstreamsCompleted` for `y` will use the "completed"
     /// partial type of `x` (which it achieves by forcing the `Binding::Pin` for
     /// `x` before expanding types) and result in `tuple[list[@_], Any]`.
-    PinUpstream(Idx<Key>, Box<[Idx<Key>]>),
+    PartialTypeWithUpstreamsCompleted(Idx<Key>, Box<[Idx<Key>]>),
     /// `del` statement
     Delete(Expr),
 }
@@ -1546,8 +1546,8 @@ impl DisplayWith<Bindings> for Binding {
                     m.display(r)
                 )
             }
-            Self::Pin(k, first_use) => {
-                write!(f, "Pin({}, ", ctx.display(*k),)?;
+            Self::CompletedPartialType(k, first_use) => {
+                write!(f, "CompletedPartialType({}, ", ctx.display(*k),)?;
                 match first_use {
                     FirstUse::Undetermined => write!(f, "Undetermined")?,
                     FirstUse::DoesNotPin => write!(f, "DoesNotPin")?,
@@ -1555,10 +1555,10 @@ impl DisplayWith<Bindings> for Binding {
                 }
                 write!(f, ")")
             }
-            Self::PinUpstream(k, first_used_by) => {
+            Self::PartialTypeWithUpstreamsCompleted(k, first_used_by) => {
                 write!(
                     f,
-                    "PinUpstream({}, [{}])",
+                    "PartialTypeWithUpstreamsCompleted({}, [{}])",
                     ctx.display(*k),
                     commas_iter(|| first_used_by.iter().map(|x| ctx.display(*x)))
                 )
@@ -1628,8 +1628,8 @@ impl Binding {
             | Binding::UsageLink(_)
             | Binding::SelfTypeLiteral(..)
             | Binding::AssignToSubscript(_, _)
-            | Binding::Pin(..)
-            | Binding::PinUpstream(..)
+            | Binding::CompletedPartialType(..)
+            | Binding::PartialTypeWithUpstreamsCompleted(..)
             | Binding::Delete(_) => None,
         }
     }
