@@ -801,7 +801,7 @@ def foo(x: int):
 testcase!(
     test_builtins_type_constructor,
     r#"
-from typing import assert_type, LiteralString, Literal
+from typing import assert_type, LiteralString, Literal, TypedDict
 from types import NoneType
 class Foo:
     @classmethod
@@ -819,6 +819,9 @@ x4 = None
 assert_type(type(x4), type[NoneType])
 x5: Literal[""] = ""
 assert_type(type(x5), type[str])
+class TD(TypedDict): ...
+x6: TD = {}
+assert_type(type(x6), type[dict])
 "#,
 );
 
