@@ -1030,10 +1030,19 @@ impl Type {
                 body: Forallable::Function(func),
             })
             | Type::BoundMethod(box BoundMethod {
-                func: BoundMethodType::Function(func),
+                func:
+                    BoundMethodType::Function(func)
+                    | BoundMethodType::Forall(Forall {
+                        tparams: _,
+                        body: func,
+                    }),
                 ..
             }) => check(&func.metadata),
-            Type::Overload(overload) => check(&overload.metadata),
+            Type::Overload(overload)
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Overload(overload),
+                ..
+            }) => check(&overload.metadata),
             _ => T::default(),
         }
     }
