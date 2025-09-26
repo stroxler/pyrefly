@@ -11,7 +11,6 @@ use dupe::Dupe;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
-use pyrefly_python::module::Module;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::literal::LitEnum;
@@ -22,7 +21,6 @@ use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
-use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
@@ -1799,13 +1797,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         T: Iterator<Item = &'a Class>,
     {
         let mut seen = SmallSet::new();
-        let mut ast_cache: SmallMap<Module, ModModule> = SmallMap::new();
-
         for c in mro {
-            let ast = ast_cache
-                .entry(c.module().dupe())
-                .or_insert_with(|| Ast::parse(c.module().contents()).0);
-
+            let ast = Ast::parse(c.module().dupe().contents()).0;
             match expected_attribute_name {
                 None => {
                     for fld in c.fields() {
@@ -1815,7 +1808,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let text_range_with_module =
                                 TextRangeWithModule::new(c.module().dupe(), range);
                             let docstring_range = self.compute_docstring_range_for_definition(
-                                ast,
+                                &ast,
                                 &text_range_with_module,
                             );
                             res.push(AttrInfo {
@@ -1835,7 +1828,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let text_range_with_module =
                             TextRangeWithModule::new(c.module().dupe(), range);
                         let docstring_range = self
-                            .compute_docstring_range_for_definition(ast, &text_range_with_module);
+                            .compute_docstring_range_for_definition(&ast, &text_range_with_module);
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
