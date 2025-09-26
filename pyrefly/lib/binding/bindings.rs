@@ -113,19 +113,6 @@ impl<T> NameLookupResult<T> {
             NameLookupResult::NotFound => None,
         }
     }
-
-    pub fn map_found<S>(self, f: impl FnOnce(T) -> S) -> NameLookupResult<S> {
-        match self {
-            NameLookupResult::Found {
-                value,
-                is_initialized,
-            } => NameLookupResult::Found {
-                value: f(value),
-                is_initialized,
-            },
-            NameLookupResult::NotFound => NameLookupResult::NotFound,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -1024,10 +1011,10 @@ impl TParamLookupResult {
         }
     }
 
-    fn as_name_lookup_result(&self) -> NameLookupResult<Binding> {
+    fn as_name_lookup_result(&self) -> NameLookupResult<Idx<Key>> {
         self.idx()
             .map_or(NameLookupResult::NotFound, |idx| NameLookupResult::Found {
-                value: Binding::Forward(idx),
+                value: idx,
                 is_initialized: IsInitialized::Yes,
             })
     }
@@ -1085,7 +1072,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         legacy_tparams: &mut LegacyTParamCollector,
         id: LegacyTParamId,
-    ) -> NameLookupResult<Binding> {
+    ) -> NameLookupResult<Idx<Key>> {
         let result = legacy_tparams
             .legacy_tparams
             .entry(id.tvar_name())

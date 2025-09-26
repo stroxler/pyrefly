@@ -292,7 +292,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.intercept_lookup(tparams_collector, tparam_id)
             } else {
                 self.lookup_name(Hashed::new(&name.id), usage)
-                    .map_found(Binding::Forward)
             };
         match lookup_result {
             NameLookupResult::Found {
@@ -311,7 +310,7 @@ impl<'a> BindingsBuilder<'a> {
                         error_message,
                     );
                 }
-                self.insert_binding(key, value)
+                self.insert_binding(key, Binding::Forward(value))
             }
             NameLookupResult::NotFound => {
                 // Record a type error and fall back to `Any`.
