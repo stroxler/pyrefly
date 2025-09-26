@@ -593,6 +593,20 @@ f()
 "#,
 );
 
+// This does come up in practice - see https://github.com/facebook/pyrefly/issues/1146
+testcase!(
+    bug = "Class scope is dynamic; putting `A` in the flow breaks lookups of `A`",
+    test_class_scope_annotation_shadows_global,
+    r#"
+class A: pass
+class B:
+    # This sets `A` in `__annotations__`, but because class scopes are dynamic,
+    # `A` still refers to the global.
+    A: A
+    X: A = A()  # E: Expected a type form, got instance of `A`  # E: Expected a callable, got `A`
+"#,
+);
+
 // Nested scopes - except for parameter scopes - cannot see a containing class
 // body. This applies not only to methods but also other scopes like lambda, inner
 // class bodies, and comprehensions. See https://github.com/facebook/pyrefly/issues/264
