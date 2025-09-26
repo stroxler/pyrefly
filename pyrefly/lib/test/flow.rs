@@ -1302,7 +1302,6 @@ def f(cond: bool):
 );
 
 testcase!(
-    bug = "We don't properly restrict loop checks to the current scope",
     test_nested_loop_increment,
     r#"
 from typing import assert_type, Literal
@@ -1316,6 +1315,9 @@ def f_toplevel(cond: bool):
         n += 1
     assert_type(n, float | int)
 while True:
+    # Make sure we treat a function nested in a loop the same
+    # way (i.e. that the loop in a parent scope doesn't affect
+    # flow merging in function scope).
     def f_in_loop(cond: bool):
         n = "n"
         if cond:
