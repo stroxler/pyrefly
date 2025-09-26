@@ -21,7 +21,9 @@ use crate::lock::RwLock;
 pub struct UpwardSearch<T> {
     /// The filenames we are looking for. Multi-component paths are supported, such as
     /// `.git/info/exclude`.
-    filenames: Vec<OsString>,
+    /// Each inner group (nested [`Vec`]) represents filetypes we should perform
+    /// a full upward search for before starting to search for the next group.
+    filegroups: Vec<Vec<OsString>>,
     /// The cached state, with previously found entries.
     state: RwLock<SmallMap<PathBuf, Option<T>>>,
     /// Given a config file that exists on disk, load it.
@@ -31,12 +33,25 @@ pub struct UpwardSearch<T> {
 impl<T: Dupe + Debug> UpwardSearch<T> {
     /// Given the files you want to find, and a function to load a file
     /// (which must have one of those filenames), create a cached searcher.
+    /// This only performs a single upward search, with all files at the same
+    /// group priority.
     pub fn new(
         filenames: Vec<OsString>,
         load: impl Fn(&Path) -> T + Send + Sync + 'static,
     ) -> Self {
+        Self::new_grouped(vec![filenames], load)
+    }
+
+    /// Given the files you want to find, and a function to load a file
+    /// (which must have one of those filenames), create a cached searcher.
+    /// Each nested [`Vec`] represents a group of files, which we will
+    /// perform a full upward search for before moving onto the next group for a match.
+    pub fn new_grouped(
+        filegroups: Vec<Vec<OsString>>,
+        load: impl Fn(&Path) -> T + Send + Sync + 'static,
+    ) -> Self {
         Self {
-            filenames,
+            filegroups,
             state: Default::default(),
             load: Box::new(load),
         }
@@ -78,22 +93,24 @@ impl<T: Dupe + Debug> UpwardSearch<T> {
         drop(lock);
 
         // We didn't find a perfect hit, so now search the actual path
-        let mut buffer = dir.to_owned();
-        'outer: for i in 0..cache_answer.as_ref().map_or(FULL_PATH, |x| x.0) {
-            for stem in &self.filenames {
-                let stem_length = PathBuf::from(stem).components().count();
-                buffer.push(stem);
-                if buffer.exists() {
-                    let c = Some((self.load)(&buffer));
-                    found_answer = Some((i + 1, c));
-                    break 'outer;
+        'outer: for group in &self.filegroups {
+            let mut buffer = dir.to_owned();
+            for i in 0..cache_answer.as_ref().map_or(FULL_PATH, |x| x.0) {
+                for stem in group {
+                    let stem_length = PathBuf::from(stem).components().count();
+                    buffer.push(stem);
+                    if buffer.exists() {
+                        let c = (self.load)(&buffer);
+                        found_answer = Some((i + 1, Some(c)));
+                        break 'outer;
+                    }
+                    for _ in 0..stem_length {
+                        buffer.pop();
+                    }
                 }
-                for _ in 0..stem_length {
-                    buffer.pop();
+                if !buffer.pop() {
+                    break;
                 }
-            }
-            if !buffer.pop() {
-                break;
             }
         }
 
@@ -208,6 +225,83 @@ mod tests {
                 .directory_absolute(&root.path().join("a/e/f/g"))
                 .unwrap(),
             &root.path().join("a/b/c/d.test")
+        );
+    }
+
+    #[test]
+    fn test_grouped_path() {
+        let root = TempDir::new().unwrap();
+        fs::create_dir_all(root.path().join("a/b/c/d")).unwrap();
+        fs::write(root.path().join("a/b/c/d/mypy.ini"), "").unwrap();
+        fs::write(root.path().join("a/b/c/pyrightconfig.json"), "").unwrap();
+        fs::write(root.path().join("a/b/pyproject.toml"), "").unwrap();
+        fs::write(root.path().join("a/pyrefly.toml"), "").unwrap();
+
+        let upward_search = |trim_front| {
+            let groups = [
+                vec![OsString::from("pyrefly.toml")],
+                vec![OsString::from("pyproject.toml")],
+                vec![
+                    OsString::from("pyrightconfig.json"),
+                    OsString::from("mypy.ini"),
+                ],
+            ];
+            UpwardSearch::new_grouped(groups.into_iter().skip(trim_front).collect(), |p| {
+                Arc::new(p.to_path_buf())
+            })
+        };
+
+        assert_eq!(
+            **upward_search(0)
+                .directory_absolute(&root.path().join("a/b/c/d"))
+                .unwrap(),
+            root.path().join("a/pyrefly.toml")
+        );
+        assert_eq!(
+            **upward_search(1)
+                .directory_absolute(&root.path().join("a/b/c/d"))
+                .unwrap(),
+            root.path().join("a/b/pyproject.toml")
+        );
+        assert_eq!(
+            **upward_search(2)
+                .directory_absolute(&root.path().join("a/b/c/d"))
+                .unwrap(),
+            root.path().join("a/b/c/d/mypy.ini")
+        );
+        assert_eq!(
+            **upward_search(0)
+                .directory_absolute(&root.path().join("a/b/c"))
+                .unwrap(),
+            root.path().join("a/pyrefly.toml")
+        );
+        assert_eq!(
+            **upward_search(1)
+                .directory_absolute(&root.path().join("a/b/c"))
+                .unwrap(),
+            root.path().join("a/b/pyproject.toml")
+        );
+        assert_eq!(
+            **upward_search(2)
+                .directory_absolute(&root.path().join("a/b/c"))
+                .unwrap(),
+            root.path().join("a/b/c/pyrightconfig.json")
+        );
+        assert_eq!(
+            **upward_search(0)
+                .directory_absolute(&root.path().join("a/b"))
+                .unwrap(),
+            root.path().join("a/pyrefly.toml")
+        );
+        assert_eq!(
+            **upward_search(1)
+                .directory_absolute(&root.path().join("a/b"))
+                .unwrap(),
+            root.path().join("a/b/pyproject.toml")
+        );
+        assert_eq!(
+            upward_search(2).directory_absolute(&root.path().join("a/b")),
+            None,
         );
     }
 }
