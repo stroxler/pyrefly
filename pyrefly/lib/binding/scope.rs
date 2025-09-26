@@ -1510,7 +1510,7 @@ impl Scopes {
             //   class block; it does not extend to the code blocks of
             //   methods. This includes comprehensions and generator
             //   expressions, but it does not include annotation scopes, which
-            //   have access to their enclosing class scopes."""
+            //   have access to their enclosing class scopes.
             if is_class
                 && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
             {
