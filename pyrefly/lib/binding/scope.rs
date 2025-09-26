@@ -656,17 +656,17 @@ pub struct InstanceAttribute(
 
 #[derive(Clone, Debug)]
 struct ScopeMethod {
-    pub name: Identifier,
-    pub self_name: Option<Identifier>,
-    pub instance_attributes: SmallMap<Name, InstanceAttribute>,
-    pub yields_and_returns: YieldsAndReturns,
-    pub is_async: bool,
+    name: Identifier,
+    self_name: Option<Identifier>,
+    instance_attributes: SmallMap<Name, InstanceAttribute>,
+    yields_and_returns: YieldsAndReturns,
+    is_async: bool,
 }
 
 #[derive(Clone, Debug, Default)]
 struct ScopeFunction {
-    pub yields_and_returns: YieldsAndReturns,
-    pub is_async: bool,
+    yields_and_returns: YieldsAndReturns,
+    is_async: bool,
 }
 
 #[derive(Clone, Debug)]
