@@ -1613,8 +1613,10 @@ impl DisplayWith<Bindings> for BindingExport {
     }
 }
 
+/// Does an AnnAssign defining an Annotation have a value? Used to validate
+/// some qualifiers like `Final` that require an initial value.
 #[derive(Debug, Clone, Copy, VisitMut, TypeEq, PartialEq, Eq)]
-pub enum Initialized {
+pub enum AnnAssignHasValue {
     Yes,
     No,
 }
@@ -1678,7 +1680,7 @@ pub enum AnnotationTarget {
     Return(Name),
     /// An annotated assignment. For attribute assignments, the name is the attribute name ("attr" in "x.attr")
     /// Does the annotated assignment have an initial value?
-    Assign(Name, Initialized),
+    Assign(Name, AnnAssignHasValue),
     /// A member of a class
     ClassMember(Name),
 }

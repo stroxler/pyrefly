@@ -44,6 +44,7 @@ use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
+use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationStyle;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::AnnotationWithTarget;
@@ -69,7 +70,6 @@ use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FirstUse;
 use crate::binding::binding::FunctionParameter;
 use crate::binding::binding::FunctionStubOrImpl;
-use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyExport;
@@ -162,7 +162,7 @@ pub enum TypeFormContext {
     TypeAlias,
     /// Variable annotation outside of a class definition
     /// Is the variable assigned a value here?
-    VarAnnotation(Initialized),
+    VarAnnotation(AnnAssignHasValue),
 }
 
 impl TypeFormContext {
@@ -182,11 +182,11 @@ impl TypeFormContext {
             }
             SpecialForm::TypeAlias => matches!(
                 self,
-                TypeFormContext::TypeAlias | TypeFormContext::VarAnnotation(Initialized::Yes)
+                TypeFormContext::TypeAlias | TypeFormContext::VarAnnotation(AnnAssignHasValue::Yes)
             ),
             SpecialForm::Final => matches!(
                 self,
-                TypeFormContext::VarAnnotation(Initialized::Yes)
+                TypeFormContext::VarAnnotation(AnnAssignHasValue::Yes)
                     | TypeFormContext::ClassVarAnnotation
             ),
             SpecialForm::LiteralString
@@ -526,7 +526,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Qualifier::Final
                         if !matches!(
                             type_form_context,
-                            TypeFormContext::VarAnnotation(Initialized::No)
+                            TypeFormContext::VarAnnotation(AnnAssignHasValue::No)
                         ) => {}
                     _ => {
                         self.error(

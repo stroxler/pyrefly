@@ -23,12 +23,12 @@ use ruff_python_ast::StmtReturn;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
+use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::ExprOrBinding;
-use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -229,14 +229,14 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Identifier,
         annotation: &mut Expr,
-        is_initialized: Initialized,
+        is_initialized: AnnAssignHasValue,
     ) -> Idx<KeyAnnotation> {
         let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(name));
         self.ensure_type(annotation, &mut None);
         let ann_val = if let Some(special) = SpecialForm::new(&name.id, annotation) {
             // Special case `_: SpecialForm` declarations (this mainly affects some names declared in `typing.pyi`)
             BindingAnnotation::Type(
-                AnnotationTarget::Assign(name.id.clone(), Initialized::Yes),
+                AnnotationTarget::Assign(name.id.clone(), AnnAssignHasValue::Yes),
                 special.to_type(),
             )
         } else {
@@ -439,8 +439,8 @@ impl<'a> BindingsBuilder<'a> {
                         &name,
                         &mut x.annotation,
                         match (&value, &maybe_ellipses) {
-                            (None, None) => Initialized::No,
-                            _ => Initialized::Yes,
+                            (None, None) => AnnAssignHasValue::No,
+                            _ => AnnAssignHasValue::Yes,
                         },
                     );
                     let canonical_ann_idx = match value {
