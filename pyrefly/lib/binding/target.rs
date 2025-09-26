@@ -134,7 +134,7 @@ impl<'a> BindingsBuilder<'a> {
             NameReadInfo::NotFound,
         );
         if name_is_defined {
-            self.scopes.upsert_flow_info(name, narrowed_idx, None);
+            self.scopes.narrow_in_current_flow(name, narrowed_idx);
         }
     }
 

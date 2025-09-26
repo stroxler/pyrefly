@@ -1080,16 +1080,8 @@ impl Scopes {
     ///   - Preserve the existing style, when updating an existing name.
     ///   - Use `FlowStyle::Other`, when inserting a new name.
     ///
-    /// A caller of this function promises to create a binding for `key`; the
-    /// binding may not exist yet (it might depend on the returned default).
-    ///
     /// TODO(grievejia): Properly separate out `FlowStyle` from the indices
-    pub fn upsert_flow_info(
-        &mut self,
-        name: Hashed<&Name>,
-        idx: Idx<Key>,
-        style: Option<FlowStyle>,
-    ) {
+    fn upsert_flow_info(&mut self, name: Hashed<&Name>, idx: Idx<Key>, style: Option<FlowStyle>) {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
@@ -1099,6 +1091,25 @@ impl Scopes {
                 *e.get_mut() = e.get().updated(idx, style, in_loop);
             }
         }
+    }
+
+    /// Track a narrow for a name in the current flow. This should result from options
+    /// that only narrow an existing value, not operations that assign a new value at runtime.
+    ///
+    /// A caller of this function promises to create a binding for `idx`.
+    pub fn narrow_in_current_flow(&mut self, name: Hashed<&Name>, idx: Idx<Key>) {
+        self.upsert_flow_info(name, idx, None)
+    }
+
+    /// Track the binding from assigning a name in the current flow. Here "define" means:
+    /// - any operation that actually binds a value at runtime (e.g. `x = 5`,
+    ///   `x := 5`, `for x in ...`)
+    /// - annotated assignment `x: int` which we model in the flow (but we remember
+    ///   that `x` is uninitialized)
+    ///
+    /// A caller of this function promises to create a binding for `idx`.
+    pub fn define_in_current_flow(&mut self, name: Hashed<&Name>, idx: Idx<Key>, style: FlowStyle) {
+        self.upsert_flow_info(name, idx, Some(style));
     }
 
     /// Handle a delete operation by marking a name as uninitialized in this flow.

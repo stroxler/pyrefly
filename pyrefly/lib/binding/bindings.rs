@@ -821,7 +821,7 @@ impl<'a> BindingsBuilder<'a> {
     ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
         let write_info = self.scopes.look_up_name_for_write(name, &self.module_info);
-        self.scopes.upsert_flow_info(name, idx, Some(style));
+        self.scopes.define_in_current_flow(name, idx, style);
         if let Some(range) = write_info.anywhere_range {
             self.table
                 .record_bind_in_anywhere(name.into_key().clone(), range, idx);
@@ -897,7 +897,7 @@ impl<'a> BindingsBuilder<'a> {
                     Key::Narrow(name.into_key().clone(), *op_range, use_range),
                     Binding::Narrow(initial_idx, Box::new(op.clone()), use_range),
                 );
-                self.scopes.upsert_flow_info(name, narrowed_idx, None);
+                self.scopes.narrow_in_current_flow(name, narrowed_idx);
             }
         }
     }
