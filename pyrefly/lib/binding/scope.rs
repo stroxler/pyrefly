@@ -486,14 +486,6 @@ pub struct FlowInfo {
     pub style: FlowStyle,
 }
 
-/// Represent what we know about a class field based on the scope information
-/// at the end of the class body.
-pub enum ClassFieldInBody {
-    InitializedByAssign(Expr),
-    InitializedWithoutAssign,
-    Uninitialized,
-}
-
 impl FlowInfo {
     fn new(idx: Idx<Key>, style: Option<FlowStyle>) -> Self {
         Self {
@@ -1403,41 +1395,27 @@ impl Scopes {
         class_body.flow.info.iter_hashed().for_each(
             |(name, flow_info)| {
             if let Some(static_info) = class_body.stat.0.get_hashed(name) {
-                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
-                    ClassFieldDefinition::MethodLike {
+                let definition = match &flow_info.style {
+                    FlowStyle::FunctionDef(_, has_return_annotation) => ClassFieldDefinition::MethodLike {
                         definition: flow_info.idx,
-                        has_return_annotation,
-                    }
-                } else {
-                    let class_field_in_body = match &flow_info.style {
-                        FlowStyle::ClassField {
-                            initial_value: Some(e),
-                        } => ClassFieldInBody::InitializedByAssign(e.clone()),
-                        // This is only reachable via `AnnAssign` with no value.
-                        FlowStyle::ClassField {
-                            initial_value: None,
-                        } => ClassFieldInBody::Uninitialized,
-                        // All other styles (e.g. function def, import) indicate we do have
-                        // a value, but it is not coming from a simple style.
-                        _ => ClassFieldInBody::InitializedWithoutAssign,
-                    };
-                    match class_field_in_body {
-                        ClassFieldInBody::InitializedByAssign(e) =>
-                            ClassFieldDefinition::AssignedInBody {
-                                value: ExprOrBinding::Expr(e.clone()),
-                                annotation: static_info.annotation(),
-                            },
-                        ClassFieldInBody::InitializedWithoutAssign =>
-                            ClassFieldDefinition::DefinedWithoutAssign {
-                                definition: flow_info.idx,
-                            },
-                        ClassFieldInBody::Uninitialized => {
-                            let annotation = static_info.annotation().unwrap_or_else(
-                                || panic!("A class field known in the body but uninitialized always has an annotation.")
-                            );
-                            ClassFieldDefinition::DeclaredByAnnotation { annotation }
-                        }
-                    }
+                        has_return_annotation: *has_return_annotation,
+                    },
+                    FlowStyle::ClassField {
+                        initial_value: Some(e),
+                    } => ClassFieldDefinition::AssignedInBody {
+                        value: ExprOrBinding::Expr(e.clone()),
+                        annotation: static_info.annotation(),
+                    },
+                    FlowStyle::ClassField {
+                        initial_value: None,
+                    } => ClassFieldDefinition::DeclaredByAnnotation {
+                        annotation: static_info.annotation().unwrap_or_else(
+                            || panic!("A class field known in the body but uninitialized always has an annotation.")
+                        ),
+                    },
+                    _ => ClassFieldDefinition::DefinedWithoutAssign {
+                        definition: flow_info.idx,
+                    },
                 };
                 field_definitions.insert_hashed(name.owned(), (definition, static_info.range));
             }
