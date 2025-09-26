@@ -1660,6 +1660,7 @@ impl<'a> Transaction<'a> {
                     for AttrInfo {
                         name,
                         ty: _,
+                        is_deprecated: _,
                         definition: attribute_definition,
                     } in solver.completions(base_type, Some(expected_name), false)
                     {
@@ -2077,14 +2078,12 @@ impl<'a> Transaction<'a> {
                                     _ => Some(CompletionItemKind::FIELD),
                                 };
                                 let ty = &x.ty;
-                                let is_deprecated =
-                                    ty.as_ref().is_some_and(|ty| ty.is_deprecated_function());
                                 let detail = ty.clone().map(|t| t.as_hover_string());
                                 result.push(CompletionItem {
                                     label: x.name.as_str().to_owned(),
                                     detail,
                                     kind,
-                                    tags: if is_deprecated {
+                                    tags: if x.is_deprecated {
                                         Some(vec![CompletionItemTag::DEPRECATED])
                                     } else {
                                         None

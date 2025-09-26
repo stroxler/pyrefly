@@ -39,6 +39,8 @@ use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
+use crate::export::exports::Export;
+use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::solver::solver::SubsetError;
 use crate::types::callable::FuncMetadata;
@@ -1765,6 +1767,7 @@ pub enum AttrDefinition {
 pub struct AttrInfo {
     pub name: Name,
     pub ty: Option<Type>,
+    pub is_deprecated: bool,
     pub definition: Option<AttrDefinition>,
 }
 
@@ -1821,6 +1824,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             res.push(AttrInfo {
                                 name: fld.clone(),
                                 ty: None,
+                                is_deprecated: false,
                                 definition: Some(AttrDefinition::FullyResolved {
                                     definition_range: text_range_with_module,
                                     docstring_range,
@@ -1838,6 +1842,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
+                            is_deprecated: false,
                             definition: Some(AttrDefinition::FullyResolved {
                                 definition_range: text_range_with_module,
                                 docstring_range,
@@ -1897,25 +1902,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(exports) = self.get_module_exports(module_name) {
             match expected_attribute_name {
                 None => {
-                    res.extend(exports.exports(self.exports).iter().map(|(x, _)| AttrInfo {
-                        name: x.clone(),
-                        ty: None,
-                        definition: Some(
-                            AttrDefinition::PartiallyResolvedImportedModuleAttribute {
-                                module_name,
-                            },
-                        ),
-                    }));
+                    res.extend(
+                        exports
+                            .exports(self.exports)
+                            .iter()
+                            .map(|(x, export_location)| AttrInfo {
+                                name: x.clone(),
+                                ty: None,
+                                is_deprecated: matches!(
+                                    export_location,
+                                    ExportLocation::ThisModule(Export {
+                                        is_deprecated: true,
+                                        ..
+                                    })
+                                ),
+                                definition: Some(
+                                    AttrDefinition::PartiallyResolvedImportedModuleAttribute {
+                                        module_name,
+                                    },
+                                ),
+                            }),
+                    );
                 }
                 Some(expected_attribute_name) => {
-                    if exports
-                        .exports(self.exports)
-                        .get(expected_attribute_name)
-                        .is_some()
+                    if let Some(export_location) =
+                        exports.exports(self.exports).get(expected_attribute_name)
                     {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
+                            is_deprecated: matches!(
+                                export_location,
+                                ExportLocation::ThisModule(Export {
+                                    is_deprecated: true,
+                                    ..
+                                })
+                            ),
                             definition: Some(
                                 AttrDefinition::PartiallyResolvedImportedModuleAttribute {
                                     module_name,
@@ -1989,9 +2011,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let found_attrs = self
                         .lookup_attr_from_attribute_base(base.clone(), &info.name)
                         .found;
+                    let mut is_deprecated = false;
                     let found_types: Vec<_> = found_attrs
                         .into_iter()
                         .filter_map(|(attr, _)| {
+                            match &attr {
+                                Attribute::ClassAttribute(ClassAttribute::ReadWrite(ty))
+                                | Attribute::ClassAttribute(ClassAttribute::ReadOnly(ty, _))
+                                | Attribute::Simple(ty)
+                                | Attribute::ClassAttribute(ClassAttribute::Property(ty, _, _))
+                                    if ty.is_deprecated_function() =>
+                                {
+                                    is_deprecated = true;
+                                }
+                                _ => {}
+                            }
                             let result = self
                                 .resolve_get_access(
                                     attr,
@@ -2012,6 +2046,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if !found_types.is_empty() {
                         info.ty = Some(self.unions(found_types));
                     }
+                    info.is_deprecated = is_deprecated;
                 }
             }
         }

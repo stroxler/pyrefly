@@ -114,7 +114,6 @@ Completion Results:
     );
 }
 
-// TODO: Mark deprecated properties as deprecated
 #[test]
 fn dot_complete_with_deprecated() {
     let code = r#"
@@ -138,7 +137,7 @@ foo.
 11 | foo. 
          ^
 Completion Results:
-- (Field) also_not_ok: int
+- (Field) [DEPRECATED] also_not_ok: int
 - (Method) [DEPRECATED] not_ok: (self: Foo) -> None
 - (Field) x: int
 "#

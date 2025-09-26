@@ -677,6 +677,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for AttrInfo {
                 name: _,
                 ty: _,
+                is_deprecated: _,
                 definition,
             } in self.completions(base.clone(), Some(attribute_name), false)
             {
