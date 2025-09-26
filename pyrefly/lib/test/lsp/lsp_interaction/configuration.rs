@@ -48,6 +48,9 @@ fn test_did_change_configuration() {
     interaction.shutdown();
 }
 
+// Only run this test on unix since windows has no way to mock a .exe without compiling something
+// (we call python with python.exe)
+#[cfg(unix)]
 #[test]
 fn test_pythonpath_change() {
     let test_files_root = get_test_files_root();
@@ -75,12 +78,9 @@ fi
     let interpreter_suffix = if cfg!(windows) { ".exe" } else { "" };
     let python_path = custom_interpreter_path.join(format!("bin/python{interpreter_suffix}"));
     write(&python_path, python_script).unwrap();
-    #[cfg(unix)]
-    {
-        let mut perms = fs::metadata(&python_path).unwrap().permissions();
-        perms.set_mode(0o755); // rwxr-xr-x
-        fs::set_permissions(&python_path, perms).unwrap();
-    }
+    let mut perms = fs::metadata(&python_path).unwrap().permissions();
+    perms.set_mode(0o755); // rwxr-xr-x
+    fs::set_permissions(&python_path, perms).unwrap();
 
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
