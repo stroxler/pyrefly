@@ -217,7 +217,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Check whether a type corresponds to a deprecated function or method, and if so, log a deprecation warning.
     pub fn check_for_deprecated_call(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) {
-        if !ty.is_deprecated() {
+        if !ty.is_deprecated_function() {
             return;
         }
         let deprecated_function = ty

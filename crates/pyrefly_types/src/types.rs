@@ -1062,7 +1062,7 @@ impl Type {
         self.check_toplevel_func_metadata(&|meta| meta.flags.is_overload)
     }
 
-    pub fn is_deprecated(&self) -> bool {
+    pub fn is_deprecated_function(&self) -> bool {
         self.check_toplevel_func_metadata(&|meta| meta.flags.is_deprecated)
     }
 

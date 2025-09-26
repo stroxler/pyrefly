@@ -1899,7 +1899,7 @@ impl<'a> Transaction<'a> {
                     });
                 let ty = self.get_type(handle, key);
                 let is_deprecated = matches!(kind, CompletionItemKind::FUNCTION)
-                    && ty.as_ref().is_some_and(|t| t.is_deprecated());
+                    && ty.as_ref().is_some_and(|t| t.is_deprecated_function());
                 let detail = ty.map(|t| t.to_string());
                 has_added_any = true;
                 completions.push(CompletionItem {
@@ -2078,7 +2078,7 @@ impl<'a> Transaction<'a> {
                                 };
                                 let ty = &x.ty;
                                 let is_deprecated =
-                                    ty.as_ref().is_some_and(|ty| ty.is_deprecated());
+                                    ty.as_ref().is_some_and(|ty| ty.is_deprecated_function());
                                 let detail = ty.clone().map(|t| t.as_hover_string());
                                 result.push(CompletionItem {
                                     label: x.name.as_str().to_owned(),
