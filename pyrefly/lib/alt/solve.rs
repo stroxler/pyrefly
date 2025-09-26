@@ -3379,6 +3379,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::ClassType(cls) | Type::SelfType(cls) => {
                 Type::ClassDef(cls.class_object().clone())
             }
+            Type::Literal(lit) => {
+                Type::ClassDef(lit.general_class_type(self.stdlib).class_object().clone())
+            }
+            Type::LiteralString => Type::ClassDef(self.stdlib.str().class_object().clone()),
+            Type::None => Type::ClassDef(self.stdlib.none_type().class_object().clone()),
+            Type::Tuple(_) => Type::ClassDef(self.stdlib.tuple_object().clone()),
             Type::Union(xs) if !xs.is_empty() => {
                 let mut ts = Vec::new();
                 for x in xs {

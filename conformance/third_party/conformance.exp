@@ -8976,8 +8976,8 @@
     {
       "code": -2,
       "column": 7,
-      "concise_description": "Argument `type` is not assignable to parameter `val1` with type `None` in function `func1`",
-      "description": "Argument `type` is not assignable to parameter `val1` with type `None` in function `func1`",
+      "concise_description": "Argument `type[NoneType]` is not assignable to parameter `val1` with type `None` in function `func1`",
+      "description": "Argument `type[NoneType]` is not assignable to parameter `val1` with type `None` in function `func1`",
       "line": 21,
       "name": "bad-argument-type",
       "stop_column": 17,

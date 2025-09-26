@@ -801,7 +801,8 @@ def foo(x: int):
 testcase!(
     test_builtins_type_constructor,
     r#"
-from typing import assert_type
+from typing import assert_type, LiteralString, Literal
+from types import NoneType
 class Foo:
     @classmethod
     def method(cls, x: str) -> int:
@@ -810,6 +811,14 @@ class Foo:
         assert_type(type(self).method("tst"), int)
 x = Foo()
 assert_type(type(x), type[Foo])
+x2: LiteralString = "test"
+assert_type(type(x2), type[str])
+x3 = (1, 2)
+assert_type(type(x3), type[tuple])
+x4 = None
+assert_type(type(x4), type[NoneType])
+x5: Literal[""] = ""
+assert_type(type(x5), type[str])
 "#,
 );
 
