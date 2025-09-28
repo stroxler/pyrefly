@@ -450,10 +450,9 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
-        let mut it = styles.into_iter();
-        let mut merged = it.next().unwrap_or(FlowStyle::Other);
-        for x in it {
+    fn merged(mut styles: impl Iterator<Item = FlowStyle>) -> FlowStyle {
+        let mut merged = styles.next().unwrap_or(FlowStyle::Other);
+        for x in styles {
             match (&merged, x) {
                 // If they're identical, keep it
                 (l, r) if l == &r => {}
@@ -1704,17 +1703,8 @@ struct MergeItem {
     // in our data structure, this one does not refer to a pre-existing binding coming
     // from upstream but rather the *output* of the merge.
     phi_idx: Idx<Key>,
-    // Key of the default binding. This is only used in loops, where it is used
-    // to say that when in doubt, the loop recursive Phi should solve to either
-    // the binding lives at the top of the loop (if any) or the first assignment
-    // in the first branch we encountered.
-    default: Idx<Key>,
-    // The set of bindings live at the end of each branch. This will not include
-    // `merged_key` itself (which might be live if a branch of a loop does not
-    // modify anything).
-    branch_idxs: SmallSet<Idx<Key>>,
-    // The flow styles from each branch in the merge
-    flow_styles: Vec<FlowStyle>,
+    // The flows to merge.
+    flows: Vec<FlowInfo>,
 }
 
 impl MergeItem {
@@ -1732,9 +1722,7 @@ impl MergeItem {
         let phi_idx = idx_for_promise(Key::Phi(name, range));
         let mut myself = Self {
             phi_idx,
-            default: info.default,
-            branch_idxs: SmallSet::new(),
-            flow_styles: Vec::with_capacity(n_branches),
+            flows: Vec::with_capacity(n_branches),
         };
         myself.add_branch(info);
         myself
@@ -1742,12 +1730,7 @@ impl MergeItem {
 
     /// Add the flow info at the end of a branch to our merge item.
     fn add_branch(&mut self, info: FlowInfo) {
-        if info.idx != self.phi_idx {
-            // Optimization: instead of x = phi(x, ...), we can skip the x.
-            // Avoids a recursive solving step later.
-            self.branch_idxs.insert(info.idx);
-        }
-        self.flow_styles.push(info.style);
+        self.flows.push(info);
     }
 
     /// Get the flow info for an item in the merged flow, which is a combination
@@ -1767,40 +1750,57 @@ impl MergeItem {
         contained_in_loop: bool,
         insert_binding_idx: impl FnOnce(Idx<Key>, Binding),
     ) -> FlowInfo {
+        // In a loop, an invariant is that if a name was defined above the loop, the
+        // default may be taken from any of the Flows and will not differ.
+        //
+        // If a name is first defined inside a loop, the defaults might
+        // differ but for valid code it won't matter because the phi won't appear
+        // recursively. Invalid code where assignment tries to use an
+        // uninitialized local can produce a cycle through Anywhere, but that's
+        // true even for straight-line control flow.
+        let default = self.flows.first().unwrap().default;
+        // Collect the branch idxs. Skip over the Phi itself (which may appear in loops)
+        // both so that we can eliminate the Phi binding entirely when it isn't needed
+        // and so that Phi does not depend on itself and cause recursion in the solver.
+        let branch_idxs: SmallSet<_> = self
+            .flows
+            .iter()
+            .filter_map(|flow| {
+                if flow.idx != self.phi_idx {
+                    Some(flow.idx)
+                } else {
+                    None
+                }
+            })
+            .collect();
         let downstream_idx = {
-            if self.branch_idxs.len() == 1 {
-                // There is only one key no matter the branch. Use a forward for the
-                // phi idx (which might be unused, but because of speculative phi if this
-                // is a loop we may have to put something at the phi) and use the original
-                // idx downstream.
+            if branch_idxs.len() == 1 {
+                // We hit this case if no branch assigned or narrowed the name.
                 //
-                // For ordinary branching, this happens when no branch narrows or assigns.
-                //
-                // For loops, we always have at least two different `idx`s in merged flows,
-                // the one from above the loop and the Phi. This only works because
-                // `add_branch` skips over the phi.
-                let upstream_idx = self.branch_idxs.into_iter().next().unwrap();
+                // In the case of loops, it depends on the removal of `self.phi_idx` above.
+                let flow = self.flows.first().unwrap();
+                let upstream_idx = flow.idx;
                 insert_binding_idx(self.phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
             } else if current_is_loop {
                 insert_binding_idx(
                     self.phi_idx,
-                    Binding::Default(self.default, Box::new(Binding::Phi(self.branch_idxs))),
+                    Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
                 );
                 self.phi_idx
             } else {
-                insert_binding_idx(self.phi_idx, Binding::Phi(self.branch_idxs));
+                insert_binding_idx(self.phi_idx, Binding::Phi(branch_idxs));
                 self.phi_idx
             }
         };
         FlowInfo {
             idx: downstream_idx,
             default: if contained_in_loop {
-                self.default
+                default
             } else {
                 downstream_idx
             },
-            style: FlowStyle::merged(self.flow_styles),
+            style: FlowStyle::merged(self.flows.into_iter().map(|flow| flow.style)),
         }
     }
 }
