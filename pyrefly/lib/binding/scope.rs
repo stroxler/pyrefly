@@ -419,15 +419,15 @@ pub struct Flow {
 }
 
 #[derive(Debug, Clone)]
-pub struct FlowInfo {
+struct FlowInfo {
     /// The key to use if you need the value of this name.
-    pub idx: Idx<Key>,
+    idx: Idx<Key>,
     /// The loop default - used to wrap loop Phi with our guess at the type above the loop.
     /// - Always set to our current inferred type when a flow info is created
     /// - Updated whenever we update the inferred type outside of all loops, but not inside
-    pub default: Idx<Key>,
+    default: Idx<Key>,
     /// The style of this binding.
-    pub style: FlowStyle,
+    style: FlowStyle,
 }
 
 impl FlowInfo {
