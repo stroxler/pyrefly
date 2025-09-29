@@ -10,11 +10,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Itertools;
 use lsp_types::Url;
 use lsp_types::WorkspaceFoldersChangeEvent;
-use pyrefly_python::COMPILED_FILE_SUFFIXES;
-use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::arc_id::WeakArcId;
 use pyrefly_util::lock::Mutex;
@@ -27,7 +24,6 @@ use tracing::error;
 
 use crate::commands::config_finder::standard_config_finder;
 use crate::config::config::ConfigFile;
-use crate::config::config::ConfigSource;
 use crate::config::environment::environment::PythonEnvironment;
 use crate::config::finder::ConfigFinder;
 use crate::state::lsp::DisplayTypeErrors;
@@ -99,38 +95,12 @@ impl WeakConfigCache {
         SmallSet::from_iter(configs.iter().filter_map(|c| c.upgrade()))
     }
 
-    /// Given an [`ArcId<ConfigFile>`], get glob patterns that should be watched by a file watcher.
-    /// We return a tuple of root (non-pattern part of the path) and a pattern.
-    pub fn get_loaded_config_paths_to_watch(config: ArcId<ConfigFile>) -> Vec<(PathBuf, String)> {
-        let mut result = Vec::new();
-        let config_root = if let ConfigSource::File(config_path) = &config.source
-            && let Some(root) = config_path.parent()
-        {
-            Some(root)
-        } else {
-            config.source.root()
-        };
-        if let Some(config_root) = config_root {
-            ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
-                result.push((config_root.to_path_buf(), format!("**/{config}")));
-            });
-        }
-        config
-            .search_path()
-            .chain(config.site_package_path())
-            .cartesian_product(PYTHON_EXTENSIONS.iter().chain(COMPILED_FILE_SUFFIXES))
-            .for_each(|(s, suffix)| {
-                result.push((s.to_owned(), format!("**/*.{suffix}")));
-            });
-        result
-    }
-
     /// Get glob patterns to watch all Python files under [`ConfigFile::search_path`] and
     /// [`ConfigFile::site_package_path`], clearing out any removed [`ConfigFile`]s as we go.
     pub fn get_patterns_for_cached_configs(&self) -> Vec<(PathBuf, String)> {
         self.clean_and_get_configs()
             .into_iter()
-            .flat_map(Self::get_loaded_config_paths_to_watch)
+            .flat_map(|c| c.get_paths_to_watch())
             .collect::<Vec<_>>()
     }
 }
