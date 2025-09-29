@@ -426,7 +426,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::Import(n, r) => write!(f, "Key::Import({n} {})", ctx.display(r)),
             Self::ImplicitGlobal(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
-            Self::MutableCapture(x) => write!(f, "Key::Declaration({})", short(x)),
+            Self::MutableCapture(x) => write!(f, "Key::MutableCapture({})", short(x)),
             Self::CompletedPartialType(x) => write!(f, "Key::CompletedPartialType({})", short(x)),
             Self::PartialTypeWithUpstreamsCompleted(x) => {
                 write!(f, "Key::PartialTypeWithUpstreamsCompleted({})", short(x))
