@@ -5,6 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cell::Cell;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::cell::RefMut;
 use std::fmt;
 use std::fmt::Display;
 use std::mem;
@@ -122,37 +126,120 @@ impl QuantifiedHandle {
     }
 }
 
+/// The solver tracks variables as a mapping from Var to Variable.
+/// We use union-find to unify two vars, using RefCell for interior
+/// mutability.
+///
+/// Note that RefCell means we need to be careful about how we access
+/// variables. Access is "mutable xor shared" like ordinary references,
+/// except with runtime instead of static enforcement.
 #[derive(Debug, Default)]
-struct Variables(SmallMap<Var, Variable>);
+struct Variables(SmallMap<Var, RefCell<VariableNode>>);
+
+/// A union-find node. We store the parent pointer in a Cell so that we
+/// can implement path compression. We use a separate Cell instead of using
+/// the RefCell around the node, because we might find that two vars point
+/// to the same root, which would cause us to borrow_mut twice and panic.
+#[derive(Debug)]
+enum VariableNode {
+    Goto(Cell<Var>),
+    Root(Variable, usize),
+}
+
+impl Display for VariableNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VariableNode::Goto(x) => write!(f, "Goto({})", x.get()),
+            VariableNode::Root(x, _) => write!(f, "{x}"),
+        }
+    }
+}
 
 impl Variables {
-    fn get(&self, x: Var) -> &Variable {
-        self.0.get(&x).expect(VAR_LEAK)
+    fn get<'a>(&'a self, x: Var) -> Ref<'a, Variable> {
+        let root = self.get_root(x);
+        let variable = self.get_node(root).borrow();
+        Ref::map(variable, |v| match v {
+            VariableNode::Root(v, _) => v,
+            _ => unreachable!(),
+        })
     }
 
-    fn get_mut(&mut self, x: Var) -> &mut Variable {
-        self.0.get_mut(&x).expect(VAR_LEAK)
+    fn get_mut<'a>(&'a self, x: Var) -> RefMut<'a, Variable> {
+        let root = self.get_root(x);
+        let variable = self.get_node(root).borrow_mut();
+        RefMut::map(variable, |v| match v {
+            VariableNode::Root(v, _) => v,
+            _ => unreachable!(),
+        })
     }
 
-    fn iter(&self) -> impl Iterator<Item = (&Var, &Variable)> {
-        self.0.iter()
+    /// Unification for vars. Currently unification order matters, since unification is destructive.
+    /// This function will always preserve the "Variable" information from `y`, even when `x` has
+    /// higher rank, for backwards compatibility reasons. Otherwise, this is standard union by rank.
+    fn unify(&self, x: Var, y: Var) {
+        let x_root = self.get_root(x);
+        let y_root = self.get_root(y);
+        if x_root != y_root {
+            let mut x_node = self.get_node(x_root).borrow_mut();
+            let mut y_node = self.get_node(y_root).borrow_mut();
+            match (&mut *x_node, &mut *y_node) {
+                (VariableNode::Root(x, x_rank), VariableNode::Root(y, y_rank)) => {
+                    if x_rank > y_rank {
+                        // X has higher rank, preserve the Variable data from Y
+                        std::mem::swap(x, y);
+                        *y_node = VariableNode::Goto(Cell::new(x_root));
+                    } else {
+                        if x_rank == y_rank {
+                            *y_rank += 1;
+                        }
+                        *x_node = VariableNode::Goto(Cell::new(y_root));
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a Var, Ref<'a, VariableNode>)> {
+        self.0.iter().map(|(x, y)| (x, y.borrow()))
     }
 
     /// Insert a fresh variable. If we already have a record of this variable,
     /// this function will panic. To update an existing variable, use `update`.
     fn insert_fresh(&mut self, x: Var, v: Variable) {
-        assert!(self.0.insert(x, v).is_none());
+        assert!(
+            self.0
+                .insert(x, RefCell::new(VariableNode::Root(v, 0)))
+                .is_none()
+        );
     }
 
     /// Update an existing variable. If the variable does not exist, this will
     /// panic. To insert a new variable, use `insert_fresh`.
-    fn update(&mut self, x: Var, v: Variable) {
+    fn update(&self, x: Var, v: Variable) {
         *self.get_mut(x) = v;
     }
 
     fn recurse<'a>(&self, x: Var, recurser: &'a VarRecurser) -> Option<Guard<'a, Var>> {
-        // TODO: Once we have union-find, get the root Var first.
-        recurser.recurse(x)
+        let root = self.get_root(x);
+        recurser.recurse(root)
+    }
+
+    /// Get root using path compression.
+    fn get_root(&self, x: Var) -> Var {
+        match &*self.get_node(x).borrow() {
+            VariableNode::Root(..) => x,
+            VariableNode::Goto(parent) => {
+                let root = self.get_root(parent.get());
+                parent.set(root);
+                root
+            }
+        }
+    }
+
+    fn get_node(&self, x: Var) -> &RefCell<VariableNode> {
+        self.0.get(&x).expect(VAR_LEAK)
     }
 }
 
@@ -208,9 +295,9 @@ impl Solver {
     ///
     /// TODO: deduplicate Variable-to-gradual-type logic with `force_var`.
     pub fn pin_placeholder_type(&self, var: Var) {
-        let mut variables = self.variables.lock();
-        let variable = variables.get_mut(var);
-        match variable {
+        let variables = self.variables.lock();
+        let mut variable = variables.get_mut(var);
+        match &mut *variable {
             Variable::Recursive(..) | Variable::Answer(..) => {
                 // Nothing to do if we have an answer already, and we want to skip recursive Vars
                 // which do not represent placeholder types.
@@ -254,8 +341,10 @@ impl Solver {
         } else if let Type::Var(x) = t {
             let lock = self.variables.lock();
             if let Some(_guard) = lock.recurse(*x, recurser) {
-                if let Variable::Answer(w) = lock.get(*x) {
+                let variable = lock.get(*x);
+                if let Variable::Answer(w) = &*variable {
                     *t = w.clone();
+                    drop(variable);
                     drop(lock);
                     self.expand_with_limit(t, limit - 1, recurser);
                 }
@@ -276,12 +365,12 @@ impl Solver {
             Var::ZERO,
             "Cannot force Var::ZERO, which is a dummy value"
         );
-        let mut lock = self.variables.lock();
-        let e = lock.get_mut(v);
-        match e {
+        let lock = self.variables.lock();
+        let mut e = lock.get_mut(v);
+        match &mut *e {
             Variable::Answer(t) => t.clone(),
             _ => {
-                let default = match e {
+                let default = match &mut *e {
                     Variable::Quantified(q) => q.as_gradual_type(),
                     Variable::Recursive(Some(default)) => default.clone(),
                     _ => Type::any_implicit(),
@@ -415,9 +504,9 @@ impl Solver {
     /// Solve a parameter var (created using fresh_parameter) to a concrete type. This must happen
     /// before the var can appear in a constraint, or else we will panic.
     pub fn solve_parameter(&self, v: Var, t: Type) {
-        let mut lock = self.variables.lock();
-        let v = lock.get_mut(v);
-        match v {
+        let lock = self.variables.lock();
+        let mut v = lock.get_mut(v);
+        match &mut *v {
             Variable::Answer(_) => {}
             Variable::Parameter => {
                 *v = Variable::Answer(t);
@@ -529,11 +618,11 @@ impl Solver {
         &self,
         vs: QuantifiedHandle,
     ) -> Result<(), Vec1<TypeVarSpecializationError>> {
-        let mut lock = self.variables.lock();
+        let lock = self.variables.lock();
         let mut err = Vec::new();
         for v in vs.0 {
-            let e = lock.get_mut(v);
-            match e {
+            let mut e = lock.get_mut(v);
+            match &mut *e {
                 Variable::Answer(_) => {
                     // We pin the quantified var to a type when it first appears in a subset constraint,
                     // and at that point we check the instantiation with the bound.
@@ -582,7 +671,7 @@ impl Solver {
         let lock = self.variables.lock();
         targs.iter_paired_mut().for_each(|(param, t)| {
             if let Type::Var(v) = t
-                && let Variable::Quantified(q) = lock.get(*v)
+                && let Variable::Quantified(q) = &*lock.get(*v)
                 && **q == param.quantified
             {
                 *t = param.quantified.clone().to_type();
@@ -747,9 +836,12 @@ impl Solver {
         fn expand(t: Type, variables: &Variables, recurser: &VarRecurser, res: &mut Vec<Type>) {
             match t {
                 Type::Var(v) if let Some(_guard) = variables.recurse(v, recurser) => {
-                    match variables.get(v) {
+                    let variable = variables.get(v);
+                    match &*variable {
                         Variable::Answer(t) => {
-                            expand(t.clone(), variables, recurser, res);
+                            let t = t.clone();
+                            drop(variable);
+                            expand(t, variables, recurser, res);
                         }
                         _ => res.push(v.to_type()),
                     }
@@ -763,10 +855,12 @@ impl Solver {
             }
         }
 
-        let mut lock = self.variables.lock();
-        match lock.get(v) {
+        let lock = self.variables.lock();
+        let variable = lock.get(v);
+        match &*variable {
             Variable::Answer(forced) => {
                 let forced = forced.clone();
+                drop(variable);
                 drop(lock);
                 // We got forced into choosing a type to satisfy a subset constraint, so check we are OK with that.
                 // Since we have already used `forced`, and will continue to do so, important that what we expect
@@ -779,6 +873,7 @@ impl Solver {
                 }
             }
             _ => {
+                drop(variable);
                 // If you are recording `@1 = @1 | something` then the `@1` can't contribute any
                 // possibilities, so just ignore it.
                 let mut res = Vec::new();
@@ -897,45 +992,56 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         match (got, want) {
             _ if got == want => Ok(()),
             (Type::Var(v1), Type::Var(v2)) => {
-                let mut variables = self.solver.variables.lock();
-                match (variables.get(*v1), variables.get(*v2)) {
+                let variables = self.solver.variables.lock();
+                let variable1 = variables.get(*v1);
+                let variable2 = variables.get(*v2);
+                match (&*variable1, &*variable2) {
                     (Variable::Parameter, _) | (_, Variable::Parameter) => {
                         unreachable!("Unexpected Variable::Parameter in constraint")
                     }
                     (Variable::Answer(t1), Variable::Answer(t2)) => {
                         let t1 = t1.clone();
                         let t2 = t2.clone();
+                        drop(variable1);
+                        drop(variable2);
                         drop(variables);
                         self.is_subset_eq(&t1, &t2)
                     }
                     (_, Variable::Answer(t2)) => {
                         let t2 = t2.clone();
+                        drop(variable1);
+                        drop(variable2);
                         drop(variables);
                         self.is_subset_eq(got, &t2)
                     }
                     (Variable::Answer(t1), _) => {
                         let t1 = t1.clone();
+                        drop(variable1);
+                        drop(variable2);
                         drop(variables);
                         self.is_subset_eq(&t1, want)
                     }
                     (var_type1, var_type2)
                         if should_force(var_type1) && should_force(var_type2) =>
                     {
-                        // Tie the variables together. Doesn't matter which way round we do it.
-                        variables.update(*v1, Variable::Answer(Type::Var(*v2)));
+                        drop(variable1);
+                        drop(variable2);
+                        variables.unify(*v1, *v2);
                         Ok(())
                     }
                     (_, _) => Err(SubsetError::Other),
                 }
             }
             (Type::Var(v1), t2) => {
-                let mut variables = self.solver.variables.lock();
-                match variables.get(*v1) {
+                let variables = self.solver.variables.lock();
+                let variable = variables.get(*v1);
+                match &*variable {
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
                     Variable::Answer(t1) => {
                         let t1 = t1.clone();
+                        drop(variable);
                         drop(variables);
                         self.is_subset_eq(&t1, t2)
                     }
@@ -943,6 +1049,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
+                            drop(variable);
                             variables.update(*v1, Variable::Answer(t2.clone()));
                             drop(variables);
                             if let Err(e) = self.is_subset_eq(t2, &bound) {
@@ -957,6 +1064,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 );
                             }
                         } else {
+                            drop(variable);
                             variables.update(*v1, Variable::Answer(t2.clone()));
                         }
                         Ok(())
@@ -965,13 +1073,15 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
             }
             (t1, Type::Var(v2)) => {
-                let mut variables = self.solver.variables.lock();
-                match variables.get(*v2) {
+                let variables = self.solver.variables.lock();
+                let variable = variables.get(*v2);
+                match &*variable {
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
                     Variable::Answer(t2) => {
                         let t2 = t2.clone();
+                        drop(variable);
                         drop(variables);
                         self.is_subset_eq(t1, &t2)
                     }
@@ -982,6 +1092,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
+                            drop(variable);
                             variables.update(*v2, Variable::Answer(t1_p.clone()));
                             drop(variables);
                             if let Err(err_p) = self.is_subset_eq(&t1_p, &bound) {
@@ -1009,6 +1120,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 }
                             }
                         } else {
+                            drop(variable);
                             variables.update(*v2, Variable::Answer(t1_p));
                         }
                         Ok(())
