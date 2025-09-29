@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::ops::Not;
 
-use dashmap::DashMap;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Callable;
@@ -111,14 +110,14 @@ impl FunctionRef {
             .module_ids
             .get(ModuleKey::from_module(&item.module))
             .unwrap();
-        function_base_definitions.get_and_map(module_id, &function_id, |function_base_definition| {
-            FunctionRef {
+        function_base_definitions
+            .get(module_id, &function_id)
+            .map(|function_base_definition| FunctionRef {
                 module_id,
                 module_name: item.module.name(),
                 function_id: function_id.clone(),
                 function_name: function_base_definition.name.clone(),
-            }
-        })
+            })
     }
 }
 
@@ -262,41 +261,24 @@ impl<GenericFunctionDefinition> ModuleFunctionDefinitions<GenericFunctionDefinit
 }
 
 pub struct WholeProgramFunctionDefinitions<FunctionDefinition>(
-    DashMap<ModuleId, ModuleFunctionDefinitions<FunctionDefinition>>,
+    dashmap::ReadOnlyView<ModuleId, ModuleFunctionDefinitions<FunctionDefinition>>,
 );
 
 impl<GenericFunctionDefinition> WholeProgramFunctionDefinitions<GenericFunctionDefinition> {
-    pub fn new() -> WholeProgramFunctionDefinitions<GenericFunctionDefinition> {
-        WholeProgramFunctionDefinitions(DashMap::new())
-    }
-
-    pub fn get_and_map<T, F>(
-        &self,
+    pub fn get<'a>(
+        &'a self,
         module_id: ModuleId,
         function_id: &FunctionId,
-        f: F,
-    ) -> Option<T>
-    where
-        F: FnOnce(&GenericFunctionDefinition) -> T,
-    {
-        // We cannot return a &GenericFunctionDefinition since the reference is only valid
-        // while we are holding a lock on the hash map.
-        // Instead, we allow to call a function f that will and copy the information we need.
+    ) -> Option<&'a GenericFunctionDefinition> {
         self.0
             .get(&module_id)
-            .and_then(|functions| functions.0.get(function_id).map(f))
+            .and_then(|functions| functions.0.get(function_id))
     }
 
     pub fn get_for_module<'a>(
         &'a self,
         module_id: ModuleId,
-    ) -> Option<
-        dashmap::mapref::one::Ref<
-            'a,
-            ModuleId,
-            ModuleFunctionDefinitions<GenericFunctionDefinition>,
-        >,
-    > {
+    ) -> Option<&'a ModuleFunctionDefinitions<GenericFunctionDefinition>> {
         self.0.get(&module_id)
     }
 }
@@ -451,7 +433,9 @@ pub fn export_all_functions(
                         defining_class: function
                             .defining_cls()
                             .map(|class| ClassRef::from_class(class, context.module_ids)),
-                        overridden_base_method: reversed_override_graph.get(&current_function),
+                        overridden_base_method: reversed_override_graph
+                            .get(&current_function)
+                            .cloned(),
                     }
                 )
                 .is_none(),
@@ -499,7 +483,7 @@ pub fn collect_function_base_definitions(
     module_ids: &ModuleIds,
     reversed_override_graph: &WholeProgramReversedOverrideGraph,
 ) -> WholeProgramFunctionDefinitions<FunctionBaseDefinition> {
-    let base_definitions = WholeProgramFunctionDefinitions::new();
+    let base_definitions = dashmap::DashMap::new();
 
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
@@ -508,11 +492,9 @@ pub fn collect_function_base_definitions(
                 reversed_override_graph,
                 &ModuleContext::create(handle, transaction, module_ids).unwrap(),
             );
-            base_definitions
-                .0
-                .insert(module_id, base_definitions_for_module);
+            base_definitions.insert(module_id, base_definitions_for_module);
         });
     });
 
-    base_definitions
+    WholeProgramFunctionDefinitions(base_definitions.into_read_only())
 }

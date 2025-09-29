@@ -349,20 +349,19 @@ impl<'a> CallGraphVisitor<'a> {
 
     fn get_method_metadata(&self, function_ref: &FunctionRef) -> MethodMetadata {
         self.function_base_definitions
-            .get_and_map(
-                self.module_id,
-                &function_ref.function_id,
+            .get(self.module_id, &function_ref.function_id)
+            .map_or(
+                MethodMetadata {
+                    is_staticmethod: false,
+                    is_classmethod: false,
+                    is_method: false,
+                },
                 |function_definition| MethodMetadata {
                     is_staticmethod: function_definition.is_staticmethod,
                     is_classmethod: function_definition.is_classmethod,
                     is_method: FunctionBaseDefinition::is_method(function_definition),
                 },
             )
-            .unwrap_or(MethodMetadata {
-                is_staticmethod: false,
-                is_classmethod: false,
-                is_method: false,
-            })
     }
 
     fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
@@ -461,17 +460,16 @@ impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
                             .display_range(function_def.identifier()),
                     ),
                 };
-                if let Some(function_name) = self.function_base_definitions.get_and_map(
-                    self.module_id,
-                    &function_id,
-                    |function_definition| function_definition.name.clone(),
-                ) {
+                if let Some(function_definition) = self
+                    .function_base_definitions
+                    .get(self.module_id, &function_id)
+                {
                     self.set_debug_for_body(&function_def.body);
                     self.definition_nesting.push(FunctionRef {
                         module_id: self.module_id,
                         module_name: self.module_name,
                         function_id,
-                        function_name,
+                        function_name: function_definition.name.clone(),
                     });
                     visitor::walk_stmt(self, stmt);
                     self.definition_nesting.pop();

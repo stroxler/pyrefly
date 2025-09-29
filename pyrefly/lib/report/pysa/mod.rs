@@ -111,7 +111,7 @@ pub fn get_module_file(
         .get_for_module(context.module_id)
         .unwrap();
     let function_definitions =
-        add_undecorated_signatures(&function_base_definitions_for_module, context);
+        add_undecorated_signatures(function_base_definitions_for_module, context);
     let class_definitions = export_all_classes(context);
 
     PysaModuleFile {
