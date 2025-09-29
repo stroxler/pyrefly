@@ -50,7 +50,7 @@ use crate::types::types::Var;
 /// in the output. The usual cause is that we failed to visit all the necessary `Type` fields.
 const VAR_LEAK: &str = "Internal error: a variable has leaked from one module to another.";
 
-const INITIAL_GAS: Gas = Gas::new(25);
+const INITIAL_GAS: Gas = Gas::new(1000);
 
 #[derive(Debug)]
 enum Variable {
