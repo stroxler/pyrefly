@@ -138,8 +138,16 @@ impl Variables {
         self.0.iter()
     }
 
-    fn insert(&mut self, x: Var, v: Variable) {
-        self.0.insert(x, v);
+    /// Insert a fresh variable. If we already have a record of this variable,
+    /// this function will panic. To update an existing variable, use `update`.
+    fn insert_fresh(&mut self, x: Var, v: Variable) {
+        assert!(self.0.insert(x, v).is_none());
+    }
+
+    /// Update an existing variable. If the variable does not exist, this will
+    /// panic. To insert a new variable, use `insert_fresh`.
+    fn update(&mut self, x: Var, v: Variable) {
+        *self.get_mut(x) = v;
     }
 
     fn recurse<'a>(&self, x: Var, recurser: &'a VarRecurser) -> Option<Guard<'a, Var>> {
@@ -387,7 +395,7 @@ impl Solver {
     /// e.g. `[]` with an unknown type of element.
     pub fn fresh_contained(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
-        self.variables.lock().insert(v, Variable::Contained);
+        self.variables.lock().insert_fresh(v, Variable::Contained);
         v
     }
 
@@ -400,7 +408,7 @@ impl Solver {
     /// If a parameter var appears in a constraint, we will panic.
     pub fn fresh_parameter(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
-        self.variables.lock().insert(v, Variable::Parameter);
+        self.variables.lock().insert_fresh(v, Variable::Parameter);
         v
     }
 
@@ -425,7 +433,7 @@ impl Solver {
     // the answers phase by contextually typing against an annotation.
     pub fn fresh_unwrap(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
-        self.variables.lock().insert(v, Variable::Unwrap);
+        self.variables.lock().insert_fresh(v, Variable::Unwrap);
         v
     }
 
@@ -445,7 +453,7 @@ impl Solver {
         let t = t.subst(&params.iter().map(|p| &p.quantified).zip(&ts).collect());
         let mut lock = self.variables.lock();
         for (v, param) in vs.iter().zip(params.iter()) {
-            lock.insert(*v, Variable::Quantified(Box::new(param.quantified.clone())));
+            lock.insert_fresh(*v, Variable::Quantified(Box::new(param.quantified.clone())));
         }
         (QuantifiedHandle(vs), t)
     }
@@ -490,7 +498,7 @@ impl Solver {
 
         let mut lock = self.variables.lock();
         for (v, q) in vs.iter().zip(qs.into_iter()) {
-            lock.insert(*v, Variable::Quantified(Box::new(q)));
+            lock.insert_fresh(*v, Variable::Quantified(Box::new(q)));
         }
         drop(lock);
 
@@ -560,7 +568,7 @@ impl Solver {
             {
                 let v = Var::new(uniques);
                 *t = v.to_type();
-                lock.insert(v, Variable::Quantified(Box::new(param.quantified.clone())));
+                lock.insert_fresh(v, Variable::Quantified(Box::new(param.quantified.clone())));
             }
         })
     }
@@ -622,7 +630,7 @@ impl Solver {
                     Some(t)
                 } else {
                     let v = Var::new(uniques);
-                    self.variables.lock().insert(v, Variable::Contained);
+                    self.variables.lock().insert_fresh(v, Variable::Contained);
                     Some(v.to_type())
                 }
             } else {
@@ -647,7 +655,7 @@ impl Solver {
         let v = Var::new(uniques);
         self.variables
             .lock()
-            .insert(v, Variable::Recursive(default));
+            .insert_fresh(v, Variable::Recursive(default));
         v
     }
 
@@ -778,7 +786,7 @@ impl Solver {
                 expand(t, &lock, &VarRecurser::new(), &mut res);
                 // Then remove any reference to self, before unioning it back together
                 res.retain(|x| x != &Type::Var(v));
-                lock.insert(v, Variable::Answer(unions(res)));
+                lock.update(v, Variable::Answer(unions(res)));
             }
         }
     }
@@ -914,7 +922,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         if should_force(var_type1) && should_force(var_type2) =>
                     {
                         // Tie the variables together. Doesn't matter which way round we do it.
-                        variables.insert(*v1, Variable::Answer(Type::Var(*v2)));
+                        variables.update(*v1, Variable::Answer(Type::Var(*v2)));
                         Ok(())
                     }
                     (_, _) => Err(SubsetError::Other),
@@ -935,7 +943,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
-                            variables.insert(*v1, Variable::Answer(t2.clone()));
+                            variables.update(*v1, Variable::Answer(t2.clone()));
                             drop(variables);
                             if let Err(e) = self.is_subset_eq(t2, &bound) {
                                 self.solver.instantiation_errors.write().insert(
@@ -949,7 +957,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 );
                             }
                         } else {
-                            variables.insert(*v1, Variable::Answer(t2.clone()));
+                            variables.update(*v1, Variable::Answer(t2.clone()));
                         }
                         Ok(())
                     }
@@ -974,7 +982,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
-                            variables.insert(*v2, Variable::Answer(t1_p.clone()));
+                            variables.update(*v2, Variable::Answer(t1_p.clone()));
                             drop(variables);
                             if let Err(err_p) = self.is_subset_eq(&t1_p, &bound) {
                                 // If the promoted type fails, try again with the original type, in case the bound itself is literal.
@@ -982,13 +990,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 self.solver
                                     .variables
                                     .lock()
-                                    .insert(*v2, Variable::Answer(t1.clone()));
+                                    .update(*v2, Variable::Answer(t1.clone()));
                                 if self.is_subset_eq(t1, &bound).is_err() {
                                     // If the original type is also an error, use the promoted type.
                                     self.solver
                                         .variables
                                         .lock()
-                                        .insert(*v2, Variable::Answer(t1_p.clone()));
+                                        .update(*v2, Variable::Answer(t1_p.clone()));
                                     self.solver.instantiation_errors.write().insert(
                                         *v2,
                                         TypeVarSpecializationError {
@@ -1001,7 +1009,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 }
                             }
                         } else {
-                            variables.insert(*v2, Variable::Answer(t1_p));
+                            variables.update(*v2, Variable::Answer(t1_p));
                         }
                         Ok(())
                     }
