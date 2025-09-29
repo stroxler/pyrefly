@@ -270,6 +270,8 @@ pub struct Server {
     lsp_queue: LspQueue,
     recheck_queue: HeavyTaskQueue,
     find_reference_queue: HeavyTaskQueue,
+    /// Any configs whose find cache should be invalidated.
+    invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
     workspace_indexing_limit: usize,
@@ -545,8 +547,13 @@ impl Server {
                 }
                 canceled_requests.insert(id);
             }
-            LspEvent::InvalidateConfigFind(invalidated_configs) => {
-                self.invalidate_find_for_configs(invalidated_configs);
+            LspEvent::InvalidateConfigFind => {
+                let mut lock = self.invalidated_configs.lock();
+                let invalidated_configs = std::mem::take(&mut *lock);
+                drop(lock);
+                if !invalidated_configs.is_empty() {
+                    self.invalidate_find_for_configs(invalidated_configs);
+                }
             }
             LspEvent::DidOpenTextDocument(params) => {
                 self.did_open(ide_transaction_manager, subsequent_mutation, params)?;
@@ -896,6 +903,7 @@ impl Server {
             lsp_queue,
             recheck_queue: HeavyTaskQueue::new(),
             find_reference_queue: HeavyTaskQueue::new(),
+            invalidated_configs: Arc::new(Mutex::new(SmallSet::new())),
             initialize_params,
             indexing_mode,
             workspace_indexing_limit,
@@ -1060,11 +1068,20 @@ impl Server {
         let lsp_queue = self.lsp_queue.dupe();
         let state = self.state.dupe();
         let recheck_queue = self.recheck_queue.dupe();
-        Self::queue_source_db_rebuild_and_recheck(&state, recheck_queue, lsp_queue, &handles);
+        Self::queue_source_db_rebuild_and_recheck(
+            &state,
+            self.invalidated_configs.dupe(),
+            recheck_queue,
+            lsp_queue,
+            &handles,
+        );
     }
 
+    /// Attempts to requery any open sourced_dbs for open files, and if there are changes,
+    /// invalidate find and perform a recheck.
     fn queue_source_db_rebuild_and_recheck(
         state: &State,
+        invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
         recheck_queue: HeavyTaskQueue,
         lsp_queue: LspQueue,
         handles: &[Handle],
@@ -1080,7 +1097,7 @@ impl Server {
                 .insert(handle.path().dupe());
         }
         recheck_queue.queue_task(Box::new(move || {
-            let invalidated_configs: SmallSet<ArcId<ConfigFile>> = configs_to_paths
+            let new_invalidated_configs: SmallSet<ArcId<ConfigFile>> = configs_to_paths
                 .into_iter()
                 .filter(|(c, files)| match c.requery_source_db(files) {
                     Ok(reloaded) => reloaded,
@@ -1091,8 +1108,12 @@ impl Server {
                 })
                 .map(|(c, _)| c)
                 .collect();
-            if !invalidated_configs.is_empty() {
-                let _ = lsp_queue.send(LspEvent::InvalidateConfigFind(invalidated_configs));
+            if !new_invalidated_configs.is_empty() {
+                let mut lock = invalidated_configs.lock();
+                for c in new_invalidated_configs {
+                    lock.insert(c);
+                }
+                let _ = lsp_queue.send(LspEvent::InvalidateConfigFind);
             }
         }));
     }
@@ -1361,6 +1382,7 @@ impl Server {
         let lsp_queue = self.lsp_queue.dupe();
         let open_files = self.open_files.dupe();
         let recheck_queue = self.recheck_queue.dupe();
+        let invalidated_configs = self.invalidated_configs.dupe();
         self.recheck_queue.queue_task(Box::new(move || {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
@@ -1370,7 +1392,13 @@ impl Server {
             let handles =
                 Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             state.commit_transaction(transaction);
-            Self::queue_source_db_rebuild_and_recheck(&state, recheck_queue, lsp_queue, &handles);
+            Self::queue_source_db_rebuild_and_recheck(
+                &state,
+                invalidated_configs,
+                recheck_queue,
+                lsp_queue,
+                &handles,
+            );
         }));
     }
 
