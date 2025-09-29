@@ -10,10 +10,9 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 use ruff_python_ast::name::Name;
 
-use crate::report::pysa::ast_visitor::GlobalVariable;
-use crate::report::pysa::ast_visitor::ModuleAstVisitorResult;
-use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::global_variable::GlobalVariable;
+use crate::report::pysa::global_variable::export_global_variables;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::types::PysaType;
@@ -41,10 +40,7 @@ fn test_exported_global_variables(
 
     let expected_globals = create_expected_globals(&context);
 
-    let ModuleAstVisitorResult {
-        global_variables: actual_globals,
-        ..
-    } = visit_module_ast(&context);
+    let actual_globals = export_global_variables(&context);
 
     assert_eq!(expected_globals, actual_globals);
 }

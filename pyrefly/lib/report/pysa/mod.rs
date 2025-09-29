@@ -10,6 +10,7 @@ pub mod call_graph;
 pub mod class;
 pub mod context;
 pub mod function;
+pub mod global_variable;
 pub mod is_test_module;
 pub mod location;
 pub mod module;
@@ -39,7 +40,6 @@ use serde::Serialize;
 use tracing::info;
 
 use crate::module::typeshed::typeshed;
-use crate::report::pysa::ast_visitor::GlobalVariable;
 use crate::report::pysa::ast_visitor::ModuleAstVisitorResult;
 use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::class::ClassDefinition;
@@ -52,6 +52,8 @@ use crate::report::pysa::function::ModuleFunctionDefinitions;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::add_undecorated_signatures;
 use crate::report::pysa::function::collect_function_base_definitions;
+use crate::report::pysa::global_variable::GlobalVariable;
+use crate::report::pysa::global_variable::export_global_variables;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::module::ModuleIds;
@@ -102,10 +104,8 @@ pub fn get_module_file(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
 ) -> PysaModuleFile {
-    let ModuleAstVisitorResult {
-        type_of_expression,
-        global_variables,
-    } = visit_module_ast(context);
+    let global_variables = export_global_variables(context);
+    let ModuleAstVisitorResult { type_of_expression } = visit_module_ast(context);
 
     let function_base_definitions_for_module = function_base_definitions
         .get_for_module(context.module_id)
