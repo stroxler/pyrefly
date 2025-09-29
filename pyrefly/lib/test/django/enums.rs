@@ -149,3 +149,27 @@ assert_type(B.choices, list[tuple[int, _StrOrPromise | str]])
 
 "#,
 );
+
+testcase!(
+    bug = "We should inherit empty information from parent class and make values optional",
+    test_enum_empty,
+    django_env(),
+    r#"
+from typing import assert_type
+
+from django.db.models import IntegerChoices
+from django.utils.translation import gettext_lazy as _
+
+
+class BaseChoices(IntegerChoices):
+    __empty__ = _("(Unknown)")
+
+
+class DerivedChoices(BaseChoices):
+    B = 2, "B"
+
+
+assert_type(DerivedChoices.values, list[int | None]) # E: assert_type(list[int], list[int | None]) 
+
+"#,
+);
