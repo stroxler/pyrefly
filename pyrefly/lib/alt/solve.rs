@@ -658,7 +658,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 vec![Iterable::FixedLen(elts.clone())]
             }
             Type::Tuple(Tuple::Concrete(elts)) => vec![Iterable::FixedLen(elts.clone())],
-            Type::Var(v) if let Some(_guard) = self.recurser.recurse(*v) => {
+            Type::Var(v) if let Some(_guard) = self.recurse(*v) => {
                 self.iterate(&self.solver().force_var(*v), range, errors)
             }
             Type::Union(ts) => ts
@@ -703,7 +703,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Vec<Iterable> {
         match iterable {
-            Type::Var(v) if let Some(_guard) = self.recurser.recurse(*v) => {
+            Type::Var(v) if let Some(_guard) = self.recurse(*v) => {
                 self.async_iterate(&self.solver().force_var(*v), range, errors)
             }
             _ => {
@@ -3348,7 +3348,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Some(self.unions(ts))
             }
-            Type::Var(v) if let Some(_guard) = self.recurser.recurse(v) => {
+            Type::Var(v) if let Some(_guard) = self.recurse(v) => {
                 self.untype_opt(self.solver().force_var(v), range)
             }
             ty @ (Type::TypeVar(_)
@@ -3364,7 +3364,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             t @ Type::Unpack(
                 box Type::Tuple(_) | box Type::TypeVarTuple(_) | box Type::Quantified(_),
             ) => Some(t),
-            Type::Unpack(box Type::Var(v)) if let Some(_guard) = self.recurser.recurse(v) => {
+            Type::Unpack(box Type::Var(v)) if let Some(_guard) = self.recurse(v) => {
                 self.untype_opt(Type::Unpack(Box::new(self.solver().force_var(v))), range)
             }
             Type::QuantifiedValue(q) => Some(q.to_type()),

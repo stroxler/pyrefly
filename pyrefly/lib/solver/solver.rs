@@ -15,6 +15,7 @@ use pyrefly_util::gas::Gas;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::recurser::Guard;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::visit::VisitMut;
@@ -140,6 +141,25 @@ impl Variables {
     fn insert(&mut self, x: Var, v: Variable) {
         self.0.insert(x, v);
     }
+
+    fn recurse<'a>(&self, x: Var, recurser: &'a VarRecurser) -> Option<Guard<'a, Var>> {
+        // TODO: Once we have union-find, get the root Var first.
+        recurser.recurse(x)
+    }
+}
+
+/// A recurser for Vars which is aware of unification.
+/// Prefer this over Recurser<Var> and use Solver::recurse.
+pub struct VarRecurser(Recurser<Var>);
+
+impl VarRecurser {
+    pub fn new() -> Self {
+        Self(Recurser::new())
+    }
+
+    fn recurse<'a>(&'a self, var: Var) -> Option<Guard<'a, Var>> {
+        self.0.recurse(var)
+    }
 }
 
 #[derive(Debug)]
@@ -170,6 +190,10 @@ impl Solver {
             instantiation_errors: Default::default(),
             infer_with_first_use,
         }
+    }
+
+    pub fn recurse<'a>(&self, var: Var, recurser: &'a VarRecurser) -> Option<Guard<'a, Var>> {
+        self.variables.lock().recurse(var, recurser)
     }
 
     /// Force all non-recursive Vars in `vars`.
@@ -207,21 +231,21 @@ impl Solver {
 
     /// Like `expand`, but when you have a `&mut`.
     pub fn expand_mut(&self, t: &mut Type) {
-        self.expand_with_limit(t, TYPE_LIMIT, &Recurser::new());
+        self.expand_with_limit(t, TYPE_LIMIT, &VarRecurser::new());
         // After we substitute bound variables, we may be able to simplify some types
         self.simplify_mut(t);
     }
 
     /// Expand, but if the resulting type will be greater than limit levels deep, return an `Any`.
     /// Avoids producing things that stack overflow later in the process.
-    fn expand_with_limit(&self, t: &mut Type, limit: usize, recurser: &Recurser<Var>) {
+    fn expand_with_limit(&self, t: &mut Type, limit: usize, recurser: &VarRecurser) {
         if limit == 0 {
             // TODO: Should probably add an error here, and use any_error,
             // but don't have any good location information to hand.
             *t = Type::any_implicit();
         } else if let Type::Var(x) = t {
-            if let Some(_guard) = recurser.recurse(*x) {
-                let lock = self.variables.lock();
+            let lock = self.variables.lock();
+            if let Some(_guard) = lock.recurse(*x, recurser) {
                 if let Variable::Answer(w) = lock.get(*x) {
                     *t = w.clone();
                     drop(lock);
@@ -260,13 +284,13 @@ impl Solver {
         }
     }
 
-    fn deep_force_mut_with_limit(&self, t: &mut Type, limit: usize, recurser: &Recurser<Var>) {
+    fn deep_force_mut_with_limit(&self, t: &mut Type, limit: usize, recurser: &VarRecurser) {
         if limit == 0 {
             // TODO: Should probably add an error here, and use any_error,
             // but don't have any good location information to hand.
             *t = Type::any_implicit();
         } else if let Type::Var(v) = t {
-            if let Some(_guard) = recurser.recurse(*v) {
+            if let Some(_guard) = self.recurse(*v, recurser) {
                 *t = self.force_var(*v);
                 self.deep_force_mut_with_limit(t, limit - 1, recurser);
             } else {
@@ -279,7 +303,7 @@ impl Solver {
 
     /// A version of `deep_force` that works in-place on a `Type`.
     pub fn deep_force_mut(&self, t: &mut Type) {
-        self.deep_force_mut_with_limit(t, TYPE_LIMIT, &Recurser::new());
+        self.deep_force_mut_with_limit(t, TYPE_LIMIT, &VarRecurser::new());
         // After forcing, we might be able to simplify some unions
         self.simplify_mut(t);
     }
@@ -712,14 +736,16 @@ impl Solver {
         errors: &ErrorCollector,
         loc: TextRange,
     ) {
-        fn expand(t: Type, variables: &Variables, recurser: &Recurser<Var>, res: &mut Vec<Type>) {
+        fn expand(t: Type, variables: &Variables, recurser: &VarRecurser, res: &mut Vec<Type>) {
             match t {
-                Type::Var(v) if let Some(_guard) = recurser.recurse(v) => match variables.get(v) {
-                    Variable::Answer(t) => {
-                        expand(t.clone(), variables, recurser, res);
+                Type::Var(v) if let Some(_guard) = variables.recurse(v, recurser) => {
+                    match variables.get(v) {
+                        Variable::Answer(t) => {
+                            expand(t.clone(), variables, recurser, res);
+                        }
+                        _ => res.push(v.to_type()),
                     }
-                    _ => res.push(v.to_type()),
-                },
+                }
                 Type::Union(ts) => {
                     for t in ts {
                         expand(t, variables, recurser, res);
@@ -749,7 +775,7 @@ impl Solver {
                 // possibilities, so just ignore it.
                 let mut res = Vec::new();
                 // First expand all union/var into a list of the possible unions
-                expand(t, &lock, &Recurser::new(), &mut res);
+                expand(t, &lock, &VarRecurser::new(), &mut res);
                 // Then remove any reference to self, before unioning it back together
                 res.retain(|x| x != &Type::Var(v));
                 lock.insert(v, Variable::Answer(unions(res)));

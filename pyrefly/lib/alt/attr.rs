@@ -1414,7 +1414,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn force_var_for_attribute_base(&self, var: Var) -> Type {
-        if let Some(_guard) = self.recurser.recurse(var) {
+        if let Some(_guard) = self.recurse(var) {
             self.solver().force_var(var)
         } else {
             Type::any_implicit()
