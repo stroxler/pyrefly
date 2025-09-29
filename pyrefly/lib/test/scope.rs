@@ -314,6 +314,17 @@ def f():
 "#,
 );
 
+// Regression test against a panic in the presence of parser error recovery:
+// https://github.com/facebook/pyrefly/issues/1203
+testcase!(
+    test_mutable_capture_syntax_error,
+    r#"
+def f():
+    be be:  # E: `be` is uninitialized  # E: Parse error  # E: Parse error
+    global be   # E: `be` was assigned in the current scope before the global declaration
+"#,
+);
+
 testcase!(
     test_del_name,
     r#"
