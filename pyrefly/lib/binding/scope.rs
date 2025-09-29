@@ -418,6 +418,37 @@ pub struct Flow {
     has_terminated: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct FlowInfo {
+    /// The key to use if you need the value of this name.
+    pub idx: Idx<Key>,
+    /// The loop default - used to wrap loop Phi with our guess at the type above the loop.
+    /// - Always set to our current inferred type when a flow info is created
+    /// - Updated whenever we update the inferred type outside of all loops, but not inside
+    pub default: Idx<Key>,
+    /// The style of this binding.
+    pub style: FlowStyle,
+}
+
+impl FlowInfo {
+    fn new(idx: Idx<Key>, style: Option<FlowStyle>) -> Self {
+        Self {
+            idx,
+            default: idx,
+            style: style.unwrap_or(FlowStyle::Other),
+        }
+    }
+
+    /// Create a new FlowInfo after an update.
+    fn updated(&self, idx: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
+        Self {
+            idx,
+            default: if in_loop { self.default } else { idx },
+            style: style.unwrap_or_else(|| self.style.clone()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlowStyle {
     /// Not one of the styles below.
@@ -470,37 +501,6 @@ impl FlowStyle {
             }
         }
         merged
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FlowInfo {
-    /// The key to use if you need the value of this name.
-    pub idx: Idx<Key>,
-    /// The loop default - used to wrap loop Phi with our guess at the type above the loop.
-    /// - Always set to our current inferred type when a flow info is created
-    /// - Updated whenever we update the inferred type outside of all loops, but not inside
-    pub default: Idx<Key>,
-    /// The style of this binding.
-    pub style: FlowStyle,
-}
-
-impl FlowInfo {
-    fn new(idx: Idx<Key>, style: Option<FlowStyle>) -> Self {
-        Self {
-            idx,
-            default: idx,
-            style: style.unwrap_or(FlowStyle::Other),
-        }
-    }
-
-    /// Create a new FlowInfo after an update.
-    fn updated(&self, idx: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
-        Self {
-            idx,
-            default: if in_loop { self.default } else { idx },
-            style: style.unwrap_or_else(|| self.style.clone()),
-        }
     }
 }
 
