@@ -340,7 +340,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.insert_binding(key, Binding::Forward(value))
             }
             NameLookupResult::NotFound => {
-                if is_special_name(&name.id.as_str()) {
+                if is_special_name(name.id.as_str()) {
                     self.error(
                         name.range,
                         ErrorInfo::Kind(ErrorKind::UnknownName),
