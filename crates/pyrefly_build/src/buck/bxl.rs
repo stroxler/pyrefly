@@ -164,6 +164,19 @@ impl SourceDatabase for BuckSourceDatabase {
         info!("Finished querying Buck for source DB");
         Ok(self.update_with_target_manifest(raw_db))
     }
+
+    fn get_critical_files(&self) -> SmallSet<PathBuf> {
+        let read = self.inner.read();
+        read.db
+            .values()
+            .map(|m| m.buildfile_path.to_path_buf())
+            .chain(
+                read.db
+                    .values()
+                    .flat_map(|m| m.srcs.values().flatten().map(|p| p.to_path_buf())),
+            )
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -327,6 +340,7 @@ mod tests {
                         ),
                         ],
                         &[],
+                        "colorama/BUCK",
                     ),
                     Target::from_string("//pyre/client/log:log".to_owned()) => TargetManifest::lib(
                         &[
@@ -345,6 +359,7 @@ mod tests {
                         ),
                         ],
                         &[],
+                        "pyre/client/log/BUCK",
                     ),
             },
             root.clone(),

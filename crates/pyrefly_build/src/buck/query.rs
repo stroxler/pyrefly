@@ -87,6 +87,7 @@ pub(crate) struct PythonLibraryManifest {
     pub srcs: SmallMap<ModuleName, Vec1<PathBuf>>,
     #[serde(flatten)]
     pub sys_info: SysInfo,
+    pub buildfile_path: PathBuf,
 }
 
 impl PythonLibraryManifest {
@@ -108,6 +109,7 @@ impl PythonLibraryManifest {
         self.srcs
             .iter_mut()
             .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&**p)));
+        self.buildfile_path = root.join(&self.buildfile_path);
     }
 }
 
@@ -181,6 +183,7 @@ mod tests {
                         ),
                         ],
                         &[],
+                        "colorama/BUCK",
                     ),
                     Target::from_string("//colorama:colorama".to_owned()) => TargetManifest::alias(
                         "//colorama:py"
@@ -198,6 +201,7 @@ mod tests {
                         &[
                         "//colorama:colorama"
                         ],
+                        "click/BUCK",
                     ),
                     Target::from_string("//click:click".to_owned()) => TargetManifest::alias(
                         "//click:py"
@@ -221,6 +225,7 @@ mod tests {
                         &[
                         "//click:click"
                         ],
+                        "pyre/client/log/BUCK"
                     ),
                     Target::from_string("//pyre/client/log:log2".to_owned()) => TargetManifest::lib(
                         &[
@@ -241,6 +246,7 @@ mod tests {
                         &[
                         "//click:click"
                         ],
+                        "pyre/client/log/BUCK"
                     )
                 },
                 PathBuf::from("/path/to/this/repository"),
@@ -277,21 +283,24 @@ mod tests {
             }
         }
 
-        pub fn lib(srcs: &[(&str, &[&str])], deps: &[&str]) -> Self {
+        pub fn lib(srcs: &[(&str, &[&str])], deps: &[&str], buildfile: &str) -> Self {
             TargetManifest::Library(PythonLibraryManifest {
                 srcs: map_srcs(srcs, None),
                 deps: map_deps(deps),
                 sys_info: SysInfo::new(PythonVersion::new(3, 12, 0), PythonPlatform::linux()),
+                buildfile_path: PathBuf::from(buildfile),
             })
         }
     }
 
     impl PythonLibraryManifest {
-        fn new(srcs: &[(&str, &[&str])], deps: &[&str]) -> Self {
+        fn new(srcs: &[(&str, &[&str])], deps: &[&str], buildfile: &str) -> Self {
+            let root = "/path/to/this/repository";
             Self {
-                srcs: map_srcs(srcs, Some("/path/to/this/repository")),
+                srcs: map_srcs(srcs, Some(root)),
                 deps: map_deps(deps),
                 sys_info: SysInfo::new(PythonVersion::new(3, 12, 0), PythonPlatform::linux()),
+                buildfile_path: PathBuf::from(root).join(buildfile),
             }
         }
     }
@@ -309,6 +318,7 @@ mod tests {
         ]
       },
       "deps": [],
+      "buildfile_path": "colorama/BUCK",
       "python_version": "3.12",
       "python_platform": "linux"
     },
@@ -325,6 +335,7 @@ mod tests {
       "deps": [
         "//colorama:colorama"
       ],
+      "buildfile_path": "click/BUCK",
       "python_version": "3.12",
       "python_platform": "linux"
     },
@@ -344,6 +355,7 @@ mod tests {
       "deps": [
         "//click:click"
       ],
+      "buildfile_path": "pyre/client/log/BUCK",
       "python_version": "3.12",
       "python_platform": "linux"
     },
@@ -360,6 +372,7 @@ mod tests {
       "deps": [
         "//click:click"
       ],
+      "buildfile_path": "pyre/client/log/BUCK",
       "python_version": "3.12",
       "python_platform": "linux"
     }
@@ -385,6 +398,7 @@ mod tests {
                     ),
                 ],
                 &[],
+                "colorama/BUCK",
             ),
             Target::from_string("//click:py".to_owned()) => PythonLibraryManifest::new(
                 &[
@@ -399,6 +413,7 @@ mod tests {
                 &[
                     "//colorama:py"
                 ],
+                "click/BUCK",
             ),
             Target::from_string("//pyre/client/log:log".to_owned()) => PythonLibraryManifest::new(
                 &[
@@ -419,6 +434,7 @@ mod tests {
                 &[
                     "//click:py"
                 ],
+                "pyre/client/log/BUCK",
             ),
             Target::from_string("//pyre/client/log:log2".to_owned()) => PythonLibraryManifest::new(
                 &[
@@ -439,6 +455,7 @@ mod tests {
                 &[
                     "//click:py"
                 ],
+                "pyre/client/log/BUCK",
             )
         };
         assert_eq!(
