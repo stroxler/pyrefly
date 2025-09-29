@@ -126,3 +126,26 @@ assert_type(Suit.values, list[Any])
 
 "#,
 );
+
+testcase!(
+    bug = "We should correctly synthesize the init method with the right types",
+    test_enum_gettext_lazy,
+    django_env(),
+    r#"
+from typing import assert_type
+from django.db.models import IntegerChoices
+from django.utils.translation import gettext_lazy as _
+from django.utils.functional import _StrOrPromise
+
+
+class A(IntegerChoices):
+    A = 1
+
+class B(IntegerChoices):
+    B = 1, _("B")
+
+assert_type(A.choices, list[tuple[int, str]]) # E: assert_type(list[tuple[int, _StrPromise | str]], list[tuple[int, str]])
+assert_type(B.choices, list[tuple[int, _StrOrPromise | str]]) 
+
+"#,
+);
