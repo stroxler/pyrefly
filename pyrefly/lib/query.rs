@@ -559,9 +559,10 @@ impl<'a> CalleesWithLocation<'a> {
                 Restriction::Bound(b) => Self::class_info_from_bound_obj(b),
                 // no bound - use name of the type variable (not very useful but not worse than status quo)
                 Restriction::Unrestricted => vec![(q.name().to_string(), false)],
-                Restriction::Constraints(_) => {
-                    panic!("unexpected restriction: {q:?}")
-                }
+                Restriction::Constraints(tys) => tys
+                    .iter()
+                    .flat_map(Self::class_info_from_bound_obj)
+                    .collect_vec(),
             },
             Type::Union(tys) => tys
                 .iter()
@@ -664,25 +665,26 @@ impl<'a> CalleesWithLocation<'a> {
             }
         })
     }
+    fn init_or_new_from_union(&self, tys: &[Type], callee_range: TextRange) -> Vec<Callee> {
+        tys.iter()
+            .flat_map(|t| self.init_or_new_from_type(t, callee_range))
+            .unique()
+            // return sorted by target
+            .sorted_by(|a, b| a.target.cmp(&b.target))
+            .collect_vec()
+    }
     fn init_or_new_from_type(&self, ty: &Type, callee_range: TextRange) -> Vec<Callee> {
         match ty {
             Type::SelfType(c) | Type::ClassType(c) => self.find_init_or_new(c.class_object()),
             Type::Quantified(box q) => match &q.restriction {
                 Restriction::Bound(Type::ClassType(c)) => self.find_init_or_new(c.class_object()),
+                Restriction::Constraints(tys) => self.init_or_new_from_union(tys, callee_range),
                 x => panic!(
                     "unexpected restriction {}: {x:?}",
                     self.module_info.display_range(callee_range)
                 ),
             },
-            Type::Union(tys) => {
-                // get callee for each type
-                tys.iter()
-                    .flat_map(|t| self.init_or_new_from_type(t, callee_range))
-                    .unique()
-                    // return sorted by target
-                    .sorted_by(|a, b| a.target.cmp(&b.target))
-                    .collect_vec()
-            }
+            Type::Union(tys) => self.init_or_new_from_union(tys, callee_range),
             x => {
                 panic!(
                     "unexpected type at [{}]: {x:?}",
