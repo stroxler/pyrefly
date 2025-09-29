@@ -106,3 +106,23 @@ assert_type(VoidChoices.ABYSS.do_not_call_in_templates, Literal[True])
 assert_type(VoidChoices.__empty__, str)
 "#,
 );
+
+// mypy will return Any.  I think a reasonable solution could also be a union type of all values used.
+testcase!(
+    test_enum_union,
+    django_env(),
+    r#"
+from django.utils.functional import _StrOrPromise
+from typing_extensions import assert_type, Any
+from django.db.models import Choices
+from django.utils.translation import gettext_lazy as _
+
+
+class Suit(Choices):
+    DIAMOND = 1, _("Diamond")
+    SPADE = "2", _("Spade")
+
+assert_type(Suit.values, list[Any])
+
+"#,
+);
