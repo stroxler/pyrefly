@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-pub mod ast_visitor;
 pub mod call_graph;
 pub mod class;
 pub mod context;
@@ -16,6 +15,7 @@ pub mod location;
 pub mod module;
 pub mod override_graph;
 pub mod scope;
+pub mod type_of_expression;
 pub mod types;
 
 use core::panic;
@@ -40,8 +40,6 @@ use serde::Serialize;
 use tracing::info;
 
 use crate::module::typeshed::typeshed;
-use crate::report::pysa::ast_visitor::ModuleAstVisitorResult;
-use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::class::ClassDefinition;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::class::export_all_classes;
@@ -60,6 +58,7 @@ use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::module::ModuleKey;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::override_graph::build_reversed_override_graph;
+use crate::report::pysa::type_of_expression::export_type_of_expressions;
 use crate::report::pysa::types::PysaType;
 use crate::state::state::Transaction;
 
@@ -105,7 +104,7 @@ pub fn get_module_file(
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
 ) -> PysaModuleFile {
     let global_variables = export_global_variables(context);
-    let ModuleAstVisitorResult { type_of_expression } = visit_module_ast(context);
+    let type_of_expression = export_type_of_expressions(context);
 
     let function_base_definitions_for_module = function_base_definitions
         .get_for_module(context.module_id)
