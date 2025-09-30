@@ -94,15 +94,6 @@ impl WeakConfigCache {
         }
         SmallSet::from_iter(configs.iter().filter_map(|c| c.upgrade()))
     }
-
-    /// Get glob patterns to watch all Python files under [`ConfigFile::search_path`] and
-    /// [`ConfigFile::site_package_path`], clearing out any removed [`ConfigFile`]s as we go.
-    pub fn get_patterns_for_cached_configs(&self) -> Vec<(PathBuf, String)> {
-        self.clean_and_get_configs()
-            .into_iter()
-            .flat_map(|c| c.get_paths_to_watch())
-            .collect::<Vec<_>>()
-    }
 }
 
 #[derive(Debug, Default, Deserialize)]

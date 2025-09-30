@@ -34,6 +34,7 @@ use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Glob;
 use pyrefly_util::globs::Globs;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::watch_pattern::WatchPattern;
 use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
@@ -612,19 +613,19 @@ impl ConfigFile {
     /// Get glob patterns that should be watched by a file watcher.
     /// We return a tuple of root (non-pattern part of the path) and a pattern.
     /// If pattern is None, then the root should contain the whole path to watch.
-    pub fn get_paths_to_watch(&self) -> Vec<(PathBuf, String)> {
+    pub fn get_paths_to_watch(&self) -> Vec<WatchPattern<'_>> {
         let mut result = Vec::new();
         let config_root = self.source.root();
         if let Some(config_root) = config_root {
             Self::CONFIG_FILE_NAMES.iter().for_each(|config| {
-                result.push((config_root.to_path_buf(), format!("**/{config}")));
+                result.push(WatchPattern::root(config_root, format!("**/{config}")));
             });
         }
         self.search_path()
             .chain(self.site_package_path())
             .cartesian_product(PYTHON_EXTENSIONS.iter().chain(COMPILED_FILE_SUFFIXES))
             .for_each(|(s, suffix)| {
-                result.push((s.to_owned(), format!("**/*.{suffix}")));
+                result.push(WatchPattern::root(s, format!("**/*.{suffix}")));
             });
         result
     }

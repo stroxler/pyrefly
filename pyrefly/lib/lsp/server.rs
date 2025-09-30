@@ -158,6 +158,7 @@ use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
+use pyrefly_util::watch_pattern::WatchPattern;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -1948,18 +1949,25 @@ impl Server {
         })
     }
 
+    /// Converts a [`WatchPattern`] into a [`GlobPattern`] that can be used and watched
+    /// by VSCode, provided its `relative_pattern_support`.
     fn get_pattern_to_watch(
-        root: &Path,
-        pattern: String,
+        pattern: WatchPattern<'_>,
         relative_pattern_support: bool,
     ) -> GlobPattern {
-        if relative_pattern_support && let Ok(url) = Url::from_directory_path(root) {
-            GlobPattern::Relative(RelativePattern {
-                base_uri: OneOf::Right(url),
-                pattern,
-            })
-        } else {
-            GlobPattern::String(root.join(pattern).to_string_lossy().into_owned())
+        match pattern {
+            WatchPattern::File(root) => GlobPattern::String(root.to_string_lossy().into_owned()),
+            WatchPattern::Root(root, pattern)
+                if relative_pattern_support && let Ok(url) = Url::from_directory_path(root) =>
+            {
+                GlobPattern::Relative(RelativePattern {
+                    base_uri: OneOf::Right(url),
+                    pattern,
+                })
+            }
+            WatchPattern::Root(root, pattern) => {
+                GlobPattern::String(root.join(pattern).to_string_lossy().into_owned())
+            }
         }
     }
 
@@ -1990,29 +1998,24 @@ impl Server {
                 for root in &roots {
                     PYTHON_EXTENSIONS.iter().for_each(|suffix| {
                         glob_patterns.push(Self::get_pattern_to_watch(
-                            root,
-                            format!("**/*.{suffix}"),
+                            WatchPattern::root(root, format!("**/*.{suffix}")),
                             relative_pattern_support,
                         ));
                     });
                     ConfigFile::CONFIG_FILE_NAMES.iter().for_each(|config| {
                         glob_patterns.push(Self::get_pattern_to_watch(
-                            root,
-                            format!("**/{config}"),
+                            WatchPattern::root(root, format!("**/{config}")),
                             relative_pattern_support,
                         ))
                     });
                 }
-                for (root, pattern) in self
-                    .workspaces
-                    .loaded_configs
-                    .get_patterns_for_cached_configs()
-                {
-                    glob_patterns.push(Self::get_pattern_to_watch(
-                        &root,
-                        pattern,
-                        relative_pattern_support,
-                    ));
+                for config in self.workspaces.loaded_configs.clean_and_get_configs() {
+                    config.get_paths_to_watch().into_iter().for_each(|pattern| {
+                        glob_patterns.push(Self::get_pattern_to_watch(
+                            pattern,
+                            relative_pattern_support,
+                        ));
+                    });
                 }
                 let watchers = glob_patterns
                     .into_iter()

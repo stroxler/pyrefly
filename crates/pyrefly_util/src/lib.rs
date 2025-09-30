@@ -60,6 +60,7 @@ pub mod uniques;
 pub mod upgrade_lock;
 pub mod upward_search;
 pub mod visit;
+pub mod watch_pattern;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod watcher;
 pub mod with_hash;
