@@ -173,3 +173,17 @@ assert_type(DerivedChoices.values, list[int | None]) # E: assert_type(list[int],
 
 "#,
 );
+
+testcase!(
+    test_enum_value,
+    django_env(),
+    r#"
+from typing import assert_type
+from django.db.models import IntegerChoices
+from django.utils.translation import gettext_lazy as _
+class A(IntegerChoices):
+    A = 1, _("A")
+assert_type(A.A.value, int)
+
+"#,
+);
