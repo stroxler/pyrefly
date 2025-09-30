@@ -1761,10 +1761,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
 
-        // TODO(zeina): skip private properties and dunder methods for now. This will need some special casing.
-        if (field_name.starts_with('_') && field_name.ends_with('_'))
-            || (field_name.starts_with("__") && !field_name.ends_with("__"))
-        {
+        // Object construction (`__new__` and `__init__`) should not participate in override checks
+        if field_name == &dunder::NEW || field_name == &dunder::INIT {
+            return;
+        }
+
+        // TODO(grievejia): In principle we should not really skip `__call__`. But the reality is that
+        // there are too many classes on typeshed whose `__call__` are marked as follows:
+        // ```
+        // def __call__(self, *args: Any, **kwds: Any) -> Any: ...
+        // ```
+        // If we follow our pre-existing subtyping rule, this kind of signature would be non-overridable
+        // -- any overrider must be able to take ANY arguments which can't be practical. We need to either
+        // special-case typeshed or special-case callable subtyping to make `__call__` override check more usable.
+        if field_name == &dunder::CALL {
+            return;
+        }
+
+        // Private attributes should not participate in overrload checks
+        if field_name.starts_with("__") && !field_name.ends_with("__") {
+            return;
+        }
+
+        // TODO: This should only be ignored when `cls` is a dataclass
+        if field_name.as_str() == "__post_init__" {
+            return;
+        }
+
+        // TODO: This should only be ignored when `_ignore_` is defined on enums
+        if field_name.as_str() == "_ignore_" {
             return;
         }
 
