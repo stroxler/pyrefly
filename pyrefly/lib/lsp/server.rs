@@ -7,10 +7,12 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::ffi::OsString;
 use std::iter::once;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
@@ -145,6 +147,7 @@ use lsp_types::request::WorkspaceConfiguration;
 use lsp_types::request::WorkspaceSymbolRequest;
 use pyrefly_build::handle::Handle;
 use pyrefly_config::config::ConfigSource;
+use pyrefly_python::COMPILED_FILE_SUFFIXES;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -559,6 +562,9 @@ impl Server {
                 let invalidated_configs = std::mem::take(&mut *lock);
                 drop(lock);
                 if !invalidated_configs.is_empty() {
+                    // a sourcedb rebuild completed before this, so it's okay
+                    // to re-setup the file watcher right now
+                    self.setup_file_watcher_if_necessary();
                     self.invalidate_find_for_configs(invalidated_configs);
                 }
             }
@@ -1367,13 +1373,54 @@ impl Server {
     }
 
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        if !params.changes.is_empty() {
-            self.invalidate(move |t| {
-                t.invalidate_events(&CategorizedEvents::new_lsp(params.changes))
-            });
+        if params.changes.is_empty() {
+            return;
         }
+
+        let events = CategorizedEvents::new_lsp(params.changes);
+
+        static CONFIG_NAMES: LazyLock<SmallSet<OsString>> = LazyLock::new(|| {
+            ConfigFile::CONFIG_FILE_NAMES
+                .iter()
+                .chain(ConfigFile::ADDITIONAL_ROOT_FILE_NAMES.iter())
+                .map(OsString::from)
+                .collect()
+        });
+        static PYTHON_SUFFIXES: LazyLock<SmallSet<OsString>> = LazyLock::new(|| {
+            PYTHON_EXTENSIONS
+                .iter()
+                .chain(COMPILED_FILE_SUFFIXES.iter())
+                .map(OsString::from)
+                .collect()
+        });
+
+        let should_requery_build_system = events.iter().any(|f| {
+            !(f.file_name().is_some_and(|n| CONFIG_NAMES.contains(n))
+                || f.extension().is_some_and(|e| PYTHON_SUFFIXES.contains(e)))
+        });
+
+        self.invalidate(move |t| t.invalidate_events(&events));
         // rewatch files in case we loaded or dropped any configs
         self.setup_file_watcher_if_necessary();
+
+        // If a non-Python, non-config file was changed, then try rebuilding build systems.
+        // If no build system file was changed, then we should just not do anything. If
+        // a build system file was changed, then the change should take effect soon.
+        if should_requery_build_system {
+            let handles = self
+                .open_files
+                .read()
+                .keys()
+                .map(|x| make_open_handle(&self.state, x))
+                .collect::<Vec<_>>();
+            Self::queue_source_db_rebuild_and_recheck(
+                &self.state,
+                self.invalidated_configs.dupe(),
+                self.sourcedb_queue.dupe(),
+                self.lsp_queue.dupe(),
+                &handles,
+            );
+        }
     }
 
     fn did_close(&self, params: DidCloseTextDocumentParams) {

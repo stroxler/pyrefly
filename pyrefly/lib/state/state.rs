@@ -1303,10 +1303,14 @@ impl<'a> Transaction<'a> {
 
     /// Called if the `find` portion of loading might have changed for specific configs,
     /// without wanting to fully reload all configs (and pay the performance penalty of
-    /// requerying a build system).
+    /// requerying a build system). If `configs` is empty, we short circuit.
     /// E.g. a file was opened or closed, changing the set of 'open' build system targets,
     /// and affecting how a go-to-definition or hover result would be produced.
     pub fn invalidate_find_for_configs(&mut self, configs: SmallSet<ArcId<ConfigFile>>) {
+        if configs.is_empty() {
+            return;
+        }
+
         // First do the work of clearing out the loaders for our config, but preserve all the other
         // loaders.
         let new_loaders = LockedMap::new();
