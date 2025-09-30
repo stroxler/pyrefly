@@ -187,3 +187,51 @@ assert_type(A.A.value, int)
 
 "#,
 );
+
+testcase!(
+    bug = "process labels correctly. They should have type str.",
+    test_enum_auto,
+    django_env(),
+    r#"
+import enum
+
+from django.db.models import TextChoices
+from typing_extensions import assert_type
+
+class Medal(TextChoices):
+    GOLD = enum.auto()
+    SILVER = enum.auto()
+    BRONZE = enum.auto()
+
+assert_type(Medal.choices, list[tuple[str, str]]) # E: assert_type(list[tuple[str, _StrPromise | str]], list[tuple[str, str]]) 
+assert_type(Medal.GOLD.label, str) # E: assert_type(_StrPromise | str, str)
+assert_type(Medal.GOLD.value, str)
+
+"#,
+);
+
+testcase!(
+    test_enum_auto_with_gettext_lazy,
+    django_env(),
+    r#"
+import enum
+
+from django.db.models import TextChoices
+
+from django.utils.functional import _StrPromise
+from django.utils.translation import gettext_lazy as _
+from typing_extensions import assert_type
+
+
+class Medal(TextChoices):
+    GOLD = enum.auto()
+    SILVER = enum.auto(), _("B")
+    BRONZE = enum.auto()
+
+
+assert_type(Medal.choices, list[tuple[str, str | _StrPromise]])
+assert_type(Medal.GOLD.label, (str | _StrPromise))
+assert_type(Medal.SILVER.label, (str | _StrPromise))
+assert_type(Medal.GOLD.value, str)
+"#,
+);
