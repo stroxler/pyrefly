@@ -10,6 +10,7 @@ use std::sync::Arc;
 use pyrefly_python::dunder;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::Expr::EllipsisLiteral;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
@@ -231,11 +232,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         .iter()
         .any(|k| map.0.contains_key(*k));
 
-        if !default && !args.args.is_empty() {
-            let first_arg = &args.args[0];
-            if first_arg.is_none_literal_expr() {
-                default = true;
-            }
+        if !default && dataclass_metadata.default_can_be_positional {
+            // Check whether a default was passed positionally. This is needed for `pydantic.Field`.
+            default = !matches!(args.args.first(), Some(EllipsisLiteral(_)) | None);
         }
 
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);

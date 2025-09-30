@@ -367,6 +367,8 @@ pub struct DataclassMetadata {
     pub alias_keyword: Name,
     // a tuple to indicate whether we should validate by name or alias
     pub class_validation_flags: ClassValidationFlags,
+    // Whether a default can be passed positionally to field specifier calls
+    pub default_can_be_positional: bool,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

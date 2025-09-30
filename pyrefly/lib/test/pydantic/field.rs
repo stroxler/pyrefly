@@ -62,9 +62,11 @@ from pydantic import BaseModel, Field
 
 class Example(BaseModel):
     id: str
-    attribute_1: str
-    optional_attribute: str | None = Field(None, description="An optional attribute")
+    attribute_1: str = Field(..., description="A required attribute")
+    optional_attribute1: str | None = Field(None, description="An optional attribute")
+    optional_attribute2: int = Field(0, description="Another optional attribute")
 
 Example(id="123", attribute_1="value1")
+Example(id="123")  # E: Missing argument `attribute_1`
 "#,
 );

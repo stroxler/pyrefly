@@ -861,6 +861,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 validate_by_alias: pyd.validate_by_alias,
             },
         );
+        let default_can_be_positional = pydantic_metadata.is_some();
 
         let mut alias_keyword = DataclassFieldKeywords::ALIAS;
         if pydantic_metadata.is_some() {
@@ -881,6 +882,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ],
                         alias_keyword: alias_keyword.clone(),
                         class_validation_flags: class_validation_flags.clone(),
+                        default_can_be_positional,
                     });
                 }
                 // `@dataclass(...)`
@@ -900,6 +902,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ],
                         alias_keyword: alias_keyword.clone(),
                         class_validation_flags: class_validation_flags.clone(),
+                        default_can_be_positional,
                     });
                 }
                 _ => {}
@@ -912,6 +915,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 field_specifiers,
                 alias_keyword: alias_keyword.clone(),
                 class_validation_flags,
+                default_can_be_positional,
             });
         }
         dataclass_metadata
