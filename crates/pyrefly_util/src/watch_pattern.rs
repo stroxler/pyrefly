@@ -6,6 +6,7 @@
  */
 
 use std::path::Path;
+use std::path::PathBuf;
 
 /// Some kind of pattern that can be used by filesystem watchers. Some filesystem watchers
 /// expect the path to be separate from the pattern part, so this enables downstream logic
@@ -13,13 +14,13 @@ use std::path::Path;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum WatchPattern<'a> {
     /// A pattern consisting of a file or directory with no wildcards.
-    File(&'a Path),
+    File(PathBuf),
     /// A pattern consisting of a [`PathBuf`] to a root and a [`String`] containing a wildcard.
     Root(&'a Path, String),
 }
 
 impl<'a> WatchPattern<'a> {
-    pub fn file(path: &'a Path) -> Self {
+    pub fn file(path: PathBuf) -> Self {
         Self::File(path)
     }
 
