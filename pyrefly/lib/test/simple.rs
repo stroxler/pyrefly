@@ -1807,3 +1807,10 @@ Y = Annotated[ClassVar[int], 'wrong context']  # E: `ClassVar` is not allowed in
 Z = Annotated[0, 'not a type']  # E: Expected a type form, got instance of `Literal[0]`
     "#,
 );
+
+testcase!(
+    test_starred_empty_tuple_no_panic,
+    r#"
+(),*()
+    "#,
+);
