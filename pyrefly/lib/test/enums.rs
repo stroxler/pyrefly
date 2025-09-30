@@ -537,7 +537,6 @@ assert_type(Foo.Y, list[Foo])
 );
 
 testcase!(
-    bug = "The RED = ... in pyi should be fine",
     test_enum_value_dots_pyi,
     env_enum_dots(),
     r#"
