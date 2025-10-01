@@ -61,7 +61,7 @@ use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamCollector;
-use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::scope::ClassIndices;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::Scope;
@@ -114,7 +114,7 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn class_def(&mut self, mut x: StmtClassDef, parent: &NestingContext) {
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
-        let mut pydantic_metadata = PydanticMetadataBinding::default();
+        let mut pydantic_config_dict = PydanticConfigDict::default();
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
@@ -236,7 +236,7 @@ impl<'a> BindingsBuilder<'a> {
                 ..
             } = &definition
             {
-                self.extract_pydantic_config_dict_metadata(e, &name, &mut pydantic_metadata);
+                self.extract_pydantic_config_dict(e, &name, &mut pydantic_config_dict);
             }
             let (is_initialized_on_class, is_annotated) = match &definition {
                 ClassFieldDefinition::DefinedInMethod { annotation, .. } => {
@@ -329,7 +329,7 @@ impl<'a> BindingsBuilder<'a> {
                 keywords: keywords.into_boxed_slice(),
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
-                pydantic_metadata,
+                pydantic_config_dict,
             },
         );
     }
@@ -431,7 +431,7 @@ impl<'a> BindingsBuilder<'a> {
                 keywords,
                 decorators: Box::new([]),
                 is_new_type,
-                pydantic_metadata: PydanticMetadataBinding::default(),
+                pydantic_config_dict: PydanticConfigDict::default(),
             },
         );
         self.insert_binding_idx(

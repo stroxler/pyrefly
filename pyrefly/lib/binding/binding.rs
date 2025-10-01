@@ -58,7 +58,7 @@ use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::NarrowOp;
-use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::PydanticConfigDict;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::annotation::Annotation;
@@ -1987,7 +1987,7 @@ pub struct BindingClassMetadata {
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
     /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
-    pub pydantic_metadata: PydanticMetadataBinding,
+    pub pydantic_config_dict: PydanticConfigDict,
 }
 
 impl DisplayWith<Bindings> for BindingClassMetadata {

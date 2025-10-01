@@ -46,7 +46,7 @@ use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::FROZEN_DEFAULT;
-use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::VALIDATE_BY_ALIAS;
 use crate::binding::pydantic::VALIDATE_BY_NAME;
 use crate::binding::pydantic::VALIDATION_ALIAS;
@@ -112,7 +112,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         keywords: &[(Name, Expr)],
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
-        pydantic_metadata_binding: &PydanticMetadataBinding,
+        pydantic_config_dict: &PydanticConfigDict,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         // Get class decorators.
@@ -196,7 +196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let pydantic_metadata = self.pydantic_metadata(
             &bases_with_metadata,
-            pydantic_metadata_binding,
+            pydantic_config_dict,
             &keywords,
             errors,
             cls.range(),
@@ -429,7 +429,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn pydantic_metadata(
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
-        pydantic_metadata_binding: &PydanticMetadataBinding,
+        pydantic_config_dict: &PydanticConfigDict,
         keywords: &[(Name, Annotation)],
         errors: &ErrorCollector,
         range: TextRange,
@@ -467,12 +467,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             PydanticModelKind::BaseModel
         };
 
-        let PydanticMetadataBinding {
+        let PydanticConfigDict {
             frozen,
             extra,
             validate_by_name,
             validate_by_alias,
-        } = pydantic_metadata_binding;
+        } = pydantic_config_dict;
 
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.

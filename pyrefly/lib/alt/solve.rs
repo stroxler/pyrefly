@@ -276,7 +276,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             keywords,
             decorators,
             is_new_type,
-            pydantic_metadata,
+            pydantic_config_dict,
         } = binding;
         let metadata = match &self.get_idx(*k).0 {
             None => ClassMetadata::recursive(),
@@ -286,7 +286,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 keywords,
                 decorators,
                 *is_new_type,
-                pydantic_metadata,
+                pydantic_config_dict,
                 errors,
             ),
         };
