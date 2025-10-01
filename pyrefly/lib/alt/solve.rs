@@ -3404,13 +3404,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::TypeAlias(ta) => self.type_of(ta.as_type()),
             Type::Any(style) => Type::type_form(style.propagate()),
-            Type::ClassDef(cls) => {
-                if let Some(meta) = self.get_metadata_for_class(&cls).metaclass() {
-                    Type::type_form(Type::ClassType(meta.clone()))
-                } else {
-                    Type::ClassDef(self.stdlib.builtins_type().class_object().clone())
-                }
-            }
+            Type::ClassDef(cls) => Type::type_form(Type::ClassType(
+                self.get_metadata_for_class(&cls)
+                    .metaclass(self.stdlib)
+                    .clone(),
+            )),
             _ => self.stdlib.builtins_type().clone().to_type(),
         }
     }

@@ -2268,7 +2268,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Get the metaclass `__call__` method
     pub fn get_metaclass_dunder_call(&self, cls: &ClassType) -> Option<Type> {
         let metadata = self.get_metadata_for_class(cls.class_object());
-        let metaclass = metadata.metaclass()?;
+        let metaclass = metadata.custom_metaclass()?;
         let attr = self.get_class_member(metaclass.class_object(), &dunder::CALL)?;
         if attr.defined_on("builtins", "type") {
             // The behavior of `type.__call__` is already baked into our implementation of constructors,

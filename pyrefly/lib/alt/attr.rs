@@ -1073,8 +1073,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         let metadata = self.get_metadata_for_class(cls.class_object());
-        let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
-        let attr = self.get_metaclass_attribute(cls, metaclass, attr_name)?;
+        let attr = self.get_metaclass_attribute(cls, metadata.metaclass(self.stdlib), attr_name)?;
         attr.clone().as_instance_method().map(|_| attr)
     }
 
@@ -1194,14 +1193,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // attributes, but for magic dunder methods it needs to supersede normal class attribute lookup.
                         // See `lookup_magic_dunder_attr()`.
                         let metadata = self.get_metadata_for_class(class.class_object());
-                        let instance_attr = match metadata.metaclass() {
-                            Some(meta) => self.get_metaclass_attribute(class, meta, attr_name),
-                            None => self.get_metaclass_attribute(
-                                class,
-                                self.stdlib.builtins_type(),
-                                attr_name,
-                            ),
-                        };
+                        let instance_attr = self.get_metaclass_attribute(
+                            class,
+                            metadata.metaclass(self.stdlib),
+                            attr_name,
+                        );
                         match instance_attr {
                             Some(attr) => acc.found_class_attribute(attr, base),
                             None if metadata.has_base_any() => {
@@ -1305,7 +1301,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match &base {
             AttributeBase1::ClassObject(class) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
-                let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
+                let metaclass = metadata.metaclass(self.stdlib);
                 if *dunder_name == dunder::GETATTRIBUTE
                     && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
                 {

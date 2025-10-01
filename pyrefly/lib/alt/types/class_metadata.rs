@@ -133,8 +133,15 @@ impl ClassMetadata {
         }
     }
 
-    pub fn metaclass(&self) -> Option<&ClassType> {
+    /// The class's custom (non-`type`) metaclass, if it has one.
+    pub fn custom_metaclass(&self) -> Option<&ClassType> {
         self.metaclass.0.as_ref()
+    }
+
+    /// The class's metaclass.
+    pub fn metaclass<'a>(&'a self, stdlib: &'a Stdlib) -> &'a ClassType {
+        self.custom_metaclass()
+            .unwrap_or_else(|| stdlib.builtins_type())
     }
 
     #[allow(dead_code)] // This is used in tests now, and will be needed later in production.

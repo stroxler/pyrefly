@@ -151,7 +151,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let base_metaclasses = bases_with_metadata
             .iter()
-            .filter_map(|(b, metadata)| metadata.metaclass().map(|m| (b.name(), m)))
+            .filter_map(|(b, metadata)| metadata.custom_metaclass().map(|m| (b.name(), m)))
             .collect::<Vec<_>>();
         let metaclass = self.calculate_metaclass(
             cls,
