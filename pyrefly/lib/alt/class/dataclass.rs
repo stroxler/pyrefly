@@ -238,7 +238,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut kw_only = map.get_bool(&DataclassFieldKeywords::KW_ONLY);
 
-        let mut alias = if dataclass_metadata.class_validation_flags.validate_by_alias {
+        let mut alias = if dataclass_metadata.init_defaults.init_by_alias {
             map.get_string(alias_keyword)
                 .or_else(|| map.get_string(&DataclassFieldKeywords::ALIAS))
                 .map(Name::new)
@@ -263,7 +263,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 func,
                 args,
                 errors,
-                if dataclass_metadata.class_validation_flags.validate_by_alias {
+                if dataclass_metadata.init_defaults.init_by_alias {
                     Some(alias_keyword)
                 } else {
                     None
@@ -278,8 +278,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             init: init.unwrap_or(true),
             default,
             kw_only,
-            init_by_name: dataclass_metadata.class_validation_flags.validate_by_name
-                || alias.is_none(),
+            init_by_name: dataclass_metadata.init_defaults.init_by_name || alias.is_none(),
             init_by_alias: alias,
             lt,
             gt,

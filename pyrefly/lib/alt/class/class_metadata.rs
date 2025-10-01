@@ -31,9 +31,9 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
-use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
+use crate::alt::types::class_metadata::InitDefaults;
 use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
@@ -856,16 +856,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(m)
         });
 
-        let class_validation_flags = pydantic_config.map_or(
-            ClassValidationFlags {
-                validate_by_name: false,
-                validate_by_alias: true,
-            },
-            |pyd| ClassValidationFlags {
-                validate_by_name: pyd.validation_flags.validate_by_name,
-                validate_by_alias: pyd.validation_flags.validate_by_alias,
-            },
-        );
+        let init_defaults = pydantic_config
+            .map(|pyd| InitDefaults {
+                init_by_name: pyd.validation_flags.validate_by_name,
+                init_by_alias: pyd.validation_flags.validate_by_alias,
+            })
+            .unwrap_or_default();
         let default_can_be_positional = pydantic_config.is_some();
 
         let mut alias_keyword = DataclassFieldKeywords::ALIAS;
@@ -886,7 +882,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
                         alias_keyword: alias_keyword.clone(),
-                        class_validation_flags: class_validation_flags.clone(),
+                        init_defaults: init_defaults.clone(),
                         default_can_be_positional,
                     });
                 }
@@ -906,7 +902,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             CalleeKind::Class(ClassKind::DataclassField),
                         ],
                         alias_keyword: alias_keyword.clone(),
-                        class_validation_flags: class_validation_flags.clone(),
+                        init_defaults: init_defaults.clone(),
                         default_can_be_positional,
                     });
                 }
@@ -918,8 +914,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 fields: self.get_dataclass_fields(cls, bases_with_metadata),
                 kws,
                 field_specifiers,
-                alias_keyword: alias_keyword.clone(),
-                class_validation_flags,
+                alias_keyword,
+                init_defaults,
                 default_can_be_positional,
             });
         }
