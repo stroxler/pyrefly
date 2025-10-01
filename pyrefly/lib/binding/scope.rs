@@ -56,7 +56,7 @@ use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
-use crate::binding::bindings::InitializedInFlow;
+use crate::binding::bindings::UninitializedInFlow;
 use crate::binding::expr::Usage;
 use crate::binding::function::SelfAssignments;
 use crate::binding::narrow::NarrowOps;
@@ -83,7 +83,7 @@ pub enum NameReadInfo {
     /// flow such that I am not defined in at least one branch.
     Flow {
         idx: Idx<Key>,
-        is_initialized: InitializedInFlow,
+        uninitialized: UninitializedInFlow,
     },
     /// The name is an anywhere-style lookup. If it came from a non-barrier scope
     /// relative to the current one, this means it is uninitialized; otherwise we
@@ -91,7 +91,7 @@ pub enum NameReadInfo {
     /// below it) and treat the read as initialized.
     Anywhere {
         key: Key,
-        is_initialized: InitializedInFlow,
+        uninitialized: UninitializedInFlow,
     },
     /// No such name is defined in the current scope stack.
     NotFound,
@@ -1562,10 +1562,10 @@ impl Scopes {
                 }
                 return NameReadInfo::Flow {
                     idx: flow_info.idx(),
-                    is_initialized: match flow_info.style {
-                        FlowStyle::Uninitialized => InitializedInFlow::No,
-                        FlowStyle::PossiblyUninitialized => InitializedInFlow::Maybe,
-                        _ => InitializedInFlow::Yes,
+                    uninitialized: match flow_info.style {
+                        FlowStyle::Uninitialized => UninitializedInFlow::Yes,
+                        FlowStyle::PossiblyUninitialized => UninitializedInFlow::Conditionally,
+                        _ => UninitializedInFlow::No,
                     },
                 };
             }
@@ -1582,12 +1582,12 @@ impl Scopes {
                     // exception because they are synthesized scope entries that don't exist at all
                     // in the runtime; we treat them as always initialized to avoid false positives
                     // for uninitialized local checks in class bodies.
-                    is_initialized: if barrier
+                    uninitialized: if barrier
                         || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
                     {
-                        InitializedInFlow::Yes
+                        UninitializedInFlow::No
                     } else {
-                        InitializedInFlow::No
+                        UninitializedInFlow::Yes
                     },
                 };
             }
