@@ -183,7 +183,7 @@ impl Workspaces {
 
     pub fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
         let workspaces = workspaces.dupe();
-        standard_config_finder(Arc::new(move |dir, mut config| {
+        standard_config_finder(Arc::new(move |dir, mut config, config_errors| {
             if let Some(dir) = dir {
                 workspaces.get_with(dir.to_owned(), |w| {
                     if let Some(search_path) = w.search_path.clone() {
@@ -207,7 +207,7 @@ impl Workspaces {
 
             // we print the errors here instead of returning them since
             // it gives the most immediate feedback for config loading errors
-            for error in config.configure() {
+            for error in config_errors.into_iter().chain(config.configure()) {
                 error.print();
             }
             let config = ArcId::new(config);
