@@ -7,6 +7,7 @@
 
 //! Query interface for pyrefly. Just experimenting for the moment - not intended for external use.
 
+use core::panic;
 use std::io::Cursor;
 use std::iter;
 use std::path::PathBuf;
@@ -76,7 +77,6 @@ use crate::state::state::TransactionHandle;
 use crate::types::display::TypeDisplayContext;
 
 const REPR: Name = Name::new_static("__repr__");
-
 pub struct Query {
     /// The state that we use.
     state: State,
@@ -1056,26 +1056,21 @@ impl Query {
         res.into_iter().collect()
     }
 
-    /// Check a snippet of code; used as part of performing is_subtype checks via the query API.
-    fn check_code_snippet(
+    fn check_snippet(
         &self,
-        name: ModuleName,
+        t: &mut Transaction,
+        handle: &Handle,
         path: PathBuf,
-        lt: &str,
-        gt: &str,
-        types: String,
-        check: &'static str,
-    ) -> Result<bool, String> {
-        let mut t = self.state.transaction();
-        let h = self.make_handle(name, ModulePath::memory(path.clone()));
-        let imported = Query::find_imports(&Ast::parse(&types).0, &t, &h);
+        snippet: &str,
+    ) -> Result<(), String> {
+        let imported = Query::find_imports(&Ast::parse(snippet).0, t, handle);
         let imports = imported.map(|x| format!("import {x}\n")).join("");
 
         // First, make sure that the types are well-formed and importable, return `Err` if not
-        let before = format!("{imports}\n{types}\n");
-        t.set_memory(vec![(path.clone(), Some(Arc::new(before.clone())))]);
-        t.run(&[h.dupe()], Require::Everything);
-        let errors = t.get_errors([&h]).collect_errors();
+        let code = format!("{imports}\n{snippet}\n");
+        t.set_memory(vec![(path.clone(), Some(Arc::new(code)))]);
+        t.run(&[handle.dupe()], Require::Everything);
+        let errors = t.get_errors([handle]).collect_errors();
         if !errors.shown.is_empty() {
             let mut res = Vec::new();
             let project_root = PathBuf::new();
@@ -1084,17 +1079,11 @@ impl Query {
                     .unwrap();
             }
             return Err(format!(
-                "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",
+                "{}\n\nSource code:\n{snippet}",
                 str::from_utf8(&res).unwrap_or("UTF8 error")
             ));
         }
-
-        // Now that we know the types are valid, check a snippet to do the actual subtype test.
-        let after = format!("{imports}\n{types}\n{check}");
-        t.set_memory(vec![(path, Some(Arc::new(after)))]);
-        t.run(&[h.dupe()], Require::Everything);
-        let errors = t.get_errors([&h]).collect_errors();
-        Ok(errors.shown.is_empty())
+        Ok(())
     }
 
     /// Return `Err` if you can't resolve them to types, otherwise return `lt <: gt`.
@@ -1106,19 +1095,57 @@ impl Query {
         gt: &str,
     ) -> Result<bool, String> {
         println!("At is_subtype top level");
-        if gt == "TypedDictionary" || gt == "NonTotalTypedDictionary" {
-            // For backward compatibility with Pyre, we allow `is_subset` comparison for checking if something
-            // is a TypedDict. That isn't actually a valid subtype relationship, so we look for magic
-            // attributes that in practice only exist on typed dicts.
-            let types = format!("pyrefly_lt = ({lt})");
-            let check =
-                "pyrefly_lt.__required_keys__, pyrefly_lt.__optional_keys__, pyrefly_lt.__total__";
-            self.check_code_snippet(name, path, lt, gt, types, check)
-        } else {
-            // In the normal case, synthesize a function whose return is a type error if the subset fails.
-            let types = format!("type pyrefly_lt = ({lt})\ntype pyrefly_gt = ({gt})\n");
-            let check = "def pyrefly_func(x: pyrefly_lt) -> pyrefly_gt:\n    return x";
-            self.check_code_snippet(name, path, lt, gt, types, check)
+        let mut t = self.state.transaction();
+        let h = self.make_handle(name, ModulePath::memory(path.clone()));
+
+        fn find_types(
+            ast: &ModModule,
+            bindings: Bindings,
+            answers: &Answers,
+            return_first: bool,
+        ) -> (Type, Option<Type>) {
+            let mut first: Option<Type> = None;
+            for p in &ast.body {
+                if let Stmt::AnnAssign(assign) = p
+                    && let Expr::Name(n) = &*assign.target
+                {
+                    let key = bindings.key_to_idx(&Key::Definition(ShortIdentifier::expr_name(n)));
+                    let ty = answers.get_type_at(key).unwrap();
+                    if return_first {
+                        return (ty, None);
+                    } else if let Some(v) = first {
+                        return (v, Some(ty));
+                    } else {
+                        first = Some(ty);
+                    }
+                }
+            }
+            unreachable!("No type aliases in ast")
         }
+
+        let is_typed_dict_request = gt == "TypedDictionary" || gt == "NonTotalTypedDictionary";
+        let snippet = if is_typed_dict_request {
+            format!("X: ({lt})")
+        } else {
+            format!("X : ({lt})\nY : ({gt})")
+        };
+        self.check_snippet(&mut t, &h, path, &snippet)?;
+
+        let ast = t.get_ast(&h).ok_or("No ast")?;
+        let answers = t.get_answers(&h).ok_or("No answers")?;
+        let bindings: Bindings = t.get_bindings(&h).ok_or("No bindings")?;
+
+        let result = if is_typed_dict_request {
+            let (ty, _) = find_types(&ast, bindings, &answers, true);
+            matches!(ty, Type::TypedDict(_) | Type::PartialTypedDict(_))
+        } else {
+            let (sub_ty, super_ty) = find_types(&ast, bindings, &answers, false);
+
+            t.ad_hoc_solve(&h, |solver| {
+                solver.is_subset_eq(&sub_ty, &super_ty.unwrap())
+            })
+            .unwrap_or(false)
+        };
+        Ok(result)
     }
 }
