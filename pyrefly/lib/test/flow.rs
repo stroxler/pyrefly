@@ -932,6 +932,30 @@ except as r: # E: Parse error: Expected one or more exception types
 );
 
 testcase!(
+    bug = "We unsoundly merge narrows dropping missing flow. See the incorrect reveal_type(y) result.",
+    test_narrows_in_flow_merge_when_not_in_base_flow,
+    r#"
+from typing import reveal_type
+class A: pass
+class B(A): pass
+class C(A): pass
+x: A = A()
+y: A = A()
+def f():
+    if isinstance(x, B):
+        assert isinstance(y, B)
+        pass
+    elif isinstance(x, C):
+        assert isinstance(y, C)
+        pass
+    # We get this case right, but for a brittle reason: we negate the tests in the base flow.
+    reveal_type(x)  # E: revealed type: A | B | C
+    # The negation trick doesn't work here, and we get an incorrect narrow.
+    reveal_type(y)  # E: revealed type: B | C
+"#,
+);
+
+testcase!(
     bug = "Loop recursion is causing problems, see https://github.com/facebook/pyrefly/issues/778",
     loop_with_sized_operation,
     r#"
