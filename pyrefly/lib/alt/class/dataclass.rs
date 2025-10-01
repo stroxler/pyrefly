@@ -27,7 +27,6 @@ use crate::alt::class::class_field::DataclassMember;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::class_metadata::ClassValidationFlags;
 use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::binding::pydantic::GE;
 use crate::binding::pydantic::GT;
@@ -264,8 +263,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 func,
                 args,
                 errors,
-                alias_keyword,
-                dataclass_metadata.class_validation_flags.clone(),
+                if dataclass_metadata.class_validation_flags.validate_by_alias {
+                    Some(alias_keyword)
+                } else {
+                    None
+                },
                 &mut init,
                 &mut kw_only,
                 &mut alias,
@@ -293,8 +295,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         func: &Type,
         args: &Arguments,
         errors: &ErrorCollector,
-        alias_key_to_use: &Name,
-        validation_flags: ClassValidationFlags,
+        // The name of the function parameter from which to fill in an alias keyword value
+        alias_keyword: Option<&Name>,
         init: &mut Option<bool>,
         kw_only: &mut Option<bool>,
         alias: &mut Option<Name>,
@@ -352,8 +354,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if name == &DataclassFieldKeywords::KW_ONLY {
                     self.fill_in_literal(kw_only, ty, default_ty, |ty| ty.as_bool());
                 }
-                if validation_flags.validate_by_alias && alias.is_none() && name == alias_key_to_use
-                {
+                if alias.is_none() && Some(name) == alias_keyword {
                     self.fill_in_literal(alias, ty, default_ty, |ty| match ty {
                         Type::Literal(Lit::Str(s)) => Some(Name::new(s)),
                         _ => None,
