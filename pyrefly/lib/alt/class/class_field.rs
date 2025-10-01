@@ -17,7 +17,6 @@ use pyrefly_python::dunder;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
-use pyrefly_types::tuple::Tuple;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
@@ -957,19 +956,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn handle_django_enum_member_value(&self, ty: Type) -> Type {
-        // At runtime, Django uses only the first element of the tuple as the enum value,
-        // whereas the second value is assigned to the label
-        // so we should mimic the runtime behavior by extracting the first element of the tuple as the value
-        match &ty {
-            Type::Tuple(Tuple::Concrete(elts)) if !elts.is_empty() => match &elts[0] {
-                Type::Literal(lit) => Type::ClassType(lit.general_class_type(self.stdlib).clone()),
-                other => other.clone(),
-            },
-            _ => ty.clone(),
-        }
-    }
-
     pub fn calculate_class_field(
         &self,
         class: &Class,
@@ -1347,15 +1333,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 self.check_enum_value_annotation(&ty, &enum_value_ty, name, range, errors);
             }
-            let enum_ty = if enum_.is_django {
-                self.handle_django_enum_member_value(ty)
-            } else {
-                ty.clone()
-            };
             Type::Literal(Lit::Enum(Box::new(LitEnum {
                 class: enum_.cls.clone(),
                 member: name.clone(),
-                ty: enum_ty,
+                ty: ty.clone(),
             })))
         } else {
             ty
