@@ -276,7 +276,6 @@ def f() -> None:
 );
 
 testcase!(
-    bug = "A mutable capture is not actually in scope, it can't define a class attribute.",
     test_mutable_capture_class_body,
     r#"
 from typing import assert_type
@@ -284,7 +283,7 @@ x = 5
 class C:
     global x
     x = 7
-assert_type(C().x, int)  # This should be a lookup error
+C().x  # E: `C` has no attribute `x`
 "#,
 );
 

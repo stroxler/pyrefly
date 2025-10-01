@@ -1409,7 +1409,9 @@ impl Scopes {
         self.pop(); // Also pop the annotation scope that wrapped the class body.
         class_body.stat.0.iter_hashed().for_each(
             |(name, static_info)| {
-            if let Some(flow_info) = class_body.flow.info.get_hashed(name) {
+            if matches!(static_info.style, StaticStyle::MutableCapture(..)) {
+                // Mutable captures are not actually owned by the class scope, and do not become attributes.
+            } else if let Some(flow_info) = class_body.flow.info.get_hashed(name) {
                 let definition = match &flow_info.style {
                     FlowStyle::FunctionDef(_, has_return_annotation) => ClassFieldDefinition::MethodLike {
                         definition: flow_info.idx,
