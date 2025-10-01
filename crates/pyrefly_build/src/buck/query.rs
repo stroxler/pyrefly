@@ -16,6 +16,7 @@ use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::sys_info::SysInfo;
 use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -25,8 +26,8 @@ use crate::source_db::Target;
 /// An enum representing something that has been included by the build system, and
 /// which the build system should query for when building the sourcedb.
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub enum Include {
-    #[expect(unused)]
+pub(crate) enum Include {
+    #[allow(unused)]
     Target(Target),
     Path(PathBuf),
 }
@@ -44,9 +45,17 @@ impl Include {
     }
 }
 
-pub fn query_source_db<'a>(
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct BxlArgs {
+    isolation_dir: Option<String>,
+    extras: Option<Vec<String>>,
+}
+
+pub(crate) fn query_source_db<'a>(
     files: impl Iterator<Item = &'a Include>,
     cwd: &Path,
+    _bxl_args: &BxlArgs,
 ) -> anyhow::Result<TargetManifestDatabase> {
     let mut files = files.peekable();
     if files.peek().is_none() {

@@ -19,6 +19,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::info;
 
+use crate::buck::query::BxlArgs;
 use crate::buck::query::Include;
 use crate::buck::query::PythonLibraryManifest;
 use crate::buck::query::TargetManifestDatabase;
@@ -59,14 +60,16 @@ pub struct BuckSourceDatabase {
     /// The directory that will be passed into the sourcedb query shell-out. Should
     /// be the same as the directory containing the config this sourcedb is a part of.
     cwd: PathBuf,
+    bxl_args: BxlArgs,
 }
 
 impl BuckSourceDatabase {
-    pub fn new(cwd: PathBuf) -> Self {
+    pub fn new(cwd: PathBuf, bxl_args: BxlArgs) -> Self {
         BuckSourceDatabase {
             cwd,
             inner: RwLock::new(Inner::new()),
             includes: Mutex::new(SmallSet::new()),
+            bxl_args,
         }
     }
 
@@ -160,7 +163,7 @@ impl SourceDatabase for BuckSourceDatabase {
         }
         *includes = new_includes;
         info!("Querying Buck for source DB");
-        let raw_db = query_source_db(includes.iter(), &self.cwd)?;
+        let raw_db = query_source_db(includes.iter(), &self.cwd, &self.bxl_args)?;
         info!("Finished querying Buck for source DB");
         Ok(self.update_with_target_manifest(raw_db))
     }
@@ -206,6 +209,7 @@ mod tests {
                         .collect(),
                 ),
                 cwd: PathBuf::new(),
+                bxl_args: Default::default(),
             };
             new.update_with_target_manifest(raw_db);
             new

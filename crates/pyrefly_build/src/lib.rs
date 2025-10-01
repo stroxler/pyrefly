@@ -28,19 +28,20 @@
 
 use std::path::PathBuf;
 
-use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
+
+use crate::buck::query::BxlArgs;
 
 pub mod buck;
 pub mod handle;
 pub mod map_db;
 pub mod source_db;
 
-#[derive(Debug, Clone, Dupe, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum BuildSystem {
-    Buck,
+    Buck(BxlArgs),
 }
 
 impl BuildSystem {
@@ -49,7 +50,10 @@ impl BuildSystem {
         config_root: PathBuf,
     ) -> Box<dyn source_db::SourceDatabase + 'static> {
         match &self {
-            Self::Buck => Box::new(buck::bxl::BuckSourceDatabase::new(config_root)),
+            Self::Buck(args) => Box::new(buck::bxl::BuckSourceDatabase::new(
+                config_root,
+                args.clone(),
+            )),
         }
     }
 }
