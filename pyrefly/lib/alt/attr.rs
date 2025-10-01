@@ -1905,50 +1905,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         res: &mut Vec<AttrInfo>,
     ) {
         for base1 in &base.0 {
-            match base1 {
-                AttributeBase1::ClassInstance(class)
-                | AttributeBase1::SelfType(class)
-                | AttributeBase1::EnumLiteral(LitEnum { class, .. })
-                | AttributeBase1::Quantified(_, class) => {
-                    self.completions_class_type(class, expected_attribute_name, res)
-                }
-                AttributeBase1::TypedDict(_) => self.completions_class_type(
-                    self.stdlib.typed_dict_fallback(),
-                    expected_attribute_name,
-                    res,
-                ),
-                AttributeBase1::SuperInstance(start_lookup_cls, obj) => {
-                    let cls = match obj {
-                        SuperObj::Instance(c) | SuperObj::Class(c) => c.class_object(),
-                    };
-                    self.completions_super(cls, start_lookup_cls, expected_attribute_name, res)
-                }
-                AttributeBase1::QuantifiedValue(q) => self.completions_class_type(
-                    q.class_type(self.stdlib),
-                    expected_attribute_name,
-                    res,
-                ),
-                AttributeBase1::ClassObject(class) => {
-                    self.completions_class(class.class_object(), expected_attribute_name, res)
-                }
-                AttributeBase1::TypeQuantified(_, class) => {
-                    self.completions_class(class.class_object(), expected_attribute_name, res)
-                }
-                AttributeBase1::TypeAny(_) => self.completions_class_type(
-                    self.stdlib.builtins_type(),
-                    expected_attribute_name,
-                    res,
-                ),
-                AttributeBase1::Module(module) => {
-                    self.completions_module(module, expected_attribute_name, res);
-                }
-                AttributeBase1::Any(_) => {}
-                AttributeBase1::Never => {}
-                AttributeBase1::Property(_) => {
-                    // TODO(samzhou19815): Support autocomplete for properties
-                    {}
-                }
-            }
+            self.completions_inner1(base1, expected_attribute_name, res);
         }
         if include_types {
             for info in res {
@@ -1999,6 +1956,55 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn completions_inner1(
+        &self,
+        base1: &AttributeBase1,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
+        match base1 {
+            AttributeBase1::ClassInstance(class)
+            | AttributeBase1::SelfType(class)
+            | AttributeBase1::EnumLiteral(LitEnum { class, .. })
+            | AttributeBase1::Quantified(_, class) => {
+                self.completions_class_type(class, expected_attribute_name, res)
+            }
+            AttributeBase1::TypedDict(_) => self.completions_class_type(
+                self.stdlib.typed_dict_fallback(),
+                expected_attribute_name,
+                res,
+            ),
+            AttributeBase1::SuperInstance(start_lookup_cls, obj) => {
+                let cls = match obj {
+                    SuperObj::Instance(c) | SuperObj::Class(c) => c.class_object(),
+                };
+                self.completions_super(cls, start_lookup_cls, expected_attribute_name, res)
+            }
+            AttributeBase1::QuantifiedValue(q) => {
+                self.completions_class_type(q.class_type(self.stdlib), expected_attribute_name, res)
+            }
+            AttributeBase1::ClassObject(class) => {
+                self.completions_class(class.class_object(), expected_attribute_name, res)
+            }
+            AttributeBase1::TypeQuantified(_, class) => {
+                self.completions_class(class.class_object(), expected_attribute_name, res)
+            }
+            AttributeBase1::TypeAny(_) => self.completions_class_type(
+                self.stdlib.builtins_type(),
+                expected_attribute_name,
+                res,
+            ),
+            AttributeBase1::Module(module) => {
+                self.completions_module(module, expected_attribute_name, res);
+            }
+            AttributeBase1::Any(_) => {}
+            AttributeBase1::Never => {}
+            AttributeBase1::Property(_) => {
+                // TODO(samzhou19815): Support autocomplete for properties
+                {}
+            }
+        }
+    }
     /// List all the attributes available from a type. Used to power completion.
     /// Not all usages need types, so we can skip type computation with `include_types=false`.
     pub fn completions(
