@@ -470,16 +470,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let PydanticConfigDict {
             frozen,
             extra,
-            validate_by_name,
-            validate_by_alias,
+            validation_flags,
         } = pydantic_config_dict;
 
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
-        let validate_by_alias =
-            self.extract_validate_flag(keywords, &VALIDATE_BY_ALIAS, *validate_by_alias);
-        let validate_by_name =
-            self.extract_validate_flag(keywords, &VALIDATE_BY_NAME, *validate_by_name);
+        let validate_by_alias = self.extract_validate_flag(
+            keywords,
+            &VALIDATE_BY_ALIAS,
+            validation_flags.validate_by_alias,
+        );
+        let validate_by_name = self.extract_validate_flag(
+            keywords,
+            &VALIDATE_BY_NAME,
+            validation_flags.validate_by_name,
+        );
 
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.

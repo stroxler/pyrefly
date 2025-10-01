@@ -28,19 +28,23 @@ const EXTRA: Name = Name::new_static("extra");
 /// If a class body contains a `model_config` attribute assigned to a `pydantic.ConfigDict`, the
 /// configuration options from the `ConfigDict`. In the answers phase, this will be merged with
 /// configuration options from the class keywords to produce a full Pydantic model configuration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PydanticConfigDict {
     pub frozen: Option<bool>,
     pub extra: Option<bool>,
+    pub validation_flags: PydanticValidationFlags,
+}
+
+/// Flags that control whether a Pydantic model validates its fields by their names or their aliases
+#[derive(Debug, Clone)]
+pub struct PydanticValidationFlags {
     pub validate_by_name: bool,
     pub validate_by_alias: bool,
 }
 
-impl Default for PydanticConfigDict {
+impl Default for PydanticValidationFlags {
     fn default() -> Self {
         Self {
-            frozen: Default::default(),
-            extra: Default::default(),
             validate_by_name: false,
             validate_by_alias: true,
         }
@@ -94,14 +98,14 @@ impl<'a> BindingsBuilder<'a> {
                     && arg_name.id == VALIDATE_BY_NAME
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
-                    pydantic_config_dict.validate_by_name = bl.value;
+                    pydantic_config_dict.validation_flags.validate_by_name = bl.value;
                 }
 
                 if let Some(arg_name) = &kw.arg
                     && arg_name.id == VALIDATE_BY_ALIAS
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
-                    pydantic_config_dict.validate_by_alias = bl.value;
+                    pydantic_config_dict.validation_flags.validate_by_alias = bl.value;
                 }
             }
         }
