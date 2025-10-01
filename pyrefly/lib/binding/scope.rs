@@ -1869,14 +1869,14 @@ impl<'a> BindingsBuilder<'a> {
         for flow in branches {
             for (name, info) in flow.info.into_iter_hashed() {
                 match merge_items.entry_hashed(name) {
-                    Entry::Occupied(mut merge_item_entry) => {
-                        merge_item_entry.get_mut().add_branch(info)
-                    }
                     Entry::Vacant(e) => {
                         let name = e.key().clone();
                         e.insert(MergeItem::new(name, range, info, n_branches, |key| {
                             self.idx_for_promise(key)
                         }));
+                    }
+                    Entry::Occupied(mut merge_item_entry) => {
+                        merge_item_entry.get_mut().add_branch(info)
                     }
                 };
             }
