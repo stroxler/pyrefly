@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_derive::TypeEq;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use starlark_map::Hashed;
@@ -35,8 +36,9 @@ pub struct PydanticConfigDict {
     pub validation_flags: PydanticValidationFlags,
 }
 
-/// Flags that control whether a Pydantic model validates its fields by their names or their aliases
-#[derive(Debug, Clone)]
+/// Flags that control whether a Pydantic model's fields are populated by their names or their aliases.
+/// See https://docs.pydantic.dev/latest/api/config/#pydantic.config.ConfigDict.validate_by_name.
+#[derive(Debug, Clone, PartialEq, Eq, TypeEq)]
 pub struct PydanticValidationFlags {
     pub validate_by_name: bool,
     pub validate_by_alias: bool,

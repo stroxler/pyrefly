@@ -412,7 +412,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    fn extract_validate_flag(
+    fn extract_bool_flag(
         &self,
         keywords: &[(Name, Annotation)],
         key: &Name,
@@ -475,12 +475,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
-        let validate_by_alias = self.extract_validate_flag(
+        let mut validation_flags = validation_flags.clone();
+        validation_flags.validate_by_alias = self.extract_bool_flag(
             keywords,
             &VALIDATE_BY_ALIAS,
             validation_flags.validate_by_alias,
         );
-        let validate_by_name = self.extract_validate_flag(
+        validation_flags.validate_by_name = self.extract_bool_flag(
             keywords,
             &VALIDATE_BY_NAME,
             validation_flags.validate_by_name,
@@ -544,8 +545,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         Some(PydanticConfig {
             frozen: *frozen,
-            validate_by_alias,
-            validate_by_name,
+            validation_flags,
             extra,
             pydantic_model_kind,
         })
@@ -862,8 +862,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 validate_by_alias: true,
             },
             |pyd| ClassValidationFlags {
-                validate_by_name: pyd.validate_by_name,
-                validate_by_alias: pyd.validate_by_alias,
+                validate_by_name: pyd.validation_flags.validate_by_name,
+                validate_by_alias: pyd.validation_flags.validate_by_alias,
             },
         );
         let default_can_be_positional = pydantic_config.is_some();
