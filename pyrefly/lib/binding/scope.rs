@@ -480,6 +480,17 @@ impl FlowInfo {
     fn idx(&self) -> Idx<Key> {
         self.idx
     }
+
+    fn uninitialized(&self) -> UninitializedInFlow {
+        match self.style {
+            FlowStyle::Uninitialized
+            | FlowStyle::ClassField {
+                initial_value: None,
+            } => UninitializedInFlow::Yes,
+            FlowStyle::PossiblyUninitialized => UninitializedInFlow::Conditionally,
+            _ => UninitializedInFlow::No,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1547,26 +1558,15 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.get_info_hashed(name)
                 && !barrier
             {
+                let uninitialized = flow_info.uninitialized();
                 // Because class body scopes are dynamic, if we know that the the name is
                 // definitely not initialized in the flow, we should skip it.
-                if is_class
-                    && matches!(
-                        flow_info.style,
-                        FlowStyle::Uninitialized
-                            | FlowStyle::ClassField {
-                                initial_value: None
-                            }
-                    )
-                {
+                if is_class && matches!(uninitialized, UninitializedInFlow::Yes) {
                     continue;
                 }
                 return NameReadInfo::Flow {
                     idx: flow_info.idx(),
-                    uninitialized: match flow_info.style {
-                        FlowStyle::Uninitialized => UninitializedInFlow::Yes,
-                        FlowStyle::PossiblyUninitialized => UninitializedInFlow::Conditionally,
-                        _ => UninitializedInFlow::No,
-                    },
+                    uninitialized,
                 };
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
