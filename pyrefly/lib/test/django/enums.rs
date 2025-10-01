@@ -178,7 +178,6 @@ assert_type(A.A.value, int)
 );
 
 testcase!(
-    bug = "process labels correctly. They should have type str.",
     test_enum_auto,
     django_env(),
     r#"
