@@ -422,30 +422,49 @@ pub struct Flow {
 struct FlowInfo {
     /// The key to use if you need the value of this name.
     idx: Idx<Key>,
+    /// The style of this binding.
+    style: FlowStyle,
     /// The loop default - used to wrap loop Phi with our guess at the type above the loop.
     /// - Always set to our current inferred type when a flow info is created
     /// - Updated whenever we update the inferred type outside of all loops, but not inside
     default: Idx<Key>,
-    /// The style of this binding.
-    style: FlowStyle,
 }
 
 impl FlowInfo {
-    fn new(idx: Idx<Key>, style: Option<FlowStyle>) -> Self {
+    fn new_value(idx: Idx<Key>, style: FlowStyle) -> Self {
         Self {
             idx,
             default: idx,
-            style: style.unwrap_or(FlowStyle::Other),
+            style,
         }
     }
 
-    /// Create a new FlowInfo after an update.
-    fn updated(&self, idx: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
+    fn new_narrow(idx: Idx<Key>) -> Self {
         Self {
             idx,
-            default: if in_loop { self.default } else { idx },
-            style: style.unwrap_or_else(|| self.style.clone()),
+            style: FlowStyle::Other,
+            default: idx,
         }
+    }
+
+    fn updated_value(&self, idx: Idx<Key>, style: FlowStyle, in_loop: bool) -> Self {
+        Self {
+            idx,
+            style,
+            default: if in_loop { self.default } else { idx },
+        }
+    }
+
+    fn updated_narrow(&self, idx: Idx<Key>, in_loop: bool) -> Self {
+        Self {
+            idx,
+            style: self.style.clone(),
+            default: if in_loop { self.default } else { idx },
+        }
+    }
+
+    fn idx(&self) -> Idx<Key> {
+        self.idx
     }
 }
 
@@ -1049,31 +1068,20 @@ impl Scopes {
         self.current().loops.len()
     }
 
-    /// Set the flow info to bind `name` to `key`, maybe with `FlowStyle` `style`
-    ///
-    /// - If `style` is `None`, then:
-    ///   - Preserve the existing style, when updating an existing name.
-    ///   - Use `FlowStyle::Other`, when inserting a new name.
-    ///
-    /// TODO(grievejia): Properly separate out `FlowStyle` from the indices
-    fn upsert_flow_info(&mut self, name: Hashed<&Name>, idx: Idx<Key>, style: Option<FlowStyle>) {
-        let in_loop = self.loop_depth() != 0;
-        match self.current_mut().flow.info.entry_hashed(name.cloned()) {
-            Entry::Vacant(e) => {
-                e.insert(FlowInfo::new(idx, style));
-            }
-            Entry::Occupied(mut e) => {
-                *e.get_mut() = e.get().updated(idx, style, in_loop);
-            }
-        }
-    }
-
     /// Track a narrow for a name in the current flow. This should result from options
     /// that only narrow an existing value, not operations that assign a new value at runtime.
     ///
     /// A caller of this function promises to create a binding for `idx`.
     pub fn narrow_in_current_flow(&mut self, name: Hashed<&Name>, idx: Idx<Key>) {
-        self.upsert_flow_info(name, idx, None)
+        let in_loop = self.loop_depth() != 0;
+        match self.current_mut().flow.info.entry_hashed(name.cloned()) {
+            Entry::Vacant(e) => {
+                e.insert(FlowInfo::new_narrow(idx));
+            }
+            Entry::Occupied(mut e) => {
+                *e.get_mut() = e.get().updated_narrow(idx, in_loop);
+            }
+        }
     }
 
     /// Track the binding from assigning a name in the current flow. Here "define" means:
@@ -1092,7 +1100,15 @@ impl Scopes {
         idx: Idx<Key>,
         style: FlowStyle,
     ) -> Option<NameWriteInfo> {
-        self.upsert_flow_info(name, idx, Some(style));
+        let in_loop = self.loop_depth() != 0;
+        match self.current_mut().flow.info.entry_hashed(name.cloned()) {
+            Entry::Vacant(e) => {
+                e.insert(FlowInfo::new_value(idx, style));
+            }
+            Entry::Occupied(mut e) => {
+                *e.get_mut() = e.get().updated_value(idx, style, in_loop);
+            }
+        }
         let static_info = self.current().stat.0.get_hashed(name)?;
         Some(static_info.as_name_write_info())
     }
@@ -1529,7 +1545,7 @@ impl Scopes {
                     continue;
                 }
                 return NameReadInfo::Flow {
-                    idx: flow_info.idx,
+                    idx: flow_info.idx(),
                     is_initialized: match flow_info.style {
                         FlowStyle::Uninitialized => InitializedInFlow::No,
                         FlowStyle::PossiblyUninitialized => InitializedInFlow::Maybe,
