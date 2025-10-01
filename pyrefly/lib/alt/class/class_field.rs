@@ -1765,7 +1765,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         // TODO: This should only be ignored when `cls` is a dataclass
-        if field_name.as_str() == "__post_init__" {
+        if field_name == &dunder::POST_INIT {
             return;
         }
 
