@@ -1864,7 +1864,7 @@ impl<'a> BindingsBuilder<'a> {
 
         // Collect all the branches into a `MergeItem` per name we need to merge
         let mut merge_items: SmallMap<Name, MergeItem> =
-            SmallMap::with_capacity(branches.first().map_or(0, |flow| flow.info.len()));
+            SmallMap::with_capacity(branches.first().unwrap().info.len());
         let n_branches = branches.len();
         for flow in branches {
             for (name, info) in flow.info.into_iter_hashed() {
