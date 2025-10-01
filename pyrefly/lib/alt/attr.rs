@@ -428,6 +428,8 @@ enum AttributeBase1 {
     SuperInstance(ClassType, SuperObj),
     /// Typed dictionaries have similar properties to dict and Mapping, with some exceptions
     TypedDict(TypedDict),
+    /// Attribute lookup on a base as part of a subset check against a protocol.
+    ProtocolSubset(Box<AttributeBase1>),
 }
 
 impl AttributeBase1 {
@@ -953,7 +955,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Result<(), SubsetError> {
         if let Some(got_attrs) = self
             .as_attribute_base(got.clone())
-            .map(|got_base| self.lookup_attr_from_base(got_base, name))
+            .map(|got_base| {
+                let got_base = AttributeBase(
+                    got_base
+                        .0
+                        .mapped(|base| AttributeBase1::ProtocolSubset(Box::new(base))),
+                );
+                self.lookup_attr_from_base(got_base, name)
+            })
             .and_then(|lookup_result| {
                 if lookup_result.not_found.is_empty() && lookup_result.internal_error.is_empty() {
                     Some(lookup_result.found)
@@ -1140,6 +1149,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     acc.not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base));
                 }
+            }
+            AttributeBase1::ProtocolSubset(protocol_base) => {
+                self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
             }
             AttributeBase1::ClassObject(class) => {
                 match self.get_class_attribute(class, attr_name) {
@@ -1996,6 +2008,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
             AttributeBase1::Module(module) => {
                 self.completions_module(module, expected_attribute_name, res);
+            }
+            AttributeBase1::ProtocolSubset(protocol_base) => {
+                self.completions_inner1(protocol_base, expected_attribute_name, res)
             }
             AttributeBase1::Any(_) => {}
             AttributeBase1::Never => {}
