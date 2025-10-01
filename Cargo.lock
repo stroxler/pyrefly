@@ -2133,6 +2133,7 @@ dependencies = [
  "serde_json",
  "starlark_map",
  "static_interner",
+ "tempfile",
  "tracing",
  "vec1",
 ]

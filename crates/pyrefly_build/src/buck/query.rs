@@ -6,7 +6,9 @@
  */
 
 use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::fmt::Debug;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -19,6 +21,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tempfile::NamedTempFile;
 use vec1::Vec1;
 
 use crate::source_db::Target;
@@ -55,7 +58,7 @@ pub struct BxlArgs {
 pub(crate) fn query_source_db<'a>(
     files: impl Iterator<Item = &'a Include>,
     cwd: &Path,
-    _bxl_args: &BxlArgs,
+    bxl_args: &BxlArgs,
 ) -> anyhow::Result<TargetManifestDatabase> {
     let mut files = files.peekable();
     if files.peek().is_none() {
@@ -65,12 +68,31 @@ pub(crate) fn query_source_db<'a>(
         });
     }
 
+    let mut argfile = NamedTempFile::with_prefix("pyrefly_buck_query_")
+        .with_context(|| "Failed to create temporary argfile for querying Buck".to_owned())?;
+    let mut argfile_args = OsString::from("--");
+    files.flat_map(Include::to_bxl_args).for_each(|arg| {
+        argfile_args.push("\n");
+        argfile_args.push(arg);
+    });
+
+    argfile
+        .as_file_mut()
+        .write_all(argfile_args.as_encoded_bytes())
+        .with_context(|| "Could not write to argfile when querying Buck".to_owned())?;
+
     let mut cmd = Command::new("buck2");
+    if let Some(isolation_dir) = &bxl_args.isolation_dir {
+        cmd.arg("--isolation-dir");
+        cmd.arg(isolation_dir);
+    }
     cmd.arg("bxl");
     cmd.arg("--reuse-current-config");
+    if let Some(metadata) = &bxl_args.extras {
+        cmd.args(metadata);
+    }
     cmd.arg("prelude//python/sourcedb/pyrefly.bxl:main");
-    cmd.arg("--");
-    cmd.args(files.flat_map(Include::to_bxl_args));
+    cmd.arg(format!("@{}", argfile.path().display()));
     cmd.current_dir(cwd);
 
     let result = cmd.output()?;
