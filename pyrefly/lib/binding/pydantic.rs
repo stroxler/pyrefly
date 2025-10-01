@@ -30,12 +30,23 @@ const EXTRA: Name = Name::new_static("extra");
 // TODO Zeina: look into if we want to store the expr itself or the boolean. Right now,
 // this maps 1:1 to PydanticMetadata structure we encounter in the answers phase,
 // but this will likely change as we add more fields.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PydanticMetadataBinding {
     pub frozen: Option<bool>,
     pub extra: Option<bool>,
     pub validate_by_name: bool,
     pub validate_by_alias: bool,
+}
+
+impl Default for PydanticMetadataBinding {
+    fn default() -> Self {
+        Self {
+            frozen: Default::default(),
+            extra: Default::default(),
+            validate_by_name: false,
+            validate_by_alias: true,
+        }
+    }
 }
 
 impl<'a> BindingsBuilder<'a> {
@@ -46,10 +57,7 @@ impl<'a> BindingsBuilder<'a> {
         &self,
         e: &Expr,
         name: &Hashed<Name>,
-        pydantic_frozen: &mut Option<bool>,
-        pydantic_extra: &mut Option<bool>,
-        pydantic_validate_by_name: &mut bool,
-        pydantic_validate_by_alias: &mut bool,
+        pydantic_metadata: &mut PydanticMetadataBinding,
     ) {
         if name.as_str() == "model_config"
             && let Some(call) = e.as_call_expr()
@@ -61,14 +69,14 @@ impl<'a> BindingsBuilder<'a> {
                     && arg_name.id == FROZEN
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
-                    *pydantic_frozen = Some(bl.value);
+                    pydantic_metadata.frozen = Some(bl.value);
                 }
 
                 if let Some(arg_name) = &kw.arg
                     && arg_name.id == EXTRA
                 {
                     let config_dict_extra = kw.value.clone().string_literal_expr();
-                    *pydantic_extra = match config_dict_extra {
+                    pydantic_metadata.extra = match config_dict_extra {
                         Some(extra) => {
                             let val = extra.value.to_str();
 
@@ -88,31 +96,16 @@ impl<'a> BindingsBuilder<'a> {
                     && arg_name.id == VALIDATE_BY_NAME
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
-                    *pydantic_validate_by_name = bl.value;
+                    pydantic_metadata.validate_by_name = bl.value;
                 }
 
                 if let Some(arg_name) = &kw.arg
                     && arg_name.id == VALIDATE_BY_ALIAS
                     && let Expr::BooleanLiteral(bl) = &kw.value
                 {
-                    *pydantic_validate_by_alias = bl.value;
+                    pydantic_metadata.validate_by_alias = bl.value;
                 }
             }
-        }
-    }
-
-    pub fn make_pydantic_metadata(
-        &self,
-        frozen: Option<bool>,
-        extra: Option<bool>,
-        validate_by_name: bool,
-        validate_by_alias: bool,
-    ) -> PydanticMetadataBinding {
-        PydanticMetadataBinding {
-            frozen,
-            extra,
-            validate_by_name,
-            validate_by_alias,
         }
     }
 }
