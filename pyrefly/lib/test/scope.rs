@@ -287,6 +287,17 @@ C().x  # E: `C` has no attribute `x`
 "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/1210
+testcase!(
+    test_mutable_capture_with_annotation_class_body,
+    r#"
+x = 5
+class C:
+    global x
+    x: int
+"#,
+);
+
 testcase!(
     bug = "We allow mutable captures to mutate in ways that invalidate through-barrier types on globals and nonlocals",
     test_mutable_capture_incompatible_assign,
