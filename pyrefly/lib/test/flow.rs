@@ -211,11 +211,14 @@ def f(x):
     "#,
 );
 
+// Regression test to ensure we don't forget to create loop recursion
+// bindings when the loop has early termination.
 testcase!(
     test_return_in_for,
     r#"
 def f(x: str):
     for c in x:
+        x = c
         return
     "#,
 );

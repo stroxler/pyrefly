@@ -1839,11 +1839,13 @@ impl MergeItem {
 
 impl<'a> BindingsBuilder<'a> {
     fn merge_flow(&mut self, mut flows: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
-        // Short circuit in the one case we know we safely can.
+        // Short circuit when there is only one flow.
         //
-        // Note that it is impossible to hit this in a loop, which is essential because we
-        // could panic due to unbound speculative Phi keys if we try to short circuit a loop.
-        if flows.len() == 1 && flows[0].has_terminated {
+        // Note that there are always at least two flows in a loop (some may
+        // have terminated, but this check happens prior to pruning terminated
+        // branches), which is essential because an early exit here could lead
+        // to us never creating bindings for speculative Phi keys.
+        if flows.len() == 1 {
             return flows.pop().unwrap();
         }
 
