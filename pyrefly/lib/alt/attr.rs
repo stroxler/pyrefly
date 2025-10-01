@@ -1055,6 +1055,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         acc
     }
 
+    /// Try looking up this attribute as a magic dunder method that follows special attribute
+    /// lookup rules, returning the attribute if we succeed.
+    fn try_get_magic_dunder_attr(
+        &self,
+        cls: &ClassBase,
+        attr_name: &Name,
+    ) -> Option<ClassAttribute> {
+        if !attr_name.starts_with("__")
+            || !attr_name.ends_with("__")
+            // Constructors and the dataclass __post_init__ method are special-cased elsewhere and
+            // should not go through magic dunder lookup.
+            || [dunder::NEW, dunder::INIT, dunder::POST_INIT]
+                .iter()
+                .any(|constructor| constructor == attr_name)
+        {
+            return None;
+        }
+        let metadata = self.get_metadata_for_class(cls.class_object());
+        let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
+        let attr = self.get_metaclass_attribute(cls, metaclass, attr_name)?;
+        attr.clone().as_instance_method().map(|_| attr)
+    }
+
     fn lookup_attr_from_attribute_base1(
         &self,
         base: AttributeBase1,
@@ -1151,7 +1174,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AttributeBase1::ProtocolSubset(protocol_base) => {
-                self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
+                if let AttributeBase1::ClassObject(class) = &**protocol_base
+                    && let Some(attr) = self.try_get_magic_dunder_attr(class, attr_name)
+                {
+                    // When looking up a magic dunder method as part of checking a class object
+                    // against a protocol, we prefer methods on the metaclass over methods on the
+                    // class object. See test::enums::test_iterate for why we need to do this.
+                    acc.found_class_attribute(attr, base)
+                } else {
+                    self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
+                }
             }
             AttributeBase1::ClassObject(class) => {
                 match self.get_class_attribute(class, attr_name) {

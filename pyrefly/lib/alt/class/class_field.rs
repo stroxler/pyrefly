@@ -83,7 +83,7 @@ use crate::types::types::Type;
 
 /// The result of looking up an attribute access on a class (either as an instance or a
 /// class access, and possibly through a special case lookup such as a type var with a bound).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ClassAttribute {
     /// A read-write attribute with a closed form type for both get and set actions.
     ReadWrite(Type),
