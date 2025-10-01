@@ -418,6 +418,20 @@ pub struct Flow {
     has_terminated: bool,
 }
 
+impl Flow {
+    fn get_info(&self, name: &Name) -> Option<&FlowInfo> {
+        self.info.get(name)
+    }
+
+    fn get_info_mut(&mut self, name: &Name) -> Option<&mut FlowInfo> {
+        self.info.get_mut(name)
+    }
+
+    fn get_info_hashed(&self, name: Hashed<&Name>) -> Option<&FlowInfo> {
+        self.info.get_hashed(name)
+    }
+}
+
 #[derive(Debug, Clone)]
 struct FlowInfo {
     /// The key to use if you need the value of this name.
@@ -920,7 +934,7 @@ impl Scopes {
         &self,
         name: &Name,
     ) -> Option<(Idx<Key>, Idx<KeyDecoratedFunction>)> {
-        if let Some(flow) = self.current().flow.info.get(name)
+        if let Some(flow) = self.current().flow.get_info(name)
             && let FlowStyle::FunctionDef(fidx, _) = flow.style
         {
             return Some((flow.idx, fidx));
@@ -1118,7 +1132,7 @@ impl Scopes {
     /// Don't change the type if one is present - downstream we'll emit
     /// uninitialized local errors but keep using our best guess for the type.
     pub fn mark_as_deleted(&mut self, name: &Name) {
-        if let Some(info) = self.current_mut().flow.info.get_mut(name) {
+        if let Some(info) = self.current_mut().flow.get_info_mut(name) {
             info.style = FlowStyle::Uninitialized;
         }
     }
@@ -1126,7 +1140,7 @@ impl Scopes {
     fn get_flow_info(&self, name: &Name) -> Option<&FlowInfo> {
         let name = Hashed::new(name);
         for scope in self.iter_rev() {
-            if let Some(flow) = scope.flow.info.get_hashed(name) {
+            if let Some(flow) = scope.flow.get_info_hashed(name) {
                 return Some(flow);
             }
         }
@@ -1138,7 +1152,7 @@ impl Scopes {
     /// Returns `None` if there is no current flow (which may mean the
     /// name is uninitialized in the current scope, or is not in scope at all).
     pub fn current_flow_style(&self, name: &Name) -> Option<FlowStyle> {
-        Some(self.current().flow.info.get(name)?.style.clone())
+        Some(self.current().flow.get_info(name)?.style.clone())
     }
 
     // This helper handles re-exported symbols during special export lookups
@@ -1411,7 +1425,7 @@ impl Scopes {
             |(name, static_info)| {
             if matches!(static_info.style, StaticStyle::MutableCapture(..)) {
                 // Mutable captures are not actually owned by the class scope, and do not become attributes.
-            } else if let Some(flow_info) = class_body.flow.info.get_hashed(name) {
+            } else if let Some(flow_info) = class_body.flow.get_info_hashed(name) {
                 let definition = match &flow_info.style {
                     FlowStyle::FunctionDef(_, has_return_annotation) => ClassFieldDefinition::MethodLike {
                         definition: flow_info.idx,
@@ -1502,7 +1516,7 @@ impl Scopes {
     /// the same root (like `import foo.bar; import foo.baz`) are that the sub-modules
     /// will be added as attributes of `foo`.
     pub fn existing_module_import_at(&self, module_name: &Name) -> Option<Idx<Key>> {
-        match self.current().flow.info.get(module_name) {
+        match self.current().flow.get_info(module_name) {
             Some(flow_info) if matches!(flow_info.style, FlowStyle::MergeableImport(..)) => {
                 Some(flow_info.idx)
             }
@@ -1530,7 +1544,7 @@ impl Scopes {
                 continue;
             }
 
-            if let Some(flow_info) = scope.flow.info.get_hashed(name)
+            if let Some(flow_info) = scope.flow.get_info_hashed(name)
                 && !barrier
             {
                 // Because class body scopes are dynamic, if we know that the the name is
@@ -1639,7 +1653,7 @@ impl Scopes {
         name: Hashed<&Name>,
         kind: MutableCaptureKind,
     ) -> Result<Key, MutableCaptureError> {
-        if self.current().flow.info.get_hashed(name).is_some() {
+        if self.current().flow.get_info_hashed(name).is_some() {
             return match kind {
                 MutableCaptureKind::Global => Err(MutableCaptureError::AssignedBeforeGlobal),
                 MutableCaptureKind::Nonlocal => Err(MutableCaptureError::AssignedBeforeNonlocal),
@@ -1667,7 +1681,7 @@ impl ScopeTrace {
         let mut exportables = SmallMap::new();
         let scope = self.toplevel_scope();
         for (name, static_info) in scope.stat.0.iter_hashed() {
-            let exportable = match scope.flow.info.get_hashed(name) {
+            let exportable = match scope.flow.get_info_hashed(name) {
                 Some(FlowInfo { idx: key, .. }) => {
                     if let Some(ann) = static_info.annotation() {
                         Exportable::Initialized(*key, Some(ann))
