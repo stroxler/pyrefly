@@ -470,8 +470,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let strict = field_flags.strict.unwrap_or(strict_default);
                 if field_flags.init {
                     let has_default = field_flags.default
-                        || (dataclass.class_validation_flags.validate_by_name
-                            && dataclass.class_validation_flags.validate_by_alias);
+                        || (field_flags.init_by_name && field_flags.init_by_alias.is_some());
                     let is_kw_only = field_flags.is_kw_only();
                     if !is_kw_only {
                         if !has_default

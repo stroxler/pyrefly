@@ -70,3 +70,14 @@ Example(id="123", attribute_1="value1")
 Example(id="123")  # E: Missing argument `attribute_1`
 "#,
 );
+
+testcase!(
+    test_required_field,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel
+class A(BaseModel, validate_by_name=True, validate_by_alias=True):
+    x: int
+A()  # E: Missing argument `x`
+    "#,
+);
