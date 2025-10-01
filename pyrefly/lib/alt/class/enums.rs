@@ -181,6 +181,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .collect();
 
         label_types.push(self.stdlib.str().clone().to_type());
+
+        // Also include the type of __empty__ field if it exists, since it contributes to label types
+        let empty_name = Name::new_static("__empty__");
+        let has_empty = if let Some(WithDefiningClass { value, .. }) =
+            self.get_class_member(cls, &empty_name)
+        {
+            label_types.push(value.ty());
+            true
+        } else {
+            false
+        };
+
         let label_type = self.unions(label_types);
 
         let base_value_type = match self.get_class_member(cls, &VALUE) {
@@ -189,8 +201,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         // if value is optional, make the type optional
-        let empty_name = Name::new_static("__empty__");
-        let has_empty = self.get_class_member(cls, &empty_name).is_some();
         let values_type = if has_empty {
             self.union(base_value_type.clone(), Type::None)
         } else {

@@ -222,3 +222,23 @@ assert_type(Medal.SILVER.label, (str | _StrPromise))
 assert_type(Medal.GOLD.value, str)
 "#,
 );
+
+testcase!(
+    test_empty_with_type,
+    django_env(),
+    r#"
+from django.db.models import IntegerChoices
+from django.utils.functional import _StrOrPromise
+from django.utils.translation import gettext_lazy as _
+from typing_extensions import assert_type
+
+class VehicleWithEmpty(IntegerChoices):
+    CAR = 1, "Carriage"  
+    TRUCK = 2  
+    JET_SKI = 3  
+
+    __empty__ = _("Unknown") 
+
+assert_type(VehicleWithEmpty.labels, list[_StrOrPromise])
+"#,
+);
