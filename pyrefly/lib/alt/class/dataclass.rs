@@ -276,7 +276,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             init: init.unwrap_or(true),
             default,
             kw_only,
-            alias,
+            init_by_name: dataclass_metadata.class_validation_flags.validate_by_name
+                || alias.is_none(),
+            init_by_alias: alias,
             lt,
             gt,
             ge,
@@ -489,10 +491,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             has_seen_default = true;
                         }
                     }
-                    if dataclass.class_validation_flags.validate_by_name
-                        || (dataclass.class_validation_flags.validate_by_alias
-                            && field_flags.alias.is_none())
-                    {
+                    if field_flags.init_by_name {
                         params.push(self.as_param(
                             &field,
                             &name,
@@ -503,9 +502,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             errors,
                         ));
                     }
-                    if let Some(alias) = &field_flags.alias
-                        && dataclass.class_validation_flags.validate_by_alias
-                    {
+                    if let Some(alias) = &field_flags.init_by_alias {
                         params.push(self.as_param(
                             &field,
                             alias,
