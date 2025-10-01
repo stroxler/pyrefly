@@ -13,14 +13,18 @@ use pyrefly_types::types::Type;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
-use ruff_python_ast::identifier::Identifier;
+use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
-use ruff_python_ast::visitor;
-use ruff_python_ast::visitor::Visitor;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
+use crate::report::pysa::ast_visitor::AstScopedVisitor;
+use crate::report::pysa::ast_visitor::Scope;
+use crate::report::pysa::ast_visitor::Scopes;
+use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
@@ -281,29 +285,21 @@ fn has_implicit_receiver(
 
 #[allow(dead_code)]
 struct CallGraphVisitor<'a> {
+    call_graphs: &'a mut CallGraphs<FunctionRef, PysaLocation>,
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: ModuleName,
     function_base_definitions: &'a WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
-    // A stack where the top element is always the current callable that we are
-    // building a call graph for. The stack is updated each time we enter and exit
-    // a function definition or a class definition.
-    definition_nesting: Vec<FunctionRef>,
-    call_graphs: &'a mut CallGraphs<FunctionRef, PysaLocation>,
-    in_exported_definition: bool,
-    debug_current_definition: bool,
+    current_function: Option<FunctionRef>, // The current function, if it is exported.
+    debug: bool,                           // Enable logging for the current function or class body.
 }
 
 impl<'a> CallGraphVisitor<'a> {
-    fn current_definition(&self) -> FunctionRef {
-        self.definition_nesting.last().unwrap().clone()
-    }
-
     fn add_callees(&mut self, location: TextRange, callees: ExpressionCallees<FunctionRef>) {
         assert!(
             self.call_graphs
                 .0
-                .entry(self.current_definition())
+                .entry(self.current_function.clone().unwrap())
                 .or_default()
                 .insert(
                     PysaLocation::new(self.module_context.module_info.display_range(location)),
@@ -437,70 +433,85 @@ impl<'a> CallGraphVisitor<'a> {
             .collect::<Vec<_>>()
     }
 
+    fn set_current_function(&mut self, scopes: &Scopes) {
+        let current_function = match scopes.current() {
+            Scope::TopLevel => Some(FunctionRef {
+                module_id: self.module_id,
+                module_name: self.module_name,
+                function_id: FunctionId::ModuleTopLevel,
+                function_name: Name::from("$toplevel"),
+            }),
+            Scope::ExportedFunction {
+                function_id,
+                function_name,
+                ..
+            } => Some(FunctionRef {
+                module_id: self.module_id,
+                module_name: self.module_name,
+                function_id: function_id.clone(),
+                function_name: function_name.clone(),
+            }),
+            Scope::NonExportedFunction { .. } => None,
+            Scope::ExportedClass { .. } => None,
+            Scope::NonExportedClass { .. } => None,
+            _ => panic!("unexpected current scope"),
+        };
+
+        self.current_function = current_function;
+    }
+
     // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
     const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
 
     fn set_debug_for_body(&mut self, body: &[Stmt]) {
-        self.debug_current_definition = has_toplevel_call(body, Self::DEBUG_FUNCTION_NAME);
+        self.debug = has_toplevel_call(body, Self::DEBUG_FUNCTION_NAME);
     }
 
     fn unset_debug(&mut self) {
-        self.debug_current_definition = false;
+        self.debug = false;
     }
 }
 
-impl<'a> Visitor<'a> for CallGraphVisitor<'a> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::FunctionDef(function_def) => {
-                let function_id = FunctionId::Function {
-                    location: PysaLocation::new(
-                        self.module_context
-                            .module_info
-                            .display_range(function_def.identifier()),
-                    ),
-                };
-                if let Some(function_definition) = self
-                    .function_base_definitions
-                    .get(self.module_id, &function_id)
-                {
-                    self.set_debug_for_body(&function_def.body);
-                    self.definition_nesting.push(FunctionRef {
-                        module_id: self.module_id,
-                        module_name: self.module_name,
-                        function_id,
-                        function_name: function_definition.name.clone(),
-                    });
-                    visitor::walk_stmt(self, stmt);
-                    self.definition_nesting.pop();
-                    self.unset_debug();
-                } else {
-                    let current_in_exported_definition = self.in_exported_definition;
-                    self.in_exported_definition = false;
-                    visitor::walk_stmt(self, stmt);
-                    self.in_exported_definition = current_in_exported_definition;
-                }
-            }
-            Stmt::ClassDef(_class_def) => {
-                // TODO: Push the class id into `definition_nesting`
-                visitor::walk_stmt(self, stmt);
-                // TODO: Pop the class id from `definition_nesting`
-            }
-            _ => {
-                visitor::walk_stmt(self, stmt);
-            }
-        }
+impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
+    fn enter_function_scope(&mut self, function_def: &StmtFunctionDef, scopes: &Scopes) {
+        self.set_current_function(scopes);
+        self.set_debug_for_body(&function_def.body);
     }
 
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        visitor::walk_expr(self, expr);
-        if !self.in_exported_definition {
+    fn enter_class_scope(&mut self, class_def: &StmtClassDef, scopes: &Scopes) {
+        self.set_current_function(scopes);
+        self.set_debug_for_body(&class_def.body);
+    }
+
+    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, scopes: &Scopes) {
+        self.set_current_function(scopes);
+        self.unset_debug();
+    }
+    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, scopes: &Scopes) {
+        self.set_current_function(scopes);
+        self.unset_debug();
+    }
+
+    fn enter_toplevel_scope(&mut self, ast: &ModModule, scopes: &Scopes) {
+        self.set_current_function(scopes);
+        self.set_debug_for_body(&ast.body);
+    }
+
+    fn exit_toplevel_scope(&mut self, _ast: &ModModule, scopes: &Scopes) {
+        self.set_current_function(scopes);
+        self.unset_debug();
+    }
+
+    fn visit_statement(&mut self, _stmt: &Stmt, _scopes: &Scopes) {}
+
+    fn visit_expression(&mut self, expr: &Expr, _scopes: &Scopes) {
+        if self.current_function.is_none() {
             return;
         }
 
         match expr {
             Expr::Call(call) => {
-                debug_println!(self.debug_current_definition, "Visiting call: {:#?}", call);
+                debug_println!(self.debug, "Visiting call: {:#?}", call);
 
                 let call_targets = match &*call.func {
                     Expr::Name(name) => self.resolve_name(name),
@@ -548,26 +559,16 @@ pub fn build_call_graphs_for_module(
 ) -> CallGraphs<FunctionRef, PysaLocation> {
     let mut call_graphs = CallGraphs::new();
 
-    let module_name = context.module_info.name();
-    let module_toplevel = FunctionRef {
-        module_id: context.module_id,
-        module_name,
-        function_id: FunctionId::ModuleTopLevel,
-        function_name: Name::from("$toplevel"),
-    };
     let mut visitor = CallGraphVisitor {
+        call_graphs: &mut call_graphs,
         module_context: context,
         module_id: context.module_id,
-        module_name,
-        definition_nesting: vec![module_toplevel],
-        call_graphs: &mut call_graphs,
+        module_name: context.module_info.name(),
         function_base_definitions,
-        in_exported_definition: true,
-        debug_current_definition: false,
+        current_function: None,
+        debug: false,
     };
 
-    for stmt in &context.ast.body {
-        visitor.visit_stmt(stmt);
-    }
+    visit_module_ast(&mut visitor, context);
     call_graphs
 }

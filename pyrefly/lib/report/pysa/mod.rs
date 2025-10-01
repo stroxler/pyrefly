@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+pub mod ast_visitor;
 pub mod call_graph;
 pub mod class;
 pub mod context;
