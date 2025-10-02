@@ -1015,6 +1015,18 @@ def f() -> int:
 );
 
 testcase!(
+    bug = "Unnecessary loop recursion causes us to not resolve `counters.get`",
+    test_loop_with_dict_get,
+    r#"
+from typing import reveal_type
+def f(keys: list[str]):
+    counters: dict[str, int] = {}
+    for k in keys:
+        counters[k] = reveal_type(counters.get(k, 0))  # E: revealed type: Unknown
+"#,
+);
+
+testcase!(
     test_while_simple,
     r#"
 from typing import assert_type, Literal
