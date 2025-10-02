@@ -1813,11 +1813,11 @@ impl<'a> BindingsBuilder<'a> {
     /// merged phi is the new default used for downstream loops.
     fn merged_flow_info(
         &mut self,
-        flows: Vec<FlowInfo>,
+        flow_infos: Vec<FlowInfo>,
         current_is_loop: bool,
-        contained_in_loop: bool,
         phi_idx: Idx<Key>,
     ) -> FlowInfo {
+        let contained_in_loop = self.scopes.loop_depth() > 0;
         // In a loop, an invariant is that if a name was defined above the loop, the
         // default may be taken from any of the Flows and will not differ.
         //
@@ -1826,11 +1826,11 @@ impl<'a> BindingsBuilder<'a> {
         // recursively. Invalid code where assignment tries to use an
         // uninitialized local can produce a cycle through Anywhere, but that's
         // true even for straight-line control flow.
-        let default = flows.first().unwrap().default;
+        let default = flow_infos.first().unwrap().default;
         // Collect the branch idxs. Skip over the Phi itself (which may appear in loops)
         // both so that we can eliminate the Phi binding entirely when it isn't needed
         // and so that Phi does not depend on itself and cause recursion in the solver.
-        let branch_idxs: SmallSet<_> = flows
+        let branch_idxs: SmallSet<_> = flow_infos
             .iter()
             .filter_map(|flow| {
                 let idx = flow.idx();
@@ -1842,7 +1842,7 @@ impl<'a> BindingsBuilder<'a> {
                 // We hit this case if no branch assigned or narrowed the name.
                 //
                 // In the case of loops, it depends on the removal of `phi_idx` above.
-                let flow = flows.first().unwrap();
+                let flow = flow_infos.first().unwrap();
                 let upstream_idx = flow.idx();
                 self.insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
@@ -1862,7 +1862,7 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             downstream_idx
         };
-        let mut styles = flows
+        let mut styles = flow_infos
             .into_iter()
             .flat_map(|flow| flow.value)
             .map(|value| value.style)
@@ -1921,16 +1921,16 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // For each name and merge item, produce the merged FlowInfo for our new Flow
-        let mut merged_info = SmallMap::with_capacity(merge_items.0.len());
+        let mut merged_flow_infos = SmallMap::with_capacity(merge_items.0.len());
         for (name, flow_infos) in merge_items.0.into_iter_hashed() {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
-            merged_info.insert_hashed(
-                name,
-                self.merged_flow_info(flow_infos, is_loop, self.scopes.loop_depth() > 0, phi_idx),
-            );
+            merged_flow_infos
+                .insert_hashed(name, self.merged_flow_info(flow_infos, is_loop, phi_idx));
         }
+
+        // The resulting flow has terminated only if all branches had terminated.
         Flow {
-            info: merged_info,
+            info: merged_flow_infos,
             has_terminated,
         }
     }
