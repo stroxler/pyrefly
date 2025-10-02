@@ -982,6 +982,23 @@ def f():
 );
 
 testcase!(
+    bug = "We optimize out narrow-only loop phi, but narrows in nested branching are still treated like values not narrows",
+    test_narrow_in_branch_contained_in_loop,
+    r#"
+from typing import Iterable, Iterator, cast
+
+def iterate[T](*items: T | Iterable[T]) -> Iterator[T]:
+    for item in items:  # E: `Iterable[T] | str | T` is not assignable to `Iterable[T] | T` (caused by inconsistent types when breaking cycles)
+        if isinstance(item, str):
+            yield cast(T, item)
+        elif isinstance(item, Iterable):
+            yield from item
+        else:
+            yield item
+"#,
+);
+
+testcase!(
     test_bad_setitem_with_loop_and_walrus,
     r#"
 def f():
