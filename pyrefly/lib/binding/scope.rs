@@ -1782,29 +1782,13 @@ impl ScopeTrace {
 
 // Represents a name we need to handle when merging flows.
 struct MergeItem {
-    // The key at which we will bind the result of the merge. Unlike all other keys
-    // in our data structure, this one does not refer to a pre-existing binding coming
-    // from upstream but rather the *output* of the merge.
-    phi_idx: Idx<Key>,
     // The flows to merge.
     flows: Vec<FlowInfo>,
 }
 
 impl MergeItem {
-    fn new(
-        name: Name,
-        range: TextRange,
-        info: FlowInfo,
-        n_branches: usize,
-        idx_for_promise: impl FnOnce(Key) -> Idx<Key>,
-    ) -> Self {
-        // We are promising to bind this key at the end of the merge (see `merged_flow_info`).
-        //
-        // Note that in loops, the speculative phi logic may have already inserted this key,
-        // in which case `idx_for_promise` will just give us back the idx we already created.
-        let phi_idx = idx_for_promise(Key::Phi(name, range));
+    fn new(info: FlowInfo, n_branches: usize) -> Self {
         let mut myself = Self {
-            phi_idx,
             flows: Vec::with_capacity(n_branches),
         };
         myself.add_branch(info);
@@ -1831,6 +1815,7 @@ impl MergeItem {
         self,
         current_is_loop: bool,
         contained_in_loop: bool,
+        phi_idx: Idx<Key>,
         insert_binding_idx: impl FnOnce(Idx<Key>, Binding),
     ) -> FlowInfo {
         // In a loop, an invariant is that if a name was defined above the loop, the
@@ -1850,27 +1835,27 @@ impl MergeItem {
             .iter()
             .filter_map(|flow| {
                 let idx = flow.idx();
-                if idx != self.phi_idx { Some(idx) } else { None }
+                if idx != phi_idx { Some(idx) } else { None }
             })
             .collect();
         let downstream_idx = {
             if branch_idxs.len() == 1 {
                 // We hit this case if no branch assigned or narrowed the name.
                 //
-                // In the case of loops, it depends on the removal of `self.phi_idx` above.
+                // In the case of loops, it depends on the removal of `phi_idx` above.
                 let flow = self.flows.first().unwrap();
                 let upstream_idx = flow.idx();
-                insert_binding_idx(self.phi_idx, Binding::Forward(upstream_idx));
+                insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
             } else if current_is_loop {
                 insert_binding_idx(
-                    self.phi_idx,
+                    phi_idx,
                     Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
                 );
-                self.phi_idx
+                phi_idx
             } else {
-                insert_binding_idx(self.phi_idx, Binding::Phi(branch_idxs));
-                self.phi_idx
+                insert_binding_idx(phi_idx, Binding::Phi(branch_idxs));
+                phi_idx
             }
         };
         let default = if contained_in_loop {
@@ -1938,10 +1923,7 @@ impl<'a> BindingsBuilder<'a> {
             for (name, info) in flow.info.into_iter_hashed() {
                 match merge_items.entry_hashed(name) {
                     Entry::Vacant(e) => {
-                        let name = e.key().clone();
-                        e.insert(MergeItem::new(name, range, info, n_branches, |key| {
-                            self.idx_for_promise(key)
-                        }));
+                        e.insert(MergeItem::new(info, n_branches));
                     }
                     Entry::Occupied(mut merge_item_entry) => {
                         merge_item_entry.get_mut().add_branch(info)
@@ -1953,11 +1935,17 @@ impl<'a> BindingsBuilder<'a> {
         // For each name and merge item, produce the merged FlowInfo for our new Flow
         let mut merged_info = SmallMap::with_capacity(merge_items.len());
         for (name, merge_item) in merge_items.into_iter_hashed() {
+            let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
             merged_info.insert_hashed(
                 name,
-                merge_item.merged_flow_info(is_loop, self.scopes.loop_depth() > 0, |key, value| {
-                    self.insert_binding_idx(key, value);
-                }),
+                merge_item.merged_flow_info(
+                    is_loop,
+                    self.scopes.loop_depth() > 0,
+                    phi_idx,
+                    |key, value| {
+                        self.insert_binding_idx(key, value);
+                    },
+                ),
             );
         }
         Flow {
