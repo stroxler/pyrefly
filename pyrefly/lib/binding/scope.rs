@@ -1890,6 +1890,25 @@ impl MergeItem {
     }
 }
 
+struct MergeItems(SmallMap<Name, MergeItem>);
+
+impl MergeItems {
+    pub fn new(presize_to: usize) -> Self {
+        Self(SmallMap::with_capacity(presize_to))
+    }
+
+    pub fn add_flow_info(&mut self, name: Hashed<Name>, flow_info: FlowInfo, n_branches: usize) {
+        match self.0.entry_hashed(name) {
+            Entry::Vacant(e) => {
+                e.insert(MergeItem::new(flow_info, n_branches));
+            }
+            Entry::Occupied(mut merge_item_entry) => {
+                merge_item_entry.get_mut().add_branch(flow_info)
+            }
+        }
+    }
+}
+
 impl<'a> BindingsBuilder<'a> {
     fn merge_flow(&mut self, mut flows: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
         // Short circuit when there is only one flow.
@@ -1916,25 +1935,17 @@ impl<'a> BindingsBuilder<'a> {
         };
 
         // Collect all the branches into a `MergeItem` per name we need to merge
-        let mut merge_items: SmallMap<Name, MergeItem> =
-            SmallMap::with_capacity(branches.first().unwrap().info.len());
+        let mut merge_items = MergeItems::new(branches.first().unwrap().info.len());
         let n_branches = branches.len();
         for flow in branches {
             for (name, info) in flow.info.into_iter_hashed() {
-                match merge_items.entry_hashed(name) {
-                    Entry::Vacant(e) => {
-                        e.insert(MergeItem::new(info, n_branches));
-                    }
-                    Entry::Occupied(mut merge_item_entry) => {
-                        merge_item_entry.get_mut().add_branch(info)
-                    }
-                };
+                merge_items.add_flow_info(name, info, n_branches)
             }
         }
 
         // For each name and merge item, produce the merged FlowInfo for our new Flow
-        let mut merged_info = SmallMap::with_capacity(merge_items.len());
-        for (name, merge_item) in merge_items.into_iter_hashed() {
+        let mut merged_info = SmallMap::with_capacity(merge_items.0.len());
+        for (name, merge_item) in merge_items.0.into_iter_hashed() {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
             merged_info.insert_hashed(
                 name,
