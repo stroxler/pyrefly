@@ -981,14 +981,14 @@ def f():
     "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/528
 testcase!(
-    bug = "We optimize out narrow-only loop phi, but narrows in nested branching are still treated like values not narrows",
     test_narrow_in_branch_contained_in_loop,
     r#"
 from typing import Iterable, Iterator, cast
 
 def iterate[T](*items: T | Iterable[T]) -> Iterator[T]:
-    for item in items:  # E: `Iterable[T] | str | T` is not assignable to `Iterable[T] | T` (caused by inconsistent types when breaking cycles)
+    for item in items:
         if isinstance(item, str):
             yield cast(T, item)
         elif isinstance(item, Iterable):
@@ -1044,13 +1044,12 @@ def f(xs: list[list]):
 
 // Regression test for https://github.com/facebook/pyrefly/issues/812
 testcase!(
-    bug = "TODO(stroxler) We treat the narrowing in a branch like a value, so this still produces a recursive Phi and pins badly",
     test_loop_with_set_and_len,
     r#"
 def f(my_set: set[int]):
     while True:
         start_size = len(my_set)
-        my_set.update([])  # E: Object of class `Sized` has no attribute `update`
+        my_set.update([])
         if len(my_set) == start_size:
             return
 "#,

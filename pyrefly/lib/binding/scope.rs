@@ -1827,7 +1827,7 @@ impl<'a> BindingsBuilder<'a> {
         // uninitialized local can produce a cycle through Anywhere, but that's
         // true even for straight-line control flow.
         let default = flow_infos.first().unwrap().default;
-        // Collect the branch idxs.
+        // Collect the idxs.
         //
         // Skip over all branches whose value is the phi - this is only possible
         // in loops, and it benefits us by:
@@ -1839,25 +1839,33 @@ impl<'a> BindingsBuilder<'a> {
         //
         // Note that because the flow above the loop flows into the Phi, this
         // can never result in empty `branch_idxs`.
-        let branch_idxs: SmallSet<_> = flow_infos
-            .iter()
-            .filter_map(|flow| {
-                if let Some(v) = flow.value()
-                    && v.idx == phi_idx
-                {
-                    None
-                } else {
-                    Some(flow.idx())
+        //
+        // We keep track separately of `value_idxs` and `branch_idxs` so that
+        // we know whether to treat the Phi binding as a value or a narrow - it's
+        // a narrow only when all the value idxs are the same.
+        let mut value_idxs = SmallSet::with_capacity(flow_infos.len());
+        let mut branch_idxs = SmallSet::with_capacity(flow_infos.len());
+        let mut styles = Vec::with_capacity(flow_infos.len());
+        for flow_info in flow_infos.into_iter() {
+            let branch_idx = flow_info.idx();
+            if let Some(v) = flow_info.value {
+                if v.idx == phi_idx {
+                    continue;
                 }
-            })
-            .collect();
+                if value_idxs.insert(v.idx) {
+                    // An invariant in Pyrefly is that we only set style when we
+                    // set a value, so duplicate value_idxs always have the same style.
+                    styles.push(v.style);
+                }
+            }
+            branch_idxs.insert(branch_idx);
+        }
         let downstream_idx = {
             if branch_idxs.len() == 1 {
                 // We hit this case if no branch assigned or narrowed the name.
                 //
                 // In the case of loops, it depends on the removal of `phi_idx` above.
-                let flow = flow_infos.first().unwrap();
-                let upstream_idx = flow.idx();
+                let upstream_idx = *branch_idxs.first().unwrap();
                 self.insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
             } else if current_is_loop {
@@ -1876,28 +1884,41 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             downstream_idx
         };
-        let mut styles = flow_infos
-            .into_iter()
-            .flat_map(|flow| flow.value)
-            .map(|value| value.style)
-            .peekable();
-        if styles.peek().is_none() {
-            FlowInfo {
+        match value_idxs.len() {
+            // If there are no values, then this name isn't assigned at all
+            // and is only narrowed (it's most likely a capture, but could be
+            // a local if the code we're analyzing is buggy)
+            0 => FlowInfo {
                 value: None,
                 narrow: Some(FlowNarrow {
                     idx: downstream_idx,
                 }),
                 default,
-            }
-        } else {
-            FlowInfo {
+            },
+            // If there is exactly one value (after discarding the phi itself,
+            // for a loop), then the phi should be treated as a narrow, not a
+            // value, and the value should continue to point at upstream.
+            1 => FlowInfo {
+                value: Some(FlowValue {
+                    idx: *value_idxs.first().unwrap(),
+                    style: FlowStyle::merged(styles.into_iter()),
+                }),
+                narrow: Some(FlowNarrow {
+                    idx: downstream_idx,
+                }),
+                default,
+            },
+            // If there are multiple values, then the phi should be treated
+            // as a value (it may still include narrowed type information,
+            // but it is not reducible to just narrows).
+            _ => FlowInfo {
                 value: Some(FlowValue {
                     idx: downstream_idx,
-                    style: FlowStyle::merged(styles),
+                    style: FlowStyle::merged(styles.into_iter()),
                 }),
                 narrow: None,
                 default,
-            }
+            },
         }
     }
 
