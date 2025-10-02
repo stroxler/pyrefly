@@ -241,3 +241,20 @@ class VehicleWithEmpty(IntegerChoices):
 assert_type(VehicleWithEmpty.labels, list[_StrOrPromise])
 "#,
 );
+
+testcase!(
+    bug = "we don't correctly synthesize the type of the value",
+    test_float,
+    django_env(),
+    r#"
+from django.db.models import Choices
+from django.utils.functional import _StrOrPromise
+from typing_extensions import assert_type
+
+class Constants(float, Choices):
+    PI = 3.141592653589793, "π"
+    TAU = 6.283185307179586, "τ"
+
+assert_type(Constants.PI.value, float) # E: assert_type(Any, float) 
+"#,
+);
