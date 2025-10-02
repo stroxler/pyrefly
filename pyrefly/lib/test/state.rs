@@ -235,7 +235,7 @@ fn test_sequential_committable_transactions() {
         let initial_value = {
             let mut lock = counter.lock();
             let v = *lock;
-            assert!(v % 2 == 0);
+            assert!(v.is_multiple_of(2));
             *lock += 1;
             v
         };

@@ -440,7 +440,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_requiredness(
         &self,
         default: Option<&Expr>,
-        check: Option<(&Type, &(dyn Fn() -> TypeCheckContext))>,
+        check: Option<(&Type, &dyn Fn() -> TypeCheckContext)>,
         stub_or_impl: FunctionStubOrImpl,
         errors: &ErrorCollector,
     ) -> Required {
