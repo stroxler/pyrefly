@@ -1014,6 +1014,20 @@ def f() -> int:
     "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/812
+testcase!(
+    bug = "Loop recursion and overeager pinning result in us forgetting this is a set",
+    test_loop_with_set_and_len,
+    r#"
+def f(my_set: set[int]):
+    while True:
+        start_size = len(my_set)
+        my_set.update([])  # E: Object of class `Sized` has no attribute `update`
+        if len(my_set) == start_size:
+            return
+"#,
+);
+
 testcase!(
     bug = "Unnecessary loop recursion causes us to not resolve `counters.get`",
     test_loop_with_dict_get,
