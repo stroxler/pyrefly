@@ -440,66 +440,90 @@ impl Flow {
     }
 }
 
+/// Flow information about a name. At least one of `narrow` and `value` will always
+/// be non-None (although in some cases the value may have FlowStyle::Uninitialized,
+/// meaning we track a type but are aware that the name is not bound at this point,
+/// e.g. after a `del`)
 #[derive(Debug, Clone)]
 struct FlowInfo {
-    value: FlowValue,
+    /// The most recent value bound to this name, if any.
+    value: Option<FlowValue>,
+    /// The most recent narrow for this name, if any. Always set to `None` when
+    /// `value` is re-bound.
+    narrow: Option<FlowNarrow>,
     /// The loop default - used to wrap loop Phi with our guess at the type above the loop.
     /// - Always set to our current inferred type when a flow info is created
     /// - Updated whenever we update the inferred type outside of all loops, but not inside
     default: Idx<Key>,
 }
 
+/// The most recent value for a name. Used in several cases:
+/// - Actual runtime assignments
+/// - Certain cases where we track a type for unbound locals, such as after a bare
+///   annotation like `x: int` or `del x` - these cases use `FlowStyle::Uninitialized`
+/// - Loop recursion bindings in cases where a name was narrowed above a loop; we
+///   don't know whether the name might be assigned in the loop so we have to assume
+///   so; in that case we use `FlowStyle::LoopRecursion`
 #[derive(Debug, Clone)]
 struct FlowValue {
     idx: Idx<Key>,
     style: FlowStyle,
 }
 
+/// The most recent narrow for a name.
+#[derive(Debug, Clone)]
+struct FlowNarrow {
+    idx: Idx<Key>,
+}
+
 impl FlowInfo {
     fn new_value(idx: Idx<Key>, style: FlowStyle) -> Self {
         Self {
-            value: FlowValue { idx, style },
+            value: Some(FlowValue { idx, style }),
+            narrow: None,
             default: idx,
         }
     }
 
     fn new_narrow(idx: Idx<Key>) -> Self {
         Self {
-            value: FlowValue {
-                idx,
-                style: FlowStyle::Other,
-            },
+            value: None,
+            narrow: Some(FlowNarrow { idx }),
             default: idx,
         }
     }
 
     fn updated_value(&self, idx: Idx<Key>, style: FlowStyle, in_loop: bool) -> Self {
         Self {
-            value: FlowValue { idx, style },
+            value: Some(FlowValue { idx, style }),
+            // Note that any existing narrow is wiped when a new value is bound.
+            narrow: None,
             default: if in_loop { self.default } else { idx },
         }
     }
 
     fn updated_narrow(&self, idx: Idx<Key>, in_loop: bool) -> Self {
         Self {
-            value: FlowValue {
-                idx,
-                style: self.value.style.clone(),
-            },
+            value: self.value.clone(),
+            narrow: Some(FlowNarrow { idx }),
             default: if in_loop { self.default } else { idx },
         }
     }
 
     fn idx(&self) -> Idx<Key> {
-        self.value.idx
+        match (&self.narrow, &self.value) {
+            (Some(FlowNarrow { idx, .. }), _) => *idx,
+            (None, Some(FlowValue { idx, .. })) => *idx,
+            (None, None) => unreachable!("A FlowInfo always has at least one of a narrow or value"),
+        }
     }
 
     fn value(&self) -> Option<&FlowValue> {
-        Some(&self.value)
+        self.value.as_ref()
     }
 
     fn value_mut(&mut self) -> Option<&mut FlowValue> {
-        Some(&mut self.value)
+        self.value.as_mut()
     }
 
     fn uninitialized(&self) -> UninitializedInFlow {
@@ -544,6 +568,11 @@ pub enum FlowStyle {
     PossiblyUninitialized,
     /// The name was in an annotated declaration like `x: int` but not initialized
     Uninitialized,
+    /// I'm a speculative binding for a name that was narrowed but not assigned above
+    /// a loop. Because we don't yet know whether the name will be assigned, we have
+    /// to assume it might be, so the loop recursion binding is treated as a `FlowValue`
+    /// with this style.
+    LoopRecursion,
 }
 
 impl FlowStyle {
@@ -1820,11 +1849,8 @@ impl MergeItem {
             .flows
             .iter()
             .filter_map(|flow| {
-                if flow.value.idx != self.phi_idx {
-                    Some(flow.value.idx)
-                } else {
-                    None
-                }
+                let idx = flow.idx();
+                if idx != self.phi_idx { Some(idx) } else { None }
             })
             .collect();
         let downstream_idx = {
@@ -1833,7 +1859,7 @@ impl MergeItem {
                 //
                 // In the case of loops, it depends on the removal of `self.phi_idx` above.
                 let flow = self.flows.first().unwrap();
-                let upstream_idx = flow.value.idx;
+                let upstream_idx = flow.idx();
                 insert_binding_idx(self.phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
             } else if current_is_loop {
@@ -1847,16 +1873,34 @@ impl MergeItem {
                 self.phi_idx
             }
         };
-        FlowInfo {
-            value: FlowValue {
-                idx: downstream_idx,
-                style: FlowStyle::merged(self.flows.into_iter().map(|flow| flow.value.style)),
-            },
-            default: if contained_in_loop {
-                default
-            } else {
-                downstream_idx
-            },
+        let default = if contained_in_loop {
+            default
+        } else {
+            downstream_idx
+        };
+        let mut styles = self
+            .flows
+            .into_iter()
+            .flat_map(|flow| flow.value)
+            .map(|value| value.style)
+            .peekable();
+        if styles.peek().is_none() {
+            FlowInfo {
+                value: None,
+                narrow: Some(FlowNarrow {
+                    idx: downstream_idx,
+                }),
+                default,
+            }
+        } else {
+            FlowInfo {
+                value: Some(FlowValue {
+                    idx: downstream_idx,
+                    style: FlowStyle::merged(styles),
+                }),
+                narrow: None,
+                default,
+            }
         }
     }
 }
@@ -1943,8 +1987,22 @@ impl<'a> BindingsBuilder<'a> {
     /// Helper for loops, inserts a phi key for every name in the given flow.
     fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
         for (name, info) in flow.info.iter_mut() {
-            // The promise is that we will insert a Phi binding when the control flow merges.
-            info.value.idx = self.idx_for_promise(Key::Phi(name.clone(), range));
+            // We are promising to insert a bidning for this key when we merge the flow
+            let phi_idx = self.idx_for_promise(Key::Phi(name.clone(), range));
+            match &mut info.value {
+                Some(value) => {
+                    value.idx = phi_idx;
+                }
+                None => {
+                    // Because we don't yet know whether the name might be assigned, we have to
+                    // treat the phi as a value rather than a narrow here.
+                    info.value = Some(FlowValue {
+                        idx: phi_idx,
+                        style: FlowStyle::LoopRecursion,
+                    });
+                    info.narrow = None;
+                }
+            }
         }
         flow
     }
