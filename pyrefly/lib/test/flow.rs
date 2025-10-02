@@ -1014,6 +1014,18 @@ def f() -> int:
     "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/683
+testcase!(
+    bug = "We produce an unnecessary cycle here, and then fail to resolve it with a bad error message",
+    test_loop_with_sized_in_inner_iteration,
+    r#"
+def f(xs: list[list]):
+    for x in xs:
+        for i in range(len(x)):  # E: `Sized | list[Unknown]` is not assignable to `list[Unknown]`
+            x[i] = 1
+"#,
+);
+
 // Regression test for https://github.com/facebook/pyrefly/issues/812
 testcase!(
     bug = "Loop recursion and overeager pinning result in us forgetting this is a set",
