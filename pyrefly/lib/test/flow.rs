@@ -958,15 +958,15 @@ def f():
 "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/77
 testcase!(
-    bug = "Loop recursion is causing problems, see https://github.com/facebook/pyrefly/issues/778",
     loop_with_sized_operation,
     r#"
 intList: list[int] = [5, 6, 7, 8]
 for j in [1, 2, 3, 4]:
-    for i in range(len(intList)):  # E: `Sized | list[int]` is not assignable to `list[int]` (caused by inconsistent types when breaking cycles)
+    for i in range(len(intList)):
         intList[i] *= 42
-print([value for value in intList])  # E: Type `Sized` is not iterable
+print([value for value in intList])
 "#,
 );
 
@@ -1016,19 +1016,18 @@ def f() -> int:
 
 // Regression test for https://github.com/facebook/pyrefly/issues/683
 testcase!(
-    bug = "We produce an unnecessary cycle here, and then fail to resolve it with a bad error message",
     test_loop_with_sized_in_inner_iteration,
     r#"
 def f(xs: list[list]):
     for x in xs:
-        for i in range(len(x)):  # E: `Sized | list[Unknown]` is not assignable to `list[Unknown]`
+        for i in range(len(x)):
             x[i] = 1
 "#,
 );
 
 // Regression test for https://github.com/facebook/pyrefly/issues/812
 testcase!(
-    bug = "Loop recursion and overeager pinning result in us forgetting this is a set",
+    bug = "TODO(stroxler) We treat the narrowing in a branch like a value, so this still produces a recursive Phi and pins badly",
     test_loop_with_set_and_len,
     r#"
 def f(my_set: set[int]):
@@ -1040,15 +1039,15 @@ def f(my_set: set[int]):
 "#,
 );
 
+// Regression test: at one point, excessive loop recursion caused the reveal type to be `Unknown`
 testcase!(
-    bug = "Unnecessary loop recursion causes us to not resolve `counters.get`",
     test_loop_with_dict_get,
     r#"
 from typing import reveal_type
 def f(keys: list[str]):
     counters: dict[str, int] = {}
     for k in keys:
-        counters[k] = reveal_type(counters.get(k, 0))  # E: revealed type: Unknown
+        counters[k] = reveal_type(counters.get(k, 0))  # E: revealed type: int
 "#,
 );
 

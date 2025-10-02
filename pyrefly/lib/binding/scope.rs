@@ -1827,14 +1827,28 @@ impl<'a> BindingsBuilder<'a> {
         // uninitialized local can produce a cycle through Anywhere, but that's
         // true even for straight-line control flow.
         let default = flow_infos.first().unwrap().default;
-        // Collect the branch idxs. Skip over the Phi itself (which may appear in loops)
-        // both so that we can eliminate the Phi binding entirely when it isn't needed
-        // and so that Phi does not depend on itself and cause recursion in the solver.
+        // Collect the branch idxs.
+        //
+        // Skip over all branches whose value is the phi - this is only possible
+        // in loops, and it benefits us by:
+        // - Allowing us to skip over branches that either don't change the binding
+        //   at all or only perform narrow operations. In many cases, this can
+        //   allow us to avoid the loop recursion altogether.
+        // - Ensuring that even if we cannot eliminate the Phi, it won't be directly
+        //   recursive in itself (which just makes more work in the solver).
+        //
+        // Note that because the flow above the loop flows into the Phi, this
+        // can never result in empty `branch_idxs`.
         let branch_idxs: SmallSet<_> = flow_infos
             .iter()
             .filter_map(|flow| {
-                let idx = flow.idx();
-                if idx != phi_idx { Some(idx) } else { None }
+                if let Some(v) = flow.value()
+                    && v.idx == phi_idx
+                {
+                    None
+                } else {
+                    Some(flow.idx())
+                }
             })
             .collect();
         let downstream_idx = {
