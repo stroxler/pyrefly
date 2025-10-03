@@ -62,7 +62,6 @@ use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
-use tracing::error;
 use tracing::info;
 use tracing::trace;
 use vec1::vec1;
@@ -1442,20 +1441,6 @@ impl<'a> Transaction<'a> {
                     exports.wildcard(ctx.lookup);
                     exports.exports(ctx.lookup);
                     write(&"Exports-force", start)?;
-                }
-            }
-            let start = Instant::now();
-            let diff = lock
-                .steps
-                .solutions
-                .as_ref()
-                .unwrap()
-                .first_difference(alt.solutions.as_deref().unwrap());
-            write(&"Diff", start)?;
-            if false {
-                // Disabled code, but super useful for debugging differences
-                if let Some(diff) = diff {
-                    error!("Not deterministic {}: {}", m.handle.module(), diff)
                 }
             }
             if let Some(subscriber) = &self.data.subscriber {
