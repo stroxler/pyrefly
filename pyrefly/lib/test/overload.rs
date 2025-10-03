@@ -729,3 +729,21 @@ def test(x: Derp, m: Literal["y"] = "y") -> str:
     return x.f(m)
     "#,
 );
+
+testcase!(
+    bug = "We should split up `x: int | str` and evaluate each option in the union separately",
+    test_expand_union,
+    r#"
+from typing import assert_type, overload
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: str) -> str: ...
+def f(x: int | str) -> int | str:
+    return x
+
+def g(x: int | str):
+    y = f(x)  # E: No matching overload
+    assert_type(y, int | str)  # E: assert_type(Any, int | str)
+    "#,
+);
