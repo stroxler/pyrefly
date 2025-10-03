@@ -7,6 +7,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::iter;
 use std::sync::Arc;
 
 use dupe::Dupe;
@@ -1794,7 +1795,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_typed_dict_field =
             self.is_typed_dict_field(&self.get_metadata_for_class(cls), field_name);
 
-        for parent in bases.iter() {
+        let bases_to_check: Box<dyn Iterator<Item = &ClassType>> = if bases.is_empty() {
+            // If the class doesn't have any base type, we should just use `object` as base to ensure
+            // the inconsistent override check is not skipped
+            Box::new(iter::once(self.stdlib.object()))
+        } else {
+            Box::new(bases.iter())
+        };
+
+        for parent in bases_to_check {
             let parent_cls = parent.class_object();
             let parent_metadata = self.get_metadata_for_class(parent_cls);
             parent_has_any = parent_has_any || parent_metadata.has_base_any();
