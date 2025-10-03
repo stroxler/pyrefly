@@ -718,7 +718,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn record_type_trace(&self, loc: TextRange, ty: &Type) {
-        if let Some(trace) = &self.current().trace {
+        if let Some(trace) = &self.current().trace
+            && !loc.is_empty()
+        {
             trace.lock().types.insert(loc, Arc::new(ty.clone()));
         }
     }

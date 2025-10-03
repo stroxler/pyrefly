@@ -20,6 +20,7 @@ use ruff_python_ast::StringLiteralValue;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use ruff_text_size::TextSize;
 use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -725,10 +726,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             },
             FacetKind::Index(idx) => {
                 // We synthesize a slice expression for the subscript here
-                // The range doesn't matter, since narrowing logic swallows type errors
+                // Use a synthesized fake range to avoid overwriting typing traces
                 let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
                     node_index: AtomicNodeIndex::dummy(),
-                    range,
+                    range: TextRange::empty(TextSize::from(0)),
                     value: Number::Int(Int::from(*idx as u64)),
                 });
                 match remaining_facets.split_first() {
