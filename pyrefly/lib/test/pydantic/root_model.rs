@@ -14,7 +14,6 @@ fn pydantic_env() -> TestEnv {
 }
 
 testcase!(
-    bug = "The argument to the IntRootModel constructor should be required",
     test_root_model_basic,
     pydantic_env(),
     r#"
@@ -24,7 +23,7 @@ class IntRootModel(RootModel[int]):
 m1 = IntRootModel(123) 
 m2 = IntRootModel("abc") # E: Argument `Literal['abc']` is not assignable to parameter `root` with type `int` in function `IntRootModel.__init__`
 m3 = IntRootModel(root=123)
-m4 = IntRootModel()  # Should be an error
+m4 = IntRootModel()  # E: Missing argument `root`
 m5 = IntRootModel(123, 456)  # E: Expected 1 positional argument, got 2
 "#,
 );

@@ -48,7 +48,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_root_model_init(&self, cls: &Class, root_model_type: Type) -> ClassSynthesizedField {
-        let root_param = Param::Pos(ROOT, root_model_type, Required::Optional(None));
+        let root_requiredness = if root_model_type.is_any() {
+            Required::Optional(None)
+        } else {
+            Required::Required
+        };
+        let root_param = Param::Pos(ROOT, root_model_type, root_requiredness);
         let params = vec![self.class_self_param(cls, false), root_param];
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), Type::None),
