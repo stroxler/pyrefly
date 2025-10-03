@@ -7,6 +7,7 @@
 
 use pretty_assertions::assert_eq;
 
+use crate::state::require::Require;
 use crate::test::util::code_frame_of_source_at_position;
 use crate::test::util::mk_multi_file_state_assert_no_errors;
 
@@ -23,7 +24,7 @@ def g() -> int:
     return 42
 "#;
     let files = [("main", code)];
-    let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Indexing);
     let mut report = String::new();
     for (name, code) in &files {
         report.push_str("# ");
@@ -63,7 +64,7 @@ x = int()
 y = list([1, 2, 3])
 "#;
     let files = [("main", code)];
-    let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Indexing);
     let mut report = String::new();
     for (name, code) in &files {
         report.push_str("# ");
