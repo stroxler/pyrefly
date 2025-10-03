@@ -323,8 +323,10 @@ testcase!(
     test_unpacked_tuple_subtype,
     r#"
 from typing import Sequence
-def test(x: tuple[int, *tuple[str, ...]]) -> None:
-    y: Sequence[int | str] = x
+def test[*Ts](x1: tuple[int, *tuple[str, ...]], x2: tuple[*Ts]) -> None:
+    y1: Sequence[int | str] = x1
+    y2: tuple[int | str, ...] = x1
+    y3: tuple[object, ...] = x2
 "#,
 );
 

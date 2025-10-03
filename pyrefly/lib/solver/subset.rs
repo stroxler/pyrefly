@@ -757,6 +757,24 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             {
                 Ok(())
             }
+            (Type::Quantified(q), u @ Type::Tuple(_)) if q.is_type_var_tuple() => self
+                .is_subset_eq(
+                    &Type::Tuple(Tuple::unbounded(
+                        self.type_order.stdlib().object().clone().to_type(),
+                    )),
+                    u,
+                ),
+            (Type::Quantified(q), Type::ClassType(cls))
+                if q.is_type_var_tuple()
+                    && let Some(want) = self.type_order.as_tuple_type(cls) =>
+            {
+                self.is_subset_eq(
+                    &Type::Tuple(Tuple::unbounded(
+                        self.type_order.stdlib().object().clone().to_type(),
+                    )),
+                    &want,
+                )
+            }
             (t1, Type::Quantified(q)) => match q.restriction() {
                 // This only works for constraints and not bounds, because a TypeVar must resolve to exactly one of its constraints.
                 Restriction::Constraints(constraints) => all(constraints.iter(), |constraint| {
