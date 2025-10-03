@@ -248,6 +248,14 @@ struct OutputArgs {
     /// Pass "" to show absolute paths. When omitted, we will use the current working directory.
     #[arg(long)]
     relative_to: Option<String>,
+
+    /// Path to baseline file for comparing type errors
+    #[arg(long, value_name = "BASELINE_FILE")]
+    baseline: Option<PathBuf>,
+
+    /// When specified, emit a sorted/formatted JSON of the errors to the baseline file
+    #[arg(long, requires("baseline"))]
+    update_baseline: bool,
 }
 
 #[derive(Clone, Debug, ValueEnum, Default, PartialEq, Eq)]
@@ -705,6 +713,17 @@ impl CheckArgs {
         );
 
         let errors = loads.collect_errors();
+
+        if self.output.update_baseline
+            && let Some(baseline_path) = &self.output.baseline
+        {
+            OutputFormat::write_error_json_to_file(
+                baseline_path,
+                relative_to.as_path(),
+                &errors.shown,
+            )?;
+        }
+
         if let Some(path) = &self.output.output {
             self.output.output_format.write_errors_to_file(
                 path,
