@@ -146,7 +146,6 @@ b.x = 1 # E: Cannot set field `x`
 );
 
 testcase!(
-    bug = "configs should be inherited so we should raise an error here",
     test_config_inheritance,
     pydantic_env(),
     r#"
@@ -157,17 +156,21 @@ class Base(BaseModel):
 
 class Sub(Base):
     a: int
-    
-Sub(a=1, y=2) 
 
-
-class Base2(BaseModel):
-    model_config = ConfigDict(extra='allow')
-
-class Sub2(Base2):
+class Sub2(Sub):
     a: int
     
-Sub2(a=1, y=2) 
+Sub(a=1, y=2) # E: Unexpected keyword argument `y` in function `Sub.__init__`
+Sub2(a=1, y=2) # E: Unexpected keyword argument `y` in function `Sub2.__init__`
+
+
+class Base3(BaseModel):
+    model_config = ConfigDict(extra='allow')
+
+class Sub3(Base3):
+    a: int
+    
+Sub3(a=1, y=2) 
 
 "#,
 );

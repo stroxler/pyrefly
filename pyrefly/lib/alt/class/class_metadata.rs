@@ -532,11 +532,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             },
             None => {
                 // No "extra" keyword in the class-level keywords,
-                // so fallback to configdict
+                // so check if configdict has it, otherwise inherit from base classes
                 if let Some(configdict_extra) = extra {
                     *configdict_extra
                 } else {
-                    true
+                    // Check for inherited extra configuration from base classes
+                    bases_with_metadata
+                        .iter()
+                        .find_map(|(_, metadata)| {
+                            if metadata.is_pydantic_base_model() {
+                                metadata.dataclass_metadata().map(|dm| dm.kws.extra)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(true) // Default to true (ignore) if no base class has extra config
                 }
             }
         };
