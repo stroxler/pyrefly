@@ -1742,8 +1742,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
 
-        // Object construction (`__new__` and `__init__`) should not participate in override checks
-        if field_name == &dunder::NEW || field_name == &dunder::INIT {
+        // Object construction (`__new__`, `__init__`, `__init_subclass__`) should not participate in override checks
+        if field_name == &dunder::NEW
+            || field_name == &dunder::INIT
+            || field_name == &dunder::INIT_SUBCLASS
+        {
+            return;
+        }
+
+        // `__hash__` is often overridden to `None` to signal hashability
+        if field_name == &dunder::HASH {
             return;
         }
 
