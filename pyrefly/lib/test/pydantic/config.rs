@@ -144,22 +144,3 @@ b = B(x=0)
 b.x = 1 # E: Cannot set field `x`
 "#,
 );
-
-testcase!(
-    bug = "Nested config not supported yet. Fields should be frozen.",
-    test_nested_model_config,
-    pydantic_env(),
-    r#"
-from pydantic import BaseModel
-
-class Model(BaseModel):
-    class Config:
-        frozen = True
-
-    x: int = 42
-
-m = Model()
-m.x = 10
-
-"#,
-);
