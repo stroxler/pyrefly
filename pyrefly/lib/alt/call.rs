@@ -94,7 +94,8 @@ impl CallTarget {
 }
 
 struct CalledOverload {
-    signature: Callable,
+    func: Function,
+    res: Type,
     call_errors: ErrorCollector,
 }
 
@@ -780,8 +781,100 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let args = call.vec_call_arg(args, self, errors);
         let keywords = call.vec_call_keyword(keywords, self, errors);
 
-        let mut closest_overload: Option<CalledOverload> = None;
-        for callable in overloads.iter() {
+        let (closest_overload, matched) = self.find_closest_overload(
+            &overloads,
+            &metadata,
+            self_obj.as_ref(),
+            &args,
+            &keywords,
+            range,
+            errors,
+            hint,
+            ctor_targs,
+        );
+        // Record the closest overload to power IDE services.
+        self.record_overload_trace(
+            range,
+            overloads.map(|TargetWithTParams(_, Function { signature, .. })| signature),
+            &closest_overload.func.signature,
+            matched,
+        );
+        if matched {
+            // If the selected overload is deprecated, we log a deprecation error.
+            if closest_overload.func.metadata.flags.is_deprecated {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::Deprecated, context),
+                    format!(
+                        "Call to deprecated overload `{}`",
+                        closest_overload
+                            .func
+                            .metadata
+                            .kind
+                            .as_func_id()
+                            .format(self.module().name())
+                    ),
+                );
+            }
+            (closest_overload.res, closest_overload.func.signature)
+        } else {
+            let mut msg = vec1![
+                format!(
+                    "No matching overload found for function `{}`",
+                    metadata.kind.as_func_id().format(self.module().name())
+                ),
+                "Possible overloads:".to_owned(),
+            ];
+            for overload in overloads {
+                let suffix = if overload.1.signature == closest_overload.func.signature {
+                    " [closest match]"
+                } else {
+                    ""
+                };
+                let signature = match self_obj {
+                    Some(_) => overload
+                        .1
+                        .signature
+                        .split_first_param()
+                        .map(|(_, signature)| signature)
+                        .unwrap_or(overload.1.signature),
+                    None => overload.1.signature,
+                };
+                let signature = self
+                    .solver()
+                    .for_display(Type::Callable(Box::new(signature)));
+                msg.push(format!("{signature}{suffix}"));
+            }
+            // We intentionally discard closest_overload.call_errors. When no overload matches,
+            // there's a high likelihood that the "closest" one by our heuristic isn't the right
+            // one, in which case the call errors are just noise.
+            errors.add(
+                range,
+                ErrorInfo::new(ErrorKind::NoMatchingOverload, context),
+                msg,
+            );
+            (Type::any_error(), closest_overload.func.signature)
+        }
+    }
+
+    /// Returns the overload that matches the given arguments, or the one that produces the fewest
+    /// errors if none matches, plus a bool to indicate whether we found a match.
+    fn find_closest_overload(
+        &self,
+        overloads: &Vec1<TargetWithTParams<Function>>,
+        metadata: &FuncMetadata,
+        self_obj: Option<&Type>,
+        args: &[CallArg],
+        keywords: &[CallKeyword],
+        range: TextRange,
+        errors: &ErrorCollector,
+        hint: Option<HintRef>,
+        ctor_targs: Option<&mut TArgs>,
+    ) -> (CalledOverload, bool) {
+        let mut matched_overloads = Vec::with_capacity(overloads.len());
+        let mut closest_unmatched_overload: Option<CalledOverload> = None;
+        for callable in overloads {
             let mut ctor_targs_ = ctor_targs.as_ref().map(|x| (**x).clone());
             let tparams = callable.0.as_deref();
 
@@ -791,9 +884,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     callable.1.signature.clone(),
                     Some(metadata.kind.as_func_id()),
                     tparams,
-                    self_obj.clone(),
-                    &args,
-                    &keywords,
+                    self_obj.cloned(),
+                    args,
+                    keywords,
                     range,
                     errors,
                     &call_errors,
@@ -818,94 +911,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (call_errors, res)
                 };
 
-            if call_errors.is_empty() {
-                // An overload is chosen, we should record it to power IDE services.
-                self.record_overload_trace(
-                    range,
-                    overloads.map(|TargetWithTParams(_, Function { signature, .. })| signature),
-                    &callable.1.signature,
-                    true,
-                );
-
-                // If the selected overload is deprecated, we log a deprecation error.
-                if callable.1.metadata.flags.is_deprecated {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::new(ErrorKind::Deprecated, context),
-                        format!(
-                            "Call to deprecated overload `{}`",
-                            callable
-                                .1
-                                .metadata
-                                .kind
-                                .as_func_id()
-                                .format(self.module().name())
-                        ),
-                    );
-                }
+            let called_overload = CalledOverload {
+                func: callable.1.clone(),
+                res,
+                call_errors,
+            };
+            if called_overload.call_errors.is_empty() {
+                matched_overloads.push(called_overload);
+                // TODO: we currently take the first matching overload. We should instead collect
+                // all possible matches and use steps 4-6 described here to select one:
+                // https://typing.python.org/en/latest/spec/overload.html#step-4.
                 if let Some(targs) = ctor_targs {
                     *targs = ctor_targs_.unwrap();
                 }
-                return (res, callable.1.signature.clone());
-            }
-            let called_overload = CalledOverload {
-                signature: callable.1.signature.clone(),
-                call_errors,
-            };
-            match &closest_overload {
-                Some(overload)
-                    if overload.call_errors.len() <= called_overload.call_errors.len() => {}
-                _ => {
-                    closest_overload = Some(called_overload);
+                break;
+            } else {
+                match &closest_unmatched_overload {
+                    Some(overload)
+                        if overload.call_errors.len() <= called_overload.call_errors.len() => {}
+                    _ => {
+                        closest_unmatched_overload = Some(called_overload);
+                    }
                 }
             }
         }
-        // We're guaranteed to have at least one overload.
-        let closest_overload = closest_overload.unwrap();
-        self.record_overload_trace(
-            range,
-            overloads.map(|TargetWithTParams(_, Function { signature, .. })| signature),
-            &closest_overload.signature,
-            false,
-        );
-
-        let mut msg = vec1![
-            format!(
-                "No matching overload found for function `{}`",
-                metadata.kind.as_func_id().format(self.module().name())
-            ),
-            "Possible overloads:".to_owned(),
-        ];
-        for overload in overloads {
-            let suffix = if overload.1.signature == closest_overload.signature {
-                " [closest match]"
-            } else {
-                ""
-            };
-            let signature = match self_obj {
-                Some(_) => overload
-                    .1
-                    .signature
-                    .split_first_param()
-                    .map(|(_, signature)| signature)
-                    .unwrap_or(overload.1.signature),
-                None => overload.1.signature,
-            };
-            let signature = self
-                .solver()
-                .for_display(Type::Callable(Box::new(signature)));
-            msg.push(format!("{signature}{suffix}"));
+        if matched_overloads.is_empty() {
+            // There's always at least one overload, so if none of them matched, the closest overload must be non-None.
+            (closest_unmatched_overload.unwrap(), false)
+        } else {
+            (matched_overloads.into_iter().next().unwrap(), true)
         }
-        // We intentionally discard closest_overload.call_errors. When no overload matches,
-        // there's a high likelihood that the "closest" one by our heuristic isn't the right
-        // one, in which case the call errors are just noise.
-        errors.add(
-            range,
-            ErrorInfo::new(ErrorKind::NoMatchingOverload, context),
-            msg,
-        );
-        (Type::any_error(), closest_overload.signature)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
