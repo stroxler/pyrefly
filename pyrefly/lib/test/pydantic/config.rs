@@ -144,3 +144,30 @@ b = B(x=0)
 b.x = 1 # E: Cannot set field `x`
 "#,
 );
+
+testcase!(
+    bug = "configs should be inherited so we should raise an error here",
+    test_config_inheritance,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+class Base(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+class Sub(Base):
+    a: int
+    
+Sub(a=1, y=2) 
+
+
+class Base2(BaseModel):
+    model_config = ConfigDict(extra='allow')
+
+class Sub2(Base2):
+    a: int
+    
+Sub2(a=1, y=2) 
+
+"#,
+);
