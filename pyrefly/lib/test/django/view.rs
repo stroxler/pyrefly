@@ -5,17 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::test::util::TestEnv;
-use crate::testcase;
+use crate::django_testcase;
 
-fn django_env() -> TestEnv {
-    let path = std::env::var("DJANGO_TEST_PATH").expect("DJANGO_TEST_PATH must be set");
-    TestEnv::new_with_site_package_path(&path)
-}
-
-testcase!(
+django_testcase!(
     test_view,
-    django_env(),
     r#"
 from django.db import models
 from django.views.generic.detail import SingleObjectMixin 
@@ -33,9 +26,8 @@ assert_type(detail_view.get_context_object_name(1), str | None)
 "#,
 );
 
-testcase!(
+django_testcase!(
     test_list_view,
-    django_env(),
     r#"
 from django.db import models
 from django.views.generic.list import ListView 
@@ -54,10 +46,9 @@ assert_type(list_view.get_context_object_name(1), str | None)
 "#,
 );
 
-testcase!(
+django_testcase!(
     bug = "Example should typecheck.",
     test_user_passes_test_decorator,
-    django_env(),
     r#"
 from django.contrib.auth.decorators import user_passes_test 
 from django.http import HttpRequest, HttpResponse 
