@@ -1094,7 +1094,6 @@ impl Query {
         lt: &str,
         gt: &str,
     ) -> Result<bool, String> {
-        println!("At is_subtype top level");
         let mut t = self.state.transaction();
         let h = self.make_handle(name, ModulePath::memory(path.clone()));
 
