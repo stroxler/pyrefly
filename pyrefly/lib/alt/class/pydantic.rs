@@ -5,12 +5,21 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::callable::Callable;
+use pyrefly_types::callable::FuncMetadata;
+use pyrefly_types::callable::Function;
+use pyrefly_types::callable::Param;
+use pyrefly_types::callable::ParamList;
+use pyrefly_types::callable::Required;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::pydantic::PydanticModelKind::RootModel;
+use crate::binding::pydantic::ROOT;
 use crate::types::class::Class;
 use crate::types::types::Type;
 
@@ -36,5 +45,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         None
+    }
+
+    pub fn get_root_model_init(&self, cls: &Class, root_model_type: Type) -> ClassSynthesizedField {
+        let root_param = Param::Pos(ROOT, root_model_type, Required::Optional(None));
+        let params = vec![self.class_self_param(cls, false), root_param];
+        let ty = Type::Function(Box::new(Function {
+            signature: Callable::list(ParamList::new(params), Type::None),
+            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::INIT),
+        }));
+        ClassSynthesizedField::new(ty)
     }
 }
