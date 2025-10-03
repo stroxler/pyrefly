@@ -40,6 +40,7 @@ use pyrefly_util::fs_anyhow;
 use pyrefly_util::includes::Includes;
 use pyrefly_util::memory::MemoryUsageTrace;
 use pyrefly_util::watcher::Watcher;
+use ruff_text_size::Ranged;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
@@ -712,15 +713,27 @@ impl CheckArgs {
             |x| PathBuf::from_str(x.as_str()).unwrap(),
         );
 
-        let errors = loads.collect_errors();
+        let errors = loads
+            .collect_errors_with_baseline(self.output.baseline.as_deref(), relative_to.as_path());
 
+        // We update the baseline file if requested, after reporting any new errors using the old baseline
         if self.output.update_baseline
             && let Some(baseline_path) = &self.output.baseline
         {
+            let mut new_baseline = errors.shown.clone();
+            new_baseline.extend(errors.baseline);
+            new_baseline.sort_by_cached_key(|error| {
+                (
+                    error.path().to_string(),
+                    error.range().start(),
+                    error.range().end(),
+                    error.error_kind(),
+                )
+            });
             OutputFormat::write_error_json_to_file(
                 baseline_path,
                 relative_to.as_path(),
-                &errors.shown,
+                &new_baseline,
             )?;
         }
 
