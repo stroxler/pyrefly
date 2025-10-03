@@ -178,6 +178,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
+        // TODO Zeina: This pattern is repeated a lot in this file. See if we can refactor it (BE).
+        let has_django_model = bases_with_metadata.iter().any(|(base_class_object, _)| {
+            base_class_object.has_toplevel_qname(ModuleName::django_models().as_str(), "Model")
+        });
+
+        let is_django_model = has_django_model
+            || bases_with_metadata
+                .iter()
+                .any(|(_, metadata)| metadata.is_django_model());
+
         // Compute various pieces of special metadata.
         let has_base_any = contains_base_class_any
             || bases_with_metadata
@@ -318,6 +328,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             total_ordering_metadata,
             dataclass_transform_metadata,
             pydantic_model_kind,
+            is_django_model,
         )
     }
 
