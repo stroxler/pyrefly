@@ -177,8 +177,7 @@ def foo():
         nonlocal x
         x = 2
 "#,
-    // TODO(T225700656)
-    HashMap::new(),
+    HashMap::from([("inner".into(), vec![create_captured_variable("x")]),]),
 );
 
 exported_captured_variables_testcase!(
@@ -192,8 +191,7 @@ def foo():
             nonlocal x
             x = 2
 "#,
-    // TODO(T225700656)
-    HashMap::new(),
+    HashMap::from([("nested".into(), vec![create_captured_variable("x")]),]),
 );
 
 exported_captured_variables_testcase!(
@@ -205,8 +203,7 @@ def foo(x):
     def inner():
         print(x)
 "#,
-    // TODO(T225700656)
-    HashMap::new(),
+    HashMap::from([("inner".into(), vec![create_captured_variable("x")]),]),
 );
 
 exported_captured_variables_testcase!(
@@ -217,6 +214,36 @@ def foo():
     x.append(1)
     print(x)
 
+    def inner():
+        print(x)
+"#,
+    HashMap::from([("inner".into(), vec![create_captured_variable("x")]),]),
+);
+
+exported_captured_variables_testcase!(
+    test_export_capture_narrowed,
+    r#"
+def int_or_str(cond) -> int | str:
+    return 1 if cond else "1"
+
+def foo(cond):
+    x = int_or_str(cond)
+    if isinstance(x, str):
+        return
+    def inner():
+        print(x)
+"#,
+    HashMap::from([("inner".into(), vec![create_captured_variable("x")]),]),
+);
+
+exported_captured_variables_testcase!(
+    test_export_capture_conditional_definition,
+    r#"
+def foo(cond):
+    if cond:
+        x = 1
+    else:
+        x = 2
     def inner():
         print(x)
 "#,

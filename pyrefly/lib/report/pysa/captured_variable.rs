@@ -17,6 +17,7 @@ use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use serde::Serialize;
 use starlark_map::Hashed;
+use starlark_map::small_set::SmallSet;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
@@ -69,7 +70,7 @@ impl<'a> DefinitionToScopeMapVisitor<'a> {
                     .insert(idx, ScopeId::from_scopes(scopes))
                     .is_none(),
                 "Found multiple definitions for {:?}",
-                &key
+                &key,
             );
         }
     }
@@ -129,8 +130,19 @@ struct CapturedVariableVisitor<'a> {
 }
 
 impl<'a> CapturedVariableVisitor<'a> {
-    fn get_definition_scope_from_usage(&self, name: &ExprName) -> Option<ScopeId> {
-        let key = Key::BoundName(ShortIdentifier::expr_name(name));
+    fn check_capture(&mut self, key: Key, name: &Name, scopes: &Scopes) {
+        if let Some(scope_id) = self.get_definition_scope_from_usage(key)
+            && scope_id != ScopeId::from_scopes(scopes)
+            && let Some(current_function) = &self.current_exported_function
+        {
+            self.captured_variables
+                .entry(current_function.clone())
+                .or_default()
+                .insert(CapturedVariable { name: name.clone() });
+        }
+    }
+
+    fn get_definition_scope_from_usage(&self, key: Key) -> Option<ScopeId> {
         let idx = self
             .module_context
             .bindings
@@ -138,8 +150,39 @@ impl<'a> CapturedVariableVisitor<'a> {
         let binding = self.module_context.bindings.get(idx);
         match binding {
             Binding::Forward(definition_idx) => {
-                self.definition_to_scope_map.get(definition_idx).cloned()
+                self.get_definition_scope_from_idx(*definition_idx, SmallSet::new())
             }
+            _ => None,
+        }
+    }
+
+    fn get_definition_scope_from_idx(
+        &self,
+        idx: Idx<Key>,
+        mut seen: SmallSet<Idx<Key>>,
+    ) -> Option<ScopeId> {
+        if let Some(scope_id) = self.definition_to_scope_map.get(&idx) {
+            return Some(*scope_id);
+        }
+
+        // Avoid cycles in bindings.
+        if seen.contains(&idx) {
+            return None;
+        }
+        seen.insert(idx);
+
+        let binding = self.module_context.bindings.get(idx);
+        match binding {
+            Binding::Forward(idx) => self.get_definition_scope_from_idx(*idx, seen),
+            Binding::Phi(elements) => {
+                for idx in elements {
+                    if let Some(scope_id) = self.get_definition_scope_from_idx(*idx, seen.clone()) {
+                        return Some(scope_id);
+                    }
+                }
+                None
+            }
+            Binding::CompletedPartialType(idx, _) => self.get_definition_scope_from_idx(*idx, seen),
             _ => None,
         }
     }
@@ -163,16 +206,29 @@ impl<'a> AstScopedVisitor for CapturedVariableVisitor<'a> {
 
         match expr {
             Expr::Name(x) => {
-                if let Some(scope_id) = self.get_definition_scope_from_usage(x)
-                    && scope_id != ScopeId::from_scopes(scopes)
-                    && let Some(current_function) = &self.current_exported_function
-                {
-                    self.captured_variables
-                        .entry(current_function.clone())
-                        .or_default()
-                        .insert(CapturedVariable {
-                            name: x.id().clone(),
-                        });
+                self.check_capture(
+                    Key::BoundName(ShortIdentifier::expr_name(x)),
+                    x.id(),
+                    scopes,
+                );
+            }
+            _ => (),
+        }
+    }
+
+    fn visit_statement(&mut self, stmt: &Stmt, scopes: &Scopes) {
+        if self.current_exported_function.is_none() {
+            return;
+        }
+
+        match stmt {
+            Stmt::Nonlocal(nonlocal) => {
+                for identifier in &nonlocal.names {
+                    self.check_capture(
+                        Key::MutableCapture(ShortIdentifier::new(identifier)),
+                        identifier.id(),
+                        scopes,
+                    );
                 }
             }
             _ => (),
