@@ -10,13 +10,14 @@ use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Type;
 use ruff_python_ast::name::Name;
 
+use crate::report::pysa::captured_variable::ModuleCapturedVariables;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionDefinition;
 use crate::report::pysa::function::FunctionParameter;
 use crate::report::pysa::function::FunctionParameters;
 use crate::report::pysa::function::FunctionSignature;
-use crate::report::pysa::function::add_undecorated_signatures;
+use crate::report::pysa::function::add_undecorated_signatures_and_captures;
 use crate::report::pysa::function::export_all_functions;
 use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::override_graph::WholeProgramReversedOverrideGraph;
@@ -47,6 +48,7 @@ fn create_function_definition(
             overridden_base_method: None,
         },
         undecorated_signatures,
+        captured_variables: Vec::new(),
     }
 }
 
@@ -77,8 +79,10 @@ fn test_exported_functions(
     let expected_function_definitions = create_expected_function_definitions(&context);
 
     let reversed_override_graph = WholeProgramReversedOverrideGraph::new();
-    let actual_function_definitions = add_undecorated_signatures(
+    let captured_variables = ModuleCapturedVariables::new();
+    let actual_function_definitions = add_undecorated_signatures_and_captures(
         &export_all_functions(&reversed_override_graph, &context),
+        &captured_variables,
         &context,
     );
 

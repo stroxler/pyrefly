@@ -1,0 +1,201 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+use std::collections::HashMap;
+use std::collections::HashSet;
+
+use pyrefly_python::ast::Ast;
+use pyrefly_python::short_identifier::ShortIdentifier;
+use ruff_python_ast::Expr;
+use ruff_python_ast::ExprName;
+use ruff_python_ast::ModModule;
+use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::name::Name;
+use serde::Serialize;
+use starlark_map::Hashed;
+
+use crate::binding::binding::Binding;
+use crate::binding::binding::Key;
+use crate::graph::index::Idx;
+use crate::report::pysa::ast_visitor::AstScopedVisitor;
+use crate::report::pysa::ast_visitor::ScopeId;
+use crate::report::pysa::ast_visitor::Scopes;
+use crate::report::pysa::ast_visitor::visit_module_ast;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::function::FunctionRef;
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+pub struct CapturedVariable {
+    pub name: Name,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleCapturedVariables(HashMap<FunctionRef, HashSet<CapturedVariable>>);
+
+impl ModuleCapturedVariables {
+    #[cfg(test)]
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    #[cfg(test)]
+    pub fn into_iter(self) -> impl Iterator<Item = (FunctionRef, HashSet<CapturedVariable>)> {
+        self.0.into_iter()
+    }
+
+    pub fn get<'a>(&'a self, function_ref: &FunctionRef) -> Option<&'a HashSet<CapturedVariable>> {
+        self.0.get(function_ref)
+    }
+}
+
+struct DefinitionToScopeMapVisitor<'a> {
+    definition_to_scope_map: &'a mut HashMap<Idx<Key>, ScopeId>,
+    module_context: &'a ModuleContext<'a>,
+}
+
+impl<'a> DefinitionToScopeMapVisitor<'a> {
+    fn bind_name(&mut self, key: Key, scopes: &Scopes) {
+        if let Some(idx) = self
+            .module_context
+            .bindings
+            .key_to_idx_hashed_opt(Hashed::new(&key))
+        {
+            assert!(
+                self.definition_to_scope_map
+                    .insert(idx, ScopeId::from_scopes(scopes))
+                    .is_none(),
+                "Found multiple definitions for {:?}",
+                &key
+            );
+        }
+    }
+
+    fn bind_assign_target(&mut self, target: &Expr, scopes: &Scopes) {
+        Ast::expr_lvalue(target, &mut |name: &ExprName| {
+            self.bind_name(Key::Definition(ShortIdentifier::expr_name(name)), scopes);
+        });
+    }
+}
+
+impl<'a> AstScopedVisitor for DefinitionToScopeMapVisitor<'a> {
+    fn visit_statement(&mut self, stmt: &Stmt, scopes: &Scopes) {
+        match stmt {
+            Stmt::Assign(x) => {
+                for target in &x.targets {
+                    self.bind_assign_target(target, scopes);
+                }
+            }
+            Stmt::AnnAssign(x) => self.bind_assign_target(&x.target, scopes),
+            Stmt::AugAssign(x) => self.bind_assign_target(&x.target, scopes),
+            _ => (),
+        }
+    }
+
+    fn enter_function_scope(&mut self, function_def: &StmtFunctionDef, scopes: &Scopes) {
+        for p in function_def.parameters.iter_non_variadic_params() {
+            self.bind_name(
+                Key::Definition(ShortIdentifier::new(&p.parameter.name)),
+                scopes,
+            );
+        }
+        if let Some(args) = &function_def.parameters.vararg {
+            self.bind_name(Key::Definition(ShortIdentifier::new(&args.name)), scopes);
+        }
+        if let Some(kwargs) = &function_def.parameters.kwarg {
+            self.bind_name(Key::Definition(ShortIdentifier::new(&kwargs.name)), scopes);
+        }
+    }
+
+    fn visit_expression(&mut self, _expr: &Expr, _scopes: &Scopes) {}
+    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, _scopes: &Scopes) {}
+    fn enter_class_scope(&mut self, _class_def: &StmtClassDef, _scopes: &Scopes) {}
+    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, _scopes: &Scopes) {}
+    fn enter_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
+    fn exit_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
+}
+
+fn build_definition_to_scope_map(context: &ModuleContext) -> HashMap<Idx<Key>, ScopeId> {
+    let mut definition_to_scope_map = HashMap::new();
+    let mut visitor = DefinitionToScopeMapVisitor {
+        definition_to_scope_map: &mut definition_to_scope_map,
+        module_context: context,
+    };
+    visit_module_ast(&mut visitor, context);
+    definition_to_scope_map
+}
+
+struct CapturedVariableVisitor<'a> {
+    captured_variables: &'a mut HashMap<FunctionRef, HashSet<CapturedVariable>>,
+    definition_to_scope_map: &'a HashMap<Idx<Key>, ScopeId>,
+    module_context: &'a ModuleContext<'a>,
+}
+
+impl<'a> CapturedVariableVisitor<'a> {
+    fn get_definition_scope_from_usage(&self, name: &ExprName) -> Option<ScopeId> {
+        let key = Key::BoundName(ShortIdentifier::expr_name(name));
+        let idx = self
+            .module_context
+            .bindings
+            .key_to_idx_hashed_opt(Hashed::new(&key))?;
+        let binding = self.module_context.bindings.get(idx);
+        match binding {
+            Binding::Forward(definition_idx) => {
+                self.definition_to_scope_map.get(definition_idx).cloned()
+            }
+            _ => None,
+        }
+    }
+}
+
+impl<'a> AstScopedVisitor for CapturedVariableVisitor<'a> {
+    fn visit_expression(&mut self, expr: &Expr, scopes: &Scopes) {
+        match expr {
+            Expr::Name(x) => {
+                if let Some(scope_id) = self.get_definition_scope_from_usage(x)
+                    && scope_id != ScopeId::from_scopes(scopes)
+                    && let Some(current_function) = scopes.current_exported_function(
+                        self.module_context.module_id,
+                        self.module_context.module_info.name(),
+                        /* include_top_level */ true,
+                        /* include_class_top_level */ true,
+                        /* include_decorators_in_decorated_definition */ false,
+                    )
+                {
+                    self.captured_variables
+                        .entry(current_function)
+                        .or_default()
+                        .insert(CapturedVariable {
+                            name: x.id().clone(),
+                        });
+                }
+            }
+            _ => (),
+        }
+    }
+
+    fn visit_statement(&mut self, _stmt: &Stmt, _scopes: &Scopes) {}
+    fn enter_function_scope(&mut self, _function_def: &StmtFunctionDef, _scopes: &Scopes) {}
+    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, _scopes: &Scopes) {}
+    fn enter_class_scope(&mut self, _class_def: &StmtClassDef, _scopes: &Scopes) {}
+    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, _scopes: &Scopes) {}
+    fn enter_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
+    fn exit_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
+}
+
+pub fn export_captured_variables(context: &ModuleContext) -> ModuleCapturedVariables {
+    let definition_to_scope_map = build_definition_to_scope_map(context);
+    let mut captured_variables = HashMap::new();
+    let mut visitor = CapturedVariableVisitor {
+        captured_variables: &mut captured_variables,
+        definition_to_scope_map: &definition_to_scope_map,
+        module_context: context,
+    };
+    visit_module_ast(&mut visitor, context);
+    ModuleCapturedVariables(captured_variables)
+}

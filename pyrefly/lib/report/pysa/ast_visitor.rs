@@ -6,6 +6,7 @@
  */
 
 use dupe::Dupe;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::class::Class;
 use pyrefly_util::visit::Visit;
@@ -26,8 +27,10 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionId;
+use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::should_export_function;
 use crate::report::pysa::location::PysaLocation;
+use crate::report::pysa::module::ModuleId;
 
 pub enum Scope {
     TopLevel,
@@ -75,8 +78,110 @@ pub struct Scopes {
 }
 
 impl Scopes {
-    pub fn current(&self) -> &Scope {
-        self.stack.last().unwrap()
+    pub fn current_exported_function(
+        &self,
+        module_id: ModuleId,
+        module_name: ModuleName,
+        include_top_level: bool,
+        include_class_top_level: bool,
+        include_decorators_in_decorated_definition: bool,
+    ) -> Option<FunctionRef> {
+        let mut iterator = self.stack.iter().rev();
+        loop {
+            match iterator.next().unwrap() {
+                Scope::TopLevel => {
+                    if include_top_level {
+                        return Some(FunctionRef {
+                            module_id,
+                            module_name,
+                            function_id: FunctionId::ModuleTopLevel,
+                            function_name: Name::from("$toplevel"),
+                        });
+                    } else {
+                        return None;
+                    }
+                }
+                Scope::ExportedFunction {
+                    function_id,
+                    function_name,
+                    ..
+                } => {
+                    return Some(FunctionRef {
+                        module_id,
+                        module_name,
+                        function_id: function_id.clone(),
+                        function_name: function_name.clone(),
+                    });
+                }
+                Scope::NonExportedFunction { .. } => {
+                    return None;
+                }
+                Scope::ExportedClass { class_id, .. } => {
+                    if include_class_top_level {
+                        return Some(FunctionRef {
+                            module_id,
+                            module_name,
+                            function_id: FunctionId::ClassTopLevel {
+                                class_id: *class_id,
+                            },
+                            function_name: Name::from("$class_toplevel"),
+                        });
+                    } else {
+                        return None;
+                    }
+                }
+                Scope::NonExportedClass { .. } => {
+                    return None;
+                }
+                Scope::FunctionTypeParams
+                | Scope::FunctionParameters
+                | Scope::FunctionReturnAnnotation
+                | Scope::ClassTypeParams
+                | Scope::ClassArguments => {
+                    // These are not true "semantic" scopes.
+                    // We need to skip the parent scope, which is the wrapping function/class scope.
+                    iterator.next().unwrap();
+                }
+                Scope::FunctionDecorators | Scope::ClassDecorators => {
+                    if !include_decorators_in_decorated_definition {
+                        iterator.next().unwrap();
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScopeId(TextRange);
+
+impl ScopeId {
+    pub fn top_level() -> Self {
+        ScopeId(TextRange::default())
+    }
+
+    pub fn from_scopes(scopes: &Scopes) -> Self {
+        let mut iterator = scopes.stack.iter().rev();
+        loop {
+            match iterator.next().unwrap() {
+                Scope::TopLevel => return ScopeId::top_level(),
+                Scope::ExportedFunction { location, .. } => return ScopeId(*location),
+                Scope::ExportedClass { location, .. } => return ScopeId(*location),
+                Scope::NonExportedFunction { location, .. } => return ScopeId(*location),
+                Scope::NonExportedClass { location, .. } => return ScopeId(*location),
+                Scope::FunctionDecorators
+                | Scope::FunctionTypeParams
+                | Scope::FunctionParameters
+                | Scope::FunctionReturnAnnotation
+                | Scope::ClassDecorators
+                | Scope::ClassTypeParams
+                | Scope::ClassArguments => {
+                    // These are not true "semantic" scopes.
+                    // We need to skip the parent scope, which is the wrapping function/class scope.
+                    iterator.next().unwrap();
+                }
+            }
+        }
     }
 }
 
@@ -93,7 +198,7 @@ pub trait AstScopedVisitor {
 
 fn visit_expression<V: AstScopedVisitor>(expr: &Expr, visitor: &mut V, scopes: &mut Scopes) {
     visitor.visit_expression(expr, scopes);
-    expr.recurse(&mut |e| visitor.visit_expression(e, scopes));
+    expr.recurse(&mut |e| visit_expression(e, visitor, scopes));
 }
 
 fn visit_statement<V: AstScopedVisitor>(

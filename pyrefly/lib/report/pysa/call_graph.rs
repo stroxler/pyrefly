@@ -17,18 +17,15 @@ use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
-use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
-use crate::report::pysa::ast_visitor::Scope;
 use crate::report::pysa::ast_visitor::Scopes;
 use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
-use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
@@ -434,30 +431,13 @@ impl<'a> CallGraphVisitor<'a> {
     }
 
     fn set_current_function(&mut self, scopes: &Scopes) {
-        let current_function = match scopes.current() {
-            Scope::TopLevel => Some(FunctionRef {
-                module_id: self.module_id,
-                module_name: self.module_name,
-                function_id: FunctionId::ModuleTopLevel,
-                function_name: Name::from("$toplevel"),
-            }),
-            Scope::ExportedFunction {
-                function_id,
-                function_name,
-                ..
-            } => Some(FunctionRef {
-                module_id: self.module_id,
-                module_name: self.module_name,
-                function_id: function_id.clone(),
-                function_name: function_name.clone(),
-            }),
-            Scope::NonExportedFunction { .. } => None,
-            Scope::ExportedClass { .. } => None,
-            Scope::NonExportedClass { .. } => None,
-            _ => panic!("unexpected current scope"),
-        };
-
-        self.current_function = current_function;
+        self.current_function = scopes.current_exported_function(
+            self.module_id,
+            self.module_name,
+            /* include_top_level */ true,
+            /* include_class_top_level */ true,
+            /* include_decorators_in_decorated_definition */ true,
+        );
     }
 
     // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest

@@ -7,6 +7,7 @@
 
 pub mod ast_visitor;
 pub mod call_graph;
+pub mod captured_variable;
 pub mod class;
 pub mod context;
 pub mod function;
@@ -41,6 +42,7 @@ use serde::Serialize;
 use tracing::info;
 
 use crate::module::typeshed::typeshed;
+use crate::report::pysa::captured_variable::export_captured_variables;
 use crate::report::pysa::class::ClassDefinition;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::class::export_all_classes;
@@ -49,7 +51,7 @@ use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionDefinition;
 use crate::report::pysa::function::ModuleFunctionDefinitions;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
-use crate::report::pysa::function::add_undecorated_signatures;
+use crate::report::pysa::function::add_undecorated_signatures_and_captures;
 use crate::report::pysa::function::collect_function_base_definitions;
 use crate::report::pysa::global_variable::GlobalVariable;
 use crate::report::pysa::global_variable::export_global_variables;
@@ -106,14 +108,17 @@ pub fn get_module_file(
 ) -> PysaModuleFile {
     let global_variables = export_global_variables(context);
     let type_of_expression = export_type_of_expressions(context);
+    let captured_variables = export_captured_variables(context);
 
     let function_base_definitions_for_module = function_base_definitions
         .get_for_module(context.module_id)
         .unwrap();
-    let function_definitions =
-        add_undecorated_signatures(function_base_definitions_for_module, context);
+    let function_definitions = add_undecorated_signatures_and_captures(
+        function_base_definitions_for_module,
+        &captured_variables,
+        context,
+    );
     let class_definitions = export_all_classes(context);
-
     PysaModuleFile {
         format_version: 1,
         module_id: context.module_id,

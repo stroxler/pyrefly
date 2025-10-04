@@ -26,6 +26,8 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::captured_variable::CapturedVariable;
+use crate::report::pysa::captured_variable::ModuleCapturedVariables;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::location::PysaLocation;
@@ -42,14 +44,9 @@ use crate::state::state::Transaction;
 /// Represents a unique identifier for a function **within a module**.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FunctionId {
-    Function {
-        location: PysaLocation,
-    },
+    Function { location: PysaLocation },
     ModuleTopLevel,
-    #[expect(dead_code)]
-    ClassTopLevel {
-        class_id: ClassId,
-    },
+    ClassTopLevel { class_id: ClassId },
 }
 
 impl FunctionId {
@@ -204,6 +201,8 @@ pub struct FunctionDefinition {
     #[serde(flatten)]
     pub base: FunctionBaseDefinition,
     pub undecorated_signatures: Vec<FunctionSignature>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub captured_variables: Vec<CapturedVariable>,
 }
 
 impl FunctionDefinition {
@@ -446,8 +445,9 @@ pub fn export_all_functions(
     function_base_definitions
 }
 
-pub fn add_undecorated_signatures(
+pub fn add_undecorated_signatures_and_captures(
     function_base_definitions: &ModuleFunctionDefinitions<FunctionBaseDefinition>,
+    captured_variables: &ModuleCapturedVariables,
     context: &ModuleContext,
 ) -> ModuleFunctionDefinitions<FunctionDefinition> {
     let mut function_definitions = ModuleFunctionDefinitions::new();
@@ -466,6 +466,10 @@ pub fn add_undecorated_signatures(
                         FunctionDefinition {
                             base: function_base_definition.to_owned(),
                             undecorated_signatures: get_undecorated_signatures(function, context),
+                            captured_variables: captured_variables
+                                .get(&current_function)
+                                .map(|set| set.iter().cloned().collect::<Vec<_>>())
+                                .unwrap_or_default(),
                         },
                     )
                     .is_none(),
