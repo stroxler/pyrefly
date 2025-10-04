@@ -8,6 +8,7 @@
 use crate::testcase;
 
 testcase!(
+    bug = "Missing uninitialized local error",
     test_double_name_match,
     r#"
 match 42:

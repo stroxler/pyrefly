@@ -702,6 +702,7 @@ def foo(x: list[int]) -> None:
 );
 
 testcase!(
+    bug = "We fail to catch a flow where `b` gives a name error",
     test_match_or,
     r#"
 from typing import assert_type
@@ -712,7 +713,7 @@ match x:
     case [a] | a: # E: name capture `a` makes remaining patterns unreachable
         assert_type(a, list[int] | int)
     case [b] | _:
-        assert_type(b, int)
+        assert_type(b, int)  # Should error here - the wildcard means `b` may not be bound
 
 match x:
     case _ | _:  # E: Only the last subpattern in MatchOr may be irrefutable
@@ -1010,13 +1011,14 @@ def f():
 );
 
 testcase!(
+    bug = "We're too lax about uninitialized locals in flow merging",
     test_false_and_walrus,
     r#"
 def f(v):
     if False and (value := v):
         print(value)
     else:
-        print(value)
+        print(value)  # Should complain about possibly uninitialized `value`
     "#,
 );
 
