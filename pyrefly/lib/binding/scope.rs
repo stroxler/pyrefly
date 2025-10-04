@@ -338,7 +338,23 @@ impl Static {
                     found.range = range;
                 } else {
                     let annotation = found.annotation().or_else(|| style.annotation());
-                    found.style = StaticStyle::Anywhere(annotation);
+                    // This logic is hit when a name is a parameter
+                    //
+                    // We try to handle parameters that are also bound by the body in the same way that `Definitions`
+                    // would have handled an assignment that preceded all other definitions:
+                    // - A parameter that only gets deleted is similar to a single-assingment name.
+                    // - A mutable capture that is also a prameter is illegal, but for consistency
+                    //   we treat it like a mutable capture.
+                    match &style {
+                        StaticStyle::Delete => {}
+                        StaticStyle::MutableCapture(..) => {
+                            found.style = style;
+                            found.range = range;
+                        }
+                        _ => {
+                            found.style = StaticStyle::Anywhere(annotation);
+                        }
+                    }
                 }
             }
         }
