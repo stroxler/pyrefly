@@ -5,17 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::test::util::TestEnv;
-use crate::testcase;
+use crate::pydantic_testcase;
 
-fn pydantic_env() -> TestEnv {
-    let path = std::env::var("PYDANTIC_TEST_PATH").expect("PYDANTIC_TEST_PATH must be set");
-    TestEnv::new_with_site_package_path(&path)
-}
-
-testcase!(
+pydantic_testcase!(
     test_pyrefly_strict,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel):
@@ -27,9 +20,8 @@ Model(x='0', y='1') # E: Argument `Literal['1']` is not assignable to parameter 
 );
 
 // Note: mypy does not support strict=false. Everything is strict.
-testcase!(
+pydantic_testcase!(
     test_pyrefly_strict_default,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel):
@@ -40,9 +32,8 @@ Model(x='0', y='1') # E: Argument `Literal['1']` is not assignable to parameter 
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_class_keyword,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 
@@ -68,9 +59,8 @@ Model2(y='0')  # E: `Literal['0']` is not assignable to parameter `y`
     "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_configdict,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, ConfigDict
 class Model(BaseModel):
@@ -81,9 +71,8 @@ Model(x='0')  # E: `Literal['0']` is not assignable to parameter `x`
     "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_multiple_strict_values,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, ConfigDict
 

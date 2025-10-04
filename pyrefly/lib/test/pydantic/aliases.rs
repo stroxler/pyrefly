@@ -5,17 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::test::util::TestEnv;
-use crate::testcase;
+use crate::pydantic_testcase;
 
-fn pydantic_env() -> TestEnv {
-    let path = std::env::var("PYDANTIC_TEST_PATH").expect("PYDANTIC_TEST_PATH must be set");
-    TestEnv::new_with_site_package_path(&path)
-}
-
-testcase!(
+pydantic_testcase!(
     test_alias,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 
@@ -28,9 +21,8 @@ m.y # E: Object of class `Model` has no attribute `y`
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_validation_alias,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 
@@ -46,9 +38,8 @@ m.z  # E: Object of class `Model` has no attribute `z`
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_validation_by_alias_and_name,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=True):
@@ -58,9 +49,8 @@ Model(y=0)
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_validation_by_alias,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_alias=True):
@@ -70,9 +60,8 @@ Model(y=0)
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_validation_by_name,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True):
@@ -82,9 +71,8 @@ Model(y=0)
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_validation_by_name_only,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=False):
@@ -94,10 +82,9 @@ Model(y=0) # E: Missing argument `x` in function `Model.__init__`
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     bug = "when both validation keys are true, aliases should be required. mypy doesn't support the right behavior here either. This requires generating overloads. We might shelve this for v2",
     test_validation_defaults,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field
 class Model(BaseModel, validate_by_name=True, validate_by_alias=True):
@@ -106,9 +93,8 @@ Model()
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_configdict_validate_by_name,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field, ConfigDict
 class Model(BaseModel):
@@ -119,9 +105,8 @@ Model(x="123")
     "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_configdict_validate_by_alias,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field, ConfigDict
 class Model(BaseModel):
@@ -132,9 +117,8 @@ Model(x="123")
     "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_configdict_validate_by_alias_optional,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, Field, ConfigDict
 class Example(BaseModel):
@@ -150,10 +134,9 @@ x3 = Example(id="1", someAttribute123="value")
     "#,
 );
 
-testcase!(
+pydantic_testcase!(
     bug = "For some reason, when we actually define the field, we don't properly propagate the validation info though inhertance",
     test_validation_inheritance,
-    pydantic_env(),
     r#"
 from pydantic import BaseModel, ConfigDict, Field
 

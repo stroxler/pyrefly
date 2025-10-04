@@ -5,17 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::test::util::TestEnv;
-use crate::testcase;
+use crate::pydantic_testcase;
 
-fn pydantic_env() -> TestEnv {
-    let path = std::env::var("PYDANTIC_TEST_PATH").expect("PYDANTIC_TEST_PATH must be set");
-    TestEnv::new_with_site_package_path(&path)
-}
-
-testcase!(
+pydantic_testcase!(
     test_root_model_basic,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 class IntRootModel(RootModel[int]):
@@ -28,9 +21,8 @@ m5 = IntRootModel(123, 456)  # E: Expected 1 positional argument, got 2
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_root_model_generic,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 class GenericRootModel[T](RootModel[T]):
@@ -40,9 +32,8 @@ m2 = GenericRootModel("abc")
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_root_model_wrong_args,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 class TwoArgRootModel[F, G](RootModel[F, G]): # E: Expected 1 type argument for `RootModel`, got 2
@@ -51,9 +42,8 @@ m1 = TwoArgRootModel(123, "abc") # E: Expected 1 positional argument, got 2 in f
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_zero_to_one_args,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 
@@ -66,9 +56,8 @@ m4 = ZeroArgRootModel(123, 456)  # E: Expected 1 positional argument, got 2
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_fallback,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 
@@ -79,9 +68,8 @@ m1 = FallBackRootModel(123)
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_inheritance,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 
@@ -96,9 +84,8 @@ m2 = B("abc") # E: Argument `Literal['abc']` is not assignable to parameter `roo
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_inheritance_kwarg,
-    pydantic_env(),
     r#"
 from pydantic import RootModel
 
@@ -114,9 +101,8 @@ m3 = B(3)
 "#,
 );
 
-testcase!(
+pydantic_testcase!(
     test_directly_use_root_model,
-    pydantic_env(),
     r#"
 from typing import Any, assert_type
 from pydantic import RootModel
