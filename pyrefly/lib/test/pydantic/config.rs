@@ -159,3 +159,16 @@ Sub3(a=1, y=2)
 
 "#,
 );
+
+pydantic_testcase!(
+    test_two_config_values,
+    r#"
+from pydantic import BaseModel, ConfigDict
+class A(BaseModel):
+    x: int
+    model_config = ConfigDict(frozen=True, strict=True)
+a = A(x=0)
+a.x = 1  # E: Cannot set field `x`
+A(x='oops')  # E: `Literal['oops']` is not assignable to parameter `x`
+    "#,
+);

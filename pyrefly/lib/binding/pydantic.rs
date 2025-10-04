@@ -7,6 +7,7 @@
 
 use pyrefly_derive::TypeEq;
 use ruff_python_ast::Expr;
+use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
 use starlark_map::Hashed;
 
@@ -70,11 +71,8 @@ impl<'a> BindingsBuilder<'a> {
             && special == SpecialExport::PydanticConfigDict
         {
             for kw in &call.arguments.keywords {
-                if let Some(arg_name) = &kw.arg
-                    && arg_name.id == FROZEN
-                    && let Expr::BooleanLiteral(bl) = &kw.value
-                {
-                    pydantic_config_dict.frozen = Some(bl.value);
+                if let Some(v) = self.extract_bool_keyword(kw, &FROZEN) {
+                    pydantic_config_dict.frozen = Some(v);
                 }
 
                 if let Some(arg_name) = &kw.arg
@@ -97,27 +95,28 @@ impl<'a> BindingsBuilder<'a> {
                     };
                 }
 
-                if let Some(arg_name) = &kw.arg
-                    && arg_name.id == STRICT
-                    && let Expr::BooleanLiteral(bl) = &kw.value
-                {
-                    pydantic_config_dict.strict = Some(bl.value);
+                if let Some(v) = self.extract_bool_keyword(kw, &STRICT) {
+                    pydantic_config_dict.strict = Some(v);
                 }
 
-                if let Some(arg_name) = &kw.arg
-                    && arg_name.id == VALIDATE_BY_NAME
-                    && let Expr::BooleanLiteral(bl) = &kw.value
-                {
-                    pydantic_config_dict.validation_flags.validate_by_name = bl.value;
+                if let Some(v) = self.extract_bool_keyword(kw, &VALIDATE_BY_NAME) {
+                    pydantic_config_dict.validation_flags.validate_by_name = v;
                 }
-
-                if let Some(arg_name) = &kw.arg
-                    && arg_name.id == VALIDATE_BY_ALIAS
-                    && let Expr::BooleanLiteral(bl) = &kw.value
-                {
-                    pydantic_config_dict.validation_flags.validate_by_alias = bl.value;
+                if let Some(v) = self.extract_bool_keyword(kw, &VALIDATE_BY_ALIAS) {
+                    pydantic_config_dict.validation_flags.validate_by_alias = v;
                 }
             }
+        }
+    }
+
+    fn extract_bool_keyword(&self, kw: &Keyword, target_kw: &Name) -> Option<bool> {
+        if let Some(arg_name) = &kw.arg
+            && arg_name.id == *target_kw
+            && let Expr::BooleanLiteral(bl) = &kw.value
+        {
+            Some(bl.value)
+        } else {
+            None
         }
     }
 }
