@@ -33,6 +33,7 @@ const EXTRA: Name = Name::new_static("extra");
 pub struct PydanticConfigDict {
     pub frozen: Option<bool>,
     pub extra: Option<bool>,
+    pub strict: Option<bool>,
     pub validation_flags: PydanticValidationFlags,
 }
 
@@ -94,6 +95,13 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         None => None,
                     };
+                }
+
+                if let Some(arg_name) = &kw.arg
+                    && arg_name.id == STRICT
+                    && let Expr::BooleanLiteral(bl) = &kw.value
+                {
+                    pydantic_config_dict.strict = Some(bl.value);
                 }
 
                 if let Some(arg_name) = &kw.arg

@@ -67,3 +67,36 @@ Model2(y=0)
 Model2(y='0')  # E: `Literal['0']` is not assignable to parameter `y`
     "#,
 );
+
+testcase!(
+    test_configdict,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+class Model(BaseModel):
+    x: int
+    model_config = ConfigDict(strict=True)
+Model(x=0)
+Model(x='0')  # E: `Literal['0']` is not assignable to parameter `x`
+    "#,
+);
+
+testcase!(
+    test_multiple_strict_values,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict
+
+# When `strict` appears in both the class keywords and model_config, the keyword wins
+class Model1(BaseModel, strict=True):
+    x: int
+    model_config = ConfigDict(strict=False)
+Model1(x=0)
+Model1(x='0')  # E: `Literal['0']` is not assignable to parameter `x`
+class Model2(BaseModel, strict=False):
+    x: int
+    model_config = ConfigDict(strict=True)
+Model2(x=0)
+Model2(x='0')
+    "#,
+);

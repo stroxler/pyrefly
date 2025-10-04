@@ -149,6 +149,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let PydanticConfigDict {
             frozen,
             extra,
+            strict,
             validation_flags,
         } = pydantic_config_dict;
 
@@ -232,7 +233,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .unwrap_or(FROZEN_DEFAULT),
         };
 
-        let strict = self.extract_bool_flag(keywords, &STRICT, false);
+        let strict = self.extract_bool_flag(keywords, &STRICT, strict.unwrap_or(false));
 
         Some(PydanticConfig {
             frozen: *frozen,
