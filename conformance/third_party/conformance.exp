@@ -8275,6 +8275,16 @@
     },
     {
       "code": -2,
+      "column": 22,
+      "concise_description": "Cannot instantiate `SizedAndClosable4` because the following members are abstract: `close`",
+      "description": "Cannot instantiate `SizedAndClosable4` because the following members are abstract: `close`",
+      "line": 82,
+      "name": "bad-instantiation",
+      "stop_column": 24,
+      "stop_line": 82
+    },
+    {
+      "code": -2,
       "column": 24,
       "concise_description": "`SCConcrete1` is not assignable to `SizedAndClosable4`",
       "description": "`SCConcrete1` is not assignable to `SizedAndClosable4`",

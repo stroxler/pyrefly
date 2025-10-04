@@ -288,9 +288,7 @@
     "Line 165: Expected 1 errors"
   ],
   "protocols_generic.py": [],
-  "protocols_merging.py": [
-    "Line 82: Expected 1 errors"
-  ],
+  "protocols_merging.py": [],
   "protocols_modules.py": [
     "Line 25: Unexpected errors ['`Module[_protocols_modules1]` is not assignable to `Options1`']"
   ],

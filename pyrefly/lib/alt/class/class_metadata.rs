@@ -25,10 +25,12 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
+use crate::alt::types::class_metadata::AbstractClassMetadata;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::DataclassMetadata;
@@ -286,6 +288,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
+        let abstract_class_metadata = self.abstract_class_metadata(cls, &bases_with_metadata);
 
         // Compute final base class list.
         let bases = if is_typed_dict && bases_with_metadata.is_empty() {
@@ -320,6 +323,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
+            abstract_class_metadata,
             has_generic_base_class,
             has_base_any,
             is_new_type,
@@ -1267,5 +1271,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect();
         ClassMro::new(cls, bases_with_mros, errors)
+    }
+
+    fn abstract_class_metadata(
+        &self,
+        cls: &Class,
+        bases_with_metadata: &Vec<(Class, Arc<ClassMetadata>)>,
+    ) -> Option<AbstractClassMetadata> {
+        let mut is_abstract = false;
+        let mut members = SmallSet::new();
+        for (base, base_metadata) in bases_with_metadata {
+            if base.has_toplevel_qname("abc", "ABC") {
+                is_abstract = true;
+            }
+            if let Some(metaclass) = base_metadata.custom_metaclass()
+                && metaclass
+                    .class_object()
+                    .has_toplevel_qname("abc", "ABCMeta")
+            {
+                is_abstract = true;
+            }
+            if let Some(abstract_base_metadata) = base_metadata.abstract_class_metadata() {
+                is_abstract = true;
+                members.extend(abstract_base_metadata.members.clone());
+            }
+        }
+        if !is_abstract {
+            return None;
+        }
+        members.extend(cls.fields().cloned());
+        Some(AbstractClassMetadata { members })
     }
 }

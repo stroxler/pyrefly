@@ -47,6 +47,7 @@ pub struct ClassMetadata {
     enum_metadata: Option<EnumMetadata>,
     protocol_metadata: Option<ProtocolMetadata>,
     dataclass_metadata: Option<DataclassMetadata>,
+    abstract_class_metadata: Option<AbstractClassMetadata>,
     bases: Vec<Class>,
     has_generic_base_class: bool,
     has_base_any: bool,
@@ -84,6 +85,7 @@ impl ClassMetadata {
         enum_metadata: Option<EnumMetadata>,
         protocol_metadata: Option<ProtocolMetadata>,
         dataclass_metadata: Option<DataclassMetadata>,
+        abstract_class_metadata: Option<AbstractClassMetadata>,
         has_generic_base_class: bool,
         has_base_any: bool,
         is_new_type: bool,
@@ -102,6 +104,7 @@ impl ClassMetadata {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
+            abstract_class_metadata,
             bases,
             has_generic_base_class,
             has_base_any,
@@ -124,6 +127,7 @@ impl ClassMetadata {
             enum_metadata: None,
             protocol_metadata: None,
             dataclass_metadata: None,
+            abstract_class_metadata: None,
             bases: Vec::new(),
             has_generic_base_class: false,
             has_base_any: false,
@@ -171,6 +175,10 @@ impl ClassMetadata {
 
     pub fn is_final(&self) -> bool {
         self.is_final
+    }
+
+    pub fn abstract_class_metadata(&self) -> Option<&AbstractClassMetadata> {
+        self.abstract_class_metadata.as_ref()
     }
 
     pub fn is_deprecated(&self) -> bool {
@@ -408,6 +416,12 @@ pub struct ProtocolMetadata {
 pub struct TotalOrderingMetadata {
     /// Location of the decorator for `@total_ordering`.
     pub location: TextRange,
+}
+
+#[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
+pub struct AbstractClassMetadata {
+    /// All members of the abstract class, excluding ones defined on `object` and not overridden in a subclass.
+    pub members: SmallSet<Name>,
 }
 
 /// A struct representing a class's ancestors, in method resolution order (MRO)

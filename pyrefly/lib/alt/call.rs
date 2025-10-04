@@ -612,10 +612,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         format!("`{}` can not be instantiated", cls.name()),
                     );
                 }
-                if self
-                    .get_metadata_for_class(cls.class_object())
-                    .is_protocol()
-                {
+                let metadata = self.get_metadata_for_class(cls.class_object());
+                if metadata.is_protocol() {
                     self.error(
                         errors,
                         range,
@@ -625,6 +623,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             cls.name()
                         ),
                     );
+                } else if let Some(abstract_class_metadata) = metadata.abstract_class_metadata() {
+                    let mut abstract_members = Vec::new();
+                    for member_name in &abstract_class_metadata.members {
+                        if let Some(field) =
+                            self.get_non_synthesized_class_member(cls.class_object(), member_name)
+                            && field.is_abstract()
+                        {
+                            abstract_members.push(member_name.clone());
+                        }
+                    }
+                    if !abstract_members.is_empty() {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::new(ErrorKind::BadInstantiation, context),
+                            format!(
+                                "Cannot instantiate `{}` because the following members are abstract: {}",
+                                cls.name(),
+                                abstract_members
+                                    .iter()
+                                    .map(|x| format!("`{x}`"))
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            ),
+                        );
+                    }
                 }
                 if cls.has_qname("builtins", "bool") {
                     match self.first_arg_type(args, errors) {
