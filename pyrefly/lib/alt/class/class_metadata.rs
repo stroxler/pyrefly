@@ -680,10 +680,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .collect::<OrderedMap<_, _>>();
             let mut kws = DataclassKeywords::from_type_map(&TypeMap(map), &defaults);
 
-            // Inject frozen data from pydantic model
+            // Inject pydantic model configuration
             if let Some(pydantic) = pydantic_config {
                 kws.frozen = pydantic.frozen || kws.frozen;
                 kws.extra = pydantic.extra;
+                kws.strict = pydantic.strict;
             }
 
             dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));

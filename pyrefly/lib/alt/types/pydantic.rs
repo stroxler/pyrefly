@@ -16,6 +16,7 @@ pub struct PydanticConfig {
     pub frozen: bool,
     pub validation_flags: PydanticValidationFlags,
     pub extra: bool,
+    pub strict: bool,
     pub pydantic_model_kind: PydanticModelKind,
 }
 

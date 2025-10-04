@@ -31,6 +31,7 @@ use crate::alt::types::pydantic::PydanticModelKind::RootModel;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::ROOT;
+use crate::binding::pydantic::STRICT;
 use crate::binding::pydantic::VALIDATE_BY_ALIAS;
 use crate::binding::pydantic::VALIDATE_BY_NAME;
 use crate::error::collector::ErrorCollector;
@@ -231,10 +232,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .unwrap_or(FROZEN_DEFAULT),
         };
 
+        let strict = self.extract_bool_flag(keywords, &STRICT, false);
+
         Some(PydanticConfig {
             frozen: *frozen,
             validation_flags,
             extra,
+            strict,
             pydantic_model_kind,
         })
     }

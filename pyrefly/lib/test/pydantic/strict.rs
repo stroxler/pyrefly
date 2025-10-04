@@ -39,3 +39,31 @@ Model(x='0', y=1)
 Model(x='0', y='1') # E: Argument `Literal['1']` is not assignable to parameter `y` with type `int` in function `Model.__init__` 
 "#,
 );
+
+testcase!(
+    test_class_keyword,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, Field
+
+class Model1(BaseModel, strict=True):
+    x: int = Field(0)
+    y: int = Field(0, strict=False)
+# `x` is strict
+Model1(x=0)
+Model1(x='0')  # E: `Literal['0']` is not assignable to parameter `x`
+# `y` is lax
+Model1(y=0)
+Model1(y='0')
+
+class Model2(BaseModel, strict=False):
+    x: int = Field(0)
+    y: int = Field(0, strict=True)
+# `x` is lax
+Model2(x=0)
+Model2(x='0')
+# `y` is strict
+Model2(y=0)
+Model2(y='0')  # E: `Literal['0']` is not assignable to parameter `y`
+    "#,
+);
