@@ -289,6 +289,7 @@ struct CallGraphVisitor<'a> {
     function_base_definitions: &'a WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     current_function: Option<FunctionRef>, // The current function, if it is exported.
     debug: bool,                           // Enable logging for the current function or class body.
+    debug_scopes: Vec<bool>,               // The value of the debug flag for each scope.
 }
 
 impl<'a> CallGraphVisitor<'a> {
@@ -430,7 +431,22 @@ impl<'a> CallGraphVisitor<'a> {
             .collect::<Vec<_>>()
     }
 
-    fn set_current_function(&mut self, scopes: &Scopes) {
+    // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
+    const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
+
+    fn enter_debug_scope(&mut self, body: &[Stmt]) {
+        self.debug = has_toplevel_call(body, Self::DEBUG_FUNCTION_NAME);
+        self.debug_scopes.push(self.debug);
+    }
+
+    fn exit_debug_scope(&mut self) {
+        self.debug_scopes.pop();
+        self.debug = self.debug_scopes.last().copied().unwrap();
+    }
+}
+
+impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
+    fn on_scope_update(&mut self, scopes: &Scopes) {
         self.current_function = scopes.current_exported_function(
             self.module_id,
             self.module_name,
@@ -440,51 +456,27 @@ impl<'a> CallGraphVisitor<'a> {
         );
     }
 
-    // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
-    const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
-
-    fn set_debug_for_body(&mut self, body: &[Stmt]) {
-        self.debug = has_toplevel_call(body, Self::DEBUG_FUNCTION_NAME);
+    fn enter_function_scope(&mut self, function_def: &StmtFunctionDef, _: &Scopes) {
+        self.enter_debug_scope(&function_def.body);
     }
 
-    fn unset_debug(&mut self) {
-        self.debug = false;
-    }
-}
-
-impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
-    fn enter_function_scope(&mut self, function_def: &StmtFunctionDef, scopes: &Scopes) {
-        self.set_current_function(scopes);
-        self.set_debug_for_body(&function_def.body);
+    fn enter_class_scope(&mut self, class_def: &StmtClassDef, _: &Scopes) {
+        self.enter_debug_scope(&class_def.body);
     }
 
-    fn enter_class_scope(&mut self, class_def: &StmtClassDef, scopes: &Scopes) {
-        self.set_current_function(scopes);
-        self.set_debug_for_body(&class_def.body);
+    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, _: &Scopes) {
+        self.exit_debug_scope();
     }
 
-    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, scopes: &Scopes) {
-        self.set_current_function(scopes);
-        self.unset_debug();
-    }
-    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, scopes: &Scopes) {
-        self.set_current_function(scopes);
-        self.unset_debug();
+    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, _: &Scopes) {
+        self.exit_debug_scope();
     }
 
-    fn enter_toplevel_scope(&mut self, ast: &ModModule, scopes: &Scopes) {
-        self.set_current_function(scopes);
-        self.set_debug_for_body(&ast.body);
+    fn enter_toplevel_scope(&mut self, ast: &ModModule, _: &Scopes) {
+        self.enter_debug_scope(&ast.body);
     }
 
-    fn exit_toplevel_scope(&mut self, _ast: &ModModule, scopes: &Scopes) {
-        self.set_current_function(scopes);
-        self.unset_debug();
-    }
-
-    fn visit_statement(&mut self, _stmt: &Stmt, _scopes: &Scopes) {}
-
-    fn visit_expression(&mut self, expr: &Expr, _scopes: &Scopes) {
+    fn visit_expression(&mut self, expr: &Expr, _: &Scopes) {
         if self.current_function.is_none() {
             return;
         }
@@ -547,6 +539,7 @@ pub fn build_call_graphs_for_module(
         function_base_definitions,
         current_function: None,
         debug: false,
+        debug_scopes: Vec::new(),
     };
 
     visit_module_ast(&mut visitor, context);

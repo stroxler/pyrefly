@@ -12,9 +12,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprName;
-use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
-use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use serde::Serialize;
@@ -111,13 +109,6 @@ impl<'a> AstScopedVisitor for DefinitionToScopeMapVisitor<'a> {
             self.bind_name(Key::Definition(ShortIdentifier::new(&kwargs.name)), scopes);
         }
     }
-
-    fn visit_expression(&mut self, _expr: &Expr, _scopes: &Scopes) {}
-    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, _scopes: &Scopes) {}
-    fn enter_class_scope(&mut self, _class_def: &StmtClassDef, _scopes: &Scopes) {}
-    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, _scopes: &Scopes) {}
-    fn enter_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
-    fn exit_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
 }
 
 fn build_definition_to_scope_map(context: &ModuleContext) -> HashMap<Idx<Key>, ScopeId> {
@@ -134,6 +125,7 @@ struct CapturedVariableVisitor<'a> {
     captured_variables: &'a mut HashMap<FunctionRef, HashSet<CapturedVariable>>,
     definition_to_scope_map: &'a HashMap<Idx<Key>, ScopeId>,
     module_context: &'a ModuleContext<'a>,
+    current_exported_function: Option<FunctionRef>,
 }
 
 impl<'a> CapturedVariableVisitor<'a> {
@@ -154,21 +146,29 @@ impl<'a> CapturedVariableVisitor<'a> {
 }
 
 impl<'a> AstScopedVisitor for CapturedVariableVisitor<'a> {
+    fn on_scope_update(&mut self, scopes: &Scopes) {
+        self.current_exported_function = scopes.current_exported_function(
+            self.module_context.module_id,
+            self.module_context.module_info.name(),
+            /* include_top_level */ true,
+            /* include_class_top_level */ true,
+            /* include_decorators_in_decorated_definition */ false,
+        );
+    }
+
     fn visit_expression(&mut self, expr: &Expr, scopes: &Scopes) {
+        if self.current_exported_function.is_none() {
+            return;
+        }
+
         match expr {
             Expr::Name(x) => {
                 if let Some(scope_id) = self.get_definition_scope_from_usage(x)
                     && scope_id != ScopeId::from_scopes(scopes)
-                    && let Some(current_function) = scopes.current_exported_function(
-                        self.module_context.module_id,
-                        self.module_context.module_info.name(),
-                        /* include_top_level */ true,
-                        /* include_class_top_level */ true,
-                        /* include_decorators_in_decorated_definition */ false,
-                    )
+                    && let Some(current_function) = &self.current_exported_function
                 {
                     self.captured_variables
-                        .entry(current_function)
+                        .entry(current_function.clone())
                         .or_default()
                         .insert(CapturedVariable {
                             name: x.id().clone(),
@@ -178,14 +178,6 @@ impl<'a> AstScopedVisitor for CapturedVariableVisitor<'a> {
             _ => (),
         }
     }
-
-    fn visit_statement(&mut self, _stmt: &Stmt, _scopes: &Scopes) {}
-    fn enter_function_scope(&mut self, _function_def: &StmtFunctionDef, _scopes: &Scopes) {}
-    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, _scopes: &Scopes) {}
-    fn enter_class_scope(&mut self, _class_def: &StmtClassDef, _scopes: &Scopes) {}
-    fn exit_class_scope(&mut self, _function_def: &StmtClassDef, _scopes: &Scopes) {}
-    fn enter_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
-    fn exit_toplevel_scope(&mut self, _ast: &ModModule, _scopes: &Scopes) {}
 }
 
 pub fn export_captured_variables(context: &ModuleContext) -> ModuleCapturedVariables {
@@ -195,6 +187,7 @@ pub fn export_captured_variables(context: &ModuleContext) -> ModuleCapturedVaria
         captured_variables: &mut captured_variables,
         definition_to_scope_map: &definition_to_scope_map,
         module_context: context,
+        current_exported_function: None,
     };
     visit_module_ast(&mut visitor, context);
     ModuleCapturedVariables(captured_variables)
