@@ -248,6 +248,10 @@ impl ClassMetadata {
     }
 }
 
+/// A field that we synthesize and add to a class. Note that if a non-synthesized field already
+/// exists on the class, it will take precedence over the synthesized field in attribute lookup.
+/// If you want to modify the type of a non-synthesized field, see
+/// AnswersSolver::get_special_class_field_type() in class_field.rs.
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
 pub struct ClassSynthesizedField {
     pub inner: Arc<ClassField>,

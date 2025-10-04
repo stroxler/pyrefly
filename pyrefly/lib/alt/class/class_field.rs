@@ -11,7 +11,6 @@ use std::iter;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
@@ -43,7 +42,6 @@ use crate::alt::callable::CallArg;
 use crate::alt::expr::TypeOrExpr;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
-use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
@@ -67,7 +65,6 @@ use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::literal::Lit;
-use crate::types::literal::LitEnum;
 use crate::types::quantified::Quantified;
 use crate::types::read_only::ReadOnlyReason;
 use crate::types::typed_dict::TypedDict;
@@ -535,6 +532,17 @@ impl ClassField {
             .and_then(|ty| make_bound_method(instance.to_type(), ty).ok())
     }
 
+    pub fn is_simple_instance_attribute(&self) -> bool {
+        matches!(
+            &self.0,
+            ClassFieldInner::Simple {
+                descriptor: None,
+                is_function_without_return_annotation: false,
+                ..
+            }
+        )
+    }
+
     pub fn ty(&self) -> Type {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.clone(),
@@ -937,40 +945,6 @@ pub enum DataclassMember {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn check_enum_value_annotation(
-        &self,
-        mut value: &Type,
-        annotation: &Type,
-        member: &Name,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) {
-        if matches!(value, Type::Tuple(_)) {
-            // TODO: check tuple values against constructor signature
-            // see https://typing.python.org/en/latest/spec/enums.html#member-values
-            return;
-        }
-        if matches!(value, Type::ClassType(cls) if cls.has_qname("enum", "auto")) {
-            return;
-        }
-        if let Type::ClassType(cls) = value
-            && cls.has_qname("enum", "member")
-            && let [member_targ] = cls.targs().as_slice()
-        {
-            value = member_targ;
-        }
-        if !self.is_subset_eq(value, annotation) {
-            self.error(
-                errors, range, ErrorInfo::Kind(ErrorKind::BadAssignment),
-                format!(
-                    "Enum member `{member}` has type `{}`, must match the `_value_` attribute annotation of `{}`",
-                    self.for_display(value.clone()),
-                    self.for_display(annotation.clone()),
-                ),
-            );
-        }
-    }
-
     pub fn calculate_class_field(
         &self,
         class: &Class,
@@ -1320,38 +1294,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {}
         };
 
-        // Enum handling:
-        // - Check whether the field is a member (which depends only on its type and name)
-        // - Validate that a member should not have an annotation, and should respect any explicit annotation on `_value_`
-        //
-        // TODO(stroxler, yangdanny): We currently operate on promoted types, which means we do not infer `Literal[...]`
-        // types for the `.value` / `._value_` attributes of literals. This is permitted in the spec although not optimal
-        // for most cases; we are handling it this way in part because generic enum behavior is not yet well-specified.
-        //
-        // We currently skip the check for `_value_` if the class defines `__new__`, since that can
-        // change the value of the enum member. https://docs.python.org/3/howto/enum.html#when-to-use-new-vs-init
-        let ty = if descriptor.is_none()
-            && let Some(enum_) = metadata.enum_metadata()
-            && self.is_valid_enum_member(name, &ty, &initialization)
-        {
-            if direct_annotation.is_some() {
-                self.error(
-                    errors, range,ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                    format!("Enum member `{name}` may not be annotated directly. Instead, annotate the `_value_` attribute."),
-                );
-            }
-            if enum_.has_value
-                && let Some(enum_value_ty) = self.type_of_enum_value(enum_)
-                && !class.fields().contains(&dunder::NEW)
-                && (!matches!(ty, Type::Ellipsis) || !self.module().path().is_interface())
-            {
-                self.check_enum_value_annotation(&ty, &enum_value_ty, name, range, errors);
-            }
-            Type::Literal(Lit::Enum(Box::new(LitEnum {
-                class: enum_.cls.clone(),
-                member: name.clone(),
-                ty: ty.clone(),
-            })))
+        let ty = if descriptor.is_none() {
+            self.get_special_class_field_type(
+                class,
+                name,
+                direct_annotation.as_ref(),
+                &ty,
+                &initialization,
+                range,
+                errors,
+            )
+            .unwrap_or(ty)
         } else {
             ty
         };
@@ -1418,6 +1371,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.validate_post_init(class, dm, post_init, range, errors);
         }
         class_field
+    }
+
+    /// Apply any class-specific logic for postprocessing the type of a class field. Hook into this
+    /// function if you need to modify the type of an existing field. If you need to add a new
+    /// field, see ClassSynthesizedField instead.
+    fn get_special_class_field_type(
+        &self,
+        class: &Class,
+        name: &Name,
+        direct_annotation: Option<&Annotation>,
+        ty: &Type,
+        initialization: &ClassFieldInitialization,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        self.get_enum_class_field_type(
+            class,
+            name,
+            direct_annotation,
+            ty,
+            initialization,
+            range,
+            errors,
+        )
     }
 
     fn determine_read_only_reason(
@@ -2344,28 +2321,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty),
-            _ => None,
-        }
-    }
-
-    /// Look up the `_value_` attribute of an enum class. This field has to be a plain instance
-    /// attribute annotated in the class body; it is used to validate enum member values, which are
-    /// supposed to all share this type.
-    ///
-    /// TODO(stroxler): We don't currently enforce in this function that it is
-    /// an instance attribute annotated in the class body. Should we? It is unclear; this helper
-    /// is only used to validate enum members, not to produce errors on invalid `_value_`
-    fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
-        let field = self
-            .get_class_member(enum_.cls.class_object(), &Name::new_static("_value_"))?
-            .value;
-        match &field.0 {
-            ClassFieldInner::Simple {
-                ty,
-                descriptor: None,
-                is_function_without_return_annotation: false,
-                ..
-            } => Some(ty.clone()),
             _ => None,
         }
     }
