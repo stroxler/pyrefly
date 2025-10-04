@@ -1395,6 +1395,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
         )
+        .or_else(|| self.get_pydantic_root_model_class_field_type(class, name))
     }
 
     fn determine_read_only_reason(

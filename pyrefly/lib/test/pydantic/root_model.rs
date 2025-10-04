@@ -115,7 +115,6 @@ m3 = B(3)
 );
 
 testcase!(
-    bug = "We shouldn't allow arbitrary keyword arguments to RootModel",
     test_directly_use_root_model,
     pydantic_env(),
     r#"
@@ -126,11 +125,11 @@ m1 = RootModel()
 assert_type(m1, RootModel[Any])
 m2 = RootModel(5)
 assert_type(m2, RootModel[int])
-RootModel(5, extra=6)  # Should be an error
+RootModel(5, extra=6)  # E: Unexpected keyword argument `extra`
 
 m3 = RootModel[int](5)
 assert_type(m3, RootModel[int])
 RootModel[int]("")  # E: `Literal['']` is not assignable to parameter `root` with type `int`
-RootModel[int](5, extra=6)  # Should be an error
+RootModel[int](5, extra=6)  # E: Unexpected keyword argument `extra`
     "#,
 );
