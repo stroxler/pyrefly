@@ -48,7 +48,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         None
     }
 
-    pub fn get_root_model_init(&self, cls: &Class, root_model_type: Type) -> ClassSynthesizedField {
+    pub fn get_pydantic_root_model_init(
+        &self,
+        cls: &Class,
+        root_model_type: Type,
+    ) -> ClassSynthesizedField {
         let root_requiredness =
             if root_model_type.is_any() || matches!(root_model_type, Type::Quantified(_)) {
                 Required::Optional(None)
@@ -79,6 +83,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // of Pydantic.
         let tparam = tparams.iter().next()?;
         let root_model_type = Type::Quantified(Box::new(tparam.quantified.clone()));
-        Some(self.get_root_model_init(cls, root_model_type).inner.ty())
+        Some(
+            self.get_pydantic_root_model_init(cls, root_model_type)
+                .inner
+                .ty(),
+        )
     }
 }

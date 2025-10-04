@@ -87,7 +87,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let init_method = if let Some(root_model_type) =
                 self.get_pydantic_root_model_type_via_mro(cls, &metadata)
             {
-                self.get_root_model_init(cls, root_model_type)
+                self.get_pydantic_root_model_init(cls, root_model_type)
             } else {
                 self.get_dataclass_init(cls, dataclass, !metadata.is_pydantic_base_model(), errors)
             };
