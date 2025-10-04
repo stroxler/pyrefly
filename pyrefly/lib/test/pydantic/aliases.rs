@@ -149,3 +149,27 @@ x2 = Example(id="1", someAttribute="value")
 x3 = Example(id="1", someAttribute123="value")  
     "#,
 );
+
+testcase!(
+    bug = "For some reason, when we actually define the field, we don't properly propagate the validation info though inhertance",
+    test_validation_inheritance,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel, ConfigDict, Field
+
+class Model(BaseModel):
+    x: str = Field(..., alias="y")
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=False)
+
+class Model2(Model): ...
+
+Model2(y="123") # E: Missing argument `x` in function `Model2.__init__`
+Model2(x="123")
+
+class Model3(Model2):
+    x: str = Field(..., alias="y")
+
+Model3(y="123")
+Model3(x="123") # E: Missing argument `y` in function `Model3.__init__`
+    "#,
+);
