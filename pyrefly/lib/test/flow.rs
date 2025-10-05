@@ -702,7 +702,6 @@ def foo(x: list[int]) -> None:
 );
 
 testcase!(
-    bug = "We fail to catch a flow where `b` gives a name error",
     test_match_or,
     r#"
 from typing import assert_type
@@ -713,7 +712,7 @@ match x:
     case [a] | a: # E: name capture `a` makes remaining patterns unreachable
         assert_type(a, list[int] | int)
     case [b] | _:
-        assert_type(b, int)  # Should error here - the wildcard means `b` may not be bound
+        assert_type(b, int)  # E: `b` may be uninitialized
 
 match x:
     case _ | _:  # E: Only the last subpattern in MatchOr may be irrefutable
@@ -832,7 +831,6 @@ def test2() -> int:  # E: Function declared to return `int` but is missing an ex
 );
 
 testcase!(
-    bug = "Merge flow is lax about possibly-undefined locals, so we don't catch that `x` may be uninitialized.",
     test_if_defines_variable_in_one_side,
     r#"
 from typing import assert_type, Literal
@@ -841,12 +839,11 @@ if condition():
     x = 1
 else:
     pass
-assert_type(x, Literal[1])  # Here, we did not catch that `x` may not be initialized
+assert_type(x, Literal[1])  # E: `x` may be uninitialized
     "#,
 );
 
 testcase!(
-    bug = "Merge flow is lax about possibly-undefined locals, so we don't catch that `z` may be uninitialized.",
     test_named_inside_boolean_op,
     r#"
 from typing import assert_type, Literal
@@ -855,7 +852,7 @@ y = 5
 x0 = True or (y := b) and False
 assert_type(y, Literal[5, True])  # this is as expected
 x0 = True or (z := b) and False
-assert_type(z, bool)  # here, we did not catch that `z` may not be initialized
+assert_type(z, bool)  # E: `z` may be uninitialized
 "#,
 );
 
@@ -1011,14 +1008,13 @@ def f():
 );
 
 testcase!(
-    bug = "We're too lax about uninitialized locals in flow merging",
     test_false_and_walrus,
     r#"
 def f(v):
     if False and (value := v):
         print(value)
     else:
-        print(value)  # Should complain about possibly uninitialized `value`
+        print(value)  # E: `value` may be uninitialized
     "#,
 );
 

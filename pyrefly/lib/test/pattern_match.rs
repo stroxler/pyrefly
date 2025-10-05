@@ -8,7 +8,6 @@
 use crate::testcase;
 
 testcase!(
-    bug = "Missing uninitialized local error",
     test_double_name_match,
     r#"
 match 42:
@@ -16,8 +15,7 @@ match 42:
         pass
     case y:
         pass
-# Eventually, this should be an uninitialized-local error.
-print(y)
+print(y)  # E: `y` may be uninitialized
     "#,
 );
 

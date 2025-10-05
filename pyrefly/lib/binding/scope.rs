@@ -592,7 +592,7 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    fn merged(mut styles: impl Iterator<Item = FlowStyle>) -> FlowStyle {
+    fn merged(always_defined: bool, mut styles: impl Iterator<Item = FlowStyle>) -> FlowStyle {
         let mut merged = styles.next().unwrap_or(FlowStyle::Other);
         for x in styles {
             match (&merged, x) {
@@ -611,7 +611,16 @@ impl FlowStyle {
                 }
             }
         }
-        merged
+        if always_defined {
+            merged
+        } else {
+            // If the name is missing in some flows, then it must be uninitialized in at
+            // least some of them.
+            match merged {
+                FlowStyle::Uninitialized => FlowStyle::Uninitialized,
+                _ => FlowStyle::PossiblyUninitialized,
+            }
+        }
     }
 }
 
@@ -1832,6 +1841,7 @@ impl<'a> BindingsBuilder<'a> {
         flow_infos: Vec<FlowInfo>,
         current_is_loop: bool,
         phi_idx: Idx<Key>,
+        n_branches: usize,
     ) -> FlowInfo {
         let contained_in_loop = self.scopes.loop_depth() > 0;
         // In a loop, an invariant is that if a name was defined above the loop, the
@@ -1862,9 +1872,11 @@ impl<'a> BindingsBuilder<'a> {
         let mut value_idxs = SmallSet::with_capacity(flow_infos.len());
         let mut branch_idxs = SmallSet::with_capacity(flow_infos.len());
         let mut styles = Vec::with_capacity(flow_infos.len());
+        let mut n_values = 0;
         for flow_info in flow_infos.into_iter() {
             let branch_idx = flow_info.idx();
             if let Some(v) = flow_info.value {
+                n_values += 1;
                 if v.idx == phi_idx {
                     continue;
                 }
@@ -1876,6 +1888,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             branch_idxs.insert(branch_idx);
         }
+        let this_name_always_defined = n_values == n_branches;
         let downstream_idx = {
             if branch_idxs.len() == 1 {
                 // We hit this case if no branch assigned or narrowed the name.
@@ -1917,7 +1930,7 @@ impl<'a> BindingsBuilder<'a> {
             1 => FlowInfo {
                 value: Some(FlowValue {
                     idx: *value_idxs.first().unwrap(),
-                    style: FlowStyle::merged(styles.into_iter()),
+                    style: FlowStyle::merged(this_name_always_defined, styles.into_iter()),
                 }),
                 narrow: Some(FlowNarrow {
                     idx: downstream_idx,
@@ -1930,7 +1943,7 @@ impl<'a> BindingsBuilder<'a> {
             _ => FlowInfo {
                 value: Some(FlowValue {
                     idx: downstream_idx,
-                    style: FlowStyle::merged(styles.into_iter()),
+                    style: FlowStyle::merged(this_name_always_defined, styles.into_iter()),
                 }),
                 narrow: None,
                 default,
@@ -1975,8 +1988,10 @@ impl<'a> BindingsBuilder<'a> {
         let mut merged_flow_infos = SmallMap::with_capacity(merge_items.0.len());
         for (name, flow_infos) in merge_items.0.into_iter_hashed() {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
-            merged_flow_infos
-                .insert_hashed(name, self.merged_flow_info(flow_infos, is_loop, phi_idx));
+            merged_flow_infos.insert_hashed(
+                name,
+                self.merged_flow_info(flow_infos, is_loop, phi_idx, n_branches),
+            );
         }
 
         // The resulting flow has terminated only if all branches had terminated.

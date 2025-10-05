@@ -238,7 +238,7 @@ def f(x: None | int, y: None | int) -> None:
     if (z := x is None) or y is None:
         assert_type(x, None | int)
         assert_type(y, None | int)
-        assert_type(z, bool)
+        assert_type(z, bool)  # E: `z` may be uninitialized
     "#,
 );
 
@@ -873,7 +873,7 @@ class B: ...
 def test(x: A | B):
     y = isinstance(x, A) and (z := True)
     assert_type(x, A | B)
-    assert_type(z, Literal[True])
+    assert_type(z, Literal[True])  # E: `z` may be uninitialized
     "#,
 );
 
