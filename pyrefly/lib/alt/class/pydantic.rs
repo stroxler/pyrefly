@@ -25,6 +25,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
+use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::alt::types::pydantic::PydanticConfig;
 use crate::alt::types::pydantic::PydanticModelKind;
 use crate::alt::types::pydantic::PydanticModelKind::RootModel;
@@ -106,6 +107,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
+    /// Helper function to find inherited keyword values from parent dataclass metadata
+    fn find_inherited_keyword_value<T>(
+        &self,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        extractor: impl Fn(&DataclassMetadata) -> T,
+    ) -> Option<T> {
+        bases_with_metadata
+            .iter()
+            .find_map(|(_, metadata)| metadata.dataclass_metadata().map(&extractor))
+    }
+
     pub fn pydantic_config(
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
@@ -159,16 +171,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
 
         // Get inherited validation flags from parent if possible
-        let inherited_validate_by_name = bases_with_metadata.iter().find_map(|(_, metadata)| {
-            metadata
-                .dataclass_metadata()
-                .map(|dm| dm.init_defaults.init_by_name)
-        });
-        let inherited_validate_by_alias = bases_with_metadata.iter().find_map(|(_, metadata)| {
-            metadata
-                .dataclass_metadata()
-                .map(|dm| dm.init_defaults.init_by_alias)
-        });
+        let inherited_validate_by_name = self
+            .find_inherited_keyword_value(bases_with_metadata, |dm| dm.init_defaults.init_by_name);
+        let inherited_validate_by_alias = self
+            .find_inherited_keyword_value(bases_with_metadata, |dm| dm.init_defaults.init_by_alias);
 
         // Build validation flags for ConfigDict: explicit > inherited > default
         let default_flags = PydanticValidationFlags::default();
@@ -229,15 +235,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     *configdict_extra
                 } else {
                     // Check for inherited extra configuration from base classes
-                    bases_with_metadata
-                        .iter()
-                        .find_map(|(_, metadata)| {
-                            if metadata.is_pydantic_base_model() {
-                                metadata.dataclass_metadata().map(|dm| dm.kws.extra)
-                            } else {
-                                None
-                            }
-                        })
+                    self.find_inherited_keyword_value(bases_with_metadata, |dm| dm.kws.extra)
                         .unwrap_or(true) // Default to true (ignore) if no base class has extra config
                 }
             }
@@ -245,14 +243,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let frozen = match frozen {
             Some(value) => value,
-            None => &bases_with_metadata
-                .iter()
-                .find_map(|(_, metadata)| {
-                    metadata
-                        .dataclass_metadata()
-                        .as_ref()
-                        .map(|dm| dm.kws.frozen)
-                })
+            None => &self
+                .find_inherited_keyword_value(bases_with_metadata, |dm| dm.kws.frozen)
                 .unwrap_or(FROZEN_DEFAULT),
         };
 
