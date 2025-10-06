@@ -42,7 +42,7 @@ class TestExample(unittest.TestCase):
 fn test_pytest_module() {
     test_is_test_module(
         r#"
-import pytest
+import pytest  # type: ignore
 
 def test_something():
     assert 1 == 1
@@ -55,8 +55,6 @@ def test_something():
 fn test_pytest_module_without_test_function() {
     test_is_test_module(
         r#"
-import pytest
-
 def helper_function():
     return 42
 "#,
@@ -125,7 +123,7 @@ class SpecificTest(BaseTest):
 fn test_mixed_pytest_and_regular_functions() {
     test_is_test_module(
         r#"
-import pytest
+import pytest  # type: ignore
 
 def helper():
     return 1

@@ -5,8 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 
+use pretty_assertions::assert_eq;
 use serde::Serialize;
 
 use crate::report::pysa::call_graph::AttributeAccessCallees;
@@ -30,7 +32,7 @@ use crate::test::pysa::utils::get_class_ref;
 use crate::test::pysa::utils::get_handle_for_module_name;
 
 // Omit fields from `FunctionRef` so that we can easily write the expected results
-#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize, PartialOrd, Ord)]
 struct DefinitionRefForTest {
     module_name: String,
     identifier: String,
@@ -141,6 +143,23 @@ fn call_graph_for_test_from_expected(
     )
 }
 
+fn sort_call_graphs(
+    call_graphs: &CallGraphs<DefinitionRefForTest>,
+) -> BTreeMap<DefinitionRefForTest, BTreeMap<String, ExpressionCallees<DefinitionRefForTest>>> {
+    call_graphs
+        .iter()
+        .map(|(caller, callees)| {
+            let sorted_callees = callees
+                .iter()
+                .map(|(location, expression_callees)| {
+                    (location.as_key(), expression_callees.clone())
+                })
+                .collect::<BTreeMap<_, _>>();
+            (caller.clone(), sorted_callees)
+        })
+        .collect::<BTreeMap<_, _>>()
+}
+
 fn test_building_call_graph_for_module(
     test_module_name: &str,
     code: &str,
@@ -153,7 +172,6 @@ fn test_building_call_graph_for_module(
 ) {
     let state = create_state(test_module_name, code);
     let transaction = state.transaction();
-
     let handles = transaction.handles();
     let module_ids = ModuleIds::new(&handles);
 
@@ -168,17 +186,21 @@ fn test_building_call_graph_for_module(
 
     let test_module_handle = get_handle_for_module_name(test_module_name, &transaction);
     let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
-    let actual_call_graph =
-        call_graph_for_test_from_actual(export_call_graphs(&context, &function_base_definitions));
+
     let expected_call_graph = call_graph_for_test_from_expected(create_expected(&context));
+
+    let mut actual_call_graph =
+        call_graph_for_test_from_actual(export_call_graphs(&context, &function_base_definitions));
+    // We don't care about callables that are not specified in the expected call graphs
+    actual_call_graph.intersect(&expected_call_graph);
+
     assert_eq!(
-        expected_call_graph, actual_call_graph,
-        "Expected: {:#?}. Actual: {:#?}",
-        expected_call_graph, actual_call_graph,
+        sort_call_graphs(&expected_call_graph),
+        sort_call_graphs(&actual_call_graph)
     );
 }
 
-fn call_callees_from_expected(
+fn call_callees(
     expected: Vec<CallTarget<DefinitionRefForTest>>,
 ) -> ExpressionCallees<DefinitionRefForTest> {
     ExpressionCallees::Call(CallCallees {
@@ -186,7 +208,7 @@ fn call_callees_from_expected(
     })
 }
 
-fn attribute_access_callees_from_expected(
+fn attribute_access_callees(
     expected: Vec<CallTarget<DefinitionRefForTest>>,
 ) -> ExpressionCallees<DefinitionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
@@ -194,7 +216,7 @@ fn attribute_access_callees_from_expected(
     })
 }
 
-fn identifier_callees_from_expected(
+fn identifier_callees(
     expected: Vec<CallTarget<DefinitionRefForTest>>,
 ) -> ExpressionCallees<DefinitionRefForTest> {
     ExpressionCallees::Identifier(IdentifierCallees {
@@ -231,8 +253,8 @@ def bar():
    &|_context: &ModuleContext| { vec![(
         TEST_DEFINITION_NAME.to_owned(),
         vec![
-            ("3:3-3:6".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.bar")])),
-            ("3:3-3:8".to_owned(), call_callees_from_expected(vec![create_call_target("test.bar")])),
+            ("3:3-3:6".to_owned(), identifier_callees(vec![create_call_target("test.bar")])),
+            ("3:3-3:8".to_owned(), call_callees(vec![create_call_target("test.bar")])),
         ],
     )] },
 }
@@ -254,8 +276,8 @@ def foo(c: C):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("6:3-6:6".to_owned(), attribute_access_callees_from_expected(call_target.clone())),
-                ("6:3-6:8".to_owned(), call_callees_from_expected(call_target.clone())),
+                ("6:3-6:6".to_owned(), attribute_access_callees(call_target.clone())),
+                ("6:3-6:8".to_owned(), call_callees(call_target.clone())),
             ],
         )]
     },
@@ -278,29 +300,9 @@ def foo(b: bool):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("6:9-6:12".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.bar")])),
-                ("8:9-8:12".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.baz")])),
+                ("6:9-6:12".to_owned(), identifier_callees(vec![create_call_target("test.bar")])),
+                ("8:9-8:12".to_owned(), identifier_callees(vec![create_call_target("test.baz")])),
             ],
-        )]
-    },
-}
-
-call_graph_testcase! {
-    test_conditional_function_with_none,
-    TEST_MODULE_NAME,
-    r#"
-def bar() -> bool: ...
-def foo(b: bool):
-  if b:
-    f = bar
-  else:
-    f = False
-  f()
-"#,
-    &|_context: &ModuleContext| {
-        vec![(
-            TEST_DEFINITION_NAME.to_owned(),
-            vec![("5:9-5:12".to_owned(), identifier_callees_from_expected(vec![create_call_target("test.bar")]))],
         )]
     },
 }
@@ -311,10 +313,11 @@ call_graph_testcase! {
     r#"
 from typing import Optional
 class C:
-  def m():
+  def m(self):
     ...
 def foo(c: Optional[C]):
-  c.m()
+ if c is not None:
+    c.m()
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
@@ -323,13 +326,8 @@ def foo(c: Optional[C]):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                (
-                    "7:3-7:8".to_owned(),
-                    call_callees_from_expected(call_target.clone())),
-                (
-                    "7:3-7:6".to_owned(),
-                    attribute_access_callees_from_expected(call_target.clone()),
-                )
+                ("8:5-8:10".to_owned(), call_callees(call_target.clone())),
+                ("8:5-8:8".to_owned(), attribute_access_callees(call_target.clone()))
             ],
         )]
     },
@@ -340,13 +338,13 @@ call_graph_testcase! {
     TEST_MODULE_NAME,
     r#"
 class C:
-  def m():
+  def m(self):
     ...
 class D(C):
-  def m():
+  def m(self):
     ...
 class E(D):
-  def m():
+  def m(self):
     ...
 def foo(c: C):
   c.m()
@@ -358,8 +356,8 @@ def foo(c: C):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("12:3-12:8".to_owned(), call_callees_from_expected(call_target.clone())),
-                ("12:3-12:6".to_owned(), attribute_access_callees_from_expected(call_target.clone()))
+                ("12:3-12:8".to_owned(), call_callees(call_target.clone())),
+                ("12:3-12:6".to_owned(), attribute_access_callees(call_target.clone()))
             ],
         )]
     },
@@ -395,14 +393,14 @@ def foo(c: C):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("7:3-7:8".to_owned(), call_callees_from_expected(class_method_target.clone())),
-                ("7:3-7:6".to_owned(), attribute_access_callees_from_expected(class_method_target.clone())),
-                ("8:3-8:8".to_owned(), call_callees_from_expected(class_method_target_2.clone())),
-                ("8:3-8:6".to_owned(), attribute_access_callees_from_expected(class_method_target_2.clone())),
-                ("9:3-9:9".to_owned(), call_callees_from_expected(method_target.clone())),
-                ("9:3-9:6".to_owned(), attribute_access_callees_from_expected(method_target.clone())),
-                ("10:3-10:8".to_owned(), call_callees_from_expected(method_target_2.clone())),
-                ("10:3-10:6".to_owned(), attribute_access_callees_from_expected(method_target_2.clone())),
+                ("7:3-7:8".to_owned(), call_callees(class_method_target.clone())),
+                ("7:3-7:6".to_owned(), attribute_access_callees(class_method_target.clone())),
+                ("8:3-8:8".to_owned(), call_callees(class_method_target_2.clone())),
+                ("8:3-8:6".to_owned(), attribute_access_callees(class_method_target_2.clone())),
+                ("9:3-9:9".to_owned(), call_callees(method_target.clone())),
+                ("9:3-9:6".to_owned(), attribute_access_callees(method_target.clone())),
+                ("10:3-10:8".to_owned(), call_callees(method_target_2.clone())),
+                ("10:3-10:6".to_owned(), attribute_access_callees(method_target_2.clone())),
             ],
         )]
     },

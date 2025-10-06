@@ -190,6 +190,11 @@ impl<Target: TargetTrait> CallGraph<Target> {
     pub fn into_iter(self) -> impl Iterator<Item = (PysaLocation, ExpressionCallees<Target>)> {
         self.0.into_iter()
     }
+
+    #[cfg(test)]
+    pub fn iter(&self) -> impl Iterator<Item = (&PysaLocation, &ExpressionCallees<Target>)> {
+        self.0.iter()
+    }
 }
 
 impl<Target: TargetTrait> Default for CallGraph<Target> {
@@ -213,6 +218,16 @@ impl<Target: TargetTrait> CallGraphs<Target> {
 
     pub fn into_iter(self) -> impl Iterator<Item = (Target, CallGraph<Target>)> {
         self.0.into_iter()
+    }
+
+    #[cfg(test)]
+    pub fn iter(&self) -> impl Iterator<Item = (&Target, &CallGraph<Target>)> {
+        self.0.iter()
+    }
+
+    #[cfg(test)]
+    pub fn intersect(&mut self, other: &Self) {
+        self.0.retain(|target, _| other.0.contains_key(target));
     }
 }
 
