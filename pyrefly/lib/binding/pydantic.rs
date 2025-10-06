@@ -81,7 +81,8 @@ pub struct PydanticConfigDict {
     pub frozen: Option<bool>,
     pub extra: Option<bool>,
     pub strict: Option<bool>,
-    pub validation_flags: PydanticValidationFlags,
+    pub validate_by_name: Option<bool>,
+    pub validate_by_alias: Option<bool>,
 }
 
 /// Flags that control whether a Pydantic model's fields are populated by their names or their aliases.
@@ -152,11 +153,11 @@ impl<'a> BindingsBuilder<'a> {
                 } else if name == VALIDATE_BY_NAME
                     && let Expr::BooleanLiteral(bl) = value
                 {
-                    pydantic_config_dict.validation_flags.validate_by_name = bl.value;
+                    pydantic_config_dict.validate_by_name = Some(bl.value);
                 } else if name == VALIDATE_BY_ALIAS
                     && let Expr::BooleanLiteral(bl) = value
                 {
-                    pydantic_config_dict.validation_flags.validate_by_alias = bl.value;
+                    pydantic_config_dict.validate_by_alias = Some(bl.value);
                 }
             }
         }

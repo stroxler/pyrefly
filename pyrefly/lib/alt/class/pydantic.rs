@@ -30,6 +30,7 @@ use crate::alt::types::pydantic::PydanticModelKind;
 use crate::alt::types::pydantic::PydanticModelKind::RootModel;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticConfigDict;
+use crate::binding::pydantic::PydanticValidationFlags;
 use crate::binding::pydantic::ROOT;
 use crate::binding::pydantic::STRICT;
 use crate::binding::pydantic::VALIDATE_BY_ALIAS;
@@ -150,22 +151,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             frozen,
             extra,
             strict,
-            validation_flags,
+            validate_by_name,
+            validate_by_alias,
         } = pydantic_config_dict;
 
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
-        let mut validation_flags = validation_flags.clone();
-        validation_flags.validate_by_alias = self.extract_bool_flag(
-            keywords,
-            &VALIDATE_BY_ALIAS,
-            validation_flags.validate_by_alias,
-        );
-        validation_flags.validate_by_name = self.extract_bool_flag(
-            keywords,
-            &VALIDATE_BY_NAME,
-            validation_flags.validate_by_name,
-        );
+
+        // Get inherited validation flags from parent if possible
+        let inherited_validate_by_name = bases_with_metadata.iter().find_map(|(_, metadata)| {
+            metadata
+                .dataclass_metadata()
+                .map(|dm| dm.init_defaults.init_by_name)
+        });
+        let inherited_validate_by_alias = bases_with_metadata.iter().find_map(|(_, metadata)| {
+            metadata
+                .dataclass_metadata()
+                .map(|dm| dm.init_defaults.init_by_alias)
+        });
+
+        // Build validation flags for ConfigDict: explicit > inherited > default
+        let default_flags = PydanticValidationFlags::default();
+
+        let validation_flags = PydanticValidationFlags {
+            validate_by_name: self.extract_bool_flag(
+                keywords,
+                &VALIDATE_BY_NAME,
+                validate_by_name
+                    .or(inherited_validate_by_name)
+                    .unwrap_or(default_flags.validate_by_name),
+            ),
+            validate_by_alias: self.extract_bool_flag(
+                keywords,
+                &VALIDATE_BY_ALIAS,
+                validate_by_alias
+                    .or(inherited_validate_by_alias)
+                    .unwrap_or(default_flags.validate_by_alias),
+            ),
+        };
 
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
