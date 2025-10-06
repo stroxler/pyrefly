@@ -399,6 +399,7 @@ struct AttributeBase(Vec1<AttributeBase1>);
 #[derive(Clone, Debug)]
 enum AttributeBase1 {
     EnumLiteral(LitEnum),
+    LiteralString,
     ClassInstance(ClassType),
     ClassObject(ClassBase),
     Module(ModuleType),
@@ -1097,6 +1098,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::EnumLiteral(e) if matches!(attr_name.as_str(), "name" | "_name_") => {
                 acc.found_type(Type::Literal(Lit::Str(e.member.as_str().into())), base)
             }
+            AttributeBase1::LiteralString => match self.get_literal_string_attribute(attr_name) {
+                Some(attr) => acc.found_class_attribute(attr, base),
+                None => acc.not_found(NotFoundOn::ClassInstance(
+                    self.stdlib.str().class_object().dupe(),
+                    base,
+                )),
+            },
             AttributeBase1::ClassInstance(class)
             | AttributeBase1::EnumLiteral(LitEnum { class, .. }) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
@@ -1331,6 +1339,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 acc.not_found(NotFoundOn::ClassInstance(cls.class_object().clone(), base))
             }
+            AttributeBase1::LiteralString
+                if *dunder_name == dunder::SETATTR
+                    || *dunder_name == dunder::DELATTR
+                    || *dunder_name == dunder::GETATTRIBUTE =>
+            {
+                acc.not_found(NotFoundOn::ClassInstance(
+                    self.stdlib.str().class_object().clone(),
+                    base,
+                ))
+            }
             AttributeBase1::TypedDict(typed_dict) if *dunder_name == dunder::GETATTRIBUTE => acc
                 .not_found(NotFoundOn::ClassInstance(
                     typed_dict.class_object().clone(),
@@ -1482,8 +1500,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Tuple(tuple) => {
                 acc.push(AttributeBase1::ClassInstance(self.erase_tuple_type(tuple)))
             }
-            Type::LiteralString => {
-                acc.push(AttributeBase1::ClassInstance(self.stdlib.str().clone()))
+            Type::LiteralString | Type::Literal(Lit::Str(_)) => {
+                acc.push(AttributeBase1::LiteralString)
             }
             Type::Literal(Lit::Enum(lit_enum)) => acc.push(AttributeBase1::EnumLiteral(*lit_enum)),
             Type::Literal(lit) => acc.push(AttributeBase1::ClassInstance(
@@ -2008,6 +2026,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | AttributeBase1::EnumLiteral(LitEnum { class, .. })
             | AttributeBase1::Quantified(_, class) => {
                 self.completions_class_type(class, expected_attribute_name, res)
+            }
+            AttributeBase1::LiteralString => {
+                self.completions_class_type(self.stdlib.str(), expected_attribute_name, res)
             }
             AttributeBase1::TypedDict(_) => self.completions_class_type(
                 self.stdlib.typed_dict_fallback(),

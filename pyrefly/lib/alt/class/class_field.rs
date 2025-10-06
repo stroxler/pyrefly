@@ -67,6 +67,7 @@ use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::literal::Lit;
 use crate::types::quantified::Quantified;
 use crate::types::read_only::ReadOnlyReason;
+use crate::types::stdlib::Stdlib;
 use crate::types::typed_dict::TypedDict;
 use crate::types::typed_dict::TypedDictField;
 use crate::types::types::BoundMethod;
@@ -698,6 +699,7 @@ enum InstanceKind {
     SelfType,
     Protocol(Type),
     Metaclass(ClassBase),
+    LiteralString,
 }
 
 /// Wrapper to hold a specialized instance of a class , unifying ClassType and TypedDict.
@@ -709,6 +711,14 @@ struct Instance<'a> {
 }
 
 impl<'a> Instance<'a> {
+    fn literal_string(stdlib: &'a Stdlib) -> Self {
+        Self {
+            kind: InstanceKind::LiteralString,
+            class: stdlib.str().class_object(),
+            targs: stdlib.str().targs(),
+        }
+    }
+
     fn of_class(cls: &'a ClassType) -> Self {
         Self {
             kind: InstanceKind::ClassType,
@@ -777,6 +787,7 @@ impl<'a> Instance<'a> {
             }
             InstanceKind::Protocol(self_type) => self_type.clone(),
             InstanceKind::Metaclass(cls) => cls.clone().to_type(),
+            InstanceKind::LiteralString => Type::LiteralString,
         }
     }
 
@@ -804,7 +815,8 @@ impl<'a> Instance<'a> {
             | InstanceKind::SelfType
             | InstanceKind::Protocol(..)
             | InstanceKind::Metaclass(..)
-            | InstanceKind::TypeVar(..) => Some(DescriptorBase::Instance(ClassType::new(
+            | InstanceKind::TypeVar(..)
+            | InstanceKind::LiteralString => Some(DescriptorBase::Instance(ClassType::new(
                 self.class.dupe(),
                 self.targs.clone(),
             ))),
@@ -2125,6 +2137,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &member.value,
                     &Instance::of_metaclass(cls.clone(), metaclass),
                 )
+            })
+    }
+
+    // When we're accessing the attribute of a string literal, we bind methods to
+    // `LiteralString` instead of `str`, so that overload selection works correctly
+    // for `LiteralString`-specific overloads defined in `str`.
+    pub fn get_literal_string_attribute(&self, name: &Name) -> Option<ClassAttribute> {
+        self.get_class_member(self.stdlib.str().class_object(), name)
+            .map(|member| {
+                self.as_instance_attribute(&member.value, &Instance::literal_string(self.stdlib))
             })
     }
 
