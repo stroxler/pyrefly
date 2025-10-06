@@ -35,6 +35,7 @@ use crate::types::callable::FunctionKind;
 use crate::types::class::ClassType;
 use crate::types::facet::FacetChain;
 use crate::types::facet::FacetKind;
+use crate::types::lit_int::LitInt;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
@@ -629,12 +630,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &ErrorCollector::new(errors.module().clone(), ErrorStyle::Never),
                     ) == Some(!boolval)
                     {
-                        Type::never()
-                    } else if matches!(t, Type::ClassType(cls) if cls.is_builtin("bool")) {
-                        Type::Literal(Lit::Bool(boolval))
-                    } else {
-                        t.clone()
+                        return Type::never();
+                    } else if let Type::ClassType(cls) = t {
+                        if cls.is_builtin("bool") {
+                            return Type::Literal(Lit::Bool(boolval));
+                        }
+                        if !boolval {
+                            if cls.is_builtin("int") {
+                                return Type::Literal(Lit::Int(LitInt::new(0)));
+                            } else if cls.is_builtin("str") {
+                                return Type::Literal(Lit::Str("".into()));
+                            } else if cls.is_builtin("bytes") {
+                                let empty = Vec::new();
+                                return Type::Literal(Lit::Bytes(empty.into_boxed_slice()));
+                            }
+                        }
                     }
+
+                    t.clone()
                 })
             }
             AtomicNarrowOp::Eq(v) => {
