@@ -335,7 +335,7 @@ class C(Base):
     # OK
     @override
     @overload
-    def f(x: int) -> int: ...  # E: Overloaded function must have an implementation 
+    def f(x: int) -> int: ...  # E: Overloaded function must have an implementation
     @overload
     def f(x: str) -> str: ...
 
@@ -466,7 +466,7 @@ badge: defaulty[bool, list[str]] = defaulty(list)
 testcase!(
     test_pass_generic_class_to_overload,
     r#"
-from typing import Iterable, Literal, overload, Self
+from typing import Iterable, Iterator, Literal, overload, Self
 from _typeshed import SupportsAdd
 
 @overload
@@ -477,6 +477,7 @@ def f(x) -> None: ...
 
 class C[T](Iterable[T]):
     def __new__(cls, x: T) -> Self: ...
+    def __iter__(self) -> Iterator[T]: ...
 
 def g(x: int):
     f(C(x))
@@ -541,7 +542,7 @@ testcase!(
 from typing import overload, Any
 
 @overload
-def foo(a: int) -> int: ...  
+def foo(a: int) -> int: ...
 @overload
 def foo(a: str) -> str:
     """Docstring"""
@@ -556,9 +557,9 @@ testcase!(
 from typing import overload, Any
 
 @overload
-def foo(a: int) -> int: ...  
+def foo(a: int) -> int: ...
 @overload
-def foo(a: str) -> str: 
+def foo(a: str) -> str:
     """Docstring"""
     return 123             # E: Returned type `Literal[123]` is not assignable to declared return type `str`
 def foo(*args, **kwargs) -> Any:

@@ -14,11 +14,11 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::types::abstract_class::AbstractClassMembers;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::class_validation::AbstractClassMembers;
 use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -355,12 +355,15 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClassMro {
 
 impl<Ans: LookupAnswer> Solve<Ans> for KeyAbstractClassCheck {
     fn solve(
-        _answers: &AnswersSolver<Ans>,
-        _binding: &BindingAbstractClassCheck,
-        _errors: &ErrorCollector,
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingAbstractClassCheck,
+        errors: &ErrorCollector,
     ) -> Arc<AbstractClassMembers> {
-        // TODO
-        Arc::new(AbstractClassMembers::new())
+        if let Some(cls) = &answers.get_idx(binding.class_idx).0 {
+            answers.solve_abstract_members(cls, errors)
+        } else {
+            Arc::new(AbstractClassMembers::recursive())
+        }
     }
 
     fn promote_recursive(_: Var) -> Self::Answer {

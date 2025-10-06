@@ -281,11 +281,9 @@
   ],
   "protocols_explicit.py": [
     "Line 27: Expected 1 errors",
-    "Line 60: Expected 1 errors",
     "Line 90: Expected 1 errors",
     "Line 110: Expected 1 errors",
-    "Line 135: Expected 1 errors",
-    "Line 165: Expected 1 errors"
+    "Line 135: Expected 1 errors"
   ],
   "protocols_generic.py": [],
   "protocols_merging.py": [],

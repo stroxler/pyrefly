@@ -623,17 +623,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             cls.name()
                         ),
                     );
-                } else if let Some(abstract_class_metadata) = metadata.abstract_class_metadata() {
-                    let mut abstract_members = Vec::new();
-                    for member_name in &abstract_class_metadata.members {
-                        if let Some(field) =
-                            self.get_non_synthesized_class_member(cls.class_object(), member_name)
-                            && field.is_abstract()
-                        {
-                            abstract_members.push(member_name.clone());
-                        }
-                    }
-                    if !abstract_members.is_empty() {
+                } else {
+                    let abstract_members = self.get_abstract_members_for_class(cls.class_object());
+                    let unimplemented_abstract_methods =
+                        abstract_members.unimplemented_abstract_methods();
+                    if !unimplemented_abstract_methods.is_empty() {
                         self.error(
                             errors,
                             range,
@@ -641,7 +635,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             format!(
                                 "Cannot instantiate `{}` because the following members are abstract: {}",
                                 cls.name(),
-                                abstract_members
+                                unimplemented_abstract_methods
                                     .iter()
                                     .map(|x| format!("`{x}`"))
                                     .collect::<Vec<_>>()

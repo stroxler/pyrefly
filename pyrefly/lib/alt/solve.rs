@@ -37,6 +37,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::types::abstract_class::AbstractClassMembers;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
@@ -306,6 +307,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(cls) => self.calculate_class_mro(cls, errors),
         };
         Arc::new(mro)
+    }
+
+    pub fn solve_abstract_members(
+        &self,
+        cls: &Class,
+        _errors: &ErrorCollector,
+    ) -> Arc<AbstractClassMembers> {
+        let abstract_members = self.calculate_abstract_members(cls);
+        Arc::new(abstract_members)
     }
 
     pub fn solve_annotation(

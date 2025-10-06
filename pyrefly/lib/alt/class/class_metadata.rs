@@ -30,6 +30,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
+use crate::alt::types::abstract_class::AbstractClassMembers;
 use crate::alt::types::class_metadata::AbstractClassMetadata;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
@@ -1118,6 +1119,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect();
         ClassMro::new(cls, bases_with_mros, errors)
+    }
+
+    pub fn calculate_abstract_members(&self, cls: &Class) -> AbstractClassMembers {
+        let metadata = self.get_metadata_for_class(cls);
+        let mut fields_to_check: SmallSet<Name>;
+        if metadata.abstract_class_metadata().is_some() || metadata.is_protocol() {
+            fields_to_check = SmallSet::from_iter(cls.fields().cloned());
+        } else {
+            fields_to_check = SmallSet::new();
+        }
+        // Check inherited abstract methods + all fields defined in the current class
+        for base_class in metadata.base_class_objects() {
+            let base_class_metadata = self.get_metadata_for_class(base_class);
+            // For now, skip any non-protocols base classes that don't extend `ABC` or have metaclass `ABCMeta`
+            // Consider adding a stricter check in the future
+            if base_class_metadata.abstract_class_metadata().is_none()
+                && !base_class_metadata.is_protocol()
+            {
+                continue;
+            }
+            let base_class_abstract_members = self.get_abstract_members_for_class(base_class);
+            fields_to_check.extend(
+                base_class_abstract_members
+                    .unimplemented_abstract_methods()
+                    .iter()
+                    .cloned(),
+            );
+        }
+        let mut abstract_members = SmallSet::new();
+        for field_name in fields_to_check {
+            if let Some(field) = self.get_non_synthesized_class_member(cls, &field_name)
+                && field.is_abstract()
+            {
+                abstract_members.insert(field_name.clone());
+            }
+        }
+        AbstractClassMembers::new(abstract_members)
     }
 
     fn abstract_class_metadata(

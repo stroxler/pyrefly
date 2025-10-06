@@ -8138,6 +8138,26 @@
       "name": "bad-assignment",
       "stop_column": 36,
       "stop_line": 56
+    },
+    {
+      "code": -2,
+      "column": 10,
+      "concise_description": "Cannot instantiate `Point` because the following members are abstract: `intensity`",
+      "description": "Cannot instantiate `Point` because the following members are abstract: `intensity`",
+      "line": 60,
+      "name": "bad-instantiation",
+      "stop_column": 20,
+      "stop_line": 60
+    },
+    {
+      "code": -2,
+      "column": 17,
+      "concise_description": "Cannot instantiate `Concrete7A` because the following members are abstract: `method1`",
+      "description": "Cannot instantiate `Concrete7A` because the following members are abstract: `method1`",
+      "line": 165,
+      "name": "bad-instantiation",
+      "stop_column": 19,
+      "stop_line": 165
     }
   ],
   "protocols_generic.py": [
