@@ -663,7 +663,6 @@ impl<'a> BindingsBuilder<'a> {
                 // x is bound to Narrow(x, Is(None)) in the if branch, and the negation, Narrow(x, IsNot(None)),
                 // is carried over to the else branch.
                 let mut negated_prev_ops = NarrowOps::new();
-                let mut implicit_else = true;
                 for (range, mut test, body) in Ast::if_branches_owned(x) {
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
                     let this_branch_chosen = match &test {
@@ -686,8 +685,6 @@ impl<'a> BindingsBuilder<'a> {
                             KeyExpect(test_expr.range()),
                             BindingExpect::Bool(test_expr),
                         );
-                    } else {
-                        implicit_else = false;
                     }
                     self.bind_narrow_ops(&new_narrow_ops, range, &Usage::Narrowing(None));
                     negated_prev_ops.and_all(new_narrow_ops.negate());
@@ -707,17 +704,15 @@ impl<'a> BindingsBuilder<'a> {
                 if exhaustive {
                     self.set_current_flow_to_merged_branches(branches, range);
                 } else {
-                    if implicit_else {
-                        // If there is no explicit else branch, we still want to merge the negated ops
-                        // from the previous branches into the flow env.
-                        // Note, using a default use_range is OK. The range is only needed to make the
-                        // key distinct from other keys.
-                        self.bind_narrow_ops(
-                            &negated_prev_ops,
-                            TextRange::default(),
-                            &Usage::Narrowing(None),
-                        );
-                    }
+                    // If there is no explicit else branch, we still want to merge the negated ops
+                    // from the previous branches into the flow env.
+                    // Note, using a default use_range is OK. The range is only needed to make the
+                    // key distinct from other keys.
+                    self.bind_narrow_ops(
+                        &negated_prev_ops,
+                        TextRange::default(),
+                        &Usage::Narrowing(None),
+                    );
                     self.merge_branches_into_current(branches, range);
                 }
             }

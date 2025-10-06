@@ -490,9 +490,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.body, usage);
                 let range = x.range();
                 // Negate the narrow ops for the `orelse`, then merge the Flows.
-                //
-                // TODO(stroxler): Given that we lack intersection types, we need to
-                // find a way to drop all narrows (but keep any walrus assignments) here.
+                // TODO(stroxler): We eventually want to drop all narrows but merge values.
                 let if_branch = self.scopes.replace_current_flow(base);
                 self.bind_narrow_ops(&narrow_ops.negate(), range, usage);
                 self.ensure_expr(&mut x.orelse, usage);
@@ -522,8 +520,8 @@ impl<'a> BindingsBuilder<'a> {
                     }
                 }
                 // Negate the narrow ops in the base flow and merge.
-                //
-                // TODO(stroxler): simplify this, the negation is unnecessary.
+                // TODO(stroxler): We eventually want to drop all narrows but merge values.
+                // Once we have a way to do that, the negation will be unnecessary.
                 let if_branch = self.scopes.replace_current_flow(base);
                 self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
                 self.merge_branches_into_current(vec![if_branch], *range);
