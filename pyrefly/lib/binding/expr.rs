@@ -433,9 +433,7 @@ impl<'a> BindingsBuilder<'a> {
         let if_branch = self.scopes.replace_current_flow(base);
         self.bind_narrow_ops(&ops.negate(), range, usage);
         self.ensure_expr_opt(orelse, usage);
-        // Swap them back again, to make sure that the merge order is if, then else
-        let else_branch = self.scopes.replace_current_flow(if_branch);
-        self.merge_branches_into_current(vec![else_branch], range);
+        self.merge_branches_into_current(vec![if_branch], range);
     }
 
     // We want to special-case `self.assertXXX()` methods in unit tests.
