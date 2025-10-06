@@ -44,7 +44,6 @@ use crate::binding::bindings::LegacyTParamId;
 use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
-use crate::binding::scope::Flow;
 use crate::binding::scope::Scope;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
@@ -419,23 +418,6 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    /// Helper to clean up an expression that does type narrowing. We merge flows for the narrowing
-    /// operation and its negation, so that narrowing is limited to the body of the expression but
-    /// newly defined names persist.
-    fn negate_and_merge_flow(
-        &mut self,
-        base: Flow,
-        ops: &NarrowOps,
-        orelse: Option<&mut Expr>,
-        range: TextRange,
-        usage: &mut Usage,
-    ) {
-        let if_branch = self.scopes.replace_current_flow(base);
-        self.bind_narrow_ops(&ops.negate(), range, usage);
-        self.ensure_expr_opt(orelse, usage);
-        self.merge_branches_into_current(vec![if_branch], range);
-    }
-
     // We want to special-case `self.assertXXX()` methods in unit tests.
     // The logic is intentionally syntax-based as we want to avoid checking whether the base type
     // is `unittest.TestCase` on every single method invocation.
@@ -507,7 +489,14 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_narrow_ops(&narrow_ops, x.body.range(), usage);
                 self.ensure_expr(&mut x.body, usage);
                 let range = x.range();
-                self.negate_and_merge_flow(base, &narrow_ops, Some(&mut x.orelse), range, usage);
+                // Negate the narrow ops for the `orelse`, then merge the Flows.
+                //
+                // TODO(stroxler): Given that we lack intersection types, we need to
+                // find a way to drop all narrows (but keep any walrus assignments) here.
+                let if_branch = self.scopes.replace_current_flow(base);
+                self.bind_narrow_ops(&narrow_ops.negate(), range, usage);
+                self.ensure_expr(&mut x.orelse, usage);
+                self.merge_branches_into_current(vec![if_branch], range);
             }
             Expr::BoolOp(ExprBoolOp {
                 node_index: _,
@@ -532,7 +521,12 @@ impl<'a> BindingsBuilder<'a> {
                         }
                     }
                 }
-                self.negate_and_merge_flow(base, &narrow_ops, None, *range, usage);
+                // Negate the narrow ops in the base flow and merge.
+                //
+                // TODO(stroxler): simplify this, the negation is unnecessary.
+                let if_branch = self.scopes.replace_current_flow(base);
+                self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
+                self.merge_branches_into_current(vec![if_branch], *range);
             }
             Expr::Call(ExprCall {
                 node_index: _,
