@@ -41,6 +41,7 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassBaseType;
@@ -643,6 +644,7 @@ pub struct ClassIndices {
     pub synthesized_fields_idx: Idx<KeyClassSynthesizedFields>,
     pub variance_idx: Idx<KeyVariance>,
     pub consistent_override_check_idx: Idx<KeyConsistentOverrideCheck>,
+    pub abstract_class_check_idx: Idx<KeyAbstractClassCheck>,
 }
 
 #[derive(Clone, Debug)]

@@ -21,6 +21,8 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::EnumMetadata;
+use crate::alt::types::class_validation::AbstractClassMembers;
+use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
@@ -99,6 +101,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_metadata_for_class(&self, cls: &Class) -> Arc<ClassMetadata> {
         self.get_from_class(cls, &KeyClassMetadata(cls.index()))
             .unwrap_or_else(|| Arc::new(ClassMetadata::recursive()))
+    }
+
+    pub fn get_abstract_members_for_class(&self, cls: &Class) -> Arc<AbstractClassMembers> {
+        self.get_from_class(cls, &KeyAbstractClassCheck(cls.index()))
+            .unwrap_or_else(|| Arc::new(AbstractClassMembers::recursive()))
     }
 
     pub fn get_base_types_for_class(&self, cls: &Class) -> Arc<ClassBases> {

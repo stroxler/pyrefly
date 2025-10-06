@@ -7,6 +7,7 @@
 
 pub mod class_bases;
 pub mod class_metadata;
+pub mod class_validation;
 pub mod decorated_function;
 pub mod legacy_lookup;
 pub mod pydantic;

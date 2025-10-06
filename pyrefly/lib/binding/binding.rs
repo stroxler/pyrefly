@@ -50,6 +50,7 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::class_validation::AbstractClassMembers;
 use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -86,6 +87,7 @@ assert_bytes!(KeyClassSynthesizedFields, 4);
 assert_bytes!(KeyAnnotation, 12);
 assert_bytes!(KeyClassMetadata, 4);
 assert_bytes!(KeyClassMro, 4);
+assert_bytes!(KeyAbstractClassCheck, 4);
 assert_words!(KeyLegacyTypeParam, 1);
 assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
@@ -100,6 +102,7 @@ assert_words!(BindingTParams, 10);
 assert_words!(BindingClassBaseType, 3);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
+assert_bytes!(BindingAbstractClassCheck, 4);
 assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 16);
@@ -125,6 +128,7 @@ pub enum AnyIdx {
     KeyAnnotation(Idx<KeyAnnotation>),
     KeyClassMetadata(Idx<KeyClassMetadata>),
     KeyClassMro(Idx<KeyClassMro>),
+    KeyAbstractClassCheck(Idx<KeyAbstractClassCheck>),
     KeyLegacyTypeParam(Idx<KeyLegacyTypeParam>),
     KeyYield(Idx<KeyYield>),
     KeyYieldFrom(Idx<KeyYieldFrom>),
@@ -148,6 +152,7 @@ impl DisplayWith<Bindings> for AnyIdx {
             Self::KeyAnnotation(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassMetadata(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassMro(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyAbstractClassCheck(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyLegacyTypeParam(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyYield(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyYieldFrom(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -288,6 +293,15 @@ impl Keyed for KeyClassMro {
     }
 }
 impl Exported for KeyClassMro {}
+impl Keyed for KeyAbstractClassCheck {
+    const EXPORTED: bool = true;
+    type Value = BindingAbstractClassCheck;
+    type Answer = AbstractClassMembers;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyAbstractClassCheck(idx)
+    }
+}
+impl Exported for KeyAbstractClassCheck {}
 impl Keyed for KeyLegacyTypeParam {
     type Value = BindingLegacyTypeParam;
     type Answer = LegacyTypeParameterLookup;
@@ -838,6 +852,21 @@ impl Ranged for KeyClassMro {
 impl DisplayWith<ModuleInfo> for KeyClassMro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
         write!(f, "KeyClassMro(class{})", self.0)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyAbstractClassCheck(pub ClassDefIndex);
+
+impl Ranged for KeyAbstractClassCheck {
+    fn range(&self) -> TextRange {
+        TextRange::default()
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyAbstractClassCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyAbstractClassCheck(class{})", self.0)
     }
 }
 
@@ -2011,6 +2040,21 @@ pub struct BindingClassMro {
 impl DisplayWith<Bindings> for BindingClassMro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
         write!(f, "BindingClassMro({}, ..)", ctx.display(self.class_idx))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BindingAbstractClassCheck {
+    pub class_idx: Idx<KeyClass>,
+}
+
+impl DisplayWith<Bindings> for BindingAbstractClassCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        write!(
+            f,
+            "BindingAbstractClassCheck({})",
+            ctx.display(self.class_idx)
+        )
     }
 }
 

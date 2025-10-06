@@ -32,6 +32,7 @@ use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
+use crate::binding::binding::BindingAbstractClassCheck;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassBaseType;
@@ -47,6 +48,7 @@ use crate::binding::binding::ClassBinding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassBaseType;
@@ -104,6 +106,7 @@ impl<'a> BindingsBuilder<'a> {
             variance_idx: self.idx_for_promise(KeyVariance(def_index)),
             consistent_override_check_idx: self
                 .idx_for_promise(KeyConsistentOverrideCheck(def_index)),
+            abstract_class_check_idx: self.idx_for_promise(KeyAbstractClassCheck(def_index)),
         };
         // The user - used for first-usage tracking of any expressions we analyze in a class definition -
         // is the `Idx<Key>` of the class object bound to the class name.
@@ -330,6 +333,12 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
                 pydantic_config_dict,
+            },
+        );
+        self.insert_binding_idx(
+            class_indices.abstract_class_check_idx,
+            BindingAbstractClassCheck {
+                class_idx: class_indices.class_idx,
             },
         );
     }
@@ -562,6 +571,12 @@ impl<'a> BindingsBuilder<'a> {
             class_indices.consistent_override_check_idx,
             BindingConsistentOverrideCheck {
                 class_key: class_indices.class_idx,
+            },
+        );
+        self.insert_binding_idx(
+            class_indices.abstract_class_check_idx,
+            BindingAbstractClassCheck {
+                class_idx: class_indices.class_idx,
             },
         );
     }

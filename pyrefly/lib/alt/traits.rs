@@ -18,6 +18,7 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::class_validation::AbstractClassMembers;
 use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -26,6 +27,7 @@ use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::AnnotationWithTarget;
 use crate::binding::binding::Binding;
+use crate::binding::binding::BindingAbstractClassCheck;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingClassBaseType;
@@ -45,6 +47,7 @@ use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassBaseType;
@@ -347,6 +350,21 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyClassMro {
 
     fn promote_recursive(_: Var) -> Self::Answer {
         ClassMro::recursive()
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyAbstractClassCheck {
+    fn solve(
+        _answers: &AnswersSolver<Ans>,
+        _binding: &BindingAbstractClassCheck,
+        _errors: &ErrorCollector,
+    ) -> Arc<AbstractClassMembers> {
+        // TODO
+        Arc::new(AbstractClassMembers::new())
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        AbstractClassMembers::recursive()
     }
 }
 
