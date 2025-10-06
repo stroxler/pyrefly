@@ -70,7 +70,7 @@ struct PysaProjectModule {
     module_id: ModuleId,
     module_name: ModuleName,        // e.g, `foo.bar`
     source_path: ModulePathDetails, // Path to the source code
-    info_path: Option<PathBuf>,     // Path to the PysaModuleFile
+    info_filename: Option<PathBuf>, // Filename for info files
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_test: bool, // Uses a set of heuristics to determine if the module is a test file.
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -88,27 +88,35 @@ struct PysaProjectFile {
     object_class_id: ClassId,
 }
 
-/// Format of a module file `my.module:id.json`
-/// Represents all the information Pysa needs about a given module.
+/// Format of the file `definitions/my.module:id.json` containing all definitions
 #[derive(Debug, Clone, Serialize)]
-pub struct PysaModuleFile {
+pub struct PysaModuleDefinitions {
     format_version: u32,
     module_id: ModuleId,
     module_name: ModuleName,
     source_path: ModulePathDetails,
-    type_of_expression: HashMap<PysaLocation, PysaType>,
     function_definitions: ModuleFunctionDefinitions<FunctionDefinition>,
     class_definitions: HashMap<PysaLocation, ClassDefinition>,
     global_variables: HashMap<Name, GlobalVariable>,
 }
 
-pub fn get_module_file(
+/// Format of the file `type_of_expressions/my.module:id.json` containing type of expressions
+#[derive(Debug, Clone, Serialize)]
+pub struct PysaModuleTypeOfExpressions {
+    format_version: u32,
+    module_id: ModuleId,
+    module_name: ModuleName,
+    source_path: ModulePathDetails,
+    type_of_expression: HashMap<PysaLocation, PysaType>,
+}
+
+pub fn export_module_definitions(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
-) -> PysaModuleFile {
+) -> PysaModuleDefinitions {
     let global_variables = export_global_variables(context);
-    let type_of_expression = export_type_of_expressions(context);
     let captured_variables = export_captured_variables(context);
+    let class_definitions = export_all_classes(context);
 
     let function_base_definitions_for_module = function_base_definitions
         .get_for_module(context.module_id)
@@ -118,16 +126,25 @@ pub fn get_module_file(
         &captured_variables,
         context,
     );
-    let class_definitions = export_all_classes(context);
-    PysaModuleFile {
+    PysaModuleDefinitions {
+        format_version: 1,
+        module_id: context.module_id,
+        module_name: context.module_info.name(),
+        source_path: context.module_info.path().details().clone(),
+        function_definitions,
+        class_definitions,
+        global_variables,
+    }
+}
+
+pub fn export_module_type_of_expressions(context: &ModuleContext) -> PysaModuleTypeOfExpressions {
+    let type_of_expression = export_type_of_expressions(context);
+    PysaModuleTypeOfExpressions {
         format_version: 1,
         module_id: context.module_id,
         module_name: context.module_info.name(),
         source_path: context.module_info.path().details().clone(),
         type_of_expression,
-        function_definitions,
-        class_definitions,
-        global_variables,
     }
 }
 
@@ -135,7 +152,10 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
     let start = Instant::now();
     info!("Writing results to `{}`", results_directory.display());
     fs_anyhow::create_dir_all(results_directory)?;
-    fs_anyhow::create_dir_all(&results_directory.join("modules"))?;
+    let definitions_directory = results_directory.join("definitions");
+    let type_of_expressions_directory = results_directory.join("type_of_expressions");
+    fs_anyhow::create_dir_all(&definitions_directory)?;
+    fs_anyhow::create_dir_all(&type_of_expressions_directory)?;
 
     let handles = transaction.handles();
     let module_ids = ModuleIds::new(&handles);
@@ -146,7 +166,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
         let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
 
         // Path where we will store the information on the module.
-        let info_path = match handle.path().details() {
+        let info_filename = match handle.path().details() {
             ModulePathDetails::Namespace(_) => {
                 // Indicates a directory that contains a `__init__.py` file.
                 None
@@ -176,7 +196,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                         module_id,
                         module_name: handle.module(),
                         source_path: handle.path().details().clone(),
-                        info_path: info_path.clone(),
+                        info_filename: info_filename.clone(),
                         is_test: false,
                         is_interface: handle.path().is_interface(),
                         is_init: handle.path().is_init(),
@@ -186,8 +206,8 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
             "Found multiple handles with the same module id"
         );
 
-        if let Some(info_path) = info_path {
-            module_info_tasks.push((handle, module_id, info_path));
+        if let Some(info_filename) = info_filename {
+            module_info_tasks.push((handle, module_id, info_filename));
         }
     }
 
@@ -206,15 +226,24 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
     // Retrieve and dump information about each module, in parallel.
     ThreadPool::new().install(|| -> anyhow::Result<()> {
         module_info_tasks.into_par_iter().try_for_each(
-            |(handle, module_id, info_path)| -> anyhow::Result<()> {
-                let writer = BufWriter::new(File::create(
-                    results_directory.join("modules").join(info_path),
-                )?);
+            |(handle, module_id, info_filename)| -> anyhow::Result<()> {
                 let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
-                serde_json::to_writer(
-                    writer,
-                    &get_module_file(&context, &function_base_definitions),
-                )?;
+
+                {
+                    let writer =
+                        BufWriter::new(File::create(definitions_directory.join(&info_filename))?);
+                    serde_json::to_writer(
+                        writer,
+                        &export_module_definitions(&context, &function_base_definitions),
+                    )?;
+                }
+
+                {
+                    let writer = BufWriter::new(File::create(
+                        type_of_expressions_directory.join(&info_filename),
+                    )?);
+                    serde_json::to_writer(writer, &export_module_type_of_expressions(&context))?;
+                }
 
                 if is_test_module::is_test_module(&context) {
                     project_modules
