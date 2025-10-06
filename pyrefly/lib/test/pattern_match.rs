@@ -59,3 +59,31 @@ def my_func(x: dict[MyEnumType, int]) -> int:
             return 0
 "#,
 );
+
+testcase!(
+    bug = "We don't negate matches before merging base flow",
+    test_non_exhaustive_flow_merging,
+    r#"
+from typing import assert_type, Literal
+def foo(x: Literal['A'] | Literal['B']):
+    match x:
+        case 'A':
+            raise ValueError()
+    assert_type(x, Literal['B'])  # E: assert_type(Literal['A', 'B'], Literal['B'])
+    "#,
+);
+
+testcase!(
+    bug = "We currently never negate class matches; ideally we would be smarter about when the match is exhaustive",
+    test_negated_exhaustive_class_match,
+    r#"
+from typing import assert_type
+
+def f0(x: int | str):
+    match x:
+        case int():
+            pass
+        case _:
+            assert_type(x, str)  # E: assert_type(int | str, str)
+"#,
+);
