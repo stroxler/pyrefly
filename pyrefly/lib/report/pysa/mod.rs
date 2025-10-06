@@ -42,6 +42,8 @@ use serde::Serialize;
 use tracing::info;
 
 use crate::module::typeshed::typeshed;
+use crate::report::pysa::call_graph::CallGraph;
+use crate::report::pysa::call_graph::export_call_graphs;
 use crate::report::pysa::captured_variable::export_captured_variables;
 use crate::report::pysa::class::ClassDefinition;
 use crate::report::pysa::class::ClassId;
@@ -49,6 +51,8 @@ use crate::report::pysa::class::export_all_classes;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionDefinition;
+use crate::report::pysa::function::FunctionId;
+use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::ModuleFunctionDefinitions;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::add_undecorated_signatures_and_captures;
@@ -110,6 +114,16 @@ pub struct PysaModuleTypeOfExpressions {
     type_of_expression: HashMap<PysaLocation, PysaType>,
 }
 
+/// Format of the file `call_graphs/my.module:id.json` containing module call graphs
+#[derive(Debug, Clone, Serialize)]
+pub struct PysaModuleCallGraphs {
+    format_version: u32,
+    module_id: ModuleId,
+    module_name: ModuleName,
+    source_path: ModulePathDetails,
+    call_graphs: HashMap<FunctionId, CallGraph<FunctionRef>>,
+}
+
 pub fn export_module_definitions(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
@@ -148,14 +162,33 @@ pub fn export_module_type_of_expressions(context: &ModuleContext) -> PysaModuleT
     }
 }
 
+pub fn export_module_call_graphs(
+    context: &ModuleContext,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+) -> PysaModuleCallGraphs {
+    let call_graphs = export_call_graphs(context, function_base_definitions)
+        .into_iter()
+        .map(|(function_ref, call_graph)| (function_ref.function_id, call_graph))
+        .collect();
+    PysaModuleCallGraphs {
+        format_version: 1,
+        module_id: context.module_id,
+        module_name: context.module_info.name(),
+        source_path: context.module_info.path().details().clone(),
+        call_graphs,
+    }
+}
+
 pub fn write_results(results_directory: &Path, transaction: &Transaction) -> anyhow::Result<()> {
     let start = Instant::now();
     info!("Writing results to `{}`", results_directory.display());
     fs_anyhow::create_dir_all(results_directory)?;
     let definitions_directory = results_directory.join("definitions");
     let type_of_expressions_directory = results_directory.join("type_of_expressions");
+    let call_graphs_directory = results_directory.join("call_graphs");
     fs_anyhow::create_dir_all(&definitions_directory)?;
     fs_anyhow::create_dir_all(&type_of_expressions_directory)?;
+    fs_anyhow::create_dir_all(&call_graphs_directory)?;
 
     let handles = transaction.handles();
     let module_ids = ModuleIds::new(&handles);
@@ -243,6 +276,15 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                         type_of_expressions_directory.join(&info_filename),
                     )?);
                     serde_json::to_writer(writer, &export_module_type_of_expressions(&context))?;
+                }
+
+                {
+                    let writer =
+                        BufWriter::new(File::create(call_graphs_directory.join(&info_filename))?);
+                    serde_json::to_writer(
+                        writer,
+                        &export_module_call_graphs(&context, &function_base_definitions),
+                    )?;
                 }
 
                 if is_test_module::is_test_module(&context) {

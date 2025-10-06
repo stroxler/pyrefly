@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::hash::Hash;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
@@ -19,6 +20,7 @@ use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use serde::Serialize;
 
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
 use crate::report::pysa::ast_visitor::Scopes;
@@ -32,32 +34,37 @@ use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::state::lsp::FindPreference;
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub enum ImplicitReceiver {
     TrueWithClassReceiver,
     TrueWithObjectReceiver,
     False,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CallTarget<Target> {
+pub trait TargetTrait: std::fmt::Debug + PartialEq + Eq + Clone + Hash + Serialize {}
+
+impl TargetTrait for FunctionRef {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CallTarget<Target: TargetTrait> {
     pub(crate) target: Target,
     pub(crate) implicit_receiver: ImplicitReceiver,
     pub(crate) receiver_class: Option<ClassRef>,
 }
 
-impl<Target> CallTarget<Target> {
+impl<Target: TargetTrait> CallTarget<Target> {
     #[cfg(test)]
-    fn map_target<TargetForTest, MapTarget>(&self, map: MapTarget) -> CallTarget<TargetForTest>
+    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+        self,
+        map: MapTarget,
+    ) -> CallTarget<OutputTarget>
     where
-        MapTarget: Fn(&Target) -> TargetForTest,
+        MapTarget: Fn(Target) -> OutputTarget,
     {
         CallTarget {
-            target: map(&self.target),
-            implicit_receiver: self.implicit_receiver.clone(),
-            receiver_class: self.receiver_class.clone(),
+            target: map(self.target),
+            implicit_receiver: self.implicit_receiver,
+            receiver_class: self.receiver_class,
         }
     }
 
@@ -68,94 +75,93 @@ impl<Target> CallTarget<Target> {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq)]
-pub struct CallCallees<Target> {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CallCallees<Target: TargetTrait> {
     pub(crate) call_targets: Vec<CallTarget<Target>>,
 }
 
-impl<Target> CallCallees<Target> {
+impl<Target: TargetTrait> CallCallees<Target> {
     #[cfg(test)]
-    fn map_target<TargetForTest, MapTarget>(&self, map: MapTarget) -> CallCallees<TargetForTest>
+    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+        self,
+        map: MapTarget,
+    ) -> CallCallees<OutputTarget>
     where
-        MapTarget: Fn(&Target) -> TargetForTest,
+        MapTarget: Fn(Target) -> OutputTarget,
     {
         CallCallees {
             call_targets: self
                 .call_targets
-                .iter()
+                .into_iter()
                 .map(|call_target| CallTarget::map_target(call_target, &map))
                 .collect(),
         }
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq)]
-pub struct AttributeAccessCallees<Target> {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AttributeAccessCallees<Target: TargetTrait> {
     pub(crate) callable_targets: Vec<CallTarget<Target>>,
 }
 
-impl<Target> AttributeAccessCallees<Target> {
+impl<Target: TargetTrait> AttributeAccessCallees<Target> {
     #[cfg(test)]
-    fn map_target<TargetForTest, MapTarget>(
-        &self,
+    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+        self,
         map: MapTarget,
-    ) -> AttributeAccessCallees<TargetForTest>
+    ) -> AttributeAccessCallees<OutputTarget>
     where
-        MapTarget: Fn(&Target) -> TargetForTest,
+        MapTarget: Fn(Target) -> OutputTarget,
     {
         AttributeAccessCallees {
             callable_targets: self
                 .callable_targets
-                .iter()
+                .into_iter()
                 .map(|call_target| CallTarget::map_target(call_target, &map))
                 .collect(),
         }
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq)]
-pub struct IdentifierCallees<Target> {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct IdentifierCallees<Target: TargetTrait> {
     pub(crate) callable_targets: Vec<CallTarget<Target>>,
 }
 
-impl<Target> IdentifierCallees<Target> {
+impl<Target: TargetTrait> IdentifierCallees<Target> {
     #[cfg(test)]
-    fn map_target<TargetForTest, MapTarget>(
-        &self,
+    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+        self,
         map: MapTarget,
-    ) -> IdentifierCallees<TargetForTest>
+    ) -> IdentifierCallees<OutputTarget>
     where
-        MapTarget: Fn(&Target) -> TargetForTest,
+        MapTarget: Fn(Target) -> OutputTarget,
     {
         IdentifierCallees {
             callable_targets: self
                 .callable_targets
-                .iter()
+                .into_iter()
                 .map(|call_target| CallTarget::map_target(call_target, &map))
                 .collect(),
         }
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq)]
-pub enum ExpressionCallees<Target> {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum ExpressionCallees<Target: TargetTrait> {
     Call(CallCallees<Target>),
     Identifier(IdentifierCallees<Target>),
     AttributeAccess(AttributeAccessCallees<Target>),
 }
 
-impl<Target> ExpressionCallees<Target> {
+impl<Target: TargetTrait> ExpressionCallees<Target> {
     #[cfg(test)]
-    pub fn map_target<TargetForTest, MapTarget>(
-        &self,
+    pub fn map_target<OutputTarget: TargetTrait, MapTarget>(
+        self,
         map: MapTarget,
-    ) -> ExpressionCallees<TargetForTest>
+    ) -> ExpressionCallees<OutputTarget>
     where
-        MapTarget: Fn(&Target) -> TargetForTest,
+        MapTarget: Fn(Target) -> OutputTarget,
     {
         match self {
             ExpressionCallees::Call(call_callees) => {
@@ -171,38 +177,42 @@ impl<Target> ExpressionCallees<Target> {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct CallGraphs<Target, Location>(
-    pub(crate) HashMap<Target, HashMap<Location, ExpressionCallees<Target>>>,
-);
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CallGraph<Target: TargetTrait>(HashMap<PysaLocation, ExpressionCallees<Target>>);
 
-impl<Target, Location> PartialEq for CallGraphs<Target, Location>
-where
-    Target: PartialEq + Eq + std::hash::Hash,
-    Location: PartialEq + Eq + std::hash::Hash,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+impl<Target: TargetTrait> CallGraph<Target> {
+    #[cfg(test)]
+    pub fn from_map(map: HashMap<PysaLocation, ExpressionCallees<Target>>) -> Self {
+        Self(map)
+    }
+
+    #[cfg(test)]
+    pub fn into_iter(self) -> impl Iterator<Item = (PysaLocation, ExpressionCallees<Target>)> {
+        self.0.into_iter()
     }
 }
 
-impl<Target, Location> Eq for CallGraphs<Target, Location>
-where
-    Target: PartialEq + Eq + std::hash::Hash,
-    Location: PartialEq + Eq + std::hash::Hash,
-{
+impl<Target: TargetTrait> Default for CallGraph<Target> {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
 }
 
-impl<Target, Location> CallGraphs<Target, Location> {
-    #[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallGraphs<Target: TargetTrait>(HashMap<Target, CallGraph<Target>>);
+
+impl<Target: TargetTrait> CallGraphs<Target> {
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
-    #[allow(dead_code)]
-    pub fn from_map(map: HashMap<Target, HashMap<Location, ExpressionCallees<Target>>>) -> Self {
+    #[cfg(test)]
+    pub fn from_map(map: HashMap<Target, CallGraph<Target>>) -> Self {
         Self(map)
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (Target, CallGraph<Target>)> {
+        self.0.into_iter()
     }
 }
 
@@ -280,9 +290,8 @@ fn has_implicit_receiver(
     }
 }
 
-#[allow(dead_code)]
 struct CallGraphVisitor<'a> {
-    call_graphs: &'a mut CallGraphs<FunctionRef, PysaLocation>,
+    call_graphs: &'a mut CallGraphs<FunctionRef>,
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: ModuleName,
@@ -299,6 +308,7 @@ impl<'a> CallGraphVisitor<'a> {
                 .0
                 .entry(self.current_function.clone().unwrap())
                 .or_default()
+                .0
                 .insert(
                     PysaLocation::new(self.module_context.module_info.display_range(location)),
                     callees,
@@ -524,11 +534,10 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
     }
 }
 
-#[allow(dead_code)]
-pub fn build_call_graphs_for_module(
+pub fn export_call_graphs(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
-) -> CallGraphs<FunctionRef, PysaLocation> {
+) -> CallGraphs<FunctionRef> {
     let mut call_graphs = CallGraphs::new();
 
     let mut visitor = CallGraphVisitor {

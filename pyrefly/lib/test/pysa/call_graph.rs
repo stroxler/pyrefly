@@ -7,14 +7,18 @@
 
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use crate::report::pysa::call_graph::AttributeAccessCallees;
 use crate::report::pysa::call_graph::CallCallees;
+use crate::report::pysa::call_graph::CallGraph;
 use crate::report::pysa::call_graph::CallGraphs;
 use crate::report::pysa::call_graph::CallTarget;
 use crate::report::pysa::call_graph::ExpressionCallees;
 use crate::report::pysa::call_graph::IdentifierCallees;
 use crate::report::pysa::call_graph::ImplicitReceiver;
-use crate::report::pysa::call_graph::build_call_graphs_for_module;
+use crate::report::pysa::call_graph::TargetTrait;
+use crate::report::pysa::call_graph::export_call_graphs;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::collect_function_base_definitions;
@@ -26,11 +30,13 @@ use crate::test::pysa::utils::get_class_ref;
 use crate::test::pysa::utils::get_handle_for_module_name;
 
 // Omit fields from `FunctionRef` so that we can easily write the expected results
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize)]
 struct DefinitionRefForTest {
     module_name: String,
     identifier: String,
 }
+
+impl TargetTrait for DefinitionRefForTest {}
 
 fn split_module_name_and_identifier(string: &str) -> (String, String) {
     let parts: Vec<&str> = string.split('.').collect();
@@ -42,7 +48,7 @@ fn split_module_name_and_identifier(string: &str) -> (String, String) {
 }
 
 impl DefinitionRefForTest {
-    fn from_definition_ref(definition_ref: &FunctionRef) -> Self {
+    fn from_definition_ref(definition_ref: FunctionRef) -> Self {
         Self {
             module_name: definition_ref.module_name.to_string(),
             identifier: definition_ref.function_name.to_string(),
@@ -64,7 +70,7 @@ impl std::fmt::Display for DefinitionRefForTest {
     }
 }
 
-impl<Target> CallTarget<Target> {
+impl CallTarget<DefinitionRefForTest> {
     fn with_receiver_class(mut self, receiver_class: String, context: &ModuleContext) -> Self {
         self.receiver_class = Some({
             let (module_name, class_name) = split_module_name_and_identifier(&receiver_class);
@@ -83,26 +89,29 @@ fn create_call_target(target: &str) -> CallTarget<DefinitionRefForTest> {
 }
 
 fn call_graph_for_test_from_actual(
-    call_graph: &CallGraphs<FunctionRef, PysaLocation>,
-) -> CallGraphs<DefinitionRefForTest, String> {
-    let call_graph_for_test = call_graph
-        .0
-        .iter()
-        .map(|(caller, callees)| {
-            let caller = DefinitionRefForTest::from_definition_ref(caller);
-            let callees_for_test = callees
-                .iter()
-                .map(|(location, expression_callees)| {
-                    (
-                        location.as_key(),
-                        expression_callees.map_target(DefinitionRefForTest::from_definition_ref),
-                    )
-                })
-                .collect::<HashMap<_, _>>();
-            (caller, callees_for_test)
-        })
-        .collect::<HashMap<_, _>>();
-    CallGraphs::from_map(call_graph_for_test)
+    call_graphs: CallGraphs<FunctionRef>,
+) -> CallGraphs<DefinitionRefForTest> {
+    CallGraphs::from_map(
+        call_graphs
+            .into_iter()
+            .map(|(caller, callees)| {
+                let caller = DefinitionRefForTest::from_definition_ref(caller);
+                let callees_for_test = CallGraph::from_map(
+                    callees
+                        .into_iter()
+                        .map(|(location, expression_callees)| {
+                            (
+                                location.clone(),
+                                expression_callees
+                                    .map_target(DefinitionRefForTest::from_definition_ref),
+                            )
+                        })
+                        .collect::<HashMap<_, _>>(),
+                );
+                (caller, callees_for_test)
+            })
+            .collect::<HashMap<_, _>>(),
+    )
 }
 
 fn call_graph_for_test_from_expected(
@@ -110,20 +119,26 @@ fn call_graph_for_test_from_expected(
         String,
         Vec<(String, ExpressionCallees<DefinitionRefForTest>)>,
     )>,
-) -> CallGraphs<DefinitionRefForTest, String> {
-    let call_graph_for_test = call_graph
-        .into_iter()
-        .map(|(caller, callees)| {
-            let callees_for_test = callees
-                .into_iter()
-                .map(|(location, expression_callees_for_test)| {
-                    ((*location).to_owned(), expression_callees_for_test)
-                })
-                .collect::<HashMap<_, _>>();
-            (DefinitionRefForTest::from_string(&caller), callees_for_test)
-        })
-        .collect::<HashMap<_, _>>();
-    CallGraphs::from_map(call_graph_for_test)
+) -> CallGraphs<DefinitionRefForTest> {
+    CallGraphs::from_map(
+        call_graph
+            .into_iter()
+            .map(|(caller, callees)| {
+                let callees_for_test = CallGraph::from_map(
+                    callees
+                        .into_iter()
+                        .map(|(location, expression_callees_for_test)| {
+                            (
+                                PysaLocation::from_key(&location).unwrap(),
+                                expression_callees_for_test,
+                            )
+                        })
+                        .collect::<HashMap<_, _>>(),
+                );
+                (DefinitionRefForTest::from_string(&caller), callees_for_test)
+            })
+            .collect::<HashMap<_, _>>(),
+    )
 }
 
 fn test_building_call_graph_for_module(
@@ -153,10 +168,8 @@ fn test_building_call_graph_for_module(
 
     let test_module_handle = get_handle_for_module_name(test_module_name, &transaction);
     let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
-    let actual_call_graph = call_graph_for_test_from_actual(&build_call_graphs_for_module(
-        &context,
-        &function_base_definitions,
-    ));
+    let actual_call_graph =
+        call_graph_for_test_from_actual(export_call_graphs(&context, &function_base_definitions));
     let expected_call_graph = call_graph_for_test_from_expected(create_expected(&context));
     assert_eq!(
         expected_call_graph, actual_call_graph,
