@@ -73,7 +73,6 @@ def foo(x: Literal['A'] | Literal['B']):
 );
 
 testcase!(
-    bug = "It's unsound to negate a pattern that has a guard blindly",
     test_negation_of_guarded_pattern,
     r#"
 from typing import assert_type, Literal
@@ -82,7 +81,7 @@ def foo(x: Literal['A'] | Literal['B']):
     match x:
         case 'A' if condition():
             raise ValueError()
-    assert_type(x, Literal['A', 'B'])  # E: assert_type(Literal['B'], Literal['A', 'B'])
+    assert_type(x, Literal['A', 'B'])
     "#,
 );
 

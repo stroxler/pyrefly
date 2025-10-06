@@ -333,17 +333,18 @@ impl<'a> BindingsBuilder<'a> {
             if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
                 exhaustive = true;
             }
-            let new_narrow_ops =
-                self.bind_pattern(match_narrowing_subject.clone(), case.pattern, subject_idx);
             self.bind_narrow_ops(&negated_prev_ops, case.range, &Usage::Narrowing(None));
+            let mut new_narrow_ops =
+                self.bind_pattern(match_narrowing_subject.clone(), case.pattern, subject_idx);
             self.bind_narrow_ops(&new_narrow_ops, case.range, &Usage::Narrowing(None));
-            negated_prev_ops.and_all(new_narrow_ops.negate());
             if let Some(mut guard) = case.guard {
                 self.ensure_expr(&mut guard, &mut Usage::Narrowing(None));
-                let narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
-                self.bind_narrow_ops(&narrow_ops, case.range, &Usage::Narrowing(None));
+                let guard_narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
+                self.bind_narrow_ops(&guard_narrow_ops, case.range, &Usage::Narrowing(None));
                 self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
+                new_narrow_ops.and_all(guard_narrow_ops)
             }
+            negated_prev_ops.and_all(new_narrow_ops.negate());
             self.stmts(case.body, parent);
             self.scopes.swap_current_flow_with(&mut base);
             branches.push(base);
