@@ -79,7 +79,8 @@ impl Docstring {
                 }
             })
             .collect::<Vec<_>>()
-            .join("\n")
+            // Note: markdown doesn't break on just `\n`
+            .join("  \n")
     }
 
     /// Resolve the docstring to a string. This involves parsing the file to get the contents of the docstring and then cleaning it.
@@ -153,7 +154,7 @@ mod tests {
     fn test_clean_trims_shortest_whitespace() {
         assert_eq!(
             Docstring::clean("\n  hello\n    world\n  test").as_str(),
-            "\nhello\n  world\ntest"
+            "  \nhello  \n  world  \ntest"
         );
     }
 
@@ -166,7 +167,7 @@ mod tests {
     fn test_docstring_multiline_starts_at_first() {
         assert_eq!(
             Docstring::clean("\"\"\"hello\n  world\n  test\"\"\"").as_str(),
-            "hello\nworld\ntest"
+            "hello  \nworld  \ntest"
         );
     }
 }
