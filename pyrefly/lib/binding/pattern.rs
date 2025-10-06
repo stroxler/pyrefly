@@ -17,6 +17,7 @@ use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
@@ -354,6 +355,16 @@ impl<'a> BindingsBuilder<'a> {
         if exhaustive {
             self.set_current_flow_to_merged_branches(branches, range);
         } else {
+            // If the match is non-exhaustive, we still want to negate the narrow ops
+            // from the match cases. This can potentially produce a useful narrow
+            // in the final merged type when one or more branches terminate.
+            self.bind_narrow_ops(
+                &negated_prev_ops,
+                // Note: default range is fine here, it just has to be distinct from other
+                // use ranges of the same ops.
+                TextRange::default(),
+                &Usage::Narrowing(None),
+            );
             self.merge_branches_into_current(branches, range);
         }
     }
