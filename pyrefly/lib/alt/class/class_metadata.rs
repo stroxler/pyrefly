@@ -31,7 +31,6 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::abstract_class::AbstractClassMembers;
-use crate::alt::types::class_metadata::AbstractClassMetadata;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::DataclassMetadata;
@@ -285,7 +284,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
-        let abstract_class_metadata = self.abstract_class_metadata(cls, &bases_with_metadata);
+        let extends_abc = self.extends_abc(&bases_with_metadata);
 
         // Compute final base class list.
         let bases = if is_typed_dict && bases_with_metadata.is_empty() {
@@ -320,7 +319,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
-            abstract_class_metadata,
+            extends_abc,
             has_generic_base_class,
             has_base_any,
             is_new_type,
@@ -1124,7 +1123,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn calculate_abstract_members(&self, cls: &Class) -> AbstractClassMembers {
         let metadata = self.get_metadata_for_class(cls);
         let mut fields_to_check: SmallSet<Name>;
-        if metadata.abstract_class_metadata().is_some() || metadata.is_protocol() {
+        if metadata.extends_abc() || metadata.is_protocol() {
             fields_to_check = SmallSet::from_iter(cls.fields().cloned());
         } else {
             fields_to_check = SmallSet::new();
@@ -1134,9 +1133,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let base_class_metadata = self.get_metadata_for_class(base_class);
             // For now, skip any non-protocols base classes that don't extend `ABC` or have metaclass `ABCMeta`
             // Consider adding a stricter check in the future
-            if base_class_metadata.abstract_class_metadata().is_none()
-                && !base_class_metadata.is_protocol()
-            {
+            if !base_class_metadata.extends_abc() && !base_class_metadata.is_protocol() {
                 continue;
             }
             let base_class_abstract_members = self.get_abstract_members_for_class(base_class);
@@ -1158,33 +1155,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         AbstractClassMembers::new(abstract_members)
     }
 
-    fn abstract_class_metadata(
-        &self,
-        cls: &Class,
-        bases_with_metadata: &Vec<(Class, Arc<ClassMetadata>)>,
-    ) -> Option<AbstractClassMetadata> {
-        let mut is_abstract = false;
-        let mut members = SmallSet::new();
+    fn extends_abc(&self, bases_with_metadata: &Vec<(Class, Arc<ClassMetadata>)>) -> bool {
         for (base, base_metadata) in bases_with_metadata {
             if base.has_toplevel_qname("abc", "ABC") {
-                is_abstract = true;
+                return true;
             }
             if let Some(metaclass) = base_metadata.custom_metaclass()
                 && metaclass
                     .class_object()
                     .has_toplevel_qname("abc", "ABCMeta")
             {
-                is_abstract = true;
+                return true;
             }
-            if let Some(abstract_base_metadata) = base_metadata.abstract_class_metadata() {
-                is_abstract = true;
-                members.extend(abstract_base_metadata.members.clone());
+            if base_metadata.extends_abc() {
+                return true;
             }
         }
-        if !is_abstract {
-            return None;
-        }
-        members.extend(cls.fields().cloned());
-        Some(AbstractClassMetadata { members })
+        false
     }
 }
