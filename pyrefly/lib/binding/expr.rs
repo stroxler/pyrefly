@@ -503,6 +503,7 @@ impl<'a> BindingsBuilder<'a> {
                 values,
             }) => {
                 self.start_fork();
+                self.start_branch();
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range(), usage);
@@ -523,6 +524,7 @@ impl<'a> BindingsBuilder<'a> {
                 // TODO(stroxler): We eventually want to drop all narrows but merge values.
                 // Once we have a way to do that, the negation will be unnecessary.
                 self.finish_branch();
+                self.start_branch();
                 self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
                 self.finish_branch();
                 self.finish_exhaustive_fork(*range);

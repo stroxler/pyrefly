@@ -797,15 +797,11 @@ pub struct Fork {
     base: Flow,
     /// The flow resulting from branches of the fork
     branches: Vec<Flow>,
-}
-
-impl Fork {
-    pub fn new(base: Flow) -> Self {
-        Self {
-            base,
-            branches: Default::default(),
-        }
-    }
+    /// Fork operations involve non type-safe invariants around calling `start_branch` that are
+    /// used to minimize flow clones.
+    ///
+    /// This bit allows us to panic instead of producing buggy analysis if a caller messes them up.
+    branch_started: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -2124,27 +2120,63 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Start a new fork in control flow (e.g. an if/else, match statement, etc)
+    ///
+    /// The end state of this is involves an empty flow not initialized for
+    /// analyzing a branch, callers must call `start_branch` before proceeding
+    /// with analysis.
     pub fn start_fork(&mut self) {
         let scope = self.scopes.current_mut();
-        let base = scope.flow.clone();
-        scope.forks.push(Fork::new(base))
+        let mut base = Flow::default();
+        mem::swap(&mut base, &mut scope.flow);
+        scope.forks.push(Fork {
+            base,
+            branches: Default::default(),
+            branch_started: false,
+        })
+    }
+
+    /// Set the current flow to a copy of the current Fork's base so we can analyze a branch.
+    /// Panics if no flow is active.
+    pub fn start_branch(&mut self) {
+        let scope = self.scopes.current_mut();
+        let fork = scope.forks.last_mut().unwrap();
+        fork.branch_started = true;
+        scope.flow = fork.base.clone();
     }
 
     /// Finish a branch in the current fork: save the branch, reset the flow to `base`.
     /// Panics if called when no fork is active.
+    ///
+    /// The end state of this is involves an empty flow not initialized for
+    /// analyzing a branch, callers must call `start_branch` before proceeding
+    /// with analysis.
+    ///
+    /// Panics if `start_branch` was not used to initialize the flow since
+    /// `start_fork` / `finish_branch`.
     pub fn finish_branch(&mut self) {
         let scope = self.scopes.current_mut();
         let fork = scope.forks.last_mut().unwrap();
-        let mut flow = fork.base.clone();
+        assert!(
+            fork.branch_started,
+            "No branch started - did you forget to call `start_branch`?"
+        );
+        let mut flow = Flow::default();
         mem::swap(&mut scope.flow, &mut flow);
         fork.branches.push(flow);
+        fork.branch_started = false;
     }
 
     /// Finish an exhaustive fork (one that does not include the base flow),
     /// popping it and setting flow to the merge result.
-    /// Panics if called when no fork is active.
+    ///
+    /// Panics if called when no fork is active, or if a branch is started (which
+    /// means the caller forgot to finish the branch and is always a bug).
     pub fn finish_exhaustive_fork(&mut self, range: TextRange) {
         let fork = self.scopes.current_mut().forks.pop().unwrap();
+        assert!(
+            !fork.branch_started,
+            "A branch is started - did you forget to call `finish_branch`?"
+        );
         let branches = fork.branches;
         let merged = self.merge_flow(branches, range, false);
         self.scopes.current_mut().flow = merged;
