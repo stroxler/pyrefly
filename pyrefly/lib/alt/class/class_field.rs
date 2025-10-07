@@ -1071,6 +1071,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.expr_infer(e, errors)
                 };
                 self.expand_type_mut(&mut ty);
+
                 (ty, inherited_annot)
             }
             ExprOrBinding::Binding(b) => (
@@ -1079,6 +1080,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
         };
         let metadata = self.get_metadata_for_class(class);
+
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.
             // See https://github.com/python/typeshed/pull/13875 for reasoning.
@@ -1306,18 +1308,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {}
         };
 
-        let ty = self
-            .get_special_class_field_type(
-                class,
-                name,
-                direct_annotation.as_ref(),
-                &ty,
-                &initialization,
-                descriptor.is_some(),
-                range,
-                errors,
-            )
-            .unwrap_or(ty);
+        let ty = if let Some(special_ty) = self.get_special_class_field_type(
+            class,
+            name,
+            direct_annotation.as_ref(),
+            &ty,
+            &initialization,
+            descriptor.is_some(),
+            range,
+            errors,
+        ) {
+            // Don't use the descriptor, since we've set a custom type instead.
+            descriptor = None;
+            special_ty
+        } else {
+            ty
+        };
 
         // Pin any vars in the type: leaking a var in a class field is particularly
         // likely to lead to data races where downstream uses can pin inconsistently.
@@ -1408,6 +1414,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
         )
         .or_else(|| self.get_pydantic_root_model_class_field_type(class, name))
+        .or_else(|| {
+            // Django field type inference as fallback
+            let metadata = self.get_metadata_for_class(class);
+            if metadata.is_django_model() {
+                self.get_django_field_type(ty)
+            } else {
+                None
+            }
+        })
     }
 
     fn determine_read_only_reason(
