@@ -766,8 +766,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             FacetKind::Key(key) => {
                 // We synthesize a slice expression for the subscript here
-                // The range doesn't matter, since narrowing logic swallows type errors
-                let synthesized_slice = Ast::str_expr(key, range);
+                // Use a synthesized fake range to avoid overwriting typing traces
+                let synthesized_slice = Ast::str_expr(key, TextRange::empty(TextSize::from(0)));
                 match remaining_facets.split_first() {
                     None => match base.type_at_facet(first_facet) {
                         Some(ty) => ty.clone(),
