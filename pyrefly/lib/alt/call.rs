@@ -9,11 +9,13 @@ use std::iter;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use itertools::Either;
 use pyrefly_python::dunder;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::types::CalleeKind;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
+use pyrefly_util::gas::Gas;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Arguments;
@@ -105,6 +107,42 @@ struct CalledOverload {
     res: Type,
     ctor_targs: Option<TArgs>,
     call_errors: ErrorCollector,
+}
+
+/// Performs argument type expansion for arguments to an overloaded function.
+struct ArgsExpander<'a> {
+    /// The index of the next argument to expand. Left is positional args; right, keyword args.
+    #[expect(dead_code)]
+    idx: Either<usize, usize>,
+    /// Current argument lists.
+    #[expect(dead_code)]
+    arg_lists: Vec<(Vec<CallArg<'a>>, Vec<CallKeyword<'a>>)>,
+    /// Hard-coded limit to how many times we'll expand.
+    #[expect(dead_code)]
+    gas: Gas,
+}
+
+impl<'a> ArgsExpander<'a> {
+    fn new(posargs: Vec<CallArg<'a>>, keywords: Vec<CallKeyword<'a>>) -> Self {
+        Self {
+            idx: if posargs.is_empty() {
+                Either::Right(0)
+            } else {
+                Either::Left(0)
+            },
+            arg_lists: vec![(posargs, keywords)],
+            gas: Gas::new(100),
+        }
+    }
+
+    /// Expand the next argument and return the expanded argument lists.
+    fn expand<Ans: LookupAnswer>(
+        &'_ mut self,
+        _solver: &AnswersSolver<Ans>,
+        _errors: &ErrorCollector,
+    ) -> Option<Vec<(Vec<CallArg<'_>>, Vec<CallKeyword<'_>>)>> {
+        None
+    }
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -816,7 +854,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Step 2: evaluate each overload as a regular (non-overloaded) call.
         // Note: steps 4-6 are performed in `find_closest_overload`.
-        let (closest_overload, matched) = self.find_closest_overload(
+        let (mut closest_overload, mut matched) = self.find_closest_overload(
             &overloads,
             &metadata,
             self_obj.as_ref(),
@@ -828,7 +866,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &ctor_targs,
         );
 
-        // TODO: implement step 3, argument type expansion.
+        // Step 3: perform argument type expansion.
+        let mut args_expander = ArgsExpander::new(args, keywords);
+        'outer: while !matched && let Some(arg_lists) = args_expander.expand(self, errors) {
+            // Expand by one argument (for example, try splitting up union types), and try the call with each
+            // resulting arguments list.
+            // - If all expanded lists match, we union all return types together and declare a successful match
+            // - If any do not match, we move on to the next splittable argument (if we run out of args to split,
+            //   we'll wind up with a failed match and our best guess at the correct overload)
+            let mut matched_overloads = Vec::new();
+            for (cur_args, cur_keywords) in arg_lists.iter() {
+                let (cur_closest, cur_matched) = self.find_closest_overload(
+                    &overloads,
+                    &metadata,
+                    self_obj.as_ref(),
+                    cur_args,
+                    cur_keywords,
+                    range,
+                    errors,
+                    hint,
+                    &ctor_targs,
+                );
+                if !cur_matched {
+                    continue 'outer;
+                }
+                matched_overloads.push(cur_closest);
+            }
+            if let Some(first_overload) = matched_overloads.first() {
+                closest_overload = CalledOverload {
+                    func: first_overload.func.clone(),
+                    ctor_targs: first_overload.ctor_targs.clone(),
+                    res: self.unions(matched_overloads.into_map(|o| o.res)),
+                    call_errors: self.error_collector(),
+                };
+                matched = true;
+                break;
+            }
+        }
 
         if matched
             && let Some(targs) = ctor_targs
