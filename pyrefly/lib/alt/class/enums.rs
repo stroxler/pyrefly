@@ -254,9 +254,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         direct_annotation: Option<&Annotation>,
         ty: &Type,
         initialization: &ClassFieldInitialization,
+        is_descriptor: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<Type> {
+        if is_descriptor {
+            return None;
+        }
         let metadata = self.get_metadata_for_class(class);
         if let Some(enum_) = metadata.enum_metadata()
             && self.is_valid_enum_member(name, ty, initialization)

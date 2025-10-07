@@ -1306,20 +1306,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {}
         };
 
-        let ty = if descriptor.is_none() {
-            self.get_special_class_field_type(
+        let ty = self
+            .get_special_class_field_type(
                 class,
                 name,
                 direct_annotation.as_ref(),
                 &ty,
                 &initialization,
+                descriptor.is_some(),
                 range,
                 errors,
             )
-            .unwrap_or(ty)
-        } else {
-            ty
-        };
+            .unwrap_or(ty);
 
         // Pin any vars in the type: leaking a var in a class field is particularly
         // likely to lead to data races where downstream uses can pin inconsistently.
@@ -1395,6 +1393,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         direct_annotation: Option<&Annotation>,
         ty: &Type,
         initialization: &ClassFieldInitialization,
+        is_descriptor: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<Type> {
@@ -1404,6 +1403,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             direct_annotation,
             ty,
             initialization,
+            is_descriptor,
             range,
             errors,
         )
