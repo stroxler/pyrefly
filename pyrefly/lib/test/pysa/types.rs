@@ -101,7 +101,7 @@ class C:
     );
 
     assert_eq!(
-        PysaType::new("Any".to_owned(), ClassNamesFromType::not_a_class()),
+        PysaType::new("typing.Any".to_owned(), ClassNamesFromType::not_a_class()),
         PysaType::from_type(&Type::any_explicit(), &context),
     );
 
