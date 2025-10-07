@@ -483,7 +483,7 @@ impl<'a> BindingsBuilder<'a> {
         match x {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
-                let base = self.scopes.clone_current_flow();
+                self.start_fork_and_branch();
                 self.ensure_expr(&mut x.test, &mut Usage::narrowing_from(usage));
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range(), usage);
@@ -491,10 +491,11 @@ impl<'a> BindingsBuilder<'a> {
                 let range = x.range();
                 // Negate the narrow ops for the `orelse`, then merge the Flows.
                 // TODO(stroxler): We eventually want to drop all narrows but merge values.
-                let if_branch = self.scopes.replace_current_flow(base);
+                self.next_branch();
                 self.bind_narrow_ops(&narrow_ops.negate(), range, usage);
                 self.ensure_expr(&mut x.orelse, usage);
-                self.merge_branches_into_current(vec![if_branch], range);
+                self.finish_branch();
+                self.finish_exhaustive_fork(range);
             }
             Expr::BoolOp(ExprBoolOp {
                 node_index: _,
