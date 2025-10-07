@@ -920,6 +920,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
+        // If we're constructing a class, its type arguments. A successful call will fill these in.
         ctor_targs: Option<&mut TArgs>,
     ) -> (Type, Callable) {
         // There may be Expr values in args and keywords.
@@ -1077,7 +1078,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut matched_overloads = Vec::with_capacity(overloads.len());
         let mut closest_unmatched_overload: Option<CalledOverload> = None;
         for callable in overloads {
-            let mut ctor_targs_ = ctor_targs.as_ref().map(|x| (**x).clone());
+            // Create a copy of the class type arguments (if any) that should be filled in by this call.
+            // The `callable_infer` call below will fill in this copy with the type arguments set
+            // by the current overload, and we'll later use the copy to fill in the original
+            // ctor_targs if this overload is chosen.
+            let mut overload_ctor_targs = ctor_targs.as_ref().map(|x| (**x).clone());
             let tparams = callable.0.as_deref();
 
             let mut try_call = |hint| {
@@ -1097,7 +1102,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // error with the necessary context.
                     None,
                     hint,
-                    ctor_targs_.as_mut(),
+                    overload_ctor_targs.as_mut(),
                 );
                 (call_errors, res)
             };
@@ -1116,7 +1121,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let called_overload = CalledOverload {
                 func: callable.1.clone(),
                 res,
-                ctor_targs: ctor_targs_,
+                ctor_targs: overload_ctor_targs,
                 call_errors,
             };
             if called_overload.call_errors.is_empty() {
