@@ -249,8 +249,6 @@
     "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
   ],
   "overloads_evaluation.py": [
-    "Line 105: Unexpected errors ['No matching overload found for function `example2`\\n  Possible overloads:\\n  (x: int, y: str, z: int) -> str [closest match]\\n  (x: int, y: int, z: int) -> int']",
-    "Line 106: Unexpected errors ['assert_type(Any, int | str) failed']",
     "Line 134: Unexpected errors ['No matching overload found for function `expand_bool`\\n  Possible overloads:\\n  (x: Literal[False]) -> Literal[0] [closest match]\\n  (x: Literal[True]) -> Literal[1]']",
     "Line 135: Unexpected errors ['assert_type(Any, Literal[0, 1]) failed']",
     "Line 160: Unexpected errors ['No matching overload found for function `expand_enum`\\n  Possible overloads:\\n  (x: Literal[Color.RED]) -> Literal[0] [closest match]\\n  (x: Literal[Color.BLUE]) -> Literal[1]']",

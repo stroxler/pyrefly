@@ -7755,26 +7755,6 @@
     },
     {
       "code": -2,
-      "column": 20,
-      "concise_description": "No matching overload found for function `example2`",
-      "description": "No matching overload found for function `example2`\n  Possible overloads:\n  (x: int, y: str, z: int) -> str [closest match]\n  (x: int, y: int, z: int) -> int",
-      "line": 105,
-      "name": "no-matching-overload",
-      "stop_column": 29,
-      "stop_line": 105
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(Any, int | str) failed",
-      "description": "assert_type(Any, int | str) failed",
-      "line": 106,
-      "name": "assert-type",
-      "stop_column": 33,
-      "stop_line": 106
-    },
-    {
-      "code": -2,
       "column": 13,
       "concise_description": "No matching overload found for function `example2`",
       "description": "No matching overload found for function `example2`\n  Possible overloads:\n  (x: int, y: str, z: int) -> str [closest match]\n  (x: int, y: int, z: int) -> int",

@@ -16,6 +16,7 @@ use pyrefly_types::types::CalleeKind;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
 use pyrefly_util::gas::Gas;
+use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Arguments;
@@ -34,6 +35,7 @@ use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
 use crate::alt::class::class_field::DescriptorBase;
+use crate::alt::expr::TypeOrExpr;
 use crate::alt::unwrap::HintRef;
 use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
@@ -112,13 +114,10 @@ struct CalledOverload {
 /// Performs argument type expansion for arguments to an overloaded function.
 struct ArgsExpander<'a> {
     /// The index of the next argument to expand. Left is positional args; right, keyword args.
-    #[expect(dead_code)]
     idx: Either<usize, usize>,
     /// Current argument lists.
-    #[expect(dead_code)]
     arg_lists: Vec<(Vec<CallArg<'a>>, Vec<CallKeyword<'a>>)>,
     /// Hard-coded limit to how many times we'll expand.
-    #[expect(dead_code)]
     gas: Gas,
 }
 
@@ -137,11 +136,82 @@ impl<'a> ArgsExpander<'a> {
 
     /// Expand the next argument and return the expanded argument lists.
     fn expand<Ans: LookupAnswer>(
-        &'_ mut self,
-        _solver: &AnswersSolver<Ans>,
-        _errors: &ErrorCollector,
-    ) -> Option<Vec<(Vec<CallArg<'_>>, Vec<CallKeyword<'_>>)>> {
-        None
+        &mut self,
+        solver: &'a AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+    ) -> Option<Vec<(Vec<CallArg<'a>>, Vec<CallKeyword<'a>>)>> {
+        let idx = self.idx;
+        let (posargs, keywords) = self.arg_lists.first()?;
+        // Determine the value to try expanding, and also the idx of the value we will try next if needed.
+        let value = match idx {
+            Either::Left(i) => match &posargs[i] {
+                CallArg::Arg(value) | CallArg::Star(value, ..) => {
+                    self.idx = if i < posargs.len() - 1 {
+                        Either::Left(i + 1)
+                    } else {
+                        Either::Right(0)
+                    };
+                    value
+                }
+            },
+            Either::Right(i) if i < keywords.len() => {
+                let CallKeyword { value, .. } = &keywords[i];
+                self.idx = Either::Right(i + 1);
+                value
+            }
+            Either::Right(_) => {
+                return None;
+            }
+        };
+        let expanded_types = self.expand_type(value.infer(solver, errors));
+        if expanded_types.is_empty() {
+            // Nothing to expand here, try the next argument.
+            self.expand(solver, errors, owner)
+        } else {
+            let expanded_types = expanded_types.into_map(|t| owner.push(t));
+            let mut new_arg_lists = Vec::new();
+            for (posargs, keywords) in self.arg_lists.iter() {
+                for ty in expanded_types.iter() {
+                    let mut new_posargs = posargs.clone();
+                    let mut new_keywords = keywords.clone();
+                    match idx {
+                        Either::Left(i) => {
+                            let new_value = TypeOrExpr::Type(ty, posargs[i].range());
+                            new_posargs[i] = match posargs[i] {
+                                CallArg::Arg(_) => CallArg::Arg(new_value),
+                                CallArg::Star(_, range) => CallArg::Star(new_value, range),
+                            }
+                        }
+                        Either::Right(i) => {
+                            let new_value = TypeOrExpr::Type(ty, keywords[i].range());
+                            new_keywords[i] = CallKeyword {
+                                range: keywords[i].range(),
+                                arg: keywords[i].arg,
+                                value: new_value,
+                            }
+                        }
+                    }
+                    new_arg_lists.push((new_posargs, new_keywords));
+                    if self.gas.stop() {
+                        // We've hit our hard-coded limit; stop expanding, and move `idx` past the
+                        // end of the keywords so that subsequent `expand` calls know we're done.
+                        self.idx = Either::Right(keywords.len());
+                        return None;
+                    }
+                }
+            }
+            self.arg_lists = new_arg_lists.clone();
+            Some(new_arg_lists)
+        }
+    }
+
+    /// Expands a type according to https://typing.python.org/en/latest/spec/overload.html#argument-type-expansion.
+    fn expand_type(&self, ty: Type) -> Vec<Type> {
+        match ty {
+            Type::Union(ts) => ts,
+            _ => Vec::new(),
+        }
     }
 }
 
@@ -868,14 +938,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Step 3: perform argument type expansion.
         let mut args_expander = ArgsExpander::new(args, keywords);
-        'outer: while !matched && let Some(arg_lists) = args_expander.expand(self, errors) {
+        let owner = Owner::new();
+        'outer: while !matched && let Some(arg_lists) = args_expander.expand(self, errors, &owner) {
             // Expand by one argument (for example, try splitting up union types), and try the call with each
             // resulting arguments list.
             // - If all expanded lists match, we union all return types together and declare a successful match
             // - If any do not match, we move on to the next splittable argument (if we run out of args to split,
             //   we'll wind up with a failed match and our best guess at the correct overload)
             let mut matched_overloads = Vec::new();
-            for (cur_args, cur_keywords) in arg_lists.iter() {
+            for (cur_args, cur_keywords) in arg_lists.clone().iter() {
                 let (cur_closest, cur_matched) = self.find_closest_overload(
                     &overloads,
                     &metadata,
