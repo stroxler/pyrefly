@@ -637,10 +637,11 @@ impl<'a> BindingsBuilder<'a> {
                 // loop iterator is only evaluated once before the loop begins.
                 self.setup_loop(x.range, &NarrowOps::new());
                 self.stmts(x.body, parent);
-                self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent);
+                self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent, false);
             }
             Stmt::While(mut x) => {
                 self.ensure_expr(&mut x.test, &mut Usage::Narrowing(None));
+                let is_while_true = self.sys_info.evaluate_bool(&x.test) == Some(true);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
                 // Note that it is important we ensure *after* we set up the loop, so that both the
@@ -649,7 +650,7 @@ impl<'a> BindingsBuilder<'a> {
                 // Typecheck the test condition during solving.
                 self.insert_binding(KeyExpect(x.test.range()), BindingExpect::Bool(*x.test));
                 self.stmts(x.body, parent);
-                self.teardown_loop(x.range, &narrow_ops, x.orelse, parent);
+                self.teardown_loop(x.range, &narrow_ops, x.orelse, parent, is_while_true);
             }
             Stmt::If(x) => {
                 let mut exhaustive = false;

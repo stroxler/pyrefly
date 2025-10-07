@@ -2106,6 +2106,7 @@ impl<'a> BindingsBuilder<'a> {
         narrow_ops: &NarrowOps,
         orelse: Vec<Stmt>,
         parent: &NestingContext,
+        is_while_true: bool,
     ) {
         let done = self.scopes.finish_current_loop();
         let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
@@ -2119,6 +2120,10 @@ impl<'a> BindingsBuilder<'a> {
         if breaks.is_empty() {
             // When there are no `break`s, the loop condition is always false once the body has exited,
             // and any `orelse` always runs.
+            //
+            // TODO(stroxler): if the loop is a `while_true` loop, we should do something here;
+            // for now we just pretend it can exit, but there are probably implications for
+            // both flow termination and `Never` / `NoReturn` behaviors.
             self.merge_loop_into_current(other_exits, range);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
@@ -2127,7 +2132,11 @@ impl<'a> BindingsBuilder<'a> {
             self.merge_loop_into_current(other_exits, range);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
-            self.merge_loop_into_current(breaks, other_range);
+            if is_while_true {
+                self.scopes.current_mut().flow = self.merge_flow(breaks, other_range, true, false)
+            } else {
+                self.merge_loop_into_current(breaks, other_range);
+            }
         }
     }
 

@@ -844,7 +844,6 @@ assert_type(x, Literal[1])  # E: `x` may be uninitialized
 );
 
 testcase!(
-    bug = "We currently don't understand that `while True` runs until a break",
     test_while_true_defines_variable,
     r#"
 from typing import assert_type, Literal
@@ -852,12 +851,11 @@ def foo():
     while True:
         x = "a"
         break
-    assert_type(x, Literal["a"])  # E: `x` may be uninitialized
+    assert_type(x, Literal["a"])
     "#,
 );
 
 testcase!(
-    bug = "We currently don't understand that `while True` runs until a break",
     test_while_true_redefines_and_narrows_variable,
     r#"
 from typing import assert_type, Literal
@@ -867,7 +865,7 @@ def foo():
     while True:
         if (y := get_new_y()):
             break
-    assert_type(y, int)  # E: assert_type(int | None, int)
+    assert_type(y, int)
     "#,
 );
 
