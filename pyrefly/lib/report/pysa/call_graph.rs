@@ -11,6 +11,7 @@ use std::hash::Hash;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::types::Type;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
@@ -593,7 +594,7 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
     }
 }
 
-pub fn resolve_call(
+fn resolve_call(
     call: &ExprCall,
     function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     module_context: &ModuleContext,
@@ -614,7 +615,7 @@ pub fn resolve_call(
     }
 }
 
-pub fn resolve_expression(
+fn resolve_expression(
     expression: &Expr,
     function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     module_context: &ModuleContext,
@@ -631,6 +632,54 @@ pub fn resolve_expression(
         debug_scopes: Vec::new(),
     };
     visitor.resolve_expression(expression)
+}
+
+pub fn resolve_decorator_callees(
+    decorators: &[Decorator],
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    context: &ModuleContext,
+) -> HashMap<PysaLocation, Vec<FunctionRef>> {
+    let mut decorator_callees = HashMap::new();
+
+    for decorator in decorators {
+        let (range, callees) = match &decorator.expression {
+            Expr::Call(call) => {
+                // Decorator factor, e.g `@foo(1)`. We export the callee of `foo`.
+                let callees = resolve_call(call, function_base_definitions, context);
+                (
+                    (*call.func).range(),
+                    callees
+                        .all_targets()
+                        .map(|call_target| call_target.target.clone())
+                        .collect(),
+                )
+            }
+            expr => {
+                let callees = resolve_expression(expr, function_base_definitions, context);
+                (
+                    expr.range(),
+                    if let Some(callees) = callees {
+                        callees
+                            .all_targets()
+                            .map(|call_target| call_target.target.clone())
+                            .collect()
+                    } else {
+                        Vec::new()
+                    },
+                )
+            }
+        };
+
+        if !callees.is_empty() {
+            let location = PysaLocation::new(context.module_info.display_range(range));
+            assert!(
+                decorator_callees.insert(location, callees).is_none(),
+                "Found multiple decorators at the same location"
+            );
+        }
+    }
+
+    decorator_callees
 }
 
 pub fn export_call_graphs(

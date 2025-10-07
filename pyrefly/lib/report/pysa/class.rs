@@ -14,6 +14,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::class::Class;
 use ruff_python_ast::AnyNodeRef;
+use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use serde::Serialize;
@@ -32,6 +33,10 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::call_graph::resolve_decorator_callees;
+use crate::report::pysa::function::FunctionBaseDefinition;
+use crate::report::pysa::function::FunctionRef;
+use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::module::ModuleIds;
@@ -106,6 +111,8 @@ pub struct ClassDefinition {
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
     pub fields: HashMap<String, PysaClassField>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
 }
 
 impl ClassDefinition {
@@ -124,6 +131,15 @@ impl ClassDefinition {
     #[cfg(test)]
     pub fn with_fields(mut self, fields: HashMap<String, PysaClassField>) -> Self {
         self.fields = fields;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_decorator_callees(
+        mut self,
+        decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
+    ) -> Self {
+        self.decorator_callees = decorator_callees;
         self
     }
 }
@@ -247,7 +263,40 @@ pub fn export_class_fields(
         .collect()
 }
 
-pub fn export_all_classes(context: &ModuleContext) -> HashMap<PysaLocation, ClassDefinition> {
+fn find_definition_ast<'a>(
+    class: &Class,
+    context: &'a ModuleContext<'a>,
+) -> Option<&'a StmtClassDef> {
+    Ast::locate_node(&context.ast, class.qname().range().start())
+        .iter()
+        .find_map(|node| match node {
+            AnyNodeRef::StmtClassDef(stmt) if stmt.name.range == class.qname().range() => {
+                Some(*stmt)
+            }
+            _ => None,
+        })
+}
+
+fn get_decorator_callees(
+    class: &Class,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    context: &ModuleContext,
+) -> HashMap<PysaLocation, Vec<FunctionRef>> {
+    if let Some(class_def) = find_definition_ast(class, context) {
+        resolve_decorator_callees(
+            &class_def.decorator_list,
+            function_base_definitions,
+            context,
+        )
+    } else {
+        HashMap::new()
+    }
+}
+
+pub fn export_all_classes(
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    context: &ModuleContext,
+) -> HashMap<PysaLocation, ClassDefinition> {
     let mut class_definitions = HashMap::new();
 
     for class_idx in context.bindings.keys::<KeyClass>() {
@@ -290,6 +339,8 @@ pub fn export_all_classes(context: &ModuleContext) -> HashMap<PysaLocation, Clas
             ClassMro::Cyclic => PysaClassMro::Cyclic,
         };
 
+        let decorator_callees = get_decorator_callees(&class, function_base_definitions, context);
+
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
             name: class.qname().id().to_string(),
@@ -298,6 +349,7 @@ pub fn export_all_classes(context: &ModuleContext) -> HashMap<PysaLocation, Clas
             mro,
             is_synthesized,
             fields,
+            decorator_callees,
         };
 
         assert!(

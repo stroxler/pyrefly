@@ -19,10 +19,8 @@ use pyrefly_types::types::Type;
 use pyrefly_util::thread_pool::ThreadPool;
 use rayon::prelude::*;
 use ruff_python_ast::AnyNodeRef;
-use ruff_python_ast::Expr;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
-use ruff_text_size::Ranged;
 use serde::Serialize;
 
 use crate::alt::answers::Answers;
@@ -31,7 +29,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
-use crate::report::pysa::call_graph;
+use crate::report::pysa::call_graph::resolve_decorator_callees;
 use crate::report::pysa::captured_variable::CapturedVariable;
 use crate::report::pysa::captured_variable::ModuleCapturedVariables;
 use crate::report::pysa::class::ClassId;
@@ -481,49 +479,11 @@ fn get_decorator_callees(
     context: &ModuleContext,
 ) -> HashMap<PysaLocation, Vec<FunctionRef>> {
     if let Some(function_def) = find_definition_ast(function, context) {
-        let mut decorator_callees = HashMap::new();
-
-        for decorator in &function_def.decorator_list {
-            let (range, callees) = match &decorator.expression {
-                Expr::Call(call) => {
-                    // Decorator factor, e.g `@foo(1)`. We export the callee of `foo`.
-                    let callees =
-                        call_graph::resolve_call(call, function_base_definitions, context);
-                    (
-                        (*call.func).range(),
-                        callees
-                            .all_targets()
-                            .map(|call_target| call_target.target.clone())
-                            .collect(),
-                    )
-                }
-                expr => {
-                    let callees =
-                        call_graph::resolve_expression(expr, function_base_definitions, context);
-                    (
-                        expr.range(),
-                        if let Some(callees) = callees {
-                            callees
-                                .all_targets()
-                                .map(|call_target| call_target.target.clone())
-                                .collect()
-                        } else {
-                            Vec::new()
-                        },
-                    )
-                }
-            };
-
-            if !callees.is_empty() {
-                let location = PysaLocation::new(context.module_info.display_range(range));
-                assert!(
-                    decorator_callees.insert(location, callees).is_none(),
-                    "Found multiple decorators at the same location"
-                );
-            }
-        }
-
-        decorator_callees
+        resolve_decorator_callees(
+            &function_def.decorator_list,
+            function_base_definitions,
+            context,
+        )
     } else {
         HashMap::new()
     }

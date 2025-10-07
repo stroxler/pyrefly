@@ -17,13 +17,16 @@ use crate::report::pysa::class::PysaClassField;
 use crate::report::pysa::class::PysaClassMro;
 use crate::report::pysa::class::export_all_classes;
 use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::function::collect_function_base_definitions;
 use crate::report::pysa::module::ModuleIds;
+use crate::report::pysa::override_graph::WholeProgramReversedOverrideGraph;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::types::PysaType;
 use crate::test::pysa::utils::create_location;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_class;
 use crate::test::pysa::utils::get_class_ref;
+use crate::test::pysa::utils::get_function_ref;
 use crate::test::pysa::utils::get_handle_for_module_name;
 
 fn create_simple_class(name: &str, id: u32, parent: ScopeParent) -> ClassDefinition {
@@ -35,6 +38,7 @@ fn create_simple_class(name: &str, id: u32, parent: ScopeParent) -> ClassDefinit
         parent,
         is_synthesized: false,
         fields: HashMap::new(),
+        decorator_callees: HashMap::new(),
     }
 }
 
@@ -54,7 +58,16 @@ fn test_exported_classes(
 
     let expected_class_definitions = create_expected_class_definitions(&context);
 
-    let actual_class_definitions = export_all_classes(&context);
+    let reversed_override_graph = WholeProgramReversedOverrideGraph::new();
+    let actual_class_definitions = export_all_classes(
+        &collect_function_base_definitions(
+            &handles,
+            &transaction,
+            &module_ids,
+            &reversed_override_graph,
+        ),
+        &context,
+    );
 
     // Sort definitions by location.
     let mut actual_class_definitions = actual_class_definitions.into_iter().collect::<Vec<_>>();
@@ -288,6 +301,7 @@ Point = namedtuple('Point', ['x', 'y'])
                     },
                 ),
             ]),
+            decorator_callees: HashMap::new(),
         }
     },
 );
@@ -403,5 +417,75 @@ class Foo:
                 },
             ),
         ]))
+    },
+);
+
+exported_class_testcase!(
+    test_export_class_decorator,
+    r#"
+def decorator(c):
+    return c
+
+@decorator
+class Foo:
+    pass
+"#,
+    &|context: &ModuleContext| {
+        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_decorator_callees(HashMap::from(
+            [(
+                create_location(5, 2, 5, 11),
+                vec![get_function_ref("test", "decorator", context)],
+            )],
+        ))
+    },
+);
+
+exported_class_testcase!(
+    test_export_class_decorator_factory,
+    r#"
+def decorator(x):
+    return lambda f: f
+
+@decorator(1)
+class Foo:
+    pass
+"#,
+    &|context: &ModuleContext| {
+        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_decorator_callees(HashMap::from(
+            [(
+                create_location(5, 2, 5, 11),
+                vec![get_function_ref("test", "decorator", context)],
+            )],
+        ))
+    },
+);
+
+exported_class_testcase!(
+    test_export_class_multiple_decorators,
+    r#"
+def d1(f):
+    return f
+
+def d2(f):
+    return f
+
+@d1
+@d2
+class Foo:
+    pass
+"#,
+    &|context: &ModuleContext| {
+        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_decorator_callees(HashMap::from(
+            [
+                (
+                    create_location(8, 2, 8, 4),
+                    vec![get_function_ref("test", "d1", context)],
+                ),
+                (
+                    create_location(9, 2, 9, 4),
+                    vec![get_function_ref("test", "d2", context)],
+                ),
+            ],
+        ))
     },
 );

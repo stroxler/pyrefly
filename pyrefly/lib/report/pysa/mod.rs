@@ -130,7 +130,7 @@ pub fn export_module_definitions(
 ) -> PysaModuleDefinitions {
     let global_variables = export_global_variables(context);
     let captured_variables = export_captured_variables(context);
-    let class_definitions = export_all_classes(context);
+    let class_definitions = export_all_classes(function_base_definitions, context);
 
     let function_definitions =
         export_function_definitions(function_base_definitions, &captured_variables, context);
