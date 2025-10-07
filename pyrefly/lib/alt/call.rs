@@ -210,6 +210,10 @@ impl<'a> ArgsExpander<'a> {
     fn expand_type(&self, ty: Type) -> Vec<Type> {
         match ty {
             Type::Union(ts) => ts,
+            Type::ClassType(cls) if cls.is_builtin("bool") => vec![
+                Type::Literal(Lit::Bool(true)),
+                Type::Literal(Lit::Bool(false)),
+            ],
             _ => Vec::new(),
         }
     }

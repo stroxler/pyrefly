@@ -785,3 +785,20 @@ def g(x: int | str, y: int | str):
     assert_type(f(x, y), int | str)
     "#,
 );
+
+testcase!(
+    test_expand_bool,
+    r#"
+from typing import assert_type, overload, Literal
+
+@overload
+def f(x: Literal[True]) -> Literal['True']: ...
+@overload
+def f(x: Literal[False]) -> Literal['False']: ...
+def f(x: bool) -> str:
+    return str(x)
+
+def g(x: bool):
+    assert_type(f(x), Literal['True', 'False'])
+    "#,
+);
