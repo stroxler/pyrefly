@@ -2170,7 +2170,7 @@ impl<'a> BindingsBuilder<'a> {
     /// popping it and setting flow to the merge result.
     ///
     /// Panics if called when no fork is active, or if a branch is started (which
-    /// means the caller forgot to finish the branch and is always a bug).
+    /// means the caller forgot to call `finish_branch` and is always a bug).
     pub fn finish_exhaustive_fork(&mut self, range: TextRange) {
         let fork = self.scopes.current_mut().forks.pop().unwrap();
         assert!(
@@ -2180,5 +2180,15 @@ impl<'a> BindingsBuilder<'a> {
         let branches = fork.branches;
         let merged = self.merge_flow(branches, range, false);
         self.scopes.current_mut().flow = merged;
+    }
+
+    pub fn start_fork_and_branch(&mut self) {
+        self.start_fork();
+        self.start_branch();
+    }
+
+    pub fn next_branch(&mut self) {
+        self.finish_branch();
+        self.start_branch();
     }
 }
