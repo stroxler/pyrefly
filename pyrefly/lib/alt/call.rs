@@ -483,8 +483,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.record_overload_trace_from_type(range, new_method);
                 if self.is_compatible_constructor_return(&ret, cls.class_object()) {
                     dunder_new_ret = Some(ret);
-                } else {
+                } else if !matches!(ret, Type::Any(AnyStyle::Error | AnyStyle::Implicit)) {
                     // Got something other than an instance of the class under construction.
+                    // According to the spec, the actual type (as opposed to the class under construction)
+                    // should take priority. However, if the actual type comes from a type error or an implicit
+                    // Any, using the class under construction is still more useful.
                     self.solver()
                         .finish_class_targs(cls.targs_mut(), self.uniques);
                     return ret.subst(&cls.targs().substitution_map());
