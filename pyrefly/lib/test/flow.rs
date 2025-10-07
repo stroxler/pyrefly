@@ -857,7 +857,6 @@ def foo():
 );
 
 testcase!(
-    bug = "We are dropping uninitialized-ness from flow style in certain merges",
     test_nested_if_sometimes_defines_variable,
     r#"
 from typing import assert_type, Literal
@@ -867,7 +866,7 @@ if condition():
         x = "x"
 else:
     x = "x"
-print(x)  # Should error
+print(x)  # E: `x` may be uninitialized
     "#,
 );
 

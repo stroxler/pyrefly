@@ -604,10 +604,8 @@ impl FlowStyle {
                 // If they're identical, keep it
                 (l, r) if l == &r => {}
                 // Uninitialized and initialized branches merge into PossiblyUninitialized
-                (FlowStyle::Uninitialized, _) => {
-                    return FlowStyle::PossiblyUninitialized;
-                }
-                (_, FlowStyle::PossiblyUninitialized | FlowStyle::Uninitialized) => {
+                (FlowStyle::Uninitialized | FlowStyle::PossiblyUninitialized, _)
+                | (_, FlowStyle::Uninitialized | FlowStyle::PossiblyUninitialized) => {
                     return FlowStyle::PossiblyUninitialized;
                 }
                 // Unclear how to merge, default to None
