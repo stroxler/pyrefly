@@ -1008,6 +1008,19 @@ def f():
 );
 
 testcase!(
+    bug = "We approximate flow for tests in a lossy way - the first test actually runs in the base flow",
+    test_walrus_on_first_branch_of_if,
+    r#"
+def condition() -> bool: ...
+def f() -> bool:
+    if (b := condition()):
+        pass
+    # In our approximation, `b` is defined in the branch but actually the test always evaluates
+    return b  # E: `b` may be uninitialized
+    "#,
+);
+
+testcase!(
     test_false_and_walrus,
     r#"
 def f(v):
