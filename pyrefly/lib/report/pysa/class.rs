@@ -105,11 +105,13 @@ pub struct PysaClassField {
 pub struct ClassDefinition {
     pub class_id: ClassId,
     pub name: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub bases: Vec<ClassRef>,
     pub mro: PysaClassMro,
     pub parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub fields: HashMap<String, PysaClassField>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
