@@ -35,7 +35,7 @@ pub(crate) mod query_source_db;
 static TARGET_INTERNER: Interner<String> = Interner::new();
 
 #[derive(Debug, Clone, Dupe, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct Target(Intern<String>);
+pub struct Target(Intern<String>);
 impl Serialize for Target {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.0)
@@ -92,4 +92,6 @@ pub trait SourceDatabase: Send + Sync + fmt::Debug {
     /// changes on. Changes to one of these returned watchfiles should force
     /// a sourcedb rebuild.
     fn get_critical_files(&self) -> SmallSet<PathBuf>;
+    /// Get the target for the given [`ModulePath`], if one exists.
+    fn get_target(&self, origin: Option<&Path>) -> Option<Target>;
 }

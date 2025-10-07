@@ -499,7 +499,7 @@ pub fn find_import_filtered(
         Err(FindError::Ignored)
     } else {
         Err(FindError::import_lookup_path(
-            config.structured_import_lookup_path(),
+            config.structured_import_lookup_path(origin),
             module,
             &config.source,
         ))

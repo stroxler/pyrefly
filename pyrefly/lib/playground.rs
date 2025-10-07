@@ -16,6 +16,7 @@ use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use pyrefly_build::handle::Handle;
 use pyrefly_build::source_db::SourceDatabase;
+use pyrefly_build::source_db::Target;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModuleStyle;
@@ -89,6 +90,10 @@ impl SourceDatabase for PlaygroundSourceDatabase {
             .values()
             .map(|p| p.as_path().to_path_buf())
             .collect()
+    }
+
+    fn get_target(&self, _: Option<&Path>) -> Option<Target> {
+        None
     }
 }
 
@@ -511,7 +516,10 @@ mod tests {
             "Could not find import of `t`",
             "Parse error: Expected 'import', found newline",
         ];
-        let expected_details = &["  No search path or site package path", ""];
+        let expected_details = &[
+            "  Looked in these locations:\n  Build system source database",
+            "",
+        ];
         let expected_error_kinds = &[ErrorKind::ImportError, ErrorKind::ParseError];
 
         assert_eq!(

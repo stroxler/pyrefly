@@ -25,6 +25,7 @@ use vec1::Vec1;
 
 use crate::handle::Handle;
 use crate::source_db::SourceDatabase;
+use crate::source_db::Target;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct ManifestItem {
@@ -168,6 +169,10 @@ impl SourceDatabase for BuckCheckSourceDatabase {
 
     fn get_critical_files(&self) -> SmallSet<PathBuf> {
         SmallSet::new()
+    }
+
+    fn get_target(&self, _: Option<&Path>) -> Option<Target> {
+        None
     }
 }
 

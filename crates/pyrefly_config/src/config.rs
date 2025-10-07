@@ -21,6 +21,7 @@ use itertools::Itertools;
 use pyrefly_build::BuildSystem;
 use pyrefly_build::handle::Handle;
 use pyrefly_build::source_db::SourceDatabase;
+use pyrefly_build::source_db::Target;
 use pyrefly_python::COMPILED_FILE_SUFFIXES;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module_name::ModuleName;
@@ -142,6 +143,7 @@ pub enum ImportLookupPathPart<'a> {
     FallbackSearchPath(&'a [PathBuf]),
     SitePackagePath(&'a [PathBuf]),
     InterpreterSitePackagePath(&'a [PathBuf]),
+    BuildSystem(Option<Target>),
 }
 
 impl Display for ImportLookupPathPart<'_> {
@@ -167,6 +169,13 @@ impl Display for ImportLookupPathPart<'_> {
             Self::InterpreterSitePackagePath(paths) => {
                 write!(f, "Site package path queried from interpreter: {paths:?}")
             }
+            Self::BuildSystem(target) => {
+                write!(f, "Build system source database")?;
+                if let Some(target) = target {
+                    write!(f, ": target sources and dependencies for {target}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -180,6 +189,7 @@ impl ImportLookupPathPart<'_> {
             | Self::SitePackagePath(paths)
             | Self::InterpreterSitePackagePath(paths) => paths.is_empty(),
             Self::ImportRoot(root) => root.is_none(),
+            Self::BuildSystem(_) => false,
         }
     }
 }
@@ -459,11 +469,22 @@ impl ConfigFile {
     }
 
     /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
-    pub fn structured_import_lookup_path(&self) -> Vec<ImportLookupPathPart<'_>> {
-        let mut result = vec![
-            ImportLookupPathPart::SearchPathFromArgs(&self.search_path_from_args),
-            ImportLookupPathPart::SearchPathFromFile(&self.search_path_from_file),
-        ];
+    pub fn structured_import_lookup_path(
+        &self,
+        origin: Option<&Path>,
+    ) -> Vec<ImportLookupPathPart<'_>> {
+        let mut result = vec![];
+        if let Some(source_db) = &self.source_db {
+            result.push(ImportLookupPathPart::BuildSystem(
+                source_db.get_target(origin),
+            ));
+        }
+        result.push(ImportLookupPathPart::SearchPathFromArgs(
+            &self.search_path_from_args,
+        ));
+        result.push(ImportLookupPathPart::SearchPathFromFile(
+            &self.search_path_from_file,
+        ));
         if !self.disable_search_path_heuristics {
             result.push(ImportLookupPathPart::ImportRoot(self.import_root.as_ref()));
             result.push(ImportLookupPathPart::FallbackSearchPath(

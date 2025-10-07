@@ -21,6 +21,7 @@ use vec1::Vec1;
 
 use crate::handle::Handle;
 use crate::source_db::SourceDatabase;
+use crate::source_db::Target;
 
 /// A simple [`SourceDatabase`] that can be used for easy setup and testing.
 #[derive(Debug, PartialEq, Eq)]
@@ -96,5 +97,9 @@ impl SourceDatabase for MapDatabase {
             .flatten()
             .map(|p| p.as_path().to_path_buf())
             .collect()
+    }
+
+    fn get_target(&self, _: Option<&Path>) -> Option<Target> {
+        None
     }
 }

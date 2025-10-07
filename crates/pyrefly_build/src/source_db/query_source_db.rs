@@ -114,7 +114,7 @@ impl SourceDatabase for QuerySourceDatabase {
     ) -> Option<ModulePath> {
         let origin = origin?;
         let read = self.inner.read();
-        let start_target = read.path_lookup.get(&origin.to_path_buf())?;
+        let start_target = read.path_lookup.get(origin)?;
         let mut queue = VecDeque::new();
         let mut visited = SmallSet::new();
         queue.push_front(start_target);
@@ -192,6 +192,12 @@ impl SourceDatabase for QuerySourceDatabase {
                     .flat_map(|m| m.srcs.values().flatten().map(|p| p.to_path_buf())),
             )
             .collect()
+    }
+
+    fn get_target(&self, origin: Option<&Path>) -> Option<Target> {
+        let origin = origin?;
+        let read = self.inner.read();
+        read.path_lookup.get(origin).copied()
     }
 }
 
