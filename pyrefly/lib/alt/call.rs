@@ -103,6 +103,7 @@ impl CallTarget {
 struct CalledOverload {
     func: Function,
     res: Type,
+    ctor_targs: Option<TArgs>,
     call_errors: ErrorCollector,
 }
 
@@ -824,10 +825,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             hint,
-            ctor_targs,
+            &ctor_targs,
         );
 
         // TODO: implement step 3, argument type expansion.
+
+        if matched
+            && let Some(targs) = ctor_targs
+            && let Some(chosen_targs) = closest_overload.ctor_targs
+        {
+            *targs = chosen_targs;
+        }
 
         // Record the closest overload to power IDE services.
         self.record_overload_trace(
@@ -907,7 +915,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
         hint: Option<HintRef>,
-        ctor_targs: Option<&mut TArgs>,
+        ctor_targs: &Option<&mut TArgs>,
     ) -> (CalledOverload, bool) {
         let mut matched_overloads = Vec::with_capacity(overloads.len());
         let mut closest_unmatched_overload: Option<CalledOverload> = None;
@@ -951,6 +959,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let called_overload = CalledOverload {
                 func: callable.1.clone(),
                 res,
+                ctor_targs: ctor_targs_,
                 call_errors,
             };
             if called_overload.call_errors.is_empty() {
@@ -958,9 +967,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: we currently take the first matching overload. We should instead collect
                 // all possible matches and use steps 4-6 described here to select one:
                 // https://typing.python.org/en/latest/spec/overload.html#step-4.
-                if let Some(targs) = ctor_targs {
-                    *targs = ctor_targs_.unwrap();
-                }
                 break;
             } else {
                 match &closest_unmatched_overload {
