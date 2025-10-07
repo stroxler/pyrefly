@@ -20,7 +20,6 @@ use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
-use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::DictItem;
@@ -43,8 +42,6 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
-use crate::alt::callable::CallKeyword;
-use crate::alt::callable::CallWithTypes;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::Hint;
 use crate::alt::unwrap::HintRef;
@@ -57,7 +54,6 @@ use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::types::callable::Callable;
-use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
@@ -75,7 +71,6 @@ use crate::types::type_var::Restriction;
 use crate::types::type_var::TypeVar;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
-use crate::types::types::CalleeKind;
 use crate::types::types::Type;
 
 #[derive(Debug, Clone, Copy)]
@@ -624,129 +619,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Yield(x) => self.get(&KeyYield(x.range)).send_ty.clone(),
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),
             Expr::Compare(x) => self.compare_infer(x, errors),
-            Expr::Call(x) => {
-                let mut callee_ty = self.expr_infer(&x.func, errors);
-                if matches!(&callee_ty, Type::ClassDef(cls) if cls.is_builtin("super")) {
-                    // Because we have to construct a binding for super in order to fill in implicit arguments,
-                    // we can't handle things like local aliases to super. If we hit a case where the binding
-                    // wasn't constructed, fall back to `Any`.
-                    self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range)))
-                        .map_or_else(Type::any_implicit, |type_info| type_info.arc_clone_ty())
-                } else {
-                    self.expand_type_mut(&mut callee_ty);
-
-                    let args;
-                    let kws;
-                    let call = CallWithTypes::new();
-                    if callee_ty.is_union() {
-                        // If we have a union we will distribute over it, and end up duplicating each function call.
-                        args = x
-                            .arguments
-                            .args
-                            .map(|x| call.call_arg(&CallArg::expr_maybe_starred(x), self, errors));
-                        kws = x
-                            .arguments
-                            .keywords
-                            .map(|x| call.call_keyword(&CallKeyword::new(x), self, errors));
-                    } else {
-                        args = x.arguments.args.map(CallArg::expr_maybe_starred);
-                        kws = x.arguments.keywords.map(CallKeyword::new);
-                    }
-
-                    self.distribute_over_union(&callee_ty, |ty| match ty.callee_kind() {
-                        Some(CalleeKind::Function(FunctionKind::AssertType)) => self
-                            .call_assert_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        Some(CalleeKind::Function(FunctionKind::RevealType)) => self
-                            .call_reveal_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        Some(CalleeKind::Function(FunctionKind::Cast)) => {
-                            // For typing.cast, we have to hard-code a check for whether the first argument
-                            // is a type, so it's simplest to special-case the entire call.
-                            self.call_typing_cast(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                errors,
-                            )
-                        }
-                        // Treat assert_type and reveal_type like pseudo-builtins for convenience. Note that we still
-                        // log a name-not-found error, but we also assert/reveal the type as requested.
-                        None if ty.is_error() && is_special_name(&x.func, "assert_type") => self
-                            .call_assert_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        None if ty.is_error() && is_special_name(&x.func, "reveal_type") => self
-                            .call_reveal_type(
-                                &x.arguments.args,
-                                &x.arguments.keywords,
-                                x.arguments.range,
-                                hint,
-                                errors,
-                            ),
-                        Some(CalleeKind::Function(FunctionKind::IsInstance))
-                            if self.has_exactly_two_posargs(&x.arguments) =>
-                        {
-                            self.call_isinstance(&x.arguments.args[0], &x.arguments.args[1], errors)
-                        }
-                        Some(CalleeKind::Function(FunctionKind::IsSubclass))
-                            if self.has_exactly_two_posargs(&x.arguments) =>
-                        {
-                            self.call_issubclass(&x.arguments.args[0], &x.arguments.args[1], errors)
-                        }
-                        _ if matches!(ty, Type::ClassDef(cls) if cls == self.stdlib.builtins_type().class_object())
-                            && x.arguments.args.len() == 1 && x.arguments.keywords.is_empty() =>
-                        {
-                            // We may be able to provide a more precise type when the constructor for `builtins.type`
-                            // is called with a single argument.
-                            let arg_ty = self.expr_infer(&x.arguments.args[0], errors);
-                            self.type_of(arg_ty)
-                        }
-                        // Decorators can be applied in two ways:
-                        //   - (common, idiomatic) via `@decorator`:
-                        //     @staticmethod
-                        //     def f(): ...
-                        //   - (uncommon, mostly seen in legacy code) via a function call:
-                        //     def f(): ...
-                        //     f = staticmethod(f)
-                        // Check if this call applies a decorator with known typing effects to a function.
-                        _ if let Some(ret) = self.maybe_apply_function_decorator(ty, &args, &kws, errors) => ret,
-                        _ => {
-                            let callable = self.as_call_target_or_error(
-                                ty.clone(),
-                                CallStyle::FreeForm,
-                                x.func.range(),
-                                errors,
-                                None,
-                            );
-                            self.call_infer(
-                                callable,
-                                &args,
-                                &kws,
-                                x.arguments.range,
-                                errors,
-                                None,
-                                hint,
-                                None,
-                            )
-                        }
-                    })
-                }
-            }
+            Expr::Call(x) => self.expr_call_infer(x, hint, errors),
             Expr::FString(x) => {
                 // Ensure we detect type errors in f-string expressions.
                 let mut all_literal_strings = true;
@@ -1932,15 +1805,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    fn has_exactly_two_posargs(&self, arguments: &Arguments) -> bool {
-        arguments.keywords.is_empty()
-            && arguments.args.len() == 2
-            && arguments
-                .args
-                .iter()
-                .all(|e| !matches!(e, Expr::Starred(_)))
-    }
-
     /// When indexing/slicing concrete tuples with literals, try to infer a more precise type
     fn infer_tuple_index(
         &self,
@@ -2139,17 +2003,5 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("{reason}"),
             );
         }
-    }
-}
-
-/// Match on an expression by name. Should be used only for special names that we essentially treat like keywords,
-/// like reveal_type.
-fn is_special_name(x: &Expr, name: &str) -> bool {
-    match x {
-        // Note that this matches on a bare name regardless of whether it's been imported.
-        // It's convenient to be able to call functions like reveal_type in the course of
-        // debugging without scrolling to the top of the file to add an import.
-        Expr::Name(x) => x.id.as_str() == name,
-        _ => false,
     }
 }
