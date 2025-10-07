@@ -762,9 +762,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.mark_flow_termination();
             }
             Stmt::Try(x) => {
-                let range = x.range;
-                let mut branches = Vec::new();
-                let mut base = self.scopes.clone_current_flow();
+                self.start_fork_and_branch(x.range);
 
                 // We branch before the body, conservatively assuming that any statement can fail
                 // entry -> try -> else -> finally
@@ -773,11 +771,10 @@ impl<'a> BindingsBuilder<'a> {
 
                 self.stmts(x.body, parent);
                 self.stmts(x.orelse, parent);
-                self.scopes.swap_current_flow_with(&mut base);
-                branches.push(base);
+                self.finish_branch();
 
                 for h in x.handlers {
-                    base = self.scopes.clone_current_flow();
+                    self.start_branch();
                     let range = h.range();
                     let h = h.except_handler().unwrap(); // Only one variant for now
                     match (&h.name, h.type_) {
@@ -826,11 +823,10 @@ impl<'a> BindingsBuilder<'a> {
                         self.scopes.mark_as_deleted(&name.id);
                     }
 
-                    self.scopes.swap_current_flow_with(&mut base);
-                    branches.push(base);
+                    self.finish_branch();
                 }
 
-                self.set_current_flow_to_merged_branches(branches, range);
+                self.finish_exhaustive_fork();
                 self.stmts(x.finalbody, parent);
             }
             Stmt::Assert(x) => {
