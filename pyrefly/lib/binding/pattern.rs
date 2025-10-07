@@ -17,7 +17,6 @@ use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
 use ruff_text_size::Ranged;
-use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
@@ -318,7 +317,7 @@ impl<'a> BindingsBuilder<'a> {
         let match_narrowing_subject = expr_to_subjects(&x.subject).first().cloned();
         let mut exhaustive = false;
         let range = x.range;
-        let mut branches = Vec::new();
+        self.start_fork();
         // Type narrowing operations that are carried over from one case to the next. For example, in:
         //   match x:
         //     case None:
@@ -329,7 +328,7 @@ impl<'a> BindingsBuilder<'a> {
         // is carried over to the fallback case.
         let mut negated_prev_ops = NarrowOps::new();
         for case in x.cases {
-            let mut base = self.scopes.clone_current_flow();
+            self.start_branch();
             if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
                 exhaustive = true;
             }
@@ -346,27 +345,16 @@ impl<'a> BindingsBuilder<'a> {
             }
             negated_prev_ops.and_all(new_narrow_ops.negate());
             self.stmts(case.body, parent);
-            self.scopes.swap_current_flow_with(&mut base);
-            branches.push(base);
+            self.finish_branch();
         }
         // If the match branches cover all possibilities, then the flow after the match
         // is just the merged branch flows.
         //
         // Otherwise, we need to merge the branches with the original `base` flow (which is current).
         if exhaustive {
-            self.set_current_flow_to_merged_branches(branches, range);
+            self.finish_exhaustive_fork(range);
         } else {
-            // If the match is non-exhaustive, we still want to negate the narrow ops
-            // from the match cases. This can potentially produce a useful narrow
-            // in the final merged type when one or more branches terminate.
-            self.bind_narrow_ops(
-                &negated_prev_ops,
-                // Note: default range is fine here, it just has to be distinct from other
-                // use ranges of the same ops.
-                TextRange::default(),
-                &Usage::Narrowing(None),
-            );
-            self.merge_branches_into_current(branches, range);
+            self.finish_non_exhaustive_fork(&negated_prev_ops, range);
         }
     }
 }
