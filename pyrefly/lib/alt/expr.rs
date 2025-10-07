@@ -25,7 +25,6 @@ use ruff_python_ast::Comprehension;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
-use ruff_python_ast::ExprDict;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
@@ -533,7 +532,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.list(self.unions(elem_tys)).to_type()
                 }
             }
-            Expr::Dict(x) => self.dict_infer(x, hint, errors),
+            Expr::Dict(x) => self.dict_infer(&x.items, hint, x.range, errors),
             Expr::Set(x) => {
                 let elem_hint = hint.and_then(|ty| self.decompose_set(ty));
                 if x.is_empty() {
@@ -688,8 +687,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn dict_infer(&self, x: &ExprDict, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
-        let flattened_items = Ast::flatten_dict_items(&x.items);
+    fn dict_infer(
+        &self,
+        items: &[DictItem],
+        hint: Option<HintRef>,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let flattened_items = Ast::flatten_dict_items(items);
         let hints = hint.as_ref().map_or(Vec::new(), |hint| match hint.ty() {
             Type::Union(ts) => ts
                 .iter()
@@ -709,7 +714,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &flattened_items,
                 typed_dict,
                 is_update,
-                x.range,
+                range,
                 &check_errors,
                 &item_errors,
             );
