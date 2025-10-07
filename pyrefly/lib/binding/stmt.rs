@@ -665,21 +665,21 @@ impl<'a> BindingsBuilder<'a> {
                 let mut negated_prev_ops = NarrowOps::new();
                 for (range, mut test, body) in Ast::if_branches_owned(x) {
                     self.start_branch();
+                    self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
                     let this_branch_chosen = match &test {
                         None => Some(true),
                         Some(x) => self.sys_info.evaluate_bool(x),
                     };
-                    if this_branch_chosen == Some(false) {
-                        // We definitely won't pick this branch. We still ensure the test
-                        // expression to pick up any names it defines.
-                        self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
+                    self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
+                    let new_narrow_ops = if this_branch_chosen == Some(false) {
+                        // Skip the body in this case - it typically means a check (e.g. a sys version,
+                        // platform, or TYPE_CHECKING check) where the body is not statically analyzable.
                         self.abandon_branch();
                         continue;
-                    }
-                    self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
-                    self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
-                    let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
+                    } else {
+                        NarrowOps::from_expr(self, test.as_ref())
+                    };
                     if let Some(test_expr) = test {
                         // Typecheck the test condition during solving.
                         self.insert_binding(
