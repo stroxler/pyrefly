@@ -491,7 +491,7 @@ pub enum OverloadType {
 impl OverloadType {
     pub fn as_type(&self) -> Type {
         match self {
-            Self::Function(f) => Type::Callable(Box::new(f.signature.clone())),
+            Self::Function(f) => Type::Function(Box::new(f.clone())),
             Self::Forall(forall) => {
                 Forallable::Function(forall.body.clone()).forall(forall.tparams.clone())
             }

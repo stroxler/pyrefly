@@ -312,14 +312,13 @@ impl<'a> TypeDisplayContext<'a> {
             }
             Type::Overload(overload) => {
                 if self.hover && is_toplevel {
-                    let func_name = overload.metadata.kind.as_func_id().func;
                     write!(
                         f,
-                        "@overload\ndef {func_name}{}",
-                        self.display_internal(&overload.signatures.first().as_type())
+                        "\n@overload\n{}",
+                        self.display(&overload.signatures.first().as_type())
                     )?;
                     for sig in overload.signatures.iter().skip(1) {
-                        write!(f, "\ndef {func_name}{}", self.display(&sig.as_type()))?;
+                        write!(f, "\n{}", self.display(&sig.as_type()))?;
                     }
                     Ok(())
                 } else {
@@ -1232,6 +1231,7 @@ pub mod tests {
 
     #[test]
     fn test_display_overload() {
+        let uniques = UniqueFactory::new();
         let sig1 = Function {
             signature: Callable::list(
                 ParamList::new(vec![Param::Pos(
@@ -1274,7 +1274,14 @@ pub mod tests {
         let overload = Type::Overload(Overload {
             signatures: vec1![
                 OverloadType::Function(sig1.clone()),
-                OverloadType::Function(sig2.clone())
+                OverloadType::Forall(Forall {
+                    tparams: fake_tparams(vec![fake_tparam(
+                        &uniques,
+                        "T",
+                        QuantifiedKind::TypeVar
+                    )]),
+                    body: sig2
+                })
             ],
             metadata: Box::new(sig1.metadata),
         });
@@ -1283,7 +1290,7 @@ pub mod tests {
         let ctx = TypeDisplayContext::new(&[&overload]);
         assert_eq!(
             ctx.display(&overload).to_string(),
-            "Overload[(x: Any) -> None, (x: Any, y: Any) -> None]"
+            "Overload[(x: Any) -> None, [T](x: Any, y: Any) -> None]"
         );
 
         // Test hover display mode (with @overload decorators)
@@ -1291,9 +1298,10 @@ pub mod tests {
         hover_ctx.set_display_mode_to_hover();
         assert_eq!(
             hover_ctx.display(&overload).to_string(),
-            r#"@overload
+            r#"
+@overload
 def overloaded_func(x: Any) -> None
-def overloaded_func(
+def overloaded_func[T](
     x: Any,
     y: Any
 ) -> None"#
