@@ -652,9 +652,8 @@ impl<'a> BindingsBuilder<'a> {
                 self.teardown_loop(x.range, &narrow_ops, x.orelse, parent);
             }
             Stmt::If(x) => {
-                let range = x.range;
                 let mut exhaustive = false;
-                self.start_fork();
+                self.start_fork(x.range);
                 // Type narrowing operations that are carried over from one branch to the next. For example, in:
                 //   if x is None:
                 //     pass
@@ -702,9 +701,9 @@ impl<'a> BindingsBuilder<'a> {
                 // the flow above the `If`) because the if might be skipped
                 // entirely.
                 if exhaustive {
-                    self.finish_exhaustive_fork(range);
+                    self.finish_exhaustive_fork();
                 } else {
-                    self.finish_non_exhaustive_fork(&negated_prev_ops, range);
+                    self.finish_non_exhaustive_fork(&negated_prev_ops);
                 }
             }
             Stmt::With(x) => {

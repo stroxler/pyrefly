@@ -483,19 +483,18 @@ impl<'a> BindingsBuilder<'a> {
         match x {
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
-                self.start_fork_and_branch();
+                self.start_fork_and_branch(x.range);
                 self.ensure_expr(&mut x.test, &mut Usage::narrowing_from(usage));
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.bind_narrow_ops(&narrow_ops, x.body.range(), usage);
                 self.ensure_expr(&mut x.body, usage);
-                let range = x.range();
                 // Negate the narrow ops for the `orelse`, then merge the Flows.
                 // TODO(stroxler): We eventually want to drop all narrows but merge values.
                 self.next_branch();
-                self.bind_narrow_ops(&narrow_ops.negate(), range, usage);
+                self.bind_narrow_ops(&narrow_ops.negate(), x.range, usage);
                 self.ensure_expr(&mut x.orelse, usage);
                 self.finish_branch();
-                self.finish_exhaustive_fork(range);
+                self.finish_exhaustive_fork();
             }
             Expr::BoolOp(ExprBoolOp {
                 node_index: _,
@@ -503,7 +502,7 @@ impl<'a> BindingsBuilder<'a> {
                 op,
                 values,
             }) => {
-                self.start_fork_and_branch();
+                self.start_fork_and_branch(*range);
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range(), usage);
@@ -526,7 +525,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.next_branch();
                 self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
                 self.finish_branch();
-                self.finish_exhaustive_fork(*range);
+                self.finish_exhaustive_fork();
             }
             Expr::Call(ExprCall {
                 node_index: _,

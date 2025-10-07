@@ -316,8 +316,7 @@ impl<'a> BindingsBuilder<'a> {
             self.insert_binding_current(subject, Binding::Expr(None, *x.subject.clone()));
         let match_narrowing_subject = expr_to_subjects(&x.subject).first().cloned();
         let mut exhaustive = false;
-        let range = x.range;
-        self.start_fork();
+        self.start_fork(x.range);
         // Type narrowing operations that are carried over from one case to the next. For example, in:
         //   match x:
         //     case None:
@@ -352,9 +351,9 @@ impl<'a> BindingsBuilder<'a> {
         //
         // Otherwise, we need to merge the branches with the original `base` flow (which is current).
         if exhaustive {
-            self.finish_exhaustive_fork(range);
+            self.finish_exhaustive_fork();
         } else {
-            self.finish_non_exhaustive_fork(&negated_prev_ops, range);
+            self.finish_non_exhaustive_fork(&negated_prev_ops);
         }
     }
 }

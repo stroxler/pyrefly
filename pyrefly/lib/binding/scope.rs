@@ -802,6 +802,8 @@ pub struct Fork {
     ///
     /// This bit allows us to panic instead of producing buggy analysis if a caller messes them up.
     branch_started: bool,
+    /// A text range for the fork - used as part of the key construction when we merge the fork.
+    range: TextRange,
 }
 
 #[derive(Clone, Debug)]
@@ -2124,7 +2126,7 @@ impl<'a> BindingsBuilder<'a> {
     /// The end state of this is involves an empty flow not initialized for
     /// analyzing a branch, callers must call `start_branch` before proceeding
     /// with analysis.
-    pub fn start_fork(&mut self) {
+    pub fn start_fork(&mut self, range: TextRange) {
         let scope = self.scopes.current_mut();
         let mut base = Flow::default();
         mem::swap(&mut base, &mut scope.flow);
@@ -2132,6 +2134,7 @@ impl<'a> BindingsBuilder<'a> {
             base,
             branches: Default::default(),
             branch_started: false,
+            range,
         })
     }
 
@@ -2183,14 +2186,14 @@ impl<'a> BindingsBuilder<'a> {
     ///
     /// Panics if called when no fork is active, or if a branch is started (which
     /// means the caller forgot to call `finish_branch` and is always a bug).
-    pub fn finish_exhaustive_fork(&mut self, range: TextRange) {
+    pub fn finish_exhaustive_fork(&mut self) {
         let fork = self.scopes.current_mut().forks.pop().unwrap();
         assert!(
             !fork.branch_started,
             "A branch is started - did you forget to call `finish_branch`?"
         );
         let branches = fork.branches;
-        let merged = self.merge_flow(branches, range, false);
+        let merged = self.merge_flow(branches, fork.range, false);
         self.scopes.current_mut().flow = merged;
     }
 
@@ -2201,7 +2204,7 @@ impl<'a> BindingsBuilder<'a> {
     ///
     /// Panics if called when no fork is active, or if a branch is started (which
     /// means the caller forgot to call `finish_branch` and is always a bug).
-    pub fn finish_non_exhaustive_fork(&mut self, negated_prev_ops: &NarrowOps, range: TextRange) {
+    pub fn finish_non_exhaustive_fork(&mut self, negated_prev_ops: &NarrowOps) {
         let scope = self.scopes.current_mut();
         let fork = scope.forks.pop().unwrap();
         assert!(
@@ -2218,11 +2221,11 @@ impl<'a> BindingsBuilder<'a> {
             TextRange::default(),
             &Usage::Narrowing(None),
         );
-        self.merge_branches_into_current(branches, range);
+        self.merge_branches_into_current(branches, fork.range);
     }
 
-    pub fn start_fork_and_branch(&mut self) {
-        self.start_fork();
+    pub fn start_fork_and_branch(&mut self, range: TextRange) {
+        self.start_fork(range);
         self.start_branch();
     }
 
