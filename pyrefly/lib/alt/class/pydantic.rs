@@ -245,9 +245,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             FROZEN_DEFAULT,
         );
 
-        let strict = self
-            .extract_bool_flag(keywords, &STRICT)
-            .unwrap_or(strict.unwrap_or(false));
+        let strict = self.get_bool_config_value(
+            &STRICT,
+            keywords,
+            *strict,
+            bases_with_metadata,
+            |dm| dm.kws.strict,
+            false,
+        );
 
         Some(PydanticConfig {
             frozen,

@@ -89,3 +89,16 @@ Model2(x=0)
 Model2(x='0')
     "#,
 );
+
+pydantic_testcase!(
+    test_inherit,
+    r#"
+from pydantic import BaseModel
+class Model1(BaseModel, strict=True):
+    pass
+class Model2(Model1):
+    x: int
+Model2(x=0)
+Model2(x='0')  # E: `Literal['0']` is not assignable to parameter `x`
+    "#,
+);
