@@ -1730,3 +1730,15 @@ def f(a: A, b: B):
     b.clear()  # E: `B` has no attribute `clear`
     "#,
 );
+
+testcase!(
+    bug = "Only the assignment to `a2` should be an error",
+    test_builtins_dict_call,
+    r#"
+from typing import TypedDict
+class A(TypedDict):
+    x: int
+a1: A = dict(x=1)  # E: not assignable
+a2: A = dict(x='oops')  # E: `dict[str, str]` is not assignable to `TypedDict[A]`
+    "#,
+);
