@@ -6,17 +6,14 @@
  */
 
 use num_traits::ToPrimitive;
+use pyrefly_python::ast::Ast;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
-use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Int;
 use ruff_python_ast::Number;
-use ruff_python_ast::StringLiteral;
-use ruff_python_ast::StringLiteralFlags;
-use ruff_python_ast::StringLiteralValue;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -770,16 +767,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             FacetKind::Key(key) => {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
-                let synthesized_slice = Expr::StringLiteral(ExprStringLiteral {
-                    node_index: AtomicNodeIndex::dummy(),
-                    range,
-                    value: StringLiteralValue::single(StringLiteral {
-                        node_index: AtomicNodeIndex::dummy(),
-                        range,
-                        value: key.clone().into_boxed_str(),
-                        flags: StringLiteralFlags::empty(),
-                    }),
-                });
+                let synthesized_slice = Ast::str_expr(key, range);
                 match remaining_facets.split_first() {
                     None => match base.type_at_facet(first_facet) {
                         Some(ty) => ty.clone(),
