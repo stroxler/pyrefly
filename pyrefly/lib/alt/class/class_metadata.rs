@@ -682,7 +682,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
             // Inject pydantic model configuration
             if let Some(pydantic) = pydantic_config {
-                kws.frozen = pydantic.frozen || kws.frozen;
+                kws.frozen = pydantic.frozen;
                 kws.extra = pydantic.extra;
                 kws.strict = pydantic.strict;
             }

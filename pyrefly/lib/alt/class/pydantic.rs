@@ -30,6 +30,7 @@ use crate::alt::types::pydantic::PydanticConfig;
 use crate::alt::types::pydantic::PydanticModelKind;
 use crate::alt::types::pydantic::PydanticModelKind::RootModel;
 use crate::alt::types::pydantic::PydanticValidationFlags;
+use crate::binding::pydantic::FROZEN;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::ROOT;
@@ -170,29 +171,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
 
-        // Get inherited validation flags from parent if possible
-        let inherited_validate_by_name = self
-            .find_inherited_keyword_value(bases_with_metadata, |dm| dm.init_defaults.init_by_name);
-        let inherited_validate_by_alias = self
-            .find_inherited_keyword_value(bases_with_metadata, |dm| dm.init_defaults.init_by_alias);
-
-        // Build validation flags for ConfigDict: explicit > inherited > default
         let default_flags = PydanticValidationFlags::default();
-
         let validation_flags = PydanticValidationFlags {
-            validate_by_name: self.extract_bool_flag(
-                keywords,
+            validate_by_name: self.get_bool_config_value(
                 &VALIDATE_BY_NAME,
-                validate_by_name
-                    .or(inherited_validate_by_name)
-                    .unwrap_or(default_flags.validate_by_name),
-            ),
-            validate_by_alias: self.extract_bool_flag(
                 keywords,
+                *validate_by_name,
+                bases_with_metadata,
+                |dm| dm.init_defaults.init_by_name,
+                default_flags.validate_by_name,
+            ),
+            validate_by_alias: self.get_bool_config_value(
                 &VALIDATE_BY_ALIAS,
-                validate_by_alias
-                    .or(inherited_validate_by_alias)
-                    .unwrap_or(default_flags.validate_by_alias),
+                keywords,
+                *validate_by_alias,
+                bases_with_metadata,
+                |dm| dm.init_defaults.init_by_alias,
+                default_flags.validate_by_alias,
             ),
         };
 
@@ -241,17 +236,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
 
-        let frozen = match frozen {
-            Some(value) => value,
-            None => &self
-                .find_inherited_keyword_value(bases_with_metadata, |dm| dm.kws.frozen)
-                .unwrap_or(FROZEN_DEFAULT),
-        };
+        let frozen = self.get_bool_config_value(
+            &FROZEN,
+            keywords,
+            *frozen,
+            bases_with_metadata,
+            |dm| dm.kws.frozen,
+            FROZEN_DEFAULT,
+        );
 
-        let strict = self.extract_bool_flag(keywords, &STRICT, strict.unwrap_or(false));
+        let strict = self
+            .extract_bool_flag(keywords, &STRICT)
+            .unwrap_or(strict.unwrap_or(false));
 
         Some(PydanticConfig {
-            frozen: *frozen,
+            frozen,
             validation_flags,
             extra,
             strict,
@@ -259,17 +258,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    fn extract_bool_flag(
+    fn get_bool_config_value(
         &self,
+        name: &Name,
         keywords: &[(Name, Annotation)],
-        key: &Name,
+        value_from_config_dict: Option<bool>,
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        extract_from_metadata: impl Fn(&DataclassMetadata) -> bool,
         default: bool,
     ) -> bool {
+        // explicit keyword > explicit ConfigDict value > inherited > default
+        self.extract_bool_flag(keywords, name)
+            .unwrap_or(value_from_config_dict.unwrap_or_else(|| {
+                self.find_inherited_keyword_value(bases_with_metadata, extract_from_metadata)
+                    .unwrap_or(default)
+            }))
+    }
+
+    fn extract_bool_flag(&self, keywords: &[(Name, Annotation)], key: &Name) -> Option<bool> {
         keywords
             .iter()
             .find(|(name, _)| name == key)
-            .map_or(default, |(_, ann)| {
-                ann.get_type().as_bool().unwrap_or(default)
-            })
+            .and_then(|(_, ann)| ann.get_type().as_bool())
     }
 }

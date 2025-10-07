@@ -153,6 +153,9 @@ from pydantic import BaseModel
 class A(BaseModel, frozen=True):
     x: int
 
+a = A(x=0)
+a.x = 1 # E: Cannot set field `x`
+
 class B(A):
     pass
 

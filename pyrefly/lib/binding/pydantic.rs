@@ -28,7 +28,7 @@ pub const LT: Name = Name::new_static("lt");
 pub const GE: Name = Name::new_static("ge");
 pub const ROOT: Name = Name::new_static("root");
 pub const STRICT: Name = Name::new_static("strict");
-const FROZEN: Name = Name::new_static("frozen");
+pub const FROZEN: Name = Name::new_static("frozen");
 const EXTRA: Name = Name::new_static("extra");
 
 // An abstraction to iterate over configuration values, whether `ConfigDict()` or a dict display
