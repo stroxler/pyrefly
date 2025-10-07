@@ -809,6 +809,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let args = call.vec_call_arg(args, self, errors);
         let keywords = call.vec_call_keyword(keywords, self, errors);
 
+        // Evaluate the call following https://typing.python.org/en/latest/spec/overload.html#overload-call-evaluation.
+
+        // TODO: implement step 1, eliminating overloads with the wrong number of parameters.
+
+        // Step 2: evaluate each overload as a regular (non-overloaded) call.
+        // Note: steps 4-6 are performed in `find_closest_overload`.
         let (closest_overload, matched) = self.find_closest_overload(
             &overloads,
             &metadata,
@@ -820,6 +826,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             hint,
             ctor_targs,
         );
+
+        // TODO: implement step 3, argument type expansion.
+
         // Record the closest overload to power IDE services.
         self.record_overload_trace(
             range,
