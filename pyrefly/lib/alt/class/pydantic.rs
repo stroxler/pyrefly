@@ -30,11 +30,13 @@ use crate::alt::types::pydantic::PydanticConfig;
 use crate::alt::types::pydantic::PydanticModelKind;
 use crate::alt::types::pydantic::PydanticModelKind::RootModel;
 use crate::alt::types::pydantic::PydanticValidationFlags;
+use crate::binding::pydantic::EXTRA;
 use crate::binding::pydantic::FROZEN;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::ROOT;
 use crate::binding::pydantic::STRICT;
+use crate::binding::pydantic::STRICT_DEFAULT;
 use crate::binding::pydantic::VALIDATE_BY_ALIAS;
 use crate::binding::pydantic::VALIDATE_BY_NAME;
 use crate::error::collector::ErrorCollector;
@@ -196,7 +198,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // If we were to consider type narrowing in the "allow" case, we would need to propagate more data
         // and narrow downstream. We are not following the narrowing approach in v1 though, but should discuss it
         // for v2.
-        let extra = match keywords.iter().find(|(name, _)| name.as_str() == "extra") {
+        let extra = match keywords.iter().find(|(name, _)| name == &EXTRA) {
             Some((_, ann)) => match ann.get_type() {
                 Type::Literal(Lit::Str(s)) => match s.as_str() {
                     "allow" | "ignore" => true,
@@ -251,7 +253,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             *strict,
             bases_with_metadata,
             |dm| dm.kws.strict,
-            false,
+            STRICT_DEFAULT,
         );
 
         Some(PydanticConfig {

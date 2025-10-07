@@ -19,7 +19,6 @@ use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
 
 // special pydantic constants
-pub const FROZEN_DEFAULT: bool = false;
 pub const VALIDATION_ALIAS: Name = Name::new_static("validation_alias");
 pub const VALIDATE_BY_NAME: Name = Name::new_static("validate_by_name");
 pub const VALIDATE_BY_ALIAS: Name = Name::new_static("validate_by_alias");
@@ -28,8 +27,10 @@ pub const LT: Name = Name::new_static("lt");
 pub const GE: Name = Name::new_static("ge");
 pub const ROOT: Name = Name::new_static("root");
 pub const STRICT: Name = Name::new_static("strict");
+pub const STRICT_DEFAULT: bool = false;
 pub const FROZEN: Name = Name::new_static("frozen");
-const EXTRA: Name = Name::new_static("extra");
+pub const FROZEN_DEFAULT: bool = false;
+pub const EXTRA: Name = Name::new_static("extra");
 
 // An abstraction to iterate over configuration values, whether `ConfigDict()` or a dict display
 // is used.
