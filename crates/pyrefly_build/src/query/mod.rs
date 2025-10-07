@@ -26,6 +26,7 @@ use vec1::Vec1;
 use crate::source_db::Target;
 
 pub mod buck;
+pub mod custom;
 
 /// An enum representing something that has been included by the build system, and
 /// which the build system should query for when building the sourcedb.
