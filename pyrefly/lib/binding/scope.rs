@@ -2171,20 +2171,38 @@ impl<'a> BindingsBuilder<'a> {
         fork.branch_started = false;
     }
 
-    /// Finish an exhaustive fork (one that does not include the base flow),
-    /// popping it and setting flow to the merge result.
-    ///
-    /// Panics if called when no fork is active, or if a branch is started (which
-    /// means the caller forgot to call `finish_branch` and is always a bug).
-    pub fn finish_exhaustive_fork(&mut self) {
+    fn finish_fork_impl(&mut self, negated_prev_ops_if_nonexhaustive: Option<&NarrowOps>) {
         let fork = self.scopes.current_mut().forks.pop().unwrap();
         assert!(
             !fork.branch_started,
             "A branch is started - did you forget to call `finish_branch`?"
         );
         let branches = fork.branches;
-        let merged = self.merge_flow(branches, fork.range, false);
-        self.scopes.current_mut().flow = merged;
+        if let Some(negated_prev_ops) = negated_prev_ops_if_nonexhaustive {
+            let mut base = fork.base;
+            let scope = self.scopes.current_mut();
+            mem::swap(&mut scope.flow, &mut base);
+            self.bind_narrow_ops(
+                negated_prev_ops,
+                // Note: the range only has to be distinct from other use_ranges of the same narrow, so
+                // default works okay here.
+                TextRange::default(),
+                &Usage::Narrowing(None),
+            );
+            self.merge_branches_into_current(branches, fork.range);
+        } else {
+            let merged = self.merge_flow(branches, fork.range, false);
+            self.scopes.current_mut().flow = merged;
+        }
+    }
+
+    /// Finish an exhaustive fork (one that does not include the base flow),
+    /// popping it and setting flow to the merge result.
+    ///
+    /// Panics if called when no fork is active, or if a branch is started (which
+    /// means the caller forgot to call `finish_branch` and is always a bug).
+    pub fn finish_exhaustive_fork(&mut self) {
+        self.finish_fork_impl(None)
     }
 
     /// Finish a non-exhaustive fork in which the base flow is part of the merge. It negates
@@ -2195,23 +2213,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Panics if called when no fork is active, or if a branch is started (which
     /// means the caller forgot to call `finish_branch` and is always a bug).
     pub fn finish_non_exhaustive_fork(&mut self, negated_prev_ops: &NarrowOps) {
-        let scope = self.scopes.current_mut();
-        let fork = scope.forks.pop().unwrap();
-        assert!(
-            !fork.branch_started,
-            "A branch is started - did you forget to call `finish_branch`?"
-        );
-        let branches = fork.branches;
-        let mut base = fork.base;
-        mem::swap(&mut scope.flow, &mut base);
-        self.bind_narrow_ops(
-            negated_prev_ops,
-            // Note: the range only has to be distinct from other use_ranges of the same narrow, so
-            // default works okay here.
-            TextRange::default(),
-            &Usage::Narrowing(None),
-        );
-        self.merge_branches_into_current(branches, fork.range);
+        self.finish_fork_impl(Some(negated_prev_ops))
     }
 
     /// Finish a `MatchOr`, which behaves like an exhaustive fork except that we know
