@@ -249,8 +249,6 @@
     "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
   ],
   "overloads_evaluation.py": [
-    "Line 180: Unexpected errors ['No matching overload found for function `expand_type_union`\\n  Possible overloads:\\n  (x: type[int]) -> int [closest match]\\n  (x: type[str]) -> str']",
-    "Line 181: Unexpected errors ['assert_type(Any, int | str) failed']",
     "Line 204: Unexpected errors ['No matching overload found for function `expand_tuple`\\n  Possible overloads:\\n  (x: tuple[int, int]) -> int [closest match]\\n  (x: tuple[int, str]) -> str']",
     "Line 205: Unexpected errors ['assert_type(Any, int | str) failed']",
     "Line 234: Unexpected errors ['assert_type(str, int) failed']",

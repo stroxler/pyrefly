@@ -7765,26 +7765,6 @@
     },
     {
       "code": -2,
-      "column": 29,
-      "concise_description": "No matching overload found for function `expand_type_union`",
-      "description": "No matching overload found for function `expand_type_union`\n  Possible overloads:\n  (x: type[int]) -> int [closest match]\n  (x: type[str]) -> str",
-      "line": 180,
-      "name": "no-matching-overload",
-      "stop_column": 32,
-      "stop_line": 180
-    },
-    {
-      "code": -2,
-      "column": 16,
-      "concise_description": "assert_type(Any, int | str) failed",
-      "description": "assert_type(Any, int | str) failed",
-      "line": 181,
-      "name": "assert-type",
-      "stop_column": 33,
-      "stop_line": 181
-    },
-    {
-      "code": -2,
       "column": 24,
       "concise_description": "No matching overload found for function `expand_tuple`",
       "description": "No matching overload found for function `expand_tuple`\n  Possible overloads:\n  (x: tuple[int, int]) -> int [closest match]\n  (x: tuple[int, str]) -> str",

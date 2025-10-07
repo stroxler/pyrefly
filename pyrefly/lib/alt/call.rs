@@ -221,6 +221,7 @@ impl<'a> ArgsExpander<'a> {
                     .map(Type::Literal)
                     .collect()
             }
+            Type::Type(box Type::Union(ts)) => ts.into_map(Type::type_form),
             _ => Vec::new(),
         }
     }

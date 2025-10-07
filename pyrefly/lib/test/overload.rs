@@ -824,3 +824,23 @@ def g(x: E):
     assert_type(f(x), Literal['X', 'Y'])
     "#,
 );
+
+testcase!(
+    test_expand_type_union,
+    r#"
+from typing import assert_type, overload
+
+class A: ...
+class B: ...
+
+@overload
+def f(x: type[A]) -> A: ...
+@overload
+def f(x: type[B]) -> B: ...
+def f(x: type[A | B]) -> A | B:
+    return x()
+
+def g(x: type[A | B]):
+    assert_type(f(x), A | B)
+    "#,
+);
