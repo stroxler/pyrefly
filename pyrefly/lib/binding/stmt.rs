@@ -675,8 +675,8 @@ impl<'a> BindingsBuilder<'a> {
                         self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
                         continue;
                     }
-                    self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
                     let mut base = self.scopes.clone_current_flow();
+                    self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
                     self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
                     if let Some(test_expr) = test {
