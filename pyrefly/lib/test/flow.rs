@@ -844,6 +844,34 @@ assert_type(x, Literal[1])  # E: `x` may be uninitialized
 );
 
 testcase!(
+    bug = "We currently don't understand that `while True` runs until a break",
+    test_while_true_defines_variable,
+    r#"
+from typing import assert_type, Literal
+def foo():
+    while True:
+        x = "a"
+        break
+    assert_type(x, Literal["a"])  # E: `x` may be uninitialized
+    "#,
+);
+
+testcase!(
+    bug = "We are dropping uninitialized-ness from flow style in certain merges",
+    test_nested_if_sometimes_defines_variable,
+    r#"
+from typing import assert_type, Literal
+def condition() -> bool: ...
+if condition():
+    if condition():
+        x = "x"
+else:
+    x = "x"
+print(x)  # Should error
+    "#,
+);
+
+testcase!(
     test_named_inside_boolean_op,
     r#"
 from typing import assert_type, Literal
