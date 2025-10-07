@@ -789,6 +789,17 @@ pub enum LoopExit {
 #[derive(Clone, Debug)]
 pub struct Loop(pub Vec<(LoopExit, Flow)>);
 
+/// Represents forks in control flow that contain branches. Used to
+/// control how the final flow from merging branches behaves.
+#[derive(Clone, Debug)]
+#[expect(dead_code)]
+pub struct Fork {
+    /// The Flow that was live at the top of the fork
+    base: Flow,
+    /// The flow resulting from branches of the fork
+    branches: Vec<Flow>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Scope {
     range: TextRange,
@@ -814,6 +825,11 @@ pub struct Scope {
     /// Stack of for/while loops we're in. Does not include comprehensions, which
     /// define a new scope.
     loops: Vec<Loop>,
+    /// Stack of branches we're in. Branches occur anywhere that we split and later
+    /// merge flows, including boolean ops, ternary operators, if and match statements,
+    /// and exception handlers
+    #[expect(dead_code)]
+    forks: Vec<Fork>,
 }
 
 impl Scope {
@@ -825,6 +841,7 @@ impl Scope {
             barrier,
             kind,
             loops: Default::default(),
+            forks: Default::default(),
         }
     }
 
