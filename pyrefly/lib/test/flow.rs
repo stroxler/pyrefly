@@ -857,6 +857,21 @@ def foo():
 );
 
 testcase!(
+    bug = "We currently don't understand that `while True` runs until a break",
+    test_while_true_redefines_and_narrows_variable,
+    r#"
+from typing import assert_type, Literal
+def get_new_y() -> int | None: ...
+def foo():
+    y = None
+    while True:
+        if (y := get_new_y()):
+            break
+    assert_type(y, int)  # E: assert_type(int | None, int)
+    "#,
+);
+
+testcase!(
     test_nested_if_sometimes_defines_variable,
     r#"
 from typing import assert_type, Literal
