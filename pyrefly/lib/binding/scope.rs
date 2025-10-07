@@ -792,12 +792,20 @@ pub struct Loop(pub Vec<(LoopExit, Flow)>);
 /// Represents forks in control flow that contain branches. Used to
 /// control how the final flow from merging branches behaves.
 #[derive(Clone, Debug)]
-#[expect(dead_code)]
 pub struct Fork {
     /// The Flow that was live at the top of the fork
     base: Flow,
     /// The flow resulting from branches of the fork
     branches: Vec<Flow>,
+}
+
+impl Fork {
+    pub fn new(base: Flow) -> Self {
+        Self {
+            base,
+            branches: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -828,7 +836,6 @@ pub struct Scope {
     /// Stack of branches we're in. Branches occur anywhere that we split and later
     /// merge flows, including boolean ops, ternary operators, if and match statements,
     /// and exception handlers
-    #[expect(dead_code)]
     forks: Vec<Fork>,
 }
 
@@ -2114,5 +2121,32 @@ impl<'a> BindingsBuilder<'a> {
                 format!("Cannot `{exit}` outside loop"),
             );
         }
+    }
+
+    /// Start a new fork in control flow (e.g. an if/else, match statement, etc)
+    pub fn start_fork(&mut self) {
+        let scope = self.scopes.current_mut();
+        let base = scope.flow.clone();
+        scope.forks.push(Fork::new(base))
+    }
+
+    /// Finish a branch in the current fork: save the branch, reset the flow to `base`.
+    /// Panics if called when no fork is active.
+    pub fn finish_branch(&mut self) {
+        let scope = self.scopes.current_mut();
+        let fork = scope.forks.last_mut().unwrap();
+        let mut flow = fork.base.clone();
+        mem::swap(&mut scope.flow, &mut flow);
+        fork.branches.push(flow);
+    }
+
+    /// Finish an exhaustive fork (one that does not include the base flow),
+    /// popping it and setting flow to the merge result.
+    /// Panics if called when no fork is active.
+    pub fn finish_exhaustive_fork(&mut self, range: TextRange) {
+        let fork = self.scopes.current_mut().forks.pop().unwrap();
+        let branches = fork.branches;
+        let merged = self.merge_flow(branches, range, false);
+        self.scopes.current_mut().flow = merged;
     }
 }

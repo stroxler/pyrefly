@@ -502,7 +502,7 @@ impl<'a> BindingsBuilder<'a> {
                 op,
                 values,
             }) => {
-                let base = self.scopes.clone_current_flow();
+                self.start_fork();
                 let mut narrow_ops = NarrowOps::new();
                 for value in values {
                     self.bind_narrow_ops(&narrow_ops, value.range(), usage);
@@ -522,9 +522,10 @@ impl<'a> BindingsBuilder<'a> {
                 // Negate the narrow ops in the base flow and merge.
                 // TODO(stroxler): We eventually want to drop all narrows but merge values.
                 // Once we have a way to do that, the negation will be unnecessary.
-                let if_branch = self.scopes.replace_current_flow(base);
+                self.finish_branch();
                 self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
-                self.merge_branches_into_current(vec![if_branch], *range);
+                self.finish_branch();
+                self.finish_exhaustive_fork(*range);
             }
             Expr::Call(ExprCall {
                 node_index: _,
