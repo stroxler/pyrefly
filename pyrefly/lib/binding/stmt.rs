@@ -654,7 +654,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::If(x) => {
                 let range = x.range;
                 let mut exhaustive = false;
-                let mut branches = Vec::new();
+                self.start_fork();
                 // Type narrowing operations that are carried over from one branch to the next. For example, in:
                 //   if x is None:
                 //     pass
@@ -664,6 +664,7 @@ impl<'a> BindingsBuilder<'a> {
                 // is carried over to the else branch.
                 let mut negated_prev_ops = NarrowOps::new();
                 for (range, mut test, body) in Ast::if_branches_owned(x) {
+                    self.start_branch();
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
                     let this_branch_chosen = match &test {
                         None => Some(true),
@@ -673,9 +674,9 @@ impl<'a> BindingsBuilder<'a> {
                         // We definitely won't pick this branch. We still ensure the test
                         // expression to pick up any names it defines.
                         self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
+                        self.abandon_branch();
                         continue;
                     }
-                    let mut base = self.scopes.clone_current_flow();
                     self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
                     self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
                     let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
@@ -689,8 +690,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_narrow_ops(&new_narrow_ops, range, &Usage::Narrowing(None));
                     negated_prev_ops.and_all(new_narrow_ops.negate());
                     self.stmts(body, parent);
-                    self.scopes.swap_current_flow_with(&mut base);
-                    branches.push(base);
+                    self.finish_branch();
                     if this_branch_chosen == Some(true) {
                         exhaustive = true;
                         break; // We definitely picked this branch if we got here, nothing below is reachable.
@@ -702,18 +702,9 @@ impl<'a> BindingsBuilder<'a> {
                 // the flow above the `If`) because the if might be skipped
                 // entirely.
                 if exhaustive {
-                    self.set_current_flow_to_merged_branches(branches, range);
+                    self.finish_exhaustive_fork(range);
                 } else {
-                    // If there is no explicit else branch, we still want to merge the negated ops
-                    // from the previous branches into the flow env.
-                    // Note, using a default use_range is OK. The range is only needed to make the
-                    // key distinct from other keys.
-                    self.bind_narrow_ops(
-                        &negated_prev_ops,
-                        TextRange::default(),
-                        &Usage::Narrowing(None),
-                    );
-                    self.merge_branches_into_current(branches, range);
+                    self.finish_non_exhaustive_fork(&negated_prev_ops, range);
                 }
             }
             Stmt::With(x) => {

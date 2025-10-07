@@ -2144,6 +2144,18 @@ impl<'a> BindingsBuilder<'a> {
         scope.flow = fork.base.clone();
     }
 
+    /// Abandon a branch we began without including it in the merge. Used for a few cases
+    /// where we need to analyze a test, but we then determine statically that the branch
+    /// is unreachable in a way that should not be analyzed (e.g. python version and platform
+    /// gates).
+    pub fn abandon_branch(&mut self) {
+        let scope = self.scopes.current_mut();
+        let fork = scope.forks.last_mut().unwrap();
+        // Not needed but a ram optimization: frees the current flow which isn't needed.
+        scope.flow = Flow::default();
+        fork.branch_started = false;
+    }
+
     /// Finish a branch in the current fork: save the branch, reset the flow to `base`.
     /// Panics if called when no fork is active.
     ///
@@ -2180,6 +2192,33 @@ impl<'a> BindingsBuilder<'a> {
         let branches = fork.branches;
         let merged = self.merge_flow(branches, range, false);
         self.scopes.current_mut().flow = merged;
+    }
+
+    /// Finish a non-exhaustive fork in which the base flow is part of the merge. It negates
+    /// the branch-choosing narrows by applying `negated_prev_ops` to base before merging, which
+    /// is important so that we can preserve any cases where a termanating branch has permanently
+    /// narrowed the type (e.g. an early return when an optional variable is None).
+    ///
+    /// Panics if called when no fork is active, or if a branch is started (which
+    /// means the caller forgot to call `finish_branch` and is always a bug).
+    pub fn finish_non_exhaustive_fork(&mut self, negated_prev_ops: &NarrowOps, range: TextRange) {
+        let scope = self.scopes.current_mut();
+        let fork = scope.forks.pop().unwrap();
+        assert!(
+            !fork.branch_started,
+            "A branch is started - did you forget to call `finish_branch`?"
+        );
+        let branches = fork.branches;
+        let mut base = fork.base;
+        mem::swap(&mut scope.flow, &mut base);
+        self.bind_narrow_ops(
+            negated_prev_ops,
+            // Note: the range only has to be distinct from other use_ranges of the same narrow, so
+            // default works okay here.
+            TextRange::default(),
+            &Usage::Narrowing(None),
+        );
+        self.merge_branches_into_current(branches, range);
     }
 
     pub fn start_fork_and_branch(&mut self) {

@@ -1027,7 +1027,7 @@ def f(v):
     if False and (value := v):
         print(value)
     else:
-        print(value)  # E: `value` may be uninitialized
+        print(value)  # E: `value` is uninitialized
     "#,
 );
 
