@@ -1165,10 +1165,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn expr_call_infer(
         &self,
         x: &ExprCall,
+        mut callee_ty: Type,
         hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> Type {
-        let mut callee_ty = self.expr_infer(&x.func, errors);
         if matches!(&callee_ty, Type::ClassDef(cls) if cls.is_builtin("super")) {
             // Because we have to construct a binding for super in order to fill in implicit arguments,
             // we can't handle things like local aliases to super. If we hit a case where the binding

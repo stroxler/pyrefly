@@ -20,6 +20,7 @@ use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::BoolOp;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::DictItem;
@@ -618,7 +619,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Yield(x) => self.get(&KeyYield(x.range)).send_ty.clone(),
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),
             Expr::Compare(x) => self.compare_infer(x, errors),
-            Expr::Call(x) => self.expr_call_infer(x, hint, errors),
+            Expr::Call(x) => {
+                let callee_ty = self.expr_infer(&x.func, errors);
+                if let Some(d) = self.call_to_dict(&callee_ty, &x.arguments) {
+                    self.dict_infer(&d, hint, x.range, errors)
+                } else {
+                    self.expr_call_infer(x, callee_ty, hint, errors)
+                }
+            }
             Expr::FString(x) => {
                 // Ensure we detect type errors in f-string expressions.
                 let mut all_literal_strings = true;
@@ -830,6 +838,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let value_ty = self.unions(value_tys);
             self.stdlib.dict(key_ty, value_ty).to_type()
         }
+    }
+
+    /// If this is a `dict` call that can be converted to an equivalent dict literal (e.g., `dict(x=1)` => `{'x': 1}`),
+    /// return the items in the converted dict.
+    fn call_to_dict(&self, callee_ty: &Type, args: &Arguments) -> Option<Vec<DictItem>> {
+        if !matches!(callee_ty, Type::ClassDef(class) if class.is_builtin("dict")) {
+            return None;
+        }
+        if !args.args.is_empty() {
+            // The positional args could contain expressions that are convertible to dict literals,
+            // but this is a less common pattern, so we defer supporting it for now.
+            return None;
+        }
+        Some(args.keywords.map(|kw| {
+            DictItem {
+                key: kw
+                    .arg
+                    .as_ref()
+                    .map(|id| Ast::str_expr(id.as_str(), id.range)),
+                value: kw.value.clone(),
+            }
+        }))
     }
 
     pub fn as_bool(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) -> Option<bool> {

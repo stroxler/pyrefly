@@ -37,13 +37,12 @@ m.x = 10 # E: Cannot set field `x`
 );
 
 pydantic_testcase!(
-    bug = "The error on the `model_config` assignment is spurious - https://github.com/facebook/pyrefly/issues/1248",
     test_model_config_dict_func,
     r#"
 from pydantic import BaseModel
 
 class Model(BaseModel):
-    model_config = dict(frozen=True) # E: `dict[str, bool]` is not assignable to attribute `model_config` with type `TypedDict[ConfigDict]`
+    model_config = dict(frozen=True)
 
     x: int = 42
 
