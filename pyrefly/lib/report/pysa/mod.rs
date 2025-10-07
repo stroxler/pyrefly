@@ -55,8 +55,8 @@ use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::ModuleFunctionDefinitions;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
-use crate::report::pysa::function::add_undecorated_signatures_and_captures;
 use crate::report::pysa::function::collect_function_base_definitions;
+use crate::report::pysa::function::export_function_definitions;
 use crate::report::pysa::global_variable::GlobalVariable;
 use crate::report::pysa::global_variable::export_global_variables;
 use crate::report::pysa::location::PysaLocation;
@@ -132,14 +132,8 @@ pub fn export_module_definitions(
     let captured_variables = export_captured_variables(context);
     let class_definitions = export_all_classes(context);
 
-    let function_base_definitions_for_module = function_base_definitions
-        .get_for_module(context.module_id)
-        .unwrap();
-    let function_definitions = add_undecorated_signatures_and_captures(
-        function_base_definitions_for_module,
-        &captured_variables,
-        context,
-    );
+    let function_definitions =
+        export_function_definitions(function_base_definitions, &captured_variables, context);
     PysaModuleDefinitions {
         format_version: 1,
         module_id: context.module_id,

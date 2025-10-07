@@ -13,6 +13,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::types::Type;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -97,6 +98,14 @@ impl<Target: TargetTrait> CallCallees<Target> {
                 .collect(),
         }
     }
+
+    fn is_empty(&self) -> bool {
+        self.call_targets.is_empty()
+    }
+
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Target>> {
+        self.call_targets.iter()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -121,6 +130,14 @@ impl<Target: TargetTrait> AttributeAccessCallees<Target> {
                 .collect(),
         }
     }
+
+    fn is_empty(&self) -> bool {
+        self.callable_targets.is_empty()
+    }
+
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Target>> {
+        self.callable_targets.iter()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -144,6 +161,14 @@ impl<Target: TargetTrait> IdentifierCallees<Target> {
                 .map(|call_target| CallTarget::map_target(call_target, &map))
                 .collect(),
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.callable_targets.is_empty()
+    }
+
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Target>> {
+        self.callable_targets.iter()
     }
 }
 
@@ -172,6 +197,28 @@ impl<Target: TargetTrait> ExpressionCallees<Target> {
             }
             ExpressionCallees::AttributeAccess(attribute_access_callees) => {
                 ExpressionCallees::AttributeAccess(attribute_access_callees.map_target(map))
+            }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            ExpressionCallees::Call(call_callees) => call_callees.is_empty(),
+            ExpressionCallees::Identifier(identifier_callees) => identifier_callees.is_empty(),
+            ExpressionCallees::AttributeAccess(attribute_access_callees) => {
+                attribute_access_callees.is_empty()
+            }
+        }
+    }
+
+    pub fn all_targets<'a>(&'a self) -> Box<dyn Iterator<Item = &'a CallTarget<Target>> + 'a> {
+        match self {
+            ExpressionCallees::Call(call_callees) => Box::new(call_callees.all_targets()),
+            ExpressionCallees::Identifier(identifier_callees) => {
+                Box::new(identifier_callees.all_targets())
+            }
+            ExpressionCallees::AttributeAccess(attribute_access_callees) => {
+                Box::new(attribute_access_callees.all_targets())
             }
         }
     }
@@ -456,6 +503,37 @@ impl<'a> CallGraphVisitor<'a> {
             .collect::<Vec<_>>()
     }
 
+    fn resolve_call(&self, call: &ExprCall) -> Vec<CallTarget<FunctionRef>> {
+        debug_println!(self.debug, "Visiting call: {:#?}", call);
+
+        match &*call.func {
+            Expr::Name(name) => self.resolve_name(name),
+            Expr::Attribute(attribute) => self.resolve_attribute_access(attribute),
+            _ => Vec::new(),
+        }
+    }
+
+    fn resolve_expression(&self, expr: &Expr) -> Option<ExpressionCallees<FunctionRef>> {
+        match expr {
+            Expr::Call(call) => Some(ExpressionCallees::Call(CallCallees {
+                call_targets: self.resolve_call(call),
+            })),
+            Expr::Name(name) => {
+                // TODO: Avoid visiting when the parent expression is a `Call`
+                Some(ExpressionCallees::Identifier(IdentifierCallees {
+                    callable_targets: self.resolve_name(name),
+                }))
+            }
+            Expr::Attribute(attribute) => {
+                // TODO: Avoid visiting when the parent expression is a `Call`
+                Some(ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+                    callable_targets: self.resolve_attribute_access(attribute),
+                }))
+            }
+            _ => None,
+        }
+    }
+
     // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
     const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
 
@@ -506,47 +584,53 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
             return;
         }
 
-        match expr {
-            Expr::Call(call) => {
-                debug_println!(self.debug, "Visiting call: {:#?}", call);
-
-                let call_targets = match &*call.func {
-                    Expr::Name(name) => self.resolve_name(name),
-                    Expr::Attribute(attribute) => self.resolve_attribute_access(attribute),
-                    _ => Vec::new(),
-                };
-                if !call_targets.is_empty() {
-                    self.add_callees(
-                        expr.range(),
-                        ExpressionCallees::Call(CallCallees { call_targets }),
-                    );
-                }
-            }
-            Expr::Name(name) => {
-                // TODO: Avoid visiting when the parent expression is a `Call`
-                let callable_targets = self.resolve_name(name);
-                if !callable_targets.is_empty() {
-                    self.add_callees(
-                        expr.range(),
-                        ExpressionCallees::Identifier(IdentifierCallees { callable_targets }),
-                    );
-                }
-            }
-            Expr::Attribute(attribute) => {
-                // TODO: Avoid visiting when the parent expression is a `Call`
-                let callable_targets = self.resolve_attribute_access(attribute);
-                if !callable_targets.is_empty() {
-                    self.add_callees(
-                        expr.range(),
-                        ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-                            callable_targets,
-                        }),
-                    );
-                }
-            }
-            _ => (),
-        };
+        let callees = self.resolve_expression(expr);
+        if let Some(callees) = callees
+            && !callees.is_empty()
+        {
+            self.add_callees(expr.range(), callees);
+        }
     }
+}
+
+pub fn resolve_call(
+    call: &ExprCall,
+    function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    module_context: &ModuleContext,
+) -> CallCallees<FunctionRef> {
+    let mut call_graphs = CallGraphs::new();
+    let visitor = CallGraphVisitor {
+        call_graphs: &mut call_graphs,
+        module_context,
+        module_id: module_context.module_id,
+        module_name: module_context.module_info.name(),
+        function_base_definitions: function_definitions,
+        current_function: None,
+        debug: false,
+        debug_scopes: Vec::new(),
+    };
+    CallCallees {
+        call_targets: visitor.resolve_call(call),
+    }
+}
+
+pub fn resolve_expression(
+    expression: &Expr,
+    function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    module_context: &ModuleContext,
+) -> Option<ExpressionCallees<FunctionRef>> {
+    let mut call_graphs = CallGraphs::new();
+    let visitor = CallGraphVisitor {
+        call_graphs: &mut call_graphs,
+        module_context,
+        module_id: module_context.module_id,
+        module_name: module_context.module_info.name(),
+        function_base_definitions: function_definitions,
+        current_function: None,
+        debug: false,
+        debug_scopes: Vec::new(),
+    };
+    visitor.resolve_expression(expression)
 }
 
 pub fn export_call_graphs(

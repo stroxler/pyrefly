@@ -18,6 +18,8 @@ use crate::binding::binding::KeyClass;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::function::FunctionRef;
+use crate::report::pysa::function::get_all_functions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleKey;
 use crate::state::require::Require;
@@ -69,6 +71,21 @@ pub fn get_class_ref(module_name: &str, class_name: &str, context: &ModuleContex
         class_id: ClassId::from_class(&class),
         module_id,
     }
+}
+
+pub fn get_function_ref(
+    module_name: &str,
+    function_name: &str,
+    context: &ModuleContext,
+) -> FunctionRef {
+    let handle = get_handle_for_module_name(module_name, context.transaction);
+    let context = ModuleContext::create(&handle, context.transaction, context.module_ids).unwrap();
+
+    // This is slow, but we don't care in tests.
+    let function = get_all_functions(&context.bindings, &context.answers)
+        .find(|function| function.metadata().kind.as_func_id().func == function_name)
+        .expect("valid function name");
+    FunctionRef::from_decorated_function(&function, &context)
 }
 
 pub fn create_location(

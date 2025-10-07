@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::ops::Not;
 
 use pyrefly_build::handle::Handle;
+use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Param;
@@ -17,7 +18,11 @@ use pyrefly_types::types::Overload;
 use pyrefly_types::types::Type;
 use pyrefly_util::thread_pool::ThreadPool;
 use rayon::prelude::*;
+use ruff_python_ast::AnyNodeRef;
+use ruff_python_ast::Expr;
+use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
 use serde::Serialize;
 
 use crate::alt::answers::Answers;
@@ -26,6 +31,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::call_graph;
 use crate::report::pysa::captured_variable::CapturedVariable;
 use crate::report::pysa::captured_variable::ModuleCapturedVariables;
 use crate::report::pysa::class::ClassId;
@@ -203,6 +209,8 @@ pub struct FunctionDefinition {
     pub undecorated_signatures: Vec<FunctionSignature>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub captured_variables: Vec<CapturedVariable>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
 }
 
 impl FunctionDefinition {
@@ -239,6 +247,15 @@ impl FunctionDefinition {
     #[cfg(test)]
     pub fn with_defining_class(mut self, defining_class: ClassRef) -> Self {
         self.base.defining_class = Some(defining_class);
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_decorator_callees(
+        mut self,
+        decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
+    ) -> Self {
+        self.decorator_callees = decorator_callees;
         self
     }
 }
@@ -362,13 +379,13 @@ pub fn should_export_function(function: &DecoratedFunction, context: &ModuleCont
 }
 
 fn get_undecorated_signatures(
-    function: DecoratedFunction,
+    function: &DecoratedFunction,
     context: &ModuleContext,
 ) -> Vec<FunctionSignature> {
     // We need the list of raw parameters, ignoring decorators.
     // For overloads, we need the list of all overloads, not just the current one.
     // To get it, we check if `get_function_type` returns `Type::Overload`.
-    let decorated_type = get_function_type(&function, context);
+    let decorated_type = get_function_type(function, context);
     match decorated_type {
         Type::Overload(Overload { signatures, .. }) => signatures
             .iter()
@@ -391,7 +408,7 @@ fn get_undecorated_signatures(
                     .collect(),
             ),
             return_annotation: PysaType::from_type(
-                &get_undecorated_return_type(&function, context),
+                &get_undecorated_return_type(function, context),
                 context,
             ),
         }],
@@ -445,19 +462,99 @@ pub fn export_all_functions(
     function_base_definitions
 }
 
-pub fn add_undecorated_signatures_and_captures(
-    function_base_definitions: &ModuleFunctionDefinitions<FunctionBaseDefinition>,
+fn find_definition_ast<'a>(
+    function: &DecoratedFunction,
+    context: &'a ModuleContext<'a>,
+) -> Option<&'a StmtFunctionDef> {
+    let range = function.id_range();
+    Ast::locate_node(&context.ast, range.start())
+        .iter()
+        .find_map(|node| match node {
+            AnyNodeRef::StmtFunctionDef(stmt) if stmt.name.range == range => Some(*stmt),
+            _ => None,
+        })
+}
+
+fn get_decorator_callees(
+    function: &DecoratedFunction,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    context: &ModuleContext,
+) -> HashMap<PysaLocation, Vec<FunctionRef>> {
+    if let Some(function_def) = find_definition_ast(function, context) {
+        let mut decorator_callees = HashMap::new();
+
+        for decorator in &function_def.decorator_list {
+            let (range, callees) = match &decorator.expression {
+                Expr::Call(call) => {
+                    // Decorator factor, e.g `@foo(1)`. We export the callee of `foo`.
+                    let callees =
+                        call_graph::resolve_call(call, function_base_definitions, context);
+                    (
+                        (*call.func).range(),
+                        callees
+                            .all_targets()
+                            .map(|call_target| call_target.target.clone())
+                            .collect(),
+                    )
+                }
+                expr => {
+                    let callees =
+                        call_graph::resolve_expression(expr, function_base_definitions, context);
+                    (
+                        expr.range(),
+                        if let Some(callees) = callees {
+                            callees
+                                .all_targets()
+                                .map(|call_target| call_target.target.clone())
+                                .collect()
+                        } else {
+                            Vec::new()
+                        },
+                    )
+                }
+            };
+
+            if !callees.is_empty() {
+                let location = PysaLocation::new(context.module_info.display_range(range));
+                assert!(
+                    decorator_callees.insert(location, callees).is_none(),
+                    "Found multiple decorators at the same location"
+                );
+            }
+        }
+
+        decorator_callees
+    } else {
+        HashMap::new()
+    }
+}
+
+pub fn export_function_definitions(
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     captured_variables: &ModuleCapturedVariables,
     context: &ModuleContext,
 ) -> ModuleFunctionDefinitions<FunctionDefinition> {
     let mut function_definitions = ModuleFunctionDefinitions::new();
+    let function_base_definitions_for_module = function_base_definitions
+        .get_for_module(context.module_id)
+        .unwrap();
 
     for function in get_all_functions(&context.bindings, &context.answers) {
         let current_function = FunctionRef::from_decorated_function(&function, context);
-        if let Some(function_base_definition) = function_base_definitions
+        if let Some(function_base_definition) = function_base_definitions_for_module
             .0
             .get(&current_function.function_id)
         {
+            let undecorated_signatures = get_undecorated_signatures(&function, context);
+
+            let captured_variables = captured_variables
+                .get(&current_function)
+                .map(|set| set.iter().cloned().collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            let decorator_callees =
+                get_decorator_callees(&function, function_base_definitions, context);
+
             assert!(
                 function_definitions
                     .0
@@ -465,15 +562,13 @@ pub fn add_undecorated_signatures_and_captures(
                         current_function.function_id.clone(),
                         FunctionDefinition {
                             base: function_base_definition.to_owned(),
-                            undecorated_signatures: get_undecorated_signatures(function, context),
-                            captured_variables: captured_variables
-                                .get(&current_function)
-                                .map(|set| set.iter().cloned().collect::<Vec<_>>())
-                                .unwrap_or_default(),
+                            undecorated_signatures,
+                            captured_variables,
+                            decorator_callees,
                         },
                     )
                     .is_none(),
-                "Found undecorated signatures for the same function"
+                "Found multiple function definitions with the same function id"
             );
         }
     }
