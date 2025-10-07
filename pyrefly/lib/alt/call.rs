@@ -164,7 +164,7 @@ impl<'a> ArgsExpander<'a> {
                 return None;
             }
         };
-        let expanded_types = self.expand_type(value.infer(solver, errors));
+        let expanded_types = self.expand_type(value.infer(solver, errors), solver);
         if expanded_types.is_empty() {
             // Nothing to expand here, try the next argument.
             self.expand(solver, errors, owner)
@@ -207,13 +207,20 @@ impl<'a> ArgsExpander<'a> {
     }
 
     /// Expands a type according to https://typing.python.org/en/latest/spec/overload.html#argument-type-expansion.
-    fn expand_type(&self, ty: Type) -> Vec<Type> {
+    fn expand_type<Ans: LookupAnswer>(&self, ty: Type, solver: &AnswersSolver<Ans>) -> Vec<Type> {
         match ty {
             Type::Union(ts) => ts,
             Type::ClassType(cls) if cls.is_builtin("bool") => vec![
                 Type::Literal(Lit::Bool(true)),
                 Type::Literal(Lit::Bool(false)),
             ],
+            Type::ClassType(cls) if solver.get_metadata_for_class(cls.class_object()).is_enum() => {
+                solver
+                    .get_enum_members(cls.class_object())
+                    .into_iter()
+                    .map(Type::Literal)
+                    .collect()
+            }
             _ => Vec::new(),
         }
     }

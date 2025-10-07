@@ -802,3 +802,25 @@ def g(x: bool):
     assert_type(f(x), Literal['True', 'False'])
     "#,
 );
+
+testcase!(
+    test_expand_enum,
+    r#"
+from enum import Enum
+from typing import assert_type, overload, Literal
+
+class E(Enum):
+    X = 1
+    Y = 2
+
+@overload
+def f(x: Literal[E.X]) -> Literal['X']: ...
+@overload
+def f(x: Literal[E.Y]) -> Literal['Y']: ...
+def f(x: E) -> str:
+    return x.name
+
+def g(x: E):
+    assert_type(f(x), Literal['X', 'Y'])
+    "#,
+);
