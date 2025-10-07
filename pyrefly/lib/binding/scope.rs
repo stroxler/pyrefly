@@ -1407,11 +1407,6 @@ impl Scopes {
         mem::swap(&mut self.current_mut().flow, flow);
     }
 
-    pub fn replace_current_flow(&mut self, mut flow: Flow) -> Flow {
-        mem::swap(&mut self.current_mut().flow, &mut flow);
-        flow
-    }
-
     pub fn mark_flow_termination(&mut self) {
         self.current_mut().flow.has_terminated = true;
     }
@@ -2038,11 +2033,6 @@ impl<'a> BindingsBuilder<'a> {
         self.merge_into_current(branches, range, false);
     }
 
-    pub fn set_current_flow_to_merged_branches(&mut self, branches: Vec<Flow>, range: TextRange) {
-        let flow = self.merge_flow(branches, range, false);
-        self.scopes.replace_current_flow(flow);
-    }
-
     /// Helper for loops, inserts a phi key for every name in the given flow.
     fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
         for (name, info) in flow.info.iter_mut() {
@@ -2222,6 +2212,15 @@ impl<'a> BindingsBuilder<'a> {
             &Usage::Narrowing(None),
         );
         self.merge_branches_into_current(branches, fork.range);
+    }
+
+    /// Finish a `MatchOr`, which behaves like an exhaustive fork except that we know
+    /// only some of the base flow cases will get here, which means we should preserve
+    /// all narrows.
+    pub fn finish_match_or_fork(&mut self) {
+        // TODO(stroxler): At the moment these are the same, but once we start eliminating
+        // narrows aggressively we will need to handle this case differently
+        self.finish_exhaustive_fork();
     }
 
     pub fn start_fork_and_branch(&mut self, range: TextRange) {

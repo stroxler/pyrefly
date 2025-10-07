@@ -280,10 +280,10 @@ impl<'a> BindingsBuilder<'a> {
             }
             Pattern::MatchOr(x) => {
                 let mut narrow_ops: Option<NarrowOps> = None;
-                let range = x.range;
-                let mut branches = Vec::new();
+                self.start_fork(x.range);
                 let n_subpatterns = x.patterns.len();
                 for (idx, pattern) in x.patterns.into_iter().enumerate() {
+                    self.start_branch();
                     if pattern.is_irrefutable() && idx != n_subpatterns - 1 {
                         self.error(
                             pattern.range(),
@@ -291,7 +291,6 @@ impl<'a> BindingsBuilder<'a> {
                             "Only the last subpattern in MatchOr may be irrefutable".to_owned(),
                         )
                     }
-                    let mut base = self.scopes.clone_current_flow();
                     let new_narrow_ops =
                         self.bind_pattern(match_subject.clone(), pattern, subject_idx);
                     if let Some(ref mut ops) = narrow_ops {
@@ -299,10 +298,9 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         narrow_ops = Some(new_narrow_ops);
                     }
-                    self.scopes.swap_current_flow_with(&mut base);
-                    branches.push(base);
+                    self.finish_branch();
                 }
-                self.set_current_flow_to_merged_branches(branches, range);
+                self.finish_match_or_fork();
                 narrow_ops.unwrap_or_default()
             }
             Pattern::MatchStar(_) => NarrowOps::new(),
