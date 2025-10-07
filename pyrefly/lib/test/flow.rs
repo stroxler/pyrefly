@@ -969,6 +969,47 @@ print([value for value in intList])
 );
 
 testcase!(
+    bug = "We incorrectly treat all names from bool ops as possibly uninitialized",
+    test_walrus_names_in_bool_op_straight_line,
+    r#"
+def condition() -> bool: ...
+def f_and():
+    b = (z := condition()) and (y := condition())
+    # This is a bug, z is always defined
+    print(z)  # E: `z` may be uninitialized
+    # This is correct
+    print(y)  # E: `y` may be uninitialized
+def f_or():
+    b = (z := condition()) or (y := condition())
+    # This is a bug, z is always defined
+    print(z)  # E: `z` may be uninitialized
+    # This is correct
+    print(y)  # E: `y` may be uninitialized
+
+    "#,
+);
+
+testcase!(
+    bug = "We incorrectly treat all names from bool ops as possibly uninitialized",
+    test_walrus_names_in_bool_op_as_guard,
+    r#"
+def condition() -> bool: ...
+def f_and():
+    if (z := condition()) or (y := condition()):
+        # This is a bug, z is always defined
+        print(z)  # E: `z` may be uninitialized
+        # This is correct
+        print(y)  # E: `y` may be uninitialized
+def f_or():
+    if (z := condition()) and (y := condition()):
+        # Both of these are bugs, z and y are both defined because the
+        # test passed.
+        print(z)  # E: `z` may be uninitialized
+        print(y)  # E: `y` may be uninitialized
+    "#,
+);
+
+testcase!(
     test_setitem_with_loop_and_walrus,
     r#"
 def f():
