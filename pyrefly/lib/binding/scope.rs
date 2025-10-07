@@ -593,7 +593,11 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    fn merged(always_defined: bool, mut styles: impl Iterator<Item = FlowStyle>) -> FlowStyle {
+    fn merged(
+        always_defined: bool,
+        mut styles: impl Iterator<Item = FlowStyle>,
+        is_bool_op: bool,
+    ) -> FlowStyle {
         let mut merged = styles.next().unwrap_or(FlowStyle::Other);
         for x in styles {
             match (&merged, x) {
@@ -619,7 +623,22 @@ impl FlowStyle {
             // least some of them.
             match merged {
                 FlowStyle::Uninitialized => FlowStyle::Uninitialized,
-                _ => FlowStyle::PossiblyUninitialized,
+                _ => {
+                    // A boolean expression like `(x := condition()) and (y := condition)`
+                    // actually defines three downstream flows:
+                    // - the normal downstream, where `y` is possibly uninitialized
+                    // - the narrowed downstream, relevant if this is the test of an `if`,
+                    //   where `y` is always defined.
+                    // - the negated narrowed downstream (relevant if this were an `or`)
+                    //
+                    // We cannot currently model that in our bindings phase, and as a result
+                    // we have to be lax about whether boolean ops define new names
+                    if is_bool_op {
+                        FlowStyle::Other
+                    } else {
+                        FlowStyle::PossiblyUninitialized
+                    }
+                }
             }
         }
     }
@@ -1861,6 +1880,7 @@ impl<'a> BindingsBuilder<'a> {
         current_is_loop: bool,
         phi_idx: Idx<Key>,
         n_branches: usize,
+        is_bool_op: bool,
     ) -> FlowInfo {
         let contained_in_loop = self.scopes.loop_depth() > 0;
         // In a loop, an invariant is that if a name was defined above the loop, the
@@ -1949,7 +1969,11 @@ impl<'a> BindingsBuilder<'a> {
             1 => FlowInfo {
                 value: Some(FlowValue {
                     idx: *value_idxs.first().unwrap(),
-                    style: FlowStyle::merged(this_name_always_defined, styles.into_iter()),
+                    style: FlowStyle::merged(
+                        this_name_always_defined,
+                        styles.into_iter(),
+                        is_bool_op,
+                    ),
                 }),
                 narrow: Some(FlowNarrow {
                     idx: downstream_idx,
@@ -1962,7 +1986,11 @@ impl<'a> BindingsBuilder<'a> {
             _ => FlowInfo {
                 value: Some(FlowValue {
                     idx: downstream_idx,
-                    style: FlowStyle::merged(this_name_always_defined, styles.into_iter()),
+                    style: FlowStyle::merged(
+                        this_name_always_defined,
+                        styles.into_iter(),
+                        is_bool_op,
+                    ),
                 }),
                 narrow: None,
                 default,
@@ -1970,7 +1998,13 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow(&mut self, mut flows: Vec<Flow>, range: TextRange, is_loop: bool) -> Flow {
+    fn merge_flow(
+        &mut self,
+        mut flows: Vec<Flow>,
+        range: TextRange,
+        is_loop: bool,
+        is_bool_op: bool,
+    ) -> Flow {
         // Short circuit when there is only one flow.
         //
         // Note that there are always at least two flows in a loop (some may
@@ -2009,7 +2043,7 @@ impl<'a> BindingsBuilder<'a> {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
             merged_flow_infos.insert_hashed(
                 name,
-                self.merged_flow_info(flow_infos, is_loop, phi_idx, n_branches),
+                self.merged_flow_info(flow_infos, is_loop, phi_idx, n_branches, is_bool_op),
             );
         }
 
@@ -2022,7 +2056,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn merge_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange, is_loop: bool) {
         branches.push(mem::take(&mut self.scopes.current_mut().flow));
-        self.scopes.current_mut().flow = self.merge_flow(branches, range, is_loop);
+        self.scopes.current_mut().flow = self.merge_flow(branches, range, is_loop, false);
     }
 
     fn merge_loop_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
@@ -2171,7 +2205,11 @@ impl<'a> BindingsBuilder<'a> {
         fork.branch_started = false;
     }
 
-    fn finish_fork_impl(&mut self, negated_prev_ops_if_nonexhaustive: Option<&NarrowOps>) {
+    fn finish_fork_impl(
+        &mut self,
+        negated_prev_ops_if_nonexhaustive: Option<&NarrowOps>,
+        is_bool_op: bool,
+    ) {
         let fork = self.scopes.current_mut().forks.pop().unwrap();
         assert!(
             !fork.branch_started,
@@ -2191,7 +2229,7 @@ impl<'a> BindingsBuilder<'a> {
             );
             self.merge_branches_into_current(branches, fork.range);
         } else {
-            let merged = self.merge_flow(branches, fork.range, false);
+            let merged = self.merge_flow(branches, fork.range, false, is_bool_op);
             self.scopes.current_mut().flow = merged;
         }
     }
@@ -2202,7 +2240,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Panics if called when no fork is active, or if a branch is started (which
     /// means the caller forgot to call `finish_branch` and is always a bug).
     pub fn finish_exhaustive_fork(&mut self) {
-        self.finish_fork_impl(None)
+        self.finish_fork_impl(None, false)
     }
 
     /// Finish a non-exhaustive fork in which the base flow is part of the merge. It negates
@@ -2213,7 +2251,13 @@ impl<'a> BindingsBuilder<'a> {
     /// Panics if called when no fork is active, or if a branch is started (which
     /// means the caller forgot to call `finish_branch` and is always a bug).
     pub fn finish_non_exhaustive_fork(&mut self, negated_prev_ops: &NarrowOps) {
-        self.finish_fork_impl(Some(negated_prev_ops))
+        self.finish_fork_impl(Some(negated_prev_ops), false)
+    }
+
+    /// Finish the fork for a boolean operation. This requires lax handling of
+    /// possibly-uninitialized locals, see the inline comment in `FlowStyle::merge`.
+    pub fn finish_bool_op_fork(&mut self) {
+        self.finish_fork_impl(None, true)
     }
 
     /// Finish a `MatchOr`, which behaves like an exhaustive fork except that we know

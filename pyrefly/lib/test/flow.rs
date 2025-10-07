@@ -852,7 +852,10 @@ y = 5
 x0 = True or (y := b) and False
 assert_type(y, Literal[5] | bool)  # this is as expected
 x0 = True or (z := b) and False
-assert_type(z, bool)  # E: `z` may be uninitialized
+# This is an intended false negative uninitialized local check: because we can't
+# distinguish different downstream uses fully, we disable uninitialized local
+# checks for names defined in bool ops.
+assert_type(z, bool)
 "#,
 );
 
@@ -969,38 +972,35 @@ print([value for value in intList])
 );
 
 testcase!(
+    bug = "For now, we disabled uninitialized local check for walrus in bool op, see #1251",
     test_walrus_names_in_bool_op_straight_line,
     r#"
 def condition() -> bool: ...
 def f_and():
     b = (z := condition()) and (y := condition())
     print(z)
-    # This is correct
-    print(y)  # E: `y` may be uninitialized
+    print(y)  # Intended false negative
 def f_or():
     b = (z := condition()) or (y := condition())
     print(z)
-    # This is correct
-    print(y)  # E: `y` may be uninitialized
+    print(y)  # Intended false negative
 
     "#,
 );
 
 testcase!(
-    bug = "We have false positives on names defined in branch tests that are bool ops",
+    bug = "For now, we disabled uninitialized local check for walrus in bool op, see #1251",
     test_walrus_names_in_bool_op_as_guard,
     r#"
 def condition() -> bool: ...
 def f_and():
     if (z := condition()) or (y := condition()):
         print(z)
-        # This is correct
-        print(y)  # E: `y` may be uninitialized
+        print(y)  # Intended false negative
 def f_or():
     if (z := condition()) and (y := condition()):
         print(z)
-        # This is a bug, the test passed so `y` is defined.
-        print(y)  # E: `y` may be uninitialized
+        print(y)  # Note this is *not* a false negative
     "#,
 );
 

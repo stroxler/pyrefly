@@ -873,7 +873,8 @@ class B: ...
 def test(x: A | B):
     y = isinstance(x, A) and (z := True)
     assert_type(x, A | B)
-    assert_type(z, Literal[True])  # E: `z` may be uninitialized
+    # Intended false negative for uninitialized local check.
+    assert_type(z, Literal[True])
     "#,
 );
 

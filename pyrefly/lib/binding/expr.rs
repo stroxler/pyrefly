@@ -534,7 +534,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.next_branch();
                     self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
                     self.finish_branch();
-                    self.finish_exhaustive_fork();
+                    self.finish_bool_op_fork();
                 }
             }
             Expr::Call(ExprCall {
