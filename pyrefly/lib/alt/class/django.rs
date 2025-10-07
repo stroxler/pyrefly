@@ -6,6 +6,7 @@
  */
 
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::class::Class;
 use pyrefly_types::types::Type;
 use ruff_python_ast::name::Name;
 
@@ -16,8 +17,11 @@ use crate::alt::answers_solver::AnswersSolver;
 const DJANGO_PRIVATE_GET_TYPE: Name = Name::new_static("_pyi_private_get_type");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    pub fn get_django_field_type(&self, ty: &Type) -> Option<Type> {
-        if let Type::ClassType(cls) = ty
+    pub fn get_django_field_type(&self, ty: &Type, class: &Class) -> Option<Type> {
+        let metadata = self.get_metadata_for_class(class);
+
+        if metadata.is_django_model()
+            && let Type::ClassType(cls) = ty
             && self.inherits_from_django_field(cls.class_object())
             && let Some(member) =
                 self.get_class_member(cls.class_object(), &DJANGO_PRIVATE_GET_TYPE)
