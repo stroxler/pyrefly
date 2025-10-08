@@ -37,6 +37,40 @@ impl Display for Callable {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ArgCount {
+    pub min: usize,
+    pub max: Option<usize>,
+}
+
+impl ArgCount {
+    fn none_allowed() -> Self {
+        Self {
+            min: 0,
+            max: Some(0),
+        }
+    }
+
+    fn any_allowed() -> Self {
+        Self { min: 0, max: None }
+    }
+
+    fn add_arg(&mut self, req: &Required) {
+        if *req == Required::Required {
+            self.min += 1;
+        }
+        if let Some(n) = self.max {
+            self.max = Some(n + 1);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ArgCounts {
+    pub positional: ArgCount,
+    pub keyword: ArgCount,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct ParamList(Vec<Param>);
@@ -178,6 +212,51 @@ pub enum Params {
     /// while `P` alone would be `ParamSpec([], P)`.
     /// `P` may resolve to `Type::ParamSpecValue`, `Type::Concatenate`, or `Type::Ellipsis`
     ParamSpec(Box<[Type]>, Type),
+}
+
+impl Params {
+    fn arg_counts(&self) -> ArgCounts {
+        match self {
+            Self::List(params) => {
+                let mut counts = ArgCounts {
+                    positional: ArgCount::none_allowed(),
+                    keyword: ArgCount::none_allowed(),
+                };
+                for param in params.items() {
+                    match param {
+                        Param::PosOnly(_, _, req) => {
+                            counts.positional.add_arg(req);
+                        }
+                        Param::Pos(..) => {
+                            counts.positional.add_arg(&Required::Optional(None));
+                            counts.keyword.add_arg(&Required::Optional(None));
+                        }
+                        Param::KwOnly(_, _, req) => {
+                            counts.keyword.add_arg(req);
+                        }
+                        Param::VarArg(..) => {
+                            counts.positional.max = None;
+                        }
+                        Param::Kwargs(..) => {
+                            counts.keyword.max = None;
+                        }
+                    }
+                }
+                counts
+            }
+            Self::Ellipsis => ArgCounts {
+                positional: ArgCount::any_allowed(),
+                keyword: ArgCount::any_allowed(),
+            },
+            Self::ParamSpec(prefix, _) => ArgCounts {
+                positional: ArgCount {
+                    min: prefix.len(),
+                    max: None,
+                },
+                keyword: ArgCount::any_allowed(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -461,6 +540,10 @@ impl Callable {
     pub fn subst_self_type_mut(&mut self, replacement: &Type) {
         self.visit_mut(&mut |t: &mut Type| t.subst_self_type_mut(replacement));
     }
+
+    pub fn arg_counts(&self) -> ArgCounts {
+        self.params.arg_counts()
+    }
 }
 
 impl Param {
@@ -657,4 +740,141 @@ pub fn unexpected_keyword(error: &dyn Fn(String), func: &str, keyword: &Keyword)
         "".to_owned()
     };
     error(format!("`{func}` got an unexpected keyword argument{desc}"));
+}
+
+#[cfg(test)]
+mod tests {
+    use ruff_python_ast::name::Name;
+
+    use crate::callable::Callable;
+    use crate::callable::Param;
+    use crate::callable::ParamList;
+    use crate::callable::Required;
+    use crate::types::Type;
+
+    #[test]
+    fn test_arg_counts_positional() {
+        // (x: Any, /, y: Any = ...) -> None
+        let callable = Callable::list(
+            ParamList::new(vec![
+                Param::PosOnly(
+                    Some(Name::new("x")),
+                    Type::any_implicit(),
+                    Required::Required,
+                ),
+                Param::Pos(
+                    Name::new("y"),
+                    Type::any_implicit(),
+                    Required::Optional(None),
+                ),
+            ]),
+            Type::None,
+        );
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 1);
+        assert_eq!(counts.positional.max, Some(2));
+        assert_eq!(counts.keyword.min, 0);
+        assert_eq!(counts.keyword.max, Some(1));
+    }
+
+    #[test]
+    fn test_arg_counts_keyword() {
+        // (*, x: Any, y: Any = ...) -> None
+        let callable = Callable::list(
+            ParamList::new(vec![
+                Param::KwOnly(Name::new("x"), Type::any_implicit(), Required::Required),
+                Param::KwOnly(
+                    Name::new("y"),
+                    Type::any_implicit(),
+                    Required::Optional(None),
+                ),
+            ]),
+            Type::None,
+        );
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 0);
+        assert_eq!(counts.positional.max, Some(0));
+        assert_eq!(counts.keyword.min, 1);
+        assert_eq!(counts.keyword.max, Some(2));
+    }
+
+    #[test]
+    fn test_arg_counts_varargs() {
+        // (*args) -> None
+        let callable = Callable::list(
+            ParamList::new(vec![Param::VarArg(None, Type::any_implicit())]),
+            Type::None,
+        );
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 0);
+        assert_eq!(counts.positional.max, None);
+        assert_eq!(counts.keyword.min, 0);
+        assert_eq!(counts.keyword.max, Some(0));
+    }
+
+    #[test]
+    fn test_arg_counts_kwargs() {
+        // (**kwargs) -> None
+        let callable = Callable::list(
+            ParamList::new(vec![Param::Kwargs(None, Type::any_implicit())]),
+            Type::None,
+        );
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 0);
+        assert_eq!(counts.positional.max, Some(0));
+        assert_eq!(counts.keyword.min, 0);
+        assert_eq!(counts.keyword.max, None);
+    }
+
+    #[test]
+    fn test_arg_counts_paramlist() {
+        // (w, /, x, *args, y, z=...) -> None
+        let callable = Callable::list(
+            ParamList::new(vec![
+                Param::PosOnly(
+                    Some(Name::new("w")),
+                    Type::any_implicit(),
+                    Required::Required,
+                ),
+                Param::Pos(Name::new("x"), Type::any_implicit(), Required::Required),
+                Param::VarArg(None, Type::any_implicit()),
+                Param::KwOnly(Name::new("y"), Type::any_implicit(), Required::Required),
+                Param::KwOnly(
+                    Name::new("z"),
+                    Type::any_implicit(),
+                    Required::Optional(None),
+                ),
+            ]),
+            Type::None,
+        );
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 1);
+        assert_eq!(counts.positional.max, None);
+        assert_eq!(counts.keyword.min, 1);
+        assert_eq!(counts.keyword.max, Some(3));
+    }
+
+    #[test]
+    fn test_arg_counts_ellipsis() {
+        let callable = Callable::ellipsis(Type::None);
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 0);
+        assert_eq!(counts.positional.max, None);
+        assert_eq!(counts.keyword.min, 0);
+        assert_eq!(counts.keyword.max, None);
+    }
+
+    #[test]
+    fn test_arg_counts_paramspec() {
+        let callable = Callable::concatenate(
+            vec![Type::None, Type::None].into_boxed_slice(),
+            Type::any_implicit(),
+            Type::None,
+        );
+        let counts = callable.arg_counts();
+        assert_eq!(counts.positional.min, 2);
+        assert_eq!(counts.positional.max, None);
+        assert_eq!(counts.keyword.min, 0);
+        assert_eq!(counts.keyword.max, None);
+    }
 }
