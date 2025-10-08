@@ -865,3 +865,20 @@ def g(x: type[A | B]):
     assert_type(f(x), A | B)
     "#,
 );
+
+testcase!(
+    test_expand_tuple,
+    r#"
+from typing import assert_type, overload, Literal
+
+@overload
+def f(x: tuple[int, Literal[True]]) -> str: ...
+@overload
+def f(x: tuple[int, Literal[False]]) -> int: ...
+def f(x: tuple[int, bool]) -> int | str:
+    return str(x[0]) if x[1] else x[0]
+
+def g(x: tuple[int, bool]):
+    assert_type(f(x), str | int)
+    "#,
+);

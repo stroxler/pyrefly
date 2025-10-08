@@ -10,8 +10,10 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use itertools::Either;
+use itertools::Itertools;
 use pyrefly_python::dunder;
 use pyrefly_types::quantified::Quantified;
+use pyrefly_types::tuple::Tuple;
 use pyrefly_types::types::CalleeKind;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
@@ -122,6 +124,8 @@ struct ArgsExpander<'a> {
 }
 
 impl<'a> ArgsExpander<'a> {
+    const GAS: usize = 100;
+
     fn new(posargs: Vec<CallArg<'a>>, keywords: Vec<CallKeyword<'a>>) -> Self {
         Self {
             idx: if posargs.is_empty() {
@@ -130,7 +134,7 @@ impl<'a> ArgsExpander<'a> {
                 Either::Left(0)
             },
             arg_lists: vec![(posargs, keywords)],
-            gas: Gas::new(100),
+            gas: Gas::new(Self::GAS as isize),
         }
     }
 
@@ -164,7 +168,7 @@ impl<'a> ArgsExpander<'a> {
                 return None;
             }
         };
-        let expanded_types = self.expand_type(value.infer(solver, errors), solver);
+        let expanded_types = Self::expand_type(value.infer(solver, errors), solver);
         if expanded_types.is_empty() {
             // Nothing to expand here, try the next argument.
             self.expand(solver, errors, owner)
@@ -207,7 +211,7 @@ impl<'a> ArgsExpander<'a> {
     }
 
     /// Expands a type according to https://typing.python.org/en/latest/spec/overload.html#argument-type-expansion.
-    fn expand_type<Ans: LookupAnswer>(&self, ty: Type, solver: &AnswersSolver<Ans>) -> Vec<Type> {
+    fn expand_type<Ans: LookupAnswer>(ty: Type, solver: &AnswersSolver<Ans>) -> Vec<Type> {
         match ty {
             Type::Union(ts) => ts,
             Type::ClassType(cls) if cls.is_builtin("bool") => vec![
@@ -222,6 +226,31 @@ impl<'a> ArgsExpander<'a> {
                     .collect()
             }
             Type::Type(box Type::Union(ts)) => ts.into_map(Type::type_form),
+            Type::Tuple(Tuple::Concrete(elements)) => {
+                let mut count = 1;
+                let mut changed = false;
+                let mut element_expansions = Vec::new();
+                for e in elements {
+                    let element_expansion = Self::expand_type(e.clone(), solver);
+                    if element_expansion.is_empty() {
+                        element_expansions.push(vec![e].into_iter());
+                    } else {
+                        count *= element_expansion.len();
+                        changed = true;
+                        element_expansions.push(element_expansion.into_iter());
+                    }
+                }
+                // Enforce a hard-coded limit on the number of expansions for perf reasons.
+                if count <= Self::GAS && changed {
+                    element_expansions
+                        .into_iter()
+                        .multi_cartesian_product()
+                        .map(|new_elements| Type::Tuple(Tuple::Concrete(new_elements)))
+                        .collect()
+                } else {
+                    Vec::new()
+                }
+            }
             _ => Vec::new(),
         }
     }
