@@ -804,7 +804,7 @@ pub enum LoopExit {
 
 /// Flow snapshots for all possible exitpoints from a loop.
 #[derive(Clone, Debug)]
-pub struct Loop(pub Vec<(LoopExit, Flow)>);
+struct Loop(Vec<(LoopExit, Flow)>);
 
 /// Represents forks in control flow that contain branches. Used to
 /// control how the final flow from merging branches behaves.
@@ -1428,7 +1428,7 @@ impl Scopes {
         self.current_mut().flow.has_terminated = true;
     }
 
-    pub fn finish_current_loop(&mut self) -> Loop {
+    fn finish_current_loop(&mut self) -> Loop {
         assert!(self.loop_depth() > 0);
         self.current_mut().loops.pop().unwrap()
     }
