@@ -286,7 +286,7 @@ struct BehaviorArgs {
     /// If we are removing unused ignores, should we remove all unused ignores or only Pyrefly specific `pyrefly: ignore`s?
     #[arg(long, requires("remove_unused_ignores"))]
     all: bool,
-    /// If we are removing unused ignores, should we remove all unused ignores or only Pyrefly specific `pyrefly: ignore`s?
+    /// If we are suppressing errors, should the suppression comment go at the end of the line instead of on the line above?
     #[arg(long, requires("suppress_errors"))]
     same_line: bool,
 }
