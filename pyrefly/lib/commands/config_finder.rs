@@ -320,7 +320,7 @@ mod tests {
             finder(
                 None,
                 ModuleName::from_str("foo.bar"),
-                ModulePath::filesystem(PathBuf::new())
+                ModulePath::filesystem(PathBuf::from("/")),
             )
             .deref(),
             &ConfigFile::default(),
