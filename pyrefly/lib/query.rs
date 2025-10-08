@@ -408,6 +408,8 @@ impl<'a> CalleesWithLocation<'a> {
             && let Some(class_name) = &f.cls
         {
             format!("{}.{}", f.module, class_name)
+        } else if let FunctionKind::CallbackProtocol(c) = kind {
+            Self::qname_to_string(c.qname())
         } else {
             panic!("class_name_from_def_kind - unsupported function kind: {kind:?}");
         }
