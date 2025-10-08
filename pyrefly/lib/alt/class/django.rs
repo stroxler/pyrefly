@@ -12,25 +12,43 @@ use ruff_python_ast::name::Name;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::types::simplify::unions;
 
 /// Django stubs use this attribute to specify the Python type that a field should infer to
 const DJANGO_PRIVATE_GET_TYPE: Name = Name::new_static("_pyi_private_get_type");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(&self, ty: &Type, class: &Class) -> Option<Type> {
-        let metadata = self.get_metadata_for_class(class);
-
-        if metadata.is_django_model()
-            && let Type::ClassType(cls) = ty
-            && self.inherits_from_django_field(cls.class_object())
-            && let Some(member) =
+        match ty {
+            Type::ClassType(cls)
+                if cls.has_qname(ModuleName::django_utils_functional().as_str(), "_Getter") =>
+            {
+                cls.targs().as_slice().first().cloned()
+            }
+            Type::ClassType(cls)
+                if self.get_metadata_for_class(class).is_django_model()
+                    && self.inherits_from_django_field(cls.class_object()) =>
+            {
                 self.get_class_member(cls.class_object(), &DJANGO_PRIVATE_GET_TYPE)
-        {
-            let field_type = member.value.ty();
-            return Some(field_type);
-        }
+                    .map(|member| member.value.ty())
+            }
+            Type::Union(union) => {
+                let transformed: Vec<_> = union
+                    .iter()
+                    .map(|variant| {
+                        self.get_django_field_type(variant, class)
+                            .unwrap_or_else(|| variant.clone())
+                    })
+                    .collect();
 
-        None
+                if transformed != union.to_vec() {
+                    Some(unions(transformed))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
     }
 
     /// Check if a class inherits from Django's Field class

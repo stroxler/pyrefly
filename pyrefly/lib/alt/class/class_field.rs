@@ -1632,6 +1632,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 annotation,
                 ..
             } => {
+                // Apply Django _Getter resolution
+                if let Some(resolved_ty) = self.get_django_field_type(&ty, instance.class) {
+                    ty = resolved_ty;
+                }
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
                     ClassFieldInitialization::ClassBody(_) => {
