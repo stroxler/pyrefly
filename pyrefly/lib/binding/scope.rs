@@ -2057,14 +2057,6 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.current_mut().flow = self.merge_flow(branches, range, is_loop, false);
     }
 
-    fn merge_loop_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
-        self.merge_into_current(branches, range, true);
-    }
-
-    fn merge_branches_into_current(&mut self, branches: Vec<Flow>, range: TextRange) {
-        self.merge_into_current(branches, range, false);
-    }
-
     /// Helper for loops, inserts a phi key for every name in the given flow.
     fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
         for (name, info) in flow.info.iter_mut() {
@@ -2124,18 +2116,18 @@ impl<'a> BindingsBuilder<'a> {
             // TODO(stroxler): if the loop is a `while_true` loop, we should do something here;
             // for now we just pretend it can exit, but there are probably implications for
             // both flow termination and `Never` / `NoReturn` behaviors.
-            self.merge_loop_into_current(other_exits, range);
+            self.merge_into_current(other_exits, range, true);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
         } else {
             // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
-            self.merge_loop_into_current(other_exits, range);
+            self.merge_into_current(other_exits, range, true);
             self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
             if is_while_true {
                 self.scopes.current_mut().flow = self.merge_flow(breaks, other_range, true, false)
             } else {
-                self.merge_loop_into_current(breaks, other_range);
+                self.merge_into_current(breaks, other_range, true);
             }
         }
     }
@@ -2234,7 +2226,7 @@ impl<'a> BindingsBuilder<'a> {
                 TextRange::default(),
                 &Usage::Narrowing(None),
             );
-            self.merge_branches_into_current(branches, fork.range);
+            self.merge_into_current(branches, fork.range, false);
         } else {
             let merged = self.merge_flow(branches, fork.range, false, is_bool_op);
             self.scopes.current_mut().flow = merged;
