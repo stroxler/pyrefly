@@ -2125,9 +2125,9 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
             if is_while_true {
-                self.scopes.current_mut().flow = self.merge_flow(breaks, other_range, true, false)
+                self.scopes.current_mut().flow = self.merge_flow(breaks, other_range, false, false)
             } else {
-                self.merge_into_current(breaks, other_range, true);
+                self.merge_into_current(breaks, other_range, false)
             }
         }
     }
