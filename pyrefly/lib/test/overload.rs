@@ -826,6 +826,27 @@ def g(x: E):
 );
 
 testcase!(
+    test_expand_one_member_enum,
+    r#"
+from enum import Enum
+from typing import assert_type, overload, Literal
+
+class E(Enum):
+    X = 1
+
+@overload
+def f(x: Literal[E.X]) -> Literal['X']: ...
+@overload
+def f(x: str) -> str: ...
+def f(x: E | str) -> str:
+    return str(x)
+
+def g(x: E):
+    assert_type(f(x), Literal['X'])
+    "#,
+);
+
+testcase!(
     test_expand_type_union,
     r#"
 from typing import assert_type, overload
