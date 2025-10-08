@@ -308,7 +308,8 @@ We will query Conda for information about this environment, even when it's not s
 unless a Python environment (venv, Conda) is activated or `--python-interpreter` or
 `--conda-environment` are passed in through the CLI.
 
-This configuration option **is mutually exclusive with `python-interpreter` and `skip-interpreter-query`**.
+**`conda-environment`, `python-interpreter-command`, `conda-environment`,
+and `skip-interpreter-query` are mutually exclusive with each other.**
 
 - Type: string of existing Conda environment name
 - Default: none
@@ -323,7 +324,8 @@ The Python interpreter to query when attempting to autoconfigure
 Python environment values (`site-package-path`, `python-platform`, `python-version`).
 See the [Environment Autoconfiguration section](#environment-autoconfiguration) for more information.
 
-This configuration option **is mutually exclusive with `conda-environment` and `skip-interpreter-query`**.
+**`conda-environment`, `python-interpreter-command`, `conda-environment`,
+and `skip-interpreter-query` are mutually exclusive with each other.**
 
 - Type: path to executable
 - Default: `$(which python3)`, then `$(which python)`, or none
@@ -341,6 +343,30 @@ testing specific behavior, or having trouble with [Environment Autoconfiguration
 Setting this explicitly, especially when not using a venv, will make it difficult for your configuration
 to be reused between different systems and platforms.
 
+### `python-interpreter-command`
+
+The Python interpreter, available on your `$PATH`, to use. Pyrefly will perform
+`which <your command>`, and automatically fill in `python-interpreter` for you with
+the found path. Pyrefly will automatically search for `python3` and `python` on your
+path when this option and [`python-interpreter`](#python-interpreter) are unset if
+[`skip-interpreter-query = false`](#skip-interpreter-query),
+so this should primarily be used when you have a non-standard Python executable you want to
+use.
+
+**`conda-environment`, `python-interpreter-command`, `conda-environment`,
+and `skip-interpreter-query` are mutually exclusive with each other.**
+
+- Type: string of command to use
+- Default: `python3`, then `python`, or none
+- Flag equivalent: `--python-interpreter-command`
+- Notes:
+  - This executes the value present in the `python-interpreter-command` field without
+    any checks. It could be a security risk if your `python-interpreter-command` is an
+    arbitrary executable.
+  - If you don't have a Python interpreter installed on your machine, we'll output an
+    error letting you that we couldn't appropriately configure your environment.
+    Configure `skip-interpreter-query` to skip the check and avoid the error.
+
 ### `skip-interpreter-query`
 
 Skip querying any interpreters and do not do any
@@ -350,7 +376,8 @@ and [`python-platform`](#python-platform), and will use an empty
 [`site-package-path`](#site-package-path). It's likely you'll want to override
 these to match the environment you'll be running in.
 
-This configuration option **is mutually exclusive with `python-interpreter` and `conda-environment`**.
+**`conda-environment`, `python-interpreter-command`, `conda-environment`,
+and `skip-interpreter-query` are mutually exclusive with each other.**
 
 - Type: bool
 - Default: `false`
