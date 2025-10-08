@@ -21,6 +21,7 @@ use tracing::error;
 use crate::commands::check;
 use crate::commands::check::Handles;
 use crate::commands::files::FilesArgs;
+use crate::commands::files::get_project_config_for_current_dir;
 use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::ErrorKind;
 use crate::lsp::module_helpers::handle_from_module_path;
@@ -250,7 +251,8 @@ impl InferArgs {
         }
         // Add imports, if needed
         let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
-        let (_, config_finder) = FilesArgs::get(Vec::new(), None, &check_args.config_override)?;
+        let current_dir_config = get_project_config_for_current_dir(&check_args.config_override)?.0;
+        let config_finder = ConfigFinder::new_constant(current_dir_config);
         let state = holder.as_ref();
         match check_args.run_once(files_to_check, config_finder) {
             Ok((_, errors)) => {
