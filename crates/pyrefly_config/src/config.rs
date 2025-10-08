@@ -276,7 +276,7 @@ pub struct ConfigFile {
 
     /// Values representing the environment of the Python interpreter
     /// (which platform, Python version, ...). When we parse, these values
-    /// are default to false so we know to query the `python_interpreter` before falling
+    /// are default to false so we know to query the `python_interpreter_path` before falling
     /// back to Pyrefly's defaults.
     #[serde(flatten)]
     pub python_environment: PythonEnvironment,
@@ -335,8 +335,8 @@ impl Default for ConfigFile {
             project_includes: Default::default(),
             project_excludes: Default::default(),
             interpreters: Interpreters {
-                python_interpreter: None,
-                python_interpreter_command: None,
+                python_interpreter_path: None,
+                fallback_python_interpreter_name: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -674,18 +674,18 @@ impl ConfigFile {
         if self.interpreters.skip_interpreter_query {
             self.python_environment.set_empty_to_default();
         } else {
-            if self.interpreters.python_interpreter.is_some()
-                && self.interpreters.python_interpreter_command.is_some()
+            if self.interpreters.python_interpreter_path.is_some()
+                && self.interpreters.fallback_python_interpreter_name.is_some()
             {
                 configure_errors.push(anyhow::anyhow!(
-                        "`python-interpreter` and `python-interpreter-command` both set, but only one can be used."
+                        "`python-interpreter-path` and `fallback-python-interpreter-name` both set, but only one can be used."
                 ));
             }
             match self.interpreters.find_interpreter(self.source.root()) {
                 Ok(interpreter) => {
                     let (env, error) = PythonEnvironment::get_interpreter_env(&interpreter);
                     self.python_environment.override_empty(env);
-                    self.interpreters.python_interpreter = Some(interpreter);
+                    self.interpreters.python_interpreter_path = Some(interpreter);
                     if let Some(error) = error {
                         configure_errors.push(error);
                     }
@@ -753,11 +753,11 @@ impl ConfigFile {
         }
         configure_errors.extend(validate(&self.search_path_from_file, "search-path"));
 
-        if self.interpreters.python_interpreter.is_some()
+        if self.interpreters.python_interpreter_path.is_some()
             && self.interpreters.conda_environment.is_some()
         {
             configure_errors.push(anyhow::anyhow!(
-                     "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
+                     "Cannot use both `python-interpreter-path` and `conda-environment`. Finding environment info using `python-interpreter-path`.",
              ));
         }
 
@@ -793,9 +793,9 @@ impl ConfigFile {
                     *site_package_path = site_package_path.absolutize_from(config_root);
                 });
             });
-        self.interpreters.python_interpreter = self
+        self.interpreters.python_interpreter_path = self
             .interpreters
-            .python_interpreter
+            .python_interpreter_path
             .take()
             .map(|s| s.map(|i| i.absolutize_from(config_root)));
         self.sub_configs
@@ -887,12 +887,12 @@ impl Display for ConfigFile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{{source: {:?}, project_includes: {}, project_excludes: {}, search_path: [{}], python_interpreter: {:?}, python_environment: {}, replace_imports_with_any: [{}], ignore_missing_imports: [{}]}}",
+            "{{source: {:?}, project_includes: {}, project_excludes: {}, search_path: [{}], python_interpreter_path: {:?}, python_environment: {}, replace_imports_with_any: [{}], ignore_missing_imports: [{}]}}",
             self.source,
             self.project_includes,
             self.project_excludes,
             self.search_path().map(|p| p.display()).join(", "),
-            self.interpreters.python_interpreter,
+            self.interpreters.python_interpreter_path,
             self.python_environment,
             self.root
                 .replace_imports_with_any
@@ -936,6 +936,7 @@ mod tests {
     use toml::Value;
 
     use super::*;
+    use crate::base::ExtraConfigs;
     use crate::error_kind::ErrorKind;
     use crate::error_kind::Severity;
     use crate::module_wildcard::ModuleWildcard;
@@ -1004,8 +1005,10 @@ mod tests {
                         .clone(),
                 },
                 interpreters: Interpreters {
-                    python_interpreter: Some(ConfigOrigin::config(PathBuf::from("venv/my/python"))),
-                    python_interpreter_command: None,
+                    python_interpreter_path: Some(ConfigOrigin::config(PathBuf::from(
+                        "venv/my/python"
+                    ))),
+                    fallback_python_interpreter_name: None,
                     conda_environment: None,
                     skip_interpreter_query: false,
                 },
@@ -1057,7 +1060,7 @@ mod tests {
              python_platform = "darwin"
              python_version = "1.2.3"
              site_package_path = ["venv/lib/python1.2.3/site-packages"]
-             python_interpreter = "venv/my/python"
+             python-interpreter-path = "venv/my/python"
              replace_imports_with_any = ["fibonacci"]
              ignore_errors_in_generated_code = true
              ignore_missing_source = true
@@ -1077,7 +1080,7 @@ mod tests {
              invalid-yield = "ignore"
         "#;
         let config = ConfigFile::parse_config(config_str).unwrap();
-        assert!(config.root.extras.0.is_empty());
+        assert_eq!(config.root.extras.0, ExtraConfigs::default().0);
         assert!(
             config
                 .sub_configs
@@ -1253,8 +1256,10 @@ mod tests {
             fallback_search_path: Vec::new(),
             python_environment: python_environment.clone(),
             interpreters: Interpreters {
-                python_interpreter: Some(ConfigOrigin::config(PathBuf::from(interpreter.clone()))),
-                python_interpreter_command: None,
+                python_interpreter_path: Some(ConfigOrigin::config(PathBuf::from(
+                    interpreter.clone(),
+                ))),
+                fallback_python_interpreter_name: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -1302,8 +1307,8 @@ mod tests {
             project_includes: Globs::new(project_includes_vec).unwrap(),
             project_excludes: Globs::new(project_excludes_vec).unwrap(),
             interpreters: Interpreters {
-                python_interpreter: Some(ConfigOrigin::config(test_path.join(interpreter))),
-                python_interpreter_command: None,
+                python_interpreter_path: Some(ConfigOrigin::config(test_path.join(interpreter))),
+                fallback_python_interpreter_name: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -1362,8 +1367,8 @@ mod tests {
             // top level configs, where null values (if possible), should be allowed
             "project-includes",
             "project-excludes",
-            "python-interpreter",
-            "python-interpreter-command",
+            "python-interpreter-path",
+            "fallback-python-interpreter-name",
             // values we won't be getting
             "extras",
             // values that must be Some (if flattened, their contents will be checked)
@@ -1607,8 +1612,8 @@ mod tests {
     fn test_python_interpreter_conda_environment() {
         let mut config = ConfigFile {
             interpreters: Interpreters {
-                python_interpreter: Some(ConfigOrigin::config(PathBuf::new())),
-                python_interpreter_command: None,
+                python_interpreter_path: Some(ConfigOrigin::config(PathBuf::new())),
+                fallback_python_interpreter_name: None,
                 conda_environment: Some(ConfigOrigin::config("".to_owned())),
                 skip_interpreter_query: false,
             },
@@ -1619,7 +1624,7 @@ mod tests {
 
         assert!(
              validation_errors.iter().any(|e| {
-                 e.get_message() == "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`."
+                 e.get_message() == "Cannot use both `python-interpreter-path` and `conda-environment`. Finding environment info using `python-interpreter-path`."
              })
          );
     }
@@ -1635,7 +1640,7 @@ mod tests {
         };
 
         config.configure();
-        assert!(config.interpreters.python_interpreter.is_none());
+        assert!(config.interpreters.python_interpreter_path.is_none());
         assert!(config.interpreters.conda_environment.is_none());
     }
 
@@ -1643,8 +1648,8 @@ mod tests {
     fn test_serializing_config_origins() {
         let mut config = ConfigFile {
             interpreters: Interpreters {
-                python_interpreter: Some(ConfigOrigin::config(PathBuf::from("abcd"))),
-                python_interpreter_command: None,
+                python_interpreter_path: Some(ConfigOrigin::config(PathBuf::from("abcd"))),
+                fallback_python_interpreter_name: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -1655,13 +1660,15 @@ mod tests {
         let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
         assert_eq!(reparsed, config);
 
-        config.interpreters.python_interpreter = Some(ConfigOrigin::auto(PathBuf::from("abcd")));
+        config.interpreters.python_interpreter_path =
+            Some(ConfigOrigin::auto(PathBuf::from("abcd")));
         let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
-        assert_eq!(reparsed.interpreters.python_interpreter, None);
+        assert_eq!(reparsed.interpreters.python_interpreter_path, None);
 
-        config.interpreters.python_interpreter = Some(ConfigOrigin::cli(PathBuf::from("abcd")));
+        config.interpreters.python_interpreter_path =
+            Some(ConfigOrigin::cli(PathBuf::from("abcd")));
         let reparsed = ConfigFile::parse_config(&toml::to_string(&config).unwrap()).unwrap();
-        assert_eq!(reparsed.interpreters.python_interpreter, None);
+        assert_eq!(reparsed.interpreters.python_interpreter_path, None);
     }
 
     #[test]

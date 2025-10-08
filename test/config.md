@@ -121,7 +121,7 @@ $ mkdir $TMPDIR/interpreters && touch $TMPDIR/interpreters/test.py \
 > mkdir $TMPDIR/alternative-venv && touch $TMPDIR/alternative-venv/python3 && \
 > touch $TMPDIR/alternative-venv/pyvenv.cfg && \
 > VIRTUAL_ENV=$TMPDIR/alternative-venv $PYREFLY dump-config -c $TMPDIR/interpreters/pyrefly.toml \
-> --python-interpreter "cli-interpreter"
+> --python-interpreter-path "cli-interpreter"
 Configuration at * (glob)
   Using interpreter: cli-interpreter
 * (glob+)

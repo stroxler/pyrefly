@@ -23,21 +23,19 @@ use crate::util::ConfigOrigin;
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct Interpreters {
-    // TODO(connernilsen): make this mutually exclusive with venv/conda env
-    /// The python executable that will be queried for `python_version`,
-    /// `python_platform`, or `site_package_path` if any of the values are missing.
     #[serde(
                 default,
                 skip_serializing_if = "ConfigOrigin::should_skip_serializing_option",
                 // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
                 // alias while we migrate existing fields from snake case to kebab case.
-                alias = "python_interpreter"
+                alias = "python_interpreter",
+                alias = "python-interpreter",
             )]
-    pub(crate) python_interpreter: Option<ConfigOrigin<PathBuf>>,
+    pub(crate) python_interpreter_path: Option<ConfigOrigin<PathBuf>>,
 
     /// Should we turn a generic command into a `python_interpreter` path?
     #[serde(default)]
-    pub(crate) python_interpreter_command: Option<ConfigOrigin<String>>,
+    pub(crate) fallback_python_interpreter_name: Option<ConfigOrigin<String>>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) conda_environment: Option<ConfigOrigin<String>>,
@@ -55,12 +53,12 @@ impl Display for Interpreters {
                 ..
             } => write!(f, "<interpreter query skipped>"),
             Self {
-                python_interpreter: None,
+                python_interpreter_path: None,
                 ..
             } => write!(f, "<none found successfully>"),
             Self {
                 conda_environment: Some(conda),
-                python_interpreter: Some(path),
+                python_interpreter_path: Some(path),
                 ..
             } => write!(
                 f,
@@ -68,8 +66,8 @@ impl Display for Interpreters {
                 path.display()
             ),
             Self {
-                python_interpreter_command: Some(cmd),
-                python_interpreter: Some(path),
+                fallback_python_interpreter_name: Some(cmd),
+                python_interpreter_path: Some(path),
                 ..
             } => write!(
                 f,
@@ -77,7 +75,7 @@ impl Display for Interpreters {
                 path.display(),
             ),
             Self {
-                python_interpreter: Some(path),
+                python_interpreter_path: Some(path),
                 ..
             } => write!(f, "{}", path.display()),
         }
@@ -88,11 +86,11 @@ impl Interpreters {
     const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
 
     pub fn is_empty(&self) -> bool {
-        self.python_interpreter.is_none() && self.conda_environment.is_none()
+        self.python_interpreter_path.is_none() && self.conda_environment.is_none()
     }
 
     pub fn set_lsp_python_interpreter(&mut self, interpreter: PathBuf) {
-        self.python_interpreter = Some(ConfigOrigin::lsp(interpreter));
+        self.python_interpreter_path = Some(ConfigOrigin::lsp(interpreter));
     }
 
     /// Finds interpreters by searching in prioritized locations for the given project
@@ -160,17 +158,17 @@ impl Interpreters {
     }
 
     fn interpreter_path_or_cmd(&self) -> anyhow::Result<Option<ConfigOrigin<PathBuf>>> {
-        if self.python_interpreter.is_some() {
-            return Ok(self.python_interpreter.clone());
+        if self.python_interpreter_path.is_some() {
+            return Ok(self.python_interpreter_path.clone());
         }
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(cmd) = &self.python_interpreter_command {
+        if let Some(cmd) = &self.fallback_python_interpreter_name {
             fn which_to_anyhow_err(cmd: &String) -> anyhow::Result<PathBuf> {
                 Ok(which(cmd)?)
             }
             return Ok(Some(cmd.as_ref().map(which_to_anyhow_err).transpose_err()?));
         }
-        Ok(self.python_interpreter.clone())
+        Ok(self.python_interpreter_path.clone())
     }
 
     /// Get the first interpreter available on the path by using `which`
@@ -231,7 +229,7 @@ mod test {
         let python_interpreter = ConfigOrigin::cli(PathBuf::from("asdf"));
 
         let interpreters = Interpreters {
-            python_interpreter: Some(python_interpreter.clone()),
+            python_interpreter_path: Some(python_interpreter.clone()),
             ..Default::default()
         };
 
@@ -248,7 +246,7 @@ mod test {
         let python_interpreter = ConfigOrigin::lsp(PathBuf::from("asdf"));
 
         let interpreters = Interpreters {
-            python_interpreter: Some(python_interpreter.clone()),
+            python_interpreter_path: Some(python_interpreter.clone()),
             ..Default::default()
         };
 
