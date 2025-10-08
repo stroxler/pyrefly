@@ -66,10 +66,19 @@ pub struct ConfigOverrideArgs {
     #[arg(long, group = "env_source")]
     conda_environment: Option<String>,
 
-    /// The Python executable that will be queried for `python_version`
-    /// `python_platform`, or `site_package_path` if any of the values are missing.
+    /// The path to a Python executable that will be queried for `python-version`
+    /// `python-platform`, or `site-package-path` if any of the values are missing.
     #[arg(long, value_name = "EXE_PATH", group = "env_source")]
     python_interpreter: Option<PathBuf>,
+
+    /// The Python executable name available on your PATH that will be queried for your
+    /// `python-version`, `python-platform`, or `site-package-path` if any of the values
+    /// are missing. We execute `which <COMMAND>` to fill in your `python-interpreter`,
+    /// which is useful if you don't know where the Python executable will be on a given
+    /// machine, but want to use one other than the default.
+    /// When this and `python-interpreter` are unset, we query for `python3` and `python`.
+    #[arg(long, value_name = "COMMAND", group = "env_source")]
+    python_interpreter_command: Option<String>,
 
     /// Skip doing any automatic querying for `python-interpreter` or `conda-environment`
     #[arg(long, group = "env_source")]
@@ -177,19 +186,27 @@ impl ConfigOverrideArgs {
         if self.skip_interpreter_query || config.interpreters.skip_interpreter_query {
             config.interpreters.skip_interpreter_query = true;
             config.interpreters.python_interpreter = None;
+            config.interpreters.python_interpreter_command = None;
+            config.interpreters.conda_environment = None;
+        }
+        if let Some(x) = &self.python_interpreter {
+            config.interpreters.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
+            config.interpreters.python_interpreter_command = None;
+            config.interpreters.conda_environment = None;
+        }
+        if let Some(x) = &self.python_interpreter_command {
+            config.interpreters.python_interpreter_command = Some(ConfigOrigin::cli(x.clone()));
+            config.interpreters.python_interpreter = None;
             config.interpreters.conda_environment = None;
         }
         if let Some(conda_environment) = &self.conda_environment {
             config.interpreters.conda_environment =
                 Some(ConfigOrigin::cli(conda_environment.clone()));
             config.interpreters.python_interpreter = None;
+            config.interpreters.python_interpreter_command = None;
         }
         if let Some(x) = &self.typeshed_path {
             config.typeshed_path = Some(x.clone());
-        }
-        if let Some(x) = &self.python_interpreter {
-            config.interpreters.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
-            config.interpreters.conda_environment = None;
         }
         if let Some(x) = &self.use_ignore_files {
             config.use_ignore_files = *x;

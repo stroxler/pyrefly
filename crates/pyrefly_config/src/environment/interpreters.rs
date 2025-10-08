@@ -35,6 +35,10 @@ pub struct Interpreters {
             )]
     pub(crate) python_interpreter: Option<ConfigOrigin<PathBuf>>,
 
+    /// Should we turn a generic command into a `python_interpreter` path?
+    #[serde(default)]
+    pub(crate) python_interpreter_command: Option<ConfigOrigin<String>>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) conda_environment: Option<ConfigOrigin<String>>,
 
@@ -62,6 +66,15 @@ impl Display for Interpreters {
                 f,
                 "conda environment {conda} with interpreter at {}",
                 path.display()
+            ),
+            Self {
+                python_interpreter_command: Some(cmd),
+                python_interpreter: Some(path),
+                ..
+            } => write!(
+                f,
+                "interpreter at path {} (from `which {cmd}`)",
+                path.display(),
             ),
             Self {
                 python_interpreter: Some(path),
@@ -98,12 +111,13 @@ impl Interpreters {
         &self,
         path: Option<&Path>,
     ) -> anyhow::Result<ConfigOrigin<PathBuf>> {
-        if let Some(interpreter @ ConfigOrigin::CommandLine(_)) = &self.python_interpreter {
-            return Ok(interpreter.clone());
+        let python_interpreter = self.interpreter_path_or_cmd()?;
+        if let Some(interpreter @ ConfigOrigin::CommandLine(_)) = python_interpreter {
+            return Ok(interpreter);
         }
 
-        if let Some(interpreter @ ConfigOrigin::Lsp(_)) = &self.python_interpreter {
-            return Ok(interpreter.clone());
+        if let Some(interpreter @ ConfigOrigin::Lsp(_)) = python_interpreter {
+            return Ok(interpreter);
         }
 
         if let Some(conda_env @ ConfigOrigin::CommandLine(_)) = &self.conda_environment {
@@ -117,8 +131,8 @@ impl Interpreters {
             return Ok(ConfigOrigin::auto(active_env));
         }
 
-        if let Some(interpreter) = &self.python_interpreter {
-            return Ok(interpreter.clone());
+        if let Some(interpreter) = python_interpreter {
+            return Ok(interpreter);
         }
 
         if let Some(conda_env) = &self.conda_environment {
@@ -143,6 +157,20 @@ impl Interpreters {
                 but no Python interpreter could be found to query for values. Falling back to \
                 Pyrefly defaults for missing values."
         ))
+    }
+
+    fn interpreter_path_or_cmd(&self) -> anyhow::Result<Option<ConfigOrigin<PathBuf>>> {
+        if self.python_interpreter.is_some() {
+            return Ok(self.python_interpreter.clone());
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(cmd) = &self.python_interpreter_command {
+            fn which_to_anyhow_err(cmd: &String) -> anyhow::Result<PathBuf> {
+                Ok(which(cmd)?)
+            }
+            return Ok(Some(cmd.as_ref().map(which_to_anyhow_err).transpose_err()?));
+        }
+        Ok(self.python_interpreter.clone())
     }
 
     /// Get the first interpreter available on the path by using `which`

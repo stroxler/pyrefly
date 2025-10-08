@@ -336,6 +336,7 @@ impl Default for ConfigFile {
             project_excludes: Default::default(),
             interpreters: Interpreters {
                 python_interpreter: None,
+                python_interpreter_command: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -673,6 +674,13 @@ impl ConfigFile {
         if self.interpreters.skip_interpreter_query {
             self.python_environment.set_empty_to_default();
         } else {
+            if self.interpreters.python_interpreter.is_some()
+                && self.interpreters.python_interpreter_command.is_some()
+            {
+                configure_errors.push(anyhow::anyhow!(
+                        "`python-interpreter` and `python-interpreter-command` both set, but only one can be used."
+                ));
+            }
             match self.interpreters.find_interpreter(self.source.root()) {
                 Ok(interpreter) => {
                     let (env, error) = PythonEnvironment::get_interpreter_env(&interpreter);
@@ -684,7 +692,7 @@ impl ConfigFile {
                 }
                 Err(error) => {
                     self.python_environment.set_empty_to_default();
-                    configure_errors.push(error.context("While finding Python interpreter."));
+                    configure_errors.push(error.context("While finding Python interpreter"));
                 }
             }
         }
@@ -997,6 +1005,7 @@ mod tests {
                 },
                 interpreters: Interpreters {
                     python_interpreter: Some(ConfigOrigin::config(PathBuf::from("venv/my/python"))),
+                    python_interpreter_command: None,
                     conda_environment: None,
                     skip_interpreter_query: false,
                 },
@@ -1245,6 +1254,7 @@ mod tests {
             python_environment: python_environment.clone(),
             interpreters: Interpreters {
                 python_interpreter: Some(ConfigOrigin::config(PathBuf::from(interpreter.clone()))),
+                python_interpreter_command: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -1293,6 +1303,7 @@ mod tests {
             project_excludes: Globs::new(project_excludes_vec).unwrap(),
             interpreters: Interpreters {
                 python_interpreter: Some(ConfigOrigin::config(test_path.join(interpreter))),
+                python_interpreter_command: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
@@ -1349,9 +1360,10 @@ mod tests {
 
         let ignore_keys: Vec<String> = vec![
             // top level configs, where null values (if possible), should be allowed
-            "project_includes",
-            "project_excludes",
-            "python_interpreter",
+            "project-includes",
+            "project-excludes",
+            "python-interpreter",
+            "python-interpreter-command",
             // values we won't be getting
             "extras",
             // values that must be Some (if flattened, their contents will be checked)
@@ -1596,6 +1608,7 @@ mod tests {
         let mut config = ConfigFile {
             interpreters: Interpreters {
                 python_interpreter: Some(ConfigOrigin::config(PathBuf::new())),
+                python_interpreter_command: None,
                 conda_environment: Some(ConfigOrigin::config("".to_owned())),
                 skip_interpreter_query: false,
             },
@@ -1631,6 +1644,7 @@ mod tests {
         let mut config = ConfigFile {
             interpreters: Interpreters {
                 python_interpreter: Some(ConfigOrigin::config(PathBuf::from("abcd"))),
+                python_interpreter_command: None,
                 conda_environment: None,
                 skip_interpreter_query: false,
             },
