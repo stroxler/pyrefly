@@ -795,7 +795,6 @@ enum ScopeKind {
 
 #[derive(Clone, Debug, Display, Copy)]
 pub enum LoopExit {
-    NeverRan,
     #[display("break")]
     Break,
     #[display("continue")]
@@ -804,7 +803,19 @@ pub enum LoopExit {
 
 /// Flow snapshots for all possible exitpoints from a loop.
 #[derive(Clone, Debug)]
-struct Loop(Vec<(LoopExit, Flow)>);
+struct Loop {
+    base: Flow,
+    exits: Vec<(LoopExit, Flow)>,
+}
+
+impl Loop {
+    pub fn new(base: Flow) -> Self {
+        Self {
+            base,
+            exits: Default::default(),
+        }
+    }
+}
 
 /// Represents forks in control flow that contain branches. Used to
 /// control how the final flow from merging branches behaves.
@@ -1412,7 +1423,7 @@ impl Scopes {
         let scope = self.current_mut();
         let flow = scope.flow.clone();
         if let Some(innermost) = scope.loops.last_mut() {
-            innermost.0.push((exit, flow));
+            innermost.exits.push((exit, flow));
             scope.flow.has_terminated = true;
             true
         } else {
@@ -2085,10 +2096,7 @@ impl<'a> BindingsBuilder<'a> {
         // To account for possible assignments to existing names in a loop, we
         // speculatively insert phi keys upfront.
         self.scopes.current_mut().flow = self.insert_phi_keys(base.clone(), range);
-        self.scopes
-            .current_mut()
-            .loops
-            .push(Loop(vec![(LoopExit::NeverRan, base)]));
+        self.scopes.current_mut().loops.push(Loop::new(base));
         self.bind_narrow_ops(narrow_ops, range, &Usage::Narrowing(None));
     }
 
@@ -2101,11 +2109,14 @@ impl<'a> BindingsBuilder<'a> {
         is_while_true: bool,
     ) {
         let done = self.scopes.finish_current_loop();
-        let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
-            done.0.into_iter().partition_map(|(exit, flow)| match exit {
+        let (breaks, mut other_exits): (Vec<Flow>, Vec<Flow>) = done
+            .exits
+            .into_iter()
+            .partition_map(|(exit, flow)| match exit {
                 LoopExit::Break => Either::Left(flow),
-                LoopExit::NeverRan | LoopExit::Continue => Either::Right(flow),
+                LoopExit::Continue => Either::Right(flow),
             });
+        other_exits.push(done.base);
         // We associate a range to the non-`break` exits from the loop; it doesn't matter much what
         // it is as long as it's different from the loop's range.
         let other_range = TextRange::new(range.start(), range.start());
