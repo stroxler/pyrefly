@@ -344,10 +344,6 @@ impl<'a> BindingsBuilder<'a> {
             self.stmts(case.body, parent);
             self.finish_branch();
         }
-        // If the match branches cover all possibilities, then the flow after the match
-        // is just the merged branch flows.
-        //
-        // Otherwise, we need to merge the branches with the original `base` flow (which is current).
         if exhaustive {
             self.finish_exhaustive_fork();
         } else {
