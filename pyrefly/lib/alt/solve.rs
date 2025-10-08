@@ -1557,6 +1557,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                 );
             }
+
+            // If we are inheriting from multiple base types, we should
+            // check whether the multiple inheritance is consistent
+            if class_bases.as_ref().base_type_count() > 1 {
+                self.check_consistent_multiple_inheritance(cls, errors);
+            }
         }
         Arc::new(EmptyAnswer)
     }
