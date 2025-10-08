@@ -696,11 +696,6 @@ impl<'a> BindingsBuilder<'a> {
                         break; // We definitely picked this branch if we got here, nothing below is reachable.
                     }
                 }
-                // If the conditions are exhaustive, then we only need to merge the branches.
-                //
-                // Otherwise, we need to merge branches with `base` (which was
-                // the flow above the `If`) because the if might be skipped
-                // entirely.
                 if exhaustive {
                     self.finish_exhaustive_fork();
                 } else {
