@@ -568,3 +568,21 @@ def test(x: EmptyEnum):
     assert_type(x.value, Any)
     "#,
 );
+
+testcase!(
+    bug = "T_Enum is iterable",
+    test_enum_iter,
+    r#"
+from enum import Enum
+from typing import TypeVar
+
+class MyEnum(Enum):
+    A = "a"
+    B = "b"
+
+T_Enum = TypeVar("T_Enum", bound=Enum)
+
+def get_labels(enum_cls: type[T_Enum]) -> list[str]:
+    return [e.name for e in enum_cls] # E: Type `type[T_Enum]` is not iterable # E: Type `type[T_Enum]` is not iterable
+    "#,
+);
