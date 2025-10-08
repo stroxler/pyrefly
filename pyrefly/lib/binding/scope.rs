@@ -596,7 +596,7 @@ impl FlowStyle {
     fn merged(
         always_defined: bool,
         mut styles: impl Iterator<Item = FlowStyle>,
-        is_bool_op: bool,
+        merge_style: MergeStyle,
     ) -> FlowStyle {
         let mut merged = styles.next().unwrap_or(FlowStyle::Other);
         for x in styles {
@@ -631,10 +631,11 @@ impl FlowStyle {
                     //
                     // We cannot currently model that in our bindings phase, and as a result
                     // we have to be lax about whether boolean ops define new names
-                    if is_bool_op {
-                        FlowStyle::Other
-                    } else {
-                        FlowStyle::PossiblyUninitialized
+                    match merge_style {
+                        MergeStyle::BoolOp => FlowStyle::Other,
+                        MergeStyle::Loop | MergeStyle::Branching => {
+                            FlowStyle::PossiblyUninitialized
+                        }
                     }
                 }
             }
@@ -1852,6 +1853,25 @@ impl ScopeTrace {
     }
 }
 
+/// What kind of merge are we performing? Most logic is shared across all merges,
+/// but a few details diverge for different kinds of merges.
+#[derive(Debug, Clone, Copy)]
+enum MergeStyle {
+    /// This is a loopback merge for the top of a loop; the base flow is part of the
+    /// merge.
+    Loop,
+    /// This is a fork (e.g. an if/else, a match, downstream of a try/except
+    /// with exception handlers). The base flow is not part of the merge.
+    Branching,
+    /// This is a merge of the flow from traversing an entire boolean op (`and`
+    /// or `or`) with the flow when we exit early from the very first part. The
+    /// base flow is not part of the merge.
+    ///
+    /// Distinct from [Branching] because we have to be more lax about
+    /// uninitialized locals (see `FlowStyle::merge` for details).
+    BoolOp,
+}
+
 struct MergeItems(SmallMap<Name, Vec<FlowInfo>>);
 
 impl MergeItems {
@@ -1886,10 +1906,9 @@ impl<'a> BindingsBuilder<'a> {
     fn merged_flow_info(
         &mut self,
         flow_infos: Vec<FlowInfo>,
-        current_is_loop: bool,
         phi_idx: Idx<Key>,
+        merge_style: MergeStyle,
         n_branches: usize,
-        is_bool_op: bool,
     ) -> FlowInfo {
         let contained_in_loop = self.scopes.loop_depth() > 0;
         // In a loop, an invariant is that if a name was defined above the loop, the
@@ -1945,7 +1964,7 @@ impl<'a> BindingsBuilder<'a> {
                 let upstream_idx = *branch_idxs.first().unwrap();
                 self.insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
-            } else if current_is_loop {
+            } else if matches!(merge_style, MergeStyle::Loop) {
                 self.insert_binding_idx(
                     phi_idx,
                     Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
@@ -1981,7 +2000,7 @@ impl<'a> BindingsBuilder<'a> {
                     style: FlowStyle::merged(
                         this_name_always_defined,
                         styles.into_iter(),
-                        is_bool_op,
+                        merge_style,
                     ),
                 }),
                 narrow: Some(FlowNarrow {
@@ -1998,7 +2017,7 @@ impl<'a> BindingsBuilder<'a> {
                     style: FlowStyle::merged(
                         this_name_always_defined,
                         styles.into_iter(),
-                        is_bool_op,
+                        merge_style,
                     ),
                 }),
                 narrow: None,
@@ -2011,8 +2030,7 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         mut flows: Vec<Flow>,
         range: TextRange,
-        is_loop: bool,
-        is_bool_op: bool,
+        merge_style: MergeStyle,
     ) -> Flow {
         // Short circuit when there is only one flow.
         //
@@ -2052,7 +2070,7 @@ impl<'a> BindingsBuilder<'a> {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
             merged_flow_infos.insert_hashed(
                 name,
-                self.merged_flow_info(flow_infos, is_loop, phi_idx, n_branches, is_bool_op),
+                self.merged_flow_info(flow_infos, phi_idx, merge_style, n_branches),
             );
         }
 
@@ -2065,7 +2083,15 @@ impl<'a> BindingsBuilder<'a> {
 
     fn merge_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange, is_loop: bool) {
         branches.push(mem::take(&mut self.scopes.current_mut().flow));
-        self.scopes.current_mut().flow = self.merge_flow(branches, range, is_loop, false);
+        self.scopes.current_mut().flow = self.merge_flow(
+            branches,
+            range,
+            if is_loop {
+                MergeStyle::Loop
+            } else {
+                MergeStyle::Branching
+            },
+        );
     }
 
     /// Helper for loops, inserts a phi key for every name in the given flow.
@@ -2136,7 +2162,8 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
             self.stmts(orelse, parent);
             if is_while_true {
-                self.scopes.current_mut().flow = self.merge_flow(breaks, other_range, false, false)
+                self.scopes.current_mut().flow =
+                    self.merge_flow(breaks, other_range, MergeStyle::Branching)
             } else {
                 self.merge_into_current(breaks, other_range, false)
             }
@@ -2239,7 +2266,15 @@ impl<'a> BindingsBuilder<'a> {
             );
             self.merge_into_current(branches, fork.range, false);
         } else {
-            let merged = self.merge_flow(branches, fork.range, false, is_bool_op);
+            let merged = self.merge_flow(
+                branches,
+                fork.range,
+                if is_bool_op {
+                    MergeStyle::BoolOp
+                } else {
+                    MergeStyle::Branching
+                },
+            );
             self.scopes.current_mut().flow = merged;
         }
     }
