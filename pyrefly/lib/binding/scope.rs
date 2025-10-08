@@ -1419,7 +1419,7 @@ impl Scopes {
     /// Add a loop exit point to the current innermost loop with the current flow.
     ///
     /// Return a bool indicating whether we were in a loop (if we weren't, we do nothing).
-    pub fn add_loop_exitpoint(&mut self, exit: LoopExit) -> bool {
+    pub fn add_loop_exit(&mut self, exit: LoopExit) -> bool {
         let scope = self.current_mut();
         let flow = scope.flow.clone();
         if let Some(innermost) = scope.loops.last_mut() {
@@ -1431,17 +1431,17 @@ impl Scopes {
         }
     }
 
+    fn finish_loop(&mut self) -> Loop {
+        assert!(self.loop_depth() > 0);
+        self.current_mut().loops.pop().unwrap()
+    }
+
     pub fn swap_current_flow_with(&mut self, flow: &mut Flow) {
         mem::swap(&mut self.current_mut().flow, flow);
     }
 
     pub fn mark_flow_termination(&mut self) {
         self.current_mut().flow.has_terminated = true;
-    }
-
-    fn finish_current_loop(&mut self) -> Loop {
-        assert!(self.loop_depth() > 0);
-        self.current_mut().loops.pop().unwrap()
     }
 
     /// Whenever we enter the scope of a method *and* we see a matching
@@ -2108,7 +2108,7 @@ impl<'a> BindingsBuilder<'a> {
         parent: &NestingContext,
         is_while_true: bool,
     ) {
-        let done = self.scopes.finish_current_loop();
+        let done = self.scopes.finish_loop();
         let (breaks, mut other_exits): (Vec<Flow>, Vec<Flow>) = done
             .exits
             .into_iter()
@@ -2144,7 +2144,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn add_loop_exitpoint(&mut self, exit: LoopExit, range: TextRange) {
-        let in_loop = self.scopes.add_loop_exitpoint(exit);
+        let in_loop = self.scopes.add_loop_exit(exit);
         if !in_loop {
             // Python treats break and continue outside of a loop as a syntax error.
             self.error(
