@@ -11,13 +11,13 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_python::ast::Ast;
-use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::class::Class;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use serde::Serialize;
+use serde::ser::SerializeStruct;
 use starlark_map::Hashed;
 
 use crate::alt::answers::Answers;
@@ -33,6 +33,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionRef;
@@ -64,12 +65,11 @@ impl ClassId {
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClassRef {
     pub module_id: ModuleId,
-    pub module_name: ModuleName, // For debugging purposes only. Reader should use the module id.
     pub class_id: ClassId,
-    pub class_name: String, // For debugging purposes only. Reader should use the class id.
+    pub class: Class,
 }
 
 impl ClassRef {
@@ -78,10 +78,25 @@ impl ClassRef {
             module_id: module_ids
                 .get(ModuleKey::from_module(class.module()))
                 .unwrap(),
-            module_name: class.module_name(),
             class_id: ClassId::from_class(class),
-            class_name: class.qname().id().to_string(),
+            class: class.clone(),
         }
+    }
+}
+
+impl Serialize for ClassRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("ClassRef", 4)?;
+        state.serialize_field("module_id", &self.module_id)?;
+        // Exported for debugging purposes only
+        state.serialize_field("module_name", &self.class.module_name())?;
+        state.serialize_field("class_id", &self.class_id)?;
+        // Exported for debugging purposes only
+        state.serialize_field("class_name", &self.class.name())?;
+        state.end()
     }
 }
 
@@ -114,7 +129,7 @@ pub struct ClassDefinition {
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub fields: HashMap<String, PysaClassField>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
+    pub decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
 }
 
 impl ClassDefinition {
@@ -139,7 +154,7 @@ impl ClassDefinition {
     #[cfg(test)]
     pub fn with_decorator_callees(
         mut self,
-        decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
+        decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
     ) -> Self {
         self.decorator_callees = decorator_callees;
         self
@@ -283,7 +298,7 @@ fn get_decorator_callees(
     class: &Class,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
-) -> HashMap<PysaLocation, Vec<FunctionRef>> {
+) -> HashMap<PysaLocation, Vec<Target<FunctionRef>>> {
     if let Some(class_def) = find_definition_ast(class, context) {
         resolve_decorator_callees(
             &class_def.decorator_list,

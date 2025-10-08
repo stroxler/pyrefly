@@ -34,37 +34,64 @@ use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
+use crate::report::pysa::override_graph::OverrideGraph;
+use crate::report::pysa::types::has_superclass;
 use crate::state::lsp::FindPreference;
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
 pub enum ImplicitReceiver {
     TrueWithClassReceiver,
     TrueWithObjectReceiver,
     False,
 }
 
-pub trait TargetTrait: std::fmt::Debug + PartialEq + Eq + Clone + Hash + Serialize {}
+pub trait FunctionTrait: std::fmt::Debug + PartialEq + Eq + Clone + Hash + Serialize {}
 
-impl TargetTrait for FunctionRef {}
+impl FunctionTrait for FunctionRef {}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize)]
+pub enum Target<Function: FunctionTrait> {
+    Function(Function), // Either a function or a method
+    Override(Function),
+    #[allow(dead_code)]
+    Object(String),
+}
+
+impl<Function: FunctionTrait> Target<Function> {
+    #[cfg(test)]
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
+        self,
+        map: MapFunction,
+    ) -> Target<OutputFunction>
+    where
+        MapFunction: Fn(Function) -> OutputFunction,
+    {
+        match self {
+            Target::Function(function) => Target::Function(map(function)),
+            Target::Override(function) => Target::Override(map(function)),
+            Target::Object(object) => Target::Object(object),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CallTarget<Target: TargetTrait> {
-    pub(crate) target: Target,
+pub struct CallTarget<Function: FunctionTrait> {
+    pub(crate) target: Target<Function>,
     pub(crate) implicit_receiver: ImplicitReceiver,
     pub(crate) receiver_class: Option<ClassRef>,
 }
 
-impl<Target: TargetTrait> CallTarget<Target> {
+impl<Function: FunctionTrait> CallTarget<Function> {
     #[cfg(test)]
-    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapTarget,
-    ) -> CallTarget<OutputTarget>
+        map: MapFunction,
+    ) -> CallTarget<OutputFunction>
     where
-        MapTarget: Fn(Target) -> OutputTarget,
+        MapFunction: Fn(Function) -> OutputFunction,
     {
         CallTarget {
-            target: map(self.target),
+            target: self.target.map_function(map),
             implicit_receiver: self.implicit_receiver,
             receiver_class: self.receiver_class,
         }
@@ -78,24 +105,24 @@ impl<Target: TargetTrait> CallTarget<Target> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CallCallees<Target: TargetTrait> {
-    pub(crate) call_targets: Vec<CallTarget<Target>>,
+pub struct CallCallees<Function: FunctionTrait> {
+    pub(crate) call_targets: Vec<CallTarget<Function>>,
 }
 
-impl<Target: TargetTrait> CallCallees<Target> {
+impl<Function: FunctionTrait> CallCallees<Function> {
     #[cfg(test)]
-    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapTarget,
-    ) -> CallCallees<OutputTarget>
+        map: MapFunction,
+    ) -> CallCallees<OutputFunction>
     where
-        MapTarget: Fn(Target) -> OutputTarget,
+        MapFunction: Fn(Function) -> OutputFunction,
     {
         CallCallees {
             call_targets: self
                 .call_targets
                 .into_iter()
-                .map(|call_target| CallTarget::map_target(call_target, &map))
+                .map(|call_target| CallTarget::map_function(call_target, &map))
                 .collect(),
         }
     }
@@ -104,30 +131,30 @@ impl<Target: TargetTrait> CallCallees<Target> {
         self.call_targets.is_empty()
     }
 
-    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Target>> {
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
         self.call_targets.iter()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct AttributeAccessCallees<Target: TargetTrait> {
-    pub(crate) callable_targets: Vec<CallTarget<Target>>,
+pub struct AttributeAccessCallees<Function: FunctionTrait> {
+    pub(crate) callable_targets: Vec<CallTarget<Function>>,
 }
 
-impl<Target: TargetTrait> AttributeAccessCallees<Target> {
+impl<Function: FunctionTrait> AttributeAccessCallees<Function> {
     #[cfg(test)]
-    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapTarget,
-    ) -> AttributeAccessCallees<OutputTarget>
+        map: MapFunction,
+    ) -> AttributeAccessCallees<OutputFunction>
     where
-        MapTarget: Fn(Target) -> OutputTarget,
+        MapFunction: Fn(Function) -> OutputFunction,
     {
         AttributeAccessCallees {
             callable_targets: self
                 .callable_targets
                 .into_iter()
-                .map(|call_target| CallTarget::map_target(call_target, &map))
+                .map(|call_target| CallTarget::map_function(call_target, &map))
                 .collect(),
         }
     }
@@ -136,30 +163,30 @@ impl<Target: TargetTrait> AttributeAccessCallees<Target> {
         self.callable_targets.is_empty()
     }
 
-    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Target>> {
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
         self.callable_targets.iter()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct IdentifierCallees<Target: TargetTrait> {
-    pub(crate) callable_targets: Vec<CallTarget<Target>>,
+pub struct IdentifierCallees<Function: FunctionTrait> {
+    pub(crate) callable_targets: Vec<CallTarget<Function>>,
 }
 
-impl<Target: TargetTrait> IdentifierCallees<Target> {
+impl<Function: FunctionTrait> IdentifierCallees<Function> {
     #[cfg(test)]
-    fn map_target<OutputTarget: TargetTrait, MapTarget>(
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapTarget,
-    ) -> IdentifierCallees<OutputTarget>
+        map: MapFunction,
+    ) -> IdentifierCallees<OutputFunction>
     where
-        MapTarget: Fn(Target) -> OutputTarget,
+        MapFunction: Fn(Function) -> OutputFunction,
     {
         IdentifierCallees {
             callable_targets: self
                 .callable_targets
                 .into_iter()
-                .map(|call_target| CallTarget::map_target(call_target, &map))
+                .map(|call_target| CallTarget::map_function(call_target, &map))
                 .collect(),
         }
     }
@@ -168,36 +195,36 @@ impl<Target: TargetTrait> IdentifierCallees<Target> {
         self.callable_targets.is_empty()
     }
 
-    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Target>> {
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
         self.callable_targets.iter()
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub enum ExpressionCallees<Target: TargetTrait> {
-    Call(CallCallees<Target>),
-    Identifier(IdentifierCallees<Target>),
-    AttributeAccess(AttributeAccessCallees<Target>),
+pub enum ExpressionCallees<Function: FunctionTrait> {
+    Call(CallCallees<Function>),
+    Identifier(IdentifierCallees<Function>),
+    AttributeAccess(AttributeAccessCallees<Function>),
 }
 
-impl<Target: TargetTrait> ExpressionCallees<Target> {
+impl<Function: FunctionTrait> ExpressionCallees<Function> {
     #[cfg(test)]
-    pub fn map_target<OutputTarget: TargetTrait, MapTarget>(
+    pub fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapTarget,
-    ) -> ExpressionCallees<OutputTarget>
+        map: MapFunction,
+    ) -> ExpressionCallees<OutputFunction>
     where
-        MapTarget: Fn(Target) -> OutputTarget,
+        MapFunction: Fn(Function) -> OutputFunction,
     {
         match self {
             ExpressionCallees::Call(call_callees) => {
-                ExpressionCallees::Call(call_callees.map_target(map))
+                ExpressionCallees::Call(call_callees.map_function(map))
             }
             ExpressionCallees::Identifier(identifier_callees) => {
-                ExpressionCallees::Identifier(identifier_callees.map_target(map))
+                ExpressionCallees::Identifier(identifier_callees.map_function(map))
             }
             ExpressionCallees::AttributeAccess(attribute_access_callees) => {
-                ExpressionCallees::AttributeAccess(attribute_access_callees.map_target(map))
+                ExpressionCallees::AttributeAccess(attribute_access_callees.map_function(map))
             }
         }
     }
@@ -212,7 +239,7 @@ impl<Target: TargetTrait> ExpressionCallees<Target> {
         }
     }
 
-    pub fn all_targets<'a>(&'a self) -> Box<dyn Iterator<Item = &'a CallTarget<Target>> + 'a> {
+    pub fn all_targets<'a>(&'a self) -> Box<dyn Iterator<Item = &'a CallTarget<Function>> + 'a> {
         match self {
             ExpressionCallees::Call(call_callees) => Box::new(call_callees.all_targets()),
             ExpressionCallees::Identifier(identifier_callees) => {
@@ -226,50 +253,50 @@ impl<Target: TargetTrait> ExpressionCallees<Target> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CallGraph<Target: TargetTrait>(HashMap<PysaLocation, ExpressionCallees<Target>>);
+pub struct CallGraph<Function: FunctionTrait>(HashMap<PysaLocation, ExpressionCallees<Function>>);
 
-impl<Target: TargetTrait> CallGraph<Target> {
+impl<Function: FunctionTrait> CallGraph<Function> {
     #[cfg(test)]
-    pub fn from_map(map: HashMap<PysaLocation, ExpressionCallees<Target>>) -> Self {
+    pub fn from_map(map: HashMap<PysaLocation, ExpressionCallees<Function>>) -> Self {
         Self(map)
     }
 
     #[cfg(test)]
-    pub fn into_iter(self) -> impl Iterator<Item = (PysaLocation, ExpressionCallees<Target>)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (PysaLocation, ExpressionCallees<Function>)> {
         self.0.into_iter()
     }
 
     #[cfg(test)]
-    pub fn iter(&self) -> impl Iterator<Item = (&PysaLocation, &ExpressionCallees<Target>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&PysaLocation, &ExpressionCallees<Function>)> {
         self.0.iter()
     }
 }
 
-impl<Target: TargetTrait> Default for CallGraph<Target> {
+impl<Function: FunctionTrait> Default for CallGraph<Function> {
     fn default() -> Self {
         Self(HashMap::new())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CallGraphs<Target: TargetTrait>(HashMap<Target, CallGraph<Target>>);
+pub struct CallGraphs<Function: FunctionTrait>(HashMap<Function, CallGraph<Function>>);
 
-impl<Target: TargetTrait> CallGraphs<Target> {
+impl<Function: FunctionTrait> CallGraphs<Function> {
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
     #[cfg(test)]
-    pub fn from_map(map: HashMap<Target, CallGraph<Target>>) -> Self {
+    pub fn from_map(map: HashMap<Function, CallGraph<Function>>) -> Self {
         Self(map)
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = (Target, CallGraph<Target>)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (Function, CallGraph<Function>)> {
         self.0.into_iter()
     }
 
     #[cfg(test)]
-    pub fn iter(&self) -> impl Iterator<Item = (&Target, &CallGraph<Target>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Function, &CallGraph<Function>)> {
         self.0.iter()
     }
 
@@ -359,6 +386,7 @@ struct CallGraphVisitor<'a> {
     module_id: ModuleId,
     module_name: ModuleName,
     function_base_definitions: &'a WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    override_graph: &'a OverrideGraph,
     current_function: Option<FunctionRef>, // The current function, if it is exported.
     debug: bool,                           // Enable logging for the current function or class body.
     debug_scopes: Vec<bool>,               // The value of the debug flag for each scope.
@@ -431,6 +459,75 @@ impl<'a> CallGraphVisitor<'a> {
             )
     }
 
+    // Figure out what target to pick for an indirect call that resolves to implementation_target.
+    // E.g., if the receiver type is A, and A derives from Base, and the target is Base.method, then
+    // targeting the override tree of Base.method is wrong, as it would include all siblings for A.//
+    // Instead, we have the following cases:
+    // a) receiver type matches implementation_target's declaring type -> override implementation_target
+    // b) no implementation_target override entries are subclasses of A -> real implementation_target
+    // c) some override entries are subclasses of A -> search upwards for actual implementation,
+    //    and override all those where the override name is
+    //  1) the override target if it exists in the override shared mem
+    //  2) the real target otherwise
+    fn compute_indirect_targets(
+        &self,
+        receiver_class: Option<&ClassRef>,
+        callee: FunctionRef,
+    ) -> Vec<Target<FunctionRef>> {
+        // TODO: Optimize by avoiding to call this function when we are sure this is a direct call
+        if receiver_class.is_none() {
+            return vec![Target::Function(callee)];
+        }
+        let receiver_class = receiver_class.unwrap();
+
+        let callee_class = self
+            .function_base_definitions
+            .get(callee.module_id, &callee.function_id)
+            .and_then(|definition| definition.defining_class.clone());
+        if callee_class.is_none() {
+            panic!("Expect a callee class for callee `{:#?}`", callee);
+        }
+        let callee_class = callee_class.unwrap();
+
+        let get_actual_target = |callee: FunctionRef| {
+            if self.override_graph.overrides_exist(&callee) {
+                Target::Override(callee)
+            } else {
+                Target::Function(callee)
+            }
+        };
+        if &callee_class == receiver_class {
+            // case a
+            vec![get_actual_target(callee)]
+        } else if let Some(overriding_classes) = self.override_graph.get_overriding_classes(&callee)
+        {
+            // case c
+            overriding_classes
+                .iter()
+                .filter_map(|overriding_class| {
+                    if has_superclass(
+                        &overriding_class.class,
+                        &receiver_class.class,
+                        self.module_context,
+                    ) {
+                        let overriding_callee = FunctionRef {
+                            module_id: overriding_class.module_id,
+                            module_name: overriding_class.class.module_name(),
+                            function_id: callee.function_id.clone(),
+                            function_name: callee.function_name.clone(),
+                        };
+                        Some(get_actual_target(overriding_callee))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else {
+            // case b
+            vec![Target::Function(callee)]
+        }
+    }
+
     fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
         let identifier = Ast::expr_name_identifier(name.clone());
         self.module_context
@@ -455,7 +552,7 @@ impl<'a> CallGraphVisitor<'a> {
                         false, // We don't know receiver type
                     );
                     CallTarget {
-                        target: function_ref,
+                        target: Target::Function(function_ref),
                         implicit_receiver,
                         receiver_class: None,
                     }
@@ -465,6 +562,10 @@ impl<'a> CallGraphVisitor<'a> {
     }
 
     fn resolve_attribute_access(&self, attribute: &ExprAttribute) -> Vec<CallTarget<FunctionRef>> {
+        let receiver_type = self
+            .module_context
+            .answers
+            .get_type_trace(attribute.value.range());
         self.module_context
             .transaction
             .find_definition_for_attribute(
@@ -474,7 +575,7 @@ impl<'a> CallGraphVisitor<'a> {
                 &FindPreference::default(),
             )
             .iter()
-            .filter_map(|definition| {
+            .flat_map(|definition| {
                 FunctionRef::from_find_definition_item_with_docstring(
                     definition,
                     self.function_base_definitions,
@@ -482,24 +583,34 @@ impl<'a> CallGraphVisitor<'a> {
                 )
                 .map(|function_ref| {
                     let method_metadata = self.get_method_metadata(&function_ref);
-                    let (receiver_class, is_receiver_class_def) = self
-                        .module_context
-                        .answers
-                        .get_type_trace(attribute.value.range())
-                        .map_or((None, false), |receiver_type| {
-                            self.receiver_class_from_type(
-                                &receiver_type,
+                    if let Some(ref receiver_type) = receiver_type {
+                        let (receiver_class, is_receiver_class_def) = self
+                            .receiver_class_from_type(
+                                receiver_type,
                                 method_metadata.is_classmethod,
-                            )
-                        });
-                    let implicit_receiver =
-                        has_implicit_receiver(&method_metadata, is_receiver_class_def);
-                    CallTarget {
-                        target: function_ref,
-                        implicit_receiver,
-                        receiver_class,
+                            );
+                        let implicit_receiver =
+                            has_implicit_receiver(&method_metadata, is_receiver_class_def);
+                        self.compute_indirect_targets(receiver_class.as_ref(), function_ref)
+                            .into_iter()
+                            .map(|target| CallTarget {
+                                target,
+                                implicit_receiver,
+                                receiver_class: receiver_class.clone(),
+                            })
+                            .collect::<Vec<_>>()
+                    } else {
+                        vec![CallTarget {
+                            target: Target::Function(function_ref),
+                            implicit_receiver: has_implicit_receiver(
+                                &method_metadata,
+                                /* is_receiver_class_def */ false,
+                            ),
+                            receiver_class: None,
+                        }]
                     }
                 })
+                .unwrap_or_default()
             })
             .collect::<Vec<_>>()
     }
@@ -598,6 +709,7 @@ fn resolve_call(
     call: &ExprCall,
     function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     module_context: &ModuleContext,
+    override_graph: &OverrideGraph,
 ) -> CallCallees<FunctionRef> {
     let mut call_graphs = CallGraphs::new();
     let visitor = CallGraphVisitor {
@@ -609,6 +721,7 @@ fn resolve_call(
         current_function: None,
         debug: false,
         debug_scopes: Vec::new(),
+        override_graph,
     };
     CallCallees {
         call_targets: visitor.resolve_call(call),
@@ -619,6 +732,7 @@ fn resolve_expression(
     expression: &Expr,
     function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     module_context: &ModuleContext,
+    override_graph: &OverrideGraph,
 ) -> Option<ExpressionCallees<FunctionRef>> {
     let mut call_graphs = CallGraphs::new();
     let visitor = CallGraphVisitor {
@@ -630,6 +744,7 @@ fn resolve_expression(
         current_function: None,
         debug: false,
         debug_scopes: Vec::new(),
+        override_graph,
     };
     visitor.resolve_expression(expression)
 }
@@ -638,14 +753,17 @@ pub fn resolve_decorator_callees(
     decorators: &[Decorator],
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
-) -> HashMap<PysaLocation, Vec<FunctionRef>> {
+) -> HashMap<PysaLocation, Vec<Target<FunctionRef>>> {
     let mut decorator_callees = HashMap::new();
+    // We do not care about overrides for now
+    let override_graph = OverrideGraph::new();
 
     for decorator in decorators {
         let (range, callees) = match &decorator.expression {
             Expr::Call(call) => {
                 // Decorator factor, e.g `@foo(1)`. We export the callee of `foo`.
-                let callees = resolve_call(call, function_base_definitions, context);
+                let callees =
+                    resolve_call(call, function_base_definitions, context, &override_graph);
                 (
                     (*call.func).range(),
                     callees
@@ -655,7 +773,8 @@ pub fn resolve_decorator_callees(
                 )
             }
             expr => {
-                let callees = resolve_expression(expr, function_base_definitions, context);
+                let callees =
+                    resolve_expression(expr, function_base_definitions, context, &override_graph);
                 (
                     expr.range(),
                     if let Some(callees) = callees {
@@ -685,6 +804,7 @@ pub fn resolve_decorator_callees(
 pub fn export_call_graphs(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    override_graph: &OverrideGraph,
 ) -> CallGraphs<FunctionRef> {
     let mut call_graphs = CallGraphs::new();
 
@@ -697,6 +817,7 @@ pub fn export_call_graphs(
         current_function: None,
         debug: false,
         debug_scopes: Vec::new(),
+        override_graph,
     };
 
     visit_module_ast(&mut visitor, context);

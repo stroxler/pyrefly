@@ -16,6 +16,7 @@ use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Type;
 use ruff_python_ast::name::Name;
 
+use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::captured_variable::ModuleCapturedVariables;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
@@ -500,7 +501,11 @@ def foo(x: int) -> int:
             )
             .with_decorator_callees(HashMap::from([(
                 create_location(7, 2, 7, 11),
-                vec![get_function_ref("test", "decorator", context)],
+                vec![Target::Function(get_function_ref(
+                    "test",
+                    "decorator",
+                    context,
+                ))],
             )])),
         ]
     },
@@ -566,7 +571,11 @@ def foo(x: int) -> int:
             )
             .with_decorator_callees(HashMap::from([(
                 create_location(7, 2, 7, 11),
-                vec![get_function_ref("test", "decorator", context)],
+                vec![Target::Function(get_function_ref(
+                    "test",
+                    "decorator",
+                    context,
+                ))],
             )])),
         ]
     },
@@ -643,11 +652,11 @@ def foo(x: int) -> int:
             .with_decorator_callees(HashMap::from([
                 (
                     create_location(10, 2, 10, 4),
-                    vec![get_function_ref("test", "d1", context)],
+                    vec![Target::Function(get_function_ref("test", "d1", context))],
                 ),
                 (
                     create_location(11, 2, 11, 4),
-                    vec![get_function_ref("test", "d2", context)],
+                    vec![Target::Function(get_function_ref("test", "d2", context))],
                 ),
             ])),
         ]

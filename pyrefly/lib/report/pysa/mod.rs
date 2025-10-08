@@ -159,8 +159,9 @@ pub fn export_module_type_of_expressions(context: &ModuleContext) -> PysaModuleT
 pub fn export_module_call_graphs(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    override_graph: &OverrideGraph,
 ) -> PysaModuleCallGraphs {
-    let call_graphs = export_call_graphs(context, function_base_definitions)
+    let call_graphs = export_call_graphs(context, function_base_definitions, override_graph)
         .into_iter()
         .map(|(function_ref, call_graph)| (function_ref.function_id, call_graph))
         .collect();
@@ -248,7 +249,8 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
         &reversed_override_graph,
     );
 
-    let _override_graph = OverrideGraph::from_reversed(&reversed_override_graph);
+    let override_graph =
+        OverrideGraph::from_reversed(&reversed_override_graph, &function_base_definitions);
 
     // Retrieve and dump information about each module, in parallel.
     ThreadPool::new().install(|| -> anyhow::Result<()> {
@@ -277,7 +279,11 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                         BufWriter::new(File::create(call_graphs_directory.join(&info_filename))?);
                     serde_json::to_writer(
                         writer,
-                        &export_module_call_graphs(&context, &function_base_definitions),
+                        &export_module_call_graphs(
+                            &context,
+                            &function_base_definitions,
+                            &override_graph,
+                        ),
                     )?;
                 }
 

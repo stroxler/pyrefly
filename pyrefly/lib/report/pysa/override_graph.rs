@@ -19,21 +19,23 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::graph::index::Idx;
-use crate::report::pysa::ModuleContext;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::class::get_class_field_declaration;
+use crate::report::pysa::context::ModuleContext;
+use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
+use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::get_all_functions;
 use crate::report::pysa::function::should_export_function;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
 use crate::state::state::Transaction;
 
-/// A map from a (base) method to methods that directly override it
+/// A map from a (base) method to classes that directly override it
 #[derive(Debug)]
 pub(crate) struct OverrideGraph {
-    edges: HashMap<FunctionRef, HashSet<FunctionRef>>,
+    edges: HashMap<FunctionRef, HashSet<ClassRef>>,
 }
 
 pub struct ModuleReversedOverrideGraph(HashMap<FunctionRef, FunctionRef>);
@@ -47,19 +49,34 @@ impl OverrideGraph {
         }
     }
 
-    fn add_edge(&mut self, base_method: FunctionRef, overriding_method: FunctionRef) {
+    fn add_edge(&mut self, base_method: FunctionRef, overriding_class: ClassRef) {
         self.edges
             .entry(base_method)
             .or_default()
-            .insert(overriding_method);
+            .insert(overriding_class);
     }
 
-    pub fn from_reversed(reversed_override_graph: &WholeProgramReversedOverrideGraph) -> Self {
+    pub fn from_reversed(
+        reversed_override_graph: &WholeProgramReversedOverrideGraph,
+        function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    ) -> Self {
         let mut graph = OverrideGraph::new();
         for (overriding_method, base_method) in reversed_override_graph.0.iter() {
-            graph.add_edge(base_method.clone(), overriding_method.clone());
+            let overriding_class = function_base_definitions
+                .get(overriding_method.module_id, &overriding_method.function_id)
+                .and_then(|definition| definition.defining_class.clone())
+                .unwrap();
+            graph.add_edge(base_method.clone(), overriding_class);
         }
         graph
+    }
+
+    pub fn overrides_exist(&self, method: &FunctionRef) -> bool {
+        self.edges.contains_key(method)
+    }
+
+    pub fn get_overriding_classes(&self, method: &FunctionRef) -> Option<&HashSet<ClassRef>> {
+        self.edges.get(method)
     }
 }
 
@@ -127,7 +144,7 @@ fn get_super_class_member(
                 ClassRef::from_class(&super_class_member.defining_class, context.module_ids);
             FunctionRef {
                 module_id: class.module_id,
-                module_name: class.module_name,
+                module_name: class.class.module_name(),
                 function_id: FunctionId::Function {
                     location: PysaLocation::new(
                         context.module_info.display_range(last_function.id_range()),

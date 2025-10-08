@@ -29,6 +29,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
+use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
 use crate::report::pysa::captured_variable::CapturedVariable;
 use crate::report::pysa::captured_variable::ModuleCapturedVariables;
@@ -208,7 +209,7 @@ pub struct FunctionDefinition {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub captured_variables: Vec<CapturedVariable>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
+    pub decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
 }
 
 impl FunctionDefinition {
@@ -251,7 +252,7 @@ impl FunctionDefinition {
     #[cfg(test)]
     pub fn with_decorator_callees(
         mut self,
-        decorator_callees: HashMap<PysaLocation, Vec<FunctionRef>>,
+        decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
     ) -> Self {
         self.decorator_callees = decorator_callees;
         self
@@ -477,7 +478,7 @@ fn get_decorator_callees(
     function: &DecoratedFunction,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
-) -> HashMap<PysaLocation, Vec<FunctionRef>> {
+) -> HashMap<PysaLocation, Vec<Target<FunctionRef>>> {
     if let Some(function_def) = find_definition_ast(function, context) {
         resolve_decorator_callees(
             &function_def.decorator_list,

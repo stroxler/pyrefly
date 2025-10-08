@@ -11,6 +11,7 @@ use pretty_assertions::assert_eq;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::types::Type;
 
+use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::class::ClassDefinition;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::class::PysaClassField;
@@ -434,7 +435,11 @@ class Foo:
         create_simple_class("Foo", 0, ScopeParent::TopLevel).with_decorator_callees(HashMap::from(
             [(
                 create_location(5, 2, 5, 11),
-                vec![get_function_ref("test", "decorator", context)],
+                vec![Target::Function(get_function_ref(
+                    "test",
+                    "decorator",
+                    context,
+                ))],
             )],
         ))
     },
@@ -454,7 +459,11 @@ class Foo:
         create_simple_class("Foo", 0, ScopeParent::TopLevel).with_decorator_callees(HashMap::from(
             [(
                 create_location(5, 2, 5, 11),
-                vec![get_function_ref("test", "decorator", context)],
+                vec![Target::Function(get_function_ref(
+                    "test",
+                    "decorator",
+                    context,
+                ))],
             )],
         ))
     },
@@ -479,11 +488,11 @@ class Foo:
             [
                 (
                     create_location(8, 2, 8, 4),
-                    vec![get_function_ref("test", "d1", context)],
+                    vec![Target::Function(get_function_ref("test", "d1", context))],
                 ),
                 (
                     create_location(9, 2, 9, 4),
-                    vec![get_function_ref("test", "d2", context)],
+                    vec![Target::Function(get_function_ref("test", "d2", context))],
                 ),
             ],
         ))
