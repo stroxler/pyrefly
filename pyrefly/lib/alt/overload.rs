@@ -43,7 +43,7 @@ use crate::types::literal::Lit;
 use crate::types::types::Type;
 
 struct CalledOverload {
-    func: Function,
+    func: TargetWithTParams<Function>,
     res: Type,
     ctor_targs: Option<TArgs>,
     call_errors: ErrorCollector,
@@ -238,7 +238,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (closest_overload, matched) = match Vec1::try_from_vec(arity_compatible_overloads) {
             Err(_) => (
                 CalledOverload {
-                    func: arity_closest_overload.unwrap().0.1.clone(),
+                    func: arity_closest_overload.unwrap().0.clone(),
                     res: Type::any_error(),
                     ctor_targs: None,
                     call_errors: self.error_collector(),
@@ -314,12 +314,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.record_overload_trace(
             range,
             overloads.map(|TargetWithTParams(_, Function { signature, .. })| signature),
-            &closest_overload.func.signature,
+            &closest_overload.func.1.signature,
             matched,
         );
         if matched {
             // If the selected overload is deprecated, we log a deprecation error.
-            if closest_overload.func.metadata.flags.is_deprecated {
+            if closest_overload.func.1.metadata.flags.is_deprecated {
                 self.error(
                     errors,
                     range,
@@ -328,6 +328,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Call to deprecated overload `{}`",
                         closest_overload
                             .func
+                            .1
                             .metadata
                             .kind
                             .as_func_id()
@@ -335,7 +336,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                 );
             }
-            (closest_overload.res, closest_overload.func.signature)
+            (closest_overload.res, closest_overload.func.1.signature)
         } else {
             let mut msg = vec1![
                 format!(
@@ -345,7 +346,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Possible overloads:".to_owned(),
             ];
             for overload in overloads {
-                let suffix = if overload.1.signature == closest_overload.func.signature {
+                let suffix = if overload.1.signature == closest_overload.func.1.signature {
                     " [closest match]"
                 } else {
                     ""
@@ -372,7 +373,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorInfo::new(ErrorKind::NoMatchingOverload, context),
                 msg,
             );
-            (Type::any_error(), closest_overload.func.signature)
+            (Type::any_error(), closest_overload.func.1.signature)
         }
     }
 
@@ -460,7 +461,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if nargs_unknown {
                     let has_varargs = |o: &CalledOverload| {
                         matches!(
-                            &o.func.signature.params, Params::List(params)
+                            &o.func.1.signature.params, Params::List(params)
                             if params.items().iter().any(|p| matches!(p, Param::VarArg(..))))
                     };
                     if matched_overloads.iter().any(has_varargs) {
@@ -473,7 +474,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if nkeywords_unknown {
                     let has_kwargs = |o: &CalledOverload| {
                         matches!(
-                            &o.func.signature.params, Params::List(params)
+                            &o.func.1.signature.params, Params::List(params)
                             if params.items().iter().any(|p| matches!(p, Param::Kwargs(..))))
                     };
                     if matched_overloads.iter().any(has_kwargs) {
@@ -539,7 +540,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         CalledOverload {
-            func: callable.1.clone(),
+            func: callable.clone(),
             res,
             ctor_targs: overload_ctor_targs,
             call_errors,
