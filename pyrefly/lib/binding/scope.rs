@@ -2034,10 +2034,10 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow(&mut self, mut flows: Vec<Flow>, range: TextRange, merge_style: MergeStyle) {
+    fn merge_flow(&mut self, mut branches: Vec<Flow>, range: TextRange, merge_style: MergeStyle) {
         // Include the current flow in the merge if the merge style calls for it.
         if matches!(merge_style, MergeStyle::Loop | MergeStyle::Inclusive) {
-            flows.push(mem::take(&mut self.scopes.current_mut().flow));
+            branches.push(mem::take(&mut self.scopes.current_mut().flow));
         }
 
         // Short circuit when there is only one flow.
@@ -2046,8 +2046,8 @@ impl<'a> BindingsBuilder<'a> {
         // have terminated, but this check happens prior to pruning terminated
         // branches), which is essential because an early exit here could lead
         // to us never creating bindings for speculative Phi keys.
-        if flows.len() == 1 {
-            self.scopes.current_mut().flow = flows.pop().unwrap();
+        if branches.len() == 1 {
+            self.scopes.current_mut().flow = branches.pop().unwrap();
             return;
         }
 
@@ -2056,18 +2056,18 @@ impl<'a> BindingsBuilder<'a> {
         // the Phi keys and potentially analyze downstream code, so in that case
         // we'll use the terminated branches.
         let (terminated_branches, live_branches): (Vec<_>, Vec<_>) =
-            flows.into_iter().partition(|flow| flow.has_terminated);
+            branches.into_iter().partition(|flow| flow.has_terminated);
         let has_terminated = live_branches.is_empty();
-        let branches = if has_terminated {
+        let flows = if has_terminated {
             terminated_branches
         } else {
             live_branches
         };
 
         // Collect all the branches into a `MergeItem` per name we need to merge
-        let mut merge_items = MergeItems::new(branches.first().unwrap().info.len());
-        let n_branches = branches.len();
-        for flow in branches {
+        let mut merge_items = MergeItems::new(flows.first().unwrap().info.len());
+        let n_branches = flows.len();
+        for flow in flows {
             for (name, info) in flow.info.into_iter_hashed() {
                 merge_items.add_flow_info(name, info, n_branches)
             }
