@@ -97,10 +97,7 @@ impl FunctionRef {
         let name = function.metadata().kind.as_func_id().func;
         let display_range = context.module_info.display_range(function.id_range());
         FunctionRef {
-            module_id: context
-                .module_ids
-                .get(ModuleKey::from_module(&context.module_info))
-                .unwrap(),
+            module_id: context.module_id,
             module_name: context.module_info.name(),
             function_id: FunctionId::Function {
                 location: PysaLocation::new(display_range),
