@@ -256,7 +256,8 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
     ThreadPool::new().install(|| -> anyhow::Result<()> {
         module_info_tasks.into_par_iter().try_for_each(
             |(handle, module_id, info_filename)| -> anyhow::Result<()> {
-                let context = ModuleContext::create(handle, transaction, &module_ids).unwrap();
+                let context =
+                    ModuleContext::create(handle.clone(), transaction, &module_ids).unwrap();
 
                 {
                     let writer =

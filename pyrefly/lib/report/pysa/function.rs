@@ -12,6 +12,7 @@ use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Callable;
+use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Params;
 use pyrefly_types::types::Overload;
@@ -23,11 +24,9 @@ use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use serde::Serialize;
 
-use crate::alt::answers::Answers;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecoratedFunction;
-use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
@@ -81,8 +80,19 @@ pub struct FunctionRef {
     pub function_name: Name, // For debugging purposes only. Reader should use the function id.
 }
 
+// For many function implementations, we need to pass the module context where the function is defined.
+fn assert_function_in_context(function: &DecoratedFunction, context: &ModuleContext) {
+    match &function.undecorated.metadata.kind {
+        FunctionKind::Def(func_id) => {
+            assert_eq!(func_id.module, context.module_info.name());
+        }
+        _ => (),
+    }
+}
+
 impl FunctionRef {
     pub fn from_decorated_function(function: &DecoratedFunction, context: &ModuleContext) -> Self {
+        assert_function_in_context(function, context);
         let name = function.metadata().kind.as_func_id().func;
         let display_range = context.module_info.display_range(function.id_range());
         FunctionRef {
@@ -347,17 +357,15 @@ fn export_function_signature(function: &Callable, context: &ModuleContext) -> Fu
     }
 }
 
-pub fn get_all_functions(
-    bindings: &Bindings,
-    answers: &Answers,
-) -> impl Iterator<Item = DecoratedFunction> {
-    bindings
-        .keys::<KeyDecoratedFunction>()
-        .map(|idx| DecoratedFunction::from_bindings_answers(idx, bindings, answers))
+pub fn get_all_functions(context: &ModuleContext) -> impl Iterator<Item = DecoratedFunction> {
+    context.bindings.keys::<KeyDecoratedFunction>().map(|idx| {
+        DecoratedFunction::from_bindings_answers(idx, &context.bindings, &context.answers)
+    })
 }
 
 // Return the function type, considering decorators and overloads.
 fn get_function_type(function: &DecoratedFunction, context: &ModuleContext) -> Type {
+    assert_function_in_context(function, context);
     let definition_binding = Key::Definition(function.undecorated.identifier);
     let idx = context.bindings.key_to_idx(&definition_binding);
     context.answers.get_idx(idx).unwrap().arc_clone_ty()
@@ -370,6 +378,7 @@ fn get_undecorated_return_type(function: &DecoratedFunction, context: &ModuleCon
 }
 
 pub fn should_export_function(function: &DecoratedFunction, context: &ModuleContext) -> bool {
+    assert_function_in_context(function, context);
     // We only want to export one function when we have an @overload chain.
     // If the function has no successor (function in the same scope with the same name), then we should export it.
     // If the function has successors, but is not an overload, then we should export it. It probably means the successor is a redefinition.
@@ -420,7 +429,7 @@ pub fn export_all_functions(
 ) -> ModuleFunctionDefinitions<FunctionBaseDefinition> {
     let mut function_base_definitions = ModuleFunctionDefinitions::new();
 
-    for function in get_all_functions(&context.bindings, &context.answers) {
+    for function in get_all_functions(context) {
         if !should_export_function(&function, context) {
             continue;
         }
@@ -500,7 +509,7 @@ pub fn export_function_definitions(
         .get_for_module(context.module_id)
         .unwrap();
 
-    for function in get_all_functions(&context.bindings, &context.answers) {
+    for function in get_all_functions(context) {
         let current_function = FunctionRef::from_decorated_function(&function, context);
         if let Some(function_base_definition) = function_base_definitions_for_module
             .0
@@ -550,7 +559,7 @@ pub fn collect_function_base_definitions(
             let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
             let base_definitions_for_module = export_all_functions(
                 reversed_override_graph,
-                &ModuleContext::create(handle, transaction, module_ids).unwrap(),
+                &ModuleContext::create(handle.clone(), transaction, module_ids).unwrap(),
             );
             base_definitions.insert(module_id, base_definitions_for_module);
         });

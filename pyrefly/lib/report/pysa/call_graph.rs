@@ -533,7 +533,7 @@ impl<'a> CallGraphVisitor<'a> {
         self.module_context
             .transaction
             .find_definition_for_name_use(
-                self.module_context.handle,
+                &self.module_context.handle,
                 &identifier,
                 &FindPreference::default(),
             )
@@ -569,7 +569,7 @@ impl<'a> CallGraphVisitor<'a> {
         self.module_context
             .transaction
             .find_definition_for_attribute(
-                self.module_context.handle,
+                &self.module_context.handle,
                 attribute.value.range(),
                 &attribute.attr,
                 &FindPreference::default(),
@@ -749,6 +749,7 @@ fn resolve_expression(
     visitor.resolve_expression(expression)
 }
 
+// Requires `context` to be the module context of the decorators.
 pub fn resolve_decorator_callees(
     decorators: &[Decorator],
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,

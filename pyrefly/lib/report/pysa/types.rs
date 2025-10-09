@@ -176,7 +176,7 @@ fn strip_coroutine<'a>(type_: &'a Type, context: &ModuleContext) -> Option<&'a T
 pub fn has_superclass(class: &Class, want: &Class, context: &ModuleContext) -> bool {
     context
         .transaction
-        .ad_hoc_solve(context.handle, |solver| {
+        .ad_hoc_solve(&context.handle, |solver| {
             solver.type_order().has_superclass(class, want)
         })
         .unwrap()

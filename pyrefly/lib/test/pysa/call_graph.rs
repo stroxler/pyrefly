@@ -193,7 +193,7 @@ fn test_building_call_graph_for_module(
     );
 
     let test_module_handle = get_handle_for_module_name(test_module_name, &transaction);
-    let context = ModuleContext::create(&test_module_handle, &transaction, &module_ids).unwrap();
+    let context = ModuleContext::create(test_module_handle, &transaction, &module_ids).unwrap();
 
     let expected_call_graph = call_graph_for_test_from_expected(create_expected(&context));
 

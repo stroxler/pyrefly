@@ -91,6 +91,7 @@ impl WholeProgramReversedOverrideGraph {
     }
 }
 
+// Requires `context` to be the module context of the decorated function.
 fn get_last_definition(
     key_decorated_function: Idx<KeyDecoratedFunction>,
     context: &ModuleContext,
@@ -117,13 +118,24 @@ fn get_super_class_member(
     field: &Name,
     context: &ModuleContext,
 ) -> Option<FunctionRef> {
+    assert_eq!(class.module(), &context.module_info);
     let super_class_member = context
         .transaction
-        .ad_hoc_solve(context.handle, |solver| {
+        .ad_hoc_solve(&context.handle, |solver| {
             solver.get_super_class_member(class, None, field)
         })
         .flatten()?;
-    get_class_field_declaration(&super_class_member.defining_class, field, context)
+
+    // Important: we need to use the module context of the class.
+    let module = super_class_member.defining_class.module();
+    let handle = Handle::new(
+        module.name(),
+        module.path().clone(),
+        context.handle.sys_info().clone(),
+    );
+    let context = ModuleContext::create(handle, context.transaction, context.module_ids).unwrap();
+
+    get_class_field_declaration(&super_class_member.defining_class, field, &context)
         .and_then(|binding_class_field| {
             if let ClassFieldDefinition::MethodLike { definition, .. } =
                 binding_class_field.definition
@@ -139,7 +151,7 @@ fn get_super_class_member(
             }
         })
         .map(|key_decorated_function| {
-            let last_function = get_last_definition(key_decorated_function, context);
+            let last_function = get_last_definition(key_decorated_function, &context);
             let class =
                 ClassRef::from_class(&super_class_member.defining_class, context.module_ids);
             FunctionRef {
@@ -159,7 +171,7 @@ pub fn create_reversed_override_graph_for_module(
     context: &ModuleContext,
 ) -> ModuleReversedOverrideGraph {
     let mut graph = ModuleReversedOverrideGraph(HashMap::new());
-    for function in get_all_functions(&context.bindings, &context.answers) {
+    for function in get_all_functions(context) {
         if !should_export_function(&function, context) {
             continue;
         }
@@ -194,7 +206,7 @@ pub fn build_reversed_override_graph(
 
     ThreadPool::new().install(|| {
         handles.par_iter().for_each(|handle| {
-            let context = ModuleContext::create(handle, transaction, module_ids).unwrap();
+            let context = ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
             for (key, value) in create_reversed_override_graph_for_module(&context).0 {
                 reversed_override_graph.insert(key, value);
             }

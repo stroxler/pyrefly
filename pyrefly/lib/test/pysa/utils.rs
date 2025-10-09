@@ -77,10 +77,10 @@ pub fn get_function_ref(
     context: &ModuleContext,
 ) -> FunctionRef {
     let handle = get_handle_for_module_name(module_name, context.transaction);
-    let context = ModuleContext::create(&handle, context.transaction, context.module_ids).unwrap();
+    let context = ModuleContext::create(handle, context.transaction, context.module_ids).unwrap();
 
     // This is slow, but we don't care in tests.
-    let function = get_all_functions(&context.bindings, &context.answers)
+    let function = get_all_functions(&context)
         .find(|function| function.metadata().kind.as_func_id().func == function_name)
         .expect("valid function name");
     FunctionRef::from_decorated_function(&function, &context)

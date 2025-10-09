@@ -20,7 +20,6 @@ use serde::Serialize;
 use serde::ser::SerializeStruct;
 use starlark_map::Hashed;
 
-use crate::alt::answers::Answers;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::binding::binding::BindingClass;
@@ -31,7 +30,6 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
-use crate::binding::bindings::Bindings;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
@@ -208,10 +206,11 @@ impl ClassDefinition {
     }
 }
 
-pub fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item = Class> {
-    bindings
+pub fn get_all_classes(context: &ModuleContext) -> impl Iterator<Item = Class> {
+    context
+        .bindings
         .keys::<KeyClass>()
-        .map(|idx| answers.get_idx(idx).unwrap().0.dupe().unwrap())
+        .map(|idx| context.answers.get_idx(idx).unwrap().0.dupe().unwrap())
 }
 
 pub fn get_class_field(
@@ -221,7 +220,7 @@ pub fn get_class_field(
 ) -> Option<Arc<ClassField>> {
     context
         .transaction
-        .ad_hoc_solve(context.handle, |solver| {
+        .ad_hoc_solve(&context.handle, |solver| {
             solver.get_field_from_current_class_only(class, field)
         })
         .unwrap()
@@ -232,6 +231,7 @@ pub fn get_class_field_declaration<'a>(
     field: &'a Name,
     context: &'a ModuleContext,
 ) -> Option<&'a BindingClassField> {
+    assert_eq!(class.module(), &context.module_info);
     let key_class_field = KeyClassField(class.index(), field.clone());
     // We use `key_to_idx_hashed_opt` below because the key might not be valid (could be a synthesized field).
     context
@@ -240,9 +240,11 @@ pub fn get_class_field_declaration<'a>(
         .map(|idx| context.bindings.get(idx))
 }
 
-pub fn get_class_mro(class: &Class, bindings: &Bindings, answers: &Answers) -> Arc<ClassMro> {
-    answers
-        .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
+pub fn get_class_mro(class: &Class, context: &ModuleContext) -> Arc<ClassMro> {
+    assert_eq!(class.module(), &context.module_info);
+    context
+        .answers
+        .get_idx(context.bindings.key_to_idx(&KeyClassMro(class.index())))
         .unwrap()
 }
 
@@ -250,6 +252,7 @@ pub fn export_class_fields(
     class: &Class,
     context: &ModuleContext,
 ) -> HashMap<String, PysaClassField> {
+    assert_eq!(class.module(), &context.module_info);
     class
         .fields()
         .filter_map(|name| get_class_field(class, name, context).map(|field| (name, field)))
@@ -335,6 +338,7 @@ fn find_definition_ast<'a>(
     class: &Class,
     context: &'a ModuleContext<'a>,
 ) -> Option<&'a StmtClassDef> {
+    assert_eq!(class.module(), &context.module_info);
     Ast::locate_node(&context.ast, class.qname().range().start())
         .iter()
         .find_map(|node| match node {
@@ -350,6 +354,7 @@ fn get_decorator_callees(
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
 ) -> HashMap<PysaLocation, Vec<Target<FunctionRef>>> {
+    assert_eq!(class.module(), &context.module_info);
     if let Some(class_def) = find_definition_ast(class, context) {
         resolve_decorator_callees(
             &class_def.decorator_list,
@@ -396,7 +401,7 @@ pub fn export_all_classes(
             .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
             .collect::<Vec<_>>();
 
-        let mro = match &*get_class_mro(&class, &context.bindings, &context.answers) {
+        let mro = match &*get_class_mro(&class, context) {
             ClassMro::Resolved(mro) => PysaClassMro::Resolved(
                 mro.iter()
                     .map(|class_type| {
