@@ -357,6 +357,34 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         Ok(())
     }
 
+    fn is_subset_params(
+        &mut self,
+        l_params: &Params,
+        u_params: &Params,
+    ) -> Result<(), SubsetError> {
+        match (l_params, u_params) {
+            (Params::Ellipsis, Params::ParamSpec(_, pspec)) => {
+                self.is_subset_eq(&Type::Ellipsis, pspec)
+            }
+            (Params::ParamSpec(_, pspec), Params::Ellipsis) => {
+                self.is_subset_eq(pspec, &Type::Ellipsis)
+            }
+            (Params::Ellipsis, _) | (_, Params::Ellipsis) => Ok(()),
+            (Params::List(l_args), Params::List(u_args)) => {
+                self.is_subset_param_list(l_args.items(), u_args.items())
+            }
+            (Params::List(ls), Params::ParamSpec(args, pspec)) => {
+                self.is_paramlist_subset_of_paramspec(ls, args, pspec)
+            }
+            (Params::ParamSpec(args, pspec), Params::List(ls)) => {
+                self.is_paramspec_subset_of_paramlist(args, pspec, ls)
+            }
+            (Params::ParamSpec(ls, p1), Params::ParamSpec(us, p2)) => {
+                self.is_paramspec_subset_of_paramspec(ls, p1, us, p2)
+            }
+        }
+    }
+
     fn is_subset_protocol(&mut self, got: Type, protocol: ClassType) -> Result<(), SubsetError> {
         let recursive_check = (got.clone(), Type::ClassType(protocol.clone()));
         if !self.recursive_assumptions.insert(recursive_check) {
@@ -857,27 +885,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     metadata: _,
                 }),
             ) => {
-                match (&l.params, &u.params) {
-                    (Params::Ellipsis, Params::ParamSpec(_, pspec)) => {
-                        self.is_subset_eq(&Type::Ellipsis, pspec)?
-                    }
-                    (Params::ParamSpec(_, pspec), Params::Ellipsis) => {
-                        self.is_subset_eq(pspec, &Type::Ellipsis)?
-                    }
-                    (Params::Ellipsis, _) | (_, Params::Ellipsis) => {}
-                    (Params::List(l_args), Params::List(u_args)) => {
-                        self.is_subset_param_list(l_args.items(), u_args.items())?
-                    }
-                    (Params::List(ls), Params::ParamSpec(args, pspec)) => {
-                        self.is_paramlist_subset_of_paramspec(ls, args, pspec)?
-                    }
-                    (Params::ParamSpec(args, pspec), Params::List(ls)) => {
-                        self.is_paramspec_subset_of_paramlist(args, pspec, ls)?
-                    }
-                    (Params::ParamSpec(ls, p1), Params::ParamSpec(us, p2)) => {
-                        self.is_paramspec_subset_of_paramspec(ls, p1, us, p2)?
-                    }
-                }
+                self.is_subset_params(&l.params, &u.params)?;
                 self.is_subset_eq(&l.ret, &u.ret)
             }
             (Type::TypedDict(got), Type::TypedDict(want)) => self.is_subset_typed_dict(got, want),
