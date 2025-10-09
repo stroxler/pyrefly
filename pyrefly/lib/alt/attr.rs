@@ -1074,7 +1074,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         let metadata = self.get_metadata_for_class(cls.class_object());
-        let attr = self.get_metaclass_attribute(cls, metadata.metaclass(self.stdlib), attr_name)?;
+        let metaclass = metadata.metaclass(self.stdlib);
+        let attr = self.get_metaclass_attribute(cls, metaclass, attr_name)?;
         attr.clone().as_instance_method().map(|_| attr)
     }
 
