@@ -17,6 +17,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::FuncId;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
@@ -99,6 +100,21 @@ impl<'a> TypeOrExpr<'a> {
             TypeOrExpr::Type(ty, _) => ty.clone(),
             TypeOrExpr::Expr(x) => solver.expr_infer(x, errors),
         }
+    }
+
+    pub fn materialize<Ans: LookupAnswer>(
+        &self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+    ) -> (Self, bool) {
+        let ty = self.infer(solver, errors);
+        let materialized = ty.materialize();
+        let changed = ty != materialized;
+        (
+            TypeOrExpr::Type(owner.push(materialized), self.range()),
+            changed,
+        )
     }
 }
 

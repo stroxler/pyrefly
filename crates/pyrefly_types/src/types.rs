@@ -1470,6 +1470,11 @@ impl Type {
             _ => None,
         }
     }
+
+    pub fn materialize(&self) -> Self {
+        // TODO: materialize this type
+        self.clone()
+    }
 }
 
 #[cfg(test)]

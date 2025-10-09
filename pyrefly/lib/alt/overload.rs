@@ -486,14 +486,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Step 5, part 1: for each overload, check whether it's the case that all possible
                 // materializations of each argument are assignable to the corresponding parameter.
                 // If so, eliminate all subsequent overloads.
+                let owner = Owner::new();
                 let mut changed = false;
                 let materialized_args = args.map(|arg| {
-                    let (materialized_arg, arg_changed) = arg.materialize();
+                    let (materialized_arg, arg_changed) = arg.materialize(self, errors, &owner);
                     changed |= arg_changed;
                     materialized_arg
                 });
                 let materialized_keywords = keywords.map(|kw| {
-                    let (materialized_kw, kw_changed) = kw.materialize();
+                    let (materialized_kw, kw_changed) = kw.materialize(self, errors, &owner);
                     changed |= kw_changed;
                     materialized_kw
                 });

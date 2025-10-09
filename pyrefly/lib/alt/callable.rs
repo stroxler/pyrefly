@@ -147,9 +147,21 @@ impl<'a> CallKeyword<'a> {
         }
     }
 
-    pub fn materialize(&self) -> (Self, bool) {
-        // TODO: materialize this argument
-        (self.clone(), false)
+    pub fn materialize<Ans: LookupAnswer>(
+        &self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+    ) -> (Self, bool) {
+        let (materialized, changed) = self.value.materialize(solver, errors, owner);
+        (
+            Self {
+                range: self.range,
+                arg: self.arg,
+                value: materialized,
+            },
+            changed,
+        )
     }
 }
 
@@ -188,9 +200,22 @@ impl<'a> CallArg<'a> {
         }
     }
 
-    pub fn materialize(&self) -> (Self, bool) {
-        // TODO: materialize this argument
-        (self.clone(), false)
+    pub fn materialize<Ans: LookupAnswer>(
+        &self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+    ) -> (Self, bool) {
+        match self {
+            Self::Arg(value) => {
+                let (materialized, changed) = value.materialize(solver, errors, owner);
+                (Self::Arg(materialized), changed)
+            }
+            Self::Star(value, range) => {
+                let (materialized, changed) = value.materialize(solver, errors, owner);
+                (Self::Star(materialized, *range), changed)
+            }
+        }
     }
 
     // Splat arguments might be fixed-length tuples, which are handled precisely, or have unknown
