@@ -633,7 +633,7 @@ impl FlowStyle {
                     // we have to be lax about whether boolean ops define new names
                     match merge_style {
                         MergeStyle::BoolOp => FlowStyle::Other,
-                        MergeStyle::Loop | MergeStyle::Branching => {
+                        MergeStyle::Loop | MergeStyle::Exclusive | MergeStyle::Inclusive => {
                             FlowStyle::PossiblyUninitialized
                         }
                     }
@@ -1860,9 +1860,17 @@ enum MergeStyle {
     /// This is a loopback merge for the top of a loop; the base flow is part of the
     /// merge.
     Loop,
-    /// This is a fork (e.g. an if/else, a match, downstream of a try/except
-    /// with exception handlers). The base flow is not part of the merge.
-    Branching,
+    /// This is a fork in which the current flow should be discarded - for example
+    /// the end of an `if` statement with an `else` branch.
+    ///
+    /// The base flow is not part of the merge.
+    Exclusive,
+    /// This is a fork in which the current flow is part of the merge - for example
+    /// after an `if` statement with no `else`, typically the current flow is
+    /// the base flow after applying negated branch conditions.
+    ///
+    /// The base flow is not part of the merge.
+    Inclusive,
     /// This is a merge of the flow from traversing an entire boolean op (`and`
     /// or `or`) with the flow when we exit early from the very first part. The
     /// base flow is not part of the merge.
@@ -2026,12 +2034,12 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow(
-        &mut self,
-        mut flows: Vec<Flow>,
-        range: TextRange,
-        merge_style: MergeStyle,
-    ) -> Flow {
+    fn merge_flow(&mut self, mut flows: Vec<Flow>, range: TextRange, merge_style: MergeStyle) {
+        // Include the current flow in the merge if the merge style calls for it.
+        if matches!(merge_style, MergeStyle::Loop | MergeStyle::Inclusive) {
+            flows.push(mem::take(&mut self.scopes.current_mut().flow));
+        }
+
         // Short circuit when there is only one flow.
         //
         // Note that there are always at least two flows in a loop (some may
@@ -2039,7 +2047,8 @@ impl<'a> BindingsBuilder<'a> {
         // branches), which is essential because an early exit here could lead
         // to us never creating bindings for speculative Phi keys.
         if flows.len() == 1 {
-            return flows.pop().unwrap();
+            self.scopes.current_mut().flow = flows.pop().unwrap();
+            return;
         }
 
         // We normally only merge the live branches (where control flow is not
@@ -2075,23 +2084,11 @@ impl<'a> BindingsBuilder<'a> {
         }
 
         // The resulting flow has terminated only if all branches had terminated.
-        Flow {
+        let flow = Flow {
             info: merged_flow_infos,
             has_terminated,
-        }
-    }
-
-    fn merge_into_current(&mut self, mut branches: Vec<Flow>, range: TextRange, is_loop: bool) {
-        branches.push(mem::take(&mut self.scopes.current_mut().flow));
-        self.scopes.current_mut().flow = self.merge_flow(
-            branches,
-            range,
-            if is_loop {
-                MergeStyle::Loop
-            } else {
-                MergeStyle::Branching
-            },
-        );
+        };
+        self.scopes.current_mut().flow = flow
     }
 
     /// Helper for loops, inserts a phi key for every name in the given flow.
@@ -2147,7 +2144,7 @@ impl<'a> BindingsBuilder<'a> {
         // it is as long as it's different from the loop's range.
         let other_range = TextRange::new(range.start(), range.start());
         // Create the loopback merge, which is the flow at the top of the loop.
-        self.merge_into_current(other_exits, range, true);
+        self.merge_flow(other_exits, range, MergeStyle::Loop);
         // When control falls off the end of a loop (either the `while` test fails or the loop
         // finishes), we're at the loopback flow but the test (if there is one) is negated.
         self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
@@ -2163,10 +2160,9 @@ impl<'a> BindingsBuilder<'a> {
         // for flow termination and/or `NoReturn` behaviors, we should investigate.
         if !breaks.is_empty() {
             if is_while_true {
-                self.scopes.current_mut().flow =
-                    self.merge_flow(breaks, other_range, MergeStyle::Branching)
+                self.merge_flow(breaks, other_range, MergeStyle::Exclusive)
             } else {
-                self.merge_into_current(breaks, other_range, false)
+                self.merge_flow(breaks, other_range, MergeStyle::Inclusive)
             }
         }
     }
@@ -2265,18 +2261,17 @@ impl<'a> BindingsBuilder<'a> {
                 TextRange::default(),
                 &Usage::Narrowing(None),
             );
-            self.merge_into_current(branches, fork.range, false);
+            self.merge_flow(branches, fork.range, MergeStyle::Inclusive);
         } else {
-            let merged = self.merge_flow(
+            self.merge_flow(
                 branches,
                 fork.range,
                 if is_bool_op {
                     MergeStyle::BoolOp
                 } else {
-                    MergeStyle::Branching
+                    MergeStyle::Exclusive
                 },
             );
-            self.scopes.current_mut().flow = merged;
         }
     }
 
