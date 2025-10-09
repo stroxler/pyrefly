@@ -242,7 +242,6 @@ assert_type(Constants.PI.value, float) # E: assert_type(Any, float)
 );
 
 django_testcase!(
-    bug = "iter attribute is not recognized",
     test_enum_class_iteration,
     r#"
 from django.db.models import TextChoices
@@ -251,6 +250,6 @@ from typing_extensions import TypeVar
 T_Choices = TypeVar("T_Choices", bound=TextChoices)
 
 def get_choice_labels(choices: type[T_Choices]) -> list[str]:
-    return [choice.label for choice in choices]  # E: Type `type[T_Choices]` is not iterable 
+    return [choice.label for choice in choices]
 "#,
 );

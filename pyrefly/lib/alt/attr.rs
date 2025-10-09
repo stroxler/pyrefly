@@ -1169,6 +1169,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                 }
             }
+            AttributeBase1::ProtocolSubset(protocol_base) => {
+                // When checking protocols, we need special handling for TypeQuantified to prioritize
+                // metaclass methods (like __iter__ on EnumMeta) over regular class methods.
+                if let AttributeBase1::TypeQuantified(_quantified, class) = &**protocol_base
+                    && let Some(attr) = self
+                        .try_get_magic_dunder_attr(&ClassBase::ClassType(class.clone()), attr_name)
+                {
+                    acc.found_class_attribute(attr, base);
+                } else if let AttributeBase1::ClassObject(class) = &**protocol_base
+                    && let Some(attr) = self.try_get_magic_dunder_attr(class, attr_name)
+                {
+                    // When looking up a magic dunder method as part of checking a class object
+                    // against a protocol, we prefer methods on the metaclass over methods on the
+                    // class object. See test::enums::test_iterate for why we need to do this.
+                    acc.found_class_attribute(attr, base)
+                } else {
+                    self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
+                }
+            }
             AttributeBase1::TypeQuantified(quantified, class) => {
                 if let Some(attr) = self.get_bounded_quantified_class_attribute(
                     quantified.clone(),
@@ -1180,18 +1199,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     acc.not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base));
                 }
             }
-            AttributeBase1::ProtocolSubset(protocol_base) => {
-                if let AttributeBase1::ClassObject(class) = &**protocol_base
-                    && let Some(attr) = self.try_get_magic_dunder_attr(class, attr_name)
-                {
-                    // When looking up a magic dunder method as part of checking a class object
-                    // against a protocol, we prefer methods on the metaclass over methods on the
-                    // class object. See test::enums::test_iterate for why we need to do this.
-                    acc.found_class_attribute(attr, base)
-                } else {
-                    self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
-                }
-            }
+
             AttributeBase1::ClassObject(class) => {
                 match self.get_class_attribute(class, attr_name) {
                     Some(attr) => acc.found_class_attribute(attr, base),
