@@ -556,6 +556,7 @@ impl<'a> TypeDisplayContext<'a> {
                 write!(f, "]")
             }
             Type::KwCall(call) => self.fmt_helper(&call.return_ty, f, false),
+            Type::Materialization => write!(f, "Materialization"),
             Type::None => write!(f, "None"),
         }
     }

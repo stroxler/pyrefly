@@ -695,6 +695,14 @@ pub enum Type {
     /// Wraps the result of a function call whose keyword arguments have typing effects, like
     /// `typing.dataclass_transform(...)`.
     KwCall(Box<KwCall>),
+    /// All possible materializations of Any. A subset check with Type::Materialization succeeds
+    /// only if it would succeed with any type. This behaves like top (`object`) in one direction
+    /// and bottom (`Never`) in the other:
+    /// * `Materialization` <: `T` succeeds iff `object` <: `T` would succeed
+    /// * `T` <: `Materialization` succeeds iff `T` <: `Never` would succeed
+    ///
+    /// See https://typing.python.org/en/latest/spec/glossary.html#term-materialize.
+    Materialization,
     None,
 }
 
@@ -740,7 +748,7 @@ impl Visit for Type {
             Type::SuperInstance(x) => x.visit(f),
             Type::SelfType(x) => x.visit(f),
             Type::KwCall(x) => x.visit(f),
-            Type::None => {}
+            Type::Materialization | Type::None => {}
         }
     }
 }
@@ -787,7 +795,7 @@ impl VisitMut for Type {
             Type::SuperInstance(x) => x.visit_mut(f),
             Type::SelfType(x) => x.visit_mut(f),
             Type::KwCall(x) => x.visit_mut(f),
-            Type::None => {}
+            Type::Materialization | Type::None => {}
         }
     }
 }
@@ -1472,8 +1480,12 @@ impl Type {
     }
 
     pub fn materialize(&self) -> Self {
-        // TODO: materialize this type
-        self.clone()
+        // TODO: also materialize the ellipsis in a Callable.
+        self.clone().transform(&mut |ty| {
+            if ty.is_any() {
+                *ty = Type::Materialization;
+            }
+        })
     }
 }
 

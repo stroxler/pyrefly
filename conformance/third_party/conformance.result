@@ -247,11 +247,7 @@
     "Lines 170, 175, 181, 183: Expected error (tag 'override-final')",
     "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
   ],
-  "overloads_evaluation.py": [
-    "Line 264: Unexpected errors ['assert_type(list[int], Any) failed']",
-    "Line 280: Unexpected errors ['assert_type(list[int], Any) failed']",
-    "Line 345: Unexpected errors ['assert_type(list[int], Any) failed']"
-  ],
+  "overloads_evaluation.py": [],
   "protocols_class_objects.py": [
     "Line 29: Expected 1 errors",
     "Line 34: Expected 1 errors",

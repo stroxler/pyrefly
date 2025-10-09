@@ -1734,7 +1734,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Type::Intersect(_)
             | Type::Unpack(_)
             | Type::Concatenate(_, _)
-            | Type::ParamSpecValue(_) => {}
+            | Type::ParamSpecValue(_)
+            | Type::Materialization => {}
         }
     }
 

@@ -990,7 +990,6 @@ def g(x: list[Any]):
 );
 
 testcase!(
-    bug = "The asserted type is wrong",
     test_materialization_does_not_eliminate_overload,
     r#"
 from typing import Any, assert_type, overload
@@ -1005,25 +1004,84 @@ def g(x: list[Any]):
     # There's no overload for which all materializations of `list[Any]` are assignable to the
     # parameter type, so we keep all overloads. Their return types are not equivalent, so we fall
     # back to `Any`.
-    assert_type(f(x), Any)  # E: assert_type(int, Any)
+    assert_type(f(x), Any)
 
     "#,
 );
 
 testcase!(
-    bug = "The asserted type is wrong",
     test_callable_materialization,
     r#"
-from typing import Any, assert_type, Callable, overload
+from typing import Any, assert_type, Callable, Never, overload
 
 @overload
-def f(x: Callable[[int], None]) -> int: ...
+def f1(x: Callable[[int], None]) -> int: ...
 @overload
-def f(x: Callable[[str], None]) -> str: ...
-def f(x: Any) -> int | str: ...
+def f1(x: Callable[[str], None]) -> str: ...
+def f1(x: Any) -> int | str: ...
+
+@overload
+def f2(x: Callable[[Any], None]) -> int: ...
+@overload
+def f2(x: Callable[[str], None]) -> str: ...
+def f2(x: Any) -> int | str: ...
+
+@overload
+def f3(x: Callable[[Never], None]) -> int: ...
+@overload
+def f3(x: Callable[[str], None]) -> str: ...
+def f3(x: Any) -> int | str: ...
 
 def g(x: Callable[[Any], None]):
-    assert_type(f(x), Any)  # E: assert_type(int, Any)
+    assert_type(f1(x), Any)
+    assert_type(f2(x), int)
+    assert_type(f3(x), int)
+    "#,
+);
+
+testcase!(
+    test_list_vs_sequence_materialization,
+    r#"
+from typing import Any, assert_type, overload, Sequence
+
+@overload
+def f1(x: list[object]) -> int: ...
+@overload
+def f1(x: list[Any]) -> str: ...
+def f1(x: Any) -> int | str: ...
+
+@overload
+def f2(x: Sequence[object]) -> int: ...
+@overload
+def f2(x: Sequence[Any]) -> str: ...
+def f2(x: Any) -> int | str: ...
+
+def g(x: list[Any]):
+    assert_type(f1(x), Any)
+    assert_type(f2(x), int)
+    "#,
+);
+
+testcase!(
+    test_tuple_materialization,
+    r#"
+from typing import Any, assert_type, overload
+
+@overload
+def f1(x: tuple[Any, ...]) -> int: ...
+@overload
+def f1(x: tuple[()]) -> str: ...
+def f1(x: Any) -> int | str: ...
+
+@overload
+def f2(x: tuple[int, ...]) -> int: ...
+@overload
+def f2(x: tuple[str, ...]) -> str: ...
+def f2(x: Any) -> int | str: ...
+
+def g(x: tuple[Any, ...]):
+    assert_type(f1(x), int)
+    assert_type(f2(x), Any)
     "#,
 );
 
