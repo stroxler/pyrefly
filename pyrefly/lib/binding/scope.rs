@@ -2146,21 +2146,22 @@ impl<'a> BindingsBuilder<'a> {
         // We associate a range to the non-`break` exits from the loop; it doesn't matter much what
         // it is as long as it's different from the loop's range.
         let other_range = TextRange::new(range.start(), range.start());
-        if breaks.is_empty() {
-            // When there are no `break`s, the loop condition is always false once the body has exited,
-            // and any `orelse` always runs.
-            //
-            // TODO(stroxler): if the loop is a `while_true` loop, we should do something here;
-            // for now we just pretend it can exit, but there are probably implications for
-            // both flow termination and `Never` / `NoReturn` behaviors.
-            self.merge_into_current(other_exits, range, true);
-            self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
-            self.stmts(orelse, parent);
-        } else {
-            // Otherwise, we negate the loop condition and run the `orelse` only when we don't `break`.
-            self.merge_into_current(other_exits, range, true);
-            self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
-            self.stmts(orelse, parent);
+        // Create the loopback merge, which is the flow at the top of the loop.
+        self.merge_into_current(other_exits, range, true);
+        // When control falls off the end of a loop (either the `while` test fails or the loop
+        // finishes), we're at the loopback flow but the test (if there is one) is negated.
+        self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
+        self.stmts(orelse, parent);
+        // Exiting from a break skips past any `else`, so we merge them after, and the
+        // test is not negated in flows coming from breaks.
+        //
+        // If this is a `while` loop with a statically true test like `while true`, then we
+        // also know that breaks are the only way to exit, so we drop the current flow,
+        // which is actually unreachable.
+        //
+        // TODO(stroxler): in the `is_while_true` case, empty breaks might have implications
+        // for flow termination and/or `NoReturn` behaviors, we should investigate.
+        if !breaks.is_empty() {
             if is_while_true {
                 self.scopes.current_mut().flow =
                     self.merge_flow(breaks, other_range, MergeStyle::Branching)
