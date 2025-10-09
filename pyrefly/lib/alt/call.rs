@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cmp::max;
 use std::iter;
 use std::sync::Arc;
 
@@ -12,6 +13,8 @@ use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::dunder;
+use pyrefly_types::callable::ArgCount;
+use pyrefly_types::callable::ArgCounts;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::tuple::Tuple;
 use pyrefly_types::types::CalleeKind;
@@ -962,60 +965,91 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Evaluate the call following https://typing.python.org/en/latest/spec/overload.html#overload-call-evaluation.
 
-        // TODO: implement step 1, eliminating overloads with the wrong number of parameters.
-
-        // Step 2: evaluate each overload as a regular (non-overloaded) call.
-        // Note: steps 4-6 are performed in `find_closest_overload`.
-        let (mut closest_overload, mut matched) = self.find_closest_overload(
-            &overloads,
-            &metadata,
-            self_obj.as_ref(),
-            &args,
-            &keywords,
-            range,
-            errors,
-            hint,
-            &ctor_targs,
-        );
-
-        // Step 3: perform argument type expansion.
-        let mut args_expander = ArgsExpander::new(args, keywords);
-        let owner = Owner::new();
-        'outer: while !matched && let Some(arg_lists) = args_expander.expand(self, errors, &owner) {
-            // Expand by one argument (for example, try splitting up union types), and try the call with each
-            // resulting arguments list.
-            // - If all expanded lists match, we union all return types together and declare a successful match
-            // - If any do not match, we move on to the next splittable argument (if we run out of args to split,
-            //   we'll wind up with a failed match and our best guess at the correct overload)
-            let mut matched_overloads = Vec::new();
-            for (cur_args, cur_keywords) in arg_lists.clone().iter() {
-                let (cur_closest, cur_matched) = self.find_closest_overload(
-                    &overloads,
+        // Step 1: eliminate overloads that accept an incompatible number of arguments.
+        let mut arity_closest_overload = None;
+        let arity_compatible_overloads = overloads
+            .iter()
+            .filter(|overload| {
+                let arg_counts = overload.1.signature.arg_counts();
+                let mismatch_size =
+                    self.arity_mismatch_size(&arg_counts, self_obj.as_ref(), &args, &keywords);
+                if arity_closest_overload
+                    .as_ref()
+                    .is_none_or(|(_, n)| *n > mismatch_size)
+                {
+                    arity_closest_overload = Some((overload.clone(), mismatch_size));
+                }
+                mismatch_size == 0
+            })
+            .collect::<Vec<_>>();
+        let (closest_overload, matched) = match Vec1::try_from_vec(arity_compatible_overloads) {
+            Err(_) => (
+                CalledOverload {
+                    func: arity_closest_overload.unwrap().0.1.clone(),
+                    res: Type::any_error(),
+                    ctor_targs: None,
+                    call_errors: self.error_collector(),
+                },
+                false,
+            ),
+            Ok(arity_compatible_overloads) => {
+                // Step 2: evaluate each overload as a regular (non-overloaded) call.
+                // Note: steps 4-6 are performed in `find_closest_overload`.
+                let (mut closest_overload, mut matched) = self.find_closest_overload(
+                    &arity_compatible_overloads,
                     &metadata,
                     self_obj.as_ref(),
-                    cur_args,
-                    cur_keywords,
+                    &args,
+                    &keywords,
                     range,
                     errors,
                     hint,
                     &ctor_targs,
                 );
-                if !cur_matched {
-                    continue 'outer;
+
+                // Step 3: perform argument type expansion.
+                let mut args_expander = ArgsExpander::new(args, keywords);
+                let owner = Owner::new();
+                'outer: while !matched
+                    && let Some(arg_lists) = args_expander.expand(self, errors, &owner)
+                {
+                    // Expand by one argument (for example, try splitting up union types), and try the call with each
+                    // resulting arguments list.
+                    // - If all expanded lists match, we union all return types together and declare a successful match
+                    // - If any do not match, we move on to the next splittable argument (if we run out of args to split,
+                    //   we'll wind up with a failed match and our best guess at the correct overload)
+                    let mut matched_overloads = Vec::new();
+                    for (cur_args, cur_keywords) in arg_lists.clone().iter() {
+                        let (cur_closest, cur_matched) = self.find_closest_overload(
+                            &arity_compatible_overloads,
+                            &metadata,
+                            self_obj.as_ref(),
+                            cur_args,
+                            cur_keywords,
+                            range,
+                            errors,
+                            hint,
+                            &ctor_targs,
+                        );
+                        if !cur_matched {
+                            continue 'outer;
+                        }
+                        matched_overloads.push(cur_closest);
+                    }
+                    if let Some(first_overload) = matched_overloads.first() {
+                        closest_overload = CalledOverload {
+                            func: first_overload.func.clone(),
+                            ctor_targs: first_overload.ctor_targs.clone(),
+                            res: self.unions(matched_overloads.into_map(|o| o.res)),
+                            call_errors: self.error_collector(),
+                        };
+                        matched = true;
+                        break;
+                    }
                 }
-                matched_overloads.push(cur_closest);
+                (closest_overload, matched)
             }
-            if let Some(first_overload) = matched_overloads.first() {
-                closest_overload = CalledOverload {
-                    func: first_overload.func.clone(),
-                    ctor_targs: first_overload.ctor_targs.clone(),
-                    res: self.unions(matched_overloads.into_map(|o| o.res)),
-                    call_errors: self.error_collector(),
-                };
-                matched = true;
-                break;
-            }
-        }
+        };
 
         if matched
             && let Some(targs) = ctor_targs
@@ -1023,7 +1057,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             *targs = chosen_targs;
         }
-
         // Record the closest overload to power IDE services.
         self.record_overload_trace(
             range,
@@ -1090,11 +1123,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn arity_mismatch_size(
+        &self,
+        expected_arg_counts: &ArgCounts,
+        self_obj: Option<&Type>,
+        posargs: &[CallArg],
+        keywords: &[CallKeyword],
+    ) -> usize {
+        // If the number of non-variadic args is less than the min or more than the max, get the
+        // absolute difference between actual and expected. We ignore variadic args because we
+        // can't figure out how many args they contribute without inferring their types, which we
+        // want to avoid to keep this arity check lightweight.
+        let (n_posargs, has_varargs) = {
+            let n = posargs
+                .iter()
+                .filter(|arg| matches!(arg, CallArg::Arg(_)))
+                .count();
+            ((self_obj.is_some() as usize) + n, posargs.len() > n)
+        };
+        let n_keywords = keywords.iter().filter(|kw| kw.arg.is_some()).count();
+        let has_kwargs = keywords.len() > n_keywords;
+        let mismatch_size = |count: &ArgCount, n, variadic| {
+            // Check for too few args.
+            let min_mismatch = count
+                .min
+                .saturating_sub(if variadic { count.min } else { n });
+            // Check for too many args.
+            let max_mismatch = n.saturating_sub(count.max.unwrap_or(n));
+            max(min_mismatch, max_mismatch)
+        };
+        mismatch_size(&expected_arg_counts.positional, n_posargs, has_varargs)
+            + mismatch_size(&expected_arg_counts.keyword, n_keywords, has_kwargs)
+    }
+
     /// Returns the overload that matches the given arguments, or the one that produces the fewest
     /// errors if none matches, plus a bool to indicate whether we found a match.
     fn find_closest_overload(
         &self,
-        overloads: &Vec1<TargetWithTParams<Function>>,
+        overloads: &Vec1<&TargetWithTParams<Function>>,
         metadata: &FuncMetadata,
         self_obj: Option<&Type>,
         args: &[CallArg],

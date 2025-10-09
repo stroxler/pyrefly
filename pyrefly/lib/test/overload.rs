@@ -882,3 +882,53 @@ def g(x: tuple[int, bool]):
     assert_type(f(x), str | int)
     "#,
 );
+
+testcase!(
+    test_wrong_arity,
+    r#"
+from typing import overload
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: int, y: int) -> int: ...
+def f(x: int, y: int = 0) -> int:
+    return x + y
+
+f(0, 1, 2)  # E: (x: int, y: int) -> int [closest match]
+    "#,
+);
+
+testcase!(
+    test_unpack_nothing,
+    r#"
+from typing import assert_type, overload
+
+@overload
+def f(x: int, y: int) -> int: ...
+@overload
+def f(x: str) -> str: ...
+@overload
+def f(x: float) -> float: ...
+def f(x, y=0) -> int | str | float: ...
+
+assert_type(f("", *()), str)
+assert_type(f(0.0, **{}), float)
+    "#,
+);
+
+testcase!(
+    test_unpack_required,
+    r#"
+from typing import assert_type, overload
+
+@overload
+def f(x: str, /) -> str: ...
+@overload
+def f(x: int, y: int, /) -> int: ...
+def f(x, y=0) -> str | int: ...
+
+def g(*args: int):
+    assert_type(f(0, *args), int)
+    "#,
+);
