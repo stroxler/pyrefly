@@ -1480,11 +1480,15 @@ impl Type {
     }
 
     pub fn materialize(&self) -> Self {
-        // TODO: also materialize the ellipsis in a Callable.
         self.clone().transform(&mut |ty| {
             if ty.is_any() {
                 *ty = Type::Materialization;
             }
+            ty.transform_toplevel_callable(&mut |callable: &mut Callable| {
+                if matches!(callable.params, Params::Ellipsis) {
+                    callable.params = Params::Materialization;
+                }
+            })
         })
     }
 }

@@ -1010,7 +1010,7 @@ def g(x: list[Any]):
 );
 
 testcase!(
-    test_callable_materialization,
+    test_callable_param_materialization,
     r#"
 from typing import Any, assert_type, Callable, Never, overload
 
@@ -1035,6 +1035,39 @@ def f3(x: Any) -> int | str: ...
 def g(x: Callable[[Any], None]):
     assert_type(f1(x), Any)
     assert_type(f2(x), int)
+    assert_type(f3(x), int)
+    "#,
+);
+
+testcase!(
+    test_callable_ellipsis_materialization,
+    r#"
+from typing import Any, assert_type, Callable, overload, Protocol
+
+class EverythingCallback(Protocol):
+    def __call__(self, *args, **kwargs) -> None: ...
+
+@overload
+def f1(x: EverythingCallback) -> int: ...
+@overload
+def f1(x: Callable[[], None]) -> str: ...
+def f1(x: Any) -> int | str: ...
+
+@overload
+def f2(x: Callable[[EverythingCallback], None]) -> int: ...
+@overload
+def f2(x: Callable[[Callable[[], None]], None]) -> str: ...
+def f2(x: Any) -> int | str: ...
+
+@overload
+def f3(x: Callable[..., None]) -> int: ...
+@overload
+def f3(x: Callable[[], None]) -> str: ...
+def f3(x: Any) -> int | str: ...
+
+def g(x: Callable[..., None], y: Callable[[Callable[..., None]], None]):
+    assert_type(f1(x), Any)
+    assert_type(f2(y), int)
     assert_type(f3(x), int)
     "#,
 );

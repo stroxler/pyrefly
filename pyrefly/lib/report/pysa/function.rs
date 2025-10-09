@@ -343,7 +343,7 @@ fn export_function_parameters(params: &Params, context: &ModuleContext) -> Funct
                 .map(|param| export_function_parameter(param, context))
                 .collect(),
         ),
-        Params::Ellipsis => FunctionParameters::Ellipsis,
+        Params::Ellipsis | Params::Materialization => FunctionParameters::Ellipsis,
         Params::ParamSpec(_, _) => FunctionParameters::ParamSpec,
     }
 }

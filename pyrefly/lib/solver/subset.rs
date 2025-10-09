@@ -382,6 +382,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             (Params::ParamSpec(ls, p1), Params::ParamSpec(us, p2)) => {
                 self.is_paramspec_subset_of_paramspec(ls, p1, us, p2)
             }
+            (Params::Materialization, _) => Err(SubsetError::Other),
+            (_, Params::Materialization) => {
+                self.is_subset_params(l_params, &Params::List(ParamList::everything()))
+            }
         }
     }
 

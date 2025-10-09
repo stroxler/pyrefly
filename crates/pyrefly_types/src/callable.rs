@@ -207,6 +207,10 @@ impl ParamList {
 pub enum Params {
     List(ParamList),
     Ellipsis,
+    /// All possible materializations of `...`. A subset check with Callable[Materialization, R]
+    /// succeeds only if it would succeed with Materialization replaced with any parameter list.
+    /// See the comment on Type::Materialization - the intuition here is similar.
+    Materialization,
     /// Any arguments to Concatenate, followed by a ParamSpec.
     /// E.g. `Concatenate[int, str, P]` would be `ParamSpec([int, str], P)`,
     /// while `P` alone would be `ParamSpec([], P)`.
@@ -244,7 +248,7 @@ impl Params {
                 }
                 counts
             }
-            Self::Ellipsis => ArgCounts {
+            Self::Ellipsis | Self::Materialization => ArgCounts {
                 positional: ArgCount::any_allowed(),
                 keyword: ArgCount::any_allowed(),
             },
@@ -400,6 +404,7 @@ impl Callable {
                 write!(f, ") -> {}", wrap(&self.ret))
             }
             Params::Ellipsis => write!(f, "(...) -> {}", wrap(&self.ret)),
+            Params::Materialization => write!(f, "(Materialization) -> {}", wrap(&self.ret)),
             Params::ParamSpec(args, pspec) => {
                 write!(f, "({}", commas_iter(|| args.iter().map(wrap)))?;
                 match pspec {
@@ -441,9 +446,10 @@ impl Callable {
                 params.fmt_with_type_with_newlines(f, wrap)?;
                 write!(f, "\n) -> {}", wrap(&self.ret))
             }
-            Params::List(..) | Params::ParamSpec(..) | Params::Ellipsis => {
-                self.fmt_with_type(f, wrap)
-            }
+            Params::List(..)
+            | Params::ParamSpec(..)
+            | Params::Ellipsis
+            | Params::Materialization => self.fmt_with_type(f, wrap),
         }
     }
 
