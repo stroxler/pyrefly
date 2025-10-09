@@ -969,3 +969,60 @@ def g(x: int, y: Empty, z: dict[str, int]):
     assert_type(f(x, **z), str)
     "#,
 );
+
+testcase!(
+    test_materialization_eliminates_overload,
+    r#"
+from typing import Any, assert_type, overload
+
+@overload
+def f(x: list[Any]) -> int: ...
+@overload
+def f(x: list[str]) -> str: ...
+def f(x: list[Any]) -> int | str: ...
+
+def g(x: list[Any]):
+    # Because all materializations of `list[Any]` (the argument) are assignable to `list[Any]` (the
+    # type of parameter `x` in the first overload), we can eliminate the second overload, leaving
+    # us with the first overload with return type `int`.
+    assert_type(f(x), int)
+    "#,
+);
+
+testcase!(
+    bug = "The asserted type is wrong",
+    test_materialization_does_not_eliminate_overload,
+    r#"
+from typing import Any, assert_type, overload
+
+@overload
+def f(x: list[int]) -> int: ...
+@overload
+def f(x: list[str]) -> str: ...
+def f(x: Any) -> int | str: ...
+
+def g(x: list[Any]):
+    # There's no overload for which all materializations of `list[Any]` are assignable to the
+    # parameter type, so we keep all overloads. Their return types are not equivalent, so we fall
+    # back to `Any`.
+    assert_type(f(x), Any)  # E: assert_type(int, Any)
+
+    "#,
+);
+
+testcase!(
+    bug = "The asserted type is wrong",
+    test_callable_materialization,
+    r#"
+from typing import Any, assert_type, Callable, overload
+
+@overload
+def f(x: Callable[[int], None]) -> int: ...
+@overload
+def f(x: Callable[[str], None]) -> str: ...
+def f(x: Any) -> int | str: ...
+
+def g(x: Callable[[Any], None]):
+    assert_type(f(x), Any)  # E: assert_type(int, Any)
+    "#,
+);
