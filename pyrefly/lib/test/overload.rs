@@ -1026,3 +1026,27 @@ def g(x: Callable[[Any], None]):
     assert_type(f(x), Any)  # E: assert_type(int, Any)
     "#,
 );
+
+testcase!(
+    test_abstractmethod_does_not_need_implementation,
+    r#"
+from typing import overload
+from abc import ABC, abstractmethod
+
+class A(ABC):
+    @overload
+    @abstractmethod
+    def f(self, x: int) -> int: ...
+    @overload
+    @abstractmethod
+    def f(self, x: str) -> str: ...
+
+class B(ABC):
+    @abstractmethod
+    @overload
+    def f(self, x: int) -> int: ...
+    @abstractmethod
+    @overload
+    def f(Self, x: str) -> str: ...
+    "#,
+);

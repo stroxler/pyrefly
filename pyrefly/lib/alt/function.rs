@@ -90,7 +90,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         // Overloads in .pyi should not have an implementation.
         let skip_implementation = self.module().path().style() == ModuleStyle::Interface
-            || class_metadata.is_some_and(|idx| self.get_idx(*idx).is_protocol());
+            || class_metadata.is_some_and(|idx| self.get_idx(*idx).is_protocol())
+            || def.metadata().flags.is_abstract_method;
         if def.metadata().flags.is_overload {
             // This function is decorated with @overload. We should warn if this function is actually called anywhere.
             let successor = self.get_function_successor(&def);

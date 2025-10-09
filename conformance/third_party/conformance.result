@@ -245,7 +245,6 @@
   "overloads_consistency.py": [],
   "overloads_definitions.py": [
     "Lines 170, 175, 181, 183: Expected error (tag 'override-final')",
-    "Line 49: Unexpected errors ['Overloaded function must have an implementation']",
     "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
   ],
   "overloads_evaluation.py": [

@@ -7606,16 +7606,6 @@
       "column": 9,
       "concise_description": "Overloaded function must have an implementation",
       "description": "Overloaded function must have an implementation",
-      "line": 49,
-      "name": "invalid-overload",
-      "stop_column": 14,
-      "stop_line": 49
-    },
-    {
-      "code": -2,
-      "column": 9,
-      "concise_description": "Overloaded function must have an implementation",
-      "description": "Overloaded function must have an implementation",
       "line": 59,
       "name": "invalid-overload",
       "stop_column": 21,
