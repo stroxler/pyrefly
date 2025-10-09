@@ -1662,6 +1662,7 @@ impl<'a> Transaction<'a> {
                         ty: _,
                         is_deprecated: _,
                         definition: attribute_definition,
+                        docstring_range: _,
                     } in solver.completions(base_type, Some(expected_name), false)
                     {
                         if let Some((TextRangeWithModule { module, range }, _)) =

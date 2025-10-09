@@ -1813,6 +1813,7 @@ pub struct AttrInfo {
     pub ty: Option<Type>,
     pub is_deprecated: bool,
     pub definition: Option<AttrDefinition>,
+    pub docstring_range: Option<TextRange>,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -1839,6 +1840,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 definition: Some(AttrDefinition::FullyResolved(
                                     TextRangeWithModule::new(c.module().dupe(), range),
                                 )),
+                                docstring_range: None,
                             });
                         }
                     }
@@ -1852,6 +1854,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             definition: Some(AttrDefinition::FullyResolved(
                                 TextRangeWithModule::new(c.module().dupe(), range),
                             )),
+                            docstring_range: None,
                         });
                     }
                 }
@@ -1926,6 +1929,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         module_name,
                                     },
                                 ),
+                                docstring_range: match export_location {
+                                    ExportLocation::ThisModule(Export {
+                                        docstring_range, ..
+                                    }) => *docstring_range,
+                                    _ => None,
+                                },
                             }),
                     );
                 }
@@ -1948,6 +1957,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     module_name,
                                 },
                             ),
+                            docstring_range: match export_location {
+                                ExportLocation::ThisModule(Export {
+                                    docstring_range, ..
+                                }) => *docstring_range,
+                                _ => None,
+                            },
                         });
                     }
                 }
