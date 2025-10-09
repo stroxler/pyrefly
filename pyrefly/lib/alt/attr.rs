@@ -1813,6 +1813,7 @@ pub struct AttrInfo {
     pub ty: Option<Type>,
     pub is_deprecated: bool,
     pub definition: Option<AttrDefinition>,
+    #[expect(dead_code)]
     pub docstring_range: Option<TextRange>,
 }
 
