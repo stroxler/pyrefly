@@ -426,52 +426,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut matched_overloads = Vec::with_capacity(overloads.len());
         let mut closest_unmatched_overload: Option<CalledOverload> = None;
         for callable in overloads {
-            // Create a copy of the class type arguments (if any) that should be filled in by this call.
-            // The `callable_infer` call below will fill in this copy with the type arguments set
-            // by the current overload, and we'll later use the copy to fill in the original
-            // ctor_targs if this overload is chosen.
-            let mut overload_ctor_targs = ctor_targs.as_ref().map(|x| (**x).clone());
-            let tparams = callable.0.as_deref();
-
-            let mut try_call = |hint| {
-                let call_errors = self.error_collector();
-                let res = self.callable_infer(
-                    callable.1.signature.clone(),
-                    Some(metadata.kind.as_func_id()),
-                    tparams,
-                    self_obj.cloned(),
-                    args,
-                    keywords,
-                    range,
-                    errors,
-                    &call_errors,
-                    // We intentionally drop the context here, as arg errors don't need it,
-                    // and if there are any call errors, we'll log a "No matching overloads"
-                    // error with the necessary context.
-                    None,
-                    hint,
-                    overload_ctor_targs.as_mut(),
-                );
-                (call_errors, res)
-            };
-
-            // We want to use our hint to contextually type the arguments, but errors resulting
-            // from the hint should not influence overload selection. If there are call errors, we
-            // try again without a hint in case we can still match this overload.
-            let (call_errors, res) = try_call(hint);
-            let (call_errors, res) =
-                if tparams.is_some() && hint.is_some() && !call_errors.is_empty() {
-                    try_call(None)
-                } else {
-                    (call_errors, res)
-                };
-
-            let called_overload = CalledOverload {
-                func: callable.1.clone(),
-                res,
-                ctor_targs: overload_ctor_targs,
-                call_errors,
-            };
+            let called_overload = self.try_call_overload(
+                callable, metadata, self_obj, args, keywords, range, errors, hint, ctor_targs,
+            );
             if called_overload.call_errors.is_empty() {
                 matched_overloads.push(called_overload);
             } else {
@@ -527,6 +484,65 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // TODO: implement step 5, checking possible materializations
             // Step 6: if there are still multiple matches, pick the first one.
             (matched_overloads.into_iter().next().unwrap(), true)
+        }
+    }
+
+    fn try_call_overload(
+        &self,
+        callable: &TargetWithTParams<Function>,
+        metadata: &FuncMetadata,
+        self_obj: Option<&Type>,
+        args: &[CallArg],
+        keywords: &[CallKeyword],
+        range: TextRange,
+        errors: &ErrorCollector,
+        hint: Option<HintRef>,
+        ctor_targs: &Option<&mut TArgs>,
+    ) -> CalledOverload {
+        // Create a copy of the class type arguments (if any) that should be filled in by this call.
+        // The `callable_infer` call below will fill in this copy with the type arguments set
+        // by the current overload, and we'll later use the copy to fill in the original
+        // ctor_targs if this overload is chosen.
+        let mut overload_ctor_targs = ctor_targs.as_ref().map(|x| (**x).clone());
+        let tparams = callable.0.as_deref();
+
+        let mut try_call = |hint| {
+            let call_errors = self.error_collector();
+            let res = self.callable_infer(
+                callable.1.signature.clone(),
+                Some(metadata.kind.as_func_id()),
+                tparams,
+                self_obj.cloned(),
+                args,
+                keywords,
+                range,
+                errors,
+                &call_errors,
+                // We intentionally drop the context here, as arg errors don't need it,
+                // and if there are any call errors, we'll log a "No matching overloads"
+                // error with the necessary context.
+                None,
+                hint,
+                overload_ctor_targs.as_mut(),
+            );
+            (call_errors, res)
+        };
+
+        // We want to use our hint to contextually type the arguments, but errors resulting
+        // from the hint should not influence overload selection. If there are call errors, we
+        // try again without a hint in case we can still match this overload.
+        let (call_errors, res) = try_call(hint);
+        let (call_errors, res) = if tparams.is_some() && hint.is_some() && !call_errors.is_empty() {
+            try_call(None)
+        } else {
+            (call_errors, res)
+        };
+
+        CalledOverload {
+            func: callable.1.clone(),
+            res,
+            ctor_targs: overload_ctor_targs,
+            call_errors,
         }
     }
 }
