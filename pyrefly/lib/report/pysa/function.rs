@@ -93,6 +93,7 @@ fn assert_function_in_context(function: &DecoratedFunction, context: &ModuleCont
 impl FunctionRef {
     pub fn from_decorated_function(function: &DecoratedFunction, context: &ModuleContext) -> Self {
         assert_function_in_context(function, context);
+        assert!(should_export_function(function, context));
         let name = function.metadata().kind.as_func_id().func;
         let display_range = context.module_info.display_range(function.id_range());
         FunctionRef {
@@ -510,37 +511,39 @@ pub fn export_function_definitions(
         .unwrap();
 
     for function in get_all_functions(context) {
+        if !should_export_function(&function, context) {
+            continue;
+        }
         let current_function = FunctionRef::from_decorated_function(&function, context);
-        if let Some(function_base_definition) = function_base_definitions_for_module
+        let function_base_definition = function_base_definitions_for_module
             .0
             .get(&current_function.function_id)
-        {
-            let undecorated_signatures = get_undecorated_signatures(&function, context);
+            .unwrap();
+        let undecorated_signatures = get_undecorated_signatures(&function, context);
 
-            let captured_variables = captured_variables
-                .get(&current_function)
-                .map(|set| set.iter().cloned().collect::<Vec<_>>())
-                .unwrap_or_default();
+        let captured_variables = captured_variables
+            .get(&current_function)
+            .map(|set| set.iter().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
 
-            let decorator_callees =
-                get_decorator_callees(&function, function_base_definitions, context);
+        let decorator_callees =
+            get_decorator_callees(&function, function_base_definitions, context);
 
-            assert!(
-                function_definitions
-                    .0
-                    .insert(
-                        current_function.function_id.clone(),
-                        FunctionDefinition {
-                            base: function_base_definition.to_owned(),
-                            undecorated_signatures,
-                            captured_variables,
-                            decorator_callees,
-                        },
-                    )
-                    .is_none(),
-                "Found multiple function definitions with the same function id"
-            );
-        }
+        assert!(
+            function_definitions
+                .0
+                .insert(
+                    current_function.function_id.clone(),
+                    FunctionDefinition {
+                        base: function_base_definition.to_owned(),
+                        undecorated_signatures,
+                        captured_variables,
+                        decorator_callees,
+                    },
+                )
+                .is_none(),
+            "Found multiple function definitions with the same function id"
+        );
     }
 
     function_definitions
