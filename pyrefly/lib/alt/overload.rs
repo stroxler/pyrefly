@@ -230,7 +230,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .as_ref()
                     .is_none_or(|(_, n)| *n > mismatch_size)
                 {
-                    arity_closest_overload = Some((overload.clone(), mismatch_size));
+                    arity_closest_overload = Some((*overload, mismatch_size));
                 }
                 mismatch_size == 0
             })
