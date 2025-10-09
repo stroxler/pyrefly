@@ -454,3 +454,33 @@ def foo(c: C):
         )]
     },
 }
+
+call_graph_testcase! {
+    test_method_call_on_inherited_class_without_override,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def m(self):
+    ...
+class D(C):
+  pass
+class E(D):
+  def m(self):
+    ...
+def foo(d: D):
+  d.m()
+"#,
+    &|context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.E.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.D".to_owned(), context),
+            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.D".to_owned(), context)
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("11:3-11:8".to_owned(), call_callees(call_targets.clone())),
+                ("11:3-11:6".to_owned(), attribute_access_callees(call_targets.clone()))
+            ],
+        )]
+    },
+}

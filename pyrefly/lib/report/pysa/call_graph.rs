@@ -20,14 +20,20 @@ use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use serde::Serialize;
 
+use crate::binding::binding::Binding;
+use crate::binding::binding::BindingClassField;
+use crate::binding::binding::ClassFieldDefinition;
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
 use crate::report::pysa::ast_visitor::Scopes;
 use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::class::ClassRef;
+use crate::report::pysa::class::get_class_field_declaration;
+use crate::report::pysa::class::get_context_from_class;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionRef;
@@ -35,6 +41,7 @@ use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::override_graph::OverrideGraph;
+use crate::report::pysa::override_graph::get_last_definition;
 use crate::report::pysa::types::has_superclass;
 use crate::state::lsp::FindPreference;
 
@@ -459,6 +466,33 @@ impl<'a> CallGraphVisitor<'a> {
             )
     }
 
+    fn get_overriding_callee(
+        &self,
+        overriding_class: &ClassRef,
+        callee_name: &Name,
+    ) -> Option<FunctionRef> {
+        let context = get_context_from_class(&overriding_class.class, self.module_context);
+        get_class_field_declaration(&overriding_class.class, callee_name, &context).and_then(
+            |field_binding| match field_binding {
+                BindingClassField {
+                    definition: ClassFieldDefinition::MethodLike { definition, .. },
+                    ..
+                } => {
+                    let binding = context.bindings.get(*definition);
+                    if let Binding::Function(key_decorated_function, ..) = binding {
+                        Some(FunctionRef::from_decorated_function(
+                            &get_last_definition(*key_decorated_function, &context),
+                            &context,
+                        ))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
+        )
+    }
+
     // Figure out what target to pick for an indirect call that resolves to implementation_target.
     // E.g., if the receiver type is A, and A derives from Base, and the target is Base.method, then
     // targeting the override tree of Base.method is wrong, as it would include all siblings for A.//
@@ -502,7 +536,7 @@ impl<'a> CallGraphVisitor<'a> {
         } else if let Some(overriding_classes) = self.override_graph.get_overriding_classes(&callee)
         {
             // case c
-            overriding_classes
+            let mut callees = overriding_classes
                 .iter()
                 .filter_map(|overriding_class| {
                     if has_superclass(
@@ -510,18 +544,15 @@ impl<'a> CallGraphVisitor<'a> {
                         &receiver_class.class,
                         self.module_context,
                     ) {
-                        let overriding_callee = FunctionRef {
-                            module_id: overriding_class.module_id,
-                            module_name: overriding_class.class.module_name(),
-                            function_id: callee.function_id.clone(),
-                            function_name: callee.function_name.clone(),
-                        };
-                        Some(get_actual_target(overriding_callee))
+                        self.get_overriding_callee(overriding_class, &callee.function_name)
+                            .map(&get_actual_target)
                     } else {
                         None
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            callees.push(Target::Function(callee));
+            callees
         } else {
             // case b
             vec![Target::Function(callee)]

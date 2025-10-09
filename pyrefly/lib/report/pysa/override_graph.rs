@@ -21,6 +21,7 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::graph::index::Idx;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::class::get_class_field_declaration;
+use crate::report::pysa::class::get_context_from_class;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
 use crate::report::pysa::function::FunctionId;
@@ -92,7 +93,7 @@ impl WholeProgramReversedOverrideGraph {
 }
 
 // Requires `context` to be the module context of the decorated function.
-fn get_last_definition(
+pub fn get_last_definition(
     key_decorated_function: Idx<KeyDecoratedFunction>,
     context: &ModuleContext,
 ) -> DecoratedFunction {
@@ -127,13 +128,7 @@ fn get_super_class_member(
         .flatten()?;
 
     // Important: we need to use the module context of the class.
-    let module = super_class_member.defining_class.module();
-    let handle = Handle::new(
-        module.name(),
-        module.path().clone(),
-        context.handle.sys_info().clone(),
-    );
-    let context = ModuleContext::create(handle, context.transaction, context.module_ids).unwrap();
+    let context = get_context_from_class(&super_class_member.defining_class, context);
 
     get_class_field_declaration(&super_class_member.defining_class, field, &context)
         .and_then(|binding_class_field| {

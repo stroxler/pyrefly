@@ -10,6 +10,7 @@ use std::ops::Not;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_types::class::Class;
 use ruff_python_ast::AnyNodeRef;
@@ -224,6 +225,18 @@ pub fn get_class_field(
             solver.get_field_from_current_class_only(class, field)
         })
         .unwrap()
+}
+
+pub fn get_context_from_class<'a>(
+    class: &'a Class,
+    context: &'a ModuleContext<'a>,
+) -> ModuleContext<'a> {
+    let handle = Handle::new(
+        class.module_name(),
+        class.module_path().clone(),
+        context.handle.sys_info().clone(),
+    );
+    ModuleContext::create(handle, context.transaction, context.module_ids).unwrap()
 }
 
 pub fn get_class_field_declaration<'a>(

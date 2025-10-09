@@ -45,7 +45,6 @@ impl ModuleContext<'_> {
         let module_info = transaction.get_module_info(&handle)?;
         let module_id = module_ids.get(ModuleKey::from_handle(&handle))?;
         Some(ModuleContext {
-            handle,
             transaction,
             bindings,
             answers,
@@ -54,6 +53,7 @@ impl ModuleContext<'_> {
             module_info,
             module_id,
             module_ids,
+            handle,
         })
     }
 }
