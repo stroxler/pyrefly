@@ -40,6 +40,7 @@ fn get_test_report(
             data,
             tags,
             text_edit,
+            documentation,
             ..
         } in state
             .transaction()
@@ -72,6 +73,10 @@ fn get_test_report(
                 if let Some(text_edit) = text_edit {
                     report.push_str(" with text edit: ");
                     report.push_str(&format!("{:?}", &text_edit));
+                }
+                if let Some(lsp_types::Documentation::MarkupContent(markup)) = documentation {
+                    report.push('\n');
+                    report.push_str(&markup.value);
                 }
             }
         }
@@ -126,7 +131,7 @@ class Foo:
     @property
     def also_not_ok(self) -> int: ...
 foo = Foo()
-foo. 
+foo.
 #   ^
 "#;
     let report =
@@ -134,7 +139,7 @@ foo.
     assert_eq!(
         r#"
 # main.py
-11 | foo. 
+11 | foo.
          ^
 Completion Results:
 - (Field) [DEPRECATED] also_not_ok: int
@@ -152,7 +157,7 @@ fn complete_deprecated_class() {
 from warnings import deprecated
 @deprecated("this class is deprecated")
 class MyDeprecatedClass: pass
-MyDe 
+MyDe
 #   ^
 "#;
     let report =
@@ -160,7 +165,7 @@ MyDe
     assert_eq!(
         r#"
 # main.py
-5 | MyDe 
+5 | MyDe
         ^
 Completion Results:
 - (Class) [DEPRECATED] MyDeprecatedClass: type[MyDeprecatedClass]
@@ -456,7 +461,7 @@ fn from_import_empty_test() {
 imperial_guard = "cool"
 "#;
     let main_code = r#"
-from foo import 
+from foo import
 #              ^
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
@@ -466,7 +471,7 @@ from foo import
     assert_eq!(
         r#"
 # main.py
-2 | from foo import 
+2 | from foo import
                    ^
 Completion Results:
 
@@ -1909,6 +1914,122 @@ foo(x="x")
 3 | foo(x="x")
            ^
 Completion Results:
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn completion_with_imported_class_docstring() {
+    let lib = r#"
+class Foo:
+    """This is a Foo class with useful functionality."""
+    pass
+"#;
+    let main = r#"
+from lib import Foo
+F
+#^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", main), ("lib", lib)],
+        get_default_test_report(),
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | F
+     ^
+Completion Results:
+- (Class) Foo: type[Foo]
+This is a Foo class with useful functionality.
+
+
+# lib.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn completion_with_imported_function_docstring() {
+    let lib = r#"
+def bar():
+    """This function does something useful."""
+    pass
+"#;
+    let main = r#"
+from lib import bar
+b
+#^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", main), ("lib", lib)],
+        get_default_test_report(),
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | b
+     ^
+Completion Results:
+- (Function) bar: () -> None
+This function does something useful.
+
+
+# lib.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn completion_with_local_class_docstring() {
+    let code = r#"
+class Foo:
+    """This is a local Foo class with useful functionality."""
+    pass
+F
+#^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+5 | F
+     ^
+Completion Results:
+- (Class) Foo: type[Foo]
+This is a local Foo class with useful functionality.
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn completion_with_local_function_docstring() {
+    let code = r#"
+def bar():
+    """This function does something useful."""
+    pass
+b
+#^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+5 | b
+     ^
+Completion Results:
+- (Function) bar: () -> None
+This function does something useful.
 "#
         .trim(),
         report.trim(),

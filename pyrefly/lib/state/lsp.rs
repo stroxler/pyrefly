@@ -1866,6 +1866,21 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    fn get_documentation_from_export(
+        &self,
+        export_info: Option<(Handle, Export)>,
+    ) -> Option<lsp_types::Documentation> {
+        let (definition_handle, export) = export_info?;
+        let docstring_range = export.docstring_range?;
+        let def_module = self.get_module_info(&definition_handle)?;
+        let docstring = Docstring(docstring_range, def_module.clone()).resolve();
+        let documentation = lsp_types::Documentation::MarkupContent(lsp_types::MarkupContent {
+            kind: lsp_types::MarkupKind::Markdown,
+            value: docstring,
+        });
+        Some(documentation)
+    }
+
     /// Adds completions for local variables and returns true if we have added any
     /// If an identifier is present, filter matches
     fn add_local_variable_completions(
@@ -1894,12 +1909,23 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let binding = bindings.get(idx);
-                let kind = binding
-                    .symbol_kind()
-                    .map_or(CompletionItemKind::VARIABLE, |k| {
-                        k.to_lsp_completion_item_kind()
-                    });
                 let ty = self.get_type(handle, key);
+                let export_info = self.key_to_export(handle, key, &FindPreference::default());
+
+                let kind = if let Some((_, ref export)) = export_info {
+                    export
+                        .symbol_kind
+                        .map_or(CompletionItemKind::VARIABLE, |k| {
+                            k.to_lsp_completion_item_kind()
+                        })
+                } else {
+                    binding
+                        .symbol_kind()
+                        .map_or(CompletionItemKind::VARIABLE, |k| {
+                            k.to_lsp_completion_item_kind()
+                        })
+                };
+
                 let is_deprecated = ty.as_ref().is_some_and(|t| {
                     if let Type::ClassDef(cls) = t {
                         self.ad_hoc_solve(handle, |solver| {
@@ -1911,11 +1937,14 @@ impl<'a> Transaction<'a> {
                     }
                 });
                 let detail = ty.map(|t| t.to_string());
+                let documentation = self.get_documentation_from_export(export_info);
+
                 has_added_any = true;
                 completions.push(CompletionItem {
                     label: label.to_owned(),
                     detail,
                     kind: Some(kind),
+                    documentation,
                     tags: if is_deprecated {
                         Some(vec![CompletionItemTag::DEPRECATED])
                     } else {
