@@ -2251,9 +2251,7 @@ impl<'a> BindingsBuilder<'a> {
         );
         let branches = fork.branches;
         if let Some(negated_prev_ops) = negated_prev_ops_if_nonexhaustive {
-            let mut base = fork.base;
-            let scope = self.scopes.current_mut();
-            mem::swap(&mut scope.flow, &mut base);
+            self.scopes.current_mut().flow = fork.base.clone();
             self.bind_narrow_ops(
                 negated_prev_ops,
                 // Note: the range only has to be distinct from other use_ranges of the same narrow, so
