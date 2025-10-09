@@ -103,6 +103,29 @@ obj.method(5, "world")
     assert_eq!(
         r#"
 # main.py
+8 | result = my_function(10, "hello", True)
+                         ^ inlay-hint: `x= `
+
+8 | result = my_function(10, "hello", True)
+                             ^ inlay-hint: `y= `
+
+8 | result = my_function(10, "hello", True)
+                                      ^ inlay-hint: `z= `
+
+9 | output = another_func("test", 42, True)
+                          ^ inlay-hint: `name= `
+
+9 | output = another_func("test", 42, True)
+                                  ^ inlay-hint: `value= `
+
+9 | output = another_func("test", 42, True)
+                                      ^ inlay-hint: `flag= `
+
+16 | obj.method(5, "world")
+                ^ inlay-hint: `param1= `
+
+16 | obj.method(5, "world")
+                   ^ inlay-hint: `param2= `
 "#
         .trim(),
         generate_inlay_hint_report(
@@ -144,6 +167,30 @@ obj.method(5, "world")
 
 9 | output = another_func("test", 42, True)
           ^ inlay-hint: `: str`
+
+8 | result = my_function(10, "hello", True)
+                         ^ inlay-hint: `x= `
+
+8 | result = my_function(10, "hello", True)
+                             ^ inlay-hint: `y= `
+
+8 | result = my_function(10, "hello", True)
+                                      ^ inlay-hint: `z= `
+
+9 | output = another_func("test", 42, True)
+                          ^ inlay-hint: `name= `
+
+9 | output = another_func("test", 42, True)
+                                  ^ inlay-hint: `value= `
+
+9 | output = another_func("test", 42, True)
+                                      ^ inlay-hint: `flag= `
+
+16 | obj.method(5, "world")
+                ^ inlay-hint: `param1= `
+
+16 | obj.method(5, "world")
+                   ^ inlay-hint: `param2= `
 "#
         .trim(),
         generate_inlay_hint_report(

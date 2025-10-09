@@ -86,7 +86,7 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum AllOffPartial {
     All,
@@ -99,7 +99,6 @@ pub enum AllOffPartial {
 #[serde(rename_all = "camelCase")]
 pub struct InlayHintConfig {
     #[serde(default)]
-    #[expect(unused)]
     pub call_argument_names: AllOffPartial,
     #[serde(default = "default_true")]
     pub function_return_types: bool,
@@ -2497,7 +2496,81 @@ impl<'a> Transaction<'a> {
                 _ => {}
             }
         }
+
+        if inlay_hint_config.call_argument_names != AllOffPartial::Off {
+            res.extend(self.add_inlay_hints_for_positional_function_args(handle));
+        }
+
         Some(res)
+    }
+
+    fn collect_function_calls_from_ast(module: Arc<ModModule>) -> Vec<ExprCall> {
+        fn collect_function_calls(x: &Expr, calls: &mut Vec<ExprCall>) {
+            if let Expr::Call(call) = x {
+                calls.push(call.clone());
+            }
+            x.recurse(&mut |x| collect_function_calls(x, calls));
+        }
+
+        let mut function_calls = Vec::new();
+        module.visit(&mut |x| collect_function_calls(x, &mut function_calls));
+        function_calls
+    }
+
+    fn add_inlay_hints_for_positional_function_args(
+        &self,
+        handle: &Handle,
+    ) -> Vec<(TextSize, String)> {
+        let mut param_hints: Vec<(TextSize, String)> = Vec::new();
+
+        if let Some(mod_module) = self.get_ast(handle) {
+            let function_calls = Self::collect_function_calls_from_ast(mod_module);
+
+            for call in function_calls {
+                if let Some(answers) = self.get_answers(handle) {
+                    let callee_type = if let Some((overloads, chosen_idx)) =
+                        answers.get_all_overload_trace(call.arguments.range)
+                    {
+                        // If we have overload information, use the chosen overload
+                        overloads
+                            .get(chosen_idx.unwrap_or_default())
+                            .map(|c| Type::Callable(Box::new(c.clone())))
+                    } else {
+                        // Otherwise, try to get the type of the callee directly
+                        answers.get_type_trace(call.func.range())
+                    };
+
+                    if let Some(params) =
+                        callee_type.and_then(Self::normalize_singleton_function_type_into_params)
+                    {
+                        for (arg_idx, arg) in call.arguments.args.iter().enumerate() {
+                            // Skip keyword arguments - they already show their parameter name
+                            let is_keyword_arg = call
+                                .arguments
+                                .keywords
+                                .iter()
+                                .any(|kw| kw.value.range() == arg.range());
+
+                            if !is_keyword_arg
+                                && let Some(
+                                    Param::Pos(name, _, _)
+                                    | Param::PosOnly(Some(name), _, _)
+                                    | Param::KwOnly(name, _, _),
+                                ) = params.get(arg_idx)
+                                && name.as_str() != "self"
+                                && name.as_str() != "cls"
+                            {
+                                param_hints
+                                    .push((arg.range().start(), format!("{}= ", name.as_str())));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        param_hints.sort_by_key(|(pos, _)| *pos);
+        param_hints
     }
 
     pub fn semantic_tokens(
