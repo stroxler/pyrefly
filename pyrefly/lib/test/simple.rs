@@ -1814,3 +1814,19 @@ testcase!(
 (),*()
     "#,
 );
+
+testcase!(
+    test_asyncio_gather,
+    r#"
+import asyncio
+from typing import assert_type
+
+async def wait(n: int) -> int:
+    await asyncio.sleep(0.1)
+    return n
+
+async def main() -> None:
+    a = await asyncio.gather(*[wait(i) for i in range(10)])
+    assert_type(a, list[int])
+    "#,
+);

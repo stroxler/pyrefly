@@ -15,6 +15,7 @@ use itertools::Itertools;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::ArgCount;
 use pyrefly_types::callable::ArgCounts;
+use pyrefly_types::callable::Param;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::tuple::Tuple;
 use pyrefly_types::types::CalleeKind;
@@ -1221,10 +1222,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             if called_overload.call_errors.is_empty() {
                 matched_overloads.push(called_overload);
-                // TODO: we currently take the first matching overload. We should instead collect
-                // all possible matches and use steps 4-6 described here to select one:
-                // https://typing.python.org/en/latest/spec/overload.html#step-4.
-                break;
             } else {
                 match &closest_unmatched_overload {
                     Some(overload)
@@ -1239,6 +1236,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // There's always at least one overload, so if none of them matched, the closest overload must be non-None.
             (closest_unmatched_overload.unwrap(), false)
         } else {
+            // If there are multiple overloads, use steps 4-6 here to select one:
+            // https://typing.python.org/en/latest/spec/overload.html#overload-call-evaluation.
+            if matched_overloads.len() > 1 {
+                // Step 4: if any arguments supply an unknown number of args and at least one
+                // overload has a corresponding variadic parameter, eliminate overloads without
+                // this parameter.
+                let nargs_unknown = args.iter().any(|arg| match arg {
+                    CallArg::Arg(_) => false,
+                    CallArg::Star(val, _) => {
+                        !matches!(val.infer(self, errors), Type::Tuple(Tuple::Concrete(_)))
+                    }
+                });
+                if nargs_unknown {
+                    let has_varargs = |o: &CalledOverload| {
+                        matches!(
+                            &o.func.signature.params, Params::List(params)
+                            if params.items().iter().any(|p| matches!(p, Param::VarArg(..))))
+                    };
+                    if matched_overloads.iter().any(has_varargs) {
+                        matched_overloads.retain(has_varargs);
+                    }
+                }
+                let nkeywords_unknown = keywords.iter().any(|kw| {
+                    kw.arg.is_none() && !matches!(kw.value.infer(self, errors), Type::TypedDict(_))
+                });
+                if nkeywords_unknown {
+                    let has_kwargs = |o: &CalledOverload| {
+                        matches!(
+                            &o.func.signature.params, Params::List(params)
+                            if params.items().iter().any(|p| matches!(p, Param::Kwargs(..))))
+                    };
+                    if matched_overloads.iter().any(has_kwargs) {
+                        matched_overloads.retain(has_kwargs);
+                    }
+                }
+            }
+            // TODO: implement step 5, checking possible materializations
+            // Step 6: if there are still multiple matches, pick the first one.
             (matched_overloads.into_iter().next().unwrap(), true)
         }
     }

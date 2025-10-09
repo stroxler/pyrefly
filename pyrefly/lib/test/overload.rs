@@ -932,3 +932,40 @@ def g(*args: int):
     assert_type(f(0, *args), int)
     "#,
 );
+
+testcase!(
+    test_select_using_args,
+    r#"
+from typing import assert_type, overload
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: int, *args: int) -> str: ...
+def f(x: int, *args: int) -> int | str: ...
+
+def g(x: int, y: tuple[()], z: tuple[int, ...]):
+    assert_type(f(x, *y), int)
+    assert_type(f(x, *z), str)
+    "#,
+);
+
+testcase!(
+    test_select_using_kwargs,
+    r#"
+from typing import assert_type, overload, TypedDict
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: int, **kwargs: int) -> str: ...
+def f(x: int, **kwargs: int) -> int | str: ...
+
+class Empty(TypedDict):
+    pass
+
+def g(x: int, y: Empty, z: dict[str, int]):
+    assert_type(f(x, **y), int)
+    assert_type(f(x, **z), str)
+    "#,
+);
