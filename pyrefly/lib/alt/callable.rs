@@ -146,6 +146,11 @@ impl<'a> CallKeyword<'a> {
             value: TypeOrExpr::Expr(&x.value),
         }
     }
+
+    pub fn materialize(&self) -> (Self, bool) {
+        // TODO: materialize this argument
+        (self.clone(), false)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -181,6 +186,11 @@ impl<'a> CallArg<'a> {
             Expr::Starred(inner) => Self::Star(TypeOrExpr::Expr(&inner.value), x.range()),
             _ => Self::expr(x),
         }
+    }
+
+    pub fn materialize(&self) -> (Self, bool) {
+        // TODO: materialize this argument
+        (self.clone(), false)
     }
 
     // Splat arguments might be fixed-length tuples, which are handled precisely, or have unknown

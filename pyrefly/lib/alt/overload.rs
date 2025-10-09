@@ -482,9 +482,63 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             }
-            // TODO: implement step 5, checking possible materializations
+            if matched_overloads.len() > 1 {
+                // Step 5, part 1: for each overload, check whether it's the case that all possible
+                // materializations of each argument are assignable to the corresponding parameter.
+                // If so, eliminate all subsequent overloads.
+                let mut changed = false;
+                let materialized_args = args.map(|arg| {
+                    let (materialized_arg, arg_changed) = arg.materialize();
+                    changed |= arg_changed;
+                    materialized_arg
+                });
+                let materialized_keywords = keywords.map(|kw| {
+                    let (materialized_kw, kw_changed) = kw.materialize();
+                    changed |= kw_changed;
+                    materialized_kw
+                });
+                let split_point = if !changed {
+                    // Shortcut: if the arguments haven't changed, we know that the first overload
+                    // matches and we can eliminate all the rest.
+                    Some(1)
+                } else {
+                    matched_overloads
+                        .iter()
+                        .find_position(|o| {
+                            let res = self.try_call_overload(
+                                &o.func,
+                                metadata,
+                                self_obj,
+                                &materialized_args,
+                                &materialized_keywords,
+                                range,
+                                errors,
+                                hint,
+                                &None,
+                            );
+                            res.call_errors.is_empty()
+                        })
+                        .map(|(split_point, _)| split_point + 1)
+                };
+                if let Some(split_point) = split_point {
+                    let _ = matched_overloads.split_off(split_point);
+                }
+            }
+            // Step 5, part 2: are all remaining return types equivalent to one another?
+            // If not, the call is ambiguous.
+            let mut matched_overloads = matched_overloads.into_iter();
+            let first_overload = matched_overloads.next().unwrap();
+            if matched_overloads.any(|o| !self.is_equal(&first_overload.res, &o.res)) {
+                return (
+                    CalledOverload {
+                        res: Type::any_implicit(),
+                        ..first_overload
+                    },
+                    true,
+                );
+            }
             // Step 6: if there are still multiple matches, pick the first one.
-            (matched_overloads.into_iter().next().unwrap(), true)
+            (first_overload, true)
         }
     }
 
