@@ -2034,10 +2034,19 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn merge_flow(&mut self, mut branches: Vec<Flow>, range: TextRange, merge_style: MergeStyle) {
+    fn merge_flow(
+        &mut self,
+        base: Flow,
+        mut branches: Vec<Flow>,
+        range: TextRange,
+        merge_style: MergeStyle,
+    ) {
         // Include the current flow in the merge if the merge style calls for it.
         if matches!(merge_style, MergeStyle::Loop | MergeStyle::Inclusive) {
             branches.push(mem::take(&mut self.scopes.current_mut().flow));
+        }
+        if matches!(merge_style, MergeStyle::Loop) {
+            branches.push(base);
         }
 
         // Short circuit when there is only one flow.
@@ -2132,19 +2141,23 @@ impl<'a> BindingsBuilder<'a> {
         is_while_true: bool,
     ) {
         let done = self.scopes.finish_loop();
-        let (breaks, mut other_exits): (Vec<Flow>, Vec<Flow>) = done
-            .exits
-            .into_iter()
-            .partition_map(|(exit, flow)| match exit {
-                LoopExit::Break => Either::Left(flow),
-                LoopExit::Continue => Either::Right(flow),
-            });
-        other_exits.push(done.base);
+        let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
+            done.exits
+                .into_iter()
+                .partition_map(|(exit, flow)| match exit {
+                    LoopExit::Break => Either::Left(flow),
+                    LoopExit::Continue => Either::Right(flow),
+                });
+        let base_if_breaks = if breaks.is_empty() {
+            None
+        } else {
+            Some(done.base.clone())
+        };
         // We associate a range to the non-`break` exits from the loop; it doesn't matter much what
         // it is as long as it's different from the loop's range.
         let other_range = TextRange::new(range.start(), range.start());
         // Create the loopback merge, which is the flow at the top of the loop.
-        self.merge_flow(other_exits, range, MergeStyle::Loop);
+        self.merge_flow(done.base, other_exits, range, MergeStyle::Loop);
         // When control falls off the end of a loop (either the `while` test fails or the loop
         // finishes), we're at the loopback flow but the test (if there is one) is negated.
         self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
@@ -2158,11 +2171,11 @@ impl<'a> BindingsBuilder<'a> {
         //
         // TODO(stroxler): in the `is_while_true` case, empty breaks might have implications
         // for flow termination and/or `NoReturn` behaviors, we should investigate.
-        if !breaks.is_empty() {
+        if let Some(base) = base_if_breaks {
             if is_while_true {
-                self.merge_flow(breaks, other_range, MergeStyle::Exclusive)
+                self.merge_flow(base, breaks, other_range, MergeStyle::Exclusive)
             } else {
-                self.merge_flow(breaks, other_range, MergeStyle::Inclusive)
+                self.merge_flow(base, breaks, other_range, MergeStyle::Inclusive)
             }
         }
     }
@@ -2259,9 +2272,10 @@ impl<'a> BindingsBuilder<'a> {
                 TextRange::default(),
                 &Usage::Narrowing(None),
             );
-            self.merge_flow(branches, fork.range, MergeStyle::Inclusive);
+            self.merge_flow(fork.base, branches, fork.range, MergeStyle::Inclusive);
         } else {
             self.merge_flow(
+                fork.base,
                 branches,
                 fork.range,
                 if is_bool_op {
