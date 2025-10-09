@@ -106,6 +106,16 @@ pub enum PysaClassMro {
     Cyclic,
 }
 
+/// See `pyrefly::binding::ClassFieldDeclaration`
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum PysaClassFieldDeclaration {
+    DeclaredByAnnotation,
+    DeclaredWithoutAnnotation,
+    AssignedInBody,
+    DefinedWithoutAssign,
+    DefinedInMethod,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct PysaClassField {
     #[serde(rename = "type")]
@@ -114,6 +124,8 @@ pub struct PysaClassField {
     pub explicit_annotation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<PysaLocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declaration_kind: Option<PysaClassFieldDeclaration>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -126,10 +138,39 @@ pub struct ClassDefinition {
     pub parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    pub is_dataclass: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    pub is_named_tuple: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    pub is_typed_dict: bool,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub fields: HashMap<String, PysaClassField>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
+}
+
+impl PysaClassFieldDeclaration {
+    fn from(definition: &ClassFieldDefinition) -> Option<Self> {
+        match definition {
+            ClassFieldDefinition::DeclaredByAnnotation { .. } => {
+                Some(PysaClassFieldDeclaration::DeclaredByAnnotation)
+            }
+            ClassFieldDefinition::DeclaredWithoutAnnotation => {
+                Some(PysaClassFieldDeclaration::DeclaredWithoutAnnotation)
+            }
+            ClassFieldDefinition::AssignedInBody { .. } => {
+                Some(PysaClassFieldDeclaration::AssignedInBody)
+            }
+            ClassFieldDefinition::DefinedWithoutAssign { .. } => {
+                Some(PysaClassFieldDeclaration::DefinedWithoutAssign)
+            }
+            ClassFieldDefinition::DefinedInMethod { .. } => {
+                Some(PysaClassFieldDeclaration::DefinedInMethod)
+            }
+            ClassFieldDefinition::MethodLike { .. } => None,
+        }
+    }
 }
 
 impl ClassDefinition {
@@ -157,6 +198,12 @@ impl ClassDefinition {
         decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
     ) -> Self {
         self.decorator_callees = decorator_callees;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_dataclass(mut self, is_dataclass: bool) -> Self {
+        self.is_dataclass = is_dataclass;
         self
     }
 }
@@ -257,7 +304,9 @@ pub fn export_class_fields(
                     // Exclude fields that are functions definitions, because they are already exported in `function_definitions`.
                     None
                 }
-                Some(BindingClassField { range, .. }) => Some((
+                Some(BindingClassField {
+                    range, definition, ..
+                }) => Some((
                     name.to_string(),
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
@@ -265,6 +314,7 @@ pub fn export_class_fields(
                         location: Some(PysaLocation::new(
                             context.module_info.display_range(*range),
                         )),
+                        declaration_kind: PysaClassFieldDeclaration::from(definition),
                     },
                 )),
                 _ => Some((
@@ -273,6 +323,7 @@ pub fn export_class_fields(
                         type_: PysaType::from_type(&field.ty(), context),
                         explicit_annotation,
                         location: None,
+                        declaration_kind: None,
                     },
                 )),
             }
@@ -365,6 +416,9 @@ pub fn export_all_classes(
             bases,
             mro,
             is_synthesized,
+            is_dataclass: metadata.dataclass_metadata().is_some(),
+            is_named_tuple: metadata.named_tuple_metadata().is_some(),
+            is_typed_dict: metadata.typed_dict_metadata().is_some(),
             fields,
             decorator_callees,
         };

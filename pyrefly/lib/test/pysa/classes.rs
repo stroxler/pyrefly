@@ -15,6 +15,7 @@ use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::class::ClassDefinition;
 use crate::report::pysa::class::ClassId;
 use crate::report::pysa::class::PysaClassField;
+use crate::report::pysa::class::PysaClassFieldDeclaration;
 use crate::report::pysa::class::PysaClassMro;
 use crate::report::pysa::class::export_all_classes;
 use crate::report::pysa::context::ModuleContext;
@@ -38,6 +39,9 @@ fn create_simple_class(name: &str, id: u32, parent: ScopeParent) -> ClassDefinit
         mro: PysaClassMro::Resolved(Vec::new()),
         parent,
         is_synthesized: false,
+        is_dataclass: false,
+        is_named_tuple: false,
+        is_typed_dict: false,
         fields: HashMap::new(),
         decorator_callees: HashMap::new(),
     }
@@ -222,6 +226,7 @@ class Foo:
                     ),
                     explicit_annotation: None,
                     location: Some(create_location(3, 11, 3, 14)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DefinedWithoutAssign),
                 },
             )])),
             create_simple_class(
@@ -284,6 +289,9 @@ Point = namedtuple('Point', ['x', 'y'])
             ]),
             parent: ScopeParent::TopLevel,
             is_synthesized: true,
+            is_dataclass: false,
+            is_named_tuple: true,
+            is_typed_dict: false,
             fields: HashMap::from([
                 (
                     "x".to_owned(),
@@ -291,6 +299,9 @@ Point = namedtuple('Point', ['x', 'y'])
                         type_: PysaType::any_implicit(),
                         explicit_annotation: None,
                         location: Some(create_location(3, 30, 3, 33)),
+                        declaration_kind: Some(
+                            PysaClassFieldDeclaration::DeclaredWithoutAnnotation,
+                        ),
                     },
                 ),
                 (
@@ -299,6 +310,9 @@ Point = namedtuple('Point', ['x', 'y'])
                         type_: PysaType::any_implicit(),
                         explicit_annotation: None,
                         location: Some(create_location(3, 35, 3, 38)),
+                        declaration_kind: Some(
+                            PysaClassFieldDeclaration::DeclaredWithoutAnnotation,
+                        ),
                     },
                 ),
             ]),
@@ -324,6 +338,7 @@ class Foo:
                     type_: PysaType::from_class_type(context.stdlib.int(), context),
                     explicit_annotation: Some("int".to_owned()),
                     location: Some(create_location(4, 5, 4, 6)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DeclaredByAnnotation),
                 },
             ),
             (
@@ -332,6 +347,7 @@ class Foo:
                     type_: PysaType::from_class_type(context.stdlib.str(), context),
                     explicit_annotation: Some("str".to_owned()),
                     location: Some(create_location(5, 5, 5, 6)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DeclaredByAnnotation),
                 },
             ),
             (
@@ -342,6 +358,7 @@ class Foo:
                         "typing.Annotated[bool, \"annotation for z\"]".to_owned(),
                     ),
                     location: Some(create_location(6, 5, 6, 6)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DeclaredByAnnotation),
                 },
             ),
         ]))
@@ -366,6 +383,7 @@ class Foo:
                     type_: PysaType::from_class_type(context.stdlib.int(), context),
                     explicit_annotation: Some("int".to_owned()),
                     location: Some(create_location(5, 14, 5, 15)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DefinedInMethod),
                 },
             ),
             (
@@ -374,6 +392,7 @@ class Foo:
                     type_: PysaType::from_class_type(context.stdlib.str(), context),
                     explicit_annotation: Some("str".to_owned()),
                     location: Some(create_location(6, 14, 6, 15)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DefinedInMethod),
                 },
             ),
             (
@@ -384,6 +403,7 @@ class Foo:
                         "typing.Annotated[bool, \"annotation for z\"]".to_owned(),
                     ),
                     location: Some(create_location(7, 14, 7, 15)),
+                    declaration_kind: Some(PysaClassFieldDeclaration::DefinedInMethod),
                 },
             ),
         ]))
@@ -400,24 +420,28 @@ class Foo:
     y: str
 "#,
     &|context: &ModuleContext| {
-        create_simple_class("Foo", 0, ScopeParent::TopLevel).with_fields(HashMap::from([
-            (
-                "x".to_owned(),
-                PysaClassField {
-                    type_: PysaType::from_class_type(context.stdlib.int(), context),
-                    explicit_annotation: Some("int".to_owned()),
-                    location: Some(create_location(5, 5, 5, 6)),
-                },
-            ),
-            (
-                "y".to_owned(),
-                PysaClassField {
-                    type_: PysaType::from_class_type(context.stdlib.str(), context),
-                    explicit_annotation: Some("str".to_owned()),
-                    location: Some(create_location(6, 5, 6, 6)),
-                },
-            ),
-        ]))
+        create_simple_class("Foo", 0, ScopeParent::TopLevel)
+            .with_is_dataclass(true)
+            .with_fields(HashMap::from([
+                (
+                    "x".to_owned(),
+                    PysaClassField {
+                        type_: PysaType::from_class_type(context.stdlib.int(), context),
+                        explicit_annotation: Some("int".to_owned()),
+                        location: Some(create_location(5, 5, 5, 6)),
+                        declaration_kind: Some(PysaClassFieldDeclaration::DeclaredByAnnotation),
+                    },
+                ),
+                (
+                    "y".to_owned(),
+                    PysaClassField {
+                        type_: PysaType::from_class_type(context.stdlib.str(), context),
+                        explicit_annotation: Some("str".to_owned()),
+                        location: Some(create_location(6, 5, 6, 6)),
+                        declaration_kind: Some(PysaClassFieldDeclaration::DeclaredByAnnotation),
+                    },
+                ),
+            ]))
     },
 );
 
