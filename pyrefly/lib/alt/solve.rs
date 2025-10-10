@@ -1158,36 +1158,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        let base_exception_class_type =
-            Type::type_form(self.stdlib.base_exception().clone().to_type());
-        let arg1 = Type::optional(base_exception_class_type);
-        let arg2 = Type::optional(self.stdlib.base_exception().clone().to_type());
-        let arg3 = Type::optional(self.stdlib.traceback_type().clone().to_type());
-        let exit_arg_types = [
-            CallArg::ty(&arg1, range),
-            CallArg::ty(&arg2, range),
-            CallArg::ty(&arg3, range),
-        ];
-        match kind {
+        // Call `__exit__` or `__aexit__` and unwrap the results if async, swallowing any errors from the call itself
+        let call_exit = |exit_arg_types, swallow_errors| match kind {
             IsAsync::Sync => self.call_method_or_error(
                 context_manager_type,
                 &kind.context_exit_dunder(),
                 range,
-                &exit_arg_types,
+                exit_arg_types,
                 &[],
-                errors,
+                swallow_errors,
                 context,
             ),
             IsAsync::Async => match self.unwrap_awaitable(&self.call_method_or_error(
                 context_manager_type,
                 &kind.context_exit_dunder(),
                 range,
-                &exit_arg_types,
+                exit_arg_types,
                 &[],
-                errors,
+                swallow_errors,
                 context,
             )) {
                 Some(ty) => ty,
+                // We emit this error directly, since it's different from type checking the arguments
                 None => self.error(
                     errors,
                     range,
@@ -1195,7 +1187,53 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!("Expected `{}` to be async", dunder::AEXIT),
                 ),
             },
+        };
+        let base_exception_class_type =
+            Type::type_form(self.stdlib.base_exception().clone().to_type());
+        let arg1 = base_exception_class_type;
+        let arg2 = self.stdlib.base_exception().clone().to_type();
+        let arg3 = self.stdlib.traceback_type().clone().to_type();
+        let exit_with_error_args = [
+            CallArg::ty(&arg1, range),
+            CallArg::ty(&arg2, range),
+            CallArg::ty(&arg3, range),
+        ];
+        let exit_ok_args = [
+            CallArg::ty(&Type::None, range),
+            CallArg::ty(&Type::None, range),
+            CallArg::ty(&Type::None, range),
+        ];
+        let exit_with_error_errors =
+            ErrorCollector::new(errors.module().clone(), ErrorStyle::Delayed);
+        let exit_with_ok_errors = ErrorCollector::new(errors.module().clone(), ErrorStyle::Delayed);
+        let error_args_result = call_exit(&exit_with_error_args, &exit_with_error_errors);
+        let ok_args_result = call_exit(&exit_ok_args, &exit_with_ok_errors);
+        // If the call only has one error we can directly forward it
+        // If there is more than one error, we emit a generic error instead of emitting one error for each mismatched argument
+        if exit_with_error_errors.len() <= 1 {
+            errors.extend(exit_with_error_errors);
+        } else {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::BadContextManager, context),
+                format!("`{}` must be callable with the argument types (type[BaseException], BaseException, TracebackType)", kind.context_exit_dunder()),
+            );
         }
+        if exit_with_ok_errors.len() <= 1 {
+            errors.extend(exit_with_ok_errors);
+        } else {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::BadContextManager, context),
+                format!(
+                    "`{}` must be callable with the argument types (None, None, None)",
+                    kind.context_exit_dunder()
+                ),
+            );
+        }
+        self.union(error_args_result, ok_args_result)
     }
 
     fn context_value(
