@@ -43,11 +43,8 @@
   ],
   "annotations_coroutines.py": [],
   "annotations_forward_refs.py": [
-    "Line 22: Expected 1 errors",
-    "Line 23: Expected 1 errors",
     "Line 24: Expected 1 errors",
     "Line 25: Expected 1 errors",
-    "Line 66: Expected 1 errors",
     "Line 87: Unexpected errors ['Expected a type form, got instance of `(self: Self@ClassD) -> None`']",
     "Line 96: Unexpected errors ['assert_type(Any, int) failed']"
   ],
@@ -141,9 +138,7 @@
     "Line 68: Unexpected errors ['assert_type(MyStr, str) failed', 'Argument `str` is not assignable to parameter `y` with type `MyStr` in function `concat`']"
   ],
   "generics_defaults.py": [
-    "Line 130: Unexpected errors ['assert_type(Any, int) failed']",
-    "Line 169: Unexpected errors ['assert_type([DefaultIntT](Foo7[DefaultIntT]) -> Foo7[DefaultIntT], (Foo7[int]) -> Foo7[int]) failed']",
-    "Line 170: Unexpected errors ['assert_type(Any, int) failed', 'Generic attribute `attr` of class `Foo7` is not visible on the class']"
+    "Line 170: Unexpected errors ['assert_type([DefaultIntT](Foo7[DefaultIntT]) -> Foo7[DefaultIntT], (Foo7[int]) -> Foo7[int]) failed']"
   ],
   "generics_defaults_referential.py": [
     "Line 66: Unexpected errors ['Expected default `TypeVar[X1]` of `Ok1` to be assignable to the upper bound of `float`']",
@@ -243,10 +238,7 @@
   "narrowing_typeis.py": [],
   "overloads_basic.py": [],
   "overloads_consistency.py": [],
-  "overloads_definitions.py": [
-    "Lines 170, 175, 181, 183: Expected error (tag 'override-final')",
-    "Line 176: Unexpected errors ['`final_method` is declared as final in parent class `Base`']"
-  ],
+  "overloads_definitions.py": [],
   "overloads_evaluation.py": [],
   "protocols_class_objects.py": [
     "Line 29: Expected 1 errors",
@@ -265,9 +257,8 @@
   ],
   "protocols_explicit.py": [
     "Line 27: Expected 1 errors",
-    "Line 90: Expected 1 errors",
-    "Line 110: Expected 1 errors",
-    "Line 135: Expected 1 errors"
+    "Line 89: Expected 1 errors",
+    "Line 134: Expected 1 errors"
   ],
   "protocols_generic.py": [],
   "protocols_merging.py": [],
@@ -292,12 +283,12 @@
     "Line 104: Expected 1 errors"
   ],
   "qualifiers_annotated.py": [
-    "Line 76: Expected 1 errors",
-    "Line 77: Expected 1 errors",
-    "Line 84: Expected 1 errors",
-    "Line 85: Expected 1 errors",
-    "Line 92: Expected 1 errors",
-    "Line 93: Expected 1 errors"
+    "Line 71: Expected 1 errors",
+    "Line 72: Expected 1 errors",
+    "Line 79: Expected 1 errors",
+    "Line 80: Expected 1 errors",
+    "Line 87: Expected 1 errors",
+    "Line 88: Expected 1 errors"
   ],
   "qualifiers_final_annotation.py": [
     "Line 34: Expected 1 errors",
@@ -350,7 +341,7 @@
   "typeddicts_readonly_kwargs.py": [],
   "typeddicts_readonly_update.py": [],
   "typeddicts_required.py": [
-    "Line 74: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMovie']`\"]"
+    "Line 71: Unexpected errors [\"Expected a type form, got instance of `Literal['RecursiveMovie']`\"]"
   ],
   "typeddicts_type_consistency.py": [],
   "typeddicts_usage.py": []
