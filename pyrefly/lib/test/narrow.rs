@@ -1796,3 +1796,11 @@ def test(a: int, b: str, c: bytes):
         assert_type(c, Literal[b""])
     "#,
 );
+
+testcase!(
+    test_do_not_narrow_class_name,
+    r#"
+assert issubclass(list, object)
+x: list[int] = [1]
+    "#,
+);

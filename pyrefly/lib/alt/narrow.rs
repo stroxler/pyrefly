@@ -179,7 +179,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn narrow_issubclass(&self, left: &Type, right: &Type, range: TextRange) -> Type {
         let mut res = Vec::new();
         for right in self.as_class_info(right.clone()) {
-            if let Some(left) = self.untype_opt(left.clone(), range)
+            if matches!(left, Type::ClassDef(_)) && matches!(right, Type::ClassDef(_)) {
+                res.push(self.intersect(left, &right))
+            } else if let Some(left) = self.untype_opt(left.clone(), range)
                 && let Some(right) = self.unwrap_class_object_silently(&right)
             {
                 res.push(Type::type_form(self.intersect(&left, &right)))
@@ -193,7 +195,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn narrow_is_not_subclass(&self, left: &Type, right: &Type, range: TextRange) -> Type {
         let mut res = Vec::new();
         for right in self.as_class_info(right.clone()) {
-            if let Some(left) = self.untype_opt(left.clone(), range)
+            if matches!(left, Type::ClassDef(_)) && matches!(right, Type::ClassDef(_)) {
+                res.push(self.subtract(left, &right))
+            } else if let Some(left) = self.untype_opt(left.clone(), range)
                 && let Some(right) = self.unwrap_class_object_silently(&right)
             {
                 res.push(Type::type_form(self.subtract(&left, &right)))
