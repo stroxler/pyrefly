@@ -113,7 +113,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<ClassAttribute> {
         if !(metadata.is_enum()
             && (name == &VALUE || name == &VALUE_PROP)
-            && self.field_is_inherited_from_enum(class.class_object(), name))
+            && self.field_is_inherited_from(
+                class.class_object(),
+                name,
+                (ModuleName::enum_().as_str(), "Enum"),
+            ))
         {
             return None;
         }

@@ -1320,7 +1320,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let metaclass = metadata.metaclass(self.stdlib);
                 if *dunder_name == dunder::GETATTRIBUTE
-                    && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
+                    && self.field_is_inherited_from(
+                        metaclass.class_object(),
+                        dunder_name,
+                        (ModuleName::builtins().as_str(), "object"),
+                    )
                 {
                     acc.not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
@@ -1344,7 +1348,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if (*dunder_name == dunder::SETATTR
                     || *dunder_name == dunder::DELATTR
                     || *dunder_name == dunder::GETATTRIBUTE)
-                    && self.field_is_inherited_from_object(cls.class_object(), dunder_name) =>
+                    && self.field_is_inherited_from(
+                        cls.class_object(),
+                        dunder_name,
+                        (ModuleName::builtins().as_str(), "object"),
+                    ) =>
             {
                 acc.not_found(NotFoundOn::ClassInstance(cls.class_object().clone(), base))
             }

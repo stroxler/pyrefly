@@ -2326,18 +2326,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    pub fn field_is_inherited_from_object(&self, cls: &Class, name: &Name) -> bool {
-        let member = self.get_class_member(cls, name);
+    pub fn field_is_inherited_from(
+        &self,
+        cls: &Class,
+        field: &Name,
+        ancestor: (&str, &str),
+    ) -> bool {
+        let member = self.get_class_member(cls, field);
         match member {
-            Some(member) => member.defined_on("builtins", "object"),
-            None => false,
-        }
-    }
-
-    pub fn field_is_inherited_from_enum(&self, cls: &Class, name: &Name) -> bool {
-        let member = self.get_class_member(cls, name);
-        match member {
-            Some(member) => member.defined_on("enum", "Enum"),
+            Some(member) => member.defined_on(ancestor.0, ancestor.1),
             None => false,
         }
     }
