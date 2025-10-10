@@ -37,13 +37,11 @@ assert_type(Suit.values, list[int])
 );
 
 django_testcase!(
-    bug = "label types are not correct",
     test_enum_iterable,
     r#"
 import enum
 
 from django.db.models import TextChoices
-from django.utils.functional import _StrOrPromise
 
 from typing_extensions import assert_type
 
@@ -61,7 +59,7 @@ class Medal(TextChoices):
 
 # Assertions for mixing multiple choices types with consistent base types - only `TextChoices`.
 x1 = (Medal, Gender)
-assert_type([member.label for choices in x1 for member in choices], list[_StrOrPromise]) # E: assert_type(list[str], list[_StrPromise | str])
+assert_type([member.label for choices in x1 for member in choices], list[str]) 
 assert_type([member.value for choices in x1 for member in choices], list[str])
 "#,
 );
