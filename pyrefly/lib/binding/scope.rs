@@ -1923,6 +1923,34 @@ impl MergeItems {
 }
 
 impl<'a> BindingsBuilder<'a> {
+    /// Create the idx of a merged type from the idxs of the branch types
+    fn merge_idxs(
+        &mut self,
+        branch_idxs: SmallSet<Idx<Key>>,
+        phi_idx: Idx<Key>,
+        loop_default: Option<Idx<Key>>,
+    ) -> Idx<Key> {
+        if branch_idxs.len() == 1 {
+            // We hit this case if any of these are true:
+            // - the name was defined in the base flow and no branch modified it
+            // - we're in a loop and there were only narrows
+            // - the name was defined in only one branch
+            // In all three cases, we can avoid a Phi and just forward to the one idx.
+            let idx = *branch_idxs.first().unwrap();
+            self.insert_binding_idx(phi_idx, Binding::Forward(idx));
+            idx
+        } else if let Some(default) = loop_default {
+            self.insert_binding_idx(
+                phi_idx,
+                Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
+            );
+            phi_idx
+        } else {
+            self.insert_binding_idx(phi_idx, Binding::Phi(branch_idxs));
+            phi_idx
+        }
+    }
+
     /// Get the flow info for an item in the merged flow, which is a combination
     /// of the `phi_key` that will have the merged type information and the merged
     /// flow styles.
@@ -1999,27 +2027,7 @@ impl<'a> BindingsBuilder<'a> {
             branch_idxs.insert(branch_idx);
         }
         let this_name_always_defined = n_values == n_branches;
-        let merged_idx = {
-            if branch_idxs.len() == 1 {
-                // We hit this case if any of these are true:
-                // - the name was defined in the base flow and no branch modified it
-                // - we're in a loop and there were only narrows
-                // - the name was defined in only one branch
-                // In all three cases, we can avoid a Phi and just forward to the one idx.
-                let idx = *branch_idxs.first().unwrap();
-                self.insert_binding_idx(phi_idx, Binding::Forward(idx));
-                idx
-            } else if let Some(default) = loop_default {
-                self.insert_binding_idx(
-                    phi_idx,
-                    Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
-                );
-                phi_idx
-            } else {
-                self.insert_binding_idx(phi_idx, Binding::Phi(branch_idxs));
-                phi_idx
-            }
-        };
+        let merged_idx = self.merge_idxs(branch_idxs, phi_idx, loop_default);
         match value_idxs.len() {
             // If there are no values, then this name isn't assigned at all
             // and is only narrowed (it's most likely a capture, but could be
