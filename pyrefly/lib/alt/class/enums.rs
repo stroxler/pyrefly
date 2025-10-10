@@ -10,6 +10,7 @@ use std::sync::Arc;
 use itertools::Itertools;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_python::dunder;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::annotation::Annotation;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::literal::LitEnum;
@@ -126,7 +127,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .into_iter()
                         .filter_map(|lit| {
                             if let Lit::Enum(lit_enum) = lit {
-                                Some(lit_enum.ty)
+                                Some(match lit_enum.ty {
+                                    Type::ClassType(cls)
+                                        if cls.has_qname(ModuleName::enum_().as_str(), "auto") =>
+                                    {
+                                        self.stdlib.int().clone().to_type()
+                                    }
+                                    ty => ty,
+                                })
                             } else {
                                 None
                             }

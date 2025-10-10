@@ -4274,8 +4274,8 @@
     {
       "code": -2,
       "column": 12,
-      "concise_description": "assert_type(auto, Literal[1]) failed",
-      "description": "assert_type(auto, Literal[1]) failed",
+      "concise_description": "assert_type(int, Literal[1]) failed",
+      "description": "assert_type(int, Literal[1]) failed",
       "line": 68,
       "name": "assert-type",
       "stop_column": 42,

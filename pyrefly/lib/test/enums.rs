@@ -618,3 +618,20 @@ assert_type(E.X._value_, int)
 assert_type(E.X.value, str)
     "#,
 );
+
+testcase!(
+    test_auto,
+    r#"
+from enum import auto, Enum, StrEnum
+from typing import assert_type
+class E1(Enum):
+    X = auto()
+class E2(StrEnum):
+    X = auto()
+class E3(str, Enum):
+    X = auto()
+assert_type(E1.X.value, int)
+assert_type(E2.X.value, str)
+assert_type(E3.X.value, str)
+    "#,
+);
