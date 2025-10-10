@@ -90,7 +90,7 @@ assert_type(VoidChoices.choices, list[tuple[Any | None, str]])
 assert_type(VoidChoices.ABYSS, Literal[VoidChoices.ABYSS])
 assert_type(VoidChoices.ABYSS.name, Literal["ABYSS"])
 assert_type(VoidChoices.ABYSS.label, str) 
-assert_type(VoidChoices.ABYSS.value, Any)
+assert_type(VoidChoices.ABYSS.value, int)
 assert_type(VoidChoices.ABYSS.do_not_call_in_templates, Literal[True])
 assert_type(VoidChoices.__empty__, str)
 "#,
@@ -101,7 +101,7 @@ django_testcase!(
     test_enum_union,
     r#"
 from django.utils.functional import _StrOrPromise
-from typing_extensions import assert_type, Any
+from typing_extensions import assert_type, Any, Literal
 from django.db.models import Choices
 from django.utils.translation import gettext_lazy as _
 
@@ -109,8 +109,8 @@ class Suit(Choices):
     DIAMOND = 1, _("Diamond")
     SPADE = "2", _("Spade")
 
-assert_type(Suit.DIAMOND._value_, Any) # E: tuple[Literal['2'], _StrPromise] | tuple[Literal[1], _StrPromise]
-assert_type(Suit.DIAMOND.value, Any)
+assert_type(Suit.DIAMOND._value_, tuple[Literal[1]] | tuple[Literal['2']])
+assert_type(Suit.DIAMOND.value, tuple[Literal[1]] | tuple[Literal['2']])
 assert_type(Suit.values, list[Any])
 "#,
 );
@@ -132,7 +132,7 @@ class B(Choices):
     def value(self) -> str: ...
 
 assert_type(A.X._value_, str)
-assert_type(A.X.value, str) # E: assert_type(Any, str)
+assert_type(A.X.value, str)
 assert_type(A.values, list[str])
 assert_type(B.X._value_, int)
 assert_type(B.X.value, str)
@@ -266,7 +266,7 @@ class Constants(float, Choices):
     PI = 3.141592653589793, "π"
     TAU = 6.283185307179586, "τ"
 
-assert_type(Constants.PI.value, float) # E: assert_type(Any, float)
+assert_type(Constants.PI.value, float)
 assert_type(Constants.values, list[float]) # E: assert_type(list[Any], list[float])
 "#,
 );

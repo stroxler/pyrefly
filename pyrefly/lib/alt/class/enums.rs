@@ -122,13 +122,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         metadata: &ClassMetadata,
         name: &Name,
     ) -> Option<ClassAttribute> {
-        if !(metadata.is_enum()
-            && (name == &VALUE || name == &VALUE_PROP)
-            && self.field_is_inherited_from(
+        let enum_metadata = metadata.enum_metadata()?;
+        if !((name == &VALUE || name == &VALUE_PROP)
+            && (self.field_is_inherited_from(
                 class.class_object(),
                 name,
                 (ModuleName::enum_().as_str(), "Enum"),
-            ))
+            ) || self.field_is_inherited_from(
+                class.class_object(),
+                name,
+                (ModuleName::django_models_enums().as_str(), "Choices"),
+            )))
         {
             return None;
         }
@@ -137,24 +141,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .mixed_in_enum_data_type(class.class_object())
                 .unwrap_or_else(|| {
                     // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
-                    let enum_value_types: Vec<_> = self
-                        .get_enum_members(class.class_object())
-                        .into_iter()
-                        .filter_map(|lit| {
-                            if let Lit::Enum(lit_enum) = lit {
-                                Some(match lit_enum.ty {
-                                    Type::ClassType(cls)
-                                        if cls.has_qname(ModuleName::enum_().as_str(), "auto") =>
-                                    {
-                                        self.stdlib.int().clone().to_type()
-                                    }
-                                    ty => ty,
-                                })
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
+                    let enum_value_types: Vec<_> =
+                        self.get_enum_members(class.class_object())
+                            .into_iter()
+                            .filter_map(|lit| {
+                                if let Lit::Enum(lit_enum) = lit {
+                                    Some(self.enum_literal_to_value_type(
+                                        *lit_enum,
+                                        enum_metadata.is_django,
+                                    ))
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
                     if enum_value_types.is_empty() {
                         // Assume Any, rather than Never, if there are no members because they may
                         // be created dynamically and we don't want downstream analysis to be incorrect.
@@ -184,6 +184,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.mixed_in_enum_data_type(first_base.class_object())
         } else {
             Some(first_base.clone().to_type())
+        }
+    }
+
+    fn enum_literal_to_value_type(&self, lit_enum: LitEnum, is_django: bool) -> Type {
+        match lit_enum.ty {
+            Type::ClassType(cls) if cls.has_qname(ModuleName::enum_().as_str(), "auto") => {
+                self.stdlib.int().clone().to_type()
+            }
+            Type::Tuple(Tuple::Concrete(elements)) if is_django && elements.len() >= 2 => {
+                // The last element is the label.
+                let value_len = elements.len() - 1;
+                Type::Tuple(Tuple::Concrete(
+                    elements.into_iter().take(value_len).collect(),
+                ))
+            }
+            ty => ty,
         }
     }
 
