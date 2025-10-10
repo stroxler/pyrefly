@@ -1953,7 +1953,16 @@ impl<'a> BindingsBuilder<'a> {
         } else {
             None
         };
-        let contained_in_loop = self.scopes.loop_depth() > 0;
+        let merged_default = {
+            let contained_in_loop = self.scopes.loop_depth() > 0;
+            move |merged_idx| {
+                if contained_in_loop && let Some(default) = loop_default {
+                    default
+                } else {
+                    merged_idx
+                }
+            }
+        };
         // Collect the idxs.
         //
         // Skip over all branches whose value is the phi - this is only possible
@@ -2011,11 +2020,6 @@ impl<'a> BindingsBuilder<'a> {
                 phi_idx
             }
         };
-        let default = if contained_in_loop && let Some(default) = loop_default {
-            default
-        } else {
-            merged_idx
-        };
         match value_idxs.len() {
             // If there are no values, then this name isn't assigned at all
             // and is only narrowed (it's most likely a capture, but could be
@@ -2023,7 +2027,7 @@ impl<'a> BindingsBuilder<'a> {
             0 => FlowInfo {
                 value: None,
                 narrow: Some(FlowNarrow { idx: merged_idx }),
-                default,
+                default: merged_default(merged_idx),
             },
             // If there is exactly one value (after discarding the phi itself,
             // for a loop), then the phi should be treated as a narrow, not a
@@ -2038,7 +2042,7 @@ impl<'a> BindingsBuilder<'a> {
                     ),
                 }),
                 narrow: Some(FlowNarrow { idx: merged_idx }),
-                default,
+                default: merged_default(merged_idx),
             },
             // If there are multiple values, then the phi should be treated
             // as a value (it may still include narrowed type information,
@@ -2053,7 +2057,7 @@ impl<'a> BindingsBuilder<'a> {
                     ),
                 }),
                 narrow: None,
-                default,
+                default: merged_default(merged_idx),
             },
         }
     }
