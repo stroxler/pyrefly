@@ -1109,9 +1109,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::ClassInstance(class)
             | AttributeBase1::EnumLiteral(LitEnum { class, .. }) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
-                let attr_lookup_result = self
-                    .special_case_enum_attr_lookup(class, &metadata, attr_name)
-                    .or_else(|| self.get_instance_attribute(class, attr_name));
+                let attr_lookup_result =
+                    self.get_enum_or_instance_attribute(class, &metadata, attr_name);
                 match attr_lookup_result {
                     Some(attr) => acc.found_class_attribute(attr, base),
                     None if metadata.has_base_any() => {

@@ -91,6 +91,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Checks for a special-cased enum attribute, falling back to a regular instance attribute lookup.
+    pub fn get_enum_or_instance_attribute(
+        &self,
+        class: &ClassType,
+        metadata: &ClassMetadata,
+        attr_name: &Name,
+    ) -> Option<ClassAttribute> {
+        self.special_case_enum_attr_lookup(class, metadata, attr_name)
+            .or_else(|| self.get_instance_attribute(class, attr_name))
+    }
+
     /// Special-case enum attribute lookups:
     /// - if this is an enum and the attribute is `value`, we'll redirect it to
     ///   look up the type of `_value_` so that the `value` property understands
@@ -105,7 +116,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///
     /// Return None if either this is not an enum or this is not a special-case
     /// attribute.
-    pub fn special_case_enum_attr_lookup(
+    fn special_case_enum_attr_lookup(
         &self,
         class: &ClassType,
         metadata: &ClassMetadata,
@@ -154,8 +165,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 });
             Some(ClassAttribute::read_write(ty))
         } else {
-            self.special_case_enum_attr_lookup(class, metadata, &VALUE)
-                .or_else(|| self.get_instance_attribute(class, &VALUE))
+            self.get_enum_or_instance_attribute(class, metadata, &VALUE)
                 .map(|attr| {
                     // Do not allow writing `.value`, which is a property.
                     attr.read_only_equivalent(ReadOnlyReason::EnumMemberValue)
