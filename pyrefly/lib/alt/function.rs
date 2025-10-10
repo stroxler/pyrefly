@@ -356,9 +356,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(CalleeKind::Class(ClassKind::EnumMember)) => Some(SpecialDecorator::EnumMember),
             Some(CalleeKind::Function(FunctionKind::Override)) => Some(SpecialDecorator::Override),
             Some(CalleeKind::Function(FunctionKind::Final)) => Some(SpecialDecorator::Final),
-            _ if matches!(decorator, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) => {
-                Some(SpecialDecorator::Deprecated)
-            }
+            _ if decorator.is_deprecation_marker() => Some(SpecialDecorator::Deprecated),
             _ if decorator.is_property_setter_decorator() => {
                 Some(SpecialDecorator::PropertySetter(decorator))
             }

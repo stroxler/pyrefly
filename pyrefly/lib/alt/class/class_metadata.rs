@@ -240,9 +240,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_final = decorators.iter().any(|(decorator, _)| {
             decorator.ty().callee_kind() == Some(CalleeKind::Function(FunctionKind::Final))
         });
-        let is_deprecated = decorators.iter().any(|(decorator, _)| {
-             matches!(decorator.ty(), Type::ClassType(cls) if cls.has_qname("warnings", "deprecated"))
-        });
+        let is_deprecated = decorators
+            .iter()
+            .any(|(decorator, _)| decorator.ty().is_deprecation_marker());
 
         let total_ordering_metadata = decorators.iter().find_map(|(decorator, decorator_range)| {
             decorator.ty().callee_kind().and_then(|kind| {
