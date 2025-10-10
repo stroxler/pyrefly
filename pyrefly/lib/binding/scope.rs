@@ -1990,16 +1990,16 @@ impl<'a> BindingsBuilder<'a> {
             branch_idxs.insert(branch_idx);
         }
         let this_name_always_defined = n_values == n_branches;
-        let downstream_idx = {
+        let merged_idx = {
             if branch_idxs.len() == 1 {
                 // We hit this case if any of these are true:
                 // - the name was defined in the base flow and no branch modified it
                 // - we're in a loop and there were only narrows
                 // - the name was defined in only one branch
                 // In all three cases, we can avoid a Phi and just forward to the one idx.
-                let upstream_idx = *branch_idxs.first().unwrap();
-                self.insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
-                upstream_idx
+                let idx = *branch_idxs.first().unwrap();
+                self.insert_binding_idx(phi_idx, Binding::Forward(idx));
+                idx
             } else if let Some(default) = loop_default {
                 self.insert_binding_idx(
                     phi_idx,
@@ -2014,7 +2014,7 @@ impl<'a> BindingsBuilder<'a> {
         let default = if contained_in_loop && let Some(default) = loop_default {
             default
         } else {
-            downstream_idx
+            merged_idx
         };
         match value_idxs.len() {
             // If there are no values, then this name isn't assigned at all
@@ -2022,9 +2022,7 @@ impl<'a> BindingsBuilder<'a> {
             // a local if the code we're analyzing is buggy)
             0 => FlowInfo {
                 value: None,
-                narrow: Some(FlowNarrow {
-                    idx: downstream_idx,
-                }),
+                narrow: Some(FlowNarrow { idx: merged_idx }),
                 default,
             },
             // If there is exactly one value (after discarding the phi itself,
@@ -2039,9 +2037,7 @@ impl<'a> BindingsBuilder<'a> {
                         merge_style,
                     ),
                 }),
-                narrow: Some(FlowNarrow {
-                    idx: downstream_idx,
-                }),
+                narrow: Some(FlowNarrow { idx: merged_idx }),
                 default,
             },
             // If there are multiple values, then the phi should be treated
@@ -2049,7 +2045,7 @@ impl<'a> BindingsBuilder<'a> {
             // but it is not reducible to just narrows).
             _ => FlowInfo {
                 value: Some(FlowValue {
-                    idx: downstream_idx,
+                    idx: merged_idx,
                     style: FlowStyle::merged(
                         this_name_always_defined,
                         styles.into_iter(),
