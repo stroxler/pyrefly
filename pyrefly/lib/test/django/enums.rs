@@ -30,7 +30,9 @@ class Suit(IntegerChoices):
     HEART = 3, _("Heart")
     CLUB = 4, _("Club")
 
+assert_type(Suit.CLUB._value_, int)
 assert_type(Suit.CLUB.value, int)
+assert_type(Suit.values, list[int])
 "#,
 );
 
@@ -95,6 +97,7 @@ assert_type(VoidChoices.__empty__, str)
 );
 
 django_testcase!(
+    bug = "Type of _value_ is wrong",
     test_enum_union,
     r#"
 from django.utils.functional import _StrOrPromise
@@ -106,9 +109,35 @@ class Suit(Choices):
     DIAMOND = 1, _("Diamond")
     SPADE = "2", _("Spade")
 
+assert_type(Suit.DIAMOND._value_, Any) # E: tuple[Literal['2'], _StrPromise] | tuple[Literal[1], _StrPromise]
+assert_type(Suit.DIAMOND.value, Any)
 assert_type(Suit.values, list[Any])
-
 "#,
+);
+
+django_testcase!(
+    bug = "Doesn't consistently overwrite `value` and `values`",
+    test_overwrite_value,
+    r#"
+from django.db.models import Choices
+from typing import Any, assert_type
+
+class A(Choices):
+    X = 1
+    _value_: str
+
+class B(Choices):
+    X = 1
+    @property
+    def value(self) -> str: ...
+
+assert_type(A.X._value_, str)
+assert_type(A.X.value, str) # E: assert_type(Any, str)
+assert_type(A.values, list[str])
+assert_type(B.X._value_, int)
+assert_type(B.X.value, str)
+assert_type(B.values, list[str]) # E: assert_type(list[Any], list[str])
+    "#,
 );
 
 django_testcase!(
@@ -237,7 +266,8 @@ class Constants(float, Choices):
     PI = 3.141592653589793, "π"
     TAU = 6.283185307179586, "τ"
 
-assert_type(Constants.PI.value, float) # E: assert_type(Any, float) 
+assert_type(Constants.PI.value, float) # E: assert_type(Any, float)
+assert_type(Constants.values, list[float]) # E: assert_type(list[Any], list[float])
 "#,
 );
 
