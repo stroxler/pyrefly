@@ -2054,10 +2054,17 @@ impl Server {
         }
     }
 
+    fn should_request_workspace_settings(&self) -> bool {
+        self.initialize_params
+            .capabilities
+            .workspace
+            .as_ref()
+            .and_then(|workspace| workspace.configuration)
+            == Some(true)
+    }
+
     fn request_settings_for_all_workspaces(&self) {
-        if let Some(workspace) = &self.initialize_params.capabilities.workspace
-            && workspace.configuration == Some(true)
-        {
+        if self.should_request_workspace_settings() {
             let roots = self.workspaces.roots();
             self.send_request::<WorkspaceConfiguration>(ConfigurationParams {
                 items: roots
