@@ -601,7 +601,6 @@ assert_type(A.X.value, float)  # E: assert_type(int, float)
 );
 
 testcase!(
-    bug = "Wrong asserted type",
     test_override_value_prop,
     r#"
 from enum import Enum
@@ -610,7 +609,7 @@ class E(Enum):
     X = 1
     @property
     def value(self) -> str: ...
-assert_type(E.X._value_, int)  # E: assert_type(str, int)
+assert_type(E.X._value_, int)
 assert_type(E.X.value, str)
     "#,
 );

@@ -110,47 +110,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         metadata: &ClassMetadata,
         name: &Name,
     ) -> Option<ClassAttribute> {
-        if metadata.is_enum() && (name == &VALUE || name == &VALUE_PROP) {
-            if !self.field_is_inherited_from_enum(class.class_object(), &VALUE_PROP) {
-                // If `value` has been overridden, do not use the type of `_value_`
-                self.get_instance_attribute(class, &VALUE_PROP)
-            } else if self.field_is_inherited_from_enum(class.class_object(), &VALUE) {
-                // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
-                let enum_value_types: Vec<_> = self
-                    .get_enum_members(class.class_object())
-                    .into_iter()
-                    .filter_map(|lit| {
-                        if let Lit::Enum(lit_enum) = lit {
-                            Some(lit_enum.ty)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                let ty = if enum_value_types.is_empty() {
-                    // Assume Any, rather than Never, if there are no members because they may
-                    // be created dynamically and we don't want downstream analysis to be incorrect.
-                    Type::any_implicit()
-                } else {
-                    self.unions(enum_value_types)
-                };
-                Some(if name == &VALUE_PROP {
-                    ClassAttribute::read_only(ty, ReadOnlyReason::EnumMemberValue)
-                } else {
-                    ClassAttribute::read_write(ty)
-                })
-            } else {
-                self.get_instance_attribute(class, &VALUE).map(|attr| {
-                    // Do not allow writing `.value`, which is a property.
-                    if name == &VALUE_PROP {
-                        attr.read_only_equivalent(ReadOnlyReason::EnumMemberValue)
+        if !(metadata.is_enum()
+            && (name == &VALUE || name == &VALUE_PROP)
+            && self.field_is_inherited_from_enum(class.class_object(), name))
+        {
+            return None;
+        }
+        if name == &VALUE {
+            // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
+            let enum_value_types: Vec<_> = self
+                .get_enum_members(class.class_object())
+                .into_iter()
+                .filter_map(|lit| {
+                    if let Lit::Enum(lit_enum) = lit {
+                        Some(lit_enum.ty)
                     } else {
-                        attr
+                        None
                     }
                 })
-            }
+                .collect();
+            let ty = if enum_value_types.is_empty() {
+                // Assume Any, rather than Never, if there are no members because they may
+                // be created dynamically and we don't want downstream analysis to be incorrect.
+                Type::any_implicit()
+            } else {
+                self.unions(enum_value_types)
+            };
+            Some(ClassAttribute::read_write(ty))
         } else {
-            None
+            self.special_case_enum_attr_lookup(class, metadata, &VALUE)
+                .or_else(|| self.get_instance_attribute(class, &VALUE))
+                .map(|attr| {
+                    // Do not allow writing `.value`, which is a property.
+                    attr.read_only_equivalent(ReadOnlyReason::EnumMemberValue)
+                })
         }
     }
 
