@@ -41,6 +41,7 @@ use crate::report::pysa::module::ModuleKey;
 use crate::report::pysa::override_graph::WholeProgramReversedOverrideGraph;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
+use crate::report::pysa::step_logger::StepLogger;
 use crate::report::pysa::types::PysaType;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::state::Transaction;
@@ -552,6 +553,11 @@ pub fn collect_function_base_definitions(
     module_ids: &ModuleIds,
     reversed_override_graph: &WholeProgramReversedOverrideGraph,
 ) -> WholeProgramFunctionDefinitions<FunctionBaseDefinition> {
+    let step = StepLogger::start(
+        "Indexing function definitions",
+        "Indexed function definitions",
+    );
+
     let base_definitions = dashmap::DashMap::new();
 
     ThreadPool::new().install(|| {
@@ -565,5 +571,6 @@ pub fn collect_function_base_definitions(
         });
     });
 
+    step.finish();
     WholeProgramFunctionDefinitions(base_definitions.into_read_only())
 }

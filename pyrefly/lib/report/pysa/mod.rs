@@ -17,6 +17,7 @@ pub mod location;
 pub mod module;
 pub mod override_graph;
 pub mod scope;
+pub mod step_logger;
 pub mod type_of_expression;
 pub mod types;
 
@@ -29,9 +30,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Instant;
 
 use itertools::Itertools;
+use pyrefly_build::handle::Handle;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_util::fs_anyhow;
@@ -39,7 +40,6 @@ use pyrefly_util::thread_pool::ThreadPool;
 use rayon::prelude::*;
 use ruff_python_ast::name::Name;
 use serde::Serialize;
-use tracing::info;
 
 use crate::module::typeshed::typeshed;
 use crate::report::pysa::call_graph::CallGraph;
@@ -65,6 +65,7 @@ use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::module::ModuleKey;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::override_graph::build_reversed_override_graph;
+use crate::report::pysa::step_logger::StepLogger;
 use crate::report::pysa::type_of_expression::export_type_of_expressions;
 use crate::report::pysa::types::PysaType;
 use crate::state::state::Transaction;
@@ -75,6 +76,8 @@ struct PysaProjectModule {
     module_name: ModuleName,        // e.g, `foo.bar`
     source_path: ModulePathDetails, // Path to the source code
     info_filename: Option<PathBuf>, // Filename for info files
+    #[serde(skip_serializing)]
+    handle: Handle,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_test: bool, // Uses a set of heuristics to determine if the module is a test file.
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -174,23 +177,14 @@ pub fn export_module_call_graphs(
     }
 }
 
-pub fn write_results(results_directory: &Path, transaction: &Transaction) -> anyhow::Result<()> {
-    let start = Instant::now();
-    info!("Writing results to `{}`", results_directory.display());
-    fs_anyhow::create_dir_all(results_directory)?;
-    let definitions_directory = results_directory.join("definitions");
-    let type_of_expressions_directory = results_directory.join("type_of_expressions");
-    let call_graphs_directory = results_directory.join("call_graphs");
-    fs_anyhow::create_dir_all(&definitions_directory)?;
-    fs_anyhow::create_dir_all(&type_of_expressions_directory)?;
-    fs_anyhow::create_dir_all(&call_graphs_directory)?;
+fn build_module_mapping(
+    handles: &Vec<Handle>,
+    module_ids: &ModuleIds,
+) -> HashMap<ModuleId, PysaProjectModule> {
+    let step = StepLogger::start("Building module list", "Built module list");
 
-    let handles = transaction.handles();
-    let module_ids = ModuleIds::new(&handles);
     let mut project_modules = HashMap::new();
-
-    let mut module_info_tasks = Vec::new();
-    for handle in &handles {
+    for handle in handles {
         let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
 
         // Path where we will store the information on the module.
@@ -225,6 +219,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                         module_name: handle.module(),
                         source_path: handle.path().details().clone(),
                         info_filename: info_filename.clone(),
+                        handle: handle.clone(),
                         is_test: false,
                         is_interface: handle.path().is_interface(),
                         is_init: handle.path().is_init(),
@@ -233,77 +228,164 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 .is_none(),
             "Found multiple handles with the same module id"
         );
-
-        if let Some(info_filename) = info_filename {
-            module_info_tasks.push((handle, module_id, info_filename));
-        }
     }
 
-    let project_modules = Arc::new(Mutex::new(project_modules));
+    step.finish();
+    project_modules
+}
 
-    let reversed_override_graph = build_reversed_override_graph(&handles, transaction, &module_ids);
-    let function_base_definitions = collect_function_base_definitions(
-        &handles,
-        transaction,
-        &module_ids,
-        &reversed_override_graph,
+fn make_module_work_list(
+    project_modules: &HashMap<ModuleId, PysaProjectModule>,
+) -> Vec<(Handle, ModuleId, PathBuf)> {
+    project_modules
+        .iter()
+        .filter_map(|(module_id, module)| {
+            module
+                .info_filename
+                .as_ref()
+                .map(|info_filename| (module.handle.clone(), *module_id, info_filename.clone()))
+        })
+        .collect()
+}
+
+fn write_module_definitions_files(
+    module_work_list: &Vec<(Handle, ModuleId, PathBuf)>,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+    definitions_directory: &Path,
+) -> anyhow::Result<()> {
+    let step = StepLogger::start(
+        "Exporting module definitions",
+        "Exported module definitions",
     );
 
-    let override_graph =
-        OverrideGraph::from_reversed(&reversed_override_graph, &function_base_definitions);
-
-    // Retrieve and dump information about each module, in parallel.
     ThreadPool::new().install(|| -> anyhow::Result<()> {
-        module_info_tasks.into_par_iter().try_for_each(
-            |(handle, module_id, info_filename)| -> anyhow::Result<()> {
+        module_work_list.par_iter().try_for_each(
+            |(handle, _, info_filename)| -> anyhow::Result<()> {
                 let context =
-                    ModuleContext::create(handle.clone(), transaction, &module_ids).unwrap();
+                    ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
+                let writer =
+                    BufWriter::new(File::create(definitions_directory.join(info_filename))?);
+                serde_json::to_writer(
+                    writer,
+                    &export_module_definitions(&context, function_base_definitions),
+                )?;
+                Ok(())
+            },
+        )
+    })?;
 
-                {
-                    let writer =
-                        BufWriter::new(File::create(definitions_directory.join(&info_filename))?);
-                    serde_json::to_writer(
-                        writer,
-                        &export_module_definitions(&context, &function_base_definitions),
-                    )?;
-                }
+    step.finish();
+    Ok(())
+}
 
-                {
-                    let writer = BufWriter::new(File::create(
-                        type_of_expressions_directory.join(&info_filename),
-                    )?);
-                    serde_json::to_writer(writer, &export_module_type_of_expressions(&context))?;
-                }
+fn write_module_type_of_expressions_files(
+    module_work_list: &Vec<(Handle, ModuleId, PathBuf)>,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+    type_of_expressions_directory: &Path,
+) -> anyhow::Result<()> {
+    let step = StepLogger::start(
+        "Exporting type of expressions of modules",
+        "Exported type of expressions of modules",
+    );
 
-                {
-                    let writer =
-                        BufWriter::new(File::create(call_graphs_directory.join(&info_filename))?);
-                    serde_json::to_writer(
-                        writer,
-                        &export_module_call_graphs(
-                            &context,
-                            &function_base_definitions,
-                            &override_graph,
-                        ),
-                    )?;
-                }
+    ThreadPool::new().install(|| -> anyhow::Result<()> {
+        module_work_list.par_iter().try_for_each(
+            |(handle, _, info_filename)| -> anyhow::Result<()> {
+                let context =
+                    ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
 
-                if is_test_module::is_test_module(&context) {
-                    project_modules
-                        .lock()
-                        .unwrap()
-                        .get_mut(&module_id)
-                        .unwrap()
-                        .is_test = true;
-                }
+                let writer = BufWriter::new(File::create(
+                    type_of_expressions_directory.join(info_filename),
+                )?);
+                serde_json::to_writer(writer, &export_module_type_of_expressions(&context))?;
 
                 Ok(())
             },
         )
     })?;
 
-    // Dump all typeshed files, so we can parse them.
+    step.finish();
+    Ok(())
+}
+
+fn write_module_call_graph_files(
+    module_work_list: &Vec<(Handle, ModuleId, PathBuf)>,
+    function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
+    override_graph: &OverrideGraph,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+    call_graphs_directory: &Path,
+) -> anyhow::Result<()> {
+    let step = StepLogger::start(
+        "Exporting module call graphs",
+        "Exported module call graphs",
+    );
+
+    ThreadPool::new().install(|| -> anyhow::Result<()> {
+        module_work_list.par_iter().try_for_each(
+            |(handle, _, info_filename)| -> anyhow::Result<()> {
+                let context =
+                    ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
+
+                let writer =
+                    BufWriter::new(File::create(call_graphs_directory.join(info_filename))?);
+                serde_json::to_writer(
+                    writer,
+                    &export_module_call_graphs(&context, function_base_definitions, override_graph),
+                )?;
+                Ok(())
+            },
+        )
+    })?;
+
+    step.finish();
+    Ok(())
+}
+
+fn add_module_is_test_flags(
+    project_modules: HashMap<ModuleId, PysaProjectModule>,
+    module_work_list: &Vec<(Handle, ModuleId, PathBuf)>,
+    transaction: &Transaction,
+    module_ids: &ModuleIds,
+) -> anyhow::Result<HashMap<ModuleId, PysaProjectModule>> {
+    let step = StepLogger::start("Checking for test modules", "Checked for test modules");
+
+    let project_modules = Arc::new(Mutex::new(project_modules));
+    ThreadPool::new().install(|| -> anyhow::Result<()> {
+        module_work_list
+            .par_iter()
+            .try_for_each(|(handle, module_id, _)| -> anyhow::Result<()> {
+                let context =
+                    ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
+
+                if is_test_module::is_test_module(&context) {
+                    project_modules
+                        .lock()
+                        .unwrap()
+                        .get_mut(module_id)
+                        .unwrap()
+                        .is_test = true;
+                }
+
+                Ok(())
+            })
+    })?;
+
+    step.finish();
+    Ok(Arc::into_inner(project_modules)
+        .unwrap()
+        .into_inner()
+        .unwrap())
+}
+
+// Dump all typeshed files, so we can parse them.
+fn write_typeshed_files(results_directory: &Path) -> anyhow::Result<()> {
+    let step = StepLogger::start("Exporting typeshed files", "Exported typeshed files");
     let typeshed = typeshed()?;
+
     for typeshed_module in typeshed.modules() {
         let module_path = typeshed.find(typeshed_module).unwrap();
         let relative_path = match module_path.details() {
@@ -316,6 +398,69 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
         fs_anyhow::write(&target_path, content.as_bytes())?;
     }
 
+    step.finish();
+    Ok(())
+}
+
+pub fn write_results(results_directory: &Path, transaction: &Transaction) -> anyhow::Result<()> {
+    let step = StepLogger::start(
+        &format!("Writing results to `{}`", results_directory.display()),
+        &format!("Wrote results to `{}`", results_directory.display()),
+    );
+
+    fs_anyhow::create_dir_all(results_directory)?;
+    let definitions_directory = results_directory.join("definitions");
+    let type_of_expressions_directory = results_directory.join("type_of_expressions");
+    let call_graphs_directory = results_directory.join("call_graphs");
+    fs_anyhow::create_dir_all(&definitions_directory)?;
+    fs_anyhow::create_dir_all(&type_of_expressions_directory)?;
+    fs_anyhow::create_dir_all(&call_graphs_directory)?;
+
+    let handles = transaction.handles();
+    let module_ids = ModuleIds::new(&handles);
+    let project_modules = build_module_mapping(&handles, &module_ids);
+    let module_work_list = make_module_work_list(&project_modules);
+
+    let reversed_override_graph = build_reversed_override_graph(&handles, transaction, &module_ids);
+    let function_base_definitions = collect_function_base_definitions(
+        &handles,
+        transaction,
+        &module_ids,
+        &reversed_override_graph,
+    );
+
+    let override_graph =
+        OverrideGraph::from_reversed(&reversed_override_graph, &function_base_definitions);
+
+    write_module_definitions_files(
+        &module_work_list,
+        &function_base_definitions,
+        transaction,
+        &module_ids,
+        &definitions_directory,
+    )?;
+
+    write_module_type_of_expressions_files(
+        &module_work_list,
+        transaction,
+        &module_ids,
+        &type_of_expressions_directory,
+    )?;
+
+    write_module_call_graph_files(
+        &module_work_list,
+        &function_base_definitions,
+        &override_graph,
+        transaction,
+        &module_ids,
+        &call_graphs_directory,
+    )?;
+
+    let project_modules =
+        add_module_is_test_flags(project_modules, &module_work_list, transaction, &module_ids)?;
+
+    write_typeshed_files(results_directory)?;
+
     let builtin_module = handles
         .iter()
         .filter(|handle| handle.module().as_str() == "builtins")
@@ -327,11 +472,6 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
             .object()
             .class_object(),
     );
-
-    let project_modules = Arc::into_inner(project_modules)
-        .unwrap()
-        .into_inner()
-        .unwrap();
 
     let writer = BufWriter::new(File::create(results_directory.join("pyrefly.pysa.json"))?);
     serde_json::to_writer(
@@ -346,12 +486,6 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
         },
     )?;
 
-    let elapsed = start.elapsed();
-    info!(
-        "Wrote results to `{}` in {:.2}s",
-        results_directory.display(),
-        elapsed.as_secs_f32()
-    );
-
+    step.finish();
     Ok(())
 }

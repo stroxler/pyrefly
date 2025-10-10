@@ -31,6 +31,7 @@ use crate::report::pysa::function::get_all_functions;
 use crate::report::pysa::function::should_export_function;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
+use crate::report::pysa::step_logger::StepLogger;
 use crate::state::state::Transaction;
 
 /// A map from a (base) method to classes that directly override it
@@ -61,6 +62,8 @@ impl OverrideGraph {
         reversed_override_graph: &WholeProgramReversedOverrideGraph,
         function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     ) -> Self {
+        let step = StepLogger::start("Building override graph", "Built override graph");
+
         let mut graph = OverrideGraph::new();
         for (overriding_method, base_method) in reversed_override_graph.0.iter() {
             let overriding_class = function_base_definitions
@@ -69,6 +72,8 @@ impl OverrideGraph {
                 .unwrap();
             graph.add_edge(base_method.clone(), overriding_class);
         }
+
+        step.finish();
         graph
     }
 
@@ -197,6 +202,11 @@ pub fn build_reversed_override_graph(
     transaction: &Transaction,
     module_ids: &ModuleIds,
 ) -> WholeProgramReversedOverrideGraph {
+    let step = StepLogger::start(
+        "Building reverse override graph",
+        "Built reverse override graph",
+    );
+
     let reversed_override_graph = dashmap::DashMap::new();
 
     ThreadPool::new().install(|| {
@@ -208,5 +218,6 @@ pub fn build_reversed_override_graph(
         });
     });
 
+    step.finish();
     WholeProgramReversedOverrideGraph(reversed_override_graph.into_read_only())
 }
