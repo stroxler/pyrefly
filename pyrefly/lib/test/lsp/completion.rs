@@ -75,7 +75,7 @@ fn get_test_report(
                     report.push_str(&format!("{:?}", &text_edit));
                 }
                 if let Some(documentation) = documentation {
-                    report.push_str("\n");
+                    report.push('\n');
                     match documentation {
                         lsp_types::Documentation::String(s) => {
                             report.push_str(&s);
