@@ -368,7 +368,11 @@ impl<'a> BindingsBuilder<'a> {
 
             let is_field = matches!(stmt, Stmt::AnnAssign(_) | Stmt::Assign(_));
 
-            if is_field
+            if let Stmt::FunctionDef(func_def) = stmt {
+                if let Some(docstring_range) = Docstring::range_from_stmts(&func_def.body) {
+                    field_docstrings.insert(func_def.name.range, docstring_range);
+                }
+            } else if is_field
                 && let Some(next_stmt) = body.get(i + 1)
                 && let Stmt::Expr(expr_stmt) = next_stmt
                 && matches!(&*expr_stmt.value, Expr::StringLiteral(_))

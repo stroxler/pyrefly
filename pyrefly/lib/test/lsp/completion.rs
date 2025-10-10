@@ -2065,6 +2065,7 @@ f.
       ^
 Completion Results:
 - (Method) method: def method(self: Foo) -> int
+This is a method docstring.
 "#
         .trim(),
         report.trim(),
@@ -2097,7 +2098,9 @@ f.
        ^
 Completion Results:
 - (Method) first: def first(self: Foo) -> int
+First method documentation.
 - (Method) second: def second(self: Foo) -> str
+Second method documentation.
 "#
         .trim(),
         report.trim(),
@@ -2127,6 +2130,7 @@ f.
       ^
 Completion Results:
 - (Field) value: int
+Property with documentation.
 "#
         .trim(),
         report.trim(),
@@ -2160,6 +2164,7 @@ f.
        ^
 Completion Results:
 - (Method) documented: def documented(self: Foo) -> str
+This has documentation.
 - (Method) undocumented: def undocumented(self: Foo) -> int
 - (Field) x: int
 "#

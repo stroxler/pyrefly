@@ -1020,12 +1020,12 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         attr_name: &Name,
         definition: AttrDefinition,
+        docstring_range: Option<TextRange>,
         preference: &FindPreference,
     ) -> Option<(TextRangeWithModule, Option<TextRange>)> {
         match definition {
             AttrDefinition::FullyResolved(text_range_with_module_info) => {
-                // TODO(jvansch): attribute docstrings
-                Some((text_range_with_module_info, None))
+                Some((text_range_with_module_info, docstring_range))
             }
             AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {
                 let (handle, export) =
@@ -1164,6 +1164,7 @@ impl<'a> Transaction<'a> {
                                         handle,
                                         &x.name,
                                         x.definition?,
+                                        x.docstring_range,
                                         preference,
                                     )?;
                                 Some(FindDefinitionItemWithDocstring {
@@ -1661,7 +1662,7 @@ impl<'a> Transaction<'a> {
                         ty: _,
                         is_deprecated: _,
                         definition: attribute_definition,
-                        docstring_range: _,
+                        docstring_range,
                     } in solver.completions(base_type, Some(expected_name), false)
                     {
                         if let Some((TextRangeWithModule { module, range }, _)) =
@@ -1670,6 +1671,7 @@ impl<'a> Transaction<'a> {
                                     handle,
                                     &name,
                                     definition,
+                                    docstring_range,
                                     &FindPreference::default(),
                                 )
                             })
@@ -1968,6 +1970,33 @@ impl<'a> Transaction<'a> {
             });
     }
 
+    fn get_docstring_for_attribute(
+        &self,
+        handle: &Handle,
+        attr_info: &AttrInfo,
+    ) -> Option<lsp_types::Documentation> {
+        let definition = attr_info.definition.as_ref()?.clone();
+        let attribute_definition = self.resolve_attribute_definition(
+            handle,
+            &attr_info.name,
+            definition,
+            attr_info.docstring_range,
+            &FindPreference::default(),
+        );
+
+        let (definition, Some(docstring_range)) = attribute_definition? else {
+            return None;
+        };
+        let docstring = Docstring(docstring_range, definition.module);
+
+        Some(lsp_types::Documentation::MarkupContent(
+            lsp_types::MarkupContent {
+                kind: lsp_types::MarkupKind::Markdown,
+                value: docstring.resolve().trim().to_owned(),
+            },
+        ))
+    }
+
     fn add_literal_completions(
         &self,
         handle: &Handle,
@@ -2116,10 +2145,12 @@ impl<'a> Transaction<'a> {
                                 };
                                 let ty = &x.ty;
                                 let detail = ty.clone().map(|t| t.as_hover_string());
+                                let documentation = self.get_docstring_for_attribute(handle, x);
                                 result.push(CompletionItem {
                                     label: x.name.as_str().to_owned(),
                                     detail,
                                     kind,
+                                    documentation,
                                     tags: if x.is_deprecated {
                                         Some(vec![CompletionItemTag::DEPRECATED])
                                     } else {
