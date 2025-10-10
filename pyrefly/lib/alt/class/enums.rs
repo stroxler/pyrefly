@@ -320,7 +320,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// is only used to validate enum members, not to produce errors on invalid `_value_`
     fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
         let field = self
-            .get_class_member(enum_.cls.class_object(), &Name::new_static("_value_"))?
+            .get_class_member(enum_.cls.class_object(), &VALUE)?
             .value;
         if field.is_simple_instance_attribute() {
             Some(field.ty())
