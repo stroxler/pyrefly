@@ -253,10 +253,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let label_type = self.unions(label_types);
 
-        let base_value_type = match self.get_class_member(cls, &VALUE) {
-            Some(WithDefiningClass { value, .. }) => value.ty(),
-            _ => Type::any_implicit(),
-        };
+        let base_value_attr = self.get_enum_or_instance_attribute(
+            &self.as_class_type_unchecked(cls),
+            &metadata,
+            &VALUE_PROP,
+        );
+        let base_value_type = base_value_attr
+            .and_then(|attr| {
+                self.resolve_get_class_attr(
+                    attr,
+                    TextRange::default(),
+                    &self.error_swallower(),
+                    None,
+                )
+                .ok()
+            })
+            .unwrap_or_else(Type::any_implicit);
 
         // if value is optional, make the type optional
         let values_type = if has_empty {

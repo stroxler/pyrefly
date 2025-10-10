@@ -85,8 +85,8 @@ class VoidChoices(BaseEmptyChoices):
 
 assert_type(VoidChoices.names, list[str])
 assert_type(VoidChoices.labels, list[str])
-assert_type(VoidChoices.values, list[Any | None]) 
-assert_type(VoidChoices.choices, list[tuple[Any | None, str]]) 
+assert_type(VoidChoices.values, list[int | None]) 
+assert_type(VoidChoices.choices, list[tuple[int | None, str]]) 
 assert_type(VoidChoices.ABYSS, Literal[VoidChoices.ABYSS])
 assert_type(VoidChoices.ABYSS.name, Literal["ABYSS"])
 assert_type(VoidChoices.ABYSS.label, str) 
@@ -97,7 +97,6 @@ assert_type(VoidChoices.__empty__, str)
 );
 
 django_testcase!(
-    bug = "Type of _value_ is wrong",
     test_enum_union,
     r#"
 from django.utils.functional import _StrOrPromise
@@ -111,12 +110,11 @@ class Suit(Choices):
 
 assert_type(Suit.DIAMOND._value_, tuple[Literal[1]] | tuple[Literal['2']])
 assert_type(Suit.DIAMOND.value, tuple[Literal[1]] | tuple[Literal['2']])
-assert_type(Suit.values, list[Any])
+assert_type(Suit.values, list[tuple[Literal[1]] | tuple[Literal['2']]])
 "#,
 );
 
 django_testcase!(
-    bug = "Doesn't consistently overwrite `value` and `values`",
     test_overwrite_value,
     r#"
 from django.db.models import Choices
@@ -136,7 +134,7 @@ assert_type(A.X.value, str)
 assert_type(A.values, list[str])
 assert_type(B.X._value_, int)
 assert_type(B.X.value, str)
-assert_type(B.values, list[str]) # E: assert_type(list[Any], list[str])
+assert_type(B.values, list[str])
     "#,
 );
 
@@ -255,7 +253,6 @@ assert_type(VehicleWithEmpty.labels, list[_StrOrPromise])
 );
 
 django_testcase!(
-    bug = "we don't correctly synthesize the type of the value",
     test_float,
     r#"
 from django.db.models import Choices
@@ -267,7 +264,7 @@ class Constants(float, Choices):
     TAU = 6.283185307179586, "τ"
 
 assert_type(Constants.PI.value, float)
-assert_type(Constants.values, list[float]) # E: assert_type(list[Any], list[float])
+assert_type(Constants.values, list[float])
 "#,
 );
 
