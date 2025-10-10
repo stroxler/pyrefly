@@ -231,7 +231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && let Type::Tuple(Tuple::Concrete(elements)) = &lit_enum.ty
                     && elements.len() >= 2
                 {
-                    Some(elements[1].clone())
+                    Some(elements[elements.len() - 1].clone())
                 } else {
                     None
                 }

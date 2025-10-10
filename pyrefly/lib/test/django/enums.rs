@@ -296,3 +296,15 @@ class Vehicle(IntegerChoices):
 assert_type(Vehicle.__empty__, _StrPromise) 
 "#,
 );
+
+django_testcase!(
+    test_three_element_tuple_member,
+    r#"
+from typing import assert_type, Literal
+from django.db.models import Choices
+class A(Choices):
+    X = 1, 2, "ALabel"
+assert_type(A.X.value, tuple[Literal[1], Literal[2]])
+assert_type(A.X.label, str)
+    "#,
+);
