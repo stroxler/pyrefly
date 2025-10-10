@@ -1942,21 +1942,18 @@ impl<'a> BindingsBuilder<'a> {
         n_branches: usize,
     ) -> FlowInfo {
         let mut flow_infos = merge_item.branches;
-        if matches!(merge_style, MergeStyle::Loop)
+        // If this is a loop, we want to use the current default in any phis we produce,
+        // and the base flow is part of the merge.
+        let loop_default = if matches!(merge_style, MergeStyle::Loop)
             && let Some(base) = merge_item.base
         {
-            flow_infos.push(base)
-        }
+            let default = base.default;
+            flow_infos.push(base);
+            Some(default)
+        } else {
+            None
+        };
         let contained_in_loop = self.scopes.loop_depth() > 0;
-        // In a loop, an invariant is that if a name was defined above the loop, the
-        // default may be taken from any of the Flows and will not differ.
-        //
-        // If a name is first defined inside a loop, the defaults might
-        // differ but for valid code it won't matter because the phi won't appear
-        // recursively. Invalid code where assignment tries to use an
-        // uninitialized local can produce a cycle through Anywhere, but that's
-        // true even for straight-line control flow.
-        let default = flow_infos.first().unwrap().default;
         // Collect the idxs.
         //
         // Skip over all branches whose value is the phi - this is only possible
@@ -2001,7 +1998,7 @@ impl<'a> BindingsBuilder<'a> {
                 let upstream_idx = *branch_idxs.first().unwrap();
                 self.insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
-            } else if matches!(merge_style, MergeStyle::Loop) {
+            } else if let Some(default) = loop_default {
                 self.insert_binding_idx(
                     phi_idx,
                     Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
@@ -2012,7 +2009,7 @@ impl<'a> BindingsBuilder<'a> {
                 phi_idx
             }
         };
-        let default = if contained_in_loop {
+        let default = if contained_in_loop && let Some(default) = loop_default {
             default
         } else {
             downstream_idx
