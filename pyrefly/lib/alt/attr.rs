@@ -1851,7 +1851,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 definition: Some(AttrDefinition::FullyResolved(
                                     TextRangeWithModule::new(c.module().dupe(), range),
                                 )),
-                                docstring_range: None,
+                                docstring_range: c.field_docstring_range(fld),
                             });
                         }
                     }
@@ -1865,7 +1865,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             definition: Some(AttrDefinition::FullyResolved(
                                 TextRangeWithModule::new(c.module().dupe(), range),
                             )),
-                            docstring_range: None,
+                            docstring_range: c.field_docstring_range(expected_attribute_name),
                         });
                     }
                 }

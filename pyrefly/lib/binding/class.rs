@@ -120,6 +120,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut pydantic_config_dict = PydanticConfigDict::default();
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
+        let field_docstrings = self.extract_field_docstrings(&body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
             mem::take(&mut x.decorator_list),
             class_object.usage(),
@@ -251,9 +252,17 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 _ => (true, false),
             };
+
+            let docstring_range = field_docstrings.get(&range).copied();
+
             fields.insert_hashed(
                 name.clone(),
-                ClassFieldProperties::new(is_annotated, is_initialized_on_class, range),
+                ClassFieldProperties::new(
+                    is_annotated,
+                    is_initialized_on_class,
+                    range,
+                    docstring_range,
+                ),
             );
             let key_field = KeyClassField(class_indices.def_index, name.clone().into_key());
             let binding = BindingClassField {
@@ -341,6 +350,36 @@ impl<'a> BindingsBuilder<'a> {
                 class_idx: class_indices.class_idx,
             },
         );
+    }
+
+    /// Extracts docstrings for each field, mapping the field's range to the docstring's range.
+    fn extract_field_docstrings(
+        &self,
+        body: &[ruff_python_ast::Stmt],
+    ) -> SmallMap<TextRange, TextRange> {
+        use ruff_python_ast::Expr;
+        use ruff_python_ast::Stmt;
+
+        let mut field_docstrings = SmallMap::new();
+        let mut i = 0;
+
+        while i < body.len() {
+            let stmt = &body[i];
+
+            let is_field = matches!(stmt, Stmt::AnnAssign(_) | Stmt::Assign(_));
+
+            if is_field
+                && let Some(next_stmt) = body.get(i + 1)
+                && let Stmt::Expr(expr_stmt) = next_stmt
+                && matches!(&*expr_stmt.value, Expr::StringLiteral(_))
+            {
+                field_docstrings.insert(stmt.range(), next_stmt.range());
+            }
+
+            i += 1;
+        }
+
+        field_docstrings
     }
 
     fn extract_string_literals(
@@ -506,6 +545,7 @@ impl<'a> BindingsBuilder<'a> {
                     member_annotation.is_some() || class_kind == SynthesizedClassKind::NamedTuple,
                     member_value.is_some(),
                     range,
+                    None, // Synthesized fields don't have docstrings
                 ),
             );
             let annotation = member_annotation.map(|annotation_expr| {

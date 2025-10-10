@@ -1024,7 +1024,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<(TextRangeWithModule, Option<TextRange>)> {
         match definition {
             AttrDefinition::FullyResolved(text_range_with_module_info) => {
-                // TODO(kylei): attribute docstrings
+                // TODO(jvansch): attribute docstrings
                 Some((text_range_with_module_info, None))
             }
             AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {

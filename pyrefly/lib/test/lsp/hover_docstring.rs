@@ -166,7 +166,7 @@ Docstring Result: `Test docstring`
     );
 }
 
-// TODO(kylei): attribute docstrings
+// TODO(jvansch): attribute docstrings
 #[test]
 fn method_test() {
     let code = r#"
@@ -189,7 +189,7 @@ Docstring Result: None
     );
 }
 
-// TODO(kylei): attribute docstrings
+// TODO(jvansch): attribute docstrings
 #[test]
 fn attribute_test() {
     let code = r#"
@@ -242,7 +242,7 @@ Docstring Result: `Test docstring`
     );
 }
 
-// TODO(kylei): attribute docstrings
+// TODO(jvansch): attribute docstrings
 #[test]
 fn cross_module_method_test() {
     let lib = r#"
