@@ -1992,9 +1992,11 @@ impl<'a> BindingsBuilder<'a> {
         let this_name_always_defined = n_values == n_branches;
         let downstream_idx = {
             if branch_idxs.len() == 1 {
-                // We hit this case if no branch assigned or narrowed the name.
-                //
-                // In the case of loops, it depends on the removal of `phi_idx` above.
+                // We hit this case if any of these are true:
+                // - the name was defined in the base flow and no branch modified it
+                // - we're in a loop and there were only narrows
+                // - the name was defined in only one branch
+                // In all three cases, we can avoid a Phi and just forward to the one idx.
                 let upstream_idx = *branch_idxs.first().unwrap();
                 self.insert_binding_idx(phi_idx, Binding::Forward(upstream_idx));
                 upstream_idx
