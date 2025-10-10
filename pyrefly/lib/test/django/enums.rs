@@ -253,3 +253,19 @@ def get_choice_labels(choices: type[T_Choices]) -> list[str]:
     return [choice.label for choice in choices]
 "#,
 );
+
+django_testcase!(
+    test_empty_lazy_translation_widening,
+    r#"
+from django.db.models import IntegerChoices
+from django.utils.functional import _StrOrPromise
+from django.utils.translation import gettext_lazy as _
+from typing_extensions import assert_type
+
+class Vehicle(IntegerChoices):
+    CAR = 1
+    __empty__ = _("Unknown")
+
+assert_type(Vehicle.__empty__, _StrOrPromise) # E: assert_type(_StrPromise, _StrPromise | str)
+"#,
+);
