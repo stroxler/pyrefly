@@ -811,24 +811,13 @@ impl Query {
     pub fn change_files(&self, events: &CategorizedEvents) {
         let mut transaction = self
             .state
-            .new_committable_transaction(Require::Everything, None);
+            .new_committable_transaction(Require::Exports, None);
         let new_transaction_mut = transaction.as_mut();
         new_transaction_mut.invalidate_events(events);
-        new_transaction_mut.run(&[], Require::Everything);
+        new_transaction_mut.run(&[], Require::Exports);
         self.state.commit_transaction(transaction);
         let all_files = self.files.lock().iter().cloned().collect::<Vec<_>>();
         self.add_files(all_files);
-    }
-
-    pub fn change(&self, files: Vec<(ModuleName, std::path::PathBuf)>) {
-        let modified_paths = files.into_iter().map(|(_, path)| path).collect();
-        let events = CategorizedEvents {
-            created: Vec::new(),
-            modified: modified_paths,
-            removed: Vec::new(),
-            unknown: Vec::new(),
-        };
-        self.change_files(&events);
     }
 
     /// Load the given files and return any errors associated with them
