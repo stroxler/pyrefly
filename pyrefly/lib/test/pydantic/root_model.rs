@@ -119,3 +119,39 @@ RootModel[int]("")  # E: `Literal['']` is not assignable to parameter `root` wit
 RootModel[int](5, extra=6)  # E: Unexpected keyword argument `extra`
     "#,
 );
+
+pydantic_testcase!(
+    bug = "We should allow populating root model fields using the root type",
+    test_root_model_field,
+    r#"
+from typing import assert_type
+from pydantic import BaseModel, RootModel
+
+class RootModel1(RootModel[int]):
+    pass
+
+class Model1(BaseModel, strict=True):
+    x: RootModel1
+m1 = Model1(x=0)  # False positive  # E: not assignable
+assert_type(m1.x, RootModel1)
+m2 = Model1(x=RootModel1(0))
+assert_type(m2.x, RootModel1)
+Model1(x='oops')  # E: `Literal['oops']` is not assignable to parameter `x`
+
+class Model2(BaseModel, strict=True):
+    x: RootModel
+m3 = Model2(x=0)  # False positive  # E: not assignable
+assert_type(m3.x, RootModel)
+m4 = Model2(x=RootModel(0))
+assert_type(m4.x, RootModel)
+
+class Model3(BaseModel, strict=True):
+    x: RootModel[int]
+m5 = Model3(x=0)  # False positive  # E: not assignable
+assert_type(m5.x, RootModel[int])
+m6 = Model3(x=RootModel(0))
+assert_type(m6.x, RootModel[int])
+Model3(x='oops')  # E: `Literal['oops']` is not assignable to parameter `x`
+Model3(x=RootModel('oops'))  # E: `Literal['oops']` is not assignable to parameter `root`
+    "#,
+);
