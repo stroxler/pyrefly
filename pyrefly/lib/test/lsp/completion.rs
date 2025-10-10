@@ -74,9 +74,16 @@ fn get_test_report(
                     report.push_str(" with text edit: ");
                     report.push_str(&format!("{:?}", &text_edit));
                 }
-                if let Some(lsp_types::Documentation::MarkupContent(markup)) = documentation {
-                    report.push('\n');
-                    report.push_str(&markup.value);
+                if let Some(documentation) = documentation {
+                    report.push_str("\n");
+                    match documentation {
+                        lsp_types::Documentation::String(s) => {
+                            report.push_str(&s);
+                        }
+                        lsp_types::Documentation::MarkupContent(content) => {
+                            report.push_str(&content.value);
+                        }
+                    }
                 }
             }
         }
@@ -2030,6 +2037,131 @@ b
 Completion Results:
 - (Function) bar: () -> None
 This function does something useful.
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(jvansch): Update test to assert docstring is present
+#[test]
+fn dot_complete_with_method_docstring() {
+    let code = r#"
+class Foo:
+    def method(self) -> int:
+        """This is a method docstring."""
+        return 42
+
+f = Foo()
+f.
+# ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+8 | f.
+      ^
+Completion Results:
+- (Method) method: def method(self: Foo) -> int
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(jvansch): Update test to assert docstring is present
+#[test]
+fn dot_complete_with_multiple_methods_docstring() {
+    let code = r#"
+class Foo:
+    def first(self) -> int:
+        """First method documentation."""
+        return 1
+
+    def second(self) -> str:
+        """Second method documentation."""
+        return "hello"
+
+f = Foo()
+f.
+# ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+12 | f.
+       ^
+Completion Results:
+- (Method) first: def first(self: Foo) -> int
+- (Method) second: def second(self: Foo) -> str
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(jvansch): Update test to assert docstring is present
+#[test]
+fn dot_complete_with_property_docstring() {
+    let code = r#"
+class Foo:
+    @property
+    def value(self) -> int:
+        """Property with documentation."""
+        return 42
+
+f = Foo()
+f.
+# ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+9 | f.
+      ^
+Completion Results:
+- (Field) value: int
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(jvansch): Update test to assert docstring is present
+#[test]
+fn dot_complete_mixed_with_and_without_docstring() {
+    let code = r#"
+class Foo:
+    x: int
+
+    def documented(self) -> str:
+        """This has documentation."""
+        return "doc"
+
+    def undocumented(self) -> int:
+        return 123
+
+f = Foo()
+f.
+# ^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+13 | f.
+       ^
+Completion Results:
+- (Method) documented: def documented(self: Foo) -> str
+- (Method) undocumented: def undocumented(self: Foo) -> int
+- (Field) x: int
 "#
         .trim(),
         report.trim(),
