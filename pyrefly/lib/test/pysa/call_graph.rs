@@ -134,6 +134,8 @@ fn create_call_target(target: &str, target_type: TargetType) -> CallTarget<Funct
         },
         implicit_receiver: ImplicitReceiver::False,
         implicit_dunder_call: false,
+        is_class_method: false,
+        is_static_method: false,
         receiver_class: None,
     }
 }
@@ -429,10 +431,10 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let class_method_target = vec![
-            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver).with_receiver_class("test.C".to_owned(), context)
+            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver).with_receiver_class("test.C".to_owned(), context).with_is_class_method(true)
         ];
         let class_method_target_2 = vec![
-            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context)
+            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context).with_is_class_method(true)
         ];
         let method_target = vec![
             create_call_target("test.C.g", TargetType::Function).with_implicit_receiver(ImplicitReceiver::False)
@@ -521,7 +523,7 @@ def foo(c: C):
 "#,
     &|_context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_dunder_call(true)
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_dunder_call(true).with_is_static_method(true)
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),

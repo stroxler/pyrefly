@@ -94,6 +94,10 @@ pub struct CallTarget<Function: FunctionTrait> {
     pub(crate) implicit_dunder_call: bool,
     // The class of the receiver object at this call site, if any.
     pub(crate) receiver_class: Option<ClassRef>,
+    // True if calling a class method.
+    pub(crate) is_class_method: bool,
+    // True if calling a static method.
+    pub(crate) is_static_method: bool,
 }
 
 impl<Function: FunctionTrait> CallTarget<Function> {
@@ -110,6 +114,8 @@ impl<Function: FunctionTrait> CallTarget<Function> {
             implicit_receiver: self.implicit_receiver,
             receiver_class: self.receiver_class,
             implicit_dunder_call: self.implicit_dunder_call,
+            is_class_method: self.is_class_method,
+            is_static_method: self.is_static_method,
         }
     }
 
@@ -121,6 +127,18 @@ impl<Function: FunctionTrait> CallTarget<Function> {
 
     pub fn with_implicit_dunder_call(mut self, implicit_dunder_call: bool) -> Self {
         self.implicit_dunder_call = implicit_dunder_call;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_class_method(mut self, is_class_method: bool) -> Self {
+        self.is_class_method = is_class_method;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_is_static_method(mut self, is_static_method: bool) -> Self {
+        self.is_static_method = is_static_method;
         self
     }
 }
@@ -532,10 +550,8 @@ impl<'a> CallGraphVisitor<'a> {
             .function_base_definitions
             .get(callee.module_id, &callee.function_id)
             .and_then(|definition| definition.defining_class.clone());
-        if callee_class.is_none() {
-            panic!("Expect a callee class for callee `{:#?}`", callee);
-        }
-        let callee_class = callee_class.unwrap();
+        let callee_class = callee_class
+            .unwrap_or_else(|| panic!("Expect a callee class for callee `{:#?}`", callee));
 
         let get_actual_target = |callee: FunctionRef| {
             if self.override_graph.overrides_exist(&callee) {
@@ -588,6 +604,8 @@ impl<'a> CallGraphVisitor<'a> {
                 implicit_receiver,
                 receiver_class: None,
                 implicit_dunder_call: false,
+                is_class_method: method_metadata.is_classmethod,
+                is_static_method: method_metadata.is_staticmethod,
             }
         };
         let identifier = Ast::expr_name_identifier(name.clone());
@@ -670,6 +688,8 @@ impl<'a> CallGraphVisitor<'a> {
                                 implicit_receiver,
                                 receiver_class: receiver_class.clone(),
                                 implicit_dunder_call: false,
+                                is_class_method: method_metadata.is_classmethod,
+                                is_static_method: method_metadata.is_staticmethod,
                             })
                             .collect::<Vec<_>>()
                     } else {
@@ -681,6 +701,8 @@ impl<'a> CallGraphVisitor<'a> {
                             ),
                             receiver_class: None,
                             implicit_dunder_call: false,
+                            is_class_method: method_metadata.is_classmethod,
+                            is_static_method: method_metadata.is_staticmethod,
                         }]
                     }
                 })
