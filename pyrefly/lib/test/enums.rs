@@ -587,7 +587,6 @@ def get_labels(enum_cls: type[T_Enum]) -> list[str]:
 );
 
 testcase!(
-    bug = "Wrong asserted type",
     test_mixin_datatype,
     r#"
 from enum import Enum
@@ -596,7 +595,13 @@ from typing import assert_type
 class A(float, Enum):
     X = 1
 
-assert_type(A.X.value, float)  # E: assert_type(int, float)
+class FloatEnum(float, Enum):
+    pass
+class B(FloatEnum):
+    X = 1
+
+assert_type(A.X.value, float)
+assert_type(B.X.value, float)
     "#,
 );
 

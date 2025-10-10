@@ -117,25 +117,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         if name == &VALUE {
-            // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
-            let enum_value_types: Vec<_> = self
-                .get_enum_members(class.class_object())
-                .into_iter()
-                .filter_map(|lit| {
-                    if let Lit::Enum(lit_enum) = lit {
-                        Some(lit_enum.ty)
+            let ty = self
+                .mixed_in_enum_data_type(class.class_object())
+                .unwrap_or_else(|| {
+                    // The `_value_` annotation on `enum.Enum` is `Any`; we can infer a better type
+                    let enum_value_types: Vec<_> = self
+                        .get_enum_members(class.class_object())
+                        .into_iter()
+                        .filter_map(|lit| {
+                            if let Lit::Enum(lit_enum) = lit {
+                                Some(lit_enum.ty)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    if enum_value_types.is_empty() {
+                        // Assume Any, rather than Never, if there are no members because they may
+                        // be created dynamically and we don't want downstream analysis to be incorrect.
+                        Type::any_implicit()
                     } else {
-                        None
+                        self.unions(enum_value_types)
                     }
-                })
-                .collect();
-            let ty = if enum_value_types.is_empty() {
-                // Assume Any, rather than Never, if there are no members because they may
-                // be created dynamically and we don't want downstream analysis to be incorrect.
-                Type::any_implicit()
-            } else {
-                self.unions(enum_value_types)
-            };
+                });
             Some(ClassAttribute::read_write(ty))
         } else {
             self.special_case_enum_attr_lookup(class, metadata, &VALUE)
@@ -144,6 +148,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // Do not allow writing `.value`, which is a property.
                     attr.read_only_equivalent(ReadOnlyReason::EnumMemberValue)
                 })
+        }
+    }
+
+    /// If this enum mixes in a data type by inheriting from it, return the mixed-in type.
+    fn mixed_in_enum_data_type(&self, class: &Class) -> Option<Type> {
+        let bases = self.get_base_types_for_class(class);
+        let first_base = bases.iter().next()?;
+        let enum_class = self.stdlib.enum_class();
+        if first_base == enum_class {
+            None
+        } else if self.has_superclass(first_base.class_object(), enum_class.class_object()) {
+            self.mixed_in_enum_data_type(first_base.class_object())
+        } else {
+            Some(first_base.clone().to_type())
         }
     }
 
