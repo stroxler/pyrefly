@@ -10,6 +10,7 @@ use std::hash::Hash;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::class::Class;
 use pyrefly_types::types::Type;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
@@ -84,7 +85,14 @@ impl<Function: FunctionTrait> Target<Function> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CallTarget<Function: FunctionTrait> {
     pub(crate) target: Target<Function>,
+    // `TrueWithClassReceiver` or `TrueWithObjectReceiver` if the call has an implicit receiver,
+    // such as calling an instance or a class method.
+    // For instance, `x.foo(0)` should be treated as `C.foo(x, 0)`. As another example, `C.foo(0)`
+    // should be treated as `C.foo(C, 0)`.
     pub(crate) implicit_receiver: ImplicitReceiver,
+    // True if this is an implicit call to the `__call__` method.
+    pub(crate) implicit_dunder_call: bool,
+    // The class of the receiver object at this call site, if any.
     pub(crate) receiver_class: Option<ClassRef>,
 }
 
@@ -101,12 +109,18 @@ impl<Function: FunctionTrait> CallTarget<Function> {
             target: self.target.map_function(map),
             implicit_receiver: self.implicit_receiver,
             receiver_class: self.receiver_class,
+            implicit_dunder_call: self.implicit_dunder_call,
         }
     }
 
     #[cfg(test)]
     pub fn with_implicit_receiver(mut self, implicit_receiver: ImplicitReceiver) -> Self {
         self.implicit_receiver = implicit_receiver;
+        self
+    }
+
+    pub fn with_implicit_dunder_call(mut self, implicit_dunder_call: bool) -> Self {
+        self.implicit_dunder_call = implicit_dunder_call;
         self
     }
 }
@@ -466,14 +480,14 @@ impl<'a> CallGraphVisitor<'a> {
             )
     }
 
-    fn get_overriding_callee(
+    fn create_callee_from_class_field(
         &self,
-        overriding_class: &ClassRef,
-        callee_name: &Name,
+        class: &Class,
+        field_name: &Name,
     ) -> Option<FunctionRef> {
-        let context = get_context_from_class(&overriding_class.class, self.module_context);
-        get_class_field_declaration(&overriding_class.class, callee_name, &context).and_then(
-            |field_binding| match field_binding {
+        let context = get_context_from_class(class, self.module_context);
+        get_class_field_declaration(class, field_name, &context).and_then(|field_binding| {
+            match field_binding {
                 BindingClassField {
                     definition: ClassFieldDefinition::MethodLike { definition, .. },
                     ..
@@ -489,8 +503,8 @@ impl<'a> CallGraphVisitor<'a> {
                     }
                 }
                 _ => None,
-            },
-        )
+            }
+        })
     }
 
     // Figure out what target to pick for an indirect call that resolves to implementation_target.
@@ -544,8 +558,11 @@ impl<'a> CallGraphVisitor<'a> {
                         &receiver_class.class,
                         self.module_context,
                     ) {
-                        self.get_overriding_callee(overriding_class, &callee.function_name)
-                            .map(&get_actual_target)
+                        self.create_callee_from_class_field(
+                            &overriding_class.class,
+                            &callee.function_name,
+                        )
+                        .map(&get_actual_target)
                     } else {
                         None
                     }
@@ -560,8 +577,22 @@ impl<'a> CallGraphVisitor<'a> {
     }
 
     fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
+        let create_call_target = |function_ref: FunctionRef| {
+            let method_metadata = self.get_method_metadata(&function_ref);
+            let implicit_receiver = has_implicit_receiver(
+                &method_metadata,
+                false, // We don't know receiver type since we are given an `ExprName`
+            );
+            CallTarget {
+                target: Target::Function(function_ref),
+                implicit_receiver,
+                receiver_class: None,
+                implicit_dunder_call: false,
+            }
+        };
         let identifier = Ast::expr_name_identifier(name.clone());
-        self.module_context
+        let go_to_definitions = self
+            .module_context
             .transaction
             .find_definition_for_name_use(
                 &self.module_context.handle,
@@ -576,20 +607,30 @@ impl<'a> CallGraphVisitor<'a> {
                     self.function_base_definitions,
                     self.module_context,
                 )
-                .map(|function_ref| {
-                    let method_metadata = self.get_method_metadata(&function_ref);
-                    let implicit_receiver = has_implicit_receiver(
-                        &method_metadata,
-                        false, // We don't know receiver type
-                    );
-                    CallTarget {
-                        target: Target::Function(function_ref),
-                        implicit_receiver,
-                        receiver_class: None,
-                    }
-                })
+                .map(&create_call_target)
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        if !go_to_definitions.is_empty() {
+            go_to_definitions
+        } else {
+            // There is no go-to-definition when for example an `ExprName` is a class definition,
+            // a local variable, or a parameter.
+            let callee_type = self.module_context.answers.get_type_trace(name.range());
+            let call_target = match callee_type {
+                Some(Type::ClassType(class_type)) => {
+                    // Since we are calling an instance of a class, look up method `__call__`
+                    self.create_callee_from_class_field(
+                        class_type.class_object(),
+                        &Name::new("__call__"),
+                    )
+                    .map(|function_ref| {
+                        create_call_target(function_ref).with_implicit_dunder_call(true)
+                    })
+                }
+                _ => None,
+            };
+            call_target.into_iter().collect::<Vec<_>>()
+        }
     }
 
     fn resolve_attribute_access(&self, attribute: &ExprAttribute) -> Vec<CallTarget<FunctionRef>> {
@@ -628,6 +669,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 target,
                                 implicit_receiver,
                                 receiver_class: receiver_class.clone(),
+                                implicit_dunder_call: false,
                             })
                             .collect::<Vec<_>>()
                     } else {
@@ -638,6 +680,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 /* is_receiver_class_def */ false,
                             ),
                             receiver_class: None,
+                            implicit_dunder_call: false,
                         }]
                     }
                 })

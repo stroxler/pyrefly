@@ -133,6 +133,7 @@ fn create_call_target(target: &str, target_type: TargetType) -> CallTarget<Funct
             TargetType::Object => Target::Object(target.to_owned()),
         },
         implicit_receiver: ImplicitReceiver::False,
+        implicit_dunder_call: false,
         receiver_class: None,
     }
 }
@@ -480,6 +481,79 @@ def foo(d: D):
             vec![
                 ("11:3-11:8".to_owned(), call_callees(call_targets.clone())),
                 ("11:3-11:6".to_owned(), attribute_access_callees(call_targets.clone()))
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_callable_instance_with_dunder_call_method,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def __call__(self, a: int): ...
+def foo(c: C):
+   c(1)
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_implicit_dunder_call(true)
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("5:4-5:8".to_owned(), call_callees(call_targets.clone())),
+                ("5:4-5:5".to_owned(), identifier_callees(call_targets.clone()))
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_callable_instance_with_static_dunder_call,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @staticmethod
+  def __call__(a: int) -> bool: ...
+def foo(c: C):
+   c(1)
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_dunder_call(true)
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("6:4-6:8".to_owned(), call_callees(call_targets.clone())),
+                ("6:4-6:5".to_owned(), identifier_callees(call_targets.clone()))
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_explicit_dunder_call_method_invocation,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def __call__(self, a: int) -> bool: ...
+def foo(c: C):
+   c.__call__(1)
+"#,
+    &|context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("5:4-5:17".to_owned(), call_callees(call_targets.clone())),
+                ("5:4-5:14".to_owned(), attribute_access_callees(call_targets.clone())),
+                ("5:4-5:5".to_owned(), identifier_callees(vec![
+                    create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_implicit_dunder_call(true)
+                ]))
             ],
         )]
     },
