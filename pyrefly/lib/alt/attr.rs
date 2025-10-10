@@ -1811,7 +1811,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AttrDefinition {
     FullyResolved(TextRangeWithModule),
     PartiallyResolvedImportedModuleAttribute { module_name: ModuleName },
