@@ -353,7 +353,7 @@ assert_type(x, str)
 );
 
 testcase!(
-    test_while_break,
+    test_while_break_no_else,
     r#"
 from typing import assert_type
 def f() -> str | None: ...

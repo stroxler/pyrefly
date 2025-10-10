@@ -1880,21 +1880,44 @@ enum MergeStyle {
     BoolOp,
 }
 
-struct MergeItems(SmallMap<Name, Vec<FlowInfo>>);
+struct MergeItem {
+    base: Option<FlowInfo>,
+    branches: Vec<FlowInfo>,
+}
+
+struct MergeItems(SmallMap<Name, MergeItem>);
 
 impl MergeItems {
     pub fn new(presize_to: usize) -> Self {
         Self(SmallMap::with_capacity(presize_to))
     }
 
-    pub fn add_flow_info(&mut self, name: Hashed<Name>, flow_info: FlowInfo, n_branches: usize) {
+    pub fn add_base_flow_info(&mut self, name: Hashed<Name>, base: FlowInfo, n_branches: usize) {
+        self.0.insert_hashed(
+            name,
+            MergeItem {
+                base: Some(base),
+                branches: Vec::with_capacity(n_branches),
+            },
+        );
+    }
+
+    pub fn add_branch_flow_info(
+        &mut self,
+        name: Hashed<Name>,
+        branch: FlowInfo,
+        n_branches: usize,
+    ) {
         match self.0.entry_hashed(name) {
             Entry::Vacant(e) => {
-                let mut flow_infos = Vec::with_capacity(n_branches);
-                flow_infos.push(flow_info);
-                e.insert(flow_infos);
+                let mut branches = Vec::with_capacity(n_branches);
+                branches.push(branch);
+                e.insert(MergeItem {
+                    base: None,
+                    branches,
+                });
             }
-            Entry::Occupied(mut e) => e.get_mut().push(flow_info),
+            Entry::Occupied(mut e) => e.get_mut().branches.push(branch),
         }
     }
 }
@@ -1913,11 +1936,17 @@ impl<'a> BindingsBuilder<'a> {
     /// merged phi is the new default used for downstream loops.
     fn merged_flow_info(
         &mut self,
-        flow_infos: Vec<FlowInfo>,
+        merge_item: MergeItem,
         phi_idx: Idx<Key>,
         merge_style: MergeStyle,
         n_branches: usize,
     ) -> FlowInfo {
+        let mut flow_infos = merge_item.branches;
+        if matches!(merge_style, MergeStyle::Loop)
+            && let Some(base) = merge_item.base
+        {
+            flow_infos.push(base)
+        }
         let contained_in_loop = self.scopes.loop_depth() > 0;
         // In a loop, an invariant is that if a name was defined above the loop, the
         // default may be taken from any of the Flows and will not differ.
@@ -2045,17 +2074,11 @@ impl<'a> BindingsBuilder<'a> {
         if matches!(merge_style, MergeStyle::Loop | MergeStyle::Inclusive) {
             branches.push(mem::take(&mut self.scopes.current_mut().flow));
         }
-        if matches!(merge_style, MergeStyle::Loop) {
-            branches.push(base);
-        }
 
-        // Short circuit when there is only one flow.
-        //
-        // Note that there are always at least two flows in a loop (some may
-        // have terminated, but this check happens prior to pruning terminated
-        // branches), which is essential because an early exit here could lead
-        // to us never creating bindings for speculative Phi keys.
-        if branches.len() == 1 {
+        // Short circuit when there is only one flow. Note that we can never short
+        // circuit for loops, because (a) we need to merge with the base flow, and
+        // (b) we have already promised the phi keys so we'll panic if we short-circuit.
+        if !matches!(merge_style, MergeStyle::Loop) && branches.len() == 1 {
             self.scopes.current_mut().flow = branches.pop().unwrap();
             return;
         }
@@ -2066,29 +2089,39 @@ impl<'a> BindingsBuilder<'a> {
         // we'll use the terminated branches.
         let (terminated_branches, live_branches): (Vec<_>, Vec<_>) =
             branches.into_iter().partition(|flow| flow.has_terminated);
-        let has_terminated = live_branches.is_empty();
+        let has_terminated = live_branches.is_empty() && !matches!(merge_style, MergeStyle::Loop);
         let flows = if has_terminated {
             terminated_branches
         } else {
             live_branches
         };
 
+        // For a loop, we merge the base so there's one extra branch being merged.
+        let n_branches = flows.len()
+            + if matches!(merge_style, MergeStyle::Loop) {
+                1
+            } else {
+                0
+            };
+
         // Collect all the branches into a `MergeItem` per name we need to merge
-        let mut merge_items = MergeItems::new(flows.first().unwrap().info.len());
-        let n_branches = flows.len();
+        let mut merge_items = MergeItems::new(flows.first().unwrap_or(&base).info.len());
+        for (name, info) in base.info.into_iter_hashed() {
+            merge_items.add_base_flow_info(name, info, n_branches)
+        }
         for flow in flows {
             for (name, info) in flow.info.into_iter_hashed() {
-                merge_items.add_flow_info(name, info, n_branches)
+                merge_items.add_branch_flow_info(name, info, n_branches)
             }
         }
 
         // For each name and merge item, produce the merged FlowInfo for our new Flow
         let mut merged_flow_infos = SmallMap::with_capacity(merge_items.0.len());
-        for (name, flow_infos) in merge_items.0.into_iter_hashed() {
+        for (name, merge_item) in merge_items.0.into_iter_hashed() {
             let phi_idx = self.idx_for_promise(Key::Phi(name.key().clone(), range));
             merged_flow_infos.insert_hashed(
                 name,
-                self.merged_flow_info(flow_infos, phi_idx, merge_style, n_branches),
+                self.merged_flow_info(merge_item, phi_idx, merge_style, n_branches),
             );
         }
 
