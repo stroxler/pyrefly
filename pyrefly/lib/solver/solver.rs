@@ -791,10 +791,6 @@ impl Solver {
         if branches.len() == 1 {
             return branches.pop().unwrap();
         }
-        for b in &branches[1..] {
-            // Do the is_subset_eq only to force free variables
-            let _ = self.is_subset_eq_impl(&branches[0], b, type_order, true);
-        }
 
         // We want to union modules differently, by merging their module sets
         let mut modules: SmallMap<Vec<Name>, ModuleType> = SmallMap::new();

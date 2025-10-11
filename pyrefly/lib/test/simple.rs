@@ -469,7 +469,7 @@ testcase!(
 from typing import Any, assert_type
 x = [[], [], [[]]]
 # Not too important it is precisely this type, but detect changes
-assert_type(x, list[list[list[Any]]])
+assert_type(x, list[list[list[Any]] | list[Any]])
 "#,
 );
 
