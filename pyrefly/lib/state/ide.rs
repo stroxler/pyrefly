@@ -74,7 +74,7 @@ fn find_definition_key_from<'a>(bindings: &'a Bindings, key: &'a Key) -> Option<
             | Binding::Narrow(k, _, _)
             | Binding::CompletedPartialType(k, ..)
             | Binding::PartialTypeWithUpstreamsCompleted(k, ..)
-            | Binding::Default(k, ..) => {
+            | Binding::LoopPhi(k, ..) => {
                 current_idx = *k;
             }
             Binding::Phi(ks) if !ks.is_empty() => current_idx = *ks.iter().next().unwrap(),

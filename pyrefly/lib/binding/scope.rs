@@ -1940,10 +1940,7 @@ impl<'a> BindingsBuilder<'a> {
             self.insert_binding_idx(phi_idx, Binding::Forward(idx));
             idx
         } else if let Some(default) = loop_default {
-            self.insert_binding_idx(
-                phi_idx,
-                Binding::Default(default, Box::new(Binding::Phi(branch_idxs))),
-            );
+            self.insert_binding_idx(phi_idx, Binding::LoopPhi(default, branch_idxs));
             phi_idx
         } else {
             self.insert_binding_idx(phi_idx, Binding::Phi(branch_idxs));

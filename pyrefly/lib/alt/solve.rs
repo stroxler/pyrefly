@@ -1960,10 +1960,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::join(type_infos, &|ts| self.unions(ts))
                 }
             }
-            Binding::Default(default, binding) => {
+            Binding::LoopPhi(default, ks) => {
                 // We force the default first so that if we hit a recursive case it is already available
                 self.get_idx(*default);
-                self.binding_to_type_info(binding, errors)
+                // Then solve the phi like a regular Phi binding
+                if ks.len() == 1 {
+                    self.get_idx(*ks.first().unwrap()).arc_clone()
+                } else {
+                    let type_infos = ks
+                        .iter()
+                        .filter_map(|k| {
+                            let t: Arc<TypeInfo> = self.get_idx(*k);
+                            // Filter out all `@overload`-decorated types except the one that
+                            // accumulates all signatures into a Type::Overload.
+                            if matches!(t.ty(), Type::Overload(_)) || !t.ty().is_overload() {
+                                Some(t.arc_clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    TypeInfo::join(type_infos, &|ts| self.unions(ts))
+                }
             }
             Binding::AssignToAttribute(attr, got) => {
                 // NOTE: Deterministic pinning of placeholder types based on first use relies on an
@@ -2339,8 +2357,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn binding_to_type(&self, binding: &Binding, errors: &ErrorCollector) -> Type {
         match binding {
             Binding::Forward(..)
-            | Binding::Default(..)
             | Binding::Phi(..)
+            | Binding::LoopPhi(..)
             | Binding::Narrow(..)
             | Binding::AssignToAttribute(..)
             | Binding::AssignToSubscript(..)

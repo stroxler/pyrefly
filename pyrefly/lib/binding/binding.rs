@@ -1242,9 +1242,10 @@ pub enum Binding {
     Forward(Idx<Key>),
     /// A phi node, representing the union of several alternative keys.
     Phi(SmallSet<Idx<Key>>),
-    /// Used if the binding ends up being recursive, instead of defaulting to `Any`, should
-    /// default to the given type.
-    Default(Idx<Key>, Box<Binding>),
+    /// A phi node for a name that was defined above a loop. This can involve recursion
+    /// due to reassingment in the loop, so we provide a default binding that is used
+    /// if the resulting Cyclic var is forced.
+    LoopPhi(Idx<Key>, SmallSet<Idx<Key>>),
     /// A narrowed type.
     Narrow(Idx<Key>, Box<NarrowOp>, TextRange),
     /// An import of a module.
@@ -1458,8 +1459,13 @@ impl DisplayWith<Bindings> for Binding {
                     intersperse_iter("; ", || xs.iter().map(|x| ctx.display(*x)))
                 )
             }
-            Self::Default(k, x) => {
-                write!(f, "Default({}, {})", ctx.display(*k), x.display_with(ctx))
+            Self::LoopPhi(k, xs) => {
+                write!(
+                    f,
+                    "LoopPhi({}, {})",
+                    ctx.display(*k),
+                    intersperse_iter("; ", || xs.iter().map(|x| ctx.display(*x)))
+                )
             }
             Self::Narrow(k, op, _) => {
                 write!(
@@ -1646,7 +1652,7 @@ impl Binding {
             | Binding::Type(_)
             | Binding::Forward(_)
             | Binding::Phi(_)
-            | Binding::Default(_, _)
+            | Binding::LoopPhi(_, _)
             | Binding::Narrow(_, _, _)
             | Binding::PatternMatchMapping(_, _)
             | Binding::PatternMatchClassPositional(_, _, _, _)
