@@ -2043,7 +2043,6 @@ This function does something useful.
     );
 }
 
-// todo(jvansch): Update test to assert docstring is present
 #[test]
 fn dot_complete_with_method_docstring() {
     let code = r#"
@@ -2072,7 +2071,6 @@ This is a method docstring.
     );
 }
 
-// todo(jvansch): Update test to assert docstring is present
 #[test]
 fn dot_complete_with_multiple_methods_docstring() {
     let code = r#"
@@ -2107,7 +2105,6 @@ Second method documentation.
     );
 }
 
-// todo(jvansch): Update test to assert docstring is present
 #[test]
 fn dot_complete_with_property_docstring() {
     let code = r#"
@@ -2137,7 +2134,6 @@ Property with documentation.
     );
 }
 
-// todo(jvansch): Update test to assert docstring is present
 #[test]
 fn dot_complete_mixed_with_and_without_docstring() {
     let code = r#"
