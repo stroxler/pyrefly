@@ -630,8 +630,11 @@ class E2(StrEnum):
     X = auto()
 class E3(str, Enum):
     X = auto()
+class E4(Enum):
+    X = (auto(),)
 assert_type(E1.X.value, int)
 assert_type(E2.X.value, str)
 assert_type(E3.X.value, str)
+assert_type(E4.X.value, tuple[int])
     "#,
 );

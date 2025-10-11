@@ -188,10 +188,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn enum_literal_to_value_type(&self, lit_enum: LitEnum, is_django: bool) -> Type {
-        match lit_enum.ty {
-            Type::ClassType(cls) if cls.has_qname(ModuleName::enum_().as_str(), "auto") => {
-                self.stdlib.int().clone().to_type()
-            }
+        let ty = match lit_enum.ty {
             Type::Tuple(Tuple::Concrete(elements)) if is_django && elements.len() >= 2 => {
                 // The last element is the label.
                 let value_len = elements.len() - 1;
@@ -200,7 +197,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ))
             }
             ty => ty,
-        }
+        };
+        let int_ty = self.stdlib.int();
+        ty.transform(&mut |t| {
+            if matches!(t, Type::ClassType(cls) if cls.has_qname(ModuleName::enum_().as_str(), "auto")) {
+                *t = int_ty.clone().to_type();
+            }
+        })
     }
 
     pub fn get_enum_member_count(&self, cls: &Class) -> Option<usize> {

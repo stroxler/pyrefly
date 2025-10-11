@@ -228,7 +228,20 @@ assert_type(Medal.choices, list[tuple[str, str | _StrPromise]])
 assert_type(Medal.GOLD.label, (str | _StrPromise))
 assert_type(Medal.SILVER.label, (str | _StrPromise))
 assert_type(Medal.GOLD.value, str)
+assert_type(Medal.SILVER.value, str)
 "#,
+);
+
+django_testcase!(
+    test_auto_in_tuple,
+    r#"
+import enum
+from typing import assert_type
+from django.db.models import Choices
+class E(Choices):
+    X = (enum.auto(), "labelX")
+assert_type(E.X.value, tuple[int])
+    "#,
 );
 
 django_testcase!(
