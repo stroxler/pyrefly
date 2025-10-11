@@ -45,7 +45,12 @@ pub struct ConfigOverrideArgs {
     /// constructing a modified search path. Setting this flag will instruct
     /// Pyrefly to use the exact `search_path` you give it through your config
     /// file and CLI args.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     disable_search_path_heuristics: Option<bool>,
 
     /// The Python version any `sys.version` checks should evaluate against.
@@ -97,25 +102,50 @@ pub struct ConfigOverrideArgs {
     #[arg(long)]
     ignore_missing_imports: Option<Vec<String>>,
     /// Ignore missing source packages when only type stubs are available, allowing imports to proceed without source validation.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     ignore_missing_source: Option<bool>,
     /// Whether to ignore type errors in generated code.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     ignore_errors_in_generated_code: Option<bool>,
     /// If this is true, infer type variables not determined by a call or constructor based on their first usage.
     /// For example, the type of an empty container would be determined by the first thing you put into it.
     /// If this is false, any unsolved type variables at the end of a call or constructor will be replaced with `Any`.
     /// Defaults to true.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     infer_with_first_use: Option<bool>,
     /// Whether to respect ignore files (.gitignore, .ignore, .git/exclude).
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     use_ignore_files: Option<bool>,
     /// Controls how Pyrefly analyzes function definitions that lack type annotations on parameters and return values.
     #[arg(long)]
     untyped_def_behavior: Option<UntypedDefBehavior>,
     /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     permissive_ignores: Option<bool>,
     /// Force this rule to emit an error. Can be used multiple times.
     #[arg(long, hide_possible_values = true)]

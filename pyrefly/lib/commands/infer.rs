@@ -41,16 +41,36 @@ use crate::types::types::Type;
 pub struct InferFlags {
     // Default should be false for all of them and then we can override to easily customize
     /// Whether to add type annotations to container types like lists and dictionaries
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub containers: Option<bool>,
     /// Whether to add return type annotations to functions
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub return_types: Option<bool>,
     /// Whether to add type annotations to function parameters
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub parameter_types: Option<bool>,
     /// Whether to automatically add imports for types used in annotations
-    #[arg(long, value_parser = clap::value_parser!(bool))]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     pub imports: Option<bool>,
 }
 
