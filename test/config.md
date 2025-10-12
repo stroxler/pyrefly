@@ -239,3 +239,32 @@ Configuration at `*/config_finder/project/pyrefly.toml` (glob)
 * (glob+)
 [0]
 ```
+
+## We can manually override typing_extensions
+
+<!-- See https://typing.python.org/en/latest/spec/distributing.html#import-resolution-ordering:
+     typing_extensions.py on the search path takes precedence over typeshed
+-->
+
+```scrut {output_stream: stdout}
+$ mkdir $TMPDIR/typing_extensions_project && \
+> echo "x: int = 42" > $TMPDIR/typing_extensions_project/typing_extensions.py && \
+> echo "from typing import assert_type; from typing_extensions import x; assert_type(x, int)" > $TMPDIR/typing_extensions_project/foo.py && \
+> $PYREFLY check $TMPDIR/typing_extensions_project/foo.py --search-path $TMPDIR/typing_extensions_project
+[0]
+```
+
+## We don't accidentally override typing_extensions with an installed package
+
+<!-- See https://typing.python.org/en/latest/spec/distributing.html#import-resolution-ordering:
+     typeshed takes precedence over installed packages
+-->
+
+```scrut {output_stream.stdout}
+$ mkdir $TMPDIR/site_package_path && \
+> echo "x: int = 42" > $TMPDIR/site_package_path/typing_extensions.py && \
+> echo "from typing import TypedDict; from typing_extensions import NotRequired; class C(TypedDict): x: NotRequired[int]" > $TMPDIR/site_package_path/lib.py && \
+> echo "from lib import C; C()" > $TMPDIR/foo.py && \
+> $PYREFLY check $TMPDIR/foo.py --site-package-path $TMPDIR/site_package_path
+[0]
+```

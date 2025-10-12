@@ -120,6 +120,7 @@ pub fn get_project_config_for_current_dir(
         let (config, errors) = args.override_config(ConfigFile::init_at_root(
             &current_dir,
             &ProjectLayout::new(&current_dir),
+            false,
         ));
         // Since this is a config we generated, these are likely internal errors.
         debug_log(errors);

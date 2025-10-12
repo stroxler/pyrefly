@@ -358,15 +358,23 @@ impl Default for ConfigFile {
 }
 
 impl ConfigFile {
-    /// Gets a ConfigFile for a project directory.
-    pub fn init_at_root(root: &Path, layout: &ProjectLayout) -> Self {
+    /// Gets a ConfigFile for a project directory. `fallback` indicates whether this is a guessed
+    /// project root that we're falling back to after failing to otherwise find an import.
+    pub fn init_at_root(root: &Path, layout: &ProjectLayout, fallback: bool) -> Self {
         let mut result = Self {
             project_includes: Self::default_project_includes(),
             project_excludes: Self::default_project_excludes(),
-            import_root: Some(layout.get_import_root(root)),
             root: ConfigBase::default_for_ide_without_config(),
             ..Default::default()
         };
+        let import_root = layout.get_import_root(root);
+        if fallback {
+            // De-prioritize guessed import roots, so they don't shadow typeshed. In particular,
+            // we don't want the typing-extensions package to shadow the corresponding stub.
+            result.fallback_search_path = vec![import_root];
+        } else {
+            result.import_root = Some(import_root);
+        }
         // ignore failures rewriting path to config, since we're trying to construct
         // an ephemeral config for the user, and it's not fatal (but things might be
         // a little weird)
@@ -836,7 +844,7 @@ impl ConfigFile {
                         config.import_root = Some(layout.get_import_root(config_root));
                         config
                     } else {
-                        ConfigFile::init_at_root(config_root, &layout)
+                        ConfigFile::init_at_root(config_root, &layout, false)
                     }
                 }
                 None => {
@@ -1357,7 +1365,7 @@ mod tests {
     #[test]
     fn test_expect_all_fields_set_in_root_config() {
         let root = TempDir::new().unwrap();
-        let mut config = ConfigFile::init_at_root(root.path(), &ProjectLayout::default());
+        let mut config = ConfigFile::init_at_root(root.path(), &ProjectLayout::default(), false);
         config.configure();
 
         let table: serde_json::Map<String, serde_json::Value> =
@@ -1457,7 +1465,7 @@ mod tests {
     #[test]
     fn test_default_search_path() {
         let tempdir = TempDir::new().unwrap();
-        let config = ConfigFile::init_at_root(tempdir.path(), &ProjectLayout::default());
+        let config = ConfigFile::init_at_root(tempdir.path(), &ProjectLayout::default(), false);
         assert_eq!(
             config.search_path().cloned().collect::<Vec<_>>(),
             vec![tempdir.path().to_path_buf()]

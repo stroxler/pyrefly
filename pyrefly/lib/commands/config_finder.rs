@@ -127,7 +127,7 @@ pub fn standard_config_finder(configure: Arc<dyn ConfigConfigurer>) -> ConfigFin
                 .or_insert_with(|| {
                     let (config, errors) = configure2.configure(
                         path.parent(),
-                        ConfigFile::init_at_root(&path, &ProjectLayout::Flat),
+                        ConfigFile::init_at_root(&path, &ProjectLayout::Flat, true),
                         vec![],
                     );
                     // Since this is a config we generated, these are likely internal errors.
@@ -311,9 +311,12 @@ mod tests {
         assert_eq!(config_file.source, ConfigSource::Synthetic);
         assert_eq!(
             config_file.search_path().cloned().collect::<Vec<_>>(),
+            Vec::<PathBuf>::new()
+        );
+        assert_eq!(
+            config_file.fallback_search_path,
             vec![root.join("no_config")]
         );
-        assert_eq!(config_file.fallback_search_path, Vec::<PathBuf>::new());
 
         // check invalid module path parent
         assert_eq!(
