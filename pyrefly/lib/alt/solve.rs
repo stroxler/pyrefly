@@ -14,6 +14,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::facet::FacetKind;
+use pyrefly_types::type_info::JoinStyle;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
@@ -1940,7 +1941,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Narrow(k, op, range) => {
                 self.narrow(self.get_idx(*k).as_ref(), op, *range, errors)
             }
-            Binding::Phi(_, ks) => {
+            Binding::Phi(join_style, ks) => {
                 if ks.len() == 1 {
                     self.get_idx(*ks.first().unwrap()).arc_clone()
                 } else {
@@ -1957,7 +1958,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         })
                         .collect::<Vec<_>>();
-                    TypeInfo::join(type_infos, &|ts| self.unions(ts))
+                    TypeInfo::join(
+                        type_infos,
+                        &|ts| self.unions(ts),
+                        join_style.map(|idx| self.get_idx(*idx)),
+                    )
                 }
             }
             Binding::LoopPhi(default, ks) => {
@@ -1980,7 +1985,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         })
                         .collect::<Vec<_>>();
-                    TypeInfo::join(type_infos, &|ts| self.unions(ts))
+                    TypeInfo::join(type_infos, &|ts| self.unions(ts), JoinStyle::SimpleMerge)
                 }
             }
             Binding::AssignToAttribute(attr, got) => {

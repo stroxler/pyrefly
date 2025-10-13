@@ -41,6 +41,16 @@ pub enum JoinStyle<T> {
     NarrowOf(T),
 }
 
+impl<T> JoinStyle<T> {
+    pub fn map<S>(&self, f: impl FnOnce(&T) -> S) -> JoinStyle<S> {
+        match self {
+            JoinStyle::SimpleMerge => JoinStyle::SimpleMerge,
+            JoinStyle::ReassignmentOf(x) => JoinStyle::ReassignmentOf(f(x)),
+            JoinStyle::NarrowOf(x) => JoinStyle::NarrowOf(f(x)),
+        }
+    }
+}
+
 /// The `TypeInfo` datatype represents type information associated with a
 /// name or expression in a control flow context.
 ///
@@ -112,7 +122,11 @@ impl TypeInfo {
     /// - Drop narrowing for facet chains where at least one branch does not narrow
     ///
     /// In the case where there are no branches, we get `Never` with no narrows.
-    pub fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Self {
+    pub fn join(
+        mut branches: Vec<Self>,
+        union_types: &impl Fn(Vec<Type>) -> Type,
+        _join_style: JoinStyle<Arc<TypeInfo>>,
+    ) -> Self {
         match branches.len() {
             0 => Self::of_ty(Type::never()),
             1 => branches.pop().unwrap(),
@@ -535,6 +549,7 @@ mod tests {
     use crate::class::ClassType;
     use crate::display::tests::fake_class;
     use crate::facet::FacetKind;
+    use crate::type_info::JoinStyle;
     use crate::type_info::TypeInfo;
     use crate::types::TArgs;
     use crate::types::Type;
@@ -632,13 +647,17 @@ mod tests {
 
     #[test]
     fn test_type_info_empty_join() {
-        let type_info = TypeInfo::join(Vec::new(), &|ts| {
-            if ts.is_empty() {
-                fake_class_type("Never")
-            } else {
-                fake_class_type("FakeUnionType")
-            }
-        });
+        let type_info = TypeInfo::join(
+            Vec::new(),
+            &|ts| {
+                if ts.is_empty() {
+                    fake_class_type("Never")
+                } else {
+                    fake_class_type("FakeUnionType")
+                }
+            },
+            JoinStyle::SimpleMerge,
+        );
         assert_eq!(type_info.to_string(), "Never");
     }
 
