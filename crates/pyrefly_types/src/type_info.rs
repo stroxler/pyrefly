@@ -125,7 +125,7 @@ impl TypeInfo {
     pub fn join(
         mut branches: Vec<Self>,
         union_types: &impl Fn(Vec<Type>) -> Type,
-        _join_style: JoinStyle<Arc<TypeInfo>>,
+        join_style: JoinStyle<Arc<TypeInfo>>,
     ) -> Self {
         match branches.len() {
             0 => Self::of_ty(Type::never()),
@@ -138,7 +138,13 @@ impl TypeInfo {
                 let ty = union_types(tys);
                 let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
                 let facets = if branches.len() == n {
-                    NarrowedFacets::join(branches, union_types)
+                    NarrowedFacets::join(
+                        branches,
+                        union_types,
+                        join_style.map(|base_type_info| {
+                            base_type_info.facets.as_ref().map(|f| f.as_ref().clone())
+                        }),
+                    )
                 } else {
                     // at least one branch had empty facets, we should drop facets from the join
                     None
@@ -323,7 +329,11 @@ impl NarrowedFacets {
         Self(smallmap! {facet => NarrowedFacet::new(more_facets, ty)})
     }
 
-    fn join(mut branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
+    fn join(
+        mut branches: Vec<Self>,
+        union_types: &impl Fn(Vec<Type>) -> Type,
+        join_style: JoinStyle<Option<NarrowedFacets>>,
+    ) -> Option<Self> {
         match branches.len() {
             0 => None,
             1 => Some(branches.pop().unwrap()),
@@ -340,8 +350,14 @@ impl NarrowedFacets {
                             .extend(tail.iter().filter_map(|facets| facets.get(&facet).cloned()));
                         // If any map lacked this facet, we just drop it. Only join if all maps have it.
                         if facet_branches.len() == n {
-                            NarrowedFacet::join(facet_branches, union_types)
-                                .map(move |narrowed_facet| (facet, narrowed_facet))
+                            NarrowedFacet::join(
+                                facet_branches,
+                                union_types,
+                                join_style.map(|base_facets| {
+                                    base_facets.as_ref().and_then(|f| f.get(&facet)).cloned()
+                                }),
+                            )
+                            .map(move |narrowed_facet| (facet, narrowed_facet))
                         } else {
                             None
                         }
@@ -502,7 +518,11 @@ impl NarrowedFacet {
         }
     }
 
-    fn join(branches: Vec<Self>, union_types: &impl Fn(Vec<Type>) -> Type) -> Option<Self> {
+    fn join(
+        branches: Vec<Self>,
+        union_types: &impl Fn(Vec<Type>) -> Type,
+        join_style: JoinStyle<Option<NarrowedFacet>>,
+    ) -> Option<Self> {
         fn monadic_push_option<T>(acc: &mut Option<Vec<T>>, item: Option<T>) {
             match item {
                 None => *acc = None,
@@ -529,8 +549,20 @@ impl NarrowedFacet {
             }
         }
         let ty = ty_branches.map(union_types);
-        let facets = facets_branches
-            .and_then(|facets_branches| NarrowedFacets::join(facets_branches, union_types));
+        let facets = facets_branches.and_then(|facets_branches| {
+            NarrowedFacets::join(
+                facets_branches,
+                union_types,
+                join_style.map(|base_facet| {
+                    base_facet.as_ref().and_then(|f| match f {
+                        NarrowedFacet::WithRoot(_, facets) | NarrowedFacet::WithoutRoot(facets) => {
+                            Some(facets.clone())
+                        }
+                        NarrowedFacet::Leaf(_) => None,
+                    })
+                }),
+            )
+        });
         match (ty, facets) {
             (None, None) => None,
             (Some(ty), None) => Some(Self::Leaf(ty)),
