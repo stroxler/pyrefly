@@ -10,7 +10,10 @@ use std::hash::Hash;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::callable::Function;
 use pyrefly_types::class::Class;
+use pyrefly_types::types::BoundMethodType;
+use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
@@ -43,6 +46,7 @@ use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::override_graph::get_last_definition;
+use crate::report::pysa::types::ScalarTypeProperties;
 use crate::report::pysa::types::has_superclass;
 use crate::state::lsp::FindPreference;
 
@@ -98,6 +102,8 @@ pub struct CallTarget<Function: FunctionTrait> {
     pub(crate) is_class_method: bool,
     // True if calling a static method.
     pub(crate) is_static_method: bool,
+    // The return type of the call expression, or `None` for object targets.
+    pub(crate) return_type: Option<ScalarTypeProperties>,
 }
 
 impl<Function: FunctionTrait> CallTarget<Function> {
@@ -116,6 +122,7 @@ impl<Function: FunctionTrait> CallTarget<Function> {
             implicit_dunder_call: self.implicit_dunder_call,
             is_class_method: self.is_class_method,
             is_static_method: self.is_static_method,
+            return_type: self.return_type,
         }
     }
 
@@ -139,6 +146,12 @@ impl<Function: FunctionTrait> CallTarget<Function> {
     #[cfg(test)]
     pub fn with_is_static_method(mut self, is_static_method: bool) -> Self {
         self.is_static_method = is_static_method;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_return_type(mut self, return_type: Option<ScalarTypeProperties>) -> Self {
+        self.return_type = return_type;
         self
     }
 }
@@ -592,7 +605,11 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn resolve_name(&self, name: &ExprName) -> Vec<CallTarget<FunctionRef>> {
+    fn resolve_name(
+        &self,
+        name: &ExprName,
+        return_type: Option<ScalarTypeProperties>,
+    ) -> Vec<CallTarget<FunctionRef>> {
         let create_call_target = |function_ref: FunctionRef| {
             let method_metadata = self.get_method_metadata(&function_ref);
             let implicit_receiver = has_implicit_receiver(
@@ -606,6 +623,7 @@ impl<'a> CallGraphVisitor<'a> {
                 implicit_dunder_call: false,
                 is_class_method: method_metadata.is_classmethod,
                 is_static_method: method_metadata.is_staticmethod,
+                return_type,
             }
         };
         let identifier = Ast::expr_name_identifier(name.clone());
@@ -651,7 +669,11 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn resolve_attribute_access(&self, attribute: &ExprAttribute) -> Vec<CallTarget<FunctionRef>> {
+    fn resolve_attribute_access(
+        &self,
+        attribute: &ExprAttribute,
+        return_type: Option<ScalarTypeProperties>,
+    ) -> Vec<CallTarget<FunctionRef>> {
         let receiver_type = self
             .module_context
             .answers
@@ -690,6 +712,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 implicit_dunder_call: false,
                                 is_class_method: method_metadata.is_classmethod,
                                 is_static_method: method_metadata.is_staticmethod,
+                                return_type,
                             })
                             .collect::<Vec<_>>()
                     } else {
@@ -703,6 +726,7 @@ impl<'a> CallGraphVisitor<'a> {
                             implicit_dunder_call: false,
                             is_class_method: method_metadata.is_classmethod,
                             is_static_method: method_metadata.is_staticmethod,
+                            return_type,
                         }]
                     }
                 })
@@ -714,11 +738,38 @@ impl<'a> CallGraphVisitor<'a> {
     fn resolve_call(&self, call: &ExprCall) -> Vec<CallTarget<FunctionRef>> {
         debug_println!(self.debug, "Visiting call: {:#?}", call);
 
+        let return_type = self
+            .module_context
+            .answers
+            .get_type_trace(call.range())
+            .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+
         match &*call.func {
-            Expr::Name(name) => self.resolve_name(name),
-            Expr::Attribute(attribute) => self.resolve_attribute_access(attribute),
+            Expr::Name(name) => self.resolve_name(name, return_type),
+            Expr::Attribute(attribute) => self.resolve_attribute_access(attribute, return_type),
             _ => Vec::new(),
         }
+    }
+
+    fn get_return_type_for_callee(&self, callee_type: Option<&Type>) -> ScalarTypeProperties {
+        let return_type_from_function = |function: &Function| {
+            ScalarTypeProperties::from_type(&function.signature.ret, self.module_context)
+        };
+        callee_type.map_or(ScalarTypeProperties::none(), |type_| match type_ {
+            Type::Function(function) => return_type_from_function(function),
+            Type::BoundMethod(bound_method) => match &bound_method.func {
+                BoundMethodType::Function(function) => return_type_from_function(function),
+                BoundMethodType::Forall(forall) => return_type_from_function(&forall.body),
+                BoundMethodType::Overload(overload) => match overload.signatures.last() {
+                    OverloadType::Function(function) => return_type_from_function(function),
+                    OverloadType::Forall(forall) => return_type_from_function(&forall.body),
+                },
+            },
+            Type::Callable(callable) => {
+                ScalarTypeProperties::from_type(&callable.ret, self.module_context)
+            }
+            _ => ScalarTypeProperties::none(),
+        })
     }
 
     fn resolve_expression(
@@ -734,18 +785,33 @@ impl<'a> CallGraphVisitor<'a> {
                 Expr::Attribute(_) => true,
                 _ => false,
             });
+        let return_type_when_called = || {
+            self.get_return_type_for_callee(
+                self.module_context
+                    .answers
+                    .get_type_trace(expr.range())
+                    .as_ref(),
+            )
+        };
         match expr {
             Expr::Call(call) => Some(ExpressionCallees::Call(CallCallees {
                 call_targets: self.resolve_call(call),
             })),
             Expr::Name(name) if !is_nested_callee_or_base => {
                 Some(ExpressionCallees::Identifier(IdentifierCallees {
-                    callable_targets: self.resolve_name(name),
+                    callable_targets: self.resolve_name(
+                        name,
+                        /* Not in a call */
+                        Some(return_type_when_called()),
+                    ),
                 }))
             }
             Expr::Attribute(attribute) if !is_nested_callee_or_base => {
                 Some(ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-                    callable_targets: self.resolve_attribute_access(attribute),
+                    callable_targets: self.resolve_attribute_access(
+                        attribute,
+                        /* Not in a call */ Some(return_type_when_called()),
+                    ),
                 }))
             }
             _ => None,
