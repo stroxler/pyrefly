@@ -13,6 +13,45 @@ use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 
 #[test]
+fn test_cycle_class() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    interaction.server.did_open("cycle_class/foo.py");
+    interaction.server.diagnostic("cycle_class/foo.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-argument-type",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-argument-type"
+                    },
+                    "message": "Argument `Self@Foo` is not assignable to parameter `foo` with type `Foo` in function `bar.Bar.bar`",
+                    "range": {
+                        "end": {"character": 22, "line": 10},
+                        "start": {"character": 18, "line": 10}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_unexpected_keyword_range() {
     let test_files_root = get_test_files_root();
     let mut interaction = LspInteraction::new();
