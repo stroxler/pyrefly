@@ -98,13 +98,13 @@ fn class_test() {
     let code = r#"
 class MyClass:
     """Class docstring"""
-    
+
     def __init__(self):
         self.x = 1
-    
+
     def method1(self):
         return self.x
-        
+
     def method2(self, y):
         return self.x + y
 "#;
@@ -233,7 +233,7 @@ def helper_function():
 
 class MyClass:
     class_var = "hello"
-    
+
     def method(self):
         local_var = helper_function()
         return local_var
@@ -386,6 +386,228 @@ fn list_comprehension_test() {
 # main.py
 
 []
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// TODO(jvansch): Update test to test that local variables are included as symbols
+#[test]
+fn test_does_not_include_local_variables_as_symbols() {
+    let code = r#"
+import os
+from typing import List
+
+x = 1
+
+def helper_function():
+    return 42
+
+class MyClass:
+    class_var = "hello"
+
+    def method(self):
+        local_var = helper_function()
+        return local_var
+
+y = MyClass()
+result = y.method()
+ "#;
+    let report = get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+
+[
+  {
+    "name": "helper_function",
+    "kind": 12,
+    "range": {
+      "start": {
+        "line": 6,
+        "character": 0
+      },
+      "end": {
+        "line": 7,
+        "character": 13
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 6,
+        "character": 4
+      },
+      "end": {
+        "line": 6,
+        "character": 19
+      }
+    },
+    "children": []
+  },
+  {
+    "name": "MyClass",
+    "kind": 5,
+    "range": {
+      "start": {
+        "line": 9,
+        "character": 0
+      },
+      "end": {
+        "line": 14,
+        "character": 24
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 9,
+        "character": 6
+      },
+      "end": {
+        "line": 9,
+        "character": 13
+      }
+    },
+    "children": [
+      {
+        "name": "method",
+        "kind": 12,
+        "range": {
+          "start": {
+            "line": 12,
+            "character": 4
+          },
+          "end": {
+            "line": 14,
+            "character": 24
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 12,
+            "character": 8
+          },
+          "end": {
+            "line": 12,
+            "character": 14
+          }
+        },
+        "children": []
+      }
+    ]
+  }
+]
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// TODO(jvansch): Update test to test that annotated local variables are included as symbols
+#[test]
+fn test_does_not_include_annotated_local_variables_as_symbols() {
+    let code = r#"
+import os
+from typing import List
+
+x: int = 1
+
+def helper_function():
+    return 42
+
+class MyClass:
+    class_var: str = "hello"
+
+    def method(self):
+        local_var: int = helper_function()
+        return local_var
+
+y: MyClass = MyClass()
+result: int = y.method()
+ "#;
+    let report = get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+
+[
+  {
+    "name": "helper_function",
+    "kind": 12,
+    "range": {
+      "start": {
+        "line": 6,
+        "character": 0
+      },
+      "end": {
+        "line": 7,
+        "character": 13
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 6,
+        "character": 4
+      },
+      "end": {
+        "line": 6,
+        "character": 19
+      }
+    },
+    "children": []
+  },
+  {
+    "name": "MyClass",
+    "kind": 5,
+    "range": {
+      "start": {
+        "line": 9,
+        "character": 0
+      },
+      "end": {
+        "line": 14,
+        "character": 24
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 9,
+        "character": 6
+      },
+      "end": {
+        "line": 9,
+        "character": 13
+      }
+    },
+    "children": [
+      {
+        "name": "method",
+        "kind": 12,
+        "range": {
+          "start": {
+            "line": 12,
+            "character": 4
+          },
+          "end": {
+            "line": 14,
+            "character": 24
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 12,
+            "character": 8
+          },
+          "end": {
+            "line": 12,
+            "character": 14
+          }
+        },
+        "children": []
+      }
+    ]
+  }
+]
 "#
         .trim(),
         report.trim(),
