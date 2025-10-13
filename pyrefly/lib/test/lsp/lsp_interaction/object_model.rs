@@ -27,6 +27,7 @@ use lsp_types::Url;
 use lsp_types::notification::Exit;
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
+use pretty_assertions::assert_eq;
 use pyrefly_util::fs_anyhow::read_to_string;
 use serde_json::Value;
 
