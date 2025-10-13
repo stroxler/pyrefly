@@ -1930,6 +1930,7 @@ impl<'a> BindingsBuilder<'a> {
         branch_idxs: SmallSet<Idx<Key>>,
         phi_idx: Idx<Key>,
         loop_default: Option<Idx<Key>>,
+        join_style: JoinStyle,
     ) -> Idx<Key> {
         if branch_idxs.len() == 1 {
             // We hit this case if any of these are true:
@@ -1944,7 +1945,7 @@ impl<'a> BindingsBuilder<'a> {
             self.insert_binding_idx(phi_idx, Binding::LoopPhi(default, branch_idxs));
             phi_idx
         } else {
-            self.insert_binding_idx(phi_idx, Binding::Phi(JoinStyle::SimpleMerge, branch_idxs));
+            self.insert_binding_idx(phi_idx, Binding::Phi(join_style, branch_idxs));
             phi_idx
         }
     }
@@ -1967,6 +1968,7 @@ impl<'a> BindingsBuilder<'a> {
         merge_style: MergeStyle,
         n_branches: usize,
     ) -> FlowInfo {
+        let base_idx = merge_item.base.as_ref().map(|base| base.idx());
         let mut flow_infos = merge_item.branches;
         // If this is a loop, we want to use the current default in any phis we produce,
         // and the base flow is part of the merge.
@@ -2025,46 +2027,69 @@ impl<'a> BindingsBuilder<'a> {
             branch_idxs.insert(branch_idx);
         }
         let this_name_always_defined = n_values == n_branches;
-        let merged_idx = self.merge_idxs(branch_idxs, phi_idx, loop_default);
         match value_idxs.len() {
             // If there are no values, then this name isn't assigned at all
             // and is only narrowed (it's most likely a capture, but could be
             // a local if the code we're analyzing is buggy)
-            0 => FlowInfo {
-                value: None,
-                narrow: Some(FlowNarrow { idx: merged_idx }),
-                default: merged_default(merged_idx),
-            },
+            0 => {
+                let merged_idx = self.merge_idxs(
+                    branch_idxs,
+                    phi_idx,
+                    loop_default,
+                    base_idx.map_or(JoinStyle::SimpleMerge, JoinStyle::NarrowOf),
+                );
+                FlowInfo {
+                    value: None,
+                    narrow: Some(FlowNarrow { idx: merged_idx }),
+                    default: merged_default(merged_idx),
+                }
+            }
             // If there is exactly one value (after discarding the phi itself,
             // for a loop), then the phi should be treated as a narrow, not a
             // value, and the value should continue to point at upstream.
-            1 => FlowInfo {
-                value: Some(FlowValue {
-                    idx: *value_idxs.first().unwrap(),
-                    style: FlowStyle::merged(
-                        this_name_always_defined,
-                        styles.into_iter(),
-                        merge_style,
-                    ),
-                }),
-                narrow: Some(FlowNarrow { idx: merged_idx }),
-                default: merged_default(merged_idx),
-            },
+            1 => {
+                let merged_idx = self.merge_idxs(
+                    branch_idxs,
+                    phi_idx,
+                    loop_default,
+                    base_idx.map_or(JoinStyle::SimpleMerge, JoinStyle::NarrowOf),
+                );
+                FlowInfo {
+                    value: Some(FlowValue {
+                        idx: *value_idxs.first().unwrap(),
+                        style: FlowStyle::merged(
+                            this_name_always_defined,
+                            styles.into_iter(),
+                            merge_style,
+                        ),
+                    }),
+                    narrow: Some(FlowNarrow { idx: merged_idx }),
+                    default: merged_default(merged_idx),
+                }
+            }
             // If there are multiple values, then the phi should be treated
             // as a value (it may still include narrowed type information,
             // but it is not reducible to just narrows).
-            _ => FlowInfo {
-                value: Some(FlowValue {
-                    idx: merged_idx,
-                    style: FlowStyle::merged(
-                        this_name_always_defined,
-                        styles.into_iter(),
-                        merge_style,
-                    ),
-                }),
-                narrow: None,
-                default: merged_default(merged_idx),
-            },
+            _ => {
+                let merged_idx = self.merge_idxs(
+                    branch_idxs,
+                    phi_idx,
+                    loop_default,
+                    base_idx.map_or(JoinStyle::SimpleMerge, JoinStyle::ReassignmentOf),
+                );
+                FlowInfo {
+                    value: Some(FlowValue {
+                        idx: merged_idx,
+                        style: FlowStyle::merged(
+                            this_name_always_defined,
+                            styles.into_iter(),
+                            merge_style,
+                        ),
+                    }),
+                    narrow: None,
+                    default: merged_default(merged_idx),
+                }
+            }
         }
     }
 
