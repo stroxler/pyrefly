@@ -951,7 +951,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         got: &Type,
         protocol: &ClassType,
-        name: &Name,
+        attr_name: &Name,
         is_subset: &mut dyn FnMut(&Type, &Type) -> Result<(), SubsetError>,
     ) -> Result<(), SubsetError> {
         if let Some(got_attrs) = self
@@ -962,7 +962,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .0
                         .mapped(|base| AttributeBase1::ProtocolSubset(Box::new(base))),
                 );
-                self.lookup_attr_from_base(got_base, name)
+                self.lookup_attr_from_base(got_base, attr_name)
             })
             .and_then(|lookup_result| {
                 if lookup_result.not_found.is_empty() && lookup_result.internal_error.is_empty() {
@@ -973,7 +973,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
         {
             if (!got_attrs.is_empty())
-                && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), name)
+                && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), attr_name)
             {
                 for (got_attr, _) in got_attrs.iter() {
                     self.is_attribute_subset(got_attr, &want, &mut |got, want| {
@@ -983,10 +983,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Ok(())
             } else {
-                Err(SubsetError::Other)
+                Err(SubsetError::MissingAttribute(
+                    protocol.name().clone(),
+                    attr_name.clone(),
+                ))
             }
         } else {
-            Err(SubsetError::Other)
+            Err(SubsetError::MissingAttribute(
+                protocol.name().clone(),
+                attr_name.clone(),
+            ))
         }
     }
 

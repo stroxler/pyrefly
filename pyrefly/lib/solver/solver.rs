@@ -762,6 +762,7 @@ impl Solver {
         errors: &ErrorCollector,
         loc: TextRange,
         tcc: &dyn Fn() -> TypeCheckContext,
+        subset_error: SubsetError,
     ) {
         let tcc = tcc();
         let msg = tcc.kind.format_error(
@@ -769,12 +770,16 @@ impl Solver {
             &self.for_display(want.clone()),
             errors.module().name(),
         );
+        let mut msg_lines = vec1![msg];
+        if let Some(subset_error_msg) = subset_error.to_error_msg() {
+            msg_lines.push(subset_error_msg);
+        }
         match tcc.context {
             Some(ctx) => {
-                errors.add(loc, ErrorInfo::Context(&|| ctx.clone()), vec1![msg]);
+                errors.add(loc, ErrorInfo::Context(&|| ctx.clone()), msg_lines);
             }
             None => {
-                errors.add(loc, ErrorInfo::Kind(tcc.kind.as_error_kind()), vec1![msg]);
+                errors.add(loc, ErrorInfo::Kind(tcc.kind.as_error_kind()), msg_lines);
             }
         }
     }
@@ -863,9 +868,14 @@ impl Solver {
                 // is more restrictive (so the `forced` is an over-approximation).
                 if self.is_subset_eq(&t, &forced, type_order).is_err() {
                     // Poor error message, but overall, this is a terrible experience for users.
-                    self.error(&t, &forced, errors, loc, &|| {
-                        TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking)
-                    });
+                    self.error(
+                        &t,
+                        &forced,
+                        errors,
+                        loc,
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::CycleBreaking),
+                        SubsetError::Other,
+                    );
                 }
             }
             _ => {
@@ -946,8 +956,29 @@ pub enum SubsetError {
     /// Instantiations for quantified vars are incompatible with bounds
     #[allow(dead_code)]
     TypeVarSpecialization(Vec1<TypeVarSpecializationError>),
+    /// `got` is missing an attribute that the Protocol `want` requires
+    /// The first element is the name of the protocol, the second is the name of the attribute
+    MissingAttribute(Name, Name),
     // TODO(rechen): replace this with specific reasons
     Other,
+}
+
+impl SubsetError {
+    pub fn to_error_msg(self) -> Option<String> {
+        match self {
+            SubsetError::PosParamName(got, want) => Some(format!(
+                "Positional parameter name mismatch: got `{got}`, want `{want}`"
+            )),
+            SubsetError::TypeVarSpecialization(_) => {
+                // TODO
+                None
+            }
+            SubsetError::MissingAttribute(protocol, attribute) => Some(format!(
+                "Protocol `{protocol}` requires attribute `{attribute}`"
+            )),
+            SubsetError::Other => None,
+        }
+    }
 }
 
 /// A helper to implement subset ergonomically.
