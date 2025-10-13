@@ -32,6 +32,7 @@ use vec1::Vec1;
 use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
+use crate::alt::attr::AttrSubsetError;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
@@ -959,6 +960,9 @@ pub enum SubsetError {
     /// `got` is missing an attribute that the Protocol `want` requires
     /// The first element is the name of the protocol, the second is the name of the attribute
     MissingAttribute(Name, Name),
+    /// Attribute in `got` is incompatible with the same attribute in Protocol `want`
+    /// The first element is the name of `want, the second element is `got`, and the third element is the name of the attribute
+    IncompatibleAttribute(Box<(Name, Type, Name, AttrSubsetError)>),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
@@ -976,6 +980,9 @@ impl SubsetError {
             SubsetError::MissingAttribute(protocol, attribute) => Some(format!(
                 "Protocol `{protocol}` requires attribute `{attribute}`"
             )),
+            SubsetError::IncompatibleAttribute(box (protocol, got, attribute, err)) => {
+                Some(err.to_error_msg(&Name::new(format!("{got}")), &protocol, &attribute))
+            }
             SubsetError::Other => None,
         }
     }

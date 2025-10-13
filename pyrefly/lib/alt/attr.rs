@@ -68,7 +68,7 @@ struct LookupResult {
     pub internal_error: Vec<InternalError>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AttrSubsetError {
     // `got` is not accessible, but `want` is
     NoAccess,
@@ -975,11 +975,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if (!got_attrs.is_empty())
                 && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), attr_name)
             {
+                let got_type_display = self.for_display(got.clone());
                 for (got_attr, _) in got_attrs.iter() {
                     self.is_attribute_subset(got_attr, &want, &mut |got, want| {
                         is_subset(got, want)
                     })
-                    .map_err(|_| SubsetError::Other)?;
+                    .map_err(|err| {
+                        SubsetError::IncompatibleAttribute(Box::new((
+                            protocol.name().clone(),
+                            got_type_display.clone(),
+                            attr_name.clone(),
+                            err,
+                        )))
+                    })?;
                 }
                 Ok(())
             } else {
