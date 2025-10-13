@@ -794,27 +794,30 @@ result = y.method()
     );
 }
 
-// TODO(jvansch): Update test to test that annotated local variables are included as symbols
 #[test]
-fn test_does_not_include_annotated_local_variables_as_symbols() {
+fn test_does_include_annotated_local_variables_as_symbols() {
     let code = r#"
 import os
 from typing import List
 
 x: int = 1
+name: str = "test"
 
-def helper_function():
+def helper_function() -> int:
     return 42
 
 class MyClass:
     class_var: str = "hello"
+    counter: int = 0
 
-    def method(self):
+    def method(self) -> int:
         local_var: int = helper_function()
+        message: str = "done"
         return local_var
 
 y: MyClass = MyClass()
 result: int = y.method()
+items: List[str] = ["a", "b", "c"]
  "#;
     let report = get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_test_report);
     assert_eq!(
@@ -823,25 +826,75 @@ result: int = y.method()
 
 [
   {
+    "name": "x",
+    "detail": "int",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 10
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 1
+      }
+    }
+  },
+  {
+    "name": "name",
+    "detail": "str",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 5,
+        "character": 0
+      },
+      "end": {
+        "line": 5,
+        "character": 18
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 5,
+        "character": 0
+      },
+      "end": {
+        "line": 5,
+        "character": 4
+      }
+    }
+  },
+  {
     "name": "helper_function",
     "kind": 12,
     "range": {
       "start": {
-        "line": 6,
+        "line": 7,
         "character": 0
       },
       "end": {
-        "line": 7,
+        "line": 8,
         "character": 13
       }
     },
     "selectionRange": {
       "start": {
-        "line": 6,
+        "line": 7,
         "character": 4
       },
       "end": {
-        "line": 6,
+        "line": 7,
         "character": 19
       }
     },
@@ -852,51 +905,227 @@ result: int = y.method()
     "kind": 5,
     "range": {
       "start": {
-        "line": 9,
+        "line": 10,
         "character": 0
       },
       "end": {
-        "line": 14,
+        "line": 17,
         "character": 24
       }
     },
     "selectionRange": {
       "start": {
-        "line": 9,
+        "line": 10,
         "character": 6
       },
       "end": {
-        "line": 9,
+        "line": 10,
         "character": 13
       }
     },
     "children": [
       {
-        "name": "method",
-        "kind": 12,
+        "name": "class_var",
+        "detail": "str",
+        "kind": 13,
+        "range": {
+          "start": {
+            "line": 11,
+            "character": 4
+          },
+          "end": {
+            "line": 11,
+            "character": 28
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 11,
+            "character": 4
+          },
+          "end": {
+            "line": 11,
+            "character": 13
+          }
+        }
+      },
+      {
+        "name": "counter",
+        "detail": "int",
+        "kind": 13,
         "range": {
           "start": {
             "line": 12,
             "character": 4
           },
           "end": {
-            "line": 14,
-            "character": 24
+            "line": 12,
+            "character": 20
           }
         },
         "selectionRange": {
           "start": {
             "line": 12,
-            "character": 8
+            "character": 4
           },
           "end": {
             "line": 12,
+            "character": 11
+          }
+        }
+      },
+      {
+        "name": "method",
+        "kind": 12,
+        "range": {
+          "start": {
+            "line": 14,
+            "character": 4
+          },
+          "end": {
+            "line": 17,
+            "character": 24
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 14,
+            "character": 8
+          },
+          "end": {
+            "line": 14,
             "character": 14
           }
         },
-        "children": []
+        "children": [
+          {
+            "name": "local_var",
+            "detail": "int",
+            "kind": 13,
+            "range": {
+              "start": {
+                "line": 15,
+                "character": 8
+              },
+              "end": {
+                "line": 15,
+                "character": 42
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 15,
+                "character": 8
+              },
+              "end": {
+                "line": 15,
+                "character": 17
+              }
+            }
+          },
+          {
+            "name": "message",
+            "detail": "str",
+            "kind": 13,
+            "range": {
+              "start": {
+                "line": 16,
+                "character": 8
+              },
+              "end": {
+                "line": 16,
+                "character": 29
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 16,
+                "character": 8
+              },
+              "end": {
+                "line": 16,
+                "character": 15
+              }
+            }
+          }
+        ]
       }
     ]
+  },
+  {
+    "name": "y",
+    "detail": "MyClass",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 19,
+        "character": 0
+      },
+      "end": {
+        "line": 19,
+        "character": 22
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 19,
+        "character": 0
+      },
+      "end": {
+        "line": 19,
+        "character": 1
+      }
+    }
+  },
+  {
+    "name": "result",
+    "detail": "int",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 20,
+        "character": 0
+      },
+      "end": {
+        "line": 20,
+        "character": 24
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 20,
+        "character": 0
+      },
+      "end": {
+        "line": 20,
+        "character": 6
+      }
+    }
+  },
+  {
+    "name": "items",
+    "detail": "List[str]",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 21,
+        "character": 0
+      },
+      "end": {
+        "line": 21,
+        "character": 34
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 21,
+        "character": 0
+      },
+      "end": {
+        "line": 21,
+        "character": 5
+      }
+    }
   }
 ]
 "#

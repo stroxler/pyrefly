@@ -2715,6 +2715,26 @@ impl<'a> Transaction<'a> {
                         }
                     }
                 }
+                Stmt::AnnAssign(stmt_ann_assign) => {
+                    if let Expr::Name(name) = &*stmt_ann_assign.target {
+                        symbols.push(DocumentSymbol {
+                            name: name.id.to_string(),
+                            detail: Some(
+                                module_info
+                                    .code_at(stmt_ann_assign.annotation.range())
+                                    .to_owned(),
+                            ),
+                            kind: lsp_types::SymbolKind::VARIABLE,
+                            tags: None,
+                            deprecated: None,
+                            range: module_info
+                                .lined_buffer()
+                                .to_lsp_range(stmt_ann_assign.range),
+                            selection_range: module_info.lined_buffer().to_lsp_range(name.range),
+                            children: None,
+                        });
+                    }
+                }
                 _ => {}
             };
             symbols.append(&mut recursed_symbols);
