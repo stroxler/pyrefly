@@ -199,7 +199,12 @@ impl<'a> AstScopedVisitor for CapturedVariableVisitor<'a> {
         );
     }
 
-    fn visit_expression(&mut self, expr: &Expr, scopes: &Scopes) {
+    fn visit_expression(
+        &mut self,
+        expr: &Expr,
+        scopes: &Scopes,
+        _parent_expression: Option<&Expr>,
+    ) {
         if self.current_exported_function.is_none() {
             return;
         }

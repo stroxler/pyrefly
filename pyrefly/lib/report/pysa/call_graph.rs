@@ -721,19 +721,29 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn resolve_expression(&self, expr: &Expr) -> Option<ExpressionCallees<FunctionRef>> {
+    fn resolve_expression(
+        &self,
+        expr: &Expr,
+        parent_expression: Option<&Expr>,
+    ) -> Option<ExpressionCallees<FunctionRef>> {
+        let is_nested_callee_or_base =
+            parent_expression.is_some_and(|parent_expression| match parent_expression {
+                // For example, avoid visiting `x.__call__` in `x.__call__(1)`
+                Expr::Call(callee) if expr.range() == callee.func.range() => true,
+                // For example, avoid visiting `x` in `x.__call__` or `x.y` in `x.y.__call__`
+                Expr::Attribute(_) => true,
+                _ => false,
+            });
         match expr {
             Expr::Call(call) => Some(ExpressionCallees::Call(CallCallees {
                 call_targets: self.resolve_call(call),
             })),
-            Expr::Name(name) => {
-                // TODO: Avoid visiting when the parent expression is a `Call`
+            Expr::Name(name) if !is_nested_callee_or_base => {
                 Some(ExpressionCallees::Identifier(IdentifierCallees {
                     callable_targets: self.resolve_name(name),
                 }))
             }
-            Expr::Attribute(attribute) => {
-                // TODO: Avoid visiting when the parent expression is a `Call`
+            Expr::Attribute(attribute) if !is_nested_callee_or_base => {
                 Some(ExpressionCallees::AttributeAccess(AttributeAccessCallees {
                     callable_targets: self.resolve_attribute_access(attribute),
                 }))
@@ -787,12 +797,12 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         self.enter_debug_scope(&ast.body);
     }
 
-    fn visit_expression(&mut self, expr: &Expr, _: &Scopes) {
+    fn visit_expression(&mut self, expr: &Expr, _: &Scopes, parent_expression: Option<&Expr>) {
         if self.current_function.is_none() {
             return;
         }
 
-        let callees = self.resolve_expression(expr);
+        let callees = self.resolve_expression(expr, parent_expression);
         if let Some(callees) = callees
             && !callees.is_empty()
         {
@@ -829,6 +839,7 @@ fn resolve_expression(
     function_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     module_context: &ModuleContext,
     override_graph: &OverrideGraph,
+    parent_expression: Option<&Expr>,
 ) -> Option<ExpressionCallees<FunctionRef>> {
     let mut call_graphs = CallGraphs::new();
     let visitor = CallGraphVisitor {
@@ -842,7 +853,7 @@ fn resolve_expression(
         debug_scopes: Vec::new(),
         override_graph,
     };
-    visitor.resolve_expression(expression)
+    visitor.resolve_expression(expression, parent_expression)
 }
 
 // Requires `context` to be the module context of the decorators.
@@ -870,8 +881,13 @@ pub fn resolve_decorator_callees(
                 )
             }
             expr => {
-                let callees =
-                    resolve_expression(expr, function_base_definitions, context, &override_graph);
+                let callees = resolve_expression(
+                    expr,
+                    function_base_definitions,
+                    context,
+                    &override_graph,
+                    /* parent_expression */ None,
+                );
                 (
                     expr.range(),
                     if let Some(callees) = callees {

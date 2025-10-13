@@ -187,7 +187,13 @@ impl ScopeId {
 
 pub trait AstScopedVisitor {
     fn visit_statement(&mut self, _stmt: &Stmt, _scopes: &Scopes) {}
-    fn visit_expression(&mut self, _expr: &Expr, _scopes: &Scopes) {}
+    fn visit_expression(
+        &mut self,
+        _expr: &Expr,
+        _scopes: &Scopes,
+        _parent_expression: Option<&Expr>,
+    ) {
+    }
     fn enter_function_scope(
         &mut self,
         _function_def: &StmtFunctionDef,
@@ -207,9 +213,14 @@ pub trait AstScopedVisitor {
     fn on_scope_update(&mut self, _scopes: &Scopes) {}
 }
 
-fn visit_expression<V: AstScopedVisitor>(expr: &Expr, visitor: &mut V, scopes: &mut Scopes) {
-    visitor.visit_expression(expr, scopes);
-    expr.recurse(&mut |e| visit_expression(e, visitor, scopes));
+fn visit_expression<V: AstScopedVisitor>(
+    expr: &Expr,
+    visitor: &mut V,
+    scopes: &mut Scopes,
+    parent_expression: Option<&Expr>,
+) {
+    visitor.visit_expression(expr, scopes, parent_expression);
+    expr.recurse(&mut |e| visit_expression(e, visitor, scopes, Some(expr)));
 }
 
 fn visit_statement<V: AstScopedVisitor>(
@@ -263,16 +274,16 @@ fn visit_statement<V: AstScopedVisitor>(
 
             scopes.stack.push(Scope::FunctionDecorators);
             visitor.on_scope_update(scopes);
-            function_def
-                .decorator_list
-                .recurse(&mut |e| visit_expression(e, visitor, scopes));
+            function_def.decorator_list.recurse(&mut |e| {
+                visit_expression(e, visitor, scopes, /* parent_expression */ None)
+            });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
 
             scopes.stack.push(Scope::FunctionTypeParams);
             visitor.on_scope_update(scopes);
             function_def.type_params.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes);
+                visit_expression(e, visitor, scopes, /* parent_expression */ None);
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -280,7 +291,7 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::FunctionParameters);
             visitor.on_scope_update(scopes);
             function_def.parameters.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes);
+                visit_expression(e, visitor, scopes, /* parent_expression */ None);
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -288,7 +299,7 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::FunctionReturnAnnotation);
             visitor.on_scope_update(scopes);
             function_def.returns.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes);
+                visit_expression(e, visitor, scopes, /* parent_expression */ None);
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -332,16 +343,16 @@ fn visit_statement<V: AstScopedVisitor>(
 
             scopes.stack.push(Scope::ClassDecorators);
             visitor.on_scope_update(scopes);
-            class_def
-                .decorator_list
-                .recurse(&mut |e| visit_expression(e, visitor, scopes));
+            class_def.decorator_list.recurse(&mut |e| {
+                visit_expression(e, visitor, scopes, /* parent_expression */ None)
+            });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
 
             scopes.stack.push(Scope::ClassTypeParams);
             visitor.on_scope_update(scopes);
             class_def.type_params.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes);
+                visit_expression(e, visitor, scopes, /* parent_expression */ None);
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -349,7 +360,7 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::ClassArguments);
             visitor.on_scope_update(scopes);
             class_def.arguments.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes);
+                visit_expression(e, visitor, scopes, /* parent_expression */ None);
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -377,7 +388,12 @@ fn visit_statement<V: AstScopedVisitor>(
                     visit_statement(stmt, self.visitor, self.scopes, self.module_context);
                 }
                 fn visit_expr(&mut self, expr: &'e Expr) {
-                    visit_expression(expr, self.visitor, self.scopes);
+                    visit_expression(
+                        expr,
+                        self.visitor,
+                        self.scopes,
+                        /* parent_expression */ None,
+                    );
                 }
             }
             ruff_python_ast::visitor::source_order::walk_stmt(

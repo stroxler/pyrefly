@@ -260,6 +260,7 @@ fn call_callees(
     })
 }
 
+#[allow(dead_code)]
 fn attribute_access_callees(
     expected: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
@@ -305,7 +306,6 @@ def bar():
    &|_context: &ModuleContext| { vec![(
         TEST_DEFINITION_NAME.to_owned(),
         vec![
-            ("3:3-3:6".to_owned(), identifier_callees(vec![create_call_target("test.bar", TargetType::Function)])),
             ("3:3-3:8".to_owned(), call_callees(vec![create_call_target("test.bar", TargetType::Function)])),
         ],
     )] },
@@ -328,7 +328,6 @@ def foo(c: C):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("6:3-6:6".to_owned(), attribute_access_callees(call_target.clone())),
                 ("6:3-6:8".to_owned(), call_callees(call_target.clone())),
             ],
         )]
@@ -379,7 +378,6 @@ def foo(c: Optional[C]):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("8:5-8:10".to_owned(), call_callees(call_target.clone())),
-                ("8:5-8:8".to_owned(), attribute_access_callees(call_target.clone()))
             ],
         )]
     },
@@ -409,7 +407,6 @@ def foo(c: C):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("12:3-12:8".to_owned(), call_callees(call_target.clone())),
-                ("12:3-12:6".to_owned(), attribute_access_callees(call_target.clone()))
             ],
         )]
     },
@@ -446,13 +443,9 @@ def foo(c: C):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("7:3-7:8".to_owned(), call_callees(class_method_target.clone())),
-                ("7:3-7:6".to_owned(), attribute_access_callees(class_method_target.clone())),
                 ("8:3-8:8".to_owned(), call_callees(class_method_target_2.clone())),
-                ("8:3-8:6".to_owned(), attribute_access_callees(class_method_target_2.clone())),
                 ("9:3-9:9".to_owned(), call_callees(method_target.clone())),
-                ("9:3-9:6".to_owned(), attribute_access_callees(method_target.clone())),
                 ("10:3-10:8".to_owned(), call_callees(method_target_2.clone())),
-                ("10:3-10:6".to_owned(), attribute_access_callees(method_target_2.clone())),
             ],
         )]
     },
@@ -482,7 +475,6 @@ def foo(d: D):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("11:3-11:8".to_owned(), call_callees(call_targets.clone())),
-                ("11:3-11:6".to_owned(), attribute_access_callees(call_targets.clone()))
             ],
         )]
     },
@@ -505,7 +497,6 @@ def foo(c: C):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("5:4-5:8".to_owned(), call_callees(call_targets.clone())),
-                ("5:4-5:5".to_owned(), identifier_callees(call_targets.clone()))
             ],
         )]
     },
@@ -529,7 +520,6 @@ def foo(c: C):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("6:4-6:8".to_owned(), call_callees(call_targets.clone())),
-                ("6:4-6:5".to_owned(), identifier_callees(call_targets.clone()))
             ],
         )]
     },
@@ -552,10 +542,34 @@ def foo(c: C):
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("5:4-5:17".to_owned(), call_callees(call_targets.clone())),
-                ("5:4-5:14".to_owned(), attribute_access_callees(call_targets.clone())),
-                ("5:4-5:5".to_owned(), identifier_callees(vec![
-                    create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_implicit_dunder_call(true)
-                ]))
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_function_passed_as_argument,
+    TEST_MODULE_NAME,
+    r#"
+def bar():
+  return
+def baz(f):
+  f()
+def foo():
+   baz(bar)
+"#,
+    &|_context: &ModuleContext| {
+        let baz = vec![
+            create_call_target("test.baz", TargetType::Function),
+        ];
+        let bar = vec![
+            create_call_target("test.bar", TargetType::Function),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("7:4-7:12".to_owned(), call_callees(baz.clone())),
+                ("7:8-7:11".to_owned(), identifier_callees(bar.clone()))
             ],
         )]
     },
