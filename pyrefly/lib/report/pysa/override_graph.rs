@@ -31,6 +31,7 @@ use crate::report::pysa::function::get_all_functions;
 use crate::report::pysa::function::should_export_function;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
+use crate::report::pysa::slow_fun_monitor::slow_fun_monitor_scope;
 use crate::report::pysa::step_logger::StepLogger;
 use crate::state::state::Transaction;
 
@@ -210,12 +211,24 @@ pub fn build_reversed_override_graph(
     let reversed_override_graph = dashmap::DashMap::new();
 
     ThreadPool::new().install(|| {
-        handles.par_iter().for_each(|handle| {
-            let context = ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
-            for (key, value) in create_reversed_override_graph_for_module(&context).0 {
-                reversed_override_graph.insert(key, value);
-            }
-        });
+        slow_fun_monitor_scope(|slow_function_monitor| {
+            handles.par_iter().for_each(|handle| {
+                let context =
+                    ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
+                slow_function_monitor.monitor_function(
+                    || {
+                        for (key, value) in create_reversed_override_graph_for_module(&context).0 {
+                            reversed_override_graph.insert(key, value);
+                        }
+                    },
+                    format!(
+                        "Building reverse override graph for `{}`",
+                        handle.module().as_str(),
+                    ),
+                    /* max_time_in_seconds */ 4,
+                );
+            });
+        })
     });
 
     step.finish();

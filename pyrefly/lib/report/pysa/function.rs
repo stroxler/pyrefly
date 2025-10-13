@@ -41,6 +41,7 @@ use crate::report::pysa::module::ModuleKey;
 use crate::report::pysa::override_graph::WholeProgramReversedOverrideGraph;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
+use crate::report::pysa::slow_fun_monitor::slow_fun_monitor_scope;
 use crate::report::pysa::step_logger::StepLogger;
 use crate::report::pysa::types::PysaType;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
@@ -561,14 +562,22 @@ pub fn collect_function_base_definitions(
     let base_definitions = dashmap::DashMap::new();
 
     ThreadPool::new().install(|| {
-        handles.par_iter().for_each(|handle| {
-            let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
-            let base_definitions_for_module = export_all_functions(
-                reversed_override_graph,
-                &ModuleContext::create(handle.clone(), transaction, module_ids).unwrap(),
-            );
-            base_definitions.insert(module_id, base_definitions_for_module);
-        });
+        slow_fun_monitor_scope(|slow_function_monitor| {
+            handles.par_iter().for_each(|handle| {
+                let module_id = module_ids.get(ModuleKey::from_handle(handle)).unwrap();
+                let context =
+                    ModuleContext::create(handle.clone(), transaction, module_ids).unwrap();
+                let base_definitions_for_module = slow_function_monitor.monitor_function(
+                    || export_all_functions(reversed_override_graph, &context),
+                    format!(
+                        "Indexing function definitions for {}",
+                        handle.module().as_str(),
+                    ),
+                    /* max_time_in_seconds */ 4,
+                );
+                base_definitions.insert(module_id, base_definitions_for_module);
+            });
+        })
     });
 
     step.finish();
