@@ -26,6 +26,21 @@ use crate::types::Type;
 
 assert_bytes!(TypeInfo, 40);
 
+/// The style of a phi.
+///
+/// When present, the base may be used to simplify the result and to
+/// eliminate narrows that we don't want included (e.g. any narrow of `Any`
+/// should be dropped in flow merging).
+#[derive(Clone, Debug)]
+pub enum JoinStyle<T> {
+    // A simple merge (including Anywhere lookup), there's no base flow to compare against.
+    SimpleMerge,
+    // A merge where the name was already defined in the base flow, but was reassigned.
+    ReassignmentOf(T),
+    // A merge where the name was already defined in the base flow, and was only narrowed.
+    NarrowOf(T),
+}
+
 /// The `TypeInfo` datatype represents type information associated with a
 /// name or expression in a control flow context.
 ///

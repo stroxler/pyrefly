@@ -71,6 +71,7 @@ use crate::types::globals::ImplicitGlobal;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::tuple::Tuple;
+use crate::types::type_info::JoinStyle;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::TParams;
 use crate::types::types::Type;
@@ -1168,23 +1169,6 @@ pub enum FirstUse {
     UsedBy(Idx<Key>),
 }
 
-/// The style of a phi.
-///
-/// When present, the base may be used to simplify the result and to
-/// eliminate narrows that we don't want included (e.g. any narrow of `Any`
-/// should be dropped in flow merging).
-#[derive(Clone, Debug)]
-pub enum JoinStyle {
-    // A simple merge (including Anywhere lookup), there's no base flow to compare against.
-    SimpleMerge,
-    // A merge where the name was already defined in the base flow, but was reassigned.
-    #[expect(dead_code)]
-    ReassignmentOf(Idx<Key>),
-    // A merge where the name was already defined in the base flow, and was only narrowed.
-    #[expect(dead_code)]
-    NarrowOf(Idx<Key>),
-}
-
 #[derive(Clone, Debug)]
 pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
@@ -1258,7 +1242,7 @@ pub enum Binding {
     /// A forward reference to another binding.
     Forward(Idx<Key>),
     /// A phi node, representing the union of several alternative keys.
-    Phi(JoinStyle, SmallSet<Idx<Key>>),
+    Phi(JoinStyle<Idx<Key>>, SmallSet<Idx<Key>>),
     /// A phi node for a name that was defined above a loop. This can involve recursion
     /// due to reassingment in the loop, so we provide a default binding that is used
     /// if the resulting Cyclic var is forced.

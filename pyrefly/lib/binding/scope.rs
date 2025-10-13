@@ -40,7 +40,6 @@ use vec1::Vec1;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
-use crate::binding::binding::JoinStyle;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyAnnotation;
@@ -74,6 +73,7 @@ use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::class::ClassDefIndex;
+use crate::types::type_info::JoinStyle;
 
 /// The result of looking up a name in the current scope stack for a read
 /// operation.
@@ -1930,7 +1930,7 @@ impl<'a> BindingsBuilder<'a> {
         branch_idxs: SmallSet<Idx<Key>>,
         phi_idx: Idx<Key>,
         loop_default: Option<Idx<Key>>,
-        join_style: JoinStyle,
+        join_style: JoinStyle<Idx<Key>>,
     ) -> Idx<Key> {
         if branch_idxs.len() == 1 {
             // We hit this case if any of these are true:
