@@ -135,7 +135,7 @@ impl TypeInfo {
                     .into_iter()
                     .map(|TypeInfo { ty, facets }| (ty, facets.map(|x| *x)))
                     .unzip();
-                let ty = union_types(tys);
+                let ty = join_types(tys, union_types);
                 let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
                 let facets = if branches.len() == n {
                     NarrowedFacets::join(
@@ -548,7 +548,7 @@ impl NarrowedFacet {
                 return None;
             }
         }
-        let ty = ty_branches.map(union_types);
+        let ty = ty_branches.map(|tys| join_types(tys, union_types));
         let facets = facets_branches.and_then(|facets_branches| {
             NarrowedFacets::join(
                 facets_branches,
@@ -570,6 +570,10 @@ impl NarrowedFacet {
             (None, Some(facets)) => Some(Self::WithoutRoot(facets)),
         }
     }
+}
+
+fn join_types(types: Vec<Type>, union_types: &impl Fn(Vec<Type>) -> Type) -> Type {
+    union_types(types)
 }
 
 #[cfg(test)]
