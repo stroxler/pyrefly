@@ -49,6 +49,18 @@ impl<T> JoinStyle<T> {
             JoinStyle::NarrowOf(x) => JoinStyle::NarrowOf(f(x)),
         }
     }
+
+    // Flat map - used for type info joins where the base in a join style may not
+    // have data in all facet subtrees.
+    fn flat_map<S>(&self, f: impl FnOnce(&T) -> Option<S>) -> JoinStyle<S> {
+        match self {
+            JoinStyle::SimpleMerge => JoinStyle::SimpleMerge,
+            JoinStyle::ReassignmentOf(x) => {
+                f(x).map_or(JoinStyle::SimpleMerge, JoinStyle::ReassignmentOf)
+            }
+            JoinStyle::NarrowOf(x) => f(x).map_or(JoinStyle::SimpleMerge, JoinStyle::NarrowOf),
+        }
+    }
 }
 
 /// The `TypeInfo` datatype represents type information associated with a
@@ -135,7 +147,11 @@ impl TypeInfo {
                     .into_iter()
                     .map(|TypeInfo { ty, facets }| (ty, facets.map(|x| *x)))
                     .unzip();
-                let ty = join_types(tys, union_types);
+                let ty = join_types(
+                    tys,
+                    union_types,
+                    join_style.map(|base_type_info| base_type_info.ty.clone()),
+                );
                 let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
                 let facets = if branches.len() == n {
                     NarrowedFacets::join(
@@ -548,7 +564,20 @@ impl NarrowedFacet {
                 return None;
             }
         }
-        let ty = ty_branches.map(|tys| join_types(tys, union_types));
+        let ty = ty_branches.map(|tys| {
+            join_types(
+                tys,
+                union_types,
+                join_style.flat_map(|base_facet| {
+                    base_facet.as_ref().and_then(|f| match f {
+                        NarrowedFacet::WithRoot(ty, _) | NarrowedFacet::Leaf(ty) => {
+                            Some(ty.clone())
+                        }
+                        NarrowedFacet::WithoutRoot(_) => None,
+                    })
+                }),
+            )
+        });
         let facets = facets_branches.and_then(|facets_branches| {
             NarrowedFacets::join(
                 facets_branches,
@@ -572,8 +601,16 @@ impl NarrowedFacet {
     }
 }
 
-fn join_types(types: Vec<Type>, union_types: &impl Fn(Vec<Type>) -> Type) -> Type {
-    union_types(types)
+fn join_types(
+    types: Vec<Type>,
+    union_types: &impl Fn(Vec<Type>) -> Type,
+    join_style: JoinStyle<Type>,
+) -> Type {
+    match join_style {
+        JoinStyle::SimpleMerge | JoinStyle::ReassignmentOf(..) | JoinStyle::NarrowOf(..) => {
+            union_types(types)
+        }
+    }
 }
 
 #[cfg(test)]
