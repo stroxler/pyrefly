@@ -2696,6 +2696,25 @@ impl<'a> Transaction<'a> {
                         children: Some(children),
                     });
                 }
+                Stmt::Assign(stmt_assign) => {
+                    for target in &stmt_assign.targets {
+                        if let Expr::Name(name) = target {
+                            // todo(jvansch): Try to resuse DefinitionMetadata here.
+                            symbols.push(DocumentSymbol {
+                                name: name.id.to_string(),
+                                detail: None, // Todo(jvansch): Could add type info here later
+                                kind: lsp_types::SymbolKind::VARIABLE,
+                                tags: None,
+                                deprecated: None,
+                                range: module_info.lined_buffer().to_lsp_range(stmt_assign.range),
+                                selection_range: module_info
+                                    .lined_buffer()
+                                    .to_lsp_range(name.range),
+                                children: None,
+                            });
+                        }
+                    }
+                }
                 _ => {}
             };
             symbols.append(&mut recursed_symbols);

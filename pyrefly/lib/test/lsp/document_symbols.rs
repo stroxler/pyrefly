@@ -60,7 +60,32 @@ def function2(param1, param2):
         "character": 13
       }
     },
-    "children": []
+    "children": [
+      {
+        "name": "x",
+        "kind": 13,
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 4
+          },
+          "end": {
+            "line": 3,
+            "character": 9
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 3,
+            "character": 4
+          },
+          "end": {
+            "line": 3,
+            "character": 5
+          }
+        }
+      }
+    ]
   },
   {
     "name": "function2",
@@ -85,7 +110,32 @@ def function2(param1, param2):
         "character": 13
       }
     },
-    "children": []
+    "children": [
+      {
+        "name": "y",
+        "kind": 13,
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 4
+          },
+          "end": {
+            "line": 7,
+            "character": 23
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 7,
+            "character": 4
+          },
+          "end": {
+            "line": 7,
+            "character": 5
+          }
+        }
+      }
+    ]
   }
 ]"#
         .trim(),
@@ -248,6 +298,30 @@ result = y.method()
 
 [
   {
+    "name": "x",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 5
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 1
+      }
+    }
+  },
+  {
     "name": "helper_function",
     "kind": 12,
     "range": {
@@ -297,6 +371,30 @@ result = y.method()
     },
     "children": [
       {
+        "name": "class_var",
+        "kind": 13,
+        "range": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 23
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 13
+          }
+        }
+      },
+      {
         "name": "method",
         "kind": 12,
         "range": {
@@ -319,9 +417,82 @@ result = y.method()
             "character": 14
           }
         },
-        "children": []
+        "children": [
+          {
+            "name": "local_var",
+            "kind": 13,
+            "range": {
+              "start": {
+                "line": 13,
+                "character": 8
+              },
+              "end": {
+                "line": 13,
+                "character": 37
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 13,
+                "character": 8
+              },
+              "end": {
+                "line": 13,
+                "character": 17
+              }
+            }
+          }
+        ]
       }
     ]
+  },
+  {
+    "name": "y",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 16,
+        "character": 0
+      },
+      "end": {
+        "line": 16,
+        "character": 13
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 16,
+        "character": 0
+      },
+      "end": {
+        "line": 16,
+        "character": 1
+      }
+    }
+  },
+  {
+    "name": "result",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 17,
+        "character": 0
+      },
+      "end": {
+        "line": 17,
+        "character": 19
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 17,
+        "character": 0
+      },
+      "end": {
+        "line": 17,
+        "character": 6
+      }
+    }
   }
 ]
 "#
@@ -392,9 +563,8 @@ fn list_comprehension_test() {
     );
 }
 
-// TODO(jvansch): Update test to test that local variables are included as symbols
 #[test]
-fn test_does_not_include_local_variables_as_symbols() {
+fn test_does_include_local_variables_as_symbols() {
     let code = r#"
 import os
 from typing import List
@@ -420,6 +590,30 @@ result = y.method()
 # main.py
 
 [
+  {
+    "name": "x",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 5
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 1
+      }
+    }
+  },
   {
     "name": "helper_function",
     "kind": 12,
@@ -470,6 +664,30 @@ result = y.method()
     },
     "children": [
       {
+        "name": "class_var",
+        "kind": 13,
+        "range": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 23
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 10,
+            "character": 4
+          },
+          "end": {
+            "line": 10,
+            "character": 13
+          }
+        }
+      },
+      {
         "name": "method",
         "kind": 12,
         "range": {
@@ -492,9 +710,82 @@ result = y.method()
             "character": 14
           }
         },
-        "children": []
+        "children": [
+          {
+            "name": "local_var",
+            "kind": 13,
+            "range": {
+              "start": {
+                "line": 13,
+                "character": 8
+              },
+              "end": {
+                "line": 13,
+                "character": 37
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 13,
+                "character": 8
+              },
+              "end": {
+                "line": 13,
+                "character": 17
+              }
+            }
+          }
+        ]
       }
     ]
+  },
+  {
+    "name": "y",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 16,
+        "character": 0
+      },
+      "end": {
+        "line": 16,
+        "character": 13
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 16,
+        "character": 0
+      },
+      "end": {
+        "line": 16,
+        "character": 1
+      }
+    }
+  },
+  {
+    "name": "result",
+    "kind": 13,
+    "range": {
+      "start": {
+        "line": 17,
+        "character": 0
+      },
+      "end": {
+        "line": 17,
+        "character": 19
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 17,
+        "character": 0
+      },
+      "end": {
+        "line": 17,
+        "character": 6
+      }
+    }
   }
 ]
 "#
