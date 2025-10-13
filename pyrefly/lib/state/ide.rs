@@ -77,7 +77,7 @@ fn find_definition_key_from<'a>(bindings: &'a Bindings, key: &'a Key) -> Option<
             | Binding::LoopPhi(k, ..) => {
                 current_idx = *k;
             }
-            Binding::Phi(ks) if !ks.is_empty() => current_idx = *ks.iter().next().unwrap(),
+            Binding::Phi(_, ks) if !ks.is_empty() => current_idx = *ks.iter().next().unwrap(),
             Binding::PossibleLegacyTParam(k, _) => {
                 let binding = bindings.get(*k);
                 current_idx = binding.idx();

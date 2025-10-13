@@ -40,6 +40,7 @@ use vec1::Vec1;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
+use crate::binding::binding::JoinStyle;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAbstractClassCheck;
 use crate::binding::binding::KeyAnnotation;
@@ -1943,7 +1944,7 @@ impl<'a> BindingsBuilder<'a> {
             self.insert_binding_idx(phi_idx, Binding::LoopPhi(default, branch_idxs));
             phi_idx
         } else {
-            self.insert_binding_idx(phi_idx, Binding::Phi(branch_idxs));
+            self.insert_binding_idx(phi_idx, Binding::Phi(JoinStyle::SimpleMerge, branch_idxs));
             phi_idx
         }
     }

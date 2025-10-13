@@ -1940,7 +1940,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Narrow(k, op, range) => {
                 self.narrow(self.get_idx(*k).as_ref(), op, *range, errors)
             }
-            Binding::Phi(ks) => {
+            Binding::Phi(_, ks) => {
                 if ks.len() == 1 {
                     self.get_idx(*ks.first().unwrap()).arc_clone()
                 } else {

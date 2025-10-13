@@ -1168,6 +1168,23 @@ pub enum FirstUse {
     UsedBy(Idx<Key>),
 }
 
+/// The style of a phi.
+///
+/// When present, the base may be used to simplify the result and to
+/// eliminate narrows that we don't want included (e.g. any narrow of `Any`
+/// should be dropped in flow merging).
+#[derive(Clone, Debug)]
+pub enum JoinStyle {
+    // A simple merge (including Anywhere lookup), there's no base flow to compare against.
+    SimpleMerge,
+    // A merge where the name was already defined in the base flow, but was reassigned.
+    #[expect(dead_code)]
+    ReassignmentOf(Idx<Key>),
+    // A merge where the name was already defined in the base flow, and was only narrowed.
+    #[expect(dead_code)]
+    NarrowOf(Idx<Key>),
+}
+
 #[derive(Clone, Debug)]
 pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
@@ -1241,7 +1258,7 @@ pub enum Binding {
     /// A forward reference to another binding.
     Forward(Idx<Key>),
     /// A phi node, representing the union of several alternative keys.
-    Phi(SmallSet<Idx<Key>>),
+    Phi(JoinStyle, SmallSet<Idx<Key>>),
     /// A phi node for a name that was defined above a loop. This can involve recursion
     /// due to reassingment in the loop, so we provide a default binding that is used
     /// if the resulting Cyclic var is forced.
@@ -1452,11 +1469,11 @@ impl DisplayWith<Bindings> for Binding {
                     }
                 )
             }
-            Self::Phi(xs) => {
+            Self::Phi(style, xs) => {
                 write!(
                     f,
-                    "Phi({})",
-                    intersperse_iter("; ", || xs.iter().map(|x| ctx.display(*x)))
+                    "Phi({style:?}, {})",
+                    intersperse_iter("; ", || xs.iter().map(|x| ctx.display(*x))),
                 )
             }
             Self::LoopPhi(k, xs) => {
@@ -1651,7 +1668,7 @@ impl Binding {
             | Binding::AugAssign(_, _)
             | Binding::Type(_)
             | Binding::Forward(_)
-            | Binding::Phi(_)
+            | Binding::Phi(_, _)
             | Binding::LoopPhi(_, _)
             | Binding::Narrow(_, _, _)
             | Binding::PatternMatchMapping(_, _)

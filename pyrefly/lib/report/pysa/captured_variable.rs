@@ -174,7 +174,7 @@ impl<'a> CapturedVariableVisitor<'a> {
         let binding = self.module_context.bindings.get(idx);
         match binding {
             Binding::Forward(idx) => self.get_definition_scope_from_idx(*idx, seen),
-            Binding::Phi(elements) => {
+            Binding::Phi(_, elements) => {
                 for idx in elements {
                     if let Some(scope_id) = self.get_definition_scope_from_idx(*idx, seen.clone()) {
                         return Some(scope_id);
