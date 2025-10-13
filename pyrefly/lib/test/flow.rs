@@ -1118,6 +1118,19 @@ def f() -> int:
     "#,
 );
 
+testcase!(
+    bug = "Pyrefly unions types too eagerly in joins - this breaks gradual typing",
+    test_merging_any,
+    r#"
+from typing import Any, assert_type
+def f(x: Any, y: Any):
+    if isinstance(x, int):
+        y = "y"
+    assert_type(x, Any)  # E: assert_type(int | Any, Any)
+    assert_type(y, Any)  # E: assert_type(Literal['y'] | Any, Any)
+    "#,
+);
+
 // Regression test for https://github.com/facebook/pyrefly/issues/683
 testcase!(
     test_loop_with_sized_in_inner_iteration,
