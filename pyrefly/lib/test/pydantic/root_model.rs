@@ -157,3 +157,20 @@ Model3(x='oops')  # E: `Literal['oops']` is not assignable to parameter `x`
 Model3(x=RootModel('oops')) # E: Argument `Literal['oops']` is not assignable to parameter `root` with type `int` in function `pydantic.root_model.RootModel.__init__`
     "#,
 );
+
+pydantic_testcase!(
+    bug = "Add StrictInt to stubs and Support strict rootmodel",
+    test_strict_basic,
+    r#"
+from pydantic import RootModel, StrictInt # E:  Could not import `StrictInt` from `pydantic`
+
+class A(RootModel[StrictInt]):
+    pass
+
+class B(A):
+    pass
+
+m1 = B(3)
+m2 = B("1")
+"#,
+);
