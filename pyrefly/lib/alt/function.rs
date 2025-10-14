@@ -26,6 +26,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -288,10 +289,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         stmt: &StmtFunctionDef,
         errors: &ErrorCollector,
     ) -> Arc<Type> {
-        let ret = self
+        let mut ret = self
             .get(&Key::ReturnType(ShortIdentifier::new(&stmt.name)))
             .arc_clone_ty();
-
+        if stmt.is_async
+            && def.metadata.flags.is_abstract_method
+            && let Some((_, _, coroutine_ret)) = self.unwrap_coroutine(&ret)
+            && self.unwrap_async_iterator(&coroutine_ret).is_some()
+        {
+            self.error(
+                errors,
+                stmt.name.range(),
+                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                "Abstract methods for async generators should use `def`, not `async def`"
+                    .to_owned(),
+            );
+            ret = coroutine_ret;
+        }
         if matches!(&ret, Type::TypeGuard(_) | Type::TypeIs(_)) {
             self.validate_type_guard_positional_argument_count(
                 &def.params,

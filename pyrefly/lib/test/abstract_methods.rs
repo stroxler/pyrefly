@@ -223,3 +223,31 @@ class Child(Base):
 x = Child()  # E: Cannot instantiate `Child`
 "#,
 );
+
+testcase!(
+    test_abstract_async_iterator,
+    r#"
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
+
+# error
+class A(ABC):
+    @abstractmethod
+    async def foo(self) -> AsyncIterator[int]:  # E: Abstract methods for async generators should use `def`, not `async def`
+        pass
+
+class B(A):
+    async def foo(self) -> AsyncIterator[int]:
+        yield 1
+
+# ok
+class C(ABC):
+    @abstractmethod
+    def foo(self) -> AsyncIterator[int]:
+        pass
+
+class D(C):
+    async def foo(self) -> AsyncIterator[int]:
+        yield 1
+    "#,
+);

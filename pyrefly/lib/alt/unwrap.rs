@@ -205,6 +205,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn unwrap_async_iterator(&self, ty: &Type) -> Option<Type> {
+        let var = self.fresh_var();
+        let iterator_ty = self.stdlib.async_iterator(var.to_type()).to_type();
+        if self.is_subset_eq(ty, &iterator_ty) {
+            Some(self.resolve_var(ty, var))
+        } else {
+            None
+        }
+    }
+
     pub fn decompose_dict<'b>(
         &self,
         hint: HintRef<'b, '_>,
