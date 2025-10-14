@@ -531,3 +531,20 @@ assert_type(B + B, int)
 assert_type(B.__add__(B), str)
     "#,
 );
+
+testcase!(
+    test_iter_var_annotation_with_getitem,
+    r#"
+class A:
+    def __getitem__(self, i: int):
+        return 0
+
+x: int
+for x in A():
+    pass
+
+y: str
+for y in A():  # E: Cannot use variable `y` with type `str` to iterate over elements of type `Literal[0]`
+    pass
+    "#,
+);

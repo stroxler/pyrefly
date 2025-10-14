@@ -47,6 +47,7 @@ use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
+use crate::alt::unwrap::HintRef;
 use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationStyle;
 use crate::binding::binding::AnnotationTarget;
@@ -2967,18 +2968,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ))
                 };
                 let iterables = if is_async.is_async() {
-                    let hint = ty.clone().and_then(|x| {
+                    let infer_hint = ty.clone().and_then(|x| {
                         x.ty(self.stdlib)
                             .map(|ty| self.stdlib.async_iterable(ty.clone()).to_type())
                     });
-                    let iterable = self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors);
+                    let iterable = self.expr_infer_with_hint(
+                        e,
+                        infer_hint.as_ref().map(|t| HintRef::new(t, None)),
+                        errors,
+                    );
                     self.async_iterate(&iterable, e.range(), errors)
                 } else {
-                    let hint = ty.clone().and_then(|x| {
+                    let infer_hint = ty.clone().and_then(|x| {
                         x.ty(self.stdlib)
                             .map(|ty| self.stdlib.iterable(ty.clone()).to_type())
                     });
-                    let iterable = self.expr(e, hint.as_ref().map(|t| (t, tcc)), errors);
+                    let iterable = self.expr_infer_with_hint(
+                        e,
+                        infer_hint.as_ref().map(|t| HintRef::new(t, None)),
+                        errors,
+                    );
                     self.iterate(&iterable, e.range(), errors)
                 };
                 let mut values = Vec::new();
@@ -2988,7 +2997,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Iterable::FixedLen(ts) => values.extend(ts),
                     }
                 }
-                self.unions(values)
+                let value = self.unions(values);
+                let check_hint = ty.clone().and_then(|x| x.ty(self.stdlib));
+                if let Some(check_hint) = check_hint {
+                    self.check_and_return_type(value, &check_hint, e.range(), errors, tcc)
+                } else {
+                    value
+                }
             }
             Binding::ContextValue(ann, e, range, kind) => {
                 let context_manager = self.get_idx(*e);

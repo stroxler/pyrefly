@@ -190,7 +190,7 @@ impl TypeCheckKind {
                 ctx.display(want),
             ),
             Self::IterationVariableMismatch(var, real_want) => format!(
-                "Cannot use variable `{}` with type `{}` to iterate through `{}`",
+                "Cannot use variable `{}` with type `{}` to iterate over elements of type `{}`",
                 var,
                 ctx.display(real_want),
                 ctx.display(got),
