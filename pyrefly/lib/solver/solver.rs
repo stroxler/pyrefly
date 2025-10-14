@@ -949,6 +949,77 @@ pub struct TypeVarSpecializationError {
     pub error: SubsetError,
 }
 
+#[derive(Debug, Clone)]
+pub enum TypedDictSubsetError {
+    /// TypedDict `got` is missing a field that `want` requires
+    MissingField { got: Name, want: Name, field: Name },
+    /// TypedDict field in `got` is ReadOnly but `want` requires read-write
+    ReadOnlyMismatch { got: Name, want: Name, field: Name },
+    /// TypedDict field in `got` is not required but `want` requires it
+    RequiredMismatch { got: Name, want: Name, field: Name },
+    /// TypedDict field in `got` is required cannot be, since it is `NotRequired` and read-write in `want`
+    NotRequiredReadWriteMismatch { got: Name, want: Name, field: Name },
+    /// TypedDict invariant field type mismatch (read-write fields must have exactly the same type)
+    InvariantFieldMismatch {
+        got: Name,
+        got_field_ty: Type,
+        want: Name,
+        want_field_ty: Type,
+        field: Name,
+    },
+    /// TypedDict covariant field type mismatch (readonly field type in `got` is not a subtype of `want`)
+    CovariantFieldMismatch {
+        got: Name,
+        got_field_ty: Type,
+        want: Name,
+        want_field_ty: Type,
+        field: Name,
+    },
+}
+
+impl TypedDictSubsetError {
+    pub fn to_error_msg(self) -> String {
+        match self {
+            TypedDictSubsetError::MissingField { got, want, field } => {
+                format!("Field `{field}` is present in `{want}` and absent in `{got}`")
+            }
+            TypedDictSubsetError::ReadOnlyMismatch { got, want, field } => {
+                format!("Field `{field}` is read-write in `{want}` but is `ReadOnly` in `{got}`")
+            }
+            TypedDictSubsetError::RequiredMismatch { got, want, field } => {
+                format!("Field `{field}` is required in `{want}` but is `NotRequired` in `{got}`")
+            }
+            TypedDictSubsetError::NotRequiredReadWriteMismatch { got, want, field } => {
+                format!(
+                    "Field `{field}` is `NotRequired` and read-write in `{want}`, so it cannot be required in `{got}`"
+                )
+            }
+            TypedDictSubsetError::InvariantFieldMismatch {
+                got,
+                got_field_ty,
+                want,
+                want_field_ty,
+                field,
+            } => format!(
+                "Field `{field}` in `{got}` has type `{}`, which is not consistent with `{}` in `{want}` (read-write fields must have the same type)",
+                got_field_ty.deterministic_printing(),
+                want_field_ty.deterministic_printing()
+            ),
+            TypedDictSubsetError::CovariantFieldMismatch {
+                got,
+                got_field_ty,
+                want,
+                want_field_ty,
+                field,
+            } => format!(
+                "Field `{field}` in `{got}` has type `{}`, which is not assignable to `{}`, the type of `{want}.{field}` (read-only fields are covariant)",
+                got_field_ty.deterministic_printing(),
+                want_field_ty.deterministic_printing()
+            ),
+        }
+    }
+}
+
 /// If a got <: want check fails, the failure reason
 #[derive(Debug, Clone)]
 pub enum SubsetError {
@@ -963,6 +1034,8 @@ pub enum SubsetError {
     /// Attribute in `got` is incompatible with the same attribute in Protocol `want`
     /// The first element is the name of `want, the second element is `got`, and the third element is the name of the attribute
     IncompatibleAttribute(Box<(Name, Type, Name, AttrSubsetError)>),
+    /// TypedDict subset check failed
+    TypedDict(Box<TypedDictSubsetError>),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
@@ -983,6 +1056,7 @@ impl SubsetError {
             SubsetError::IncompatibleAttribute(box (protocol, got, attribute, err)) => {
                 Some(err.to_error_msg(&Name::new(format!("{got}")), &protocol, &attribute))
             }
+            SubsetError::TypedDict(err) => Some(err.to_error_msg()),
             SubsetError::Other => None,
         }
     }
