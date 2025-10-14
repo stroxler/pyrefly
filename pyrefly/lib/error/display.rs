@@ -244,7 +244,7 @@ impl TypeCheckKind {
             }
             Self::TypeVarSpecialization(name) => {
                 format!(
-                    "Type `{got}` is not assignable to upper bound `{want}` of type variable `{name}`"
+                    "`{got}` is not assignable to upper bound `{want}` of type variable `{name}`"
                 )
             }
             Self::Container => {

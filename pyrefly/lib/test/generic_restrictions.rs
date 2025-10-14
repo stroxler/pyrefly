@@ -75,7 +75,7 @@ def test[T: B](x: T) -> None:
     b: B = x  # OK
     c: C = x  # E: `T` is not assignable to `C`
 
-test(A())  # E: Type `A` is not assignable to upper bound `B` of type variable `T`
+test(A())  # E: `A` is not assignable to upper bound `B` of type variable `T`
 test(B())
 test(C())
  "#,
@@ -92,7 +92,7 @@ class Foo[T: B]:
 
 class Bar(Foo[B]):  # OK
     pass
-class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B` of type variable `T`
+class Bar(Foo[A]):  # E: `A` is not assignable to upper bound `B` of type variable `T`
     pass
  "#,
 );
@@ -111,7 +111,7 @@ def test[T: (B, C)](x: T) -> None:
     c: C = x  # E: `T` is not assignable to `C`
     d: B | C = x  # OK
 
-test(A())  # E: Type `A` is not assignable to upper bound `B | C` of type variable `T`
+test(A())  # E: `A` is not assignable to upper bound `B | C` of type variable `T`
 test(B())
 test(C())
 test(D())
@@ -130,7 +130,7 @@ class Foo[T: (B, C)]:
 
 class Bar(Foo[B]):  # OK
     pass
-class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B | C` of type variable `T`
+class Bar(Foo[A]):  # E: `A` is not assignable to upper bound `B | C` of type variable `T`
     pass
  "#,
 );
@@ -495,7 +495,7 @@ def f[T: Literal["foo"]](x: T) -> T: ...
 def g[T: LiteralString](x: T) -> T: ...
 
 assert_type(f("foo"), Literal["foo"])
-assert_type(f("bar"), str) # E: Type `str` is not assignable to upper bound `Literal['foo']`
+assert_type(f("bar"), str) # E: `str` is not assignable to upper bound `Literal['foo']`
 
 assert_type(g("foo"), Literal["foo"])
 assert_type(g("bar"), Literal["bar"])
