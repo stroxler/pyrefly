@@ -568,3 +568,19 @@ class A:
 "" in A()  # E: `Literal['']` is not assignable to contained type `int`
     "#,
 );
+
+testcase!(
+    test_deprecated,
+    r#"
+from typing import assert_type, Self
+from warnings import deprecated
+class A:
+    @deprecated("Super deprecated")
+    def __add__(self, other) -> Self:
+        return self
+class B:
+    def __radd__(self, other) -> Self:
+        return self
+assert_type(A() + B(), A)  # E: `A.__add__` is deprecated
+    "#,
+);

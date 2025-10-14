@@ -40,7 +40,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         method_type: Type,
         range: TextRange,
-        errors: &ErrorCollector,
+        callee_errors: &ErrorCollector,
+        call_errors: &ErrorCollector,
         context: &dyn Fn() -> ErrorContext,
         opname: &Name,
         call_arg_type: &Type,
@@ -49,7 +50,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             method_type,
             CallStyle::Method(opname),
             range,
-            errors,
+            callee_errors,
             Some(context),
         );
         self.call_infer(
@@ -57,7 +58,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &[CallArg::ty(call_arg_type, range)],
             &[],
             range,
-            errors,
+            call_errors,
             Some(context),
             None,
             None,
@@ -84,23 +85,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let Some(method_type_dunder) = method_type_dunder else {
                 continue;
             };
-            let dunder_errors = self.error_collector();
+            let callee_errors = self.error_collector();
+            let call_errors = self.error_collector();
             let ret = self.callable_dunder_helper(
                 method_type_dunder,
                 range,
-                &dunder_errors,
+                &callee_errors,
+                &call_errors,
                 &context,
                 dunder,
                 arg,
             );
-            if dunder_errors.is_empty() {
+            if call_errors.is_empty() {
+                errors.extend(callee_errors);
                 return ret;
             } else if first_call.is_none() {
-                first_call = Some((dunder_errors, ret));
+                first_call = Some((callee_errors, call_errors, ret));
             }
         }
-        if let Some((dunder_errors, ret)) = first_call {
-            errors.extend(dunder_errors);
+        if let Some((callee_errors, call_errors, ret)) = first_call {
+            errors.extend(callee_errors);
+            errors.extend(call_errors);
             ret
         } else {
             let dunders = calls
