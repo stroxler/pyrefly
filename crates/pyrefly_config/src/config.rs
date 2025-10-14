@@ -434,6 +434,8 @@ impl ConfigFile {
             "**/__pycache__".to_owned(),
             // match any `.venv` or `venv` directory
             "**/*venv/**".to_owned(),
+            // Dot directories aside from `.` and `..`
+            "**/.[!/.]*/**".to_owned(),
             // Note: dot files are now excluded at the Glob::files() level
         ])
         .unwrap_or_else(|_| Globs::empty())
@@ -1588,7 +1590,8 @@ mod tests {
                     vec![
                         "**/node_modules".to_owned(),
                         "**/__pycache__".to_owned(),
-                        "**/*venv/**".to_owned()
+                        "**/*venv/**".to_owned(),
+                        "**/.[!/.]*/**".to_owned(),
                     ]
                     .into_iter()
                     .chain(site_package_path.clone())

@@ -387,6 +387,7 @@ mod test {
             "file_one.py",
             "file_two.py",
         ]
+        project_excludes = []
         "#;
         let tdir = tempfile::tempdir().unwrap();
         let file_one_path = tdir.path().join("file_one.py");
@@ -399,7 +400,7 @@ mod test {
         t.add(&file_one_path.display().to_string(), file_one);
         t.add(&file_two_path.display().to_string(), file_two);
         t.add(&config_path.display().to_string(), configuration);
-        let args = InferArgs::parse_from(["infer", &tdir.path().display().to_string()]);
+        let args = InferArgs::parse_from(["infer", "--config", &config_path.display().to_string()]);
         let result = args.run();
         assert!(result.is_ok(), "infer command failed: {:?}", result.err());
 

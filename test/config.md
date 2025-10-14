@@ -268,3 +268,14 @@ $ mkdir $TMPDIR/site_package_path && \
 > $PYREFLY check $TMPDIR/foo.py --site-package-path $TMPDIR/site_package_path
 [0]
 ```
+
+## Skip hidden directories
+
+```scrut {output_stream.stdout}
+$ mkdir $TMPDIR/contains_hidden && \
+> mkdir $TMPDIR/contains_hidden/.hidden && \
+> touch $TMPDIR/contains_hidden/ok.py && \
+> echo "1 + 'oops'" > $TMPDIR/contains_hidden/.hidden/secret_error.py && \
+> $PYREFLY check $TMPDIR/contains_hidden
+[0]
+```
