@@ -73,11 +73,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         root_model_type: Type,
     ) -> ClassSynthesizedField {
-        let root_requiredness =
+        let (root_requiredness, root_model_type) =
             if root_model_type.is_any() || matches!(root_model_type, Type::Quantified(_)) {
-                Required::Optional(None)
+                (Required::Optional(None), root_model_type)
             } else {
-                Required::Required
+                // TODO Zeina: Implement RootModel strict mode
+                (Required::Required, Type::any_explicit())
             };
         let root_param = Param::Pos(ROOT, root_model_type, root_requiredness);
         let params = vec![self.class_self_param(cls, false), root_param];
