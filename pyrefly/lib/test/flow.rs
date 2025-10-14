@@ -1139,7 +1139,7 @@ class B(A): pass
 def f(x: A):
     if isinstance(x, B):
         pass
-    assert_type(x, A | B)
+    assert_type(x, A)
     "#,
 );
 

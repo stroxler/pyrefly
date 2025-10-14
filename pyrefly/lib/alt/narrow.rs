@@ -922,6 +922,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             NarrowOp::Or(ops) => TypeInfo::join(
                 ops.map(|op| self.narrow(type_info, op, range, errors)),
                 &|tys| self.unions(tys),
+                &|got, want| self.is_subset_eq(got, want),
                 JoinStyle::SimpleMerge,
             ),
         }

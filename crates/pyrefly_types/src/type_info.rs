@@ -138,6 +138,7 @@ impl TypeInfo {
     pub fn join(
         mut branches: Vec<Self>,
         union_types: &impl Fn(Vec<Type>) -> Type,
+        is_subset_eq: &impl Fn(&Type, &Type) -> bool,
         join_style: JoinStyle<Arc<TypeInfo>>,
     ) -> Self {
         match branches.len() {
@@ -151,6 +152,7 @@ impl TypeInfo {
                 let ty = join_types(
                     tys,
                     union_types,
+                    is_subset_eq,
                     join_style.map(|base_type_info| base_type_info.ty.clone()),
                 );
                 let branches = facets_branches.into_iter().flatten().collect::<Vec<_>>();
@@ -158,6 +160,7 @@ impl TypeInfo {
                     NarrowedFacets::join(
                         branches,
                         union_types,
+                        is_subset_eq,
                         join_style.map(|base_type_info| {
                             base_type_info.facets.as_ref().map(|f| f.as_ref().clone())
                         }),
@@ -349,6 +352,7 @@ impl NarrowedFacets {
     fn join(
         mut branches: Vec<Self>,
         union_types: &impl Fn(Vec<Type>) -> Type,
+        is_subset_eq: &impl Fn(&Type, &Type) -> bool,
         join_style: JoinStyle<Option<NarrowedFacets>>,
     ) -> Option<Self> {
         match branches.len() {
@@ -370,6 +374,7 @@ impl NarrowedFacets {
                             NarrowedFacet::join(
                                 facet_branches,
                                 union_types,
+                                is_subset_eq,
                                 join_style.map(|base_facets| {
                                     base_facets.as_ref().and_then(|f| f.get(&facet)).cloned()
                                 }),
@@ -538,6 +543,7 @@ impl NarrowedFacet {
     fn join(
         branches: Vec<Self>,
         union_types: &impl Fn(Vec<Type>) -> Type,
+        is_subset_eq: &impl Fn(&Type, &Type) -> bool,
         join_style: JoinStyle<Option<NarrowedFacet>>,
     ) -> Option<Self> {
         fn monadic_push_option<T>(acc: &mut Option<Vec<T>>, item: Option<T>) {
@@ -569,6 +575,7 @@ impl NarrowedFacet {
             join_types(
                 tys,
                 union_types,
+                is_subset_eq,
                 join_style.flat_map(|base_facet| {
                     base_facet.as_ref().and_then(|f| match f {
                         NarrowedFacet::WithRoot(ty, _) | NarrowedFacet::Leaf(ty) => {
@@ -583,6 +590,7 @@ impl NarrowedFacet {
             NarrowedFacets::join(
                 facets_branches,
                 union_types,
+                is_subset_eq,
                 join_style.map(|base_facet| {
                     base_facet.as_ref().and_then(|f| match f {
                         NarrowedFacet::WithRoot(_, facets) | NarrowedFacet::WithoutRoot(facets) => {
@@ -608,12 +616,16 @@ impl NarrowedFacet {
 fn join_types(
     types: Vec<Type>,
     union_types: &impl Fn(Vec<Type>) -> Type,
+    is_subset_eq: &impl Fn(&Type, &Type) -> bool,
     join_style: JoinStyle<Type>,
 ) -> Type {
     match join_style {
         JoinStyle::SimpleMerge => union_types(types),
-        JoinStyle::NarrowOf(base_ty) | JoinStyle::ReassignmentOf(base_ty) => {
-            simplify_join(union_types(types), base_ty)
+        JoinStyle::NarrowOf(base_ty) => {
+            simplify_join(union_types(types), base_ty, true, is_subset_eq)
+        }
+        JoinStyle::ReassignmentOf(base_ty) => {
+            simplify_join(union_types(types), base_ty, false, is_subset_eq)
         }
     }
 }
@@ -624,11 +636,24 @@ fn join_types(
 ///   This avoids creating union types like `Any | int` on gradual code that assigns or
 ///   narrows a gradually-typed variable. We only do this for explicit and implicit any,
 ///   not for `Any` that resulted from a type error.
-fn simplify_join(joined_ty: Type, base_ty: Type) -> Type {
+/// - If the merge involves only narrows of base *and* the base type is a subset
+///   of the resulting union, simplify the union. This would not be needed if we
+///   had general union simplification, but it is useful today because:
+///   - general union simplification is quadratic given our current architecture
+///   - but this particular simplification is linear, since we have an initial guess
+///   - the simplified join types are much more readable and performant downstream
+fn simplify_join(
+    joined_ty: Type,
+    base_ty: Type,
+    is_narrow: bool,
+    is_subset_eq: &impl Fn(&Type, &Type) -> bool,
+) -> Type {
     if matches!(base_ty, Type::Any(AnyStyle::Explicit | AnyStyle::Implicit))
         && let Type::Union(tys) = &joined_ty
         && tys.iter().any(|t| t.is_any())
     {
+        base_ty
+    } else if is_narrow && is_subset_eq(&base_ty, &joined_ty) {
         base_ty
     } else {
         joined_ty
@@ -751,6 +776,7 @@ mod tests {
                     fake_class_type("FakeUnionType")
                 }
             },
+            &|_, _| false,
             JoinStyle::SimpleMerge,
         );
         assert_eq!(type_info.to_string(), "Never");

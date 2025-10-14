@@ -1961,6 +1961,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::join(
                         type_infos,
                         &|ts| self.unions(ts),
+                        &|got, want| self.is_subset_eq(got, want),
                         join_style.map(|idx| self.get_idx(*idx)),
                     )
                 }
@@ -1985,7 +1986,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             }
                         })
                         .collect::<Vec<_>>();
-                    TypeInfo::join(type_infos, &|ts| self.unions(ts), JoinStyle::SimpleMerge)
+                    TypeInfo::join(
+                        type_infos,
+                        &|ts| self.unions(ts),
+                        &|got, want| self.is_subset_eq(got, want),
+                        JoinStyle::SimpleMerge,
+                    )
                 }
             }
             Binding::AssignToAttribute(attr, got) => {
