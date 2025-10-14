@@ -1143,6 +1143,43 @@ def f(x: A):
     "#,
 );
 
+testcase!(
+    test_join_with_unrelated_narrow,
+    r#"
+from typing import assert_type
+class A: pass
+class B: pass
+def f(x: A):
+    if isinstance(x, B):
+        assert_type(x, B)
+    assert_type(x, A)
+# (Illustrating that all code in the body of `f` is reachable)
+class C(A, B): pass
+f(C())
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1246
+testcase!(
+    test_boolean_op_narrowing_example,
+    r#"
+from typing import Sequence, reveal_type
+class A: 
+    def foo(self) -> bool:
+        raise NotImplementedError()
+    def i(self) -> int:
+        raise NotImplementedError()
+class B:
+    def bar(self) -> bool:
+        raise NotImplementedError()
+def f(a: A) -> tuple[int, bool]:
+    return a.i(), (
+        (isinstance(a, B) and a.bar()) or
+        reveal_type(a).foo()  # E: revealed type: A
+    )
+"#,
+);
+
 // Regression test for https://github.com/facebook/pyrefly/issues/683
 testcase!(
     test_loop_with_sized_in_inner_iteration,
