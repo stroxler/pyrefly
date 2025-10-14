@@ -664,21 +664,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         iterable: &Type,
         range: TextRange,
         errors: &ErrorCollector,
+        orig_context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Vec<Iterable> {
         // Use the iterable protocol interfaces to determine the iterable type.
         // Special cases like Tuple should be intercepted first.
-        let context = || ErrorContext::Iteration(self.for_display(iterable.clone()));
+        let context = || {
+            orig_context.map_or_else(
+                || ErrorContext::Iteration(self.for_display(iterable.clone())),
+                |ctx| ctx(),
+            )
+        };
         match iterable {
             Type::ClassType(cls) if let Some(Tuple::Concrete(elts)) = self.as_tuple(cls) => {
                 vec![Iterable::FixedLen(elts.clone())]
             }
             Type::Tuple(Tuple::Concrete(elts)) => vec![Iterable::FixedLen(elts.clone())],
             Type::Var(v) if let Some(_guard) = self.recurse(*v) => {
-                self.iterate(&self.solver().force_var(*v), range, errors)
+                self.iterate(&self.solver().force_var(*v), range, errors, orig_context)
             }
             Type::Union(ts) => ts
                 .iter()
-                .flat_map(|t| self.iterate(t, range, errors))
+                .flat_map(|t| self.iterate(t, range, errors, orig_context))
                 .collect(),
             _ => {
                 let ty = self
@@ -1499,7 +1505,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             BindingExpect::UnpackedLength(b, range, expect) => {
                 let iterable_ty = self.get_idx(*b);
-                let iterables = self.iterate(iterable_ty.ty(), *range, errors);
+                let iterables = self.iterate(iterable_ty.ty(), *range, errors, None);
                 for iterable in iterables {
                     match iterable {
                         Iterable::OfType(_) => {}
@@ -2988,7 +2994,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         infer_hint.as_ref().map(|t| HintRef::new(t, None)),
                         errors,
                     );
-                    self.iterate(&iterable, e.range(), errors)
+                    self.iterate(&iterable, e.range(), errors, None)
                 };
                 let mut values = Vec::new();
                 for iterable in iterables {
@@ -3022,7 +3028,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::UnpackedValue(ann, to_unpack, range, pos) => {
-                let iterables = self.iterate(self.get_idx(*to_unpack).ty(), *range, errors);
+                let iterables = self.iterate(self.get_idx(*to_unpack).ty(), *range, errors, None);
                 let mut values = Vec::new();
                 for iterable in iterables {
                     values.push(match iterable {

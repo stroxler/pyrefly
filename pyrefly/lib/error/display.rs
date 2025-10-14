@@ -247,6 +247,9 @@ impl TypeCheckKind {
                     "Type `{got}` is not assignable to upper bound `{want}` of type variable `{name}`"
                 )
             }
+            Self::Container => {
+                format!("`{got}` is not assignable to contained type `{want}`")
+            }
         }
     }
 }

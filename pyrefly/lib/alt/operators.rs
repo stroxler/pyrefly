@@ -380,23 +380,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         ret
                                     } else {
                                         let iteration_errors = self.error_collector();
-                                        let iterables =
-                                            self.iterate(right, x.range, &iteration_errors);
-                                        if !iteration_errors.is_empty()
-                                            || !iterables.iter().any(|iterable| match iterable {
-                                                Iterable::OfType(ty) => self.is_subset_eq(left, ty),
-                                                Iterable::FixedLen(ts) => {
-                                                    ts.iter().any(|t| self.is_subset_eq(left, t))
+                                        let iterables = self.iterate(
+                                            right,
+                                            x.range,
+                                            &iteration_errors,
+                                            Some(&context),
+                                        );
+                                        if iteration_errors.is_empty() {
+                                            // Make sure `x` matches at least one of the produced types.
+                                            let mut produced_types = Vec::new();
+                                            for iterable in iterables {
+                                                match iterable {
+                                                    Iterable::OfType(ty) => {
+                                                        produced_types.push(ty);
+                                                    }
+                                                    Iterable::FixedLen(ts) => {
+                                                        produced_types.extend(ts);
+                                                    }
                                                 }
-                                            })
-                                        {
-                                            // Iterating `y` failed, or `x` does not match any of the produced types.
-                                            self.error(
-                                                errors,
+                                            }
+                                            self.check_type(
+                                                left,
+                                                &self.unions(produced_types),
                                                 x.range,
-                                                ErrorInfo::Kind(ErrorKind::UnsupportedOperation),
-                                                context().format(),
+                                                errors,
+                                                &|| TypeCheckContext {
+                                                    kind: TypeCheckKind::Container,
+                                                    context: Some(context()),
+                                                },
                                             );
+                                        } else {
+                                            // Iterating `y` failed.
+                                            errors.extend(iteration_errors);
                                         }
                                         self.stdlib.bool().clone().to_type()
                                     }

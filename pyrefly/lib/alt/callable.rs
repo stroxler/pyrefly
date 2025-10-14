@@ -231,7 +231,7 @@ impl<'a> CallArg<'a> {
             Self::Arg(TypeOrExpr::Expr(e)) => CallArgPreEval::Expr(e, false),
             Self::Star(e, range) => {
                 let ty = e.infer(solver, arg_errors);
-                let iterables = solver.iterate(&ty, *range, arg_errors);
+                let iterables = solver.iterate(&ty, *range, arg_errors, None);
                 // If we have a union of iterables, use a fixed length only if every iterable is
                 // fixed and has the same length. Otherwise, use star.
                 let mut fixed_lens = Vec::new();

@@ -548,3 +548,23 @@ for y in A():  # E: Cannot use variable `y` with type `str` to iterate over elem
     pass
     "#,
 );
+
+testcase!(
+    test_contains_bad_getitem,
+    r#"
+class A:
+    def __getitem__(self):
+        return 0
+0 in A()  # E: Expected 0 positional arguments, got 1 in function `A.__getitem__`
+    "#,
+);
+
+testcase!(
+    test_contains_getitem_wrong_type,
+    r#"
+class A:
+    def __getitem__(self, i) -> int:
+        return 0
+"" in A()  # E: `Literal['']` is not assignable to contained type `int`
+    "#,
+);
