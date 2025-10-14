@@ -159,10 +159,10 @@ Model3(x=RootModel('oops')) # E: Argument `Literal['oops']` is not assignable to
 );
 
 pydantic_testcase!(
-    bug = "Add StrictInt to stubs and Support strict rootmodel",
+    bug = "Support strict rootmodel",
     test_strict_basic,
     r#"
-from pydantic import RootModel, StrictInt # E:  Could not import `StrictInt` from `pydantic`
+from pydantic import RootModel, StrictInt 
 
 class A(RootModel[StrictInt]):
     pass
