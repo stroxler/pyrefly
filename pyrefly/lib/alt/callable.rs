@@ -256,14 +256,7 @@ impl<'a> CallArg<'a> {
                     let tys = fixed_tys.into_map(|tys| solver.unions(tys));
                     CallArgPreEval::Fixed(tys, 0)
                 } else {
-                    let mut star_tys = Vec::new();
-                    for x in iterables {
-                        match x {
-                            Iterable::OfType(ty) => star_tys.push(ty.clone()),
-                            Iterable::FixedLen(tys) => star_tys.extend(tys),
-                        }
-                    }
-                    let ty = solver.unions(star_tys);
+                    let ty = solver.get_produced_type(iterables);
                     CallArgPreEval::Star(ty, false)
                 }
             }

@@ -22,7 +22,6 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
-use crate::alt::solve::Iterable;
 use crate::alt::unwrap::HintRef;
 use crate::binding::binding::KeyAnnotation;
 use crate::config::error_kind::ErrorKind;
@@ -387,21 +386,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                             Some(&context),
                                         );
                                         if iteration_errors.is_empty() {
-                                            // Make sure `x` matches at least one of the produced types.
-                                            let mut produced_types = Vec::new();
-                                            for iterable in iterables {
-                                                match iterable {
-                                                    Iterable::OfType(ty) => {
-                                                        produced_types.push(ty);
-                                                    }
-                                                    Iterable::FixedLen(ts) => {
-                                                        produced_types.extend(ts);
-                                                    }
-                                                }
-                                            }
+                                            // Make sure `x` matches the produced type.
                                             self.check_type(
                                                 left,
-                                                &self.unions(produced_types),
+                                                &self.get_produced_type(iterables),
                                                 x.range,
                                                 errors,
                                                 &|| TypeCheckContext {

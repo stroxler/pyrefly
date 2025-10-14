@@ -742,6 +742,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn get_produced_type(&self, iterables: Vec<Iterable>) -> Type {
+        let mut produced_types = Vec::new();
+        for iterable in iterables {
+            match iterable {
+                Iterable::OfType(t) => produced_types.push(t),
+                Iterable::FixedLen(ts) => produced_types.extend(ts),
+            }
+        }
+        self.unions(produced_types)
+    }
+
     fn check_is_exception(
         &self,
         x: &Expr,
@@ -2996,14 +3007,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                     self.iterate(&iterable, e.range(), errors, None)
                 };
-                let mut values = Vec::new();
-                for iterable in iterables {
-                    match iterable {
-                        Iterable::OfType(ty) => values.push(ty),
-                        Iterable::FixedLen(ts) => values.extend(ts),
-                    }
-                }
-                let value = self.unions(values);
+                let value = self.get_produced_type(iterables);
                 let check_hint = ty.clone().and_then(|x| x.ty(self.stdlib));
                 if let Some(check_hint) = check_hint {
                     self.check_and_return_type(value, &check_hint, e.range(), errors, tcc)
