@@ -22,6 +22,7 @@ use starlark_map::smallmap;
 use vec1::Vec1;
 
 use crate::facet::FacetKind;
+use crate::types::AnyStyle;
 use crate::types::Type;
 
 assert_bytes!(TypeInfo, 40);
@@ -601,15 +602,36 @@ impl NarrowedFacet {
     }
 }
 
+/// Join types. The result is typically a union, but if we have a base type available (which
+/// occurs when the join is from control flow and there was a type before the branch), we
+/// may be able to get a better result.
 fn join_types(
     types: Vec<Type>,
     union_types: &impl Fn(Vec<Type>) -> Type,
     join_style: JoinStyle<Type>,
 ) -> Type {
     match join_style {
-        JoinStyle::SimpleMerge | JoinStyle::ReassignmentOf(..) | JoinStyle::NarrowOf(..) => {
-            union_types(types)
+        JoinStyle::SimpleMerge => union_types(types),
+        JoinStyle::NarrowOf(base_ty) | JoinStyle::ReassignmentOf(base_ty) => {
+            simplify_join(union_types(types), base_ty)
         }
+    }
+}
+
+/// Given a base flow type and a naive join of control flow branches, try to simplify
+/// the join.
+/// - If the base type is `Any`, and `Any` is still present in the join, just use `Any`.
+///   This avoids creating union types like `Any | int` on gradual code that assigns or
+///   narrows a gradually-typed variable. We only do this for explicit and implicit any,
+///   not for `Any` that resulted from a type error.
+fn simplify_join(joined_ty: Type, base_ty: Type) -> Type {
+    if matches!(base_ty, Type::Any(AnyStyle::Explicit | AnyStyle::Implicit))
+        && let Type::Union(tys) = &joined_ty
+        && tys.iter().any(|t| t.is_any())
+    {
+        base_ty
+    } else {
+        joined_ty
     }
 }
 
