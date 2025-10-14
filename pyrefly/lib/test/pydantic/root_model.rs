@@ -69,6 +69,7 @@ m1 = FallBackRootModel(123)
 );
 
 pydantic_testcase!(
+    bug = "allow coersion in RootModel",
     test_inheritance,
     r#"
 from pydantic import RootModel
@@ -85,6 +86,7 @@ m2 = B("abc") # E: Argument `Literal['abc']` is not assignable to parameter `roo
 );
 
 pydantic_testcase!(
+    bug = "allow coersion in RootModel",
     test_inheritance_kwarg,
     r#"
 from pydantic import RootModel
@@ -121,7 +123,7 @@ RootModel[int](5, extra=6)  # E: Unexpected keyword argument `extra`
 );
 
 pydantic_testcase!(
-    bug = "We should allow populating root model fields using the root type",
+    bug = "We should allow populating root model fields using the root type; allow coersion in RootModel",
     test_root_model_field,
     r#"
 from typing import assert_type
