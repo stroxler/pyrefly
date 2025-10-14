@@ -3937,7 +3937,7 @@
       "concise_description": "`+` is not supported between `Spam` and `Literal[1]`",
       "description": "`+` is not supported between `Spam` and `Literal[1]`\n  `_directives_deprecated_library.Spam.__add__` is deprecated",
       "line": 41,
-      "name": "unsupported-operation",
+      "name": "deprecated",
       "stop_column": 13,
       "stop_line": 41
     },
@@ -3947,7 +3947,7 @@
       "concise_description": "`+=` is not supported between `Spam` and `Literal[1]`",
       "description": "`+=` is not supported between `Spam` and `Literal[1]`\n  `_directives_deprecated_library.Spam.__add__` is deprecated",
       "line": 42,
-      "name": "unsupported-operation",
+      "name": "deprecated",
       "stop_column": 10,
       "stop_line": 42
     },
