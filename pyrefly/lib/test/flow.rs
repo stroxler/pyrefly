@@ -1130,6 +1130,19 @@ def f(x: Any, y: Any):
     "#,
 );
 
+testcase!(
+    test_reducible_join_of_narrows,
+    r#"
+from typing import assert_type
+class A: pass
+class B(A): pass
+def f(x: A):
+    if isinstance(x, B):
+        pass
+    assert_type(x, A | B)
+    "#,
+);
+
 // Regression test for https://github.com/facebook/pyrefly/issues/683
 testcase!(
     test_loop_with_sized_in_inner_iteration,
