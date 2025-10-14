@@ -296,6 +296,7 @@ impl TestTspClient {
         }
     }
 
+    #[expect(dead_code)]
     pub fn receive_any_message(&self) -> Message {
         match self.receiver.recv_timeout(self.timeout) {
             Ok(msg) => {
