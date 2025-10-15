@@ -9,8 +9,10 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Function;
+use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::OverloadType;
@@ -132,6 +134,7 @@ impl<Function: FunctionTrait> CallTarget<Function> {
         self
     }
 
+    #[cfg(test)]
     pub fn with_implicit_dunder_call(mut self, implicit_dunder_call: bool) -> Self {
         self.implicit_dunder_call = implicit_dunder_call;
         self
@@ -152,6 +155,11 @@ impl<Function: FunctionTrait> CallTarget<Function> {
     #[cfg(test)]
     pub fn with_return_type(mut self, return_type: Option<ScalarTypeProperties>) -> Self {
         self.return_type = return_type;
+        self
+    }
+
+    pub fn with_receiver_class(mut self, receiver_class: ClassRef) -> Self {
+        self.receiver_class = Some(receiver_class);
         self
     }
 }
@@ -617,13 +625,13 @@ impl<'a> CallGraphVisitor<'a> {
                 false, // We don't know receiver type since we are given an `ExprName`
             );
             CallTarget {
-                target: Target::Function(function_ref),
                 implicit_receiver,
                 receiver_class: None,
-                implicit_dunder_call: false,
+                implicit_dunder_call: function_ref.function_name == dunder::CALL,
                 is_class_method: method_metadata.is_classmethod,
                 is_static_method: method_metadata.is_staticmethod,
                 return_type,
+                target: Target::Function(function_ref),
             }
         };
         let identifier = Ast::expr_name_identifier(name.clone());
@@ -652,18 +660,56 @@ impl<'a> CallGraphVisitor<'a> {
             // There is no go-to-definition when for example an `ExprName` is a class definition,
             // a local variable, or a parameter.
             let callee_type = self.module_context.answers.get_type_trace(name.range());
-            let call_target = match callee_type {
-                Some(Type::ClassType(class_type)) => {
-                    // Since we are calling an instance of a class, look up method `__call__`
-                    self.create_callee_from_class_field(
-                        class_type.class_object(),
-                        &Name::new("__call__"),
-                    )
-                    .map(|function_ref| {
-                        create_call_target(function_ref).with_implicit_dunder_call(true)
-                    })
+            let pyrefly_target = self
+                .module_context
+                .transaction
+                .ad_hoc_solve(&self.module_context.handle, |solver| {
+                    callee_type
+                        .as_ref()
+                        .and_then(|type_| solver.as_call_target(type_.clone()))
+                })
+                .flatten();
+            let call_target = match pyrefly_target {
+                Some(crate::alt::call::CallTarget::BoundMethod(type_, target)) => {
+                    match (target.1.metadata.kind, type_) {
+                        (FunctionKind::Def(function_id), Type::ClassType(class_type)) => {
+                            // Calling a method on a class instance.
+                            let class = class_type.class_object();
+                            self.create_callee_from_class_field(
+                                class_type.class_object(),
+                                &function_id.func,
+                            )
+                            .map(|function_ref| {
+                                create_call_target(function_ref).with_receiver_class(
+                                    ClassRef::from_class(class, self.module_context.module_ids),
+                                )
+                            })
+                        }
+                        _ => None,
+                    }
                 }
-                _ => None,
+                Some(crate::alt::call::CallTarget::Function(function)) => {
+                    match (function.1.metadata.kind, callee_type.as_ref()) {
+                        (FunctionKind::Def(function_id), Some(Type::ClassType(class_type))) => {
+                            // Calling a function (e.g., static method) on a class instance.
+                            self.create_callee_from_class_field(
+                                class_type.class_object(),
+                                &function_id.func,
+                            )
+                            .map(create_call_target)
+                        }
+                        _ => None,
+                    }
+                }
+                _ => {
+                    debug_println!(
+                        self.debug,
+                        "Unrecognized pyrefly target `{:#?}` for `{:#?}`",
+                        pyrefly_target,
+                        name,
+                    );
+                    None
+                }
             };
             call_target.into_iter().collect::<Vec<_>>()
         }
@@ -694,6 +740,8 @@ impl<'a> CallGraphVisitor<'a> {
                     self.module_context,
                 )
                 .map(|function_ref| {
+                    let implicit_dunder_call = function_ref.function_name == dunder::CALL
+                        && attribute.attr.id != dunder::CALL;
                     let method_metadata = self.get_method_metadata(&function_ref);
                     if let Some(ref receiver_type) = receiver_type {
                         let (receiver_class, is_receiver_class_def) = self
@@ -709,7 +757,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 target,
                                 implicit_receiver,
                                 receiver_class: receiver_class.clone(),
-                                implicit_dunder_call: false,
+                                implicit_dunder_call,
                                 is_class_method: method_metadata.is_classmethod,
                                 is_static_method: method_metadata.is_staticmethod,
                                 return_type,
@@ -723,7 +771,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 /* is_receiver_class_def */ false,
                             ),
                             receiver_class: None,
-                            implicit_dunder_call: false,
+                            implicit_dunder_call,
                             is_class_method: method_metadata.is_classmethod,
                             is_static_method: method_metadata.is_staticmethod,
                             return_type,

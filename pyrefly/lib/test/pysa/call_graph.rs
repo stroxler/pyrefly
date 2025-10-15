@@ -110,7 +110,11 @@ impl std::fmt::Display for FunctionRefForTest {
 }
 
 impl CallTarget<FunctionRefForTest> {
-    fn with_receiver_class(mut self, receiver_class: String, context: &ModuleContext) -> Self {
+    fn with_receiver_class_for_test(
+        mut self,
+        receiver_class: String,
+        context: &ModuleContext,
+    ) -> Self {
         self.receiver_class = Some({
             let (module_name, class_name) = split_module_and_identifier(&receiver_class);
             get_class_ref(&module_name, &class_name, context)
@@ -325,7 +329,7 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
-            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context)
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -374,7 +378,7 @@ def foo(c: Optional[C]):
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
-            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context)
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -403,7 +407,7 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
-            create_call_target("test.C.m", TargetType::Override).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Override).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context)
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -430,16 +434,16 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let class_method_target = vec![
-            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver).with_receiver_class("test.C".to_owned(), context).with_is_class_method(true).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_is_class_method(true).with_return_type(Some(ScalarTypeProperties::int()))
         ];
         let class_method_target_2 = vec![
-            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context).with_is_class_method(true).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_is_class_method(true).with_return_type(Some(ScalarTypeProperties::int()))
         ];
         let method_target = vec![
             create_call_target("test.C.g", TargetType::Function).with_implicit_receiver(ImplicitReceiver::False).with_return_type(Some(ScalarTypeProperties::int()))
         ];
         let method_target_2 = vec![
-            create_call_target("test.C.g", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.g", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_return_type(Some(ScalarTypeProperties::int()))
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -470,8 +474,8 @@ def foo(d: D):
 "#,
     &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.E.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.D".to_owned(), context),
-            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.D".to_owned(), context)
+            create_call_target("test.E.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.D".to_owned(), context),
+            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.D".to_owned(), context)
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -491,9 +495,9 @@ class C:
 def foo(c: C):
    c(1)
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_implicit_dunder_call(true)
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_implicit_dunder_call(true).with_receiver_class_for_test("test.C".to_owned(), context)
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -538,7 +542,7 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class("test.C".to_owned(), context).with_return_type(Some(ScalarTypeProperties::bool())),
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_return_type(Some(ScalarTypeProperties::bool())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -572,6 +576,29 @@ def foo():
             vec![
                 ("7:4-7:12".to_owned(), call_callees(baz.clone())),
                 ("7:8-7:11".to_owned(), identifier_callees(bar.clone()))
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_callable_protocol_instance,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Protocol
+class C(Protocol):
+  def __call__(self, a: int) -> bool: ...
+def foo(c: C):
+   c(1)
+"#,
+    &|context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_return_type(Some(ScalarTypeProperties::bool())).with_implicit_dunder_call(true).with_receiver_class_for_test("test.C".to_owned(), context),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("6:4-6:8".to_owned(), call_callees(call_targets.clone())),
             ],
         )]
     },

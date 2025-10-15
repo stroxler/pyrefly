@@ -28,7 +28,7 @@
 #![feature(closure_lifetime_binder)]
 #![feature(if_let_guard)]
 
-mod alt;
+pub mod alt;
 mod binding;
 #[cfg(not(target_arch = "wasm32"))]
 mod commands;
