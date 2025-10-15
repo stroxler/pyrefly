@@ -38,7 +38,7 @@ use crate::types::TParams;
 use crate::types::Type;
 
 /// The name of a nominal type, e.g. `str`
-#[derive(Debug, Clone, TypeEq, Display, Dupe)]
+#[derive(Debug, Clone, Display, Dupe)]
 pub struct Class(Arc<ClassInner>);
 
 impl Hash for Class {
@@ -54,6 +54,7 @@ impl PartialEq for Class {
 }
 
 impl Eq for Class {}
+impl TypeEq for Class {}
 
 impl Ord for Class {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -88,19 +89,9 @@ pub struct ClassFieldProperties {
     docstring_range: Option<TextRange>,
 }
 
-impl PartialEq for ClassFieldProperties {
-    fn eq(&self, other: &Self) -> bool {
-        self.is_annotated == other.is_annotated
-            && self.is_initialized_on_class == other.is_initialized_on_class
-    }
-}
-
-impl Eq for ClassFieldProperties {}
-impl TypeEq for ClassFieldProperties {}
-
 /// The index of a class within the file, used as a reference to data associated with the class.
 #[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
-#[derive(TypeEq, Display)]
+#[derive(Display)]
 pub struct ClassDefIndex(pub u32);
 
 impl ClassFieldProperties {
@@ -127,7 +118,6 @@ impl ClassFieldProperties {
     }
 }
 
-#[derive(TypeEq, Eq, PartialEq)]
 struct ClassInner {
     def_index: ClassDefIndex,
     qname: QName,
