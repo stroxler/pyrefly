@@ -26,6 +26,7 @@ use crate::query::Include;
 use crate::query::PythonLibraryManifest;
 use crate::query::SourceDbQuerier;
 use crate::query::TargetManifestDatabase;
+use crate::source_db::ModulePathCache;
 use crate::source_db::SourceDatabase;
 use crate::source_db::Target;
 
@@ -62,6 +63,7 @@ pub struct QuerySourceDatabase {
     /// be the same as the directory containing the config this sourcedb is a part of.
     cwd: PathBuf,
     querier: Arc<dyn SourceDbQuerier>,
+    cached_modules: ModulePathCache,
 }
 
 impl QuerySourceDatabase {
@@ -71,6 +73,7 @@ impl QuerySourceDatabase {
             inner: RwLock::new(Inner::new()),
             includes: Mutex::new(SmallSet::new()),
             querier,
+            cached_modules: ModulePathCache::new(),
         }
     }
 
@@ -135,9 +138,9 @@ impl SourceDatabase for QuerySourceDatabase {
                 // finding.
                 let style = style_filter.unwrap_or(ModuleStyle::Interface);
                 if let Some(result) = paths.iter().find(|p| ModuleStyle::of_path(p) == style) {
-                    return Some(ModulePath::filesystem(result.to_path_buf()));
+                    return Some(self.cached_modules.get(result));
                 }
-                return Some(ModulePath::filesystem(paths.first().to_path_buf()));
+                return Some(self.cached_modules.get(paths.first()));
             }
 
             manifest.deps.iter().for_each(|t| queue.push_back(t));
@@ -246,6 +249,7 @@ mod tests {
                 ),
                 cwd: PathBuf::new(),
                 querier: Arc::new(DummyQuerier {}),
+                cached_modules: ModulePathCache::new(),
             };
             new.update_with_target_manifest(raw_db);
             new
