@@ -294,7 +294,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .arc_clone_ty();
         if stmt.is_async
             && def.metadata.flags.is_abstract_method
+            && !ret.is_any()
             && let Some((_, _, coroutine_ret)) = self.unwrap_coroutine(&ret)
+            && !coroutine_ret.is_any()
             && self.unwrap_async_iterator(&coroutine_ret).is_some()
         {
             self.error(

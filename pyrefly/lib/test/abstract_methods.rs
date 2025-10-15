@@ -229,6 +229,7 @@ testcase!(
     r#"
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
+from typing import Any
 
 # error
 class A(ABC):
@@ -244,6 +245,10 @@ class B(A):
 class C(ABC):
     @abstractmethod
     def foo(self) -> AsyncIterator[int]:
+        pass
+
+    @abstractmethod
+    async def bar(self) -> Any:
         pass
 
 class D(C):
