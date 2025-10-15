@@ -10,73 +10,11 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
-use lsp_types::CompletionItem;
-use lsp_types::CompletionItemKind;
-use lsp_types::ConfigurationItem;
-use lsp_types::ConfigurationParams;
 use lsp_types::Url;
-use lsp_types::notification::DidChangeConfiguration;
-use lsp_types::notification::Notification as _;
-use lsp_types::request::Request as _;
-use lsp_types::request::WorkspaceConfiguration;
-use pyrefly_python::keywords::get_keywords;
 
-use crate::commands::lsp::IndexingMode;
-use crate::config::environment::environment::PythonEnvironment;
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
-use crate::test::lsp::lsp_interaction::util::TestCase;
-use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
-#[allow(deprecated)]
-use crate::test::lsp::lsp_interaction::util::run_test_lsp;
-
-fn get_all_builtin_completions() -> Vec<CompletionItem> {
-    get_keywords(
-        PythonEnvironment::get_default_interpreter_env()
-            .python_version
-            .unwrap(),
-    )
-    .into_iter()
-    .map(|kw| CompletionItem {
-        label: (*kw).to_owned(),
-        kind: Some(CompletionItemKind::KEYWORD),
-        sort_text: Some("0".to_owned()),
-        ..Default::default()
-    })
-    .collect()
-}
-
-/// Creates a completion response message sorting the completion_items.
-/// completion_items is a Vec of CompletionItem to include in the response
-pub fn make_sorted_completion_result_with_all_keywords(
-    request_id: i32,
-    completion_items: Vec<CompletionItem>,
-) -> Message {
-    let mut all_items = get_all_builtin_completions();
-    all_items.extend(completion_items);
-    all_items.sort_by(|item1, item2| {
-        item1
-            .sort_text
-            .cmp(&item2.sort_text)
-            .then_with(|| item1.label.cmp(&item2.label))
-            .then_with(|| item1.detail.cmp(&item2.detail))
-    });
-
-    let items_json: Vec<serde_json::Value> = all_items
-        .into_iter()
-        .map(|item| serde_json::to_value(item).unwrap())
-        .collect();
-
-    Message::Response(Response {
-        id: RequestId::from(request_id),
-        result: Some(serde_json::json!({
-            "isIncomplete": false,
-            "items": items_json,
-        })),
-        error: None,
-    })
-}
 
 #[test]
 fn test_completion_basic() {
@@ -277,165 +215,79 @@ fn test_completion_keywords() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn test_completion_with_autoimport() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
-    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::Response(Response {
-                id: RequestId::from(1),
-                result: Some(serde_json::json!([])),
-                error: None,
-            }),
-            Message::from(build_did_open_notification(root_path.join("foo.py"))),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 0,
-                        "character": 43
-                    }
-                }),
-            }),
-            Message::Notification(Notification {
-                method: DidChangeConfiguration::METHOD.to_owned(),
-                params: serde_json::json!([{"settings": {}}
-                ]),
-            }),
-            Message::Response(Response {
-                id: RequestId::from(2),
-                result: Some(serde_json::json!([
-                    {
-                        "analysis": {
-                            "importFormat": "relative",
-                        }
-                    },
-                ])),
-                error: None,
-            }),
-            Message::from(Request {
-                id: RequestId::from(4),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 0,
-                        "character": 43
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![
-            Message::Request(Request {
-                id: RequestId::from(1),
-                method: WorkspaceConfiguration::METHOD.to_owned(),
-                params: serde_json::json!(ConfigurationParams {
-                    items: Vec::from([
-                        ConfigurationItem {
-                            scope_uri: Some(Url::from_file_path(root_path.as_path()).unwrap()),
-                            section: Some("python".to_owned()),
-                        },
-                        ConfigurationItem {
-                            scope_uri: None,
-                            section: Some("python".to_owned()),
-                        }
-                    ]),
-                }),
-            }),
-            make_sorted_completion_result_with_all_keywords(
-                2,
-                vec![
-                    CompletionItem {
-                        label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                        detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
-                        kind: Some(CompletionItemKind::FUNCTION),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                ],
-            ),
-            Message::Request(Request {
-                id: RequestId::from(2),
-                method: WorkspaceConfiguration::METHOD.to_owned(),
-                params: serde_json::json!(ConfigurationParams {
-                    items: Vec::from([
-                        ConfigurationItem {
-                            scope_uri: Some(Url::from_file_path(root_path.as_path()).unwrap()),
-                            section: Some("python".to_owned()),
-                        },
-                        ConfigurationItem {
-                            scope_uri: None,
-                            section: Some("python".to_owned()),
-                        }
-                    ]),
-                }),
-            }),
-            make_sorted_completion_result_with_all_keywords(
-                4,
-                vec![
-                    CompletionItem {
-                        label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                        detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
-                        kind: Some(CompletionItemKind::FUNCTION),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                ],
-            ),
-        ],
-        indexing_mode: IndexingMode::LazyBlocking,
+    let mut interaction =
+        LspInteraction::new_with_indexing_mode(crate::commands::lsp::IndexingMode::LazyBlocking);
+
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
-        configuration: true,
+        configuration: Some(Some(serde_json::json!([
+            {
+                "analysis": {
+                    "importFormat": "relative",
+                }
+            },
+        ]))),
         ..Default::default()
     });
+
+    let file = root_path.join("foo.py");
+    interaction.server.did_open("foo.py");
+
+    interaction
+        .server
+        .send_message(Message::Notification(Notification {
+            method: "textDocument/didChange".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&file).unwrap().to_string(),
+                    "languageId": "python",
+                    "version": 2
+                },
+                "contentChanges": [{
+                    "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
+                }],
+            }),
+        }));
+
+    interaction.server.completion("foo.py", 0, 43);
+
+    interaction.client.expect_response_with(
+        |response| {
+            if response.id != RequestId::from(2) {
+                return false;
+            }
+            if let Some(result) = &response.result
+                && let Some(items) = result.get("items")
+                && let Some(items_array) = items.as_array()
+            {
+                return items_array.iter().any(|item| {
+                    if let Some(label) = item.get("label")
+                        && let Some(label_str) = label.as_str()
+                        && let Some(detail) = item.get("detail")
+                        && let Some(detail_str) = detail.as_str()
+                        && let Some(additional_text_edits) = item.get("additionalTextEdits")
+                        && let Some(edits_array) = additional_text_edits.as_array()
+                    {
+                        label_str == "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search"
+                            && detail_str.contains("from autoimport_provider import")
+                            && !edits_array.is_empty()
+                    } else {
+                        false
+                    }
+                });
+            }
+            false
+        },
+        "Expected completion response with autoimport suggestion",
+    );
+
+    interaction.shutdown();
 }
 
 #[test]

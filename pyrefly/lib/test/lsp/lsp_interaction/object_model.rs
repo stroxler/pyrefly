@@ -619,13 +619,17 @@ pub struct LspInteraction {
 
 impl LspInteraction {
     pub fn new() -> Self {
+        Self::new_with_indexing_mode(IndexingMode::None)
+    }
+
+    pub fn new_with_indexing_mode(indexing_mode: IndexingMode) -> Self {
         init_test();
 
         let (language_client_sender, language_client_receiver) = bounded::<Message>(0);
         let (language_server_sender, language_server_receiver) = bounded::<Message>(0);
 
         let args = LspArgs {
-            indexing_mode: IndexingMode::None,
+            indexing_mode,
             workspace_indexing_limit: 0,
         };
         let connection = Connection {
