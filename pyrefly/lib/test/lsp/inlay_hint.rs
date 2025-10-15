@@ -48,6 +48,9 @@ yyy = f([1, 2, 3], "test", 42)
 
 def g() -> int:
     return 42
+
+def h(*args):
+    return args[0]
 "#;
     assert_eq!(
         r#"

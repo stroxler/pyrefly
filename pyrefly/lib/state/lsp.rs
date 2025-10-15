@@ -2390,7 +2390,7 @@ impl<'a> Transaction<'a> {
         return_types: bool,
         containers: bool,
     ) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
-        let is_interesting_type = |x: &Type| !x.is_error();
+        let is_interesting_type = |x: &Type| !x.is_any();
         let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
@@ -2489,7 +2489,7 @@ impl<'a> Transaction<'a> {
                             Binding::Function(x, _pred, _class_meta) => {
                                 if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
                                     && let Some(mut ty) = self.get_type(handle, key)
-                                    && !ty.is_error()
+                                    && !ty.is_any()
                                 {
                                     let fun = bindings.get(bindings.get(*x).undecorated_idx);
                                     if fun.def.is_async
