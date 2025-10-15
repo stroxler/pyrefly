@@ -20,6 +20,7 @@ use pyrefly_util::globs::Globs;
 use pyrefly_util::includes::Includes;
 use tracing::debug;
 use tracing::info;
+use tracing::warn;
 
 use crate::commands::config_finder::ConfigConfigurer;
 use crate::commands::config_finder::standard_config_finder;
@@ -152,6 +153,18 @@ fn get_globs_and_config_for_project(
         ConfigSource::Synthetic => {
             info!("Checking current directory with default configuration");
         }
+    }
+    let current_dir = std::env::current_dir().ok();
+    if let Some(project_dir) = config.source.root().or(current_dir.as_deref())
+        && let Some(home_dir) = std::env::home_dir()
+        && home_dir.starts_with(project_dir)
+        && config.project_includes == ConfigFile::default_project_includes().from_root(project_dir)
+    {
+        // Trying to type-check your entire home directory doesn't usually end well.
+        warn!(
+            "Pyrefly is checking everything under `{}`. This may take a while...",
+            project_dir.display()
+        );
     }
 
     if config.build_system.is_some() {
