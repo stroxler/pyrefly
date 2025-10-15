@@ -802,6 +802,10 @@ impl<'a> Instance<'a> {
                 ClassType::new(self.class.dupe(), self.targs.clone()),
                 self_type.clone(),
             ),
+            InstanceKind::TypeVar(q) => ClassBase::Quantified(
+                q.clone(),
+                ClassType::new(self.class.dupe(), self.targs.clone()),
+            ),
             _ => ClassBase::ClassType(ClassType::new(self.class.dupe(), self.targs.clone())),
         }
     }
