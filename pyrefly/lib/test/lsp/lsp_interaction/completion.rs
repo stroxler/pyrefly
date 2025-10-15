@@ -485,6 +485,83 @@ fn test_module_completion() {
 }
 
 #[test]
+fn test_module_completion_reexports_sorted_lower() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("reexport_test"));
+    interaction.initialize(InitializeSettings::default());
+
+    interaction.server.did_open("test.py");
+
+    let test_path = root.path().join("reexport_test/test.py");
+    interaction
+        .server
+        .send_message(Message::Notification(Notification {
+            method: "textDocument/didChange".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&test_path).unwrap().to_string(),
+                    "languageId": "python",
+                    "version": 2
+                },
+                "contentChanges": [{
+                    "text": "import module_with_reexports\n\nmodule_with_reexports.".to_owned()
+                }],
+            }),
+        }));
+
+    interaction.server.completion("test.py", 2, 23);
+
+    interaction.client.expect_response_with(
+        |response| {
+            if response.id != RequestId::from(2) {
+                return false;
+            }
+            if let Some(result) = &response.result
+                && let Some(items) = result.get("items")
+                && let Some(items_array) = items.as_array()
+            {
+                let mut direct_definitions = vec![];
+                let mut reexports = vec![];
+
+                for item in items_array {
+                    let label = item.get("label").and_then(|v| v.as_str()).unwrap_or("");
+                    let sort_text = item.get("sortText").and_then(|v| v.as_str()).unwrap_or("");
+
+                    if label == "another_direct_function" || label == "AnotherDirectClass" {
+                        direct_definitions.push((label.to_owned(), sort_text.to_owned()));
+                    } else if label == "reexported_function" || label == "ReexportedClass" {
+                        reexports.push((label.to_owned(), sort_text.to_owned()));
+                    }
+                }
+
+                if direct_definitions.is_empty() || reexports.is_empty() {
+                    return false;
+                }
+
+                for (direct_label, direct_sort) in &direct_definitions {
+                    for (reexport_label, reexport_sort) in &reexports {
+                        if reexport_sort <= direct_sort {
+                            eprintln!(
+                                "Re-export '{}' (sortText: {}) should be sorted lower than direct definition '{}' (sortText: {})",
+                                reexport_label, reexport_sort, direct_label, direct_sort
+                            );
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            }
+            false
+        },
+        "Expected re-exports to be sorted lower than direct definitions in module completions",
+    );
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_relative_module_completion() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
