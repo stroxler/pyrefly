@@ -76,7 +76,7 @@ fn test_completion_basic() {
 }
 
 #[test]
-fn test_completion_sorting() {
+fn test_completion_sorted_in_sorttext_order() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
