@@ -424,7 +424,7 @@ impl ConfigFile {
     }
 
     pub fn default_project_includes() -> Globs {
-        Globs::new(vec!["**/*".to_owned()]).unwrap_or_else(|_| Globs::empty())
+        Globs::new(vec!["**/*.py*".to_owned()]).unwrap_or_else(|_| Globs::empty())
     }
 
     pub fn default_project_excludes() -> Globs {
