@@ -309,6 +309,10 @@ impl ClassSynthesizedFields {
         }
         self
     }
+
+    pub fn fields(&self) -> impl ExactSizeIterator<Item = (&Name, &ClassSynthesizedField)> {
+        self.0.iter()
+    }
 }
 
 impl Display for ClassSynthesizedFields {

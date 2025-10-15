@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
@@ -31,6 +32,7 @@ use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
+use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
@@ -44,6 +46,7 @@ use crate::report::pysa::module::ModuleKey;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
 use crate::report::pysa::types::PysaType;
+use crate::report::pysa::types::is_callable_like;
 
 /// Represents a unique identifier for a class **within a module**.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
@@ -214,7 +217,7 @@ pub fn get_all_classes(context: &ModuleContext) -> impl Iterator<Item = Class> {
         .map(|idx| context.answers.get_idx(idx).unwrap().0.dupe().unwrap())
 }
 
-pub fn get_class_field(
+fn get_class_field(
     class: &Class,
     field: &Name,
     context: &ModuleContext,
@@ -261,14 +264,39 @@ pub fn get_class_mro(class: &Class, context: &ModuleContext) -> Arc<ClassMro> {
         .unwrap()
 }
 
+fn get_class_fields<'a>(
+    class: &'a Class,
+    context: &'a ModuleContext<'a>,
+) -> Vec<(Cow<'a, Name>, Arc<ClassField>)> {
+    let mut fields = class
+        .fields()
+        .filter_map(|name| {
+            get_class_field(class, name, context).map(|field| (Cow::Borrowed(name), field))
+        })
+        .collect::<Vec<_>>();
+
+    let synthesized_fields_idx = context
+        .bindings
+        .key_to_idx(&KeyClassSynthesizedFields(class.index()));
+    let synthesized_fields = context.answers.get_idx(synthesized_fields_idx).unwrap();
+    fields.extend(
+        synthesized_fields
+            .fields()
+            .filter(|(name, _)| !class.contains(name))
+            .map(|(name, field)| (Cow::Owned(name.clone()), field.inner.dupe())),
+    );
+
+    fields
+}
+
 pub fn export_class_fields(
     class: &Class,
     context: &ModuleContext,
 ) -> HashMap<String, PysaClassField> {
     assert_eq!(class.module(), &context.module_info);
-    class
-        .fields()
-        .filter_map(|name| get_class_field(class, name, context).map(|field| (name, field)))
+    get_class_fields(class, context)
+        .iter()
+        .filter(|(_, field)| !is_callable_like(&field.ty()))
         .filter_map(|(name, field)| {
             let field_binding = get_class_field_declaration(class, name, context);
 

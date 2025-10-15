@@ -365,3 +365,19 @@ impl ScalarTypeProperties {
         }
     }
 }
+
+pub fn is_callable_like(ty: &Type) -> bool {
+    match ty {
+        Type::Function(_) => true,
+        Type::Callable(_) => true,
+        Type::BoundMethod(_) => true,
+        Type::Overload(_) => true,
+        Type::Union(unions) => {
+            unions.iter().any(is_callable_like)
+                && unions
+                    .iter()
+                    .all(|ty| ty.is_none() || ty.is_any() || is_callable_like(ty))
+        }
+        _ => false,
+    }
+}
