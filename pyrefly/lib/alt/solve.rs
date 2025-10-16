@@ -1143,7 +1143,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         }
-        let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style, Vec::new());
+        // Extract Annotated metadata; skip the first element since that's the type and collect the rest of the vector
+        let annotated_metadata = match expr {
+            Expr::Subscript(s)
+                if matches!(
+                    self.expr_qualifier(&s.value, TypeFormContext::TypeAlias, errors),
+                    Some(Qualifier::Annotated)
+                ) =>
+            {
+                Ast::unpack_slice(&s.slice)
+                    .iter()
+                    .skip(1)
+                    .map(|e| self.expr_infer(e, &self.error_swallower()))
+                    .collect()
+            }
+            _ => Vec::new(),
+        };
+
+        let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style, annotated_metadata);
+
         Forallable::TypeAlias(ta).forall(self.validated_tparams(
             range,
             tparams,
