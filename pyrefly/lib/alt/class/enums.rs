@@ -12,6 +12,10 @@ use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::annotation::Annotation;
+use pyrefly_types::callable::Callable;
+use pyrefly_types::callable::FuncMetadata;
+use pyrefly_types::callable::Function;
+use pyrefly_types::callable::ParamList;
 use pyrefly_types::class::ClassType;
 use pyrefly_types::literal::LitEnum;
 use pyrefly_types::read_only::ReadOnlyReason;
@@ -42,6 +46,11 @@ use crate::types::types::Type;
 pub const VALUE: Name = Name::new_static("_value_");
 /// The `value` attribute of an enum is a property that returns `_value_`.
 const VALUE_PROP: Name = Name::new_static("value");
+
+const CHOICES: Name = Name::new_static("choices");
+const LABEL: Name = Name::new_static("label");
+const LABELS: Name = Name::new_static("labels");
+const VALUES: Name = Name::new_static("values");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_enum_member(&self, cls: &Class, name: &Name) -> Option<Lit> {
@@ -283,11 +292,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut fields = SmallMap::new();
 
         let field_specs = [
-            ("labels", self.stdlib.list(label_type.clone()).to_type()),
-            ("label", label_type.clone()),
-            ("values", self.stdlib.list(values_type.clone()).to_type()),
+            (LABELS, self.stdlib.list(label_type.clone()).to_type()),
+            (LABEL, self.property(cls, LABEL, label_type.clone())),
+            (VALUES, self.stdlib.list(values_type.clone()).to_type()),
             (
-                "choices",
+                CHOICES,
                 self.stdlib
                     .list(Type::Tuple(Tuple::Concrete(vec![values_type, label_type])))
                     .to_type(),
@@ -295,10 +304,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ];
 
         for (name, ty) in field_specs {
-            fields.insert(Name::new_static(name), ClassSynthesizedField::new(ty));
+            fields.insert(name, ClassSynthesizedField::new(ty));
         }
 
         Some(ClassSynthesizedFields::new(fields))
+    }
+
+    fn property(&self, cls: &Class, name: Name, ty: Type) -> Type {
+        let signature = Callable::list(ParamList::new(vec![self.class_self_param(cls, false)]), ty);
+        let mut metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), name);
+        metadata.flags.is_property_getter = true;
+        Type::Function(Box::new(Function {
+            signature,
+            metadata,
+        }))
     }
 
     /// Enum handling:
