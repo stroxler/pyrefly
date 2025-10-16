@@ -2203,24 +2203,24 @@ impl<'a> BindingsBuilder<'a> {
         parent: &NestingContext,
         is_while_true: bool,
     ) {
-        let done = self.scopes.finish_loop();
-        let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) =
-            done.exits
-                .into_iter()
-                .partition_map(|(exit, flow)| match exit {
-                    LoopExit::Break => Either::Left(flow),
-                    LoopExit::Continue => Either::Right(flow),
-                });
+        let finished_loop = self.scopes.finish_loop();
+        let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) = finished_loop
+            .exits
+            .into_iter()
+            .partition_map(|(exit, flow)| match exit {
+                LoopExit::Break => Either::Left(flow),
+                LoopExit::Continue => Either::Right(flow),
+            });
         let base_if_breaks = if breaks.is_empty() {
             None
         } else {
-            Some(done.base.clone())
+            Some(finished_loop.base.clone())
         };
         // We associate a range to the non-`break` exits from the loop; it doesn't matter much what
         // it is as long as it's different from the loop's range.
         let other_range = TextRange::new(range.start(), range.start());
         // Create the loopback merge, which is the flow at the top of the loop.
-        self.merge_flow(done.base, other_exits, range, MergeStyle::Loop);
+        self.merge_flow(finished_loop.base, other_exits, range, MergeStyle::Loop);
         // When control falls off the end of a loop (either the `while` test fails or the loop
         // finishes), we're at the loopback flow but the test (if there is one) is negated.
         self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
