@@ -1143,7 +1143,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         }
-        let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style);
+        let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style, Vec::new());
         Forallable::TypeAlias(ta).forall(self.validated_tparams(
             range,
             tparams,

@@ -1113,6 +1113,7 @@ pub mod tests {
             Name::new_static("MyAlias"),
             Type::None,
             TypeAliasStyle::LegacyImplicit,
+            Vec::new(),
         )));
         let wrapped = Type::tuple(vec![alias.clone()]);
         let type_of = Type::type_form(alias.clone());

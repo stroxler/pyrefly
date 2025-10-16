@@ -328,12 +328,12 @@ pub struct TypeAlias {
 }
 
 impl TypeAlias {
-    pub fn new(name: Name, ty: Type, style: TypeAliasStyle) -> Self {
+    pub fn new(name: Name, ty: Type, style: TypeAliasStyle, annotated_metadata: Vec<Type>) -> Self {
         Self {
             name: Box::new(name),
             ty: Box::new(ty),
             style,
-            annotated_metadata: Default::default(),
+            annotated_metadata: annotated_metadata.into_boxed_slice(),
         }
     }
 
