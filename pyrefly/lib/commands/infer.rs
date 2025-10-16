@@ -207,7 +207,7 @@ fn hint_to_string(
 impl InferArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         self.config_override.validate()?;
-        let (files_to_check, config_finder) = self.files.resolve(&self.config_override)?;
+        let (files_to_check, config_finder) = self.files.resolve(self.config_override)?;
         Self::run_inner(files_to_check, config_finder, self.flags)
     }
 
@@ -272,7 +272,7 @@ impl InferArgs {
         // Add imports, if needed
         let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
         let current_dir_config =
-            get_project_config_for_current_dir(&ConfigOverrideArgs::default())?.0;
+            get_project_config_for_current_dir(ConfigOverrideArgs::default())?.0;
         let config_finder = ConfigFinder::new_constant(current_dir_config);
         let state = holder.as_ref();
         match check_args.run_once(files_to_check, config_finder) {

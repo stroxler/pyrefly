@@ -95,7 +95,7 @@ fn dump_config(
     max_files: MaxFiles,
 ) -> anyhow::Result<CommandExitStatus> {
     config_override.validate()?;
-    let (files_to_check, config_finder) = files.resolve(&config_override)?;
+    let (files_to_check, config_finder) = files.resolve(config_override)?;
 
     let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<ModulePath>> = SmallMap::new();
     let handles = Handles::new(config_finder.checkpoint(files_to_check.files())?);

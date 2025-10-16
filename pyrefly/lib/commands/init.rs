@@ -104,7 +104,7 @@ impl InitArgs {
 
         // Use get to get the filtered globs and config finder
         let (filtered_globs, config_finder) =
-            FilesArgs::get(Vec::new(), config_path, &ConfigOverrideArgs::default())?;
+            FilesArgs::get(Vec::new(), config_path, ConfigOverrideArgs::default())?;
 
         // Run the check directly
         match check_args.run_once(filtered_globs, config_finder) {
@@ -139,7 +139,7 @@ impl InitArgs {
 
             // Use get to get the filtered globs and config finder
             let (suppress_globs, suppress_config_finder) =
-                FilesArgs::get(Vec::new(), config_path, &ConfigOverrideArgs::default())?;
+                FilesArgs::get(Vec::new(), config_path, ConfigOverrideArgs::default())?;
 
             // Run the check with suppress-errors flag
             match suppress_args.run_once(suppress_globs, suppress_config_finder) {

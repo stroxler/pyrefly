@@ -83,7 +83,8 @@ pub struct FullCheckArgs {
 impl FullCheckArgs {
     pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
         self.args.config_override.validate()?;
-        let (files_to_check, config_finder) = self.files.resolve(&self.args.config_override)?;
+        let (files_to_check, config_finder) =
+            self.files.resolve(self.args.config_override.clone())?;
         run_check(self.args, self.watch, files_to_check, config_finder).await
     }
 }
@@ -164,7 +165,7 @@ pub struct SnippetCheckArgs {
 
 impl SnippetCheckArgs {
     pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
-        let (_, config_finder) = FilesArgs::get(vec![], self.config, &self.config_override)?;
+        let (_, config_finder) = FilesArgs::get(vec![], self.config, self.config_override.clone())?;
         let check_args = CheckArgs {
             output: self.output,
             behavior: BehaviorArgs {
