@@ -967,6 +967,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         range: TextRange,
         field_definition: &ClassFieldDefinition,
+        functional_class_def: bool,
         errors: &ErrorCollector,
     ) -> ClassField {
         // TODO(stroxler): Clean this up, as we convert more of the class field logic to using enums.
@@ -1084,6 +1085,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
         };
         let metadata = self.get_metadata_for_class(class);
+
+        if let Some(named_tuple_metadata) = metadata.named_tuple_metadata()
+            && !functional_class_def
+            && named_tuple_metadata.elements.contains(name)
+            && name.as_str().starts_with('_')
+        {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
+                format!("NamedTuple field name may not start with an underscore: `{name}`"),
+            );
+        }
 
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.

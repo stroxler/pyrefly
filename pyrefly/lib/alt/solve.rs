@@ -1672,6 +1672,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         field: &BindingClassField,
         errors: &ErrorCollector,
     ) -> Arc<ClassField> {
+        let functional_class_def = matches!(
+            self.bindings().get(field.class_idx),
+            BindingClass::FunctionalClassDef(_, _, _, _)
+        );
         let field = match &self.get_idx(field.class_idx).0 {
             None => ClassField::recursive(),
             Some(class) => self.calculate_class_field(
@@ -1679,6 +1683,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &field.name,
                 field.range,
                 &field.definition,
+                functional_class_def,
                 errors,
             ),
         };
