@@ -1092,6 +1092,15 @@ impl ReturnTypeKind {
             Self::ShouldInferType { .. } => false,
         }
     }
+
+    pub fn should_infer_return(&self) -> bool {
+        match self {
+            Self::ShouldValidateAnnotation { .. } => false,
+            Self::ShouldTrustAnnotation { .. } => false,
+            Self::ShouldReturnAny { .. } => false,
+            Self::ShouldInferType { .. } => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -536,6 +536,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let elem_ty = elt_hint.map_or_else(
                         || {
                             if !self.solver().infer_with_first_use {
+                                self.error(
+                                    errors,
+                                    x.range(),
+                                    ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                                    "This expression is implicitly inferred to be `list[Any]`. Please provide an explicit type annotation.".to_owned(),
+                                );
                                 Type::any_implicit()
                             } else {
                                 self.solver().fresh_contained(self.uniques).to_type()
@@ -556,6 +562,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let elem_ty = elem_hint.map_or_else(
                         || {
                             if !self.solver().infer_with_first_use {
+                                self.error(
+                                    errors,
+                                    x.range(),
+                                    ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                                    "This expression is implicitly inferred to be `set[Any]`. Please provide an explicit type annotation.".to_owned(),
+                                );
                                 Type::any_implicit()
                             } else {
                                 self.solver().fresh_contained(self.uniques).to_type()
@@ -758,12 +770,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // Note that we don't need to filter out the TypedDict options here; any non-`dict` options
         // are ignored when decomposing the hint.
-        self.dict_items_infer(flattened_items, hint, errors)
+        self.dict_items_infer(range, flattened_items, hint, errors)
     }
 
     /// Infers a `dict` type for dictionary items. Note: does not handle TypedDict!
     fn dict_items_infer(
         &self,
+        range: TextRange,
         items: Vec<&DictItem>,
         hint: Option<HintRef>,
         errors: &ErrorCollector,
@@ -790,6 +803,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
                 |ty| ty.to_type(),
             );
+            if hint.is_none() && !self.solver().infer_with_first_use {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                    "This expression is implicitly inferred to be `dict[Any, Any]`. Please provide an explicit type annotation.".to_owned(),
+                );
+            }
             self.stdlib.dict(key_ty, value_ty).to_type()
         } else {
             let mut key_tys = Vec::new();

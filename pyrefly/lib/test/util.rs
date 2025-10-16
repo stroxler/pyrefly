@@ -104,6 +104,7 @@ pub struct TestEnv {
     infer_with_first_use: bool,
     site_package_path: Vec<PathBuf>,
     implicitly_defined_attribute_error: bool,
+    implicit_any_error: bool,
     default_require_level: Require,
 }
 
@@ -118,6 +119,7 @@ impl TestEnv {
             infer_with_first_use: true,
             site_package_path: Vec::new(),
             implicitly_defined_attribute_error: false,
+            implicit_any_error: false,
             default_require_level: Require::Exports,
         }
     }
@@ -148,6 +150,11 @@ impl TestEnv {
 
     pub fn enable_implicitly_defined_attribute_error(mut self) -> Self {
         self.implicitly_defined_attribute_error = true;
+        self
+    }
+
+    pub fn enable_implicit_any_error(mut self) -> Self {
+        self.implicit_any_error = true;
         self
     }
 
@@ -220,6 +227,9 @@ impl TestEnv {
         let errors = config.root.errors.as_mut().unwrap();
         if self.implicitly_defined_attribute_error {
             errors.set_error_severity(ErrorKind::ImplicitlyDefinedAttribute, Severity::Error);
+        }
+        if self.implicit_any_error {
+            errors.set_error_severity(ErrorKind::ImplicitAny, Severity::Error);
         }
         let mut sourcedb = MapDatabase::new(config.get_sys_info());
         for (name, path, _) in self.modules.iter() {

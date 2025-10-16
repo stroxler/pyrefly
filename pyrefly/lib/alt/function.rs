@@ -292,6 +292,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut ret = self
             .get(&Key::ReturnType(ShortIdentifier::new(&stmt.name)))
             .arc_clone_ty();
+        // `stmt.returns` is always set to None because the binding step calls `mem::take` on it
+        let has_return_annotation_or_infers_return = self
+            .bindings()
+            .function_has_return_annotation_or_infers_return(&stmt.name);
         if stmt.is_async
             && def.metadata.flags.is_abstract_method
             && !ret.is_any()
@@ -307,6 +311,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .to_owned(),
             );
             ret = coroutine_ret;
+        }
+        if !has_return_annotation_or_infers_return {
+            self.error(
+                errors,
+                stmt.name.range(),
+                ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                format!("`{}` is missing a return annotation", stmt.name),
+            );
+        }
+        for p in stmt.parameters.iter() {
+            let name = p.name().as_str();
+            if p.annotation().is_none() && name != "cls" && name != "self" {
+                self.error(
+                    errors,
+                    p.name().range(),
+                    ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                    format!(
+                        "`{}` is missing an annotation for parameter `{name}`",
+                        stmt.name
+                    ),
+                );
+            }
         }
         if matches!(&ret, Type::TypeGuard(_) | Type::TypeIs(_)) {
             self.validate_type_guard_positional_argument_count(

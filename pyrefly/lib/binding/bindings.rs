@@ -316,6 +316,24 @@ impl Bindings {
         }
     }
 
+    pub fn function_has_return_annotation_or_infers_return(&self, name: &Identifier) -> bool {
+        let b = self.get(self.key_to_idx(&Key::ReturnType(ShortIdentifier::new(name))));
+        if let Binding::ReturnType(box r) = b {
+            r.kind.has_return_annotation() || r.kind.should_infer_return()
+        } else if let Binding::Type(_) = b {
+            false
+        } else {
+            panic!(
+                "Internal error: unexpected binding for return type `{}` @  {:?}: {}, module={}, path={}",
+                &name.id,
+                name.range,
+                b.display_with(self),
+                self.module().name(),
+                self.module().path(),
+            )
+        }
+    }
+
     pub fn new(
         x: ModModule,
         module_info: ModuleInfo,

@@ -131,6 +131,8 @@ pub enum ErrorKind {
     DeleteError,
     /// Calling a function marked with `@deprecated`
     Deprecated,
+    /// This error is raised when Pyrefly infers an implicit `Any`
+    ImplicitAny,
     /// Usage of a module that was not actually imported, but does exist.
     ImplicitImport,
     /// An attribute was implicitly defined by assignment to `self` in a method that we
@@ -272,6 +274,7 @@ impl ErrorKind {
             ErrorKind::Deprecated => Severity::Warn,
             ErrorKind::RedundantCast => Severity::Warn,
             ErrorKind::ImplicitlyDefinedAttribute => Severity::Ignore,
+            ErrorKind::ImplicitAny => Severity::Ignore,
             _ => Severity::Error,
         }
     }
