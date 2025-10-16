@@ -271,7 +271,8 @@ impl InferArgs {
         }
         // Add imports, if needed
         let check_args = check::CheckArgs::parse_from(["check", "--output-format", "omit-errors"]);
-        let current_dir_config = get_project_config_for_current_dir(&check_args.config_override)?.0;
+        let current_dir_config =
+            get_project_config_for_current_dir(&ConfigOverrideArgs::default())?.0;
         let config_finder = ConfigFinder::new_constant(current_dir_config);
         let state = holder.as_ref();
         match check_args.run_once(files_to_check, config_finder) {
