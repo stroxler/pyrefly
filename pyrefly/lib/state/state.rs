@@ -410,6 +410,45 @@ impl<'a> Transaction<'a> {
         .collect()
     }
 
+    pub fn search_modules_fuzzy(&self, pattern: &str) -> Vec<ModuleName> {
+        // Make sure all the modules are in updated_modules.
+        for x in self.readable.modules.keys() {
+            self.get_module(x);
+        }
+
+        let matcher = SkimMatcherV2::default().smart_case();
+        let mut results = Vec::new();
+
+        // Collect unique module names from all known modules
+        let mut seen_modules = SmallSet::new();
+        for module_handle in self.data.updated_modules.keys() {
+            let module_name = module_handle.module();
+            let module_name_str = module_name.as_str();
+
+            // Skip builtins module
+            if module_name_str == "builtins" {
+                continue;
+            }
+
+            // Skip if we've already seen this module name
+            if !seen_modules.insert(module_name) {
+                continue;
+            }
+
+            let components = module_name.components();
+            let last_component = components.last().map(|name| name.as_str()).unwrap_or("");
+            if let Some(score) = matcher.fuzzy_match(last_component, pattern) {
+                results.push((score, module_name));
+            }
+        }
+
+        results.sort_by_key(|(score, _)| -score);
+        results
+            .into_iter()
+            .map(|(_, module_name)| module_name)
+            .collect()
+    }
+
     fn search_exports_helper<V: Send + Sync>(
         &self,
         searcher: impl Fn(&Handle, Arc<SmallMap<Name, ExportLocation>>) -> Vec<V> + Sync,

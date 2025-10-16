@@ -987,6 +987,8 @@ Completion Results:
 - (Function) packages_distributions: from importlib.metadata import packages_distributions
 
 - (Function) timerfd_settime_ns: from os import timerfd_settime_ns
+
+- (Module) typing_extensions: import typing_extensions
 "#
         .trim(),
         report.trim(),

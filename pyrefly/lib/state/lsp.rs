@@ -70,6 +70,7 @@ use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::graph::index::Idx;
 use crate::state::ide::IntermediateDefinition;
+use crate::state::ide::import_regular_import_edit;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::require::Require;
@@ -1864,6 +1865,33 @@ impl<'a> Transaction<'a> {
                     },
                     ..Default::default()
                 });
+            }
+
+            for module_name in self.search_modules_fuzzy(identifier.as_str()) {
+                if module_name == handle.module() {
+                    continue;
+                }
+                let module_name_str = module_name.as_str();
+                if let Ok(module_handle) = self.import_handle(handle, module_name, None) {
+                    let (insert_text, additional_text_edits) = {
+                        let (position, insert_text) =
+                            import_regular_import_edit(&ast, module_handle);
+                        let import_text_edit = TextEdit {
+                            range: module_info
+                                .lined_buffer()
+                                .to_lsp_range(TextRange::at(position, TextSize::new(0))),
+                            new_text: insert_text.clone(),
+                        };
+                        (Some(insert_text), Some(vec![import_text_edit]))
+                    };
+                    completions.push(CompletionItem {
+                        label: module_name_str.to_owned(),
+                        detail: insert_text,
+                        kind: Some(CompletionItemKind::MODULE),
+                        additional_text_edits,
+                        ..Default::default()
+                    });
+                }
             }
         }
     }
