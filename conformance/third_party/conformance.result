@@ -250,7 +250,6 @@
     "Line 26: Unexpected errors ['Cannot instantiate `Proto` because it is a protocol']"
   ],
   "protocols_definition.py": [
-    "Line 67: Expected 1 errors",
     "Line 116: Expected 1 errors",
     "Line 117: Expected 1 errors",
     "Line 79: Unexpected errors ['`Concrete` is not assignable to `Template`\\n  Protocol `Template` requires attribute `temp`']"

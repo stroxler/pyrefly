@@ -7779,6 +7779,16 @@
     },
     {
       "code": -2,
+      "column": 14,
+      "concise_description": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
+      "description": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
+      "line": 67,
+      "name": "protocol-implicitly-defined-attribute",
+      "stop_column": 18,
+      "stop_line": 67
+    },
+    {
+      "code": -2,
       "column": 17,
       "concise_description": "`Concrete` is not assignable to `Template`",
       "description": "`Concrete` is not assignable to `Template`\n  Protocol `Template` requires attribute `temp`",

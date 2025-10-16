@@ -1362,7 +1362,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
         if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
             method_name,
-            recognized_attribute_defining_method: false,
+            recognized_attribute_defining_method,
         }) = initial_value
         {
             let mut defined_in_parent = false;
@@ -1374,13 +1374,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
             }
             if !defined_in_parent {
-                self.error(
-                errors,
-                range,
-                ErrorInfo::Kind(ErrorKind::ImplicitlyDefinedAttribute,
-                ),
-                format!("Attribute `{}` is implicitly defined by assignment in method `{method_name}`, which is not a constructor", &name),
-            );
+                if metadata.is_protocol() {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::ProtocolImplicitlyDefinedAttribute),
+                        "Instance or class variables within a Protocol class must be explicitly declared within the class body".to_owned(),
+                    );
+                } else if !recognized_attribute_defining_method {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::ImplicitlyDefinedAttribute,),
+                        format!("Attribute `{}` is implicitly defined by assignment in method `{method_name}`, which is not a constructor", &name),
+                    );
+                }
             }
         }
         if let Some(dm) = metadata.dataclass_metadata()

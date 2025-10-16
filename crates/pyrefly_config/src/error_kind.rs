@@ -207,6 +207,8 @@ pub enum ErrorKind {
     NotIterable,
     /// An error related to parsing or syntax.
     ParseError,
+    /// A protocol attribute was first defined inside a method instead of the class body.
+    ProtocolImplicitlyDefinedAttribute,
     /// The attribute exists but cannot be modified.
     ReadOnly,
     /// Warning when casting a value to a type it is already compatible with.
