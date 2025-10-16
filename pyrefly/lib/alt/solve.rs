@@ -3221,7 +3221,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                     Type::TypeAlias(ta) => {
                         let params_range = params.as_ref().map_or(expr.range(), |x| x.range);
-                        Forallable::TypeAlias(ta).forall(self.validated_tparams(
+                        Forallable::TypeAlias(*ta).forall(self.validated_tparams(
                             params_range,
                             self.scoped_type_params(params.as_ref()),
                             TParamsSource::TypeAlias,

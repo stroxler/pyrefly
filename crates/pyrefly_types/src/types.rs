@@ -568,7 +568,7 @@ impl Forallable {
         match self {
             Self::Function(func) => Type::Function(Box::new(func)),
             Self::Callable(callable) => Type::Callable(Box::new(callable)),
-            Self::TypeAlias(ta) => Type::TypeAlias(ta),
+            Self::TypeAlias(ta) => Type::TypeAlias(Box::new(ta)),
         }
     }
 
@@ -676,7 +676,7 @@ pub enum Type {
     Ellipsis,
     Any(AnyStyle),
     Never(NeverStyle),
-    TypeAlias(TypeAlias),
+    TypeAlias(Box<TypeAlias>),
     /// Represents the result of a super() call. The first ClassType is the point in the MRO that attribute lookup
     /// on the super instance should start at (*not* the class passed to the super() call), and the second
     /// ClassType is the second argument (implicit or explicit) to the super() call. For example, in:
