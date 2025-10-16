@@ -230,6 +230,23 @@ impl ModulePath {
         }
     }
 
+    /// For nominal types, we consider FileSystem and Memory to be equal. This is important in the
+    /// IDE when an in-memory module reaches its own nominal type through a cycle, where we end up
+    /// with two classes, one from the Memory path and one from the FileSystem path.
+    pub fn to_key_eq(&self) -> ModulePath {
+        match &self.0 {
+            ModulePathDetails::FileSystem(path) | ModulePathDetails::Memory(path) => {
+                ModulePath::new(ModulePathDetails::FileSystem(*path))
+            }
+            ModulePathDetails::Namespace(path) => {
+                ModulePath::new(ModulePathDetails::Namespace(*path))
+            }
+            ModulePathDetails::BundledTypeshed(path) => {
+                ModulePath::new(ModulePathDetails::BundledTypeshed(*path))
+            }
+        }
+    }
+
     pub fn details(&self) -> &ModulePathDetails {
         &self.0
     }

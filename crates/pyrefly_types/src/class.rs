@@ -288,11 +288,11 @@ impl Class {
 
     /// Key to use for equality purposes. If we have the same module and index,
     /// we must point at the same class underneath.
-    fn key_eq(&self) -> (ClassDefIndex, ModuleName, &ModulePath) {
+    fn key_eq(&self) -> (ClassDefIndex, ModuleName, ModulePath) {
         (
             self.0.def_index,
             self.0.qname.module_name(),
-            self.0.qname.module_path(),
+            self.0.qname.module_path().to_key_eq(),
         )
     }
 

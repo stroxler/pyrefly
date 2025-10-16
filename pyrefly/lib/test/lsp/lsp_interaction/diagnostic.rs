@@ -28,21 +28,7 @@ fn test_cycle_class() {
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
         result: Some(serde_json::json!({
-            "items": [
-                {
-                    "code": "bad-argument-type",
-                    "codeDescription": {
-                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-argument-type"
-                    },
-                    "message": "Argument `Self@Foo` is not assignable to parameter `foo` with type `Foo` in function `bar.Bar.bar`",
-                    "range": {
-                        "end": {"character": 22, "line": 10},
-                        "start": {"character": 18, "line": 10}
-                    },
-                    "severity": 1,
-                    "source": "Pyrefly"
-                }
-            ],
+            "items": [],
             "kind": "full"
         })),
         error: None,
