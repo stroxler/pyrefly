@@ -308,7 +308,7 @@ impl PysaType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct ScalarTypeProperties {
     // Whether the type is a bool/int/float/enum, after stripping Optional and Awaitable.
     #[serde(skip_serializing_if = "<&bool>::not")]
@@ -343,6 +343,14 @@ impl ScalarTypeProperties {
             is_float: false,
             is_enum: false,
         }
+    }
+
+    pub fn join(mut self, other: ScalarTypeProperties) -> Self {
+        self.is_bool &= other.is_bool;
+        self.is_int &= other.is_int;
+        self.is_float &= other.is_float;
+        self.is_enum &= other.is_enum;
+        self
     }
 
     #[cfg(test)]

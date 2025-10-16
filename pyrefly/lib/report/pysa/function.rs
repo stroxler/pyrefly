@@ -74,7 +74,7 @@ impl Serialize for FunctionId {
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct FunctionRef {
     pub module_id: ModuleId,
     pub module_name: ModuleName, // For debugging purposes only. Reader should use the module id.
