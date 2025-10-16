@@ -132,29 +132,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (Tuple::Unbounded(l), Tuple::Unbounded(r)) => Type::Tuple(Tuple::Unbounded(Box::new(
                 self.union((**l).clone(), (**r).clone()),
             ))),
-            (Tuple::Concrete(l), r @ Tuple::Unbounded(_)) => Type::Tuple(Tuple::Unpacked(
-                Box::new((l.clone(), Type::Tuple(r.clone()), Vec::new())),
+            (Tuple::Concrete(l), r @ Tuple::Unbounded(_)) => Type::Tuple(Tuple::unpacked(
+                l.clone(),
+                Type::Tuple(r.clone()),
+                Vec::new(),
             )),
-            (l @ Tuple::Unbounded(_), Tuple::Concrete(r)) => Type::Tuple(Tuple::Unpacked(
-                Box::new((Vec::new(), Type::Tuple(l.clone()), r.clone())),
+            (l @ Tuple::Unbounded(_), Tuple::Concrete(r)) => Type::Tuple(Tuple::unpacked(
+                Vec::new(),
+                Type::Tuple(l.clone()),
+                r.clone(),
             )),
             (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Concrete(r)) => {
                 let mut new_suffix = l_suffix.clone();
                 new_suffix.extend(r.clone());
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::Tuple(Tuple::unpacked(
                     l_prefix.clone(),
                     l_middle.clone(),
                     new_suffix,
-                ))))
+                ))
             }
             (Tuple::Concrete(l), Tuple::Unpacked(box (r_prefix, r_middle, r_suffix))) => {
                 let mut new_prefix = l.clone();
                 new_prefix.extend(r_prefix.clone());
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::Tuple(Tuple::unpacked(
                     new_prefix,
                     r_middle.clone(),
                     r_suffix.clone(),
-                ))))
+                ))
             }
             (Tuple::Unbounded(l), Tuple::Unpacked(box (r_prefix, r_middle, r_suffix))) => {
                 let mut middle = r_prefix.clone();
@@ -163,11 +167,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unwrap_iterable(r_middle)
                         .unwrap_or(Type::any_implicit()),
                 );
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::Tuple(Tuple::unpacked(
                     Vec::new(),
                     Type::Tuple(Tuple::unbounded(self.unions(middle))),
                     r_suffix.clone(),
-                ))))
+                ))
             }
             (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Unbounded(r)) => {
                 let mut middle = l_suffix.clone();
@@ -176,11 +180,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unwrap_iterable(l_middle)
                         .unwrap_or(Type::any_implicit()),
                 );
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::Tuple(Tuple::unpacked(
                     l_prefix.clone(),
                     Type::Tuple(Tuple::unbounded(self.unions(middle))),
                     Vec::new(),
-                ))))
+                ))
             }
             (
                 Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)),
@@ -196,11 +200,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unwrap_iterable(r_middle)
                         .unwrap_or(Type::any_implicit()),
                 );
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::Tuple(Tuple::unpacked(
                     l_prefix.clone(),
                     Type::Tuple(Tuple::unbounded(self.unions(middle))),
                     r_suffix.clone(),
-                ))))
+                ))
             }
         }
     }

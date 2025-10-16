@@ -247,15 +247,13 @@ pub fn simplify_tuples(tuple: Tuple) -> Type {
                 new_prefix.extend(flatten_unpacked_concrete_tuples(m_prefix));
                 let mut new_suffix = flatten_unpacked_concrete_tuples(m_suffix);
                 new_suffix.extend(flatten_unpacked_concrete_tuples(suffix));
-                Type::Tuple(Tuple::Unpacked(Box::new((
-                    new_prefix, m_middle, new_suffix,
-                ))))
+                Type::Tuple(Tuple::unpacked(new_prefix, m_middle, new_suffix))
             }
-            _ => Type::Tuple(Tuple::Unpacked(Box::new((
+            _ => Type::Tuple(Tuple::unpacked(
                 flatten_unpacked_concrete_tuples(prefix),
                 middle,
                 flatten_unpacked_concrete_tuples(suffix),
-            )))),
+            )),
         },
         _ => Type::Tuple(tuple),
     }
