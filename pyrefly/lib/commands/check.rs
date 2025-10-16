@@ -77,14 +77,17 @@ pub struct FullCheckArgs {
 
     /// Type checking arguments and configuration
     #[command(flatten)]
-    pub args: CheckArgs,
+    args: CheckArgs,
+
+    /// Configuration override options
+    #[command(flatten, next_help_heading = "Config Overrides")]
+    pub config_override: ConfigOverrideArgs,
 }
 
 impl FullCheckArgs {
     pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
-        self.args.config_override.validate()?;
-        let (files_to_check, config_finder) =
-            self.files.resolve(self.args.config_override.clone())?;
+        self.config_override.validate()?;
+        let (files_to_check, config_finder) = self.files.resolve(self.config_override)?;
         run_check(self.args, self.watch, files_to_check, config_finder).await
     }
 }
@@ -136,9 +139,6 @@ pub struct CheckArgs {
     /// Behavior-related configuration options
     #[command(flatten, next_help_heading = "Behavior")]
     behavior: BehaviorArgs,
-    /// Configuration override options
-    #[command(flatten, next_help_heading = "Config Overrides")]
-    pub config_override: ConfigOverrideArgs,
 }
 
 /// Arguments for snippet checking (excludes behavior args that don't apply to snippets)
@@ -165,7 +165,7 @@ pub struct SnippetCheckArgs {
 
 impl SnippetCheckArgs {
     pub async fn run(self) -> anyhow::Result<CommandExitStatus> {
-        let (_, config_finder) = FilesArgs::get(vec![], self.config, self.config_override.clone())?;
+        let (_, config_finder) = FilesArgs::get(vec![], self.config, self.config_override)?;
         let check_args = CheckArgs {
             output: self.output,
             behavior: BehaviorArgs {
@@ -176,7 +176,6 @@ impl SnippetCheckArgs {
                 all: false,
                 same_line: false,
             },
-            config_override: self.config_override,
         };
         match check_args.run_once_with_snippet(self.code, config_finder) {
             Ok((status, _)) => Ok(status),

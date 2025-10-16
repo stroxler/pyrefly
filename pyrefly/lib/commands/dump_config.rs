@@ -81,11 +81,7 @@ pub struct DumpConfigArgs {
 impl DumpConfigArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         // Pass on just the subset of args we use, the rest are irrelevant
-        dump_config(
-            self.args.files,
-            self.args.args.config_override,
-            self.max_files,
-        )
+        dump_config(self.args.files, self.args.config_override, self.max_files)
     }
 }
 
