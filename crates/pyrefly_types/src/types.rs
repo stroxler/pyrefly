@@ -337,6 +337,10 @@ impl TypeAlias {
         }
     }
 
+    pub fn annotated_metadata(&self) -> &[Type] {
+        &self.annotated_metadata
+    }
+
     /// Gets the type contained within the type alias for use in a value
     /// position - for example, for a function call or attribute access.
     pub fn as_value(&self, stdlib: &Stdlib) -> Type {
