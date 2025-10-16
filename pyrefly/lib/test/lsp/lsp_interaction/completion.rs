@@ -218,23 +218,12 @@ fn test_completion_keywords() {
 fn test_completion_with_autoimport() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
-    let scope_uri = Url::from_file_path(&root_path).unwrap();
 
     let mut interaction =
         LspInteraction::new_with_indexing_mode(crate::commands::lsp::IndexingMode::LazyBlocking);
 
     interaction.set_root(root_path.clone());
-    interaction.initialize(InitializeSettings {
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
-        configuration: Some(Some(serde_json::json!([
-            {
-                "analysis": {
-                    "importFormat": "relative",
-                }
-            },
-        ]))),
-        ..Default::default()
-    });
+    interaction.initialize(InitializeSettings::default());
 
     let file = root_path.join("foo.py");
     interaction.server.did_open("foo.py");
