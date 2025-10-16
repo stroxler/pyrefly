@@ -324,6 +324,7 @@ pub struct TypeAlias {
     pub name: Box<Name>,
     ty: Box<Type>,
     pub style: TypeAliasStyle,
+    annotated_metadata: Box<[Type]>,
 }
 
 impl TypeAlias {
@@ -332,6 +333,7 @@ impl TypeAlias {
             name: Box::new(name),
             ty: Box::new(ty),
             style,
+            annotated_metadata: Default::default(),
         }
     }
 
