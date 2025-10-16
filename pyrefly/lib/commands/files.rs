@@ -7,7 +7,6 @@
 
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use anyhow::Context as _;
 use clap::Parser;
@@ -22,8 +21,7 @@ use tracing::debug;
 use tracing::info;
 use tracing::warn;
 
-use crate::commands::config_finder::ConfigConfigurer;
-use crate::commands::config_finder::standard_config_finder;
+use crate::commands::config_finder::default_config_finder_with_overrides;
 use crate::config::config::ConfigFile;
 use crate::config::config::ConfigSource;
 use crate::config::config::ProjectLayout;
@@ -55,25 +53,6 @@ pub struct FilesArgs {
     /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
     #[arg(long, short, value_name = "FILE")]
     config: Option<PathBuf>,
-}
-
-struct FilesConfigConfigurer(ConfigOverrideArgs);
-
-impl ConfigConfigurer for FilesConfigConfigurer {
-    fn configure(
-        &self,
-        _: Option<&Path>,
-        config: ConfigFile,
-        mut errors: Vec<ConfigError>,
-    ) -> (ArcId<ConfigFile>, Vec<ConfigError>) {
-        let (c, mut configure_errors) = self.0.override_config(config);
-        errors.append(&mut configure_errors);
-        (c, errors)
-    }
-}
-
-fn config_finder(args: ConfigOverrideArgs) -> ConfigFinder {
-    standard_config_finder(Arc::new(FilesConfigConfigurer(args)))
 }
 
 fn absolutize(globs: Globs) -> Globs {
@@ -116,7 +95,7 @@ pub fn get_project_config_for_current_dir(
     args: ConfigOverrideArgs,
 ) -> anyhow::Result<(ArcId<ConfigFile>, Vec<ConfigError>)> {
     let current_dir = std::env::current_dir().context("cannot identify current dir")?;
-    let config_finder = config_finder(args.clone());
+    let config_finder = default_config_finder_with_overrides(args.clone());
     let config = config_finder.directory(&current_dir).unwrap_or_else(|| {
         let (config, errors) = args.override_config(ConfigFile::init_at_root(
             &current_dir,
@@ -207,7 +186,7 @@ fn get_globs_and_config_for_files(
             (config_finder, errors)
         }
         None => {
-            let config_finder = config_finder(args);
+            let config_finder = default_config_finder_with_overrides(args);
             // If there is only one input and one root, we treat config parse errors as fatal,
             // so that `pyrefly check .` exits immediately on an unparsable config, matching the
             // behavior of `pyrefly check` (see get_globs_and_config_for_project).

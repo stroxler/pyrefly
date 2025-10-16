@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use dupe::Dupe;
+use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_config::base::ConfigBase;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_util::arc_id::ArcId;
@@ -62,12 +63,6 @@ pub trait ConfigConfigurer: Send + Sync + 'static {
 /// is always returned.
 pub struct DefaultConfigConfigurer {}
 
-impl DefaultConfigConfigurer {
-    pub fn standard_config_finder() -> ConfigFinder {
-        standard_config_finder(Arc::new(Self {}))
-    }
-}
-
 impl ConfigConfigurer for DefaultConfigConfigurer {
     fn configure(
         &self,
@@ -78,6 +73,29 @@ impl ConfigConfigurer for DefaultConfigConfigurer {
         config.configure();
         (ArcId::new(config), Vec::new())
     }
+}
+
+pub fn default_config_finder() -> ConfigFinder {
+    standard_config_finder(Arc::new(DefaultConfigConfigurer {}))
+}
+
+struct DefaultConfigConfigurerWithOverrides(ConfigOverrideArgs);
+
+impl ConfigConfigurer for DefaultConfigConfigurerWithOverrides {
+    fn configure(
+        &self,
+        _: Option<&Path>,
+        config: ConfigFile,
+        mut errors: Vec<ConfigError>,
+    ) -> (ArcId<ConfigFile>, Vec<ConfigError>) {
+        let (c, mut configure_errors) = self.0.override_config(config);
+        errors.append(&mut configure_errors);
+        (c, errors)
+    }
+}
+
+pub fn default_config_finder_with_overrides(args: ConfigOverrideArgs) -> ConfigFinder {
+    standard_config_finder(Arc::new(DefaultConfigConfigurerWithOverrides(args)))
 }
 
 /// Create a standard `ConfigFinder`, using the provided [`ConfigConfigurer`] to finalize
