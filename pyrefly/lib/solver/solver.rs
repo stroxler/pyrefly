@@ -413,7 +413,7 @@ impl Solver {
                 *x = unions(mem::take(xs));
             }
             if let Type::Tuple(tuple) = x {
-                *x = simplify_tuples(mem::take(tuple));
+                *x = Type::Tuple(simplify_tuples(mem::take(tuple)));
             }
             // When a param spec is resolved, collapse any Concatenate and Callable types that use it
             if let Type::Concatenate(ts, box Type::ParamSpecValue(paramlist)) = x {
