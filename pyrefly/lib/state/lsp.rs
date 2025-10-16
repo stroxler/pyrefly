@@ -1514,6 +1514,20 @@ impl<'a> Transaction<'a> {
                             let title = format!("Insert import: `{}`", insert_text.trim());
                             code_actions.push((title, module_info.dupe(), range, insert_text));
                         }
+
+                        for module_name in self.search_modules_fuzzy(unknown_name) {
+                            if module_name == handle.module() {
+                                continue;
+                            }
+                            if let Ok(module_handle) = self.import_handle(handle, module_name, None)
+                            {
+                                let (position, insert_text) =
+                                    import_regular_import_edit(&ast, module_handle);
+                                let range = TextRange::at(position, TextSize::new(0));
+                                let title = format!("Insert import: `{}`", insert_text.trim());
+                                code_actions.push((title, module_info.dupe(), range, insert_text));
+                            }
+                        }
                     }
                 }
                 _ => {}
