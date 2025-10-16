@@ -941,7 +941,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // for the next one. Most useful for expressions like `optional_list or []`.
             let hint = hint.or_else(|| Some(HintRef::new(&t_acc, None)));
             let mut t = self.expr_infer_with_hint(value, hint, errors);
-            self.expand_type_mut(&mut t);
+            self.expand_vars_mut(&mut t);
             if should_shortcircuit(&t, value.range()) {
                 t_acc = self.union(t_acc, t);
                 break;

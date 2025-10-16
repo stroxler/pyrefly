@@ -1075,7 +1075,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     self.expr_infer(e, errors)
                 };
-                self.expand_type_mut(&mut ty);
+                self.expand_vars_mut(&mut ty);
 
                 (ty, inherited_annot)
             }
@@ -1661,7 +1661,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
                     ClassFieldInitialization::ClassBody(_) => {
-                        self.expand_type_mut(&mut ty); // bind_instance matches on the type, so resolve it if we can
+                        self.expand_vars_mut(&mut ty); // bind_instance matches on the type, so resolve it if we can
                         bind_instance_attribute(instance, ty, is_class_var, read_only_reason)
                     }
                     ClassFieldInitialization::Method

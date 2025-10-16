@@ -1447,14 +1447,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ) {
                 self.pin_all_placeholder_types(ty);
             }
-            self.expand_type_mut(ty);
+            self.expand_vars_mut(ty);
         });
         Arc::new(type_info)
     }
 
-    pub fn expand_type_mut(&self, ty: &mut Type) {
+    pub fn expand_vars_mut(&self, ty: &mut Type) {
         // Replace any solved recursive variables with their answers.
-        self.solver().expand_mut(ty);
+        self.solver().expand_vars_mut(ty);
     }
 
     fn check_del_typed_dict_field(
@@ -2378,7 +2378,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn pin_all_placeholder_types(&self, ty: &mut Type) {
         // Expand the type, in case unexpanded `Vars` are hiding further `Var`s that
         // need to be pinned.
-        self.solver().expand_mut(ty);
+        self.solver().expand_vars_mut(ty);
         // Collect all the vars we may need to pin
         fn f(t: &Type, vars: &mut Vec<Var>) {
             match t {

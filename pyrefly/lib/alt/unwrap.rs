@@ -110,7 +110,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match ty {
             Type::Any(style) => Type::Any(*style),
             Type::Never(style) => Type::Never(*style),
-            _ => self.solver().expand(var.to_type()),
+            _ => self.solver().expand_vars(var.to_type()),
         }
     }
 

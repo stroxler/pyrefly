@@ -993,7 +993,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range)))
                 .map_or_else(Type::any_implicit, |type_info| type_info.arc_clone_ty())
         } else {
-            self.expand_type_mut(&mut callee_ty);
+            self.expand_vars_mut(&mut callee_ty);
 
             let args;
             let kws;

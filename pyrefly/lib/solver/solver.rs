@@ -320,13 +320,13 @@ impl Solver {
     /// Variables that have not yet been bound will remain as Var.
     ///
     /// In addition, if the type exceeds a large depth, it will be replaced with `Any`.
-    pub fn expand(&self, mut t: Type) -> Type {
-        self.expand_mut(&mut t);
+    pub fn expand_vars(&self, mut t: Type) -> Type {
+        self.expand_vars_mut(&mut t);
         t
     }
 
     /// Like `expand`, but when you have a `&mut`.
-    pub fn expand_mut(&self, t: &mut Type) {
+    pub fn expand_vars_mut(&self, t: &mut Type) {
         self.expand_with_limit(t, TYPE_LIMIT, &VarRecurser::new());
         // After we substitute bound variables, we may be able to simplify some types
         self.simplify_mut(t);
@@ -668,7 +668,10 @@ impl Solver {
     /// instantiation, but __init__ will.
     pub fn generalize_class_targs(&self, targs: &mut TArgs) {
         // Expanding targs might require the variables lock, so do that first.
-        targs.as_mut().iter_mut().for_each(|t| self.expand_mut(t));
+        targs
+            .as_mut()
+            .iter_mut()
+            .for_each(|t| self.expand_vars_mut(t));
         let lock = self.variables.lock();
         targs.iter_paired_mut().for_each(|(param, t)| {
             if let Type::Var(v) = t
@@ -750,7 +753,7 @@ impl Solver {
     }
 
     pub fn for_display(&self, t: Type) -> Type {
-        let mut t = self.expand(t);
+        let mut t = self.expand_vars(t);
         self.simplify_mut(&mut t);
         t.deterministic_printing()
     }

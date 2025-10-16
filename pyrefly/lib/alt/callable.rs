@@ -406,7 +406,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match x {
             CallArg::Star(x, _) => {
                 let mut ty = x.infer(self, errors);
-                self.expand_type_mut(&mut ty);
+                self.expand_vars_mut(&mut ty);
                 matches!(ty, Type::Args(q2) if &*q2 == q)
             }
             _ => false,
@@ -420,7 +420,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> bool {
         let mut ty = x.value.infer(self, errors);
-        self.expand_type_mut(&mut ty);
+        self.expand_vars_mut(&mut ty);
         matches!(ty, Type::Kwargs(q2) if &*q2 == q)
     }
 
@@ -1019,7 +1019,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Params::ParamSpec(concatenate, p) => {
-                let p = self.solver().expand(p);
+                let p = self.solver().expand_vars(p);
                 match p {
                     Type::ParamSpecValue(params) => self.callable_infer_params(
                         callable_name,
@@ -1107,6 +1107,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
         }
-        self.solver().expand(callable.ret)
+        self.solver().expand_vars(callable.ret)
     }
 }
