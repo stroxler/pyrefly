@@ -432,3 +432,12 @@ def f(x: type[tuple[Any, ...]]):
     return x() # Ok
     "#,
 );
+
+testcase!(
+    test_bad_tuple_index,
+    r#"
+def f(x: tuple[int, int], y: tuple[int, ...]):
+    x[(1, 2)]  # E: No matching overload found for function `tuple.__getitem__`
+    y[(1, 2)]  # E: No matching overload found for function `tuple.__getitem__`
+    "#,
+);

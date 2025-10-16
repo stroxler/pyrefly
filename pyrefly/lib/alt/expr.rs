@@ -1797,14 +1797,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Type::Type(box Type::SpecialForm(special)) => {
                     self.apply_special_form(special, slice, range, errors)
                 }
-                Type::Tuple(Tuple::Concrete(ref elts)) if xs.len() == 1 => self.infer_tuple_index(
+                Type::Tuple(Tuple::Concrete(ref elts)) => self.infer_tuple_index(
                     elts.to_owned(),
-                    &xs[0],
+                    slice,
                     range,
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
-                Type::Tuple(_) if xs.len() == 1 => self.call_method_or_error(
+                Type::Tuple(_) => self.call_method_or_error(
                     &base,
                     &dunder::GETITEM,
                     range,
