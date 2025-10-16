@@ -117,7 +117,7 @@ pub fn suppress_errors(errors: Vec<Error>, same_line: bool) {
         if e.severity() >= Severity::Warn
             && let ModulePathDetails::FileSystem(path) = e.path().details()
         {
-            path_errors.entry(path.clone()).or_default().push(e);
+            path_errors.entry((**path).clone()).or_default().push(e);
         }
     }
     info!("Inserting error suppressions...");

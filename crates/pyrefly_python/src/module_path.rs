@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
+use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -21,7 +22,33 @@ use static_interner::Interner;
 use crate::dunder;
 use crate::module_name::ModuleName;
 
-static MODULE_PATH_INTERNER: Interner<ModulePathDetails> = Interner::new();
+static MODULE_PATH_INTERNER: Interner<PathBuf> = Interner::new();
+
+#[derive(Debug, Clone, Dupe, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct ModulePathBuf(Intern<PathBuf>);
+
+impl Deref for ModulePathBuf {
+    type Target = PathBuf;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Serialize for ModulePathBuf {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl ModulePathBuf {
+    fn new(path: PathBuf) -> Self {
+        Self(MODULE_PATH_INTERNER.intern(path))
+    }
+}
 
 #[derive(Debug, Clone, Dupe, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ModuleStyle {
@@ -44,19 +71,19 @@ impl ModuleStyle {
 
 /// Store information about where a module is sourced from.
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash)]
-pub struct ModulePath(Intern<ModulePathDetails>);
+pub struct ModulePath(ModulePathDetails);
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Dupe, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
 pub enum ModulePathDetails {
     /// The module source comes from a file on disk. Probably a `.py` or `.pyi` file.
-    FileSystem(PathBuf),
+    FileSystem(ModulePathBuf),
     /// A directory where the module is backed by a namespace package.
-    Namespace(PathBuf),
+    Namespace(ModulePathBuf),
     /// The module source comes from memory, only for files (not namespace).
-    Memory(PathBuf),
+    Memory(ModulePathBuf),
     /// The module source comes from typeshed bundled with Pyrefly (which gets stored in-memory).
     /// The path is relative to the root of the typeshed directory.
-    BundledTypeshed(PathBuf),
+    BundledTypeshed(ModulePathBuf),
 }
 
 impl PartialOrd for ModulePath {
@@ -83,7 +110,7 @@ fn is_path_init(path: &Path) -> bool {
 
 impl Display for ModulePath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &*self.0 {
+        match self.0 {
             ModulePathDetails::FileSystem(path) | ModulePathDetails::Namespace(path) => {
                 write!(f, "{}", path.display())
             }
@@ -103,7 +130,7 @@ impl Display for ModulePath {
 
 impl Serialize for ModulePath {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match &*self.0 {
+        match self.0 {
             ModulePathDetails::FileSystem(path)
             | ModulePathDetails::Memory(path)
             | ModulePathDetails::Namespace(path) => path.serialize(serializer),
@@ -114,23 +141,25 @@ impl Serialize for ModulePath {
 
 impl ModulePath {
     fn new(details: ModulePathDetails) -> Self {
-        Self(MODULE_PATH_INTERNER.intern(details))
+        Self(details)
     }
 
     pub fn filesystem(path: PathBuf) -> Self {
-        Self::new(ModulePathDetails::FileSystem(path))
+        Self::new(ModulePathDetails::FileSystem(ModulePathBuf::new(path)))
     }
 
     pub fn namespace(path: PathBuf) -> Self {
-        Self::new(ModulePathDetails::Namespace(path))
+        Self::new(ModulePathDetails::Namespace(ModulePathBuf::new(path)))
     }
 
     pub fn memory(path: PathBuf) -> Self {
-        Self::new(ModulePathDetails::Memory(path))
+        Self::new(ModulePathDetails::Memory(ModulePathBuf::new(path)))
     }
 
     pub fn bundled_typeshed(relative_path: PathBuf) -> Self {
-        Self::new(ModulePathDetails::BundledTypeshed(relative_path))
+        Self::new(ModulePathDetails::BundledTypeshed(ModulePathBuf::new(
+            relative_path,
+        )))
     }
 
     pub fn is_init(&self) -> bool {
@@ -193,7 +222,7 @@ impl ModulePath {
 
     /// Convert to a path, that may not exist on disk.
     pub fn as_path(&self) -> &Path {
-        match &*self.0 {
+        match &self.0 {
             ModulePathDetails::FileSystem(path)
             | ModulePathDetails::BundledTypeshed(path)
             | ModulePathDetails::Memory(path)

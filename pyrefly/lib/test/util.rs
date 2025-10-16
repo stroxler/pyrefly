@@ -208,7 +208,7 @@ impl TestEnv {
         self.modules
             .iter()
             .filter_map(|(_, path, contents)| match path.details() {
-                ModulePathDetails::Memory(path) => Some((path.clone(), contents.dupe())),
+                ModulePathDetails::Memory(path) => Some(((**path).clone(), contents.dupe())),
                 _ => None,
             })
             .collect()

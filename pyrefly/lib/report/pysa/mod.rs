@@ -424,7 +424,7 @@ fn write_typeshed_files(results_directory: &Path) -> anyhow::Result<()> {
     for typeshed_module in typeshed.modules() {
         let module_path = typeshed.find(typeshed_module).unwrap();
         let relative_path = match module_path.details() {
-            ModulePathDetails::BundledTypeshed(path) => path,
+            ModulePathDetails::BundledTypeshed(path) => &**path,
             _ => panic!("unexpected module path for typeshed module"),
         };
         let content = typeshed.load(relative_path).unwrap();

@@ -2835,7 +2835,7 @@ impl<'a> CancellableTransaction<'a> {
             ModulePathDetails::Memory(path_buf) => {
                 let handle_of_filesystem_counterpart = Handle::new(
                     definition.module.name(),
-                    ModulePath::filesystem(path_buf.clone()),
+                    ModulePath::filesystem((**path_buf).clone()),
                     sys_info.dupe(),
                 );
                 // In-memory files can never be found through import resolution (no rdeps),
@@ -2872,7 +2872,7 @@ impl<'a> CancellableTransaction<'a> {
             .filter_map(|handle| match handle.path().details() {
                 ModulePathDetails::Memory(path_buf) => Some(Handle::new(
                     handle.module(),
-                    ModulePath::filesystem(path_buf.clone()),
+                    ModulePath::filesystem((**path_buf).clone()),
                     handle.sys_info().dupe(),
                 )),
                 _ => None,
@@ -2910,7 +2910,7 @@ impl<'a> CancellableTransaction<'a> {
                     let TextRangeWithModule { module, range } = &definition;
                     let module = if let Some(info) = self.as_ref().get_module_info(&Handle::new(
                         module.name(),
-                        ModulePath::filesystem(path_buf.clone()),
+                        ModulePath::filesystem((**path_buf).clone()),
                         handle.sys_info().dupe(),
                     )) {
                         info
