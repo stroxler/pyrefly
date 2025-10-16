@@ -27,6 +27,7 @@ use ruff_python_ast::Comprehension;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprGenerator;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
@@ -628,9 +629,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                     )
                     .into_ty();
-                self.stdlib
-                    .generator(yield_ty, Type::None, Type::None)
-                    .to_type()
+                if self.generator_expr_is_async(x) {
+                    self.stdlib.async_generator(yield_ty, Type::None).to_type()
+                } else {
+                    self.stdlib
+                        .generator(yield_ty, Type::None, Type::None)
+                        .to_type()
+                }
             }
             Expr::Await(x) => {
                 let awaiting_ty = self.expr_infer(&x.value, errors);
@@ -971,6 +976,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.check_redundant_condition(&ty, if_clause.range(), errors);
             }
         }
+    }
+
+    /// If a comprehension contains `async for` clauses, or if it contains
+    /// `await` expressions or other asynchronous comprehensions anywhere except
+    /// the iterable expression in the leftmost `for` clause, it is treated as an `AsyncGenerator`
+    fn generator_expr_is_async(&self, generator: &ExprGenerator) -> bool {
+        if Ast::contains_await(&generator.elt) {
+            return true;
+        }
+        for (idx, comp) in generator.generators.iter().enumerate() {
+            if comp.is_async
+                || (idx != 0 && Ast::contains_await(&comp.iter))
+                || Ast::contains_await(&comp.target)
+                || comp.ifs.iter().any(Ast::contains_await)
+            {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn attr_infer_for_type(
