@@ -85,37 +85,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         slice: &Expr,
         range: TextRange,
         errors: &ErrorCollector,
-    ) -> Type {
+    ) -> (Type, bool) {
         if let Type::Var(v) = base {
             base = self.solver().force_var(v);
         }
         if matches!(&base, Type::ClassDef(t) if t.name() == "tuple") {
             base = Type::type_form(Type::SpecialForm(SpecialForm::Tuple));
         }
-        let arguments_untype = |slice: &Expr| {
+        let mut has_strict = false;
+        let arguments_untype = |slice: &Expr, has_strict: &mut bool| {
             Ast::unpack_slice(slice)
                 .iter()
                 .map(|x| match BaseClassExpr::from_expr(x) {
                     Some(base_expr) => {
-                        let (ty, _) = self.base_class_expr_untype(
+                        let (ty, arg_has_strict) = self.base_class_expr_untype(
                             &base_expr,
                             TypeFormContext::TypeArgument,
                             errors,
                         );
+                        if arg_has_strict {
+                            *has_strict = true;
+                        }
                         ty
                     }
                     None => self.expr_untype(x, TypeFormContext::TypeArgument, errors),
                 })
                 .collect::<Vec<_>>()
         };
-        match base {
+        let result = match base {
             Type::Forall(forall) => {
-                let tys = arguments_untype(slice);
+                let tys = arguments_untype(slice, &mut has_strict);
                 self.specialize_forall_in_base_class(*forall, tys, range, errors)
             }
             Type::ClassDef(cls) => Type::type_form(self.specialize_in_base_class(
                 &cls,
-                arguments_untype(slice),
+                arguments_untype(slice, &mut has_strict),
                 range,
                 errors,
             )),
@@ -132,7 +136,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.for_display(t)
                 ),
             ),
-        }
+        };
+        (result, has_strict)
     }
 
     fn base_class_expr_infer(&self, expr: &BaseClassExpr, errors: &ErrorCollector) -> Type {
@@ -150,7 +155,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
             } => {
                 let base_ty = self.base_class_expr_infer(value, errors);
-                self.base_class_subscript_infer(base_ty, slice, *range, errors)
+                let (ty, _) = self.base_class_subscript_infer(base_ty, slice, *range, errors);
+                ty
             }
         }
     }
