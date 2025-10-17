@@ -171,5 +171,6 @@ class B(A):
 
 m1 = B(3)
 m2 = B("1") # E: Argument `Literal['1']` is not assignable to parameter `root` with type `int` in function `B.__init__`
+m3 = A("1") # E: Argument `Literal['1']` is not assignable to parameter `root` with type `int` in function `A.__init__
 "#,
 );
