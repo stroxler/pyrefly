@@ -272,18 +272,30 @@ fn call_callees(
 
 #[allow(dead_code)]
 fn attribute_access_callees(
-    expected: Vec<CallTarget<FunctionRefForTest>>,
+    call_targets: Vec<CallTarget<FunctionRefForTest>>,
+    init_targets: Vec<CallTarget<FunctionRefForTest>>,
+    new_targets: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-        callable_targets: expected.to_vec(),
+        if_called: CallCallees {
+            call_targets: call_targets.to_vec(),
+            init_targets: init_targets.to_vec(),
+            new_targets: new_targets.to_vec(),
+        },
     })
 }
 
 fn identifier_callees(
-    expected: Vec<CallTarget<FunctionRefForTest>>,
+    call_targets: Vec<CallTarget<FunctionRefForTest>>,
+    init_targets: Vec<CallTarget<FunctionRefForTest>>,
+    new_targets: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Identifier(IdentifierCallees {
-        callable_targets: expected.to_vec(),
+        if_called: CallCallees {
+            call_targets: call_targets.to_vec(),
+            init_targets: init_targets.to_vec(),
+            new_targets: new_targets.to_vec(),
+        },
     })
 }
 
@@ -361,8 +373,8 @@ def foo(b: bool):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("6:9-6:12".to_owned(), identifier_callees(vec![create_call_target("test.bar", TargetType::Function).with_return_type(Some(ScalarTypeProperties::bool()))])),
-                ("8:9-8:12".to_owned(), identifier_callees(vec![create_call_target("test.baz", TargetType::Function).with_return_type(Some(ScalarTypeProperties::int()))])),
+                ("6:9-6:12".to_owned(), identifier_callees(vec![create_call_target("test.bar", TargetType::Function).with_return_type(Some(ScalarTypeProperties::bool()))], /* init_targets */ vec![], /* new_targets */ vec![])),
+                ("8:9-8:12".to_owned(), identifier_callees(vec![create_call_target("test.baz", TargetType::Function).with_return_type(Some(ScalarTypeProperties::int()))], /* init_targets */ vec![], /* new_targets */ vec![])),
             ],
         )]
     },
@@ -579,7 +591,7 @@ def foo():
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("7:4-7:12".to_owned(), call_callees(baz.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-                ("7:8-7:11".to_owned(), identifier_callees(bar.clone()))
+                ("7:8-7:11".to_owned(), identifier_callees(bar.clone(), /* init_targets */ vec![], /* new_targets */ vec![]))
             ],
         )]
     },
