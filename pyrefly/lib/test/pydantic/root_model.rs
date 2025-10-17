@@ -159,7 +159,6 @@ Model3(x=RootModel('oops')) # E: Argument `Literal['oops']` is not assignable to
 );
 
 pydantic_testcase!(
-    bug = "Support strict rootmodel",
     test_strict_basic,
     r#"
 from pydantic import RootModel, StrictInt 
@@ -171,6 +170,6 @@ class B(A):
     pass
 
 m1 = B(3)
-m2 = B("1")
+m2 = B("1") # E: Argument `Literal['1']` is not assignable to parameter `root` with type `int` in function `B.__init__`
 "#,
 );

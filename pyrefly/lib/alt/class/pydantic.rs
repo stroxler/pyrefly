@@ -49,18 +49,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         class: &Class,
         metadata: &ClassMetadata,
-    ) -> Option<Type> {
+    ) -> Option<(Type, bool)> {
         if !matches!(metadata.pydantic_model_kind(), Some(RootModel)) {
             return None;
         }
+
+        let has_strict = self.get_base_types_for_class(class).has_strict;
 
         let mro = self.get_mro_for_class(class);
         for base_type in mro.ancestors_no_object() {
             if base_type.has_qname(ModuleName::pydantic_root_model().as_str(), "RootModel") {
                 let targs = base_type.targs().as_slice();
-                let root_type = targs.last().cloned();
-                if root_type.is_some() {
-                    return root_type;
+                if let Some(root_type) = targs.last().cloned() {
+                    return Some((root_type, has_strict));
                 }
             }
         }
@@ -72,12 +73,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         root_model_type: Type,
+        has_strict: bool,
     ) -> ClassSynthesizedField {
         let (root_requiredness, root_model_type) =
             if root_model_type.is_any() || matches!(root_model_type, Type::Quantified(_)) {
                 (Required::Optional(None), root_model_type)
+            } else if has_strict {
+                (Required::Required, root_model_type)
             } else {
-                // TODO Zeina: Implement RootModel strict mode
                 (Required::Required, Type::any_explicit())
             };
         let root_param = Param::Pos(ROOT, root_model_type, root_requiredness);
@@ -105,7 +108,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let tparam = tparams.iter().next()?;
         let root_model_type = Type::Quantified(Box::new(tparam.quantified.clone()));
         Some(
-            self.get_pydantic_root_model_init(cls, root_model_type)
+            self.get_pydantic_root_model_init(cls, root_model_type, false)
                 .inner
                 .ty(),
         )

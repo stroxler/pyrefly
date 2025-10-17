@@ -246,6 +246,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 match base_type_and_range {
                     (Type::ClassType(c), range) => {
                         let bases = self.get_base_types_for_class(c.class_object());
+                        // Propagate has_strict from parent class
+                        if bases.has_strict {
+                            has_strict = true;
+                        }
                         Some((c, bases, range))
                     }
                     (Type::Tuple(tuple), range) => {
