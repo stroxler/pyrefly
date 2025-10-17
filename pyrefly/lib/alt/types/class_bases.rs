@@ -149,7 +149,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn _type_has_strict_metadata(&self, ty: &Type) -> bool {
+    fn type_has_strict_metadata(&self, ty: &Type) -> bool {
         matches!(ty, Type::TypeAlias(ta) if ta.annotated_metadata()
             .iter()
             .any(|metadata| self.is_pydantic_strict_metadata(metadata)))
@@ -162,7 +162,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let range = base_expr.range();
-        let ty = self.untype(self.base_class_expr_infer(base_expr, errors), range, errors);
+
+        let inferred_ty = self.base_class_expr_infer(base_expr, errors);
+
+        // TODO: Combine this data with the subscript data for strictness.
+        let _has_strict = self.type_has_strict_metadata(&inferred_ty);
+
+        let ty = self.untype(inferred_ty, range, errors);
         self.validate_type_form(ty, range, type_form_context, errors)
     }
 
