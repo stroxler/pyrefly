@@ -80,10 +80,10 @@ pub fn get_function_ref(
     let context = ModuleContext::create(handle, context.transaction, context.module_ids).unwrap();
 
     // This is slow, but we don't care in tests.
-    let function = get_all_functions(&context)
-        .find(|function| function.metadata().kind.as_func_id().func == function_name)
-        .expect("valid function name");
-    FunctionRef::from_decorated_function(&function, &context)
+    get_all_functions(&context)
+        .find(|function| function.name().as_str() == function_name)
+        .expect("valid function name")
+        .as_function_ref(&context)
 }
 
 pub fn create_location(

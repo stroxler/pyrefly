@@ -24,12 +24,9 @@ use crate::report::pysa::class::get_class_field_declaration;
 use crate::report::pysa::class::get_context_from_class;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
-use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::get_all_functions;
-use crate::report::pysa::function::should_export_function;
-use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::slow_fun_monitor::slow_fun_monitor_scope;
 use crate::report::pysa::step_logger::StepLogger;
@@ -136,6 +133,7 @@ fn get_super_class_member(
     // Important: we need to use the module context of the class.
     let context = get_context_from_class(&super_class_member.defining_class, context);
 
+    // TODO(T225700656): handle class fields.
     get_class_field_declaration(&super_class_member.defining_class, field, &context)
         .and_then(|binding_class_field| {
             if let ClassFieldDefinition::MethodLike { definition, .. } =
@@ -153,18 +151,7 @@ fn get_super_class_member(
         })
         .map(|key_decorated_function| {
             let last_function = get_last_definition(key_decorated_function, &context);
-            let class =
-                ClassRef::from_class(&super_class_member.defining_class, context.module_ids);
-            FunctionRef {
-                module_id: class.module_id,
-                module_name: class.class.module_name(),
-                function_id: FunctionId::Function {
-                    location: PysaLocation::new(
-                        context.module_info.display_range(last_function.id_range()),
-                    ),
-                },
-                function_name: field.clone(),
-            }
+            FunctionRef::from_decorated_function(&last_function, &context)
         })
 }
 
@@ -173,16 +160,16 @@ pub fn create_reversed_override_graph_for_module(
 ) -> ModuleReversedOverrideGraph {
     let mut graph = ModuleReversedOverrideGraph(HashMap::new());
     for function in get_all_functions(context) {
-        if !should_export_function(&function, context) {
+        if !function.should_export(context) {
             continue;
         }
-        let name = function.metadata().kind.as_func_id().func;
+        let name = function.name();
         let overridden_base_method = function
             .defining_cls()
             .and_then(|class| get_super_class_member(class, &name, context));
         match overridden_base_method {
             Some(overridden_base_method) => {
-                let current_function = FunctionRef::from_decorated_function(&function, context);
+                let current_function = function.as_function_ref(context);
                 assert!(
                     graph
                         .0

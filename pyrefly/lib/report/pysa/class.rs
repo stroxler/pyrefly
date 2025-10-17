@@ -67,7 +67,7 @@ impl ClassId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClassRef {
     pub module_id: ModuleId,
     pub class_id: ClassId,
@@ -83,6 +83,18 @@ impl ClassRef {
             class_id: ClassId::from_class(class),
             class: class.clone(),
         }
+    }
+}
+
+impl std::fmt::Debug for ClassRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClassRef")
+            .field("module_id", &self.module_id)
+            .field("class_id", &self.class_id)
+            .field("module_name", &self.class.module_name().as_str())
+            .field("class_name", &self.class.name().as_str())
+            // We don't print `class` because it's way too large.
+            .finish_non_exhaustive()
     }
 }
 
@@ -147,7 +159,7 @@ pub struct ClassDefinition {
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub is_typed_dict: bool,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub fields: HashMap<String, PysaClassField>,
+    pub fields: HashMap<Name, PysaClassField>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub decorator_callees: HashMap<PysaLocation, Vec<Target<FunctionRef>>>,
 }
@@ -189,7 +201,7 @@ impl ClassDefinition {
     }
 
     #[cfg(test)]
-    pub fn with_fields(mut self, fields: HashMap<String, PysaClassField>) -> Self {
+    pub fn with_fields(mut self, fields: HashMap<Name, PysaClassField>) -> Self {
         self.fields = fields;
         self
     }
@@ -243,8 +255,8 @@ pub fn get_context_from_class<'a>(
 }
 
 pub fn get_class_field_declaration<'a>(
-    class: &'a Class,
-    field: &'a Name,
+    class: &Class,
+    field: &Name,
     context: &'a ModuleContext,
 ) -> Option<&'a BindingClassField> {
     assert_eq!(class.module(), &context.module_info);
@@ -264,41 +276,39 @@ pub fn get_class_mro(class: &Class, context: &ModuleContext) -> Arc<ClassMro> {
         .unwrap()
 }
 
-fn get_class_fields<'a>(
+pub fn get_class_fields<'a>(
     class: &'a Class,
     context: &'a ModuleContext<'a>,
-) -> Vec<(Cow<'a, Name>, Arc<ClassField>)> {
-    let mut fields = class
-        .fields()
-        .filter_map(|name| {
-            get_class_field(class, name, context).map(|field| (Cow::Borrowed(name), field))
-        })
-        .collect::<Vec<_>>();
+) -> impl Iterator<Item = (Cow<'a, Name>, Arc<ClassField>)> {
+    let regular_fields = class.fields().filter_map(|name| {
+        get_class_field(class, name, context).map(|field| (Cow::Borrowed(name), field))
+    });
 
     let synthesized_fields_idx = context
         .bindings
         .key_to_idx(&KeyClassSynthesizedFields(class.index()));
     let synthesized_fields = context.answers.get_idx(synthesized_fields_idx).unwrap();
-    fields.extend(
-        synthesized_fields
-            .fields()
-            .filter(|(name, _)| !class.contains(name))
-            .map(|(name, field)| (Cow::Owned(name.clone()), field.inner.dupe())),
-    );
+    let synthesized_fields = synthesized_fields
+        .fields()
+        .filter(|(name, _)| !class.contains(name))
+        .map(|(name, field)| (Cow::Owned(name.clone()), field.inner.dupe()))
+        // Required by the borrow checker.
+        // This is fine since the amount of synthesized fields should be small.
+        .collect::<Vec<_>>()
+        .into_iter();
 
-    fields
+    regular_fields.chain(synthesized_fields)
 }
 
 pub fn export_class_fields(
     class: &Class,
     context: &ModuleContext,
-) -> HashMap<String, PysaClassField> {
+) -> HashMap<Name, PysaClassField> {
     assert_eq!(class.module(), &context.module_info);
     get_class_fields(class, context)
-        .iter()
         .filter(|(_, field)| !is_callable_like(&field.ty()))
         .filter_map(|(name, field)| {
-            let field_binding = get_class_field_declaration(class, name, context);
+            let field_binding = get_class_field_declaration(class, &name, context);
 
             let explicit_annotation = match field_binding {
                 Some(BindingClassField {
@@ -351,7 +361,7 @@ pub fn export_class_fields(
                 Some(BindingClassField {
                     range, definition, ..
                 }) => Some((
-                    name.to_string(),
+                    name.into_owned(),
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
                         explicit_annotation,
@@ -362,7 +372,7 @@ pub fn export_class_fields(
                     },
                 )),
                 _ => Some((
-                    name.to_string(),
+                    name.into_owned(),
                     PysaClassField {
                         type_: PysaType::from_type(&field.ty(), context),
                         explicit_annotation,

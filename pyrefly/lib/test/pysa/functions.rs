@@ -52,6 +52,7 @@ fn create_function_definition(
             is_property_getter: false,
             is_property_setter: false,
             is_stub: false,
+            is_def_statement: true,
             defining_class: None,
             overridden_base_method: None,
         },
@@ -659,6 +660,173 @@ def foo(x: int) -> int:
                     vec![Target::Function(get_function_ref("test", "d2", context))],
                 ),
             ])),
+        ]
+    },
+);
+
+exported_functions_testcase!(
+    test_export_dataclass_methods,
+    r#"
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Foo:
+    x: int
+    y: str
+"#,
+    &|context: &ModuleContext| {
+        vec![
+            create_function_definition(
+                "__hash__",
+                ScopeParent::Class {
+                    location: create_location(5, 7, 5, 10),
+                },
+                /* overloads */
+                vec![create_simple_signature(
+                    vec![FunctionParameter::Pos {
+                        name: "self".into(),
+                        annotation: PysaType::from_class(
+                            &get_class("test", "Foo", context),
+                            context,
+                        ),
+                        required: true,
+                    }],
+                    PysaType::from_class_type(context.stdlib.int(), context),
+                )],
+            )
+            .with_is_def_statement(false)
+            .with_defining_class(get_class_ref("test", "Foo", context)),
+            create_function_definition(
+                "__init__",
+                ScopeParent::Class {
+                    location: create_location(5, 7, 5, 10),
+                },
+                /* overloads */
+                vec![create_simple_signature(
+                    vec![
+                        FunctionParameter::Pos {
+                            name: "self".into(),
+                            annotation: PysaType::from_class(
+                                &get_class("test", "Foo", context),
+                                context,
+                            ),
+                            required: true,
+                        },
+                        FunctionParameter::Pos {
+                            name: "x".into(),
+                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            required: true,
+                        },
+                        FunctionParameter::Pos {
+                            name: "y".into(),
+                            annotation: PysaType::from_class_type(context.stdlib.str(), context),
+                            required: true,
+                        },
+                    ],
+                    PysaType::none(),
+                )],
+            )
+            .with_is_def_statement(false)
+            .with_defining_class(get_class_ref("test", "Foo", context)),
+        ]
+    },
+);
+
+exported_functions_testcase!(
+    test_export_callable_field,
+    r#"
+import typing
+class Foo:
+    x: typing.Callable[[int], int] = lambda x: x
+"#,
+    &|context: &ModuleContext| {
+        vec![
+            create_function_definition(
+                "x",
+                ScopeParent::Class {
+                    location: create_location(3, 7, 3, 10),
+                },
+                /* overloads */
+                vec![create_simple_signature(
+                    vec![FunctionParameter::PosOnly {
+                        name: None,
+                        annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                        required: true,
+                    }],
+                    PysaType::from_class_type(context.stdlib.int(), context),
+                )],
+            )
+            .with_is_def_statement(false)
+            .with_defining_class(get_class_ref("test", "Foo", context)),
+        ]
+    },
+);
+
+exported_functions_testcase!(
+    test_export_field_alias_function,
+    r#"
+import typing
+class Foo:
+    def x(self, x: int) -> int:
+        return x
+
+    y = x
+"#,
+    &|context: &ModuleContext| {
+        vec![
+            create_function_definition(
+                "x",
+                ScopeParent::Class {
+                    location: create_location(3, 7, 3, 10),
+                },
+                /* overloads */
+                vec![create_simple_signature(
+                    vec![
+                        FunctionParameter::Pos {
+                            name: "self".into(),
+                            annotation: PysaType::from_class(
+                                &get_class("test", "Foo", context),
+                                context,
+                            ),
+                            required: true,
+                        },
+                        FunctionParameter::Pos {
+                            name: "x".into(),
+                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            required: true,
+                        },
+                    ],
+                    PysaType::from_class_type(context.stdlib.int(), context),
+                )],
+            )
+            .with_defining_class(get_class_ref("test", "Foo", context)),
+            create_function_definition(
+                "y",
+                ScopeParent::Class {
+                    location: create_location(3, 7, 3, 10),
+                },
+                /* overloads */
+                vec![create_simple_signature(
+                    vec![
+                        FunctionParameter::Pos {
+                            name: "self".into(),
+                            annotation: PysaType::from_class(
+                                &get_class("test", "Foo", context),
+                                context,
+                            ),
+                            required: true,
+                        },
+                        FunctionParameter::Pos {
+                            name: "x".into(),
+                            annotation: PysaType::from_class_type(context.stdlib.int(), context),
+                            required: true,
+                        },
+                    ],
+                    PysaType::from_class_type(context.stdlib.int(), context),
+                )],
+            )
+            .with_is_def_statement(false)
+            .with_defining_class(get_class_ref("test", "Foo", context)),
         ]
     },
 );

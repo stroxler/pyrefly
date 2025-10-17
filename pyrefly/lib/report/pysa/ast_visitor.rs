@@ -28,7 +28,7 @@ use crate::report::pysa::class::ClassId;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
-use crate::report::pysa::function::should_export_function;
+use crate::report::pysa::function::should_export_decorated_function;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 
@@ -243,7 +243,7 @@ fn visit_statement<V: AstScopedVisitor>(
                     &module_context.bindings,
                     &module_context.answers,
                 );
-                if should_export_function(&decorated_function, module_context) {
+                if should_export_decorated_function(&decorated_function, module_context) {
                     Scope::ExportedFunction {
                         function_id: FunctionId::Function {
                             location: PysaLocation::new(
