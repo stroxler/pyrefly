@@ -41,6 +41,8 @@ use crate::types::types::Type;
 pub struct ClassBases {
     base_types: Box<[ClassType]>,
     tuple_base: Option<Tuple>,
+    // Is this a pydatic strict model?
+    pub has_strict: bool,
 }
 
 impl ClassBases {
@@ -48,6 +50,7 @@ impl ClassBases {
         Self {
             base_types: Box::new([]),
             tuple_base: None,
+            has_strict: false,
         }
     }
 
@@ -308,6 +311,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassBases {
             base_types: base_class_types.into_boxed_slice(),
             tuple_base,
+            has_strict: false,
         }
     }
 }
