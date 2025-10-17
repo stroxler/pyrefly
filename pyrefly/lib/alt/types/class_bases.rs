@@ -140,23 +140,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         (result, has_strict)
     }
 
-    fn base_class_expr_infer(&self, expr: &BaseClassExpr, errors: &ErrorCollector) -> Type {
+    fn base_class_expr_infer(&self, expr: &BaseClassExpr, errors: &ErrorCollector) -> (Type, bool) {
         match expr {
-            BaseClassExpr::Name(x) => self
-                .get(&Key::BoundName(ShortIdentifier::expr_name(x)))
-                .arc_clone_ty(),
+            BaseClassExpr::Name(x) => (
+                self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                    .arc_clone_ty(),
+                false,
+            ),
             BaseClassExpr::Attribute { value, attr, range } => {
-                let base = self.base_class_expr_infer(value, errors);
-                self.attr_infer_for_type(&base, &attr.id, *range, errors, None)
+                let (base, has_strict) = self.base_class_expr_infer(value, errors);
+                (
+                    self.attr_infer_for_type(&base, &attr.id, *range, errors, None),
+                    has_strict,
+                )
             }
             BaseClassExpr::Subscript {
                 value,
                 slice,
                 range,
             } => {
-                let base_ty = self.base_class_expr_infer(value, errors);
-                let (ty, _) = self.base_class_subscript_infer(base_ty, slice, *range, errors);
-                ty
+                let (base_ty, has_strict_from_value) = self.base_class_expr_infer(value, errors);
+                let (result_ty, has_strict_from_subscript) =
+                    self.base_class_subscript_infer(base_ty, slice, *range, errors);
+                (
+                    result_ty,
+                    has_strict_from_value || has_strict_from_subscript,
+                )
             }
         }
     }
@@ -175,9 +184,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> (Type, bool) {
         let range = base_expr.range();
 
-        let inferred_ty = self.base_class_expr_infer(base_expr, errors);
+        let (inferred_ty, has_strict_from_infer) = self.base_class_expr_infer(base_expr, errors);
 
-        let has_strict = self.type_has_strict_metadata(&inferred_ty);
+        let has_strict = self.type_has_strict_metadata(&inferred_ty) || has_strict_from_infer;
 
         let ty = self.untype(inferred_ty, range, errors);
         (
