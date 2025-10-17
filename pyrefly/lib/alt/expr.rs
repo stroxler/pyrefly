@@ -32,6 +32,7 @@ use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
 use ruff_python_ast::ExprStringLiteral;
+use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::Number;
@@ -411,126 +412,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 Type::Callable(Box::new(Callable { params, ret }))
             }
-            Expr::Tuple(x) => {
-                let (hint_ts, default_hint) = if let Some(hint) = &hint
-                    && let Type::Tuple(tup) = hint.ty()
-                {
-                    match tup {
-                        Tuple::Concrete(elts) => {
-                            let elt_hints = elts.map(|ty| HintRef::new(ty, hint.errors()));
-                            (elt_hints, None)
-                        }
-                        Tuple::Unpacked(box (prefix, _, _)) => {
-                            // TODO: We should also contextually type based on the middle and suffix
-                            let prefix_hints = prefix.map(|ty| HintRef::new(ty, hint.errors()));
-                            (prefix_hints, None)
-                        }
-                        Tuple::Unbounded(elt) => {
-                            (Vec::new(), Some(HintRef::new(elt, hint.errors())))
-                        }
-                    }
-                } else {
-                    (Vec::new(), None)
-                };
-                let mut prefix = Vec::new();
-                let mut unbounded = Vec::new();
-                let mut suffix = Vec::new();
-                let mut hint_ts_iter = hint_ts.into_iter();
-                let mut encountered_invalid_star = false;
-                for elt in x.elts.iter() {
-                    match elt {
-                        Expr::Starred(ExprStarred { value, .. }) => {
-                            let ty = self.expr_infer(value, errors);
-                            match ty {
-                                Type::Tuple(Tuple::Concrete(elts)) => {
-                                    if unbounded.is_empty() {
-                                        if !elts.is_empty() {
-                                            hint_ts_iter.nth(elts.len() - 1);
-                                        }
-                                        prefix.extend(elts);
-                                    } else {
-                                        suffix.extend(elts)
-                                    }
-                                }
-                                Type::Tuple(Tuple::Unpacked(box (pre, middle, suff)))
-                                    if unbounded.is_empty() =>
-                                {
-                                    prefix.extend(pre);
-                                    suffix.extend(suff);
-                                    unbounded.push(middle);
-                                    hint_ts_iter.nth(usize::MAX);
-                                }
-                                _ => {
-                                    if let Some(iterable_ty) = self.unwrap_iterable(&ty) {
-                                        if !unbounded.is_empty() {
-                                            unbounded.push(Type::Tuple(Tuple::unbounded(
-                                                self.unions(suffix),
-                                            )));
-                                            suffix = Vec::new();
-                                        }
-                                        unbounded.push(Type::Tuple(Tuple::unbounded(iterable_ty)));
-                                        hint_ts_iter.nth(usize::MAX);
-                                    } else {
-                                        self.error(
-                                            errors,
-                                            x.range(),
-                                            ErrorInfo::Kind(ErrorKind::NotIterable),
-                                            format!(
-                                                "Expected an iterable, got `{}`",
-                                                self.for_display(ty)
-                                            ),
-                                        );
-                                        encountered_invalid_star = true;
-                                        hint_ts_iter.nth(usize::MAX); // TODO: missing test
-                                    }
-                                }
-                            }
-                        }
-                        _ => {
-                            let ty = self.expr_infer_type_no_trace(
-                                elt,
-                                if unbounded.is_empty() {
-                                    hint_ts_iter.next().or(default_hint)
-                                } else {
-                                    None
-                                },
-                                errors,
-                            );
-                            if unbounded.is_empty() {
-                                prefix.push(ty)
-                            } else {
-                                suffix.push(ty)
-                            }
-                        }
-                    }
-                }
-                if encountered_invalid_star {
-                    // We already produced the type error, and we can't really roll up a suitable outermost type here.
-                    // TODO(stroxler): should we really be producing a `tuple[Any]` here? We do at least know *something* about the type!
-                    Type::any_error()
-                } else {
-                    match unbounded.as_slice() {
-                        [] => Type::tuple(prefix),
-                        [middle] => Type::Tuple(Tuple::unpacked(prefix, middle.clone(), suffix)),
-                        // We can't precisely model unpacking two unbounded iterables, so we'll keep any
-                        // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
-                        _ => {
-                            let middle_types: Vec<Type> = unbounded
-                                .iter()
-                                .map(|t| {
-                                    self.unwrap_iterable(t)
-                                        .unwrap_or(Type::Any(AnyStyle::Implicit))
-                                })
-                                .collect();
-                            Type::Tuple(Tuple::unpacked(
-                                prefix,
-                                Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
-                                suffix,
-                            ))
-                        }
-                    }
-                }
-            }
+            Expr::Tuple(x) => self.tuple_infer(x, hint, errors),
             Expr::List(x) => {
                 let elt_hint = hint.and_then(|ty| self.decompose_list(ty));
                 if x.is_empty() {
@@ -725,6 +607,126 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             want.ty().clone()
         } else {
             ty.promote_literals(self.stdlib)
+        }
+    }
+
+    fn tuple_infer(&self, x: &ExprTuple, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
+        let (hint_ts, default_hint) = if let Some(hint) = &hint
+            && let Type::Tuple(tup) = hint.ty()
+        {
+            let (hint_ts, default_hint) = self.tuple_to_element_hints(tup);
+            let type_to_hint = |t| HintRef::new(t, hint.errors());
+            (
+                hint_ts.into_map(type_to_hint),
+                default_hint.map(type_to_hint),
+            )
+        } else {
+            (Vec::new(), None)
+        };
+        let mut prefix = Vec::new();
+        let mut unbounded = Vec::new();
+        let mut suffix = Vec::new();
+        let mut hint_ts_iter = hint_ts.into_iter();
+        let mut encountered_invalid_star = false;
+        for elt in x.elts.iter() {
+            match elt {
+                Expr::Starred(ExprStarred { value, .. }) => {
+                    let ty = self.expr_infer(value, errors);
+                    match ty {
+                        Type::Tuple(Tuple::Concrete(elts)) => {
+                            if unbounded.is_empty() {
+                                if !elts.is_empty() {
+                                    hint_ts_iter.nth(elts.len() - 1);
+                                }
+                                prefix.extend(elts);
+                            } else {
+                                suffix.extend(elts)
+                            }
+                        }
+                        Type::Tuple(Tuple::Unpacked(box (pre, middle, suff)))
+                            if unbounded.is_empty() =>
+                        {
+                            prefix.extend(pre);
+                            suffix.extend(suff);
+                            unbounded.push(middle);
+                            hint_ts_iter.nth(usize::MAX);
+                        }
+                        _ => {
+                            if let Some(iterable_ty) = self.unwrap_iterable(&ty) {
+                                if !unbounded.is_empty() {
+                                    unbounded
+                                        .push(Type::Tuple(Tuple::unbounded(self.unions(suffix))));
+                                    suffix = Vec::new();
+                                }
+                                unbounded.push(Type::Tuple(Tuple::unbounded(iterable_ty)));
+                                hint_ts_iter.nth(usize::MAX);
+                            } else {
+                                self.error(
+                                    errors,
+                                    x.range(),
+                                    ErrorInfo::Kind(ErrorKind::NotIterable),
+                                    format!("Expected an iterable, got `{}`", self.for_display(ty)),
+                                );
+                                encountered_invalid_star = true;
+                                hint_ts_iter.nth(usize::MAX); // TODO: missing test
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    let ty = self.expr_infer_type_no_trace(
+                        elt,
+                        if unbounded.is_empty() {
+                            hint_ts_iter.next().or(default_hint)
+                        } else {
+                            None
+                        },
+                        errors,
+                    );
+                    if unbounded.is_empty() {
+                        prefix.push(ty)
+                    } else {
+                        suffix.push(ty)
+                    }
+                }
+            }
+        }
+        if encountered_invalid_star {
+            // We already produced the type error, and we can't really roll up a suitable outermost type here.
+            // TODO(stroxler): should we really be producing a `tuple[Any]` here? We do at least know *something* about the type!
+            Type::any_error()
+        } else {
+            match unbounded.as_slice() {
+                [] => Type::tuple(prefix),
+                [middle] => Type::Tuple(Tuple::unpacked(prefix, middle.clone(), suffix)),
+                // We can't precisely model unpacking two unbounded iterables, so we'll keep any
+                // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
+                _ => {
+                    let middle_types: Vec<Type> = unbounded
+                        .iter()
+                        .map(|t| {
+                            self.unwrap_iterable(t)
+                                .unwrap_or(Type::Any(AnyStyle::Implicit))
+                        })
+                        .collect();
+                    Type::Tuple(Tuple::unpacked(
+                        prefix,
+                        Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
+                        suffix,
+                    ))
+                }
+            }
+        }
+    }
+
+    fn tuple_to_element_hints<'b>(&self, tup: &'b Tuple) -> (Vec<&'b Type>, Option<&'b Type>) {
+        match tup {
+            Tuple::Concrete(elts) => (elts.iter().collect(), None),
+            Tuple::Unpacked(box (prefix, _, _)) => {
+                // TODO: We should also contextually type based on the middle and suffix
+                (prefix.iter().collect(), None)
+            }
+            Tuple::Unbounded(elt) => (Vec::new(), Some(elt)),
         }
     }
 
