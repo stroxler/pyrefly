@@ -764,20 +764,14 @@ impl CheckArgs {
         timings.report_errors = report_errors_start.elapsed();
 
         if self.output.summary != Summary::None {
-            // If the error is off-by-default, then it's not really "ignored"
-            let ignored = errors
-                .disabled
-                .iter()
-                .filter(|err| err.error_kind().default_severity() != Severity::Ignore)
-                .count()
-                + errors.suppressed.len();
-            if ignored == 0 {
+            let suppress_count = errors.suppressed.len();
+            if suppress_count == 0 {
                 info!("{}", count(shown_errors_count, "error"))
             } else {
                 info!(
-                    "{} ({} ignored)",
+                    "{} ({} suppressed)",
                     count(shown_errors_count, "error"),
-                    number_thousands(ignored)
+                    number_thousands(suppress_count)
                 )
             };
         }

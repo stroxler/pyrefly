@@ -42,7 +42,7 @@ Default configuration
 
 ```scrut {output_stream: stderr}
 $ echo "x: str = 0" > $TMPDIR/oops.py && echo "errors = { bad-assignment = false }" > $TMPDIR/pyrefly.toml && $PYREFLY check -c $TMPDIR/pyrefly.toml $TMPDIR/oops.py && rm $TMPDIR/pyrefly.toml
- INFO 0 errors (1 ignored)
+ INFO 0 errors
 [0]
 ```
 
