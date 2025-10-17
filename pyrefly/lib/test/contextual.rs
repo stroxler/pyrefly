@@ -634,3 +634,25 @@ x: TD | dict[str, list[A] | str] = {
 }
     "#,
 );
+
+testcase!(
+    bug = "This should not error",
+    test_sequence_hint_for_tuple,
+    r#"
+from typing import Sequence, TypedDict
+class TD(TypedDict):
+    x: int
+seq: Sequence[TD] = ({"x": 0},)  # E: `tuple[dict[str, int]]` is not assignable to `Sequence[TypedDict[TD]]`
+    "#,
+);
+
+testcase!(
+    bug = "This should not error",
+    test_tuple_union,
+    r#"
+from typing import Sequence, TypedDict
+class TD(TypedDict):
+    x: int
+x: tuple[TD] | tuple[TD, ...] = ({"x": 0},)  # E: `tuple[dict[str, int]]` is not assignable to `tuple[TypedDict[TD]] | tuple[TypedDict[TD], ...]`
+    "#,
+);
