@@ -452,20 +452,16 @@ fn strip_none_from_union(type_: &Type) -> Type {
     }
 }
 
-#[derive(Debug, Clone)]
-struct MethodMetadata {
-    is_staticmethod: bool,
-    is_classmethod: bool,
-    is_method: bool,
-}
-
 fn has_implicit_receiver(
-    method_metadata: &MethodMetadata,
+    base_definition: Option<&FunctionBaseDefinition>,
     is_receiver_class_def: bool,
 ) -> ImplicitReceiver {
-    if method_metadata.is_staticmethod {
+    let is_classmethod = base_definition.is_some_and(|definition| definition.is_classmethod);
+    let is_staticmethod = base_definition.is_some_and(|definition| definition.is_staticmethod);
+    let is_method = base_definition.is_some_and(|definition| definition.is_method());
+    if is_staticmethod {
         ImplicitReceiver::False
-    } else if method_metadata.is_classmethod {
+    } else if is_classmethod {
         if is_receiver_class_def {
             // C.f() where f is a class method
             ImplicitReceiver::TrueWithClassReceiver
@@ -473,7 +469,7 @@ fn has_implicit_receiver(
             // c.f() where f is a class method
             ImplicitReceiver::TrueWithObjectReceiver
         }
-    } else if method_metadata.is_method {
+    } else if is_method {
         if is_receiver_class_def {
             // C.g(c) where g is a method
             ImplicitReceiver::False
@@ -585,21 +581,9 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn get_method_metadata(&self, function_ref: &FunctionRef) -> MethodMetadata {
+    fn get_base_definition(&self, function_ref: &FunctionRef) -> Option<&FunctionBaseDefinition> {
         self.function_base_definitions
-            .get(self.module_id, &function_ref.function_id)
-            .map_or(
-                MethodMetadata {
-                    is_staticmethod: false,
-                    is_classmethod: false,
-                    is_method: false,
-                },
-                |function_definition| MethodMetadata {
-                    is_staticmethod: function_definition.is_staticmethod,
-                    is_classmethod: function_definition.is_classmethod,
-                    is_method: FunctionBaseDefinition::is_method(function_definition),
-                },
-            )
+            .get(function_ref.module_id, &function_ref.function_id)
     }
 
     fn create_callee_from_class_field(
@@ -649,9 +633,11 @@ impl<'a> CallGraphVisitor<'a> {
             return vec![Target::Function(callee)];
         }
         let receiver_type = receiver_type.unwrap();
-        let method_metadata = self.get_method_metadata(&callee);
-        let (receiver_class, _) =
-            self.receiver_class_from_type(receiver_type, method_metadata.is_classmethod);
+        let callee_definition = self.get_base_definition(&callee);
+        let (receiver_class, _) = self.receiver_class_from_type(
+            receiver_type,
+            callee_definition.is_some_and(|definition| definition.is_classmethod),
+        );
         if receiver_class.is_none() {
             return vec![Target::Function(callee)];
         }
@@ -713,24 +699,24 @@ impl<'a> CallGraphVisitor<'a> {
         is_override_target: bool,
         override_implicit_receiver: Option<ImplicitReceiver>,
     ) -> CallTarget<FunctionRef> {
-        let method_metadata = self.get_method_metadata(&function_ref);
+        let function_definiton = self.get_base_definition(&function_ref);
+        let is_classmethod = function_definiton.is_some_and(|definition| definition.is_classmethod);
+        let is_staticmethod =
+            function_definiton.is_some_and(|definition| definition.is_staticmethod);
         let (receiver_class, is_receiver_class_def) = match receiver_type {
-            Some(receiver_type) => {
-                self.receiver_class_from_type(receiver_type, method_metadata.is_classmethod)
-            }
+            Some(receiver_type) => self.receiver_class_from_type(receiver_type, is_classmethod),
             None => (None, false),
         };
         CallTarget {
             implicit_receiver: override_implicit_receiver.unwrap_or(has_implicit_receiver(
-                &method_metadata,
+                function_definiton,
                 is_receiver_class_def,
             )),
             receiver_class,
             implicit_dunder_call: function_ref.function_name == dunder::CALL
                 && callee_expr_suffix != dunder::CALL.as_str(),
-            is_class_method: method_metadata.is_classmethod,
-            is_static_method: method_metadata.is_staticmethod
-                || function_ref.function_name == dunder::NEW,
+            is_class_method: is_classmethod,
+            is_static_method: is_staticmethod || function_ref.function_name == dunder::NEW,
             return_type,
             target: if is_override_target {
                 Target::Override(function_ref)
