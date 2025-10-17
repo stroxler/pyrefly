@@ -96,11 +96,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Ast::unpack_slice(slice)
                 .iter()
                 .map(|x| match BaseClassExpr::from_expr(x) {
-                    Some(base_expr) => self.base_class_expr_untype(
-                        &base_expr,
-                        TypeFormContext::TypeArgument,
-                        errors,
-                    ),
+                    Some(base_expr) => {
+                        let (ty, _) = self.base_class_expr_untype(
+                            &base_expr,
+                            TypeFormContext::TypeArgument,
+                            errors,
+                        );
+                        ty
+                    }
                     None => self.expr_untype(x, TypeFormContext::TypeArgument, errors),
                 })
                 .collect::<Vec<_>>()
@@ -163,16 +166,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         base_expr: &BaseClassExpr,
         type_form_context: TypeFormContext,
         errors: &ErrorCollector,
-    ) -> Type {
+    ) -> (Type, bool) {
         let range = base_expr.range();
 
         let inferred_ty = self.base_class_expr_infer(base_expr, errors);
 
-        // TODO: Combine this data with the subscript data for strictness.
-        let _has_strict = self.type_has_strict_metadata(&inferred_ty);
+        let has_strict = self.type_has_strict_metadata(&inferred_ty);
 
         let ty = self.untype(inferred_ty, range, errors);
-        self.validate_type_form(ty, range, type_form_context, errors)
+        (
+            self.validate_type_form(ty, range, type_form_context, errors),
+            has_strict,
+        )
     }
 
     pub fn class_bases_of(
@@ -185,17 +190,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Make sure errors in base class expr are not reported during expr_untype -- they'll be checked in
         // another binding.
         let fake_error_collector = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
+        let mut has_strict = false;
+
         let base_types_with_ranges = bases
             .iter()
             .filter_map(|x| match x {
-                BaseClass::BaseClassExpr(x) => Some((
-                    self.base_class_expr_untype(
+                BaseClass::BaseClassExpr(x) => {
+                    let (ty, base_has_strict) = self.base_class_expr_untype(
                         x,
                         TypeFormContext::BaseClassList,
                         &fake_error_collector,
-                    ),
-                    x.range(),
-                )),
+                    );
+                    if base_has_strict {
+                        has_strict = true;
+                    }
+                    Some((ty, x.range()))
+                }
                 BaseClass::NamedTuple(..) => Some((
                     self.stdlib.named_tuple_fallback().clone().to_type(),
                     x.range(),
@@ -311,7 +321,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassBases {
             base_types: base_class_types.into_boxed_slice(),
             tuple_base,
-            has_strict: false,
+            has_strict,
         }
     }
 }
