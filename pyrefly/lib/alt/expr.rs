@@ -908,7 +908,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ty.as_bool().or_else(|| {
             // If the object defines `__bool__`, we can check if it returns a statically known value
             if self
-                .type_of_magic_dunder_attr(ty, &dunder::BOOL, range, errors, None, "as_bool")?
+                .type_of_magic_dunder_attr(ty, &dunder::BOOL, range, errors, None, "as_bool", true)?
                 .is_never()
             {
                 return None;

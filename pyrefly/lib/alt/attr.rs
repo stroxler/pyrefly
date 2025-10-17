@@ -570,6 +570,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
+        allow_getattr_fallback: bool,
     ) -> Option<Type> {
         let mut not_found = false;
         let mut attr_tys = Vec::new();
@@ -579,7 +580,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Some(base) => {
                 let direct_lookup_result = self.lookup_magic_dunder_attr(base.clone(), attr_name);
-                self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
+                if allow_getattr_fallback {
+                    self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
+                } else {
+                    direct_lookup_result
+                }
             }
         };
         for (attr, _) in lookup_result.found {
@@ -1812,6 +1817,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             None,
             "__bool__",
+            false,
         );
 
         if let Some(ty) = cond_bool_ty

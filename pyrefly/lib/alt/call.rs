@@ -348,6 +348,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
             "Expr::call_method",
+            true,
         )?;
         Some(self.make_call_target_and_call(
             callee_ty,

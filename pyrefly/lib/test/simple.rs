@@ -1382,6 +1382,13 @@ def f() -> NotBoolable:
   return NotBoolable()
 
 if (f() if True else None): ...  # E: has type `int`, which is not callable
+
+class C:
+    def __getattr__(self, x: str) -> object: ...
+
+def test(o: C):
+    if o: # should not fail
+        pass
 "#,
 );
 
