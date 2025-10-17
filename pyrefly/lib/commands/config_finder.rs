@@ -79,7 +79,19 @@ pub fn default_config_finder() -> ConfigFinder {
     standard_config_finder(Arc::new(DefaultConfigConfigurer {}))
 }
 
-struct DefaultConfigConfigurerWithOverrides(ConfigOverrideArgs);
+struct DefaultConfigConfigurerWithOverrides {
+    args: ConfigOverrideArgs,
+    ignore_errors: bool,
+}
+
+impl DefaultConfigConfigurerWithOverrides {
+    fn new(args: ConfigOverrideArgs, ignore_errors: bool) -> Self {
+        Self {
+            args,
+            ignore_errors,
+        }
+    }
+}
 
 impl ConfigConfigurer for DefaultConfigConfigurerWithOverrides {
     fn configure(
@@ -88,14 +100,24 @@ impl ConfigConfigurer for DefaultConfigConfigurerWithOverrides {
         config: ConfigFile,
         mut errors: Vec<ConfigError>,
     ) -> (ArcId<ConfigFile>, Vec<ConfigError>) {
-        let (c, mut configure_errors) = self.0.override_config(config);
-        errors.append(&mut configure_errors);
+        let (c, mut configure_errors) = self.args.override_config(config);
+        if self.ignore_errors {
+            errors.clear();
+        } else {
+            errors.append(&mut configure_errors);
+        }
         (c, errors)
     }
 }
 
-pub fn default_config_finder_with_overrides(args: ConfigOverrideArgs) -> ConfigFinder {
-    standard_config_finder(Arc::new(DefaultConfigConfigurerWithOverrides(args)))
+pub fn default_config_finder_with_overrides(
+    args: ConfigOverrideArgs,
+    ignore_errors: bool,
+) -> ConfigFinder {
+    standard_config_finder(Arc::new(DefaultConfigConfigurerWithOverrides::new(
+        args,
+        ignore_errors,
+    )))
 }
 
 /// Create a standard `ConfigFinder`, using the provided [`ConfigConfigurer`] to finalize

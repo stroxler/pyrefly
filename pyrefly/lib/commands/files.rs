@@ -95,7 +95,7 @@ pub fn get_project_config_for_current_dir(
     args: ConfigOverrideArgs,
 ) -> anyhow::Result<(ArcId<ConfigFile>, Vec<ConfigError>)> {
     let current_dir = std::env::current_dir().context("cannot identify current dir")?;
-    let config_finder = default_config_finder_with_overrides(args.clone());
+    let config_finder = default_config_finder_with_overrides(args.clone(), false);
     let config = config_finder.directory(&current_dir).unwrap_or_else(|| {
         let (config, errors) = args.override_config(ConfigFile::init_at_root(
             &current_dir,
@@ -186,7 +186,7 @@ fn get_globs_and_config_for_files(
             (config_finder, errors)
         }
         None => {
-            let config_finder = default_config_finder_with_overrides(args);
+            let config_finder = default_config_finder_with_overrides(args, false);
             // If there is only one input and one root, we treat config parse errors as fatal,
             // so that `pyrefly check .` exits immediately on an unparsable config, matching the
             // behavior of `pyrefly check` (see get_globs_and_config_for_project).
