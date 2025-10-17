@@ -149,6 +149,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn _type_has_strict_metadata(&self, ty: &Type) -> bool {
+        matches!(ty, Type::TypeAlias(ta) if ta.annotated_metadata()
+            .iter()
+            .any(|metadata| self.is_pydantic_strict_metadata(metadata)))
+    }
+
     fn base_class_expr_untype(
         &self,
         base_expr: &BaseClassExpr,

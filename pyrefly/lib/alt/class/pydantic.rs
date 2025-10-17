@@ -111,7 +111,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    fn _is_pydantic_strict_metadata(&self, ty: &Type) -> bool {
+    pub fn is_pydantic_strict_metadata(&self, ty: &Type) -> bool {
         match ty {
             Type::ClassType(cls) => cls.has_qname(ModuleName::pydantic_types().as_str(), "Strict"),
             _ => false,
