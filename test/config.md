@@ -279,3 +279,22 @@ $ mkdir $TMPDIR/contains_hidden && \
 > $PYREFLY check $TMPDIR/contains_hidden
 [0]
 ```
+
+## Error on missing source
+
+```scrut {output_stream.stdout}
+$ mkdir $TMPDIR/site_package_missing_source && \
+> mkdir $TMPDIR/site_package_missing_source/pkg-stubs && \
+> echo "class X: ..." > $TMPDIR/site_package_missing_source/pkg-stubs/pkg.py && \
+> echo "import pkg" > $TMPDIR/foo.py && \
+> $PYREFLY check $TMPDIR/foo.py --ignore-missing-source=false --site-package-path $TMPDIR/site_package_missing_source --output-format=min-text
+ERROR * Found stubs for `pkg`, but no source* (glob)
+[1]
+```
+
+```scrut {output_stream.stdout}
+$ echo "from pkg import X" > $TMPDIR/foo.py && \
+> $PYREFLY check $TMPDIR/foo.py --ignore-missing-source=false --site-package-path $TMPDIR/site_package_missing_source --output-format=min-text
+ERROR * Found stubs for `pkg`, but no source* (glob)
+[1]
+```

@@ -831,7 +831,9 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Import(x) => {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
-                    if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
+                    if let Err(err @ (FindError::NotFound(..) | FindError::NoSource(..))) =
+                        self.lookup.get(m)
+                    {
                         let (ctx, msg) = err.display();
                         self.error_multiline(
                             x.range,
