@@ -111,6 +111,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
+    fn _is_pydantic_strict_metadata(&self, ty: &Type) -> bool {
+        match ty {
+            Type::ClassType(cls) => cls.has_qname(ModuleName::pydantic_types().as_str(), "Strict"),
+            _ => false,
+        }
+    }
+
     /// Helper function to find inherited keyword values from parent dataclass metadata
     fn find_inherited_keyword_value<T>(
         &self,
