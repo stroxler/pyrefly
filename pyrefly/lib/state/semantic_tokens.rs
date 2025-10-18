@@ -17,6 +17,7 @@ use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::types::Type;
 use pyrefly_util::visit::Visit as _;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -245,6 +246,13 @@ impl SemanticTokenBuilder {
 
     fn process_stmt(&mut self, x: &Stmt) {
         match x {
+            Stmt::Try(stmt_try) => {
+                for ExceptHandler::ExceptHandler(handler) in stmt_try.handlers.iter() {
+                    if let Some(name) = &handler.name {
+                        self.push_if_in_range(name.range(), SemanticTokenType::VARIABLE, vec![]);
+                    }
+                }
+            }
             Stmt::With(with) => {
                 for with_item in with.items.iter() {
                     if let Some(box name) = &with_item.optional_vars {

@@ -405,6 +405,27 @@ token-type: variable
 }
 
 #[test]
+fn exception_handler_name_test() {
+    let code = r#"
+try:
+    pass
+except Exception as e:
+    pass
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 3, column: 7, length: 9, text: Exception
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 20, length: 1, text: e
+token-type: variable
+"#,
+    );
+}
+
+#[test]
 fn type_param_test() {
     let code = r#"
 def foo[T](v: T) -> T:
