@@ -122,7 +122,7 @@ impl<'a> Lexer<'a> {
 #[derive(PartialEq, Debug, Clone, Hash, Eq)]
 pub struct Suppression {
     tool: Tool,
-    /// The permissible error kinds, use empty Vec to many any are allowed
+    /// The permissible error kinds, use empty Vec to mean any are allowed
     kind: Vec<String>,
 }
 
@@ -243,7 +243,10 @@ impl Ignore {
             let inside = rest.split_once(']').map_or(rest, |x| x.0);
             return Some(Suppression {
                 tool,
-                kind: inside.split(',').map(|x| x.trim().to_owned()).collect(),
+                kind: inside
+                    .split(',')
+                    .map(|x| Self::map_old_error_kinds(x.trim()).to_owned())
+                    .collect(),
             });
         } else if gap || lex.word_boundary() {
             return Some(Suppression {
@@ -252,6 +255,14 @@ impl Ignore {
             });
         }
         None
+    }
+
+    /// For backwards compatibility, allow renamed error kinds to continue to be suppressed via their old names.
+    fn map_old_error_kinds(old: &str) -> &str {
+        match old {
+            "async-error" => "not-async",
+            _ => old,
+        }
     }
 
     pub fn is_ignored(
@@ -270,7 +281,7 @@ impl Ignore {
         for line in start_line.to_zero_indexed()..=end_line.to_zero_indexed() {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line))
                 && suppressions.iter().any(|supp| match supp.tool {
-                    // We only check the subkind if they do `# ignore: pyrefly`
+                    // We only check the subkind if they do `# pyrefly: ignore`
                     Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
                     Tool::Any => true,
                     _ => permissive_ignores,

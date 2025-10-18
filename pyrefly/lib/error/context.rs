@@ -58,7 +58,7 @@ impl ErrorContext {
             Self::InplaceBinaryOp(..) => ErrorKind::UnsupportedOperation,
             Self::Iteration(..) => ErrorKind::NotIterable,
             Self::AsyncIteration(..) => ErrorKind::NotIterable,
-            Self::Await(..) => ErrorKind::AsyncError,
+            Self::Await(..) => ErrorKind::NotAsync,
             Self::Index(..) => ErrorKind::IndexError,
             Self::SetItem(..) => ErrorKind::UnsupportedOperation,
             Self::DelItem(..) => ErrorKind::UnsupportedOperation,

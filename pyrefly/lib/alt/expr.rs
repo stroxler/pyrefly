@@ -526,7 +526,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => self.error(
                         errors,
                         x.range,
-                        ErrorInfo::Kind(ErrorKind::AsyncError),
+                        ErrorInfo::Kind(ErrorKind::NotAsync),
                         ErrorContext::Await(self.for_display(ty.clone())).format(),
                     ),
                 })

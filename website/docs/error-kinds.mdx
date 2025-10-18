@@ -40,25 +40,6 @@ An `assert-type` error is raised when a `typing.assert_type()` call fails.
 This error kind should never be suppressed, since that rather defeats the point
 of of `typing.assert_type()`.
 
-## async-error
-
-`async-error` is reported when attempting to `await` on something that is not
-awaitable. This may indicate that a function should have been marked `async` but
-wasn't.
-
-```python
-def some_func() -> None:
-  ...
-
-await some_func() # Expression is not awaitable [async-error]
-```
-
-This will also arise if the context manager used in an `async with` statement
-has `__aenter__` and `__aexit__` methods that are not marked `async`.
-
-The fix is to use an `async` function in the `await`. This may mean making the
-function `async` or finding an existing `async` function to use instead.
-
 ## bad-argument-count
 
 This error arises when a function is called with the wrong number of arguments.
@@ -780,6 +761,25 @@ class A:
 X = "A"
 x: X = ...  # X is not a type alias, so this is illegal
 ```
+
+## not-async
+
+`not-async` is reported when attempting to `await` on something that is not
+awaitable. This may indicate that a function should have been marked `async` but
+wasn't.
+
+```python
+def some_func() -> None:
+  ...
+
+await some_func() # Expression is not awaitable [not-async]
+```
+
+This will also arise if the context manager used in an `async with` statement
+has `__aenter__` and `__aexit__` methods that are not marked `async`.
+
+The fix is to use an `async` function in the `await`. This may mean making the
+function `async` or finding an existing `async` function to use instead.
 
 ## not-callable
 

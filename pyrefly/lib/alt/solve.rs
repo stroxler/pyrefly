@@ -1201,7 +1201,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => self.error(
                     errors,
                     range,
-                    ErrorInfo::new(ErrorKind::AsyncError, context),
+                    ErrorInfo::new(ErrorKind::NotAsync, context),
                     format!("Expected `{}` to be async", dunder::AENTER),
                 ),
             },
@@ -1241,7 +1241,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 None => self.error(
                     errors,
                     range,
-                    ErrorInfo::new(ErrorKind::AsyncError, context),
+                    ErrorInfo::new(ErrorKind::NotAsync, context),
                     format!("Expected `{}` to be async", dunder::AEXIT),
                 ),
             },

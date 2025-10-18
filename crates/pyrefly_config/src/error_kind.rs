@@ -75,8 +75,6 @@ impl Severity {
 //    of truth, e.g. a function definition is how we determine a call has errors.
 // "Missing": Same as "Bad" but we know specifically that something is missing.
 // "Invalid": Something is being used incorrectly, such as a typing construct or language feature.
-// "SomethingError": Generally targeted on very specific error conditions. The "Error"
-//    part may be dropped, e.g. in NotAType.
 // These categories are flexible; use them for guidance when naming new ErrorKinds, but
 // go with what feels right.
 #[derive(Debug, Copy, Dupe, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -88,8 +86,6 @@ pub enum ErrorKind {
     AnnotationMismatch,
     /// Raised when an assert_type() call fails.
     AssertType,
-    /// An error raised when async is not used when it should be, or perhaps used when it shouldn't be.
-    AsyncError,
     /// Attempting to call a function with the wrong number of arguments.
     BadArgumentCount,
     /// Attempting to call a function with an argument that does not match the parameter's type.
@@ -203,6 +199,8 @@ pub enum ErrorKind {
     /// Attempting to use something that isn't a type where a type is expected.
     /// This is a very general error and should be used sparingly.
     NotAType,
+    /// An error raised when async is not used when it should be.
+    NotAsync,
     /// Attempting to call a value that is not a callable.
     NotCallable,
     /// Attempting to use a non-iterable value as an iterable.
