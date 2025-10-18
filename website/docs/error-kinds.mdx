@@ -596,6 +596,17 @@ x[0]: int = 1
 
 It's not a parse error for an assignment to have an annotation, but it is forbidden by the type checker to annotate assignment to a subscript like `x[0]`.
 
+## invalid-type-alias
+
+An error related to the definition or usage of a `typing.TypeAlias`. Many of these cases are covered by [`invalid-annotation`](#invalid-annotation), so this error
+specifically handles illegal type alias values:
+
+```python
+from typing import TypeAlias
+x = 2
+Bad: TypeAlias = x
+```
+
 ## invalid-type-var
 
 An error caused by incorrect usage or definition of a TypeVar. A few examples:
@@ -871,17 +882,6 @@ if "abc":
 ## reveal-type
 
 Pyrefly uses this error to communicate the output of the [`reveal_type`](https://typing.python.org/en/latest/spec/directives.html#reveal-type) function.
-
-## type-alias-error
-
-An error related to the definition or usage of a `typing.TypeAlias`. Many of these cases are covered by [`invalid-annotation`](#invalid-annotation), so this error
-specifically handles illegal type alias values:
-
-```python
-from typing import TypeAlias
-x = 2
-Bad: TypeAlias = x
-```
 
 ## typed-dict-key-error
 

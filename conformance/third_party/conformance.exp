@@ -172,7 +172,7 @@
       "concise_description": "Expected `BadTypeAlias9` to be a type alias, got `Literal[3]`",
       "description": "Expected `BadTypeAlias9` to be a type alias, got `Literal[3]`",
       "line": 87,
-      "name": "type-alias-error",
+      "name": "invalid-type-alias",
       "severity": "error",
       "stop_column": 25,
       "stop_line": 87
@@ -785,7 +785,7 @@
       "concise_description": "Expected `BadTypeAlias9` to be a type alias, got `Literal[1]`",
       "description": "Expected `BadTypeAlias9` to be a type alias, got `Literal[1]`",
       "line": 45,
-      "name": "type-alias-error",
+      "name": "invalid-type-alias",
       "severity": "error",
       "stop_column": 26,
       "stop_line": 45
@@ -919,7 +919,7 @@
       "concise_description": "Type variable `S` is out of scope for this `TypeAliasType`",
       "description": "Type variable `S` is out of scope for this `TypeAliasType`\n  Type parameters must be passed as a tuple literal to the `type_params` argument",
       "line": 43,
-      "name": "type-alias-error",
+      "name": "invalid-type-alias",
       "severity": "error",
       "stop_column": 47,
       "stop_line": 43
@@ -930,7 +930,7 @@
       "concise_description": "Type variable `S` is out of scope for this `TypeAliasType`",
       "description": "Type variable `S` is out of scope for this `TypeAliasType`\n  Type parameters must be passed as a tuple literal to the `type_params` argument",
       "line": 44,
-      "name": "type-alias-error",
+      "name": "invalid-type-alias",
       "severity": "error",
       "stop_column": 47,
       "stop_line": 44
@@ -941,7 +941,7 @@
       "concise_description": "Value for argument `type_params` must be a tuple literal",
       "description": "Value for argument `type_params` must be a tuple literal",
       "line": 45,
-      "name": "type-alias-error",
+      "name": "invalid-type-alias",
       "severity": "error",
       "stop_column": 65,
       "stop_line": 45
@@ -1062,7 +1062,7 @@
       "concise_description": "Expected `BadAlias16` to be a type alias, got `Literal[3]`",
       "description": "Expected `BadAlias16` to be a type alias, got `Literal[3]`",
       "line": 60,
-      "name": "type-alias-error",
+      "name": "invalid-type-alias",
       "severity": "error",
       "stop_column": 46,
       "stop_line": 60

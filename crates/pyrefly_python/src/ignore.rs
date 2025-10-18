@@ -265,6 +265,7 @@ impl Ignore {
             "import-error" => "missing-import",
             "index-error" => "bad-index",
             "match-error" => "bad-match",
+            "type-alias-error" => "invalid-type-alias",
             _ => old,
         }
     }

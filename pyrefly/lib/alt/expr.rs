@@ -1503,7 +1503,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         x.range,
-                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                         format!(
                             "TypeAliasType must be assigned to a variable named `{}`",
                             lit.value.to_str()
@@ -1514,7 +1514,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     arg.range(),
-                    ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                     "Expected first argument of `TypeAliasType` to be a string literal".to_owned(),
                 );
             }
@@ -1530,7 +1530,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 arg.range(),
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 "Unexpected positional argument to `TypeAliasType`".to_owned(),
             );
         }
@@ -1542,7 +1542,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 kw.range,
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 "Multiple values for argument `name`".to_owned(),
                             );
                         } else {
@@ -1555,7 +1555,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 kw.range,
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 "Multiple values for argument `value`".to_owned(),
                             );
                         } else {
@@ -1569,7 +1569,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 kw.range,
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 "Value for argument `type_params` must be a tuple literal"
                                     .to_owned(),
                             );
@@ -1579,7 +1579,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             kw.range,
-                            ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                            ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                             format!("Unexpected keyword argument `{}` to `TypeAliasType`", id.id),
                         );
                     }
@@ -1588,7 +1588,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         kw.range,
-                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                         "Cannot pass unpacked keyword arguments to `TypeAliasType`".to_owned(),
                     );
                 }
@@ -1598,7 +1598,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 x.range,
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 "Missing `name` argument".to_owned(),
             );
         }
@@ -1608,7 +1608,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 x.range,
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 "Missing `value` argument".to_owned(),
             );
             None

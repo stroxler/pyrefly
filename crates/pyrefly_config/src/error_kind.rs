@@ -171,6 +171,8 @@ pub enum ErrorKind {
     /// Incorrect Python syntax, construct is not allowed in this position.
     /// In many cases a syntax error will also be reported.
     InvalidSyntax,
+    /// An error related to type alias usage or definition.
+    InvalidTypeAlias,
     /// An error caused by incorrect usage or definition of a TypeVar.
     InvalidTypeVar,
     /// An error caused by incorrect usage or definition of a TypeVarTuple.
@@ -214,8 +216,6 @@ pub enum ErrorKind {
     RedundantCondition,
     /// Raised by a call to reveal_type().
     RevealType,
-    /// An error related to type alias usage or definition.
-    TypeAliasError,
     /// An error related to TypedDict keys.
     /// e.g. attempting to access a TypedDict with a key that does not exist.
     TypedDictKeyError,

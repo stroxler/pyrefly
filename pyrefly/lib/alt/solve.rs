@@ -825,7 +825,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 expr.range(),
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 format!("Duplicate type variable `{}`", ty_var.qname().id()),
                             );
                         }
@@ -850,7 +850,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 expr.range(),
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 format!("Duplicate type variable `{}`", ty_var_tuple.qname().id()),
                             );
                         }
@@ -874,7 +874,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 expr.range(),
-                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                                 format!("Duplicate type variable `{}`", param_spec.qname().id()),
                             );
                         }
@@ -896,7 +896,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         expr.range(),
-                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                         format!("Expected a type variable, got `{}`", self.for_display(ty),),
                     );
                 }
@@ -1091,7 +1091,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                 format!("Expected `{name}` to be a type alias, got `{ty}`"),
             );
             return Type::any_error();
@@ -1130,7 +1130,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for extra_tparam in tparams.iter().skip(n) {
                 errors.add(
                     expr.range(),
-                    ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeAlias),
                     vec1![
                         format!(
                             "Type variable `{}` is out of scope for this `TypeAliasType`",
