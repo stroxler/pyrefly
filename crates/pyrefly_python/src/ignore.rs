@@ -263,6 +263,7 @@ impl Ignore {
             "async-error" => "not-async",
             "delete-error" => "unsupported-delete",
             "import-error" => "missing-import",
+            "index-error" => "bad-index",
             _ => old,
         }
     }

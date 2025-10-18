@@ -1766,7 +1766,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             slice.range(),
-                            ErrorInfo::Kind(ErrorKind::IndexError),
+                            ErrorInfo::Kind(ErrorKind::BadIndex),
                             format!(
                                 "Enum `{}` does not have a member named `{}`",
                                 cls.name(),
@@ -1785,7 +1785,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             slice.range(),
-                            ErrorInfo::Kind(ErrorKind::IndexError),
+                            ErrorInfo::Kind(ErrorKind::BadIndex),
                             format!("Enum `{}` can only be indexed by strings", cls.name()),
                         )
                     }
@@ -1976,7 +1976,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 range,
-                                ErrorInfo::Kind(ErrorKind::IndexError),
+                                ErrorInfo::Kind(ErrorKind::BadIndex),
                                 format!(
                                     "Index {idx} out of range for tuple with {} elements",
                                     elts.len()
@@ -2026,7 +2026,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             range,
-                            ErrorInfo::Kind(ErrorKind::IndexError),
+                            ErrorInfo::Kind(ErrorKind::BadIndex),
                             format!(
                                 "Index `{idx}` out of range for bytes with {} elements",
                                 bytes.len()

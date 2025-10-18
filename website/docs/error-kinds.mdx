@@ -149,6 +149,18 @@ with A(): ...  # `A` is missing an `__exit__` method!
 Like `bad-class-definition`, this error kind is uncommon because other error kinds are used for more specific issues.
 For example, argument order is enforced by the parser, so `def f(x: int = 1, y: str)` is a `parse-error`.
 
+## bad-index
+
+Attempting to access a container with an incorrect index.
+This only occurs when Pyrefly can statically verify that the index is incorrect, such as with a fixed-length tuple.
+
+```python
+def add_three(x: tuple[int, int]) -> int:
+  return x[0] + x[1] + x[2]
+```
+
+Pyrefly also knows the keys of `TypedDict`s, but those have their own error kind.
+
 ## bad-instantiation
 
 This error occurs when attempting to instantiate a class that cannot be instantiated, such as a protocol:
@@ -396,18 +408,6 @@ def f(x: str) -> str: ...  # error, overload accepts `str` but implementation on
 def f(x: int) -> int | str:
     return x
 ```
-
-## index-error
-
-Attempting to access a container with an incorrect index.
-This only occurs when Pyrefly can statically verify that the index is incorrect, such as with a fixed-length tuple.
-
-```python
-def add_three(x: tuple[int, int]) -> int:
-  return x[0] + x[1] + x[2]
-```
-
-Pyrefly also knows the keys of `TypedDict`s, but those have their own error kind.
 
 ## internal-error
 

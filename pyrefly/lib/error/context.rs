@@ -59,7 +59,7 @@ impl ErrorContext {
             Self::Iteration(..) => ErrorKind::NotIterable,
             Self::AsyncIteration(..) => ErrorKind::NotIterable,
             Self::Await(..) => ErrorKind::NotAsync,
-            Self::Index(..) => ErrorKind::IndexError,
+            Self::Index(..) => ErrorKind::BadIndex,
             Self::SetItem(..) => ErrorKind::UnsupportedOperation,
             Self::DelItem(..) => ErrorKind::UnsupportedOperation,
             Self::MatchPositional(..) => ErrorKind::MatchError,

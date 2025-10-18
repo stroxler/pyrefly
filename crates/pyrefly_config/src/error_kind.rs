@@ -101,6 +101,9 @@ pub enum ErrorKind {
     /// A function definition has some typing-related error.
     /// e.g. putting a non-default argument after a default argument.
     BadFunctionDefinition,
+    /// Attempting to access a container with an incorrect index.
+    /// This only occurs when Pyrefly can statically verify that the index is incorrect.
+    BadIndex,
     /// Can't instantiate an abstract class or protocol
     BadInstantiation,
     /// Attempting to call a function with an incorrect keyword argument.
@@ -137,9 +140,6 @@ pub enum ErrorKind {
     InconsistentInheritance,
     /// An inconsistency between the signature of a function overload and the implementation.
     InconsistentOverload,
-    /// Attempting to access a container with an incorrect index.
-    /// This only occurs when Pyrefly can statically verify that the index is incorrect.
-    IndexError,
     /// Internal Pyrefly error.
     InternalError,
     /// Attempting to write an annotation that is invalid for some reason.

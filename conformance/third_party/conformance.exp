@@ -5142,7 +5142,7 @@
       "concise_description": "Cannot index into `MyMap1[str, int]`",
       "description": "Cannot index into `MyMap1[str, int]`\n  Argument `Literal[0]` is not assignable to parameter `key` with type `str` in function `typing.Mapping.__getitem__`",
       "line": 157,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 157
@@ -5153,7 +5153,7 @@
       "concise_description": "Cannot index into `MyMap2[int, str]`",
       "description": "Cannot index into `MyMap2[int, str]`\n  Argument `Literal[0]` is not assignable to parameter `key` with type `str` in function `typing.Mapping.__getitem__`",
       "line": 158,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 158
@@ -7312,7 +7312,7 @@
       "concise_description": "Index 5 out of range for tuple with 3 elements",
       "description": "Index 5 out of range for tuple with 3 elements",
       "line": 15,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 15
@@ -7323,7 +7323,7 @@
       "concise_description": "Index -5 out of range for tuple with 3 elements",
       "description": "Index -5 out of range for tuple with 3 elements",
       "line": 16,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 16
@@ -7334,7 +7334,7 @@
       "concise_description": "Index 4 out of range for tuple with 3 elements",
       "description": "Index 4 out of range for tuple with 3 elements",
       "line": 17,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 17
@@ -7345,7 +7345,7 @@
       "concise_description": "Index -4 out of range for tuple with 3 elements",
       "description": "Index -4 out of range for tuple with 3 elements",
       "line": 18,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 10,
       "stop_line": 18
@@ -7716,7 +7716,7 @@
       "concise_description": "Index 3 out of range for tuple with 3 elements",
       "description": "Index 3 out of range for tuple with 3 elements",
       "line": 32,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 12,
       "stop_line": 32
@@ -7727,7 +7727,7 @@
       "concise_description": "Index -4 out of range for tuple with 3 elements",
       "description": "Index -4 out of range for tuple with 3 elements",
       "line": 33,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 13,
       "stop_line": 33
@@ -8030,7 +8030,7 @@
       "concise_description": "Index 3 out of range for tuple with 3 elements",
       "description": "Index 3 out of range for tuple with 3 elements",
       "line": 34,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 11,
       "stop_line": 34
@@ -8041,7 +8041,7 @@
       "concise_description": "Index -4 out of range for tuple with 3 elements",
       "description": "Index -4 out of range for tuple with 3 elements",
       "line": 35,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 12,
       "stop_line": 35
@@ -8267,7 +8267,7 @@
       "concise_description": "Cannot index into `Bytes`",
       "description": "Cannot index into `Bytes`\n  No matching overload found for function `Bytes.__getitem__`\n  Possible overloads:\n  (__i: int, /) -> int [closest match]\n  (__s: slice[Any, Any, Any], /) -> bytes",
       "line": 39,
-      "name": "index-error",
+      "name": "bad-index",
       "severity": "error",
       "stop_column": 6,
       "stop_line": 39
