@@ -310,13 +310,6 @@ def two_elems() -> tuple:
 a, b, c = two_elems()
 ```
 
-## delete-error
-
-This error occurs when attempting to `del` something that cannot be deleted.
-
-Besides obvious things like built-in values (you can't `del True`!), some object attributes are protected from deletion.
-For example, read-only and required `TypedDict` fields cannot be deleted.
-
 ## deprecated
 
 This error occurs on usage of a deprecated class or function:
@@ -955,6 +948,13 @@ def where() -> None:
 ## unsupported
 
 This error indicates that pyrefly does not currently support a typing feature.
+
+## unsupported-delete
+
+This error occurs when attempting to `del` something that cannot be deleted.
+
+Besides obvious things like built-in values (you can't `del True`!), some object attributes are protected from deletion.
+For example, read-only and required `TypedDict` fields cannot be deleted.
 
 ## unsupported-operation
 

@@ -1493,7 +1493,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::DeleteError),
+                ErrorInfo::Kind(ErrorKind::UnsupportedDelete),
                 format!("Key{maybe_field_name} in TypedDict `{typed_dict}` may not be deleted"),
             );
         }
@@ -3818,7 +3818,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     delete_target.range(),
-                    ErrorInfo::Kind(ErrorKind::DeleteError),
+                    ErrorInfo::Kind(ErrorKind::UnsupportedDelete),
                     "Invalid target for `del`".to_owned(),
                 );
             }

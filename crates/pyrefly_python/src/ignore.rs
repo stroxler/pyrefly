@@ -261,6 +261,7 @@ impl Ignore {
     fn map_old_error_kinds(old: &str) -> &str {
         match old {
             "async-error" => "not-async",
+            "delete-error" => "unsupported-delete",
             _ => old,
         }
     }

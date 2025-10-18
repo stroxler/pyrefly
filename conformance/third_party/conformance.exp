@@ -10662,7 +10662,7 @@
       "concise_description": "Key `name` in TypedDict `MovieEI` may not be deleted",
       "description": "Key `name` in TypedDict `MovieEI` may not be deleted",
       "line": 128,
-      "name": "delete-error",
+      "name": "unsupported-delete",
       "severity": "error",
       "stop_column": 21,
       "stop_line": 128
@@ -10997,7 +10997,7 @@
       "concise_description": "Key `name` in TypedDict `Movie` may not be deleted",
       "description": "Key `name` in TypedDict `Movie` may not be deleted",
       "line": 49,
-      "name": "delete-error",
+      "name": "unsupported-delete",
       "severity": "error",
       "stop_column": 17,
       "stop_line": 49

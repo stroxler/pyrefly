@@ -123,8 +123,6 @@ pub enum ErrorKind {
     /// An error caused by unpacking.
     /// e.g. attempting to unpack an iterable into the wrong number of variables.
     BadUnpacking,
-    /// Attempting to `del` something that cannot be deleted
-    DeleteError,
     /// Calling a function marked with `@deprecated`
     Deprecated,
     /// This error is raised when Pyrefly infers an implicit `Any`
@@ -232,6 +230,8 @@ pub enum ErrorKind {
     UnknownName,
     /// Attempting to use a feature that is not yet supported.
     Unsupported,
+    /// Attempting to `del` something that cannot be deleted
+    UnsupportedDelete,
     /// Attempting to apply an operation to arguments that do not support it.
     UnsupportedOperation,
     /// Result of async function call is never used or awaited
