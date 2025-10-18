@@ -724,6 +724,11 @@ os.perkeo  # missing-attribute
 In this example, `os.bacarat` is treated as a module name, so failing to find it results in an `import-error`.
 `from os import joker` does not tell us if `joker` is a module, class, function, etc., so it is treated as the more general `missing-module-attribute`.
 
+## missing-source
+
+Pyrefly was able to find a stubs package but no corresponding source package. For example, this can
+happen if you install the `types-requests` package but forget to install `requests`.
+
 ## no-access
 
 The `no-access` error indicates that an attribute exists, but it cannot be used in this way.

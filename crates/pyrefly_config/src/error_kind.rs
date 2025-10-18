@@ -194,6 +194,8 @@ pub enum ErrorKind {
     MissingAttribute,
     /// Accessing an attribute that does not exist on a module.
     MissingModuleAttribute,
+    /// The source code for an imported package is missing.
+    MissingSource,
     /// The attribute exists but does not support this access pattern.
     NoAccess,
     /// Attempting to call an overloaded function, but none of the signatures match.

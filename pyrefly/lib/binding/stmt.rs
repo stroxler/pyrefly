@@ -279,6 +279,18 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.mark_flow_termination();
     }
 
+    fn find_error(&self, error: &FindError, range: TextRange) {
+        let kind = match error {
+            FindError::NotFound(..) => ErrorKind::ImportError,
+            FindError::NoSource(..) => ErrorKind::MissingSource,
+            FindError::Ignored => {
+                return;
+            }
+        };
+        let (ctx, msg) = error.display();
+        self.error_multiline(range, ErrorInfo::new(kind, ctx.as_deref()), msg);
+    }
+
     /// Evaluate the statements and update the bindings.
     /// Every statement should end up in the bindings, perhaps with a location that is never used.
     pub fn stmt(&mut self, x: Stmt, parent: &NestingContext) {
@@ -831,15 +843,8 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Import(x) => {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
-                    if let Err(err @ (FindError::NotFound(..) | FindError::NoSource(..))) =
-                        self.lookup.get(m)
-                    {
-                        let (ctx, msg) = err.display();
-                        self.error_multiline(
-                            x.range,
-                            ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
-                            msg,
-                        );
+                    if let Err(err) = self.lookup.get(m) {
+                        self.find_error(&err, x.range);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -970,12 +975,7 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         Err(FindError::Ignored) => self.bind_unimportable_names(&x, false),
                         Err(err @ (FindError::NoSource(_) | FindError::NotFound(..))) => {
-                            let (ctx, msg) = err.display();
-                            self.error_multiline(
-                                x.range,
-                                ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
-                                msg,
-                            );
+                            self.find_error(&err, x.range);
                             self.bind_unimportable_names(&x, true);
                         }
                     }
