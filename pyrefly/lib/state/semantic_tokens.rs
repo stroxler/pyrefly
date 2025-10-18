@@ -245,6 +245,13 @@ impl SemanticTokenBuilder {
 
     fn process_stmt(&mut self, x: &Stmt) {
         match x {
+            Stmt::With(with) => {
+                for with_item in with.items.iter() {
+                    if let Some(box name) = &with_item.optional_vars {
+                        self.push_if_in_range(name.range(), SemanticTokenType::VARIABLE, vec![]);
+                    }
+                }
+            }
             Stmt::Import(StmtImport { names, .. }) => {
                 for alias in names {
                     self.push_if_in_range(alias.name.range, SemanticTokenType::NAMESPACE, vec![]);

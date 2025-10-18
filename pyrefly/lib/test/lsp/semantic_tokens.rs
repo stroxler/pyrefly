@@ -306,7 +306,7 @@ token-type: property
 fn type_alias_test() {
     let code = r#"
 type A = int
-def foo(v: A) -> int: 
+def foo(v: A) -> int:
   return 3
 
 type A2 = A
@@ -380,9 +380,34 @@ token-type: method
 }
 
 #[test]
+fn with_name_test() {
+    let code = r#"
+with open("foo.txt") as f1, open("bar.txt") as f2:
+    pass
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 5, length: 4, text: open
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 1, column: 24, length: 2, text: f1
+token-type: variable
+
+line: 1, column: 28, length: 4, text: open
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 1, column: 47, length: 2, text: f2
+token-type: variable
+"#,
+    );
+}
+
+#[test]
 fn type_param_test() {
     let code = r#"
-def foo[T](v: T) -> T: 
+def foo[T](v: T) -> T:
   return v
 "#;
     assert_full_semantic_tokens(
