@@ -263,6 +263,9 @@ token-type: class, token-modifiers: [defaultLibrary]
 line: 3, column: 29, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]
 
+line: 4, column: 4, length: 1, text: x
+token-type: variable
+
 line: 4, column: 7, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]
 
@@ -563,7 +566,6 @@ token-type: variable"#,
     );
 }
 
-// todo(kylei): attributes that don't have a default value should have coloring
 #[test]
 fn unassigned_attribute() {
     let code = r#"
@@ -576,6 +578,9 @@ class Test:
 # main.py
 line: 1, column: 6, length: 4, text: Test
 token-type: class
+
+line: 2, column: 4, length: 1, text: x
+token-type: variable
 
 line: 2, column: 7, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]

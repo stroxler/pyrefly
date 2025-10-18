@@ -259,7 +259,13 @@ impl SemanticTokenBuilder {
             }) => {
                 self.push_if_in_range(module.range, SemanticTokenType::NAMESPACE, vec![]);
             }
-            _ => {}
+            Stmt::AnnAssign(ann_assign) => {
+                if let Expr::Name(name) = &*ann_assign.target {
+                    self.push_if_in_range(name.range, SemanticTokenType::VARIABLE, vec![]);
+                }
+                x.recurse(&mut |x| self.process_stmt(x));
+            }
+            _ => x.recurse(&mut |x| self.process_stmt(x)),
         }
     }
 
