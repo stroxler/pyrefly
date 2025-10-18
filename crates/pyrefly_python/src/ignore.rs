@@ -264,6 +264,7 @@ impl Ignore {
             "delete-error" => "unsupported-delete",
             "import-error" => "missing-import",
             "index-error" => "bad-index",
+            "match-error" => "bad-match",
             _ => old,
         }
     }

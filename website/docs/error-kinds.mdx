@@ -183,6 +183,28 @@ f(x=1, x=2)
 
 However, this is often accompanied by a `parse-error` for the same issue.
 
+## bad-match
+
+This error is used in two cases.
+
+The first is when there is an issue with a `match` statement. For example, `Ex` only has 2 fields but the `case` lists 3:
+
+```python
+class Ex:
+  __match_args__ = ('a', 'b')
+  def __init__(self, a: int, b: str) -> None:
+    self.a = a
+    self.b = b
+
+def do(x: Ex) -> None:
+  match x:
+    case Ex(a, b, c):
+      print("This is an error")
+```
+
+It is also used when `__match_args__` is defined incorrectly. It must be a tuple of the names of the class's attributes as literal strings.
+For class `Ex` in the previous example, `__match_args__ = ('a', 'c')` would be an error because `Ex.c` does not exist.
+
 ## bad-override
 
 When a subclass overrides a field or method of its base class, care must be taken that the override won't cause problems.
@@ -627,28 +649,6 @@ def bad_yield_from() -> Generator[int, None, None]:
   # `yield from` can only be used with iterables.
   yield from 1
 ```
-
-## match-error
-
-This error is used in two cases.
-
-The first is when there is an issue with a `match` statement. For example, `Ex` only has 2 fields but the `case` lists 3:
-
-```python
-class Ex:
-  __match_args__ = ('a', 'b')
-  def __init__(self, a: int, b: str) -> None:
-    self.a = a
-    self.b = b
-
-def do(x: Ex) -> None:
-  match x:
-    case Ex(a, b, c):
-      print("This is an error")
-```
-
-It is also used when `__match_args__` is defined incorrectly. It must be a tuple of the names of the class's attributes as literal strings.
-For class `Ex` in the previous example, `__match_args__ = ('a', 'c')` would be an error because `Ex.c` does not exist.
 
 ## missing-argument
 

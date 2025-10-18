@@ -282,7 +282,7 @@ mod tests {
         add(
             &errors,
             TextRange::new(TextSize::new(2), TextSize::new(3)),
-            ErrorKind::MatchError,
+            ErrorKind::BadMatch,
             "d".to_owned(),
         );
         add(

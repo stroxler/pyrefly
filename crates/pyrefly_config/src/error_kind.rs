@@ -109,6 +109,9 @@ pub enum ErrorKind {
     /// Attempting to call a function with an incorrect keyword argument.
     /// e.g. f(x=1, x=2), or perhaps f(y=1) (where `f` has no parameter `y`).
     BadKeywordArgument,
+    /// An error caused by a bad match statement.
+    /// e.g. Writing a Foo(x, y, z) pattern when Foo only matches on (x, y).
+    BadMatch,
     /// A subclass field or method incorrectly overrides a field/method of a parent class.
     BadOverride,
     /// A subclass method incorrectly changes the name of a positional parameter while overriding
@@ -175,9 +178,6 @@ pub enum ErrorKind {
     /// Attempting to use `yield` in a way that is not allowed.
     /// e.g. `yield from` with something that's not an iterable.
     InvalidYield,
-    /// An error caused by a bad match statement.
-    /// e.g. Writing a Foo(x, y, z) pattern when Foo only matches on (x, y).
-    MatchError,
     /// An error caused by calling a function without all the required arguments.
     /// Should be used when we can name the specific arguments that are missing.
     MissingArgument,
