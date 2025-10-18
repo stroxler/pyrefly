@@ -543,3 +543,47 @@ token-type: variable
 "#,
     );
 }
+
+// todo(kylei): should be 3 semantic tokens (including after reassignment) #1033
+#[test]
+fn reassignment() {
+    let code = r#"
+foo = 3
+foo += 1
+foo"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 0, length: 3, text: foo
+token-type: variable
+
+line: 2, column: 0, length: 3, text: foo
+token-type: variable"#,
+    );
+}
+
+// todo(kylei): attributes that don't have a default value should have coloring
+#[test]
+fn unassigned_attribute() {
+    let code = r#"
+class Test:
+    x: int
+    x: int = 5"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 6, length: 4, text: Test
+token-type: class
+
+line: 2, column: 7, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 4, length: 1, text: x
+token-type: variable
+
+line: 3, column: 7, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]"#,
+    );
+}
