@@ -262,6 +262,7 @@ impl Ignore {
         match old {
             "async-error" => "not-async",
             "delete-error" => "unsupported-delete",
+            "import-error" => "missing-import",
             _ => old,
         }
     }

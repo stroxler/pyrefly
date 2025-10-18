@@ -68,7 +68,7 @@ impl Load {
         if let Some(err) = self_error {
             errors.add(
                 TextRange::default(),
-                ErrorInfo::Kind(ErrorKind::ImportError),
+                ErrorInfo::Kind(ErrorKind::MissingImport),
                 vec1![format!(
                     "Failed to load `{name}` from `{}`, got {err:#}",
                     module_info.path()

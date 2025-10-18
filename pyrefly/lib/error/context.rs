@@ -63,7 +63,7 @@ impl ErrorContext {
             Self::SetItem(..) => ErrorKind::UnsupportedOperation,
             Self::DelItem(..) => ErrorKind::UnsupportedOperation,
             Self::MatchPositional(..) => ErrorKind::MatchError,
-            Self::ImportNotFound(..) => ErrorKind::ImportError,
+            Self::ImportNotFound(..) => ErrorKind::MissingImport,
         }
     }
 }

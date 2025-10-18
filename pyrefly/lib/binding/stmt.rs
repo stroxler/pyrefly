@@ -281,7 +281,7 @@ impl<'a> BindingsBuilder<'a> {
 
     fn find_error(&self, error: &FindError, range: TextRange) {
         let kind = match error {
-            FindError::NotFound(..) => ErrorKind::ImportError,
+            FindError::NotFound(..) => ErrorKind::MissingImport,
             FindError::NoSource(..) => ErrorKind::MissingSource,
             FindError::Ignored => {
                 return;
@@ -982,7 +982,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     self.error(
                         x.range,
-                        ErrorInfo::Kind(ErrorKind::ImportError),
+                        ErrorInfo::Kind(ErrorKind::MissingImport),
                         format!(
                             "Could not resolve relative import `{}`",
                             ".".repeat(x.level as usize)

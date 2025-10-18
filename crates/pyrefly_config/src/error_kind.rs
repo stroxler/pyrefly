@@ -133,9 +133,6 @@ pub enum ErrorKind {
     /// do not recognize as always executing (we recognize constructors and some test setup
     /// methods).
     ImplicitlyDefinedAttribute,
-    /// An error related to the import machinery.
-    /// e.g. failed to import a module.
-    ImportError,
     /// An inconsistency between inherited fields or methods from multiple base classes.
     InconsistentInheritance,
     /// An inconsistency between the signature of a function overload and the implementation.
@@ -186,6 +183,8 @@ pub enum ErrorKind {
     MissingArgument,
     /// Attempting to access an attribute that does not exist.
     MissingAttribute,
+    /// Failed to import a module.
+    MissingImport,
     /// Accessing an attribute that does not exist on a module.
     MissingModuleAttribute,
     /// The source code for an imported package is missing.

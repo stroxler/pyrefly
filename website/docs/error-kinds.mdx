@@ -367,13 +367,6 @@ class C:
         self.y = 0  # error, `y` may be undefined if `f` does not execute
 ```
 
-## import-error
-
-An error related to the import mechanism, such as when a module cannot be found.
-
-The error message will include which paths were searched, such as the site package paths.
-You may be missing a dependency, or you may need to inform Pyrefly where the module lives. See [Configuration](configuration.mdx) for further information.
-
 ## inconsistent-inheritance
 
 When a class inherits from multiple base classes, the inherited fields must be consistent.
@@ -682,20 +675,27 @@ os.jongleur()  # missing-attribute
 
 Note that objects with type `Any` will never raise this error.
 
+## missing-import
+
+A module could not be found.
+
+The error message will include which paths were searched, such as the site package paths.
+You may be missing a dependency, or you may need to inform Pyrefly where the module lives. See [Configuration](configuration.mdx) for further information.
+
 ## missing-module-attribute
 
 Arises when attempting to import a name that does not exist from a module.
 
-This is distinct from [`import-error`](#import-error), which is used when the module being imported does not exist, and [`missing-attribute`](#missing-attribute), when access attributes of the module.
+This is distinct from [`missing-import`](#missing-import), which is used when the module being imported does not exist, and [`missing-attribute`](#missing-attribute), when access attributes of the module.
 
 ```python
-import this_does_not_exist  # import-error
-import os.bacarat  # import-error
+import this_does_not_exist  # missing-import
+import os.bacarat  # missing-import
 from os import joker  # missing-module-attribute
 os.perkeo  # missing-attribute
 ```
 
-In this example, `os.bacarat` is treated as a module name, so failing to find it results in an `import-error`.
+In this example, `os.bacarat` is treated as a module name, so failing to find it results in an `missing-import`.
 `from os import joker` does not tell us if `joker` is a module, class, function, etc., so it is treated as the more general `missing-module-attribute`.
 
 ## missing-source

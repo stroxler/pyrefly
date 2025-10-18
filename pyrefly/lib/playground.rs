@@ -520,7 +520,7 @@ mod tests {
             "  Looked in these locations:\n  Build system source database",
             "",
         ];
-        let expected_error_kinds = &[ErrorKind::ImportError, ErrorKind::ParseError];
+        let expected_error_kinds = &[ErrorKind::MissingImport, ErrorKind::ParseError];
 
         assert_eq!(
             &state.get_errors().into_map(|x| x.message_header),
@@ -555,7 +555,10 @@ mod tests {
 
         let errors = state.get_errors();
 
-        let import_errors: Vec<_> = errors.iter().filter(|e| e.kind == "ImportError").collect();
+        let import_errors: Vec<_> = errors
+            .iter()
+            .filter(|e| e.kind == "MissingImport")
+            .collect();
 
         assert_eq!(
             import_errors.len(),

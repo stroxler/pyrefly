@@ -183,7 +183,7 @@ impl RuleOverrides {
         .reduce(|acc, x| acc | x)
         {
             map.insert(
-                ErrorKind::ImportError,
+                ErrorKind::MissingImport,
                 if import_error {
                     Severity::Error
                 } else {

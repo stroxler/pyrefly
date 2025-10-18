@@ -169,7 +169,7 @@ mod tests {
         assert!(pyrefly_cfg.root.errors.is_some());
         let errors = pyrefly_cfg.root.errors.as_ref().unwrap();
 
-        assert_eq!(errors.severity(ErrorKind::ImportError), Severity::Error);
+        assert_eq!(errors.severity(ErrorKind::MissingImport), Severity::Error);
     }
 
     #[test]
