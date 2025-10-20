@@ -194,6 +194,7 @@ use crate::lsp_features::hover::get_hover;
 use crate::lsp_features::provide_type::ProvideType;
 use crate::lsp_features::provide_type::ProvideTypeResponse;
 use crate::lsp_features::provide_type::provide_type;
+use crate::lsp_features::will_rename_files::will_rename_files;
 use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -908,9 +909,21 @@ impl Server {
                     {
                         let transaction =
                             ide_transaction_manager.non_committable_transaction(&self.state);
+                        let supports_document_changes = self
+                            .initialize_params
+                            .capabilities
+                            .workspace
+                            .as_ref()
+                            .and_then(|w| w.workspace_edit.as_ref())
+                            .and_then(|we| we.document_changes)
+                            .unwrap_or(false);
                         self.send_response(new_response(
                             x.id,
-                            Ok(self.will_rename_files(&transaction, params)),
+                            Ok(self.will_rename_files(
+                                &transaction,
+                                params,
+                                supports_document_changes,
+                            )),
                         ));
                         ide_transaction_manager.save(transaction);
                     }
@@ -2143,20 +2156,17 @@ impl Server {
 
     fn will_rename_files(
         &self,
-        _transaction: &Transaction<'_>,
+        transaction: &Transaction<'_>,
         params: RenameFilesParams,
+        supports_document_changes: bool,
     ) -> Option<WorkspaceEdit> {
-        // TODO: Implement import updates when files are renamed
-        // For now, return None to indicate no edits are needed
-        // This is similar to how basedpyright initially implemented this feature
-        eprintln!(
-            "will_rename_files called with {} file(s)",
-            params.files.len()
-        );
-        for file in &params.files {
-            eprintln!("  Renaming: {} -> {}", file.old_uri, file.new_uri);
-        }
-        None
+        will_rename_files(
+            &self.state,
+            transaction,
+            &self.open_files,
+            params,
+            supports_document_changes,
+        )
     }
 }
 
