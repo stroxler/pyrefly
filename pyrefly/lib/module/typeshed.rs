@@ -22,6 +22,7 @@ use starlark_map::small_map::SmallMap;
 use crate::config::config::ConfigFile;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
 use crate::module::bundled::bundled::get_config_file;
+use crate::module::bundled::bundled::get_modules;
 use crate::module::bundled::bundled::load_stubs_from_path;
 use crate::module::bundled::bundled::write_stub_files;
 
@@ -55,7 +56,7 @@ impl BundledTypeshed {
     }
 
     pub fn modules(&self) -> impl Iterator<Item = ModuleName> {
-        self.find.keys().copied()
+        get_modules(self)
     }
 
     pub fn config() -> ArcId<ConfigFile> {

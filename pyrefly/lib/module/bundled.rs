@@ -45,6 +45,10 @@ pub mod bundled {
             .map(|path| ModulePath::bundled_typeshed(path.clone()))
     }
 
+    pub fn get_modules(bundled_typeshed: &BundledTypeshed) -> impl Iterator<Item = ModuleName> {
+        bundled_typeshed.find.keys().copied()
+    }
+
     pub fn load_stubs_from_path(
         bundled_typeshed: BundledTypeshed,
         path: &Path,
