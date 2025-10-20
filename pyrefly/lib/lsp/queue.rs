@@ -12,6 +12,7 @@ use std::sync::atomic::Ordering;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::RecvError;
 use crossbeam_channel::Select;
+use crossbeam_channel::SelectedOperation;
 use crossbeam_channel::SendError;
 use crossbeam_channel::Sender;
 use dupe::Dupe;
@@ -154,21 +155,78 @@ struct HeavyTaskQueueInner {
     task_receiver: Receiver<HeavyTask>,
     stop_sender: Sender<()>,
     stop_receiver: Receiver<()>,
+    get_task: Box<
+        dyn for<'a> Fn(&mut Select<'a>, usize, &Receiver<HeavyTask>) -> SelectedOperation<'a>
+            + Send
+            + Sync,
+    >,
 }
 
 /// A queue for heavy tasks that should be run in the background thread.
 #[derive(Clone, Dupe)]
 pub struct HeavyTaskQueue(Arc<HeavyTaskQueueInner>);
 
+/// Given a selector, return the next [`SelectedOperation`].
+fn get_next_task<'a>(
+    select: &mut Select<'a>,
+    _: usize,
+    _: &Receiver<HeavyTask>,
+) -> SelectedOperation<'a> {
+    select.select()
+}
+
+/// Given a selector, get the *last* selected operation that's ready, processing them
+/// in order and dropping any that aren't the last.
+///
+/// If an event is received from the stop sender, return that [`SelectedOperation`]
+/// immediately.
+fn get_last_task<'a>(
+    select: &mut Select<'a>,
+    stop_receiver_index: usize,
+    task_receiver: &Receiver<HeavyTask>,
+) -> SelectedOperation<'a> {
+    let mut selected = select.select();
+    loop {
+        if selected.index() == stop_receiver_index {
+            return selected;
+        }
+        match select.try_select() {
+            Ok(next) => {
+                // Drop the previously received value, since otherwise we'll get an error
+                // about it not being consumed
+                let _ = selected
+                    .recv(task_receiver)
+                    .expect("Failed to receive heavy task");
+                // Use the next selected item
+                selected = next;
+            }
+            Err(_) => {
+                return selected;
+            }
+        }
+    }
+}
+
 impl HeavyTaskQueue {
-    pub fn new() -> Self {
+    /// Create a new `HeavyTaskQueue`.
+    ///
+    /// When `drop_intermediate_pending_tasks` is true,
+    /// once this task queue is ready to process the next task, all pending tasks but
+    /// the last task ready to be consumed will be dropped.
+    pub fn new(drop_intermediate_pending_tasks: bool) -> Self {
         let (task_sender, task_receiver) = crossbeam_channel::unbounded();
         let (stop_sender, stop_receiver) = crossbeam_channel::unbounded();
+        let get_task = Box::new(if drop_intermediate_pending_tasks {
+            get_last_task
+        } else {
+            get_next_task
+        });
         Self(Arc::new(HeavyTaskQueueInner {
             task_sender,
             task_receiver,
             stop_sender,
             stop_receiver,
+            get_task,
         }))
     }
 
@@ -186,7 +244,11 @@ impl HeavyTaskQueue {
         let stop_receiver_index = receiver_selector.recv(&self.0.stop_receiver);
         let task_receiver_index = receiver_selector.recv(&self.0.task_receiver);
         loop {
-            let selected = receiver_selector.select();
+            let selected = (self.0.get_task)(
+                &mut receiver_selector,
+                stop_receiver_index,
+                &self.0.task_receiver,
+            );
             match selected.index() {
                 i if i == stop_receiver_index => {
                     selected
