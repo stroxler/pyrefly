@@ -1164,7 +1164,7 @@ testcase!(
     test_boolean_op_narrowing_example,
     r#"
 from typing import Sequence, reveal_type
-class A: 
+class A:
     def foo(self) -> bool:
         raise NotImplementedError()
     def i(self) -> int:
@@ -1478,6 +1478,27 @@ def f(x: list[int]) -> None:
     i: str = ""
     for i in x: # E: Cannot use variable `i` with type `str` to iterate over elements of type `int`
         pass
+    "#,
+);
+
+testcase!(
+    test_for_implicit_return,
+    r#"
+def test1(match: float) -> float:
+    for i in range(10):
+        if i == match:
+            return 3.14
+    else:
+        msg = "No value found"
+        raise ValueError(msg)
+
+def test2(match: float) -> float:  # E: Function declared to return `float` but is missing an explicit `return`
+    for i in range(10):
+        if i == match:
+            break
+    else:
+        msg = "No value found"
+        raise ValueError(msg)
     "#,
 );
 
