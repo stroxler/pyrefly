@@ -89,13 +89,15 @@ pub mod bundled {
         CONFIG.dupe()
     }
 
-    pub fn write_stub_files(
-        bundled_typeshed: BundledTypeshedStdlib,
-        temp_dir: &Path,
-    ) -> anyhow::Result<()> {
+    pub fn write_stub_files(bundled_typeshed: Stub, temp_dir: &Path) -> anyhow::Result<()> {
         fs_anyhow::create_dir_all(temp_dir)?;
 
-        for (relative_path, contents) in &bundled_typeshed.load {
+        let load = match bundled_typeshed {
+            Stub::BundledTypeshedStdlib(stdlib) => stdlib.load,
+            Stub::BundledTypeshedThirdParty(third_party) => third_party.load,
+        };
+
+        for (relative_path, contents) in load {
             let mut file_path = temp_dir.to_owned();
             file_path.push(relative_path);
 
@@ -122,11 +124,12 @@ pub mod bundled {
     }
 
     pub fn get_materialized_path_on_disk(
-        bundled_typeshed: BundledTypeshedStdlib,
+        bundled_typeshed: Stub,
+        temp_dir_path: &str,
     ) -> anyhow::Result<PathBuf> {
         static WRITTEN_TO_DISK: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 
-        let temp_dir = env::temp_dir().join("pyrefly_bundled_typeshed");
+        let temp_dir = env::temp_dir().join(temp_dir_path);
 
         let mut written = WRITTEN_TO_DISK.lock();
         if !*written {

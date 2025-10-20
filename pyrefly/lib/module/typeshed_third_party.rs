@@ -8,18 +8,21 @@
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
+use anyhow::anyhow;
 use pyrefly_bundled::bundled_third_party_stubs;
 use pyrefly_config::config::ConfigFile;
 use pyrefly_python::module_name::ModuleName;
-use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
 use starlark_map::small_map::SmallMap;
 
 use crate::module::bundled::bundled::Stub;
 use crate::module::bundled::bundled::get_config_file;
+use crate::module::bundled::bundled::get_materialized_path_on_disk;
 use crate::module::bundled::bundled::get_modules;
 use crate::module::bundled::bundled::load_stubs_from_path;
+use crate::module::bundled::bundled::write_stub_files;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -55,8 +58,46 @@ impl BundledTypeshedThirdParty {
         get_modules(&stub).collect::<Vec<_>>().into_iter()
     }
 
+    pub fn materialized_path_on_disk(&self) -> anyhow::Result<PathBuf> {
+        get_materialized_path_on_disk(
+            Stub::BundledTypeshedThirdParty(self.clone()),
+            "pyrefly_bundled_typeshed_third_party",
+        )
+    }
+
+    #[cfg(test)]
+    fn write(&self, temp_dir: &Path) -> anyhow::Result<()> {
+        write_stub_files(Stub::BundledTypeshedThirdParty(self.clone()), temp_dir)
+    }
+
     #[allow(dead_code)]
     pub fn config() -> ArcId<ConfigFile> {
         get_config_file()
+    }
+}
+
+#[cfg(test)]
+static BUNDLED_TYPESHED_THIRD_PARTY: LazyLock<anyhow::Result<BundledTypeshedThirdParty>> =
+    LazyLock::new(BundledTypeshedThirdParty::new);
+
+#[cfg(test)]
+pub fn typeshed_third_party() -> anyhow::Result<&'static BundledTypeshedThirdParty> {
+    match &*BUNDLED_TYPESHED_THIRD_PARTY {
+        Ok(typeshed) => Ok(typeshed),
+        Err(error) => Err(anyhow!("{error:#}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_typeshed_materialize() {
+        let typeshed = typeshed_third_party().unwrap();
+        let path = typeshed.materialized_path_on_disk().unwrap();
+        // Do it twice, to check that works.
+        typeshed.materialized_path_on_disk().unwrap();
+        typeshed.write(&path).unwrap();
     }
 }

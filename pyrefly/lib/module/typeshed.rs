@@ -70,12 +70,15 @@ impl BundledTypeshedStdlib {
     /// Note: this path is not the source of truth, it simply exists to display typeshed contents
     /// for informative purposes.
     pub fn materialized_path_on_disk(&self) -> anyhow::Result<PathBuf> {
-        get_materialized_path_on_disk(self.clone())
+        get_materialized_path_on_disk(
+            Stub::BundledTypeshedStdlib(self.clone()),
+            "pyrefly_bundled_typeshed",
+        )
     }
 
     #[cfg(test)]
     fn write(&self, temp_dir: &Path) -> anyhow::Result<()> {
-        write_stub_files(self.clone(), temp_dir)
+        write_stub_files(Stub::BundledTypeshedStdlib(self.clone()), temp_dir)
     }
 }
 
