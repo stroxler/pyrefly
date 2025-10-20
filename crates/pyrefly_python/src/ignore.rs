@@ -31,6 +31,30 @@ use pyrefly_util::lined_buffer::LineNumber;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+/// Finds the byte offset of the first '#' character that starts a comment.
+/// Returns None if no comment is found or if all '#' are inside strings.
+/// Handles escape sequences and single/double quotes.
+///
+/// This is string-aware parsing that avoids treating '#' inside strings as comments.
+/// For example: `x = "hello # world"  # real comment` correctly identifies the second '#'.
+pub fn find_comment_start_in_line(line: &str) -> Option<usize> {
+    let mut chars = line.char_indices().peekable();
+    let mut in_string = None; // None, Some('"'), or Some('\'')
+
+    while let Some((idx, ch)) = chars.next() {
+        match (ch, in_string) {
+            ('\\', Some(_)) => {
+                chars.next();
+            } // Skip next char if escaped
+            ('"' | '\'', None) => in_string = Some(ch), // Enter string
+            (q, Some(quote)) if q == quote => in_string = None, // Exit string
+            ('#', None) => return Some(idx),            // Found comment!
+            _ => {}
+        }
+    }
+    None
+}
+
 /// The name of the tool that is being suppressed.
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
 pub enum Tool {
@@ -314,6 +338,17 @@ impl Ignore {
         };
         filtered_ignores.map(|(line, _)| *line).collect()
     }
+
+    /// Returns an iterator over all suppressions in the file.
+    /// Each item is a (line_number, suppressions) pair where line_number is where the suppression applies.
+    pub fn iter(&self) -> impl Iterator<Item = (&LineNumber, &Vec<Suppression>)> {
+        self.ignores.iter()
+    }
+
+    /// Gets the suppressions for a specific line.
+    pub fn get(&self, line: &LineNumber) -> Option<&Vec<Suppression>> {
+        self.ignores.get(line)
+    }
 }
 
 #[cfg(test)]
@@ -399,6 +434,32 @@ mod tests {
 
         // For a malformed comment, at least do something with it (works well incrementally)
         f("type: ignore[hello", Some(Tool::Any), &["hello"]);
+    }
+
+    #[test]
+    fn test_find_comment_start_in_line() {
+        // Test basic comment finding
+        assert_eq!(find_comment_start_in_line("x = 1  # comment"), Some(7));
+        assert_eq!(find_comment_start_in_line("no comment here"), None);
+
+        // Test string-aware parsing
+        assert_eq!(
+            find_comment_start_in_line(r#"x = "hello # world"  # real"#),
+            Some(21)
+        );
+        assert_eq!(
+            find_comment_start_in_line(r#"x = 'hello # world'  # real"#),
+            Some(21)
+        );
+
+        // Test escaped quotes
+        assert_eq!(
+            find_comment_start_in_line(r#"x = "she said \"hi\" # not" # real"#),
+            Some(28)
+        );
+
+        // Test multiple hashes
+        assert_eq!(find_comment_start_in_line("# first # second"), Some(0));
     }
 
     #[test]
