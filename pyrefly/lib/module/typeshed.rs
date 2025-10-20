@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -15,7 +14,6 @@ use std::sync::LazyLock;
 
 use anyhow::Context as _;
 use anyhow::anyhow;
-use dupe::Dupe;
 use pyrefly_bundled::bundled_typeshed;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -25,10 +23,8 @@ use pyrefly_util::lock::Mutex;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
-use crate::config::error::ErrorDisplayConfig;
-use crate::config::error_kind::ErrorKind;
-use crate::config::error_kind::Severity;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
+use crate::module::bundled::bundled::get_config_file;
 use crate::module::bundled::bundled::load_stubs_from_path;
 
 #[derive(Debug, Clone)]
@@ -72,23 +68,7 @@ impl BundledTypeshed {
     }
 
     pub fn config() -> ArcId<ConfigFile> {
-        static CONFIG: LazyLock<ArcId<ConfigFile>> = LazyLock::new(|| {
-            let mut config_file = ConfigFile::default();
-            config_file.python_environment.site_package_path = Some(Vec::new());
-            config_file.search_path_from_file = match stdlib_search_path() {
-                Some(path) => vec![path],
-                None => Vec::new(),
-            };
-            config_file.root.errors = Some(ErrorDisplayConfig::new(HashMap::from([
-                // The stdlib is full of deliberately incorrect overrides, so ignore them
-                (ErrorKind::BadOverride, Severity::Ignore),
-                (ErrorKind::BadParamNameOverride, Severity::Ignore),
-            ])));
-            config_file.root.disable_type_errors_in_ide = Some(true);
-            config_file.configure();
-            ArcId::new(config_file)
-        });
-        CONFIG.dupe()
+        get_config_file()
     }
 
     /// Obtain a materialized path for bundled typeshed, writing it all to disk the first time.
