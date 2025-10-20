@@ -74,6 +74,37 @@ fn test_will_rename_files_changes_open_files_when_indexing_disabled() {
 }
 
 #[test]
+fn test_will_rename_files_changes_nothing_when_no_files_open() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings::default());
+
+    let bar_path = root.path().join("tests_requiring_config/bar.py");
+    let baz_path = root.path().join("tests_requiring_config/baz.py");
+
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(2),
+        method: "workspace/willRenameFiles".to_owned(),
+        params: serde_json::json!({
+            "files": [{
+                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
+                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
+            }]
+        }),
+    }));
+
+    // Expect a response with no edits since indexing only happens once a file in a config is open
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!(null)),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_will_rename_files_changes_everything_when_indexed() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
