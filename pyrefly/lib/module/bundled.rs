@@ -28,7 +28,7 @@ pub mod bundled {
     use pyrefly_util::fs_anyhow;
     use pyrefly_util::lock::Mutex;
 
-    use crate::module::typeshed::BundledTypeshed;
+    use crate::module::typeshed::BundledTypeshedStdlib;
     use crate::module::typeshed::stdlib_search_path;
 
     pub fn set_readonly(path: &Path, value: bool) -> anyhow::Result<()> {
@@ -39,7 +39,7 @@ pub mod bundled {
     }
 
     pub fn find_bundled_stub_module_path(
-        bundled_typeshed: BundledTypeshed,
+        bundled_typeshed: BundledTypeshedStdlib,
         module: ModuleName,
     ) -> Option<ModulePath> {
         bundled_typeshed
@@ -48,12 +48,14 @@ pub mod bundled {
             .map(|path| ModulePath::bundled_typeshed(path.clone()))
     }
 
-    pub fn get_modules(bundled_typeshed: &BundledTypeshed) -> impl Iterator<Item = ModuleName> {
+    pub fn get_modules(
+        bundled_typeshed: &BundledTypeshedStdlib,
+    ) -> impl Iterator<Item = ModuleName> {
         bundled_typeshed.find.keys().copied()
     }
 
     pub fn load_stubs_from_path(
-        bundled_typeshed: BundledTypeshed,
+        bundled_typeshed: BundledTypeshedStdlib,
         path: &Path,
     ) -> Option<Arc<String>> {
         bundled_typeshed.load.get(path).duped()
@@ -80,7 +82,7 @@ pub mod bundled {
     }
 
     pub fn write_stub_files(
-        bundled_typeshed: BundledTypeshed,
+        bundled_typeshed: BundledTypeshedStdlib,
         temp_dir: &Path,
     ) -> anyhow::Result<()> {
         fs_anyhow::create_dir_all(temp_dir)?;
@@ -102,7 +104,7 @@ pub mod bundled {
             let _ = set_readonly(&file_path, true); // If this fails, not a big deal
         }
 
-        BundledTypeshed::config()
+        BundledTypeshedStdlib::config()
             .as_ref()
             .write_to_toml_in_directory(temp_dir)
             .with_context(|| {
@@ -112,7 +114,7 @@ pub mod bundled {
     }
 
     pub fn get_materialized_path_on_disk(
-        bundled_typeshed: BundledTypeshed,
+        bundled_typeshed: BundledTypeshedStdlib,
     ) -> anyhow::Result<PathBuf> {
         static WRITTEN_TO_DISK: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 

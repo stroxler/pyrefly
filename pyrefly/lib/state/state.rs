@@ -95,7 +95,7 @@ use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::module::finder::find_import_prefixes;
-use crate::module::typeshed::BundledTypeshed;
+use crate::module::typeshed::BundledTypeshedStdlib;
 use crate::solver::solver::VarRecurser;
 use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
@@ -1141,7 +1141,7 @@ impl<'a> Transaction<'a> {
     }
 
     fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
-        let loader = self.get_cached_loader(&BundledTypeshed::config());
+        let loader = self.get_cached_loader(&BundledTypeshedStdlib::config());
         let thread_state = ThreadState::new();
         for k in sys_infos.into_iter_hashed() {
             self.data
@@ -1733,7 +1733,7 @@ impl State {
 
     fn get_config(&self, name: ModuleName, path: &ModulePath) -> ArcId<ConfigFile> {
         if matches!(path.details(), ModulePathDetails::BundledTypeshed(_)) {
-            BundledTypeshed::config()
+            BundledTypeshedStdlib::config()
         } else {
             self.config_finder.python_file(name, path)
         }

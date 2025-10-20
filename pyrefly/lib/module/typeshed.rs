@@ -28,12 +28,12 @@ use crate::module::bundled::bundled::load_stubs_from_path;
 use crate::module::bundled::bundled::write_stub_files;
 
 #[derive(Debug, Clone)]
-pub struct BundledTypeshed {
+pub struct BundledTypeshedStdlib {
     pub find: SmallMap<ModuleName, PathBuf>,
     pub load: SmallMap<PathBuf, Arc<String>>,
 }
 
-impl BundledTypeshed {
+impl BundledTypeshedStdlib {
     fn new() -> anyhow::Result<Self> {
         let contents = bundled_typeshed()?;
         let mut res = Self {
@@ -77,10 +77,10 @@ impl BundledTypeshed {
     }
 }
 
-static BUNDLED_TYPESHED: LazyLock<anyhow::Result<BundledTypeshed>> =
-    LazyLock::new(BundledTypeshed::new);
+static BUNDLED_TYPESHED: LazyLock<anyhow::Result<BundledTypeshedStdlib>> =
+    LazyLock::new(BundledTypeshedStdlib::new);
 
-pub fn typeshed() -> anyhow::Result<&'static BundledTypeshed> {
+pub fn typeshed() -> anyhow::Result<&'static BundledTypeshedStdlib> {
     match &*BUNDLED_TYPESHED {
         Ok(typeshed) => Ok(typeshed),
         Err(error) => Err(anyhow!("{error:#}")),
