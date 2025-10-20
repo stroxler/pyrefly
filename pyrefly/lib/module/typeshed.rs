@@ -19,6 +19,7 @@ use pyrefly_util::arc_id::ArcId;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
+use crate::module::bundled::bundled::Stub;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
 use crate::module::bundled::bundled::get_config_file;
 use crate::module::bundled::bundled::get_materialized_path_on_disk;
@@ -53,7 +54,7 @@ impl BundledTypeshedStdlib {
     }
 
     pub fn load(&self, path: &Path) -> Option<Arc<String>> {
-        load_stubs_from_path(self.clone(), path)
+        load_stubs_from_path(Stub::BundledTypeshedStdlib(self.clone()), path)
     }
 
     pub fn modules(&self) -> impl Iterator<Item = ModuleName> {

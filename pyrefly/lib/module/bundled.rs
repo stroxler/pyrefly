@@ -61,11 +61,11 @@ pub mod bundled {
         bundled_typeshed.find.keys().copied()
     }
 
-    pub fn load_stubs_from_path(
-        bundled_typeshed: BundledTypeshedStdlib,
-        path: &Path,
-    ) -> Option<Arc<String>> {
-        bundled_typeshed.load.get(path).duped()
+    pub fn load_stubs_from_path(stub: Stub, path: &Path) -> Option<Arc<String>> {
+        match stub {
+            Stub::BundledTypeshedStdlib(stdlib) => stdlib.load.get(path).duped(),
+            Stub::BundledTypeshedThirdParty(third_party) => third_party.load.get(path).duped(),
+        }
     }
 
     pub fn get_config_file() -> ArcId<ConfigFile> {

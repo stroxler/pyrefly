@@ -5,12 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use pyrefly_bundled::bundled_third_party_stubs;
 use pyrefly_python::module_name::ModuleName;
 use starlark_map::small_map::SmallMap;
+
+use crate::module::bundled::bundled::Stub;
+use crate::module::bundled::bundled::load_stubs_from_path;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -33,5 +37,10 @@ impl BundledTypeshedThirdParty {
             res.load.insert(relative_path, Arc::new(contents));
         }
         Ok(res)
+    }
+
+    #[allow(dead_code)]
+    pub fn load(&self, path: &Path) -> Option<Arc<String>> {
+        load_stubs_from_path(Stub::BundledTypeshedThirdParty(self.clone()), path)
     }
 }
