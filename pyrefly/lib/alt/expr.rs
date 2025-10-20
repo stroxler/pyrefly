@@ -10,6 +10,8 @@ use std::fmt;
 use std::fmt::Display;
 
 use dupe::Dupe;
+use itertools::Either;
+use itertools::Itertools;
 use num_traits::ToPrimitive;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
@@ -40,6 +42,8 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
+use vec1::Vec1;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -611,14 +615,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn tuple_infer(&self, x: &ExprTuple, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
+        let owner = Owner::new();
         let (hint_ts, default_hint) = if let Some(hint) = &hint
-            && let Type::Tuple(tup) = hint.ty()
+            && let (tuples, nontuples) = self.split_tuple_hint(hint.ty())
+            && nontuples.is_empty()
         {
-            let (hint_ts, default_hint) = self.tuple_to_element_hints(tup);
-            let type_to_hint = |t| HintRef::new(t, hint.errors());
+            // Combine hints from multiple tuples.
+            let mut element_hints: Vec<Vec1<&Type>> = Vec::new();
+            let mut default_hint = Vec::new();
+            for tuple in tuples {
+                let (cur_element_hints, cur_default_hint) = self.tuple_to_element_hints(tuple);
+                if let Some(cur_default_hint) = cur_default_hint {
+                    // Use the default hint for any elements that this tuple doesn't provide per-element hints for.
+                    for ts in element_hints.iter_mut().skip(cur_element_hints.len()) {
+                        ts.push(cur_default_hint);
+                    }
+                    default_hint.push(cur_default_hint);
+                }
+                for (i, element_hint) in cur_element_hints.into_iter().enumerate() {
+                    if i < element_hints.len() {
+                        element_hints[i].push(element_hint);
+                    } else {
+                        element_hints.push(vec1![element_hint]);
+                    }
+                }
+            }
             (
-                hint_ts.into_map(type_to_hint),
-                default_hint.map(type_to_hint),
+                element_hints.into_map(|ts| self.types_to_hint(ts, hint.errors(), &owner)),
+                Vec1::try_from_vec(default_hint)
+                    .ok()
+                    .map(|ts| self.types_to_hint(ts, hint.errors(), &owner)),
             )
         } else {
             (Vec::new(), None)
@@ -719,6 +745,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn split_tuple_hint<'b>(&self, hint: &'b Type) -> (Vec<&'b Tuple>, Vec<&'b Type>) {
+        match hint {
+            Type::Tuple(tuple) => (vec![tuple], Vec::new()),
+            Type::Union(ts) => ts.iter().partition_map(|t| match t {
+                Type::Tuple(tuple) => Either::Left(tuple),
+                _ => Either::Right(t),
+            }),
+            _ => (Vec::new(), vec![hint]),
+        }
+    }
+
     fn tuple_to_element_hints<'b>(&self, tup: &'b Tuple) -> (Vec<&'b Type>, Option<&'b Type>) {
         match tup {
             Tuple::Concrete(elts) => (elts.iter().collect(), None),
@@ -727,6 +764,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (prefix.iter().collect(), None)
             }
             Tuple::Unbounded(elt) => (Vec::new(), Some(elt)),
+        }
+    }
+
+    fn types_to_hint<'b>(
+        &self,
+        ts: Vec1<&'b Type>,
+        errors: Option<&'b ErrorCollector>,
+        owner: &'b Owner<Type>,
+    ) -> HintRef<'b, 'b> {
+        if ts.len() == 1 {
+            let (t, _) = ts.split_off_first();
+            HintRef::new(t, errors)
+        } else {
+            HintRef::new(
+                owner.push(self.unions(ts.into_iter().cloned().collect())),
+                errors,
+            )
         }
     }
 
