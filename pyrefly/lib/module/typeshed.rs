@@ -58,7 +58,8 @@ impl BundledTypeshedStdlib {
     }
 
     pub fn modules(&self) -> impl Iterator<Item = ModuleName> {
-        get_modules(self)
+        let stub = Stub::BundledTypeshedStdlib(self.clone());
+        get_modules(&stub).collect::<Vec<_>>().into_iter()
     }
 
     pub fn config() -> ArcId<ConfigFile> {

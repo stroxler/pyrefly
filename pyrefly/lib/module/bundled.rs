@@ -55,10 +55,11 @@ pub mod bundled {
             .map(|path| ModulePath::bundled_typeshed(path.clone()))
     }
 
-    pub fn get_modules(
-        bundled_typeshed: &BundledTypeshedStdlib,
-    ) -> impl Iterator<Item = ModuleName> {
-        bundled_typeshed.find.keys().copied()
+    pub fn get_modules(stub: &Stub) -> impl Iterator<Item = ModuleName> {
+        match stub {
+            Stub::BundledTypeshedStdlib(stdlib) => stdlib.find.keys().copied(),
+            Stub::BundledTypeshedThirdParty(third_party) => third_party.find.keys().copied(),
+        }
     }
 
     pub fn load_stubs_from_path(stub: Stub, path: &Path) -> Option<Arc<String>> {
