@@ -904,7 +904,7 @@ impl Solver {
         want: &Type,
         type_order: TypeOrder<Ans>,
     ) -> Result<(), SubsetError> {
-        self.is_subset_eq_impl(got, want, type_order, false)
+        self.is_subset_eq_impl(got, want, type_order)
     }
 
     fn is_subset_eq_impl<Ans: LookupAnswer>(
@@ -912,9 +912,8 @@ impl Solver {
         got: &Type,
         want: &Type,
         type_order: TypeOrder<Ans>,
-        union: bool,
     ) -> Result<(), SubsetError> {
-        let mut subset = self.subset(type_order, union);
+        let mut subset = self.subset(type_order);
         subset.is_subset_eq(got, want)
     }
 
@@ -924,19 +923,14 @@ impl Solver {
         want: &Type,
         type_order: TypeOrder<Ans>,
     ) -> Result<(), SubsetError> {
-        let mut subset = self.subset(type_order, false);
+        let mut subset = self.subset(type_order);
         subset.is_equal(got, want)
     }
 
-    fn subset<'a, Ans: LookupAnswer>(
-        &'a self,
-        type_order: TypeOrder<'a, Ans>,
-        union: bool,
-    ) -> Subset<'a, Ans> {
+    fn subset<'a, Ans: LookupAnswer>(&'a self, type_order: TypeOrder<'a, Ans>) -> Subset<'a, Ans> {
         Subset {
             solver: self,
             type_order,
-            union,
             gas: INITIAL_GAS,
             recursive_assumptions: SmallSet::new(),
         }
@@ -1070,8 +1064,6 @@ impl SubsetError {
 pub struct Subset<'a, Ans: LookupAnswer> {
     solver: &'a Solver,
     pub type_order: TypeOrder<'a, Ans>,
-    // True if we are doing a union, false if we are actually checking for subset.
-    union: bool,
     gas: Gas,
     /// Recursive assumptions of pairs of types that is_subset_eq returns true for.
     /// Used for structural typechecking of protocols.
@@ -1095,11 +1087,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
     }
 
     /// Implementation of Var subset cases, calling onward to solve non-Var cases.
+    /// This function does two things: it checks that got <: want, and it solves free variables assuming that
+    /// got <: want.
     fn is_subset_eq_var(&mut self, got: &Type, want: &Type) -> Result<(), SubsetError> {
-        // This function does two things: it checks that got <: want, and it solves free variables assuming that
-        // got <: want. Most callers want both behaviors. The exception is that in a union, we call is_subset_eq
-        // for the sole purpose of solving partial and parameter variables, throwing away the check result.
-        let should_force = |v: &Variable| !self.union || matches!(v, Variable::Partial);
         match (got, want) {
             _ if got == want => Ok(()),
             (Type::Var(v1), Type::Var(v2)) => {
@@ -1132,15 +1122,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(&t1, want)
                     }
-                    (var_type1, var_type2)
-                        if should_force(var_type1) && should_force(var_type2) =>
-                    {
+                    (_, _) => {
                         drop(variable1);
                         drop(variable2);
                         variables.unify(*v1, *v2);
                         Ok(())
                     }
-                    (_, _) => Err(SubsetError::Other),
                 }
             }
             (Type::Var(v1), t2) => {
@@ -1156,7 +1143,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(&t1, t2)
                     }
-                    var_type if should_force(var_type) => {
+                    var_type => {
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
@@ -1180,7 +1167,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                         Ok(())
                     }
-                    _ => Err(SubsetError::Other),
                 }
             }
             (t1, Type::Var(v2)) => {
@@ -1196,7 +1182,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(t1, &t2)
                     }
-                    var_type if should_force(var_type) => {
+                    var_type => {
                         // Note that we promote the type when the var is on the RHS, but not when it's on the
                         // LHS, so that we infer more general types but leave user-specified types alone.
                         let t1_p = var_type.promote(t1.clone(), self.type_order);
@@ -1236,7 +1222,6 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                         Ok(())
                     }
-                    _ => Err(SubsetError::Other),
                 }
             }
             _ => self.is_subset_eq_impl(got, want),
