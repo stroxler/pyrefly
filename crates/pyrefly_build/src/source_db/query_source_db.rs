@@ -85,19 +85,29 @@ impl QuerySourceDatabase {
             return false;
         }
         drop(read);
-        let mut write = self.inner.write();
-        write.path_lookup = SmallMap::new();
+        let mut path_lookup: SmallMap<PathBuf, Target> = SmallMap::new();
         for (target, manifest) in new_db.iter() {
             for source in manifest.srcs.values().flatten() {
-                if let Some(old_target) = write.path_lookup.get_mut(&**source) {
+                if let Some(old_target) = path_lookup.get_mut(&**source) {
                     let new_target = (&*old_target).min(target);
                     *old_target = new_target.dupe();
                 } else {
-                    write.path_lookup.insert(source.clone(), target.dupe());
+                    path_lookup.insert(source.clone(), target.dupe());
                 }
             }
         }
+        let read = self.inner.read();
+        // Check one more time to make sure nobody else did this already.
+        // Realistically this shouldn't happen, since in LSP mode we only have one
+        // sourcedb reload task at a time.
+        if new_db == read.db {
+            debug!("No source DB changes from Buck query");
+            return false;
+        }
+        drop(read);
+        let mut write = self.inner.write();
         write.db = new_db;
+        write.path_lookup = path_lookup;
         debug!("Finished updating source DB with Buck response");
         true
     }
