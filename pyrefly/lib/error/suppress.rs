@@ -252,41 +252,37 @@ mod tests {
     use crate::state::require::Require;
     use crate::state::state::State;
 
-    #[derive(PartialEq)]
-    enum SuppressFlag {
-        Remove,
-        Add,
-    }
-
     fn get_path(tdir: &TempDir) -> PathBuf {
         tdir.path().join("test.py")
     }
 
     fn assert_suppress_errors(before: &str, after: &str) {
-        assert_suppressions(before, after, SuppressFlag::Add, false, false)
+        let (errors, tdir) = get_errors(before);
+        suppress::suppress_errors(errors.collect_errors().shown, false);
+        let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
+        assert_eq!(after, got_file);
     }
 
     fn assert_suppress_same_line(before: &str, after: &str) {
-        assert_suppressions(before, after, SuppressFlag::Add, false, true)
+        let (errors, tdir) = get_errors(before);
+        suppress::suppress_errors(errors.collect_errors().shown, true);
+        let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
+        assert_eq!(after, got_file);
     }
 
     fn assert_remove_ignores(before: &str, after: &str, all: bool) {
-        assert_suppressions(before, after, SuppressFlag::Remove, all, false)
+        let (errors, tdir) = get_errors(before);
+        suppress::remove_unused_ignores(&errors, all);
+        let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
+        assert_eq!(after, got_file);
     }
 
-    fn assert_suppressions(
-        before: &str,
-        after: &str,
-        kind: SuppressFlag,
-        all: bool,
-        same_line: bool,
-    ) {
+    fn get_errors(contents: &str) -> (Errors, TempDir) {
         let tdir = tempfile::tempdir().unwrap();
 
         let mut config = ConfigFile::default();
         config.python_environment.set_empty_to_default();
         let name = "test";
-        let contents = before;
         fs_anyhow::write(&get_path(&tdir), contents).unwrap();
         config.configure();
 
@@ -304,15 +300,7 @@ mod tests {
             Some(Arc::new((*contents).to_owned())),
         )]);
         transaction.run(&[handle.dupe()], Require::Everything);
-        let loads = transaction.get_errors([handle.clone()].iter());
-        if kind == SuppressFlag::Add {
-            suppress::suppress_errors(loads.collect_errors().shown, same_line);
-        } else {
-            suppress::remove_unused_ignores(&loads, all);
-        }
-
-        let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
-        assert_eq!(after, got_file);
+        (transaction.get_errors([handle.clone()].iter()), tdir)
     }
 
     #[test]
