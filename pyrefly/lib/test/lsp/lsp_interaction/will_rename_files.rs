@@ -153,6 +153,85 @@ fn test_will_rename_files_changes_everything_when_indexed() {
 }
 
 #[test]
+fn test_will_rename_files_without_config() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::None);
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings::default());
+
+    let foo = "foo.py";
+    let bar = "bar.py";
+    interaction.server.did_open(foo);
+    interaction.server.did_open(bar);
+
+    let bar_path = root.path().join(bar);
+    let baz_path = root.path().join("baz.py");
+
+    // Send will_rename_files request to rename bar.py to baz.py
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(2),
+        method: "workspace/willRenameFiles".to_owned(),
+        params: serde_json::json!({
+            "files": [{
+                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
+                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
+            }]
+        }),
+    }));
+
+    // Expect a response with edits to update imports in foo.py using "changes" format
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!(null)),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_will_rename_files_without_config_with_workspace_folder() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::None);
+    let root_path = root.path();
+    let scope_uri = Url::from_file_path(root_path).unwrap();
+
+    interaction.set_root(root_path.to_path_buf());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        ..Default::default()
+    });
+
+    let foo = "foo.py";
+    let bar = "bar.py";
+    interaction.server.did_open(foo);
+
+    let bar_path = root.path().join(bar);
+    let baz_path = root.path().join("baz.py");
+
+    // Send will_rename_files request to rename bar.py to baz.py
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(2),
+        method: "workspace/willRenameFiles".to_owned(),
+        params: serde_json::json!({
+            "files": [{
+                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
+                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
+            }]
+        }),
+    }));
+
+    // Expect a response with edits to update imports in foo.py using "changes" format
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!(null)),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_will_rename_files_document_changes() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
