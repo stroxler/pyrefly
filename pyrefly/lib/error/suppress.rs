@@ -161,7 +161,7 @@ pub fn find_unused_ignores<'a>(
     all_unused_ignores
 }
 
-pub fn remove_unused_ignores(loads: &Errors, all: bool) {
+pub fn remove_unused_ignores(loads: &Errors, all: bool) -> usize {
     let errors = loads.collect_errors();
     let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
     for (module_path, ignore) in loads.collect_ignores() {
@@ -205,11 +205,16 @@ pub fn remove_unused_ignores(loads: &Errors, all: bool) {
             let lines = file.lines();
             for (idx, line) in lines.enumerate() {
                 if ignore_locations.contains(&idx) {
-                    unused_ignore_count += 1;
-                    let new_string = regex.replace_all(line, "");
-                    if !new_string.trim().is_empty() {
-                        buf.push_str(new_string.trim_end());
+                    if regex.is_match(line) {
+                        unused_ignore_count += 1;
+                        let new_string = regex.replace_all(line, "");
+                        if !new_string.trim().is_empty() {
+                            buf.push_str(new_string.trim_end());
+                        }
+                        buf.push('\n');
+                        continue;
                     }
+                    buf.push_str(line);
                     buf.push('\n');
                     continue;
                 }
@@ -223,11 +228,13 @@ pub fn remove_unused_ignores(loads: &Errors, all: bool) {
             }
         }
     }
+    let removals = removed_ignores.values().sum::<usize>();
     info!(
         "Removed {} unused error suppression(s) in {} file(s)",
-        removed_ignores.values().sum::<usize>(),
+        removals,
         removed_ignores.len(),
     );
+    removals
 }
 
 #[cfg(test)]
@@ -270,11 +277,12 @@ mod tests {
         assert_eq!(after, got_file);
     }
 
-    fn assert_remove_ignores(before: &str, after: &str, all: bool) {
+    fn assert_remove_ignores(before: &str, after: &str, all: bool, expected_removals: usize) {
         let (errors, tdir) = get_errors(before);
-        suppress::remove_unused_ignores(&errors, all);
+        let removals = suppress::remove_unused_ignores(&errors, all);
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
+        assert_eq!(removals, expected_removals);
     }
 
     fn get_errors(contents: &str) -> (Errors, TempDir) {
@@ -436,7 +444,7 @@ def f() -> int:
 
     return 1
 "#;
-        assert_remove_ignores(input, want, false);
+        assert_remove_ignores(input, want, false, 1);
     }
 
     #[test]
@@ -451,7 +459,7 @@ def g() -> str:
 
     return "hello"
 "#;
-        assert_remove_ignores(input, want, false);
+        assert_remove_ignores(input, want, false, 1);
     }
 
     #[test]
@@ -464,7 +472,7 @@ def g() -> str:
 def g() -> str:
     return "hello"
 "#;
-        assert_remove_ignores(input, want, false);
+        assert_remove_ignores(input, want, false, 1);
     }
 
     #[test]
@@ -483,7 +491,7 @@ def f() -> int:
 
     return 1
 "##;
-        assert_remove_ignores(input, output, false);
+        assert_remove_ignores(input, output, false, 2);
     }
 
     #[test]
@@ -498,7 +506,7 @@ def f() -> int:
     return 1
 "#,
         );
-        assert_remove_ignores(&input, &input, false);
+        assert_remove_ignores(&input, &input, false, 0);
     }
 
     #[test]
@@ -507,7 +515,7 @@ def f() -> int:
 def g() -> int:
     return "hello" # pyrefly: ignore # bad-return
 "#;
-        assert_remove_ignores(input, input, false);
+        assert_remove_ignores(input, input, false, 0);
     }
     #[test]
     fn test_remove_generic_suppression() {
@@ -519,7 +527,7 @@ def g() -> str:
 def g() -> str:
     return "hello"
 "#;
-        assert_remove_ignores(before, after, true);
+        assert_remove_ignores(before, after, true, 1);
     }
     #[test]
     fn test_remove_generic_suppression_error_type() {
@@ -531,7 +539,7 @@ def g() -> str:
 def g() -> str:
     return "hello"
 "#;
-        assert_remove_ignores(before, after, true);
+        assert_remove_ignores(before, after, true, 1);
     }
     #[test]
     fn test_add_suppressions_same_line() {
