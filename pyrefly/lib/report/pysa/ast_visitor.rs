@@ -192,6 +192,8 @@ pub trait AstScopedVisitor {
         _expr: &Expr,
         _scopes: &Scopes,
         _parent_expression: Option<&Expr>,
+        // If the current expression is in an assignment, this is the left side of the assignment
+        _assignment_targets: Option<&Vec<&Expr>>,
     ) {
     }
     fn enter_function_scope(
@@ -218,9 +220,10 @@ fn visit_expression<V: AstScopedVisitor>(
     visitor: &mut V,
     scopes: &mut Scopes,
     parent_expression: Option<&Expr>,
+    assignment_targets: Option<&Vec<&Expr>>,
 ) {
-    visitor.visit_expression(expr, scopes, parent_expression);
-    expr.recurse(&mut |e| visit_expression(e, visitor, scopes, Some(expr)));
+    visitor.visit_expression(expr, scopes, parent_expression, assignment_targets);
+    expr.recurse(&mut |e| visit_expression(e, visitor, scopes, Some(expr), assignment_targets));
 }
 
 fn visit_statement<V: AstScopedVisitor>(
@@ -275,7 +278,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::FunctionDecorators);
             visitor.on_scope_update(scopes);
             function_def.decorator_list.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None)
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                )
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -283,7 +289,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::FunctionTypeParams);
             visitor.on_scope_update(scopes);
             function_def.type_params.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None);
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                );
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -291,7 +300,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::FunctionParameters);
             visitor.on_scope_update(scopes);
             function_def.parameters.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None);
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                );
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -299,7 +311,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::FunctionReturnAnnotation);
             visitor.on_scope_update(scopes);
             function_def.returns.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None);
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                );
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -344,7 +359,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::ClassDecorators);
             visitor.on_scope_update(scopes);
             class_def.decorator_list.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None)
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                )
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -352,7 +370,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::ClassTypeParams);
             visitor.on_scope_update(scopes);
             class_def.type_params.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None);
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                );
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -360,7 +381,10 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.push(Scope::ClassArguments);
             visitor.on_scope_update(scopes);
             class_def.arguments.recurse(&mut |e| {
-                visit_expression(e, visitor, scopes, /* parent_expression */ None);
+                visit_expression(
+                    e, visitor, scopes, /* parent_expression */ None,
+                    /* assignment_targets */ None,
+                );
             });
             scopes.stack.pop();
             visitor.on_scope_update(scopes);
@@ -372,6 +396,63 @@ fn visit_statement<V: AstScopedVisitor>(
             scopes.stack.pop();
             visitor.exit_class_scope(class_def, scopes);
             visitor.on_scope_update(scopes);
+        }
+        Stmt::Assign(assign) => {
+            let assignment_targets = Some(&assign.targets.iter().collect());
+            visit_expression(
+                &assign.value,
+                visitor,
+                scopes,
+                /* parent_expression */ None,
+                assignment_targets,
+            );
+            assign.targets.iter().for_each(|target| {
+                visit_expression(
+                    target,
+                    visitor,
+                    scopes,
+                    /* parent_expression */ None,
+                    assignment_targets,
+                );
+            });
+        }
+        Stmt::AugAssign(assign) => {
+            let assignment_targets_vec = Some(vec![assign.target.as_ref()]);
+            let assignment_targets = assignment_targets_vec.as_ref();
+            visit_expression(
+                &assign.value,
+                visitor,
+                scopes,
+                /* parent_expression */ None,
+                assignment_targets,
+            );
+            visit_expression(
+                &assign.target,
+                visitor,
+                scopes,
+                /* parent_expression */ None,
+                assignment_targets,
+            );
+        }
+        Stmt::AnnAssign(assign) => {
+            let assignment_targets_vec = Some(vec![assign.target.as_ref()]);
+            let assignment_targets = assignment_targets_vec.as_ref();
+            if let Some(value) = assign.value.as_ref() {
+                visit_expression(
+                    value,
+                    visitor,
+                    scopes,
+                    /* parent_expression */ None,
+                    assignment_targets,
+                )
+            }
+            visit_expression(
+                &assign.target,
+                visitor,
+                scopes,
+                /* parent_expression */ None,
+                assignment_targets,
+            );
         }
         _ => {
             // Use the ruff python ast visitor to find the first reachable statements and expressions from this statement.
@@ -393,6 +474,7 @@ fn visit_statement<V: AstScopedVisitor>(
                         self.visitor,
                         self.scopes,
                         /* parent_expression */ None,
+                        /* assignment_targets */ None,
                     );
                 }
             }

@@ -164,7 +164,7 @@ fn call_graph_for_test_from_actual(
                         .map(|(location, expression_callees)| {
                             (
                                 location.clone(),
-                                expression_callees.map_function(create_function_ref_for_test),
+                                expression_callees.map_function(&create_function_ref_for_test),
                             )
                         })
                         .collect::<HashMap<_, _>>(),
@@ -275,6 +275,8 @@ fn attribute_access_callees(
     call_targets: Vec<CallTarget<FunctionRefForTest>>,
     init_targets: Vec<CallTarget<FunctionRefForTest>>,
     new_targets: Vec<CallTarget<FunctionRefForTest>>,
+    property_setters: Vec<CallTarget<FunctionRefForTest>>,
+    property_getters: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
         if_called: CallCallees {
@@ -282,6 +284,8 @@ fn attribute_access_callees(
             init_targets: init_targets.to_vec(),
             new_targets: new_targets.to_vec(),
         },
+        property_setters: property_setters.to_vec(),
+        property_getters: property_getters.to_vec(),
     })
 }
 
@@ -742,6 +746,131 @@ def foo():
             TEST_DEFINITION_NAME.to_owned(),
             vec![
                 ("6:3-6:7".to_owned(), call_callees(/* call_targets */ vec![], init_targets, new_targets)),
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_property_setter_getter,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @property
+  def p(self) -> int: ...
+  @p.setter
+  def p(self, v: int) -> None: ...
+def foo(c: C):
+  c.p = c.p
+"#,
+    &|context: &ModuleContext| {
+        let property_setters = vec![
+            create_call_target("test.C.p", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+        ];
+        let property_getters = vec![
+            // TODO: Missing return type
+            create_call_target("test.C.p", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("8:3-8:6".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ property_setters, /* property_getters */ vec![])),
+                ("8:9-8:12".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters)),
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_property_setter_with_property_getter_receiver,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @property
+  def p(self) -> "C":
+    ...
+  @p.setter
+  def p(self, new_value: "C") -> None:
+    ...
+def foo(c: C):
+  c.p.p = c
+"#,
+    &|context: &ModuleContext| {
+        let property_setters = vec![
+            create_call_target("test.C.p", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("10:3-10:8".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ property_setters, /* property_getters */ vec![])),
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_property_getter_with_union_types,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @property
+  def foo(self) -> int:
+    ...
+class D:
+  @property
+  def foo(self) -> bool:
+    ...
+class E:
+  foo: int = 1
+def foo(c_or_d: C | D, c_or_e: C | E):
+  x = c_or_d.foo
+  y = c_or_e.foo
+"#,
+    &|_context: &ModuleContext| {
+        let property_getters_c_or_d = vec![
+            // TODO: Missing return type
+            create_call_target("test.C.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("test.D.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        let property_getters_c_or_e = vec![
+            create_call_target("test.C.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("13:7-13:17".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters_c_or_d)),
+                ("14:7-14:17".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters_c_or_e)),
+            ],
+        )]
+    },
+}
+
+call_graph_testcase! {
+    test_property_getter_with_typevar,
+    TEST_MODULE_NAME,
+    r#"
+from typing import TypeVar
+class C:
+    @property
+    def foo(self) -> int:
+    ...
+class D:
+    @property
+    def foo(self) -> int:
+    ...
+TCOrD = TypeVar("TCOrD", C, D)
+def foo(c_or_d: TCOrD):
+    x = c_or_d.foo
+"#,
+    &|_context: &ModuleContext| {
+        let property_getters = vec![
+            // TODO: Missing return type
+            create_call_target("test.C.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![
+                ("13:9-13:19".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters)),
             ],
         )]
     },

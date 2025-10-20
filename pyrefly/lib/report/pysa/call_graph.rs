@@ -79,7 +79,7 @@ impl<Function: FunctionTrait> Target<Function> {
     #[cfg(test)]
     fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapFunction,
+        map: &MapFunction,
     ) -> Target<OutputFunction>
     where
         MapFunction: Fn(Function) -> OutputFunction,
@@ -116,7 +116,7 @@ impl<Function: FunctionTrait> CallTarget<Function> {
     #[cfg(test)]
     fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapFunction,
+        map: &MapFunction,
     ) -> CallTarget<OutputFunction>
     where
         MapFunction: Fn(Function) -> OutputFunction,
@@ -174,7 +174,7 @@ impl<Function: FunctionTrait> CallCallees<Function> {
     #[cfg(test)]
     fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapFunction,
+        map: &MapFunction,
     ) -> CallCallees<OutputFunction>
     where
         MapFunction: Fn(Function) -> OutputFunction,
@@ -182,7 +182,7 @@ impl<Function: FunctionTrait> CallCallees<Function> {
         let map_call_targets = |targets: Vec<CallTarget<Function>>| {
             targets
                 .into_iter()
-                .map(|call_target| CallTarget::map_function(call_target, &map))
+                .map(|call_target| CallTarget::map_function(call_target, map))
                 .collect()
         };
         CallCallees {
@@ -217,32 +217,51 @@ impl<Function: FunctionTrait> CallCallees<Function> {
 pub struct AttributeAccessCallees<Function: FunctionTrait> {
     /// When the attribute access is called, the callees it may resolve to
     pub(crate) if_called: CallCallees<Function>,
+    pub(crate) property_setters: Vec<CallTarget<Function>>,
+    pub(crate) property_getters: Vec<CallTarget<Function>>,
 }
 
 impl<Function: FunctionTrait> AttributeAccessCallees<Function> {
     #[cfg(test)]
     fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapFunction,
+        map: &MapFunction,
     ) -> AttributeAccessCallees<OutputFunction>
     where
         MapFunction: Fn(Function) -> OutputFunction,
     {
+        let map_call_targets = |targets: Vec<CallTarget<Function>>| {
+            targets
+                .into_iter()
+                .map(|call_target| CallTarget::map_function(call_target, map))
+                .collect()
+        };
         AttributeAccessCallees {
             if_called: self.if_called.map_function(map),
+            property_setters: map_call_targets(self.property_setters),
+            property_getters: map_call_targets(self.property_getters),
         }
     }
 
     fn is_empty(&self) -> bool {
         self.if_called.is_empty()
+            && self.property_setters.is_empty()
+            && self.property_getters.is_empty()
     }
 
     pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
-        self.if_called.all_targets()
+        self.if_called
+            .all_targets()
+            .chain(self.property_setters.iter())
+            .chain(self.property_getters.iter())
     }
 
     fn dedup_and_sort(&mut self) {
         self.if_called.dedup_and_sort();
+        self.property_setters.sort();
+        self.property_setters.dedup();
+        self.property_getters.sort();
+        self.property_getters.dedup();
     }
 }
 
@@ -256,7 +275,7 @@ impl<Function: FunctionTrait> IdentifierCallees<Function> {
     #[cfg(test)]
     fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapFunction,
+        map: &MapFunction,
     ) -> IdentifierCallees<OutputFunction>
     where
         MapFunction: Fn(Function) -> OutputFunction,
@@ -290,7 +309,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
     #[cfg(test)]
     pub fn map_function<OutputFunction: FunctionTrait, MapFunction>(
         self,
-        map: MapFunction,
+        map: &MapFunction,
     ) -> ExpressionCallees<OutputFunction>
     where
         MapFunction: Fn(Function) -> OutputFunction,
@@ -992,13 +1011,9 @@ impl<'a> CallGraphVisitor<'a> {
         &self,
         attribute: &ExprAttribute,
         return_type: Option<ScalarTypeProperties>,
-    ) -> Option<CallCallees<FunctionRef>> {
-        let callee_expr_suffix = attribute.attr.id.as_str();
-        let receiver_type = self
-            .module_context
-            .answers
-            .get_type_trace(attribute.value.range());
-        let call_targets = self
+        assignment_targets: Option<&Vec<&Expr>>,
+    ) -> Option<AttributeAccessCallees<FunctionRef>> {
+        let (property_callees, non_property_callees): (Vec<FunctionRef>, Vec<FunctionRef>) = self
             .module_context
             .transaction
             .find_definition_for_attribute(
@@ -1014,49 +1029,93 @@ impl<'a> CallGraphVisitor<'a> {
                     self.function_base_definitions,
                     self.module_context,
                 )
-                .map(|function_ref| {
-                    self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
-                        .into_iter()
-                        .map(|target| match target {
-                            Target::Function(function_ref) => self.call_target_from_function_ref(
-                                function_ref,
-                                return_type,
-                                receiver_type.as_ref(),
-                                callee_expr_suffix,
-                                /* is_override_target */ false,
-                                /* override_implicit_receiver*/ None,
-                            ),
-                            Target::Override(function_ref) => self.call_target_from_function_ref(
-                                function_ref,
-                                return_type,
-                                receiver_type.as_ref(),
-                                callee_expr_suffix,
-                                /* is_override_target */ true,
-                                /* override_implicit_receiver*/ None,
-                            ),
-                            Target::Object(_) => CallTarget {
-                                target,
-                                implicit_receiver: ImplicitReceiver::False,
-                                receiver_class: None,
-                                implicit_dunder_call: false,
-                                is_class_method: false,
-                                is_static_method: false,
-                                return_type,
-                            },
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default()
             })
-            .collect::<Vec<_>>();
-        Some(CallCallees {
-            call_targets,
-            init_targets: vec![],
-            new_targets: vec![],
+            .partition(|function_ref| {
+                self.get_base_definition(function_ref)
+                    .is_some_and(|definition| {
+                        definition.is_property_getter || definition.is_property_setter
+                    })
+            });
+
+        let in_assignment_lhs = assignment_targets.is_some_and(|assignment_targets| {
+            assignment_targets
+                .iter()
+                .any(|assignment_target| match assignment_target {
+                    Expr::Attribute(assignment_target_attribute) => {
+                        assignment_target_attribute.range() == attribute.range()
+                    }
+                    _ => false,
+                })
+        });
+        let (property_setters, property_getters) = if in_assignment_lhs {
+            (property_callees, vec![])
+        } else {
+            (vec![], property_callees)
+        };
+
+        let callee_expr_suffix = attribute.attr.id.as_str();
+        let receiver_type = self
+            .module_context
+            .answers
+            .get_type_trace(attribute.value.range());
+        let call_target_from_function_ref = |function_ref: FunctionRef| {
+            self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
+                .into_iter()
+                .map(|target| match target {
+                    Target::Function(function_ref) => self.call_target_from_function_ref(
+                        function_ref,
+                        return_type,
+                        receiver_type.as_ref(),
+                        callee_expr_suffix,
+                        /* is_override_target */ false,
+                        /* override_implicit_receiver*/ None,
+                    ),
+                    Target::Override(function_ref) => self.call_target_from_function_ref(
+                        function_ref,
+                        return_type,
+                        receiver_type.as_ref(),
+                        callee_expr_suffix,
+                        /* is_override_target */ true,
+                        /* override_implicit_receiver*/ None,
+                    ),
+                    Target::Object(_) => CallTarget {
+                        target,
+                        implicit_receiver: ImplicitReceiver::False,
+                        receiver_class: None,
+                        implicit_dunder_call: false,
+                        is_class_method: false,
+                        is_static_method: false,
+                        return_type,
+                    },
+                })
+                .collect::<Vec<_>>()
+        };
+
+        Some(AttributeAccessCallees {
+            if_called: CallCallees {
+                call_targets: non_property_callees
+                    .into_iter()
+                    .flat_map(&call_target_from_function_ref)
+                    .collect(),
+                init_targets: vec![],
+                new_targets: vec![],
+            },
+            property_setters: property_setters
+                .into_iter()
+                .flat_map(&call_target_from_function_ref)
+                .collect(),
+            property_getters: property_getters
+                .into_iter()
+                .flat_map(call_target_from_function_ref)
+                .collect(),
         })
     }
 
-    fn resolve_call(&self, call: &ExprCall) -> Option<CallCallees<FunctionRef>> {
+    fn resolve_call(
+        &self,
+        call: &ExprCall,
+        assignment_targets: Option<&Vec<&Expr>>,
+    ) -> Option<CallCallees<FunctionRef>> {
         let return_type = self
             .module_context
             .answers
@@ -1075,14 +1134,15 @@ impl<'a> CallGraphVisitor<'a> {
                 callees
             }
             Expr::Attribute(attribute) => {
-                let callees = self.resolve_attribute_access(attribute, return_type);
+                let callees =
+                    self.resolve_attribute_access(attribute, return_type, assignment_targets);
                 debug_println!(
                     self.debug,
                     "Resolved call `{:#?}` into `{:#?}`",
                     call,
                     callees
                 );
-                callees
+                callees.map(|callees| callees.if_called)
             }
             _ => None,
         }
@@ -1112,6 +1172,7 @@ impl<'a> CallGraphVisitor<'a> {
         &self,
         expr: &Expr,
         parent_expression: Option<&Expr>,
+        assignment_targets: Option<&Vec<&Expr>>,
     ) -> Option<ExpressionCallees<FunctionRef>> {
         let is_nested_callee_or_base =
             parent_expression.is_some_and(|parent_expression| match parent_expression {
@@ -1130,7 +1191,9 @@ impl<'a> CallGraphVisitor<'a> {
             )
         };
         match expr {
-            Expr::Call(call) => self.resolve_call(call).map(ExpressionCallees::Call),
+            Expr::Call(call) => self
+                .resolve_call(call, assignment_targets)
+                .map(ExpressionCallees::Call),
             Expr::Name(name) if !is_nested_callee_or_base => self
                 .resolve_name(name, Some(return_type_when_called()))
                 .map(|call_callees| {
@@ -1139,12 +1202,12 @@ impl<'a> CallGraphVisitor<'a> {
                     })
                 }),
             Expr::Attribute(attribute) if !is_nested_callee_or_base => self
-                .resolve_attribute_access(attribute, Some(return_type_when_called()))
-                .map(|call_callees| {
-                    ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-                        if_called: call_callees,
-                    })
-                }),
+                .resolve_attribute_access(
+                    attribute,
+                    Some(return_type_when_called()),
+                    assignment_targets,
+                )
+                .map(ExpressionCallees::AttributeAccess),
             _ => None,
         }
     }
@@ -1194,12 +1257,18 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         self.enter_debug_scope(&ast.body);
     }
 
-    fn visit_expression(&mut self, expr: &Expr, _: &Scopes, parent_expression: Option<&Expr>) {
+    fn visit_expression(
+        &mut self,
+        expr: &Expr,
+        _: &Scopes,
+        parent_expression: Option<&Expr>,
+        assignment_targets: Option<&Vec<&Expr>>,
+    ) {
         if self.current_function.is_none() {
             return;
         }
 
-        let callees = self.resolve_expression(expr, parent_expression);
+        let callees = self.resolve_expression(expr, parent_expression, assignment_targets);
         if let Some(callees) = callees
             && !callees.is_empty()
         {
@@ -1226,11 +1295,13 @@ fn resolve_call(
         debug_scopes: Vec::new(),
         override_graph,
     };
-    visitor.resolve_call(call).unwrap_or(CallCallees {
-        call_targets: vec![],
-        init_targets: vec![],
-        new_targets: vec![],
-    })
+    visitor
+        .resolve_call(call, /* assignment_targets */ None)
+        .unwrap_or(CallCallees {
+            call_targets: vec![],
+            init_targets: vec![],
+            new_targets: vec![],
+        })
 }
 
 fn resolve_expression(
@@ -1252,7 +1323,11 @@ fn resolve_expression(
         debug_scopes: Vec::new(),
         override_graph,
     };
-    visitor.resolve_expression(expression, parent_expression)
+    visitor.resolve_expression(
+        expression,
+        parent_expression,
+        /* assignment_targets */ None,
+    )
 }
 
 // Requires `context` to be the module context of the decorators.
