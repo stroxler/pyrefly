@@ -200,7 +200,7 @@ impl TypeCheckKind {
             Self::CallKwArgs(..) => ErrorKind::BadArgumentType,
             Self::CallUnpackKwArg(..) => ErrorKind::BadArgumentType,
             Self::FunctionParameterDefault(..) => ErrorKind::BadFunctionDefinition,
-            Self::TypedDictKey(..) => ErrorKind::TypedDictKeyError,
+            Self::TypedDictKey(..) => ErrorKind::BadTypedDictKey,
             Self::TypedDictUnpacking => ErrorKind::BadUnpacking,
             Self::Attribute(..) => ErrorKind::BadAssignment,
             Self::AnnotatedName(..) => ErrorKind::BadAssignment,

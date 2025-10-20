@@ -290,6 +290,7 @@ impl Ignore {
             "index-error" => "bad-index",
             "match-error" => "bad-match",
             "type-alias-error" => "invalid-type-alias",
+            "typed-dict-key-error" => "bad-typed-dict-key",
             _ => old,
         }
     }

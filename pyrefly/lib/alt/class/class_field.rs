@@ -1208,7 +1208,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                        ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                         format!(
                             "Cannot extend closed TypedDict `{}` with extra item `{}`",
                             base.name(),
@@ -1224,7 +1224,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // The field type needs to be assignable to the extra_items type.
                         if !self.is_subset_eq(field_ty, &ty) {
                             self.error(
-                                errors, range, ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                errors, range, ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                             format!(
                                 "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
                                 self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
@@ -1237,14 +1237,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 range,
-                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                                 format!("TypedDict `{}` with non-read-only `extra_items` cannot be extended with required extra item `{}`", base.name(), name),
                             );
                         } else if !self.is_equal(field_ty, &ty) {
                             self.error(
                                 errors,
                                 range,
-                                ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                                 format!(
                                     "`{}` is not consistent with `extra_items` type `{}` of TypedDict `{}`",
                                     self.for_display(field_ty.clone()), self.for_display(ty), base.name()),

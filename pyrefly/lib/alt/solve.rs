@@ -1517,7 +1517,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                    ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                     format!(
                         "TypedDict `{}` does not have key `{}`",
                         typed_dict.name(),
@@ -2231,7 +2231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return self.error(
                     errors,
                     key_range,
-                    ErrorInfo::Kind(ErrorKind::TypedDictKeyError),
+                    ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
                     format!(
                         "TypedDict `{}` does not have key `{}`",
                         typed_dict.name(),

@@ -10438,7 +10438,7 @@
       "concise_description": "Key `name` is not defined in TypedDict `Movie2`",
       "description": "Key `name` is not defined in TypedDict `Movie2`",
       "line": 44,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 17,
       "stop_line": 44
@@ -10449,7 +10449,7 @@
       "concise_description": "Key `year` is not defined in TypedDict `Movie2`",
       "description": "Key `year` is not defined in TypedDict `Movie2`",
       "line": 44,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 41,
       "stop_line": 44
@@ -10460,7 +10460,7 @@
       "concise_description": "Key `name` is not defined in TypedDict `Movie2`",
       "description": "Key `name` is not defined in TypedDict `Movie2`",
       "line": 45,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 17,
       "stop_line": 45
@@ -10471,7 +10471,7 @@
       "concise_description": "Key `year` is not defined in TypedDict `Movie2`",
       "description": "Key `year` is not defined in TypedDict `Movie2`",
       "line": 45,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 41,
       "stop_line": 45
@@ -10541,7 +10541,7 @@
       "concise_description": "`Literal[1982]` is not assignable to TypedDict key with type `bool`",
       "description": "`Literal[1982]` is not assignable to TypedDict key with type `bool`",
       "line": 15,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 49,
       "stop_line": 15
@@ -10552,7 +10552,7 @@
       "concise_description": "`Literal[1982]` is not assignable to TypedDict key with type `bool`",
       "description": "`Literal[1982]` is not assignable to TypedDict key with type `bool`",
       "line": 22,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 59,
       "stop_line": 22
@@ -10563,7 +10563,7 @@
       "concise_description": "`None` is not assignable to TypedDict key `year` with type `int`",
       "description": "`None` is not assignable to TypedDict key `year` with type `int`",
       "line": 39,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 58,
       "stop_line": 39
@@ -10607,7 +10607,7 @@
       "concise_description": "Cannot extend closed TypedDict `MovieA` with extra item `age`",
       "description": "Cannot extend closed TypedDict `MovieA` with extra item `age`",
       "line": 92,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 8,
       "stop_line": 92
@@ -10618,7 +10618,7 @@
       "concise_description": "Cannot extend closed TypedDict `MovieB` with extra item `age`",
       "description": "Cannot extend closed TypedDict `MovieB` with extra item `age`",
       "line": 95,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 8,
       "stop_line": 95
@@ -10695,7 +10695,7 @@
       "concise_description": "TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`",
       "description": "TypedDict `MovieBase2` with non-read-only `extra_items` cannot be extended with required extra item `year`",
       "line": 185,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 185
@@ -10706,7 +10706,7 @@
       "concise_description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
       "description": "`int` is not consistent with `extra_items` type `int | None` of TypedDict `MovieBase2`",
       "line": 188,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 9,
       "stop_line": 188
@@ -10717,7 +10717,7 @@
       "concise_description": "`str` is not assignable to `extra_items` type `int | None` of TypedDict `BookBase`",
       "description": "`str` is not assignable to `extra_items` type `int | None` of TypedDict `BookBase`",
       "line": 197,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 14,
       "stop_line": 197
@@ -10887,7 +10887,7 @@
       "concise_description": "`Literal[1982]` is not assignable to TypedDict key `name` with type `str`",
       "description": "`Literal[1982]` is not assignable to TypedDict key `name` with type `str`",
       "line": 22,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 21,
       "stop_line": 22
@@ -10898,7 +10898,7 @@
       "concise_description": "`Literal['']` is not assignable to TypedDict key `year` with type `int`",
       "description": "`Literal['']` is not assignable to TypedDict key `year` with type `int`",
       "line": 23,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 19,
       "stop_line": 23
@@ -10909,7 +10909,7 @@
       "concise_description": "TypedDict `Movie` does not have key `other`",
       "description": "TypedDict `Movie` does not have key `other`",
       "line": 24,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 14,
       "stop_line": 24
@@ -10920,7 +10920,7 @@
       "concise_description": "TypedDict `Movie` does not have key `other`",
       "description": "TypedDict `Movie` does not have key `other`",
       "line": 26,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 20,
       "stop_line": 26
@@ -10931,7 +10931,7 @@
       "concise_description": "Missing required key `year` for TypedDict `Movie`",
       "description": "Missing required key `year` for TypedDict `Movie`",
       "line": 28,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 33,
       "stop_line": 28
@@ -10942,7 +10942,7 @@
       "concise_description": "`float` is not assignable to TypedDict key `year` with type `int`",
       "description": "`float` is not assignable to TypedDict key `year` with type `int`",
       "line": 29,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 48,
       "stop_line": 29
@@ -10953,7 +10953,7 @@
       "concise_description": "Key `other` is not defined in TypedDict `Movie`",
       "description": "Key `other` is not defined in TypedDict `Movie`",
       "line": 32,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 43,
       "stop_line": 32
@@ -10964,7 +10964,7 @@
       "concise_description": "Missing required key `name` for TypedDict `Movie`",
       "description": "Missing required key `name` for TypedDict `Movie`",
       "line": 37,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 52,
       "stop_line": 37
@@ -10975,7 +10975,7 @@
       "concise_description": "Expected string literal key, got `str`",
       "description": "Expected string literal key, got `str`",
       "line": 37,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 33,
       "stop_line": 37
@@ -11190,7 +11190,7 @@
       "concise_description": "Missing required key `name` for TypedDict `RequiredName`",
       "description": "Missing required key `name` for TypedDict `RequiredName`",
       "line": 65,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 21,
       "stop_line": 65
@@ -11201,7 +11201,7 @@
       "concise_description": "`Literal[3]` is not assignable to TypedDict key `ident` with type `str`",
       "description": "`Literal[3]` is not assignable to TypedDict key `ident` with type `str`",
       "line": 82,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 15,
       "stop_line": 82
@@ -11212,7 +11212,7 @@
       "concise_description": "`Literal[3]` is not assignable to TypedDict key `ident` with type `str`",
       "description": "`Literal[3]` is not assignable to TypedDict key `ident` with type `str`",
       "line": 83,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 16,
       "stop_line": 83
@@ -11223,7 +11223,7 @@
       "concise_description": "Missing required key `ident` for TypedDict `User`",
       "description": "Missing required key `ident` for TypedDict `User`",
       "line": 84,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 7,
       "stop_line": 84
@@ -11374,7 +11374,7 @@
       "concise_description": "Key `y` is not defined in TypedDict `A3`",
       "description": "Key `y` is not defined in TypedDict `A3`",
       "line": 69,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 24,
       "stop_line": 69
@@ -11429,7 +11429,7 @@
       "concise_description": "`Literal[1]` is not assignable to TypedDict key `inner_key` with type `str`",
       "description": "`Literal[1]` is not assignable to TypedDict key `inner_key` with type `str`",
       "line": 126,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 57,
       "stop_line": 126
@@ -11442,7 +11442,7 @@
       "concise_description": "TypedDict `Movie` does not have key `director`",
       "description": "TypedDict `Movie` does not have key `director`",
       "line": 23,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 17,
       "stop_line": 23
@@ -11453,7 +11453,7 @@
       "concise_description": "`Literal['1982']` is not assignable to TypedDict key `year` with type `int`",
       "description": "`Literal['1982']` is not assignable to TypedDict key `year` with type `int`",
       "line": 24,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 23,
       "stop_line": 24
@@ -11464,7 +11464,7 @@
       "concise_description": "Missing required key `name` for TypedDict `Movie`",
       "description": "Missing required key `name` for TypedDict `Movie`",
       "line": 28,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 56,
       "stop_line": 28
@@ -11475,7 +11475,7 @@
       "concise_description": "Key `title` is not defined in TypedDict `Movie`",
       "description": "Key `title` is not defined in TypedDict `Movie`",
       "line": 28,
-      "name": "typed-dict-key-error",
+      "name": "bad-typed-dict-key",
       "severity": "error",
       "stop_column": 25,
       "stop_line": 28

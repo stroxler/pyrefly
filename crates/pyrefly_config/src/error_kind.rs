@@ -126,6 +126,9 @@ pub enum ErrorKind {
     /// A TypedDict definition has some typing-related error.
     /// e.g. using invalid keywords in the base class list.
     BadTypedDict,
+    /// An error related to TypedDict keys.
+    /// e.g. attempting to access a TypedDict with a key that does not exist.
+    BadTypedDictKey,
     /// An error caused by unpacking.
     /// e.g. attempting to unpack an iterable into the wrong number of variables.
     BadUnpacking,
@@ -216,9 +219,6 @@ pub enum ErrorKind {
     RedundantCondition,
     /// Raised by a call to reveal_type().
     RevealType,
-    /// An error related to TypedDict keys.
-    /// e.g. attempting to access a TypedDict with a key that does not exist.
-    TypedDictKeyError,
     /// Attempting to use a name that may be unbound or uninitialized
     UnboundName,
     /// An error caused by a keyword argument used in the wrong place.
