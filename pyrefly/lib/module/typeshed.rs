@@ -26,18 +26,12 @@ use crate::config::config::ConfigFile;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
 use crate::module::bundled::bundled::get_config_file;
 use crate::module::bundled::bundled::load_stubs_from_path;
+use crate::module::bundled::bundled::set_readonly;
 
 #[derive(Debug, Clone)]
 pub struct BundledTypeshed {
     pub find: SmallMap<ModuleName, PathBuf>,
     pub load: SmallMap<PathBuf, Arc<String>>,
-}
-
-fn set_readonly(path: &Path, value: bool) -> anyhow::Result<()> {
-    let mut permissions = fs::metadata(path)?.permissions();
-    permissions.set_readonly(value);
-    fs::set_permissions(path, permissions)?;
-    Ok(())
 }
 
 impl BundledTypeshed {

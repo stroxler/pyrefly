@@ -8,6 +8,7 @@
 pub mod bundled {
 
     use std::collections::HashMap;
+    use std::fs;
     use std::path::Path;
     use std::sync::Arc;
     use std::sync::LazyLock;
@@ -24,6 +25,13 @@ pub mod bundled {
 
     use crate::module::typeshed::BundledTypeshed;
     use crate::module::typeshed::stdlib_search_path;
+
+    pub fn set_readonly(path: &Path, value: bool) -> anyhow::Result<()> {
+        let mut permissions = fs::metadata(path)?.permissions();
+        permissions.set_readonly(value);
+        fs::set_permissions(path, permissions)?;
+        Ok(())
+    }
 
     pub fn find_bundled_stub_module_path(
         bundled_typeshed: BundledTypeshed,
