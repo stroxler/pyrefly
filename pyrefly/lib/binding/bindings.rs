@@ -361,7 +361,10 @@ impl Bindings {
         };
         builder.init_static_scope(&x.body, true);
         if module_info.name() != ModuleName::builtins() {
-            builder.inject_builtins();
+            builder.inject_builtins(ModuleName::builtins(), false);
+            if module_info.name() != ModuleName::extra_builtins() {
+                builder.inject_builtins(ModuleName::extra_builtins(), true);
+            }
         }
         builder.inject_globals();
         builder.stmts(x.body, &NestingContext::toplevel());
@@ -621,8 +624,7 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn inject_builtins(&mut self) {
-        let builtins_module = ModuleName::builtins();
+    fn inject_builtins(&mut self, builtins_module: ModuleName, ignore_if_missing: bool) {
         match self.lookup.get(builtins_module) {
             Ok(builtins_export) => {
                 for name in builtins_export.wildcard(self.lookup).iter() {
@@ -634,12 +636,14 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Err(err @ FindError::NotFound(..)) => {
-                let (ctx, msg) = err.display();
-                self.error_multiline(
-                    TextRange::default(),
-                    ErrorInfo::new(ErrorKind::InternalError, ctx.as_deref()),
-                    msg,
-                );
+                if !ignore_if_missing {
+                    let (ctx, msg) = err.display();
+                    self.error_multiline(
+                        TextRange::default(),
+                        ErrorInfo::new(ErrorKind::InternalError, ctx.as_deref()),
+                        msg,
+                    );
+                }
             }
             Err(FindError::Ignored | FindError::NoSource(_)) => (),
         }

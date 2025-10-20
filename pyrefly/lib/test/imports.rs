@@ -1040,3 +1040,21 @@ def test(x: T, ys: tuple[*Ts]) -> tuple[T, *Ts]:
 y: MyAnnotated[int, "hello"] = 1
 "#,
 );
+
+fn env_extra_builtins() -> TestEnv {
+    TestEnv::one_with_path(
+        "__builtins__",
+        "__builtins__.pyi",
+        r#"
+class X: ...
+"#,
+    )
+}
+
+testcase!(
+    test_extra_builtins,
+    env_extra_builtins(),
+    r#"
+x: X = X()
+"#,
+);

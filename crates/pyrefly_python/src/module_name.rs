@@ -104,6 +104,10 @@ impl ModuleName {
         Self::from_str("builtins")
     }
 
+    pub fn extra_builtins() -> Self {
+        Self::from_str("__builtins__")
+    }
+
     pub fn typing() -> Self {
         Self::from_str("typing")
     }
