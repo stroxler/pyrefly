@@ -26,8 +26,10 @@ import {
     setGetDefFunction,
     setHoverFunctionForMonaco,
     setInlayHintFunctionForMonaco,
+    setSemanticTokensFunctionForMonaco,
+    setSemanticTokensLegendForMonaco,
 } from './configured-monaco';
-import type { editor } from 'monaco-editor';
+import { editor } from 'monaco-editor';
 import type { PyreflyErrorMessage } from './SandboxResults';
 import { DEFAULT_SANDBOX_PROGRAM } from './DefaultSandboxProgram';
 import { DEFAULT_UTILS_PROGRAM } from './DefaultUtilsProgram';
@@ -46,6 +48,8 @@ export interface PyreflyState {
     gotoDefinition: (line: number, column: number) => any;
     hover: (line: number, column: number) => any;
     inlayHint: () => any;
+    semanticTokens: (range: any) => any;
+    semanticTokensLegend: () => any;
 }
 
 // Lazy initialization function that will only be called when needed
@@ -572,6 +576,16 @@ export default function Sandbox({
             model,
             () => pyreService?.inlayHint() || []
         );
+        setSemanticTokensFunctionForMonaco(model, (range) =>
+            pyreService?.semanticTokens(range)
+        );
+        setSemanticTokensLegendForMonaco(
+            () =>
+                pyreService?.semanticTokensLegend() ?? {
+                    tokenTypes: [],
+                    tokenModifiers: [],
+                }
+        );
 
         // typecheck on edit
         try {
@@ -920,7 +934,7 @@ function getPyreflyEditor(
 ): React.ReactElement {
     const { colorMode } = docusaurusTheme.useColorMode();
 
-    const editorTheme = colorMode === 'dark' ? 'vs-dark' : 'vs-light';
+    const editorTheme = colorMode === 'dark' ? 'pyreflyDark' : 'pyreflyLight';
     if (isCodeSnippet) {
         return (
             <Editor
@@ -939,6 +953,7 @@ function getPyreflyEditor(
                     hover: { enabled: true, above: false },
                     scrollBeyondLastLine: false,
                     overviewRulerBorder: false,
+                    'semanticHighlighting.enabled': true,
                 }}
             />
         );
@@ -971,6 +986,7 @@ function getPyreflyEditor(
                     hover: { enabled: true, above: false },
                     scrollBeyondLastLine: false,
                     overviewRulerBorder: false,
+                    'semanticHighlighting.enabled': true,
                 }}
             />
         );
