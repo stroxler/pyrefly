@@ -549,7 +549,7 @@ mod tests {
             "Parse error: Expected 'import', found newline",
         ];
         let expected_details = &[
-            "  Looked in these locations:\n  Build system source database",
+            "  Looked in these locations:\n  Build system source database\n  Site package path from user: [\"./typings\"]",
             "",
         ];
         let expected_error_kinds = &[ErrorKind::MissingImport, ErrorKind::ParseError];

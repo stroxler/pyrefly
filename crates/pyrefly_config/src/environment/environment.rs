@@ -91,7 +91,7 @@ impl PythonEnvironment {
             self.python_version = Some(PythonVersion::default());
         }
         if self.site_package_path.is_none() {
-            self.site_package_path = Some(Vec::new());
+            self.site_package_path = Some(vec![PathBuf::from("./typings")]);
         }
     }
 
