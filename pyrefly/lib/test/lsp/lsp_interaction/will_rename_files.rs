@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::Message;
-use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
@@ -28,21 +26,12 @@ fn test_will_rename_files_changes_open_files_when_indexing_disabled() {
     interaction.server.did_open(foo);
     interaction.server.did_open(bar);
 
-    let bar_path = root.path().join(bar);
-    let baz_path = root.path().join("tests_requiring_config/baz.py");
     let foo_path = root.path().join(foo);
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction
+        .server
+        .will_rename_files(bar, "tests_requiring_config/baz.py");
 
     // Expect a response with edits to update imports in foo.py using "changes" format
     interaction.client.expect_response(Response {
@@ -85,21 +74,12 @@ fn test_will_rename_files_changes_folder() {
     interaction.server.did_open(bar);
     interaction.server.did_open(foo);
 
-    let bar_path = root.path().join(bar);
-    let moved_bar_path = root.path().join("tests_requiring_config/subfolder/bar.py");
     let foo_path = root.path().join(foo);
 
     // Send will_rename_files request to rename bar.py to subfolder/bar.py
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&moved_bar_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction
+        .server
+        .will_rename_files(bar, "tests_requiring_config/subfolder/bar.py");
 
     // Expect a response with edits to update imports in foo.py using "changes" format
     interaction.client.expect_response(Response {
@@ -137,19 +117,10 @@ fn test_will_rename_files_changes_nothing_when_no_files_open() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings::default());
 
-    let bar_path = root.path().join("tests_requiring_config/bar.py");
-    let baz_path = root.path().join("tests_requiring_config/baz.py");
-
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction.server.will_rename_files(
+        "tests_requiring_config/bar.py",
+        "tests_requiring_config/baz.py",
+    );
 
     // Expect a response with no edits since indexing only happens once a file in a config is open
     interaction.client.expect_response(Response {
@@ -171,8 +142,6 @@ fn test_will_rename_files_changes_everything_when_indexed() {
     let bar = "tests_requiring_config/bar.py";
     interaction.server.did_open(bar);
 
-    let bar_path = root.path().join(bar);
-    let baz_path = root.path().join("tests_requiring_config/baz.py");
     let foo_path = root.path().join("tests_requiring_config/foo.py");
     let with_synthetic_bindings_path = root
         .path()
@@ -182,16 +151,9 @@ fn test_will_rename_files_changes_everything_when_indexed() {
         .join("tests_requiring_config/various_imports.py");
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction
+        .server
+        .will_rename_files(bar, "tests_requiring_config/baz.py");
 
     // Expect a response with edits to update imports in foo.py, with_synthetic_bindings.py, and various_imports.py using "changes" format
     interaction.client.expect_response(Response {
@@ -252,20 +214,8 @@ fn test_will_rename_files_without_config() {
     interaction.server.did_open(foo);
     interaction.server.did_open(bar);
 
-    let bar_path = root.path().join(bar);
-    let baz_path = root.path().join("baz.py");
-
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction.server.will_rename_files(bar, "baz.py");
 
     // Expect a response with edits to update imports in foo.py using "changes" format
     interaction.client.expect_response(Response {
@@ -294,20 +244,8 @@ fn test_will_rename_files_without_config_with_workspace_folder() {
     let bar = "bar.py";
     interaction.server.did_open(foo);
 
-    let bar_path = root.path().join(bar);
-    let baz_path = root.path().join("baz.py");
-
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction.server.will_rename_files(bar, "baz.py");
 
     // Expect a response with edits to update imports in foo.py using "changes" format
     interaction.client.expect_response(Response {
@@ -340,8 +278,6 @@ fn test_will_rename_files_document_changes() {
     let bar: &'static str = "tests_requiring_config/bar.py";
     interaction.server.did_open(bar);
 
-    let bar_path = root.path().join(bar);
-    let baz_path = root.path().join("tests_requiring_config/baz.py");
     let foo_path = root.path().join("tests_requiring_config/foo.py");
     let with_synthetic_bindings_path = root
         .path()
@@ -351,16 +287,9 @@ fn test_will_rename_files_document_changes() {
         .join("tests_requiring_config/various_imports.py");
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/willRenameFiles".to_owned(),
-        params: serde_json::json!({
-            "files": [{
-                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
-                "newUri": Url::from_file_path(&baz_path).unwrap().to_string()
-            }]
-        }),
-    }));
+    interaction
+        .server
+        .will_rename_files(bar, "tests_requiring_config/baz.py");
 
     // Expect a response with edits to update imports in foo.py, various_imports.py, and with_synthetic_bindings.py using "documentChanges" format
     // Files are returned in alphabetical order by URI

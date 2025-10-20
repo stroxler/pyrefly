@@ -296,6 +296,23 @@ impl TestServer {
         }));
     }
 
+    pub fn will_rename_files(&mut self, old_file: &'static str, new_file: &'static str) {
+        let root = self.get_root_or_panic();
+        let old_path = root.join(old_file);
+        let new_path = root.join(new_file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "workspace/willRenameFiles".to_owned(),
+            params: serde_json::json!({
+                "files": [{
+                    "oldUri": Url::from_file_path(&old_path).unwrap().to_string(),
+                    "newUri": Url::from_file_path(&new_path).unwrap().to_string()
+                }]
+            }),
+        }));
+    }
+
     pub fn get_initialize_params(&self, settings: &InitializeSettings) -> Value {
         let mut params: Value = serde_json::json!({
             "rootPath": "/",
