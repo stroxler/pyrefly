@@ -308,7 +308,7 @@ static TEST_DEFINITION_NAME: &str = "test.foo";
 
 #[macro_export]
 macro_rules! call_graph_testcase {
-    ($name:ident, $module_name:ident, $code:literal, $create_expected:expr,) => {
+    ($name:ident, $module_name:ident, $code:literal, $create_expected:expr) => {
         #[test]
         fn $name() {
             $crate::test::pysa::call_graph::test_building_call_graph_for_module(
@@ -320,7 +320,7 @@ macro_rules! call_graph_testcase {
     };
 }
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_simple_function_call,
     TEST_MODULE_NAME,
     r#"
@@ -329,15 +329,22 @@ def foo():
 def bar():
   pass
 "#,
-   &|_context: &ModuleContext| { vec![(
-        TEST_DEFINITION_NAME.to_owned(),
-        vec![
-            ("3:3-3:8".to_owned(), call_callees(vec![create_call_target("test.bar", TargetType::Function)], /* init_targets */ vec![], /* new_targets */ vec![])),
-        ],
-    )] },
-}
+    &|_context: &ModuleContext| {
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![(
+                "3:3-3:8".to_owned(),
+                call_callees(
+                    vec![create_call_target("test.bar", TargetType::Function)],
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_method_call_on_class,
     TEST_MODULE_NAME,
     r#"
@@ -349,18 +356,25 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
-            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("6:3-6:8".to_owned(), call_callees(call_target.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "6:3-6:8".to_owned(),
+                call_callees(
+                    call_target.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_conditional_function_assignment,
     TEST_MODULE_NAME,
     r#"
@@ -377,14 +391,34 @@ def foo(b: bool):
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("6:9-6:12".to_owned(), identifier_callees(vec![create_call_target("test.bar", TargetType::Function).with_return_type(Some(ScalarTypeProperties::bool()))], /* init_targets */ vec![], /* new_targets */ vec![])),
-                ("8:9-8:12".to_owned(), identifier_callees(vec![create_call_target("test.baz", TargetType::Function).with_return_type(Some(ScalarTypeProperties::int()))], /* init_targets */ vec![], /* new_targets */ vec![])),
+                (
+                    "6:9-6:12".to_owned(),
+                    identifier_callees(
+                        vec![
+                            create_call_target("test.bar", TargetType::Function)
+                                .with_return_type(Some(ScalarTypeProperties::bool())),
+                        ],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "8:9-8:12".to_owned(),
+                    identifier_callees(
+                        vec![
+                            create_call_target("test.baz", TargetType::Function)
+                                .with_return_type(Some(ScalarTypeProperties::int())),
+                        ],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
             ],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_method_call_on_optional_class,
     TEST_MODULE_NAME,
     r#"
@@ -398,18 +432,25 @@ def foo(c: Optional[C]):
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
-            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("8:5-8:10".to_owned(), call_callees(call_target.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "8:5-8:10".to_owned(),
+                call_callees(
+                    call_target.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_method_call_on_class_with_inheritance,
     TEST_MODULE_NAME,
     r#"
@@ -427,18 +468,25 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_target = vec![
-            create_call_target("test.C.m", TargetType::Override).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("12:3-12:8".to_owned(), call_callees(call_target.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "12:3-12:8".to_owned(),
+                call_callees(
+                    call_target.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_class_method,
     TEST_MODULE_NAME,
     r#"
@@ -454,30 +502,71 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let class_method_target = vec![
-            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_is_class_method(true).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.f", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context)
+                .with_is_class_method(true)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         let class_method_target_2 = vec![
-            create_call_target("test.C.f", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_is_class_method(true).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.f", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context)
+                .with_is_class_method(true)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         let method_target = vec![
-            create_call_target("test.C.g", TargetType::Function).with_implicit_receiver(ImplicitReceiver::False).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.g", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::False)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         let method_target_2 = vec![
-            create_call_target("test.C.g", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_return_type(Some(ScalarTypeProperties::int()))
+            create_call_target("test.C.g", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("7:3-7:8".to_owned(), call_callees(class_method_target.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-                ("8:3-8:8".to_owned(), call_callees(class_method_target_2.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-                ("9:3-9:9".to_owned(), call_callees(method_target.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-                ("10:3-10:8".to_owned(), call_callees(method_target_2.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
+                (
+                    "7:3-7:8".to_owned(),
+                    call_callees(
+                        class_method_target.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "8:3-8:8".to_owned(),
+                    call_callees(
+                        class_method_target_2.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "9:3-9:9".to_owned(),
+                    call_callees(
+                        method_target.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "10:3-10:8".to_owned(),
+                    call_callees(
+                        method_target_2.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
             ],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_method_call_on_inherited_class_without_override,
     TEST_MODULE_NAME,
     r#"
@@ -494,19 +583,28 @@ def foo(d: D):
 "#,
     &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.D".to_owned(), context),
-            create_call_target("test.E.m", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.D".to_owned(), context)
+            create_call_target("test.C.m", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.D".to_owned(), context),
+            create_call_target("test.E.m", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.D".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("11:3-11:8".to_owned(), call_callees(call_targets.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "11:3-11:8".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_callable_instance_with_dunder_call_method,
     TEST_MODULE_NAME,
     r#"
@@ -517,18 +615,26 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_implicit_dunder_call(true).with_receiver_class_for_test("test.C".to_owned(), context)
+            create_call_target("test.C.__call__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_implicit_dunder_call(true)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("5:4-5:8".to_owned(), call_callees(call_targets.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "5:4-5:8".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_callable_instance_with_static_dunder_call,
     TEST_MODULE_NAME,
     r#"
@@ -540,18 +646,26 @@ def foo(c: C):
 "#,
     &|_context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_dunder_call(true).with_is_static_method(true).with_return_type(Some(ScalarTypeProperties::bool()))
+            create_call_target("test.C.__call__", TargetType::Function)
+                .with_implicit_dunder_call(true)
+                .with_is_static_method(true)
+                .with_return_type(Some(ScalarTypeProperties::bool())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("6:4-6:8".to_owned(), call_callees(call_targets.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "6:4-6:8".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_explicit_dunder_call_method_invocation,
     TEST_MODULE_NAME,
     r#"
@@ -562,18 +676,26 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context).with_return_type(Some(ScalarTypeProperties::bool())),
+            create_call_target("test.C.__call__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context)
+                .with_return_type(Some(ScalarTypeProperties::bool())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("5:4-5:17".to_owned(), call_callees(call_targets.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "5:4-5:17".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_function_passed_as_argument,
     TEST_MODULE_NAME,
     r#"
@@ -585,23 +707,33 @@ def foo():
    baz(bar)
 "#,
     &|_context: &ModuleContext| {
-        let baz = vec![
-            create_call_target("test.baz", TargetType::Function),
-        ];
-        let bar = vec![
-            create_call_target("test.bar", TargetType::Function),
-        ];
+        let baz = vec![create_call_target("test.baz", TargetType::Function)];
+        let bar = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("7:4-7:12".to_owned(), call_callees(baz.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-                ("7:8-7:11".to_owned(), identifier_callees(bar.clone(), /* init_targets */ vec![], /* new_targets */ vec![]))
+                (
+                    "7:4-7:12".to_owned(),
+                    call_callees(
+                        baz.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "7:8-7:11".to_owned(),
+                    identifier_callees(
+                        bar.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
             ],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_callable_protocol_instance,
     TEST_MODULE_NAME,
     r#"
@@ -613,18 +745,27 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let call_targets = vec![
-            create_call_target("test.C.__call__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_return_type(Some(ScalarTypeProperties::bool())).with_implicit_dunder_call(true).with_receiver_class_for_test("test.C".to_owned(), context),
+            create_call_target("test.C.__call__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_return_type(Some(ScalarTypeProperties::bool()))
+                .with_implicit_dunder_call(true)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("6:4-6:8".to_owned(), call_callees(call_targets.clone(), /* init_targets */ vec![], /* new_targets */ vec![])),
-            ],
+            vec![(
+                "6:4-6:8".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_class_constructor,
     TEST_MODULE_NAME,
     r#"
@@ -635,22 +776,26 @@ def foo():
 "#,
     &|context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("test.C.__init__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+            create_call_target("test.C.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
 
         let new_targets = vec![
-            create_call_target("builtins.object.__new__", TargetType::Function).with_is_static_method(true),
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("5:3-5:7".to_owned(), call_callees(/* call_targets */ vec![], init_targets, new_targets)),
-            ],
+            vec![(
+                "5:3-5:7".to_owned(),
+                call_callees(/* call_targets */ vec![], init_targets, new_targets),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_int_class_constructor,
     TEST_MODULE_NAME,
     r#"
@@ -659,21 +804,26 @@ def foo(x: str) -> int:
 "#,
     &|_context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("builtins.object.__init__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_return_type(Some(ScalarTypeProperties::int())),
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         let new_targets = vec![
-            create_call_target("builtins.int.__new__", TargetType::Function).with_is_static_method(true).with_return_type(Some(ScalarTypeProperties::int())),
+            create_call_target("builtins.int.__new__", TargetType::Function)
+                .with_is_static_method(true)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("3:10-3:16".to_owned(), call_callees(/* call_targets */ vec![], init_targets, new_targets)),
-            ],
+            vec![(
+                "3:10-3:16".to_owned(),
+                call_callees(/* call_targets */ vec![], init_targets, new_targets),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_class_constructor_override_new,
     TEST_MODULE_NAME,
     r#"
@@ -684,21 +834,23 @@ def foo():
 "#,
     &|_context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("builtins.object.__init__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
         let new_targets = vec![
             create_call_target("test.C.__new__", TargetType::Function).with_is_static_method(true),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("5:3-5:7".to_owned(), call_callees(/* call_targets */ vec![], init_targets, new_targets)),
-            ],
+            vec![(
+                "5:3-5:7".to_owned(),
+                call_callees(/* call_targets */ vec![], init_targets, new_targets),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_class_constructor_with_inheritance,
     TEST_MODULE_NAME,
     r#"
@@ -710,22 +862,26 @@ def foo():
 "#,
     &|context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("test.B.__init__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.B".to_owned(), context),
+            create_call_target("test.B.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.B".to_owned(), context),
         ];
 
         let new_targets = vec![
-            create_call_target("builtins.object.__new__", TargetType::Function).with_is_static_method(true),
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("6:3-6:7".to_owned(), call_callees(/* call_targets */ vec![], init_targets, new_targets)),
-            ],
+            vec![(
+                "6:3-6:7".to_owned(),
+                call_callees(/* call_targets */ vec![], init_targets, new_targets),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_class_constructor_override_new_with_inheritance,
     TEST_MODULE_NAME,
     r#"
@@ -737,21 +893,23 @@ def foo():
 "#,
     &|_context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("builtins.object.__init__", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
         let new_targets = vec![
             create_call_target("test.B.__new__", TargetType::Function).with_is_static_method(true),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("6:3-6:7".to_owned(), call_callees(/* call_targets */ vec![], init_targets, new_targets)),
-            ],
+            vec![(
+                "6:3-6:7".to_owned(),
+                call_callees(/* call_targets */ vec![], init_targets, new_targets),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_property_setter_getter,
     TEST_MODULE_NAME,
     r#"
@@ -765,23 +923,45 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let property_setters = vec![
-            create_call_target("test.C.p", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+            create_call_target("test.C.p", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         let property_getters = vec![
             // TODO: Missing return type
-            create_call_target("test.C.p", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+            create_call_target("test.C.p", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("8:3-8:6".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ property_setters, /* property_getters */ vec![])),
-                ("8:9-8:12".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters)),
+                (
+                    "8:3-8:6".to_owned(),
+                    attribute_access_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* property_setters */ property_setters,
+                        /* property_getters */ vec![],
+                    ),
+                ),
+                (
+                    "8:9-8:12".to_owned(),
+                    attribute_access_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* property_setters */ vec![],
+                        /* property_getters */ property_getters,
+                    ),
+                ),
             ],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_property_setter_with_property_getter_receiver,
     TEST_MODULE_NAME,
     r#"
@@ -797,29 +977,38 @@ def foo(c: C):
 "#,
     &|context: &ModuleContext| {
         let property_setters = vec![
-            create_call_target("test.C.p", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver).with_receiver_class_for_test("test.C".to_owned(), context),
+            create_call_target("test.C.p", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("10:3-10:8".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ property_setters, /* property_getters */ vec![])),
-            ],
+            vec![(
+                "10:3-10:8".to_owned(),
+                attribute_access_callees(
+                    /* call_targets */ vec![],
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                    /* property_setters */ property_setters,
+                    /* property_getters */ vec![],
+                ),
+            )],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_property_getter_with_union_types,
     TEST_MODULE_NAME,
     r#"
 class C:
   @property
   def foo(self) -> int:
-    ...
+    return 0
 class D:
   @property
   def foo(self) -> bool:
-    ...
+    return True
 class E:
   foo: int = 1
 def foo(c_or_d: C | D, c_or_e: C | E):
@@ -829,23 +1018,44 @@ def foo(c_or_d: C | D, c_or_e: C | E):
     &|_context: &ModuleContext| {
         let property_getters_c_or_d = vec![
             // TODO: Missing return type
-            create_call_target("test.C.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
-            create_call_target("test.D.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("test.C.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("test.D.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
         let property_getters_c_or_e = vec![
-            create_call_target("test.C.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("test.C.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
             vec![
-                ("13:7-13:17".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters_c_or_d)),
-                ("14:7-14:17".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters_c_or_e)),
+                (
+                    "13:7-13:17".to_owned(),
+                    attribute_access_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* property_setters */ vec![],
+                        /* property_getters */ property_getters_c_or_d,
+                    ),
+                ),
+                (
+                    "14:7-14:17".to_owned(),
+                    attribute_access_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* property_setters */ vec![],
+                        /* property_getters */ property_getters_c_or_e,
+                    ),
+                ),
             ],
         )]
-    },
-}
+    }
+);
 
-call_graph_testcase! {
+call_graph_testcase!(
     test_property_getter_with_typevar,
     TEST_MODULE_NAME,
     r#"
@@ -853,11 +1063,11 @@ from typing import TypeVar
 class C:
     @property
     def foo(self) -> int:
-    ...
+      return 0
 class D:
     @property
     def foo(self) -> int:
-    ...
+      return 0
 TCOrD = TypeVar("TCOrD", C, D)
 def foo(c_or_d: TCOrD):
     x = c_or_d.foo
@@ -865,13 +1075,21 @@ def foo(c_or_d: TCOrD):
     &|_context: &ModuleContext| {
         let property_getters = vec![
             // TODO: Missing return type
-            create_call_target("test.C.foo", TargetType::Function).with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("test.C.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
-            vec![
-                ("13:9-13:19".to_owned(), attribute_access_callees(/* call_targets */ vec![], /* init_targets */ vec![], /* new_targets */ vec![], /* property_setters */ vec![], /* property_getters */ property_getters)),
-            ],
+            vec![(
+                "13:9-13:19".to_owned(),
+                attribute_access_callees(
+                    /* call_targets */ vec![],
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                    /* property_setters */ vec![],
+                    /* property_getters */ property_getters,
+                ),
+            )],
         )]
-    },
-}
+    }
+);
