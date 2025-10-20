@@ -16,7 +16,6 @@ use std::sync::LazyLock;
 use anyhow::Context as _;
 use anyhow::anyhow;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use pyrefly_bundled::bundled_typeshed;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -30,6 +29,7 @@ use crate::config::error::ErrorDisplayConfig;
 use crate::config::error_kind::ErrorKind;
 use crate::config::error_kind::Severity;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
+use crate::module::bundled::bundled::load_stubs_from_path;
 
 #[derive(Debug, Clone)]
 pub struct BundledTypeshed {
@@ -64,7 +64,7 @@ impl BundledTypeshed {
     }
 
     pub fn load(&self, path: &Path) -> Option<Arc<String>> {
-        self.load.get(path).duped()
+        load_stubs_from_path(self.clone(), path)
     }
 
     pub fn modules(&self) -> impl Iterator<Item = ModuleName> {
