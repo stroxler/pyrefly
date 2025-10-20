@@ -30,6 +30,13 @@ pub mod bundled {
 
     use crate::module::typeshed::BundledTypeshedStdlib;
     use crate::module::typeshed::stdlib_search_path;
+    use crate::module::typeshed_third_party::BundledTypeshedThirdParty;
+
+    #[allow(dead_code)]
+    pub enum Stub {
+        BundledTypeshedStdlib(BundledTypeshedStdlib),
+        BundledTypeshedThirdParty(BundledTypeshedThirdParty),
+    }
 
     pub fn set_readonly(path: &Path, value: bool) -> anyhow::Result<()> {
         let mut permissions = fs::metadata(path)?.permissions();
