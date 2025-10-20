@@ -10,11 +10,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use pyrefly_bundled::bundled_third_party_stubs;
+use pyrefly_config::config::ConfigFile;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_util::arc_id::ArcId;
 use starlark_map::small_map::SmallMap;
 
 use crate::module::bundled::bundled::Stub;
+use crate::module::bundled::bundled::get_config_file;
 use crate::module::bundled::bundled::get_modules;
 use crate::module::bundled::bundled::load_stubs_from_path;
 
@@ -50,5 +53,10 @@ impl BundledTypeshedThirdParty {
     pub fn modules(&self) -> impl Iterator<Item = ModuleName> {
         let stub = Stub::BundledTypeshedThirdParty(self.clone());
         get_modules(&stub).collect::<Vec<_>>().into_iter()
+    }
+
+    #[allow(dead_code)]
+    pub fn config() -> ArcId<ConfigFile> {
+        get_config_file()
     }
 }
