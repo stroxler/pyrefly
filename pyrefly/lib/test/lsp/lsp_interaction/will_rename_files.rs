@@ -74,6 +74,63 @@ fn test_will_rename_files_changes_open_files_when_indexing_disabled() {
 }
 
 #[test]
+fn test_will_rename_files_changes_folder() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::None);
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings::default());
+
+    let bar = "tests_requiring_config/bar.py";
+    let foo = "tests_requiring_config/foo.py";
+    interaction.server.did_open(bar);
+    interaction.server.did_open(foo);
+
+    let bar_path = root.path().join(bar);
+    let moved_bar_path = root.path().join("tests_requiring_config/subfolder/bar.py");
+    let foo_path = root.path().join(foo);
+
+    // Send will_rename_files request to rename bar.py to subfolder/bar.py
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(2),
+        method: "workspace/willRenameFiles".to_owned(),
+        params: serde_json::json!({
+            "files": [{
+                "oldUri": Url::from_file_path(&bar_path).unwrap().to_string(),
+                "newUri": Url::from_file_path(&moved_bar_path).unwrap().to_string()
+            }]
+        }),
+    }));
+
+    // Expect a response with edits to update imports in foo.py using "changes" format
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "changes": {
+                Url::from_file_path(&foo_path).unwrap().to_string(): [
+                    {
+                        "newText": "subfolder.bar",
+                        "range": {
+                            "start": {"line": 5, "character": 7},
+                            "end": {"line": 5, "character": 10}
+                        }
+                    },
+                    {
+                        "newText": "subfolder.bar",
+                        "range": {
+                            "start": {"line": 6, "character": 5},
+                            "end": {"line": 6, "character": 8}
+                        }
+                    }
+                ]
+            }
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_will_rename_files_changes_nothing_when_no_files_open() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
