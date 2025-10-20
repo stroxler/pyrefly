@@ -16,14 +16,15 @@ use pyrefly_bundled::bundled_typeshed;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::lock::Mutex;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
 use crate::module::bundled::bundled::get_config_file;
+use crate::module::bundled::bundled::get_materialized_path_on_disk;
 use crate::module::bundled::bundled::get_modules;
 use crate::module::bundled::bundled::load_stubs_from_path;
+#[cfg(test)]
 use crate::module::bundled::bundled::write_stub_files;
 
 #[derive(Debug, Clone)]
@@ -67,18 +68,10 @@ impl BundledTypeshed {
     /// Note: this path is not the source of truth, it simply exists to display typeshed contents
     /// for informative purposes.
     pub fn materialized_path_on_disk(&self) -> anyhow::Result<PathBuf> {
-        static WRITTEN_TO_DISK: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
-
-        let temp_dir = env::temp_dir().join("pyrefly_bundled_typeshed");
-
-        let mut written = WRITTEN_TO_DISK.lock();
-        if !*written {
-            self.write(&temp_dir)?;
-            *written = true;
-        }
-        Ok(temp_dir)
+        get_materialized_path_on_disk(self.clone())
     }
 
+    #[cfg(test)]
     fn write(&self, temp_dir: &Path) -> anyhow::Result<()> {
         write_stub_files(self.clone(), temp_dir)
     }

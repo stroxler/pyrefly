@@ -8,8 +8,10 @@
 pub mod bundled {
 
     use std::collections::HashMap;
+    use std::env;
     use std::fs;
     use std::path::Path;
+    use std::path::PathBuf;
     use std::sync::Arc;
     use std::sync::LazyLock;
 
@@ -24,6 +26,7 @@ pub mod bundled {
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_util::arc_id::ArcId;
     use pyrefly_util::fs_anyhow;
+    use pyrefly_util::lock::Mutex;
 
     use crate::module::typeshed::BundledTypeshed;
     use crate::module::typeshed::stdlib_search_path;
@@ -106,5 +109,20 @@ pub mod bundled {
                 format!("Failed to write pyrefly config at {:?}", temp_dir.display())
             })?;
         Ok(())
+    }
+
+    pub fn get_materialized_path_on_disk(
+        bundled_typeshed: BundledTypeshed,
+    ) -> anyhow::Result<PathBuf> {
+        static WRITTEN_TO_DISK: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
+
+        let temp_dir = env::temp_dir().join("pyrefly_bundled_typeshed");
+
+        let mut written = WRITTEN_TO_DISK.lock();
+        if !*written {
+            write_stub_files(bundled_typeshed, &temp_dir)?;
+            *written = true;
+        }
+        Ok(temp_dir)
     }
 }
