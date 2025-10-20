@@ -636,13 +636,13 @@ x: TD | dict[str, list[A] | str] = {
 );
 
 testcase!(
-    bug = "This should not error",
     test_sequence_hint_for_tuple,
     r#"
 from typing import Sequence, TypedDict
 class TD(TypedDict):
     x: int
-seq: Sequence[TD] = ({"x": 0},)  # E: `tuple[dict[str, int]]` is not assignable to `Sequence[TypedDict[TD]]`
+x1: Sequence[TD] = ({"x": 0},)
+x2: tuple[int] | Sequence[TD] = ({"x": 0},)
     "#,
 );
 

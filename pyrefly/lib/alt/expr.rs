@@ -616,10 +616,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn tuple_infer(&self, x: &ExprTuple, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
         let owner = Owner::new();
-        let (hint_ts, default_hint) = if let Some(hint) = &hint
-            && let (tuples, nontuples) = self.split_tuple_hint(hint.ty())
-            && nontuples.is_empty()
-        {
+        let (hint_ts, default_hint) = if let Some(hint) = &hint {
+            let (tuples, nontuples) = self.split_tuple_hint(hint.ty());
             // Combine hints from multiple tuples.
             let mut element_hints: Vec<Vec1<&Type>> = Vec::new();
             let mut default_hint = Vec::new();
@@ -638,6 +636,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         element_hints.push(vec1![element_hint]);
                     }
+                }
+            }
+            if !nontuples.is_empty() {
+                // The non-tuple options may contain a type like Sequence[T] that provides an additional default hint.
+                let nontuple_hint = self.unions(nontuples.into_iter().cloned().collect());
+                let nontuple_element_hint =
+                    self.decompose_tuple(HintRef::new(&nontuple_hint, hint.errors()));
+                if let Some(nontuple_element_hint) = nontuple_element_hint {
+                    let nontuple_element_hint = owner.push(nontuple_element_hint.to_type());
+                    for ts in element_hints.iter_mut() {
+                        ts.push(nontuple_element_hint);
+                    }
+                    default_hint.push(nontuple_element_hint);
                 }
             }
             (

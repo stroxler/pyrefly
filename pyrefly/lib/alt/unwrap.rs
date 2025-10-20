@@ -251,6 +251,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub fn decompose_tuple<'b>(&self, hint: HintRef<'b, '_>) -> Option<Hint<'b>> {
+        let elem = self.fresh_var();
+        let tuple_type = self.stdlib.tuple(elem.to_type()).to_type();
+        if self.is_subset_eq(&tuple_type, hint.ty()) {
+            hint.map_ty_opt(|ty| self.resolve_var_opt(ty, elem))
+        } else {
+            None
+        }
+    }
+
     pub fn decompose_lambda<'b>(
         &self,
         hint: HintRef<'b, '_>,
