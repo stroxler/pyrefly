@@ -6,19 +6,16 @@
  */
 
 use std::env;
-use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
-use anyhow::Context as _;
 use anyhow::anyhow;
 use pyrefly_bundled::bundled_typeshed;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::fs_anyhow;
 use pyrefly_util::lock::Mutex;
 use starlark_map::small_map::SmallMap;
 
@@ -26,7 +23,7 @@ use crate::config::config::ConfigFile;
 use crate::module::bundled::bundled::find_bundled_stub_module_path;
 use crate::module::bundled::bundled::get_config_file;
 use crate::module::bundled::bundled::load_stubs_from_path;
-use crate::module::bundled::bundled::set_readonly;
+use crate::module::bundled::bundled::write_stub_files;
 
 #[derive(Debug, Clone)]
 pub struct BundledTypeshed {
@@ -82,32 +79,7 @@ impl BundledTypeshed {
     }
 
     fn write(&self, temp_dir: &Path) -> anyhow::Result<()> {
-        fs_anyhow::create_dir_all(temp_dir)?;
-
-        for (relative_path, contents) in &self.load {
-            let mut file_path = temp_dir.to_owned();
-            file_path.push(relative_path);
-
-            if let Some(parent) = file_path.parent() {
-                fs_anyhow::create_dir_all(parent)?;
-            }
-
-            // Write the file and set it as read-only in a single logical operation
-            let _ = set_readonly(&file_path, false); // Might fail (e.g. file doesn't exist)
-            fs::write(&file_path, contents.as_bytes())
-                .with_context(|| format!("When writing file `{}`", file_path.display()))?;
-
-            // We try and make the files read-only, since editing them in the IDE won't update.
-            let _ = set_readonly(&file_path, true); // If this fails, not a big deal
-        }
-
-        BundledTypeshed::config()
-            .as_ref()
-            .write_to_toml_in_directory(temp_dir)
-            .with_context(|| {
-                format!("Failed to write pyrefly config at {:?}", temp_dir.display())
-            })?;
-        Ok(())
+        write_stub_files(self.clone(), temp_dir)
     }
 }
 
