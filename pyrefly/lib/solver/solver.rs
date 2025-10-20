@@ -105,19 +105,6 @@ impl Display for Variable {
     }
 }
 
-impl Variable {
-    /// For some types of variables we should promote literals, for others we should not.
-    /// E.g. `x = 1; while True: x = x` should be `Literal[1]` while
-    /// `[1]` should be `List[int]`.
-    fn promote<Ans: LookupAnswer>(&self, ty: Type, type_order: TypeOrder<Ans>) -> Type {
-        if matches!(self, Variable::Partial | Variable::Quantified(_)) {
-            ty.promote_literals(type_order.stdlib())
-        } else {
-            ty
-        }
-    }
-}
-
 #[must_use = "Quantified vars must be finalized. Pass to finish_quantified."]
 pub struct QuantifiedHandle(Vec<Var>);
 
@@ -1185,7 +1172,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     var_type => {
                         // Note that we promote the type when the var is on the RHS, but not when it's on the
                         // LHS, so that we infer more general types but leave user-specified types alone.
-                        let t1_p = var_type.promote(t1.clone(), self.type_order);
+                        let t1_p = self.maybe_promote(t1.clone(), var_type);
                         if let Variable::Quantified(q) = var_type {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
@@ -1225,6 +1212,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
             }
             _ => self.is_subset_eq_impl(got, want),
+        }
+    }
+
+    /// When we are potentially pinning a `Variable`, we often but not always want to use the
+    /// promoted version of the type for pinning.
+    fn maybe_promote(&self, ty: Type, v: &Variable) -> Type {
+        if matches!(v, Variable::Partial | Variable::Quantified(_)) {
+            ty.promote_literals(self.type_order.stdlib())
+        } else {
+            ty
         }
     }
 
