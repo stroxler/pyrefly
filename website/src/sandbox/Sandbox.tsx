@@ -35,7 +35,10 @@ import { usePythonWorker } from './usePythonWorker';
 
 // Import type for Pyrefly State
 export interface PyreflyState {
-    updateSandboxFiles: (files: Record<string, string>, force_update: boolean) => string | null;
+    updateSandboxFiles: (
+        files: Record<string, string>,
+        force_update: boolean
+    ) => string | null;
     updateSingleFile: (filename: string, content: string) => void;
     setActiveFile: (filename: string) => void;
     getErrors: () => ReadonlyArray<PyreflyErrorMessage>;
@@ -50,7 +53,7 @@ export async function initializePyreflyWasm(): Promise<any> {
     const pyreflyWasmUninitializedPromise =
         typeof window !== 'undefined'
             ? import('../sandbox/pyrefly_wasm')
-            : new Promise<any>((_resolve) => { });
+            : new Promise<any>((_resolve) => {});
 
     try {
         const mod = await pyreflyWasmUninitializedPromise;
@@ -86,7 +89,9 @@ export default function Sandbox({
     const [pyreService, setPyreService] = useState<PyreflyState | null>(null);
     const [editorHeightforCodeSnippet, setEditorHeightforCodeSnippet] =
         useState<number | null>(null);
-    const [models, setModels] = useState<Map<string, editor.ITextModel>>(new Map());
+    const [models, setModels] = useState<Map<string, editor.ITextModel>>(
+        new Map()
+    );
     const [activeFileName, setActiveFileName] = useState<string>('sandbox.py');
     const [renamingFile, setRenamingFile] = useState<string | null>(null);
     const [renameInputValue, setRenameInputValue] = useState<string>('');
@@ -100,41 +105,52 @@ export default function Sandbox({
     const model = models.get(activeFileName) || null;
 
     // File management functions
-    const createNewFile = useCallback((fileName: string, content: string = '') => {
+    const createNewFile = useCallback(
+        (fileName: string, content: string = '') => {
+            // Lets see if model already exists in Monaco
+            const existingModel = monaco.editor
+                .getModels()
+                .find((m) => m.uri.path === `/${fileName}`);
 
-        // Lets see if model already exists in Monaco
-        const existingModel = monaco.editor.getModels().find(m => m.uri.path === `/${fileName}`);
+            let newModel;
+            if (existingModel) {
+                // File exists, update its content
+                existingModel.setValue(content);
+                newModel = existingModel;
+            } else {
+                // Create new file from scratch
+                const language = fileName.endsWith('.toml') ? 'toml' : 'python';
+                newModel = monaco.editor.createModel(
+                    content,
+                    language,
+                    monaco.Uri.file(`/${fileName}`)
+                );
+            }
 
-        let newModel;
-        if (existingModel) {
-            // File exists, update its content
-            existingModel.setValue(content);
-            newModel = existingModel;
-        } else {
-            // Create new file from scratch
-            const language = fileName.endsWith('.toml') ? 'toml' : 'python';
-            newModel = monaco.editor.createModel(content, language, monaco.Uri.file(`/${fileName}`));
-        }
-
-        setModels(prev => new Map(prev).set(fileName, newModel));
-        setActiveFileName(fileName);
-    }, []);
+            setModels((prev) => new Map(prev).set(fileName, newModel));
+            setActiveFileName(fileName);
+        },
+        []
+    );
 
     // Switch to a different file
-    const switchToFile = useCallback((fileName: string) => {
-        if (models.has(fileName)) {
-            setActiveFileName(fileName);
-            // If editor exists, immediately switch the model
-            const editor = editorRef.current;
-            const targetModel = models.get(fileName);
-            if (editor && targetModel) {
-                editor.setModel(targetModel);
+    const switchToFile = useCallback(
+        (fileName: string) => {
+            if (models.has(fileName)) {
+                setActiveFileName(fileName);
+                // If editor exists, immediately switch the model
+                const editor = editorRef.current;
+                const targetModel = models.get(fileName);
+                if (editor && targetModel) {
+                    editor.setModel(targetModel);
+                }
+                if (pyreService) {
+                    pyreService.setActiveFile(fileName);
+                }
             }
-            if (pyreService) {
-                pyreService.setActiveFile(fileName);
-            }
-        }
-    }, [models, pyreService]);
+        },
+        [models, pyreService]
+    );
 
     // Create a new temporary file
     const createNewTempFile = useCallback(() => {
@@ -160,80 +176,94 @@ export default function Sandbox({
         setRenameInputValue('');
     }, [models, createNewFile, renamingFile]);
 
-
     // Rename a file
-    const renameFile = useCallback((oldName: string, newName: string) => {
-        if (!newName.trim() || models.has(newName)) return false;
-        // Allow renaming to `pyrefly.toml` specifically; otherwise only allow `.py` and `.pyi`
-        let finalName: string;
-        const trimmedNew = newName.trim();
-        if (trimmedNew === 'pyrefly.toml' || trimmedNew.endsWith('/pyrefly.toml')) {
-            finalName = 'pyrefly.toml';
-        } else if (trimmedNew.endsWith('.py') || trimmedNew.endsWith('.pyi')) {
-            finalName = trimmedNew;
-        } else {
-            return false;
-        }
-        if (models.has(finalName)) return false;
+    const renameFile = useCallback(
+        (oldName: string, newName: string) => {
+            if (!newName.trim() || models.has(newName)) return false;
+            // Allow renaming to `pyrefly.toml` specifically; otherwise only allow `.py` and `.pyi`
+            let finalName: string;
+            const trimmedNew = newName.trim();
+            if (
+                trimmedNew === 'pyrefly.toml' ||
+                trimmedNew.endsWith('/pyrefly.toml')
+            ) {
+                finalName = 'pyrefly.toml';
+            } else if (
+                trimmedNew.endsWith('.py') ||
+                trimmedNew.endsWith('.pyi')
+            ) {
+                finalName = trimmedNew;
+            } else {
+                return false;
+            }
+            if (models.has(finalName)) return false;
 
-        const oldModel = models.get(oldName);
-        if (!oldModel) return false;
+            const oldModel = models.get(oldName);
+            if (!oldModel) return false;
 
-        // Create new model with new name
-        const language = finalName.endsWith('.toml') ? 'toml' : 'python';
-        const newModel = monaco.editor.createModel(
-            oldModel.getValue(),
-            language,
-            monaco.Uri.file(`/${finalName}`)
-        );
+            // Create new model with new name
+            const language = finalName.endsWith('.toml') ? 'toml' : 'python';
+            const newModel = monaco.editor.createModel(
+                oldModel.getValue(),
+                language,
+                monaco.Uri.file(`/${finalName}`)
+            );
 
-        // If this is the active file, switch the editor to the new model BEFORE disposing the old one
-        const editor = editorRef.current;
-        if (activeFileName === oldName && editor) {
-            editor.setModel(newModel);
-        }
+            // If this is the active file, switch the editor to the new model BEFORE disposing the old one
+            const editor = editorRef.current;
+            if (activeFileName === oldName && editor) {
+                editor.setModel(newModel);
+            }
 
-        // Update models map
-        setModels(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(oldName);
-            newMap.set(finalName, newModel);
-            return newMap;
-        });
+            // Update models map
+            setModels((prev) => {
+                const newMap = new Map(prev);
+                newMap.delete(oldName);
+                newMap.set(finalName, newModel);
+                return newMap;
+            });
 
+            // Update active filename if needed
+            if (activeFileName === oldName) {
+                setActiveFileName(finalName);
+            }
 
-        // Update active filename if needed
-        if (activeFileName === oldName) {
-            setActiveFileName(finalName);
-        }
+            // Dispose old model AFTER switching
+            setTimeout(() => {
+                oldModel.dispose();
+            }, 100);
 
-        // Dispose old model AFTER switching
-        setTimeout(() => {
-            oldModel.dispose();
-        }, 100);
-
-        return true;
-    }, [models, activeFileName]);
+            return true;
+        },
+        [models, activeFileName]
+    );
 
     // Check if filename is valid (not empty and not duplicate)
-    const isValidFilename = useCallback((inputValue: string, currentFileName: string) => {
-        if (!inputValue.trim()) {
-            return false;
-        }
+    const isValidFilename = useCallback(
+        (inputValue: string, currentFileName: string) => {
+            if (!inputValue.trim()) {
+                return false;
+            }
 
-        const finalName = inputValue.trim();
-        if (!finalName.endsWith('.py') && !finalName.endsWith('.pyi') && finalName !== 'pyrefly.toml') {
-            return false;
-        }
+            const finalName = inputValue.trim();
+            if (
+                !finalName.endsWith('.py') &&
+                !finalName.endsWith('.pyi') &&
+                finalName !== 'pyrefly.toml'
+            ) {
+                return false;
+            }
 
-        // Allow saving with the same name (no change)
-        if (finalName === currentFileName) {
-            return true;
-        }
+            // Allow saving with the same name (no change)
+            if (finalName === currentFileName) {
+                return true;
+            }
 
-        // Check if another file with this name already exists
-        return !models.has(finalName);
-    }, [models]);
+            // Check if another file with this name already exists
+            return !models.has(finalName);
+        },
+        [models]
+    );
 
     // Handle rename save
     const handleRenameSave = useCallback(() => {
@@ -253,64 +283,73 @@ export default function Sandbox({
         }
     }, [renamingFile, renameInputValue, renameFile, isValidFilename]);
 
-
     // Delete a file
-    const deleteFile = useCallback((fileName: string) => {
-        // Prevent deleting sandbox.py (one file must always exist)
-        if (fileName === 'sandbox.py') {
-            return false;
-        }
-
-        const modelToDelete = models.get(fileName);
-        if (!modelToDelete) return false;
-
-        // Remove from models map
-        setModels(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(fileName);
-            return newMap;
-        });
-
-
-        // If this was the active file, switch to sandbox.py
-        if (activeFileName === fileName) {
-            setActiveFileName('sandbox.py');
-            const editor = editorRef.current;
-            const sandboxModel = models.get('sandbox.py');
-            if (editor && sandboxModel) {
-                editor.setModel(sandboxModel);
+    const deleteFile = useCallback(
+        (fileName: string) => {
+            // Prevent deleting sandbox.py (one file must always exist)
+            if (fileName === 'sandbox.py') {
+                return false;
             }
-        }
 
-        // If this file is currently being renamed, reset the rename state
-        if (renamingFile === fileName) {
-            setRenamingFile(null);
-            setRenameInputValue('');
-        }
+            const modelToDelete = models.get(fileName);
+            if (!modelToDelete) return false;
 
-        // Dispose the model
-        setTimeout(() => {
-            modelToDelete.dispose();
-        }, 100);
+            // Remove from models map
+            setModels((prev) => {
+                const newMap = new Map(prev);
+                newMap.delete(fileName);
+                return newMap;
+            });
 
-        return true;
-    }, [models, activeFileName, renamingFile]);
+            // If this was the active file, switch to sandbox.py
+            if (activeFileName === fileName) {
+                setActiveFileName('sandbox.py');
+                const editor = editorRef.current;
+                const sandboxModel = models.get('sandbox.py');
+                if (editor && sandboxModel) {
+                    editor.setModel(sandboxModel);
+                }
+            }
+
+            // If this file is currently being renamed, reset the rename state
+            if (renamingFile === fileName) {
+                setRenamingFile(null);
+                setRenameInputValue('');
+            }
+
+            // Dispose the model
+            setTimeout(() => {
+                modelToDelete.dispose();
+            }, 100);
+
+            return true;
+        },
+        [models, activeFileName, renamingFile]
+    );
 
     const TabBar = () => (
         <div {...stylex.props(styles.tabBar)}>
-            {Array.from(models.keys()).map(fileName => (
+            {Array.from(models.keys()).map((fileName) => (
                 <div key={fileName} {...stylex.props(styles.tabContainer)}>
                     {renamingFile === fileName ? (
-                        <div {...stylex.props(
-                            styles.renameContainer,
-                            !isValidFilename(renameInputValue, fileName) && styles.invalidInput
-                        )}>
+                        <div
+                            {...stylex.props(
+                                styles.renameContainer,
+                                !isValidFilename(renameInputValue, fileName) &&
+                                    styles.invalidInput
+                            )}
+                        >
                             <input
                                 {...stylex.props(styles.renameInput)}
                                 value={renameInputValue}
-                                onChange={(e) => setRenameInputValue(e.target.value)}
+                                onChange={(e) =>
+                                    setRenameInputValue(e.target.value)
+                                }
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || (e.ctrlKey && e.key === 's')) {
+                                    if (
+                                        e.key === 'Enter' ||
+                                        (e.ctrlKey && e.key === 's')
+                                    ) {
                                         e.preventDefault();
                                         handleRenameSave();
                                     } else if (e.key === 'Escape') {
@@ -322,14 +361,17 @@ export default function Sandbox({
                                 placeholder="Enter filename"
                                 autoFocus
                             />
-                            <span {...stylex.props(styles.extensionLabel)}></span>
+                            <span
+                                {...stylex.props(styles.extensionLabel)}
+                            ></span>
                         </div>
                     ) : (
                         <button
                             onClick={() => switchToFile(fileName)}
                             {...stylex.props(
                                 styles.tabButton,
-                                fileName === activeFileName && styles.tabButtonActive
+                                fileName === activeFileName &&
+                                    styles.tabButtonActive
                             )}
                         >
                             {fileName}
@@ -345,7 +387,13 @@ export default function Sandbox({
                         styles.deleteButton,
                         activeFileName === 'sandbox.py' && styles.disabledButton
                     )}
-                    title={activeFileName === 'sandbox.py' ? 'Cannot delete sandbox.py' : renamingFile ? 'Cancel' : 'Delete file'}
+                    title={
+                        activeFileName === 'sandbox.py'
+                            ? 'Cannot delete sandbox.py'
+                            : renamingFile
+                              ? 'Cancel'
+                              : 'Delete file'
+                    }
                     disabled={activeFileName === 'sandbox.py'}
                     onMouseDown={(e) => {
                         e.preventDefault();
@@ -359,10 +407,17 @@ export default function Sandbox({
                         {...stylex.props(
                             styles.actionButton,
                             styles.saveButton,
-                            !isValidFilename(renameInputValue, renamingFile) && styles.disabledButton
+                            !isValidFilename(renameInputValue, renamingFile) &&
+                                styles.disabledButton
                         )}
-                        title={isValidFilename(renameInputValue, renamingFile) ? "Save file name" : "Invalid filename"}
-                        disabled={!isValidFilename(renameInputValue, renamingFile)}
+                        title={
+                            isValidFilename(renameInputValue, renamingFile)
+                                ? 'Save file name'
+                                : 'Invalid filename'
+                        }
+                        disabled={
+                            !isValidFilename(renameInputValue, renamingFile)
+                        }
                     >
                         ✓
                     </button>
@@ -390,7 +445,12 @@ export default function Sandbox({
             } else {
                 initialVersion = pythonVersion;
             }
-            const restored = restoreProjectFromURL(createNewFile, setActiveFileName, setModels, initialVersion);
+            const restored = restoreProjectFromURL(
+                createNewFile,
+                setActiveFileName,
+                setModels,
+                initialVersion
+            );
 
             if (!restored) {
                 if (isCodeSnippet) {
@@ -402,7 +462,10 @@ export default function Sandbox({
                     createNewFile('sandbox.py', DEFAULT_SANDBOX_PROGRAM);
                     createNewFile('utils.py', DEFAULT_UTILS_PROGRAM);
                     // Add a default pyrefly.toml so users can immediately tweak configuration
-                    createNewFile('pyrefly.toml', defaultPyreflyToml(initialVersion));
+                    createNewFile(
+                        'pyrefly.toml',
+                        defaultPyreflyToml(initialVersion)
+                    );
                     setActiveFileName('sandbox.py');
                 }
             }
@@ -430,7 +493,9 @@ export default function Sandbox({
                     setInternalError('');
                 } catch (e) {
                     setLoading(false);
-                    setInternalError(`Failed to initialize with Python ${pythonVersion}: ${e}`);
+                    setInternalError(
+                        `Failed to initialize with Python ${pythonVersion}: ${e}`
+                    );
                 }
             })
             .catch((e) => {
@@ -443,7 +508,7 @@ export default function Sandbox({
     monaco.editor.onDidCreateModel((_newModel) => {
         const curModel = fetchCurMonacoModelAndTriggerUpdate(activeFileName);
         if (curModel) {
-            setModels(prev => new Map(prev).set(activeFileName, curModel));
+            setModels((prev) => new Map(prev).set(activeFileName, curModel));
         }
     });
 
@@ -456,7 +521,6 @@ export default function Sandbox({
             editor.setModel(targetModel);
         }
     }, [activeFileName, models]);
-
 
     // Recheck when pyre service or model changes
     useEffect(() => {
@@ -471,7 +535,10 @@ export default function Sandbox({
             });
 
             if (Object.keys(allFiles).length > 0) {
-                const newVersion = pyreService.updateSandboxFiles(allFiles, forceUpdate);
+                const newVersion = pyreService.updateSandboxFiles(
+                    allFiles,
+                    forceUpdate
+                );
                 if (newVersion) {
                     setPythonVersion(newVersion);
                 }
@@ -501,16 +568,22 @@ export default function Sandbox({
         setHoverFunctionForMonaco(model, (l: number, c: number) =>
             pyreService.queryType(l, c)
         );
-        setInlayHintFunctionForMonaco(model, () => pyreService?.inlayHint() || []);
+        setInlayHintFunctionForMonaco(
+            model,
+            () => pyreService?.inlayHint() || []
+        );
 
         // typecheck on edit
         try {
-            if (activeFileName === "pyrefly.toml") {
+            if (activeFileName === 'pyrefly.toml') {
                 updateAllFiles(false);
                 pyreService.setActiveFile(activeFileName);
             } else if (models.size > 1) {
                 const currentFileContent = model.getValue();
-                pyreService.updateSingleFile(activeFileName, currentFileContent);
+                pyreService.updateSingleFile(
+                    activeFileName,
+                    currentFileContent
+                );
                 pyreService.setActiveFile(activeFileName);
             } else {
                 const value = model.getValue();
@@ -525,7 +598,7 @@ export default function Sandbox({
             });
 
             const errorsByFile = new Map<string, PyreflyErrorMessage[]>();
-            errors.forEach(error => {
+            errors.forEach((error) => {
                 const filename = error.filename || activeFileName;
                 if (!errorsByFile.has(filename)) {
                     errorsByFile.set(filename, []);
@@ -546,7 +619,6 @@ export default function Sandbox({
 
             setInternalError('');
             setErrors(errors);
-
         } catch (e) {
             console.error(e);
             setInternalError(JSON.stringify(e));
@@ -579,7 +651,7 @@ export default function Sandbox({
         // Use activeFileName instead of sampleFilename
         const curModel = fetchCurMonacoModelAndTriggerUpdate(activeFileName);
         if (curModel) {
-            setModels(prev => new Map(prev).set(activeFileName, curModel));
+            setModels((prev) => new Map(prev).set(activeFileName, curModel));
         }
 
         if (isCodeSnippet) {
@@ -723,9 +795,11 @@ interface ProjectState {
 function updateURL(allFiles: Record<string, string>, activeFile: string): void {
     const projectState: ProjectState = {
         files: allFiles,
-        activeFile: activeFile
+        activeFile: activeFile,
     };
-    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(projectState));
+    const compressed = LZString.compressToEncodedURIComponent(
+        JSON.stringify(projectState)
+    );
     const params = new URLSearchParams();
     params.set('project', compressed);
     const newURL = `${window.location.pathname}?${params.toString()}`;
@@ -739,7 +813,8 @@ function getProjectFromURL(): ProjectState | null {
     const project = params.get('project');
     if (project) {
         try {
-            const decompressed = LZString.decompressFromEncodedURIComponent(project);
+            const decompressed =
+                LZString.decompressFromEncodedURIComponent(project);
             return decompressed ? JSON.parse(decompressed) : null;
         } catch (e) {
             console.error('Failed to parse project from URL:', e);
@@ -752,7 +827,7 @@ function getProjectFromURL(): ProjectState | null {
         if (decompressed) {
             return {
                 files: { 'sandbox.py': decompressed },
-                activeFile: 'sandbox.py'
+                activeFile: 'sandbox.py',
             };
         }
     }
@@ -787,24 +862,26 @@ function fetchCurMonacoModelAndTriggerUpdate(
 }
 
 function defaultPyreflyToml(pythonVersion: string) {
-        return [
-            '# Pyrefly sandbox configuration.',
-            '# See https://pyrefly.org/en/docs/configuration/ for available configuration options.',
-            `python-version = "${pythonVersion}"`,
-            ''
-        ].join('\n');
+    return [
+        '# Pyrefly sandbox configuration.',
+        '# See https://pyrefly.org/en/docs/configuration/ for available configuration options.',
+        `python-version = "${pythonVersion}"`,
+        '',
+    ].join('\n');
 }
 
 function restoreProjectFromURL(
     createNewFile: (fileName: string, content: string) => void,
     setActiveFileName: (fileName: string) => void,
-    setModels: React.Dispatch<React.SetStateAction<Map<string, editor.ITextModel>>>,
-    pythonVersion: string,
+    setModels: React.Dispatch<
+        React.SetStateAction<Map<string, editor.ITextModel>>
+    >,
+    pythonVersion: string
 ): boolean {
     const projectState = getProjectFromURL();
     if (!projectState) return false;
 
-    monaco.editor.getModels().forEach(model => model.dispose());
+    monaco.editor.getModels().forEach((model) => model.dispose());
     setModels(new Map());
 
     Object.entries(projectState.files).forEach(([fileName, content]) => {
@@ -817,7 +894,10 @@ function restoreProjectFromURL(
         createNewFile('pyrefly.toml', defaultPyreflyToml(pythonVersion));
     }
 
-    if (projectState.activeFile && projectState.files[projectState.activeFile]) {
+    if (
+        projectState.activeFile &&
+        projectState.files[projectState.activeFile]
+    ) {
         setActiveFileName(projectState.activeFile);
     }
 
@@ -916,7 +996,14 @@ function getMonacoButtons(
             getCopyButton(model),
             /* Hide reset button if it's readonly, which is when it's a code snippet on mobile */
             !isMobile()
-                ? getResetButton(model, forceRecheck, codeSample, isCodeSnippet, models, activeFileName)
+                ? getResetButton(
+                      model,
+                      forceRecheck,
+                      codeSample,
+                      isCodeSnippet,
+                      models,
+                      activeFileName
+                  )
                 : null,
         ].filter(Boolean);
     } else {
@@ -927,7 +1014,14 @@ function getMonacoButtons(
                 setPyodideStatus
             ),
             getShareUrlButton(models, activeFileName),
-            getResetButton(model, forceRecheck, codeSample, isCodeSnippet, models, activeFileName),
+            getResetButton(
+                model,
+                forceRecheck,
+                codeSample,
+                isCodeSnippet,
+                models,
+                activeFileName
+            ),
             getGitHubIssuesButton(model, pythonVersion),
         ];
     }
@@ -1002,12 +1096,17 @@ function getGitHubIssuesButton(
                     `&sandbox=${encodeURIComponent(sandboxURL)}`;
 
                 const issueURLWithDesc =
-                    baseIssueURL + `&description=${encodeURIComponent(description)}`;
+                    baseIssueURL +
+                    `&description=${encodeURIComponent(description)}`;
 
                 // Guardrail: if URL too long, fall back to a concise placeholder description
                 const MAX_URL_LEN = 1800;
                 if (issueURLWithDesc.length <= MAX_URL_LEN) {
-                    window.open(issueURLWithDesc, '_blank', 'noopener,noreferrer');
+                    window.open(
+                        issueURLWithDesc,
+                        '_blank',
+                        'noopener,noreferrer'
+                    );
                     return Promise.resolve();
                 } else {
                     const placeholderDescription =
@@ -1116,7 +1215,10 @@ function getResetButton(
 export function createRunPythonCodeFunction(
     onActiveTabChange: React.Dispatch<React.SetStateAction<string>>,
     runPython: (code: string) => Promise<void>,
-    runMultiFilePython: (activeFile: string, allFiles: Record<string, string>) => Promise<void>,
+    runMultiFilePython: (
+        activeFile: string,
+        allFiles: Record<string, string>
+    ) => Promise<void>,
     models: Map<string, editor.ITextModel>,
     activeFileName: string
 ) {
