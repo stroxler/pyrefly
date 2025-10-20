@@ -29,11 +29,12 @@ use crate::config::config::ConfigFile;
 use crate::config::error::ErrorDisplayConfig;
 use crate::config::error_kind::ErrorKind;
 use crate::config::error_kind::Severity;
+use crate::module::bundled::bundled::find_bundled_stub_module_path;
 
 #[derive(Debug, Clone)]
 pub struct BundledTypeshed {
-    find: SmallMap<ModuleName, PathBuf>,
-    load: SmallMap<PathBuf, Arc<String>>,
+    pub find: SmallMap<ModuleName, PathBuf>,
+    pub load: SmallMap<PathBuf, Arc<String>>,
 }
 
 fn set_readonly(path: &Path, value: bool) -> anyhow::Result<()> {
@@ -59,9 +60,7 @@ impl BundledTypeshed {
     }
 
     pub fn find(&self, module: ModuleName) -> Option<ModulePath> {
-        self.find
-            .get(&module)
-            .map(|path| ModulePath::bundled_typeshed(path.clone()))
+        find_bundled_stub_module_path(self.clone(), module)
     }
 
     pub fn load(&self, path: &Path) -> Option<Arc<String>> {
