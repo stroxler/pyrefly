@@ -51,10 +51,10 @@ impl State {
         serde_wasm_bindgen::to_value(&self.0.get_errors()).unwrap_or(JsValue::NULL)
     }
 
-    #[wasm_bindgen(js_name=queryType)]
-    pub fn query_type(&mut self, line: i32, column: i32) -> JsValue {
+    #[wasm_bindgen(js_name=hover)]
+    pub fn hover(&mut self, line: i32, column: i32) -> JsValue {
         self.0
-            .query_type(Position::new(line, column))
+            .hover(Position::new(line, column))
             .map(|result| serde_wasm_bindgen::to_value(&result).unwrap())
             .unwrap_or(JsValue::NULL)
     }

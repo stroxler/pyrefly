@@ -14,6 +14,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
+use lsp_types::HoverContents;
 use pyrefly_build::handle::Handle;
 use pyrefly_build::source_db::SourceDatabase;
 use pyrefly_build::source_db::Target;
@@ -36,6 +37,7 @@ use starlark_map::small_set::SmallSet;
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
+use crate::lsp_features::hover::get_hover;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::state::Transaction;
@@ -167,23 +169,17 @@ pub struct Diagnostic {
 }
 
 #[derive(Serialize)]
-pub struct TypeQueryContent {
-    language: String,
-    value: String,
-}
-
-#[derive(Serialize)]
-pub struct TypeQueryResult {
-    contents: Vec<TypeQueryContent>,
-}
-
-#[derive(Serialize)]
 pub struct AutoCompletionItem {
     label: String,
     detail: Option<String>,
     kind: Option<CompletionItemKind>,
     #[serde(rename(serialize = "sortText"))]
     sort_text: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct MonacoHover {
+    contents: Vec<HoverContents>,
 }
 
 #[derive(Serialize)]
@@ -409,16 +405,13 @@ impl Playground {
         Some(info.lined_buffer().from_display_pos(pos.to_display_pos()?))
     }
 
-    pub fn query_type(&self, pos: Position) -> Option<TypeQueryResult> {
+    pub fn hover(&self, pos: Position) -> Option<MonacoHover> {
         let handle = self.handles.get(&self.active_filename)?;
         let transaction = self.state.transaction();
         let position = self.to_text_size(&transaction, pos)?;
-        let t = transaction.get_type_at(handle, position)?;
-        Some(TypeQueryResult {
-            contents: vec![TypeQueryContent {
-                language: "python".to_owned(),
-                value: t.to_string(),
-            }],
+        let hover = get_hover(&transaction, handle, position)?;
+        Some(MonacoHover {
+            contents: vec![hover.contents],
         })
     }
 

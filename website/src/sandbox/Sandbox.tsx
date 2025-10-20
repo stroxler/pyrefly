@@ -44,7 +44,7 @@ export interface PyreflyState {
     getErrors: () => ReadonlyArray<PyreflyErrorMessage>;
     autoComplete: (line: number, column: number) => any;
     gotoDefinition: (line: number, column: number) => any;
-    queryType: (line: number, column: number) => any;
+    hover: (line: number, column: number) => any;
     inlayHint: () => any;
 }
 
@@ -566,7 +566,7 @@ export default function Sandbox({
             pyreService.gotoDefinition(l, c)
         );
         setHoverFunctionForMonaco(model, (l: number, c: number) =>
-            pyreService.queryType(l, c)
+            pyreService.hover(l, c)
         );
         setInlayHintFunctionForMonaco(
             model,

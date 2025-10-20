@@ -92,6 +92,7 @@ pub struct HoverValue {
 }
 
 impl HoverValue {
+    #[cfg(not(target_arch = "wasm32"))]
     fn format_symbol_def_locations(t: &Type) -> Option<String> {
         let mut tracked_def_locs = SmallSet::new();
         t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
@@ -118,6 +119,11 @@ impl HoverValue {
         } else {
             Some(format!("\n\nGo to {linked_names}"))
         }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn format_symbol_def_locations(t: &Type) -> Option<String> {
+        None
     }
 
     pub fn format(&self) -> Hover {

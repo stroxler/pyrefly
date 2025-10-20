@@ -170,10 +170,6 @@ use crate::config::config::ConfigFile;
 use crate::error::error::Error;
 use crate::lsp::build_system::queue_source_db_rebuild_and_recheck;
 use crate::lsp::build_system::should_requery_build_system;
-use crate::lsp::features::hover::get_hover;
-use crate::lsp::features::provide_type::ProvideType;
-use crate::lsp::features::provide_type::ProvideTypeResponse;
-use crate::lsp::features::provide_type::provide_type;
 use crate::lsp::lsp::apply_change_events;
 use crate::lsp::lsp::as_notification;
 use crate::lsp::lsp::as_request;
@@ -192,6 +188,10 @@ use crate::lsp::transaction_manager::TransactionManager;
 use crate::lsp::workspace::LspAnalysisConfig;
 use crate::lsp::workspace::Workspace;
 use crate::lsp::workspace::Workspaces;
+use crate::lsp_features::hover::get_hover;
+use crate::lsp_features::provide_type::ProvideType;
+use crate::lsp_features::provide_type::ProvideTypeResponse;
+use crate::lsp_features::provide_type::provide_type;
 use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -1021,7 +1021,7 @@ impl Server {
     fn provide_type(
         &self,
         transaction: &Transaction<'_>,
-        params: crate::lsp::features::provide_type::ProvideTypeParams,
+        params: crate::lsp_features::provide_type::ProvideTypeParams,
     ) -> Option<ProvideTypeResponse> {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;
