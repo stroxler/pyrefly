@@ -284,7 +284,11 @@ pub fn will_rename_files(
 
         if supports_document_changes {
             // Use document_changes for better ordering guarantees and version checking
-            let document_changes: Vec<DocumentChangeOperation> = all_changes
+            // Sort by URI for deterministic ordering
+            let mut sorted_changes: Vec<(Url, Vec<TextEdit>)> = all_changes.into_iter().collect();
+            sorted_changes.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+
+            let document_changes: Vec<DocumentChangeOperation> = sorted_changes
                 .into_iter()
                 .map(|(uri, edits)| {
                     DocumentChangeOperation::Edit(TextDocumentEdit {

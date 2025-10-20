@@ -54,6 +54,8 @@ pub struct InitializeSettings {
     // When Some(None), empty configuration will be sent
     pub configuration: Option<Option<serde_json::Value>>,
     pub file_watch: bool,
+    // Additional capabilities to merge into the initialize params
+    pub capabilities: Option<serde_json::Value>,
 }
 
 pub struct TestServer {
@@ -332,7 +334,32 @@ impl TestServer {
             params["capabilities"]["workspace"]["configuration"] = serde_json::json!(true);
         }
 
+        // Merge custom capabilities if provided
+        if let Some(custom_capabilities) = &settings.capabilities {
+            Self::merge_json(&mut params["capabilities"], custom_capabilities);
+        }
+
         params
+    }
+
+    /// Helper function to merge JSON values, with the source taking precedence
+    fn merge_json(target: &mut Value, source: &Value) {
+        if let (Some(target_obj), Some(source_obj)) = (target.as_object_mut(), source.as_object()) {
+            for (key, value) in source_obj {
+                if let Some(target_value) = target_obj.get_mut(key) {
+                    // If both are objects, merge recursively
+                    if target_value.is_object() && value.is_object() {
+                        Self::merge_json(target_value, value);
+                    } else {
+                        // Otherwise, overwrite with source value
+                        *target_value = value.clone();
+                    }
+                } else {
+                    // Key doesn't exist in target, insert it
+                    target_obj.insert(key.clone(), value.clone());
+                }
+            }
+        }
     }
 
     fn next_request_id(&mut self) -> RequestId {
