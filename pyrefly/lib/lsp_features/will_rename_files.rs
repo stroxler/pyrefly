@@ -26,7 +26,6 @@ use pyrefly_util::lock::RwLock;
 use rayon::prelude::*;
 use ruff_python_ast::Stmt;
 use ruff_text_size::Ranged;
-use tracing::debug;
 
 use crate::lsp::module_helpers::handle_from_module_path;
 use crate::lsp::module_helpers::module_info_to_uri;
@@ -234,8 +233,18 @@ pub fn will_rename_files(
 
         eprintln!("    Found {} transitive rdeps", rdeps.len());
 
+        // Deduplicate rdeps by module path string (get_transitive_rdeps might return duplicates
+        // with different variants like FileSystem vs Memory for the same path)
+        let unique_rdeps: Vec<_> = {
+            let mut seen = std::collections::HashSet::new();
+            rdeps
+                .into_iter()
+                .filter(|handle| seen.insert(handle.path().as_path().to_owned()))
+                .collect()
+        };
+
         // Visit each dependent file to find and update imports (parallelized)
-        let rdeps_changes: Vec<(Url, Vec<TextEdit>)> = rdeps
+        let rdeps_changes: Vec<(Url, Vec<TextEdit>)> = unique_rdeps
             .into_par_iter()
             .filter_map(|rdep_handle| {
                 let module_info = transaction.get_module_info(&rdep_handle)?;

@@ -63,6 +63,60 @@ fn test_will_rename_files_changes_open_files_when_indexing_disabled() {
 }
 
 #[test]
+fn test_will_rename_files_with_marker_file_no_config() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
+    let root_path = root.path().join("marker_file_no_config");
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
+
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        ..Default::default()
+    });
+
+    let bar = "bar.py";
+    let foo = "foo.py";
+    interaction.server.did_open(bar);
+    interaction.server.did_open(foo);
+
+    let foo_path = root_path.join(foo);
+
+    // Send will_rename_files request to rename bar.py to baz.py
+    interaction.server.will_rename_files(bar, "baz.py");
+
+    // Expect a response with edits to update imports in foo.py using "changes" format
+    // since  there's a marker file (pyproject.toml), but no pyrefly config,
+    // it should still work and provide rename edits
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "changes": {
+                Url::from_file_path(&foo_path).unwrap().to_string(): [
+                    {
+                        "newText": "baz",
+                        "range": {
+                            "start": {"line": 5, "character": 7},
+                            "end": {"line": 5, "character": 10}
+                        }
+                    },
+                    {
+                        "newText": "baz",
+                        "range": {
+                            "start": {"line": 6, "character": 5},
+                            "end": {"line": 6, "character": 8}
+                        }
+                    },
+                ]
+            }
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_will_rename_files_changes_folder() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::None);
