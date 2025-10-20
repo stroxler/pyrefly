@@ -161,6 +161,14 @@ print(b"world")
 
 "#;
 
+    let type_lit_str = r#"class B:
+    class A:
+        pass
+
+    def other(self, x: "B") -> "list[B]|A":
+        return [x]
+"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
@@ -168,6 +176,7 @@ print(b"world")
         ("try_except", try_except_code),
         ("return_types", return_types),
         ("calls", calls),
+        ("type_lit_str", type_lit_str),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
     let transaction = state.transaction();
