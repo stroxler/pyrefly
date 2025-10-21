@@ -17,6 +17,7 @@ use std::time::Duration;
 
 use crossbeam_channel::RecvTimeoutError;
 use crossbeam_channel::bounded;
+use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::Notification;
@@ -179,6 +180,23 @@ impl TestServer {
                     "version": 1,
                     "text": read_to_string(&path).unwrap(),
                 },
+            }),
+        }));
+    }
+
+    pub fn did_change(&self, file: &'static str, contents: &'static str) {
+        let path = self.get_root_or_panic().join(file);
+        self.send_message(Message::Notification(Notification {
+            method: "textDocument/didChange".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                    "languageId": "python",
+                    "version": 2
+                },
+                "contentChanges": [{
+                    "text": contents.to_owned()
+                }],
             }),
         }));
     }
@@ -630,6 +648,24 @@ impl TestClient {
                         ValidationResult::Fail
                     }
                 }
+            },
+            description,
+        );
+    }
+
+    pub fn expect_response_with_item(&self, item: Value, description: &str) {
+        self.expect_response_with(
+            |response| {
+                if response.id != RequestId::from(2) {
+                    return false;
+                }
+                if let Some(result) = &response.result
+                    && let Some(items) = result.get("items")
+                    && let Some(items_array) = items.as_array()
+                {
+                    return items_array.iter().contains(&item);
+                }
+                false
             },
             description,
         );
