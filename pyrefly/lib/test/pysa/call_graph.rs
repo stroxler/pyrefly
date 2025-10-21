@@ -1094,3 +1094,75 @@ def foo(c_or_d: TCOrD):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_static_method,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @staticmethod
+  def f(a: int) -> int: ...
+def foo():
+  C.f(1)
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.f", TargetType::Function)
+                .with_is_static_method(true)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![(
+                "6:3-6:9".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_classmethod_override_in_conditional_block,
+    TEST_MODULE_NAME,
+    r#"
+# Original code: https://fburl.com/code/k6hypgar
+class A:
+  def foo(cls) -> None:
+    raise NotImplementedError
+class B(A):
+  # The type of B.foo would be different without the if-else here.
+  if 1 == 1:
+    @classmethod
+    def foo(cls) -> None:
+      pass
+  else:
+    @classmethod
+    def foo(cls) -> None:
+      pass
+def bar():
+  B.foo()
+"#,
+    &|context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.B.foo", TargetType::Function)
+                .with_is_class_method(true)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
+                .with_receiver_class_for_test("test.B".to_owned(), context),
+        ];
+        vec![(
+            "test.bar".to_owned(),
+            vec![(
+                "17:3-17:10".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
