@@ -470,7 +470,18 @@
                         "id": 0,
                         "key": "\"B\""
                       },
-                      "xrefs": []
+                      "xrefs": [
+                        {
+                          "source": {
+                            "length": 1,
+                            "start": 1
+                          },
+                          "target": {
+                            "id": 0,
+                            "key": "type_lit_str.B"
+                          }
+                        }
+                      ]
                     }
                   }
                 ],
@@ -480,7 +491,38 @@
                     "id": 0,
                     "key": "\"list[B] | A\""
                   },
-                  "xrefs": []
+                  "xrefs": [
+                    {
+                      "source": {
+                        "length": 1,
+                        "start": 6
+                      },
+                      "target": {
+                        "id": 0,
+                        "key": "type_lit_str.B"
+                      }
+                    },
+                    {
+                      "source": {
+                        "length": 1,
+                        "start": 9
+                      },
+                      "target": {
+                        "id": 0,
+                        "key": "type_lit_str.B.A"
+                      }
+                    },
+                    {
+                      "source": {
+                        "length": 4,
+                        "start": 1
+                      },
+                      "target": {
+                        "id": 0,
+                        "key": "list"
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -596,7 +638,18 @@
                     "id": 0,
                     "key": "\"B\""
                   },
-                  "xrefs": []
+                  "xrefs": [
+                    {
+                      "source": {
+                        "length": 1,
+                        "start": 1
+                      },
+                      "target": {
+                        "id": 0,
+                        "key": "type_lit_str.B"
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -683,12 +736,73 @@
           "spans": [
             {
               "length": 1,
+              "start": 60
+            },
+            {
+              "length": 1,
+              "start": 73
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "type_lit_str.B"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "type_lit_str.py"
+          },
+          "spans": [
+            {
+              "length": 1,
+              "start": 76
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "type_lit_str.B.A"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "type_lit_str.py"
+          },
+          "spans": [
+            {
+              "length": 1,
               "start": 96
             }
           ],
           "target": {
             "id": 0,
             "key": "type_lit_str.B.other.<locals>.x"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "type_lit_str.py"
+          },
+          "spans": [
+            {
+              "length": 4,
+              "start": 68
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "list"
           }
         }
       }
@@ -708,11 +822,51 @@
             {
               "source": {
                 "length": 1,
+                "start": 60
+              },
+              "target": {
+                "id": 0,
+                "key": "type_lit_str.B"
+              }
+            },
+            {
+              "source": {
+                "length": 1,
+                "start": 73
+              },
+              "target": {
+                "id": 0,
+                "key": "type_lit_str.B"
+              }
+            },
+            {
+              "source": {
+                "length": 1,
+                "start": 76
+              },
+              "target": {
+                "id": 0,
+                "key": "type_lit_str.B.A"
+              }
+            },
+            {
+              "source": {
+                "length": 1,
                 "start": 96
               },
               "target": {
                 "id": 0,
                 "key": "type_lit_str.B.other.<locals>.x"
+              }
+            },
+            {
+              "source": {
+                "length": 4,
+                "start": 68
+              },
+              "target": {
+                "id": 0,
+                "key": "list"
               }
             }
           ]

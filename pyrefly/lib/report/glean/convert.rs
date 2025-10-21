@@ -25,6 +25,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Parameter;
 use ruff_python_ast::ParameterWithDefault;
@@ -433,6 +434,39 @@ impl GleanState<'_> {
         }
     }
 
+    fn get_xrefs_types_for_str_lit(&self, expr: &ExprStringLiteral) -> Vec<(String, TextRange)> {
+        let sep_indexes: Vec<usize> = self
+            .module
+            .code_at(expr.range())
+            .match_indices(|x: char| x.is_whitespace() || TYPE_SEPARATORS.contains(&x))
+            .map(|m| m.0)
+            .collect();
+
+        let ranges = (1..sep_indexes.len())
+            .map(|i| {
+                let start = TextSize::try_from(sep_indexes[i - 1] + 1).ok().unwrap();
+                let end = TextSize::try_from(sep_indexes[i]).ok().unwrap();
+                TextRange::new(start, end) + expr.range().start()
+            })
+            .filter(|range| !range.is_empty());
+
+        if let Some(answers) = self.transaction.get_answers(self.handle) {
+            ranges
+                .filter_map(|range| {
+                    if let Some(ty) = answers.get_type_trace(range)
+                        && let Some(name) = self.fq_name_for_type(ty)
+                    {
+                        Some((name, range))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
     fn fq_names_for_attribute(&self, expr_attr: &ExprAttribute) -> Vec<String> {
         let name = &expr_attr.attr;
         let base_expr = expr_attr.value.as_ref();
@@ -541,6 +575,7 @@ impl GleanState<'_> {
                     vec![]
                 }
             }
+            Expr::StringLiteral(str_lit) => self.get_xrefs_types_for_str_lit(str_lit),
             Expr::NoneLiteral(none) => vec![("None".to_owned(), none.range())],
             _ => vec![],
         };
