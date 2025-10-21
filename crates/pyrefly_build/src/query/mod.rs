@@ -113,6 +113,9 @@ pub(crate) struct PythonLibraryManifest {
     #[serde(flatten)]
     pub sys_info: SysInfo,
     pub buildfile_path: PathBuf,
+    // TODO(connernilsen): make this required at some point
+    #[serde(default)]
+    pub implicit_dunder_inits: SmallMap<ModuleName, PathBuf>,
 }
 
 impl PythonLibraryManifest {
@@ -134,6 +137,9 @@ impl PythonLibraryManifest {
         self.srcs
             .iter_mut()
             .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&**p)));
+        self.implicit_dunder_inits
+            .iter_mut()
+            .for_each(|(_, p)| *p = root.join(&**p));
         self.buildfile_path = root.join(&self.buildfile_path);
     }
 }
@@ -314,6 +320,7 @@ mod tests {
                 deps: map_deps(deps),
                 sys_info: SysInfo::new(PythonVersion::new(3, 12, 0), PythonPlatform::linux()),
                 buildfile_path: PathBuf::from(buildfile),
+                implicit_dunder_inits: SmallMap::new(),
             })
         }
     }
@@ -326,6 +333,7 @@ mod tests {
                 deps: map_deps(deps),
                 sys_info: SysInfo::new(PythonVersion::new(3, 12, 0), PythonPlatform::linux()),
                 buildfile_path: PathBuf::from(root).join(buildfile),
+                implicit_dunder_inits: SmallMap::new(),
             }
         }
     }
