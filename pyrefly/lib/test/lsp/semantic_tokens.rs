@@ -638,3 +638,65 @@ line: 3, column: 7, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]"#,
     );
 }
+
+#[test]
+fn nested_class() {
+    let code = r#"
+from typing import SupportsFloat
+class Test:
+    class nested: pass
+Test.nested"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+    # main.py
+line: 1, column: 5, length: 6, text: typing
+token-type: namespace
+
+line: 1, column: 19, length: 13, text: SupportsFloat
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 2, column: 6, length: 4, text: Test
+token-type: class
+
+line: 3, column: 10, length: 6, text: nested
+token-type: class
+
+line: 4, column: 0, length: 4, text: Test
+token-type: class
+
+line: 4, column: 5, length: 6, text: nested
+token-type: property"#,
+    );
+}
+
+#[test]
+fn module_dot_access() {
+    let code = r#"
+import typing
+from typing import SupportsFloat
+typing.SupportsFloat
+SupportsFloat"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+    # main.py
+line: 1, column: 7, length: 6, text: typing
+token-type: namespace, token-modifiers: [defaultLibrary]
+
+line: 2, column: 5, length: 6, text: typing
+token-type: namespace
+
+line: 2, column: 19, length: 13, text: SupportsFloat
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 0, length: 6, text: typing
+token-type: namespace, token-modifiers: [defaultLibrary]
+
+line: 3, column: 7, length: 13, text: SupportsFloat
+token-type: property
+
+line: 4, column: 0, length: 13, text: SupportsFloat
+token-type: class, token-modifiers: [defaultLibrary]"#,
+    );
+}
