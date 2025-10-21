@@ -734,7 +734,9 @@ export default function Sandbox({
         codeSample,
         pythonVersion,
         models,
-        activeFileName
+        activeFileName,
+        createNewFile,
+        setActiveFileName
     );
     return (
         <div
@@ -1003,7 +1005,9 @@ function getMonacoButtons(
     codeSample: string,
     pythonVersion: string,
     models: Map<string, editor.ITextModel>,
-    activeFileName: string
+    activeFileName: string,
+    createNewFile: (fileName: string, content: string) => void,
+    setActiveFileName: (fileName: string) => void
 ): ReadonlyArray<React.ReactElement> {
     let buttons: ReadonlyArray<React.ReactElement> = [];
     if (isCodeSnippet) {
@@ -1018,7 +1022,9 @@ function getMonacoButtons(
                       codeSample,
                       isCodeSnippet,
                       models,
-                      activeFileName
+                      activeFileName,
+                      createNewFile,
+                      setActiveFileName
                   )
                 : null,
         ].filter(Boolean);
@@ -1036,7 +1042,9 @@ function getMonacoButtons(
                 codeSample,
                 isCodeSnippet,
                 models,
-                activeFileName
+                activeFileName,
+                createNewFile,
+                setActiveFileName
             ),
             getGitHubIssuesButton(model, pythonVersion),
         ];
@@ -1209,12 +1217,19 @@ function getResetButton(
     codeSample: string,
     isCodeSnippet: boolean,
     models: Map<string, editor.ITextModel>,
-    activeFileName: string
+    activeFileName: string,
+    createNewFile: (fileName: string, content: string) => void,
+    setActiveFileName: (fileName: string) => void
 ): React.ReactElement {
     return (
         <MonacoEditorButton
             id="reset-button"
             onClick={async () => {
+                if (!isCodeSnippet) {
+                    createNewFile('utils.py', DEFAULT_UTILS_PROGRAM);
+                    setActiveFileName('sandbox.py');
+                    forceRecheck();
+                }
                 if (model) {
                     model.setValue(codeSample);
                     forceRecheck();
