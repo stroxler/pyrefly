@@ -980,6 +980,8 @@ Completion Results:
 
 - (Class) MissingHeaderBodySeparatorDefect: from email.errors import MissingHeaderBodySeparatorDefect
 
+- (Function) disjoint_base: from typing_extensions import disjoint_base
+
 - (Function) distributions: from importlib.metadata import distributions
 
 - (Function) fix_missing_locations: from ast import fix_missing_locations
@@ -1286,7 +1288,7 @@ fn kwargs_completion_overload_correct() {
 from typing import Literal, overload
 @overload
 def foo(y: bool, z: bool):
-print(y)
+    print(y)
 @overload
 def foo(x: int, y: str):
     print(x)
