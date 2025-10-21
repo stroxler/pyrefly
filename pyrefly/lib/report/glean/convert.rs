@@ -46,6 +46,8 @@ use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::types::Type;
 
+const TYPE_SEPARATORS: [char; 12] = [',', '|', '[', ']', '{', '}', '(', ')', '=', ':', '\'', '"'];
+
 fn hash(x: &[u8]) -> String {
     // Glean uses blake3
     blake3::hash(x).to_string()
@@ -472,10 +474,9 @@ impl GleanState<'_> {
     }
 
     fn make_decorators(&self, decorators: &[Decorator]) -> Option<Vec<String>> {
-        let lined_buffer = self.module.lined_buffer();
         let glean_decorators: Vec<String> = decorators
             .iter()
-            .map(|x| lined_buffer.code_at(x.range()).to_owned())
+            .map(|x| self.module.code_at(x.range()).to_owned())
             .collect();
 
         if glean_decorators.is_empty() {
@@ -521,30 +522,32 @@ impl GleanState<'_> {
     }
 
     fn make_xrefs(&self, expr: &Expr, offset: Option<TextSize>) -> Vec<python::XRefViaName> {
-        let (names, range) = match expr {
+        let xrefs = match expr {
             Expr::Attribute(attr) => {
-                let fq_names = if attr.ctx.is_load() {
+                if attr.ctx.is_load() {
                     self.fq_names_for_attribute(attr)
+                        .into_iter()
+                        .map(|name| (name, attr.attr.range()))
+                        .collect()
                 } else {
                     vec![]
-                };
-                (fq_names, attr.attr.range())
+                }
             }
             Expr::Name(name) => {
-                let fq_names = if name.ctx.is_load() {
-                    self.fq_name_for_name_use(name).map_or(vec![], |x| vec![x])
+                if name.ctx.is_load() {
+                    self.fq_name_for_name_use(name)
+                        .map_or(vec![], |x| vec![(x, name.range())])
                 } else {
                     vec![]
-                };
-                (fq_names, name.range())
+                }
             }
-            Expr::NoneLiteral(none) => (vec!["None".to_owned()], none.range()),
-            _ => (vec![], expr.range()),
+            Expr::NoneLiteral(none) => vec![("None".to_owned(), none.range())],
+            _ => vec![],
         };
 
-        names
+        xrefs
             .into_iter()
-            .map(|name| python::XRefViaName {
+            .map(|(name, range)| python::XRefViaName {
                 target: python::Name::new(name),
                 source: to_span_with_offset(range, offset),
             })
@@ -574,14 +577,13 @@ impl GleanState<'_> {
     }
 
     fn display_type_info(&self, range: TextRange) -> python::Type {
-        let lined_buffer = self.module.lined_buffer();
-        let separators = [',', '|', '[', ']', '{', '}', '(', ')', '=', ':'];
-        let parts: Vec<&str> = lined_buffer
+        let parts: Vec<&str> = self
+            .module
             .code_at(range)
             .split_whitespace()
-            .flat_map(|x| x.split_inclusive(separators))
+            .flat_map(|x| x.split_inclusive(TYPE_SEPARATORS))
             .flat_map(|x| {
-                if x.ends_with(separators) {
+                if x.ends_with(TYPE_SEPARATORS) {
                     let (name, sep) = x.split_at(x.len() - 1);
                     vec![name, sep].into_iter()
                 } else {
@@ -685,11 +687,10 @@ impl GleanState<'_> {
         context: &NodeContext,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
-        let lined_buffer = self.module.lined_buffer();
         let value: Option<String> = parameter_with_default
             .default
             .as_ref()
-            .map(|x| lined_buffer.code_at(x.range()).to_owned());
+            .map(|x| self.module.code_at(x.range()).to_owned());
         self.parameter_info(
             &parameter_with_default.parameter,
             value,
