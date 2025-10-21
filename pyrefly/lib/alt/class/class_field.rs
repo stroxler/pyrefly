@@ -1999,6 +1999,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for parent_cls in mro.ancestors_no_object().iter() {
             let class_fields = parent_cls.class_object().fields();
             for field in class_fields {
+                // Skip `__slots__` for now
+                if field == &dunder::SLOTS {
+                    continue;
+                }
                 let key = KeyClassField(parent_cls.class_object().index(), field.clone());
                 let field_entry = self.get_from_class(cls, &key);
                 if let Some(field_entry) = field_entry.as_ref() {

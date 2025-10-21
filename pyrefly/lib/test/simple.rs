@@ -1841,6 +1841,14 @@ async def main() -> None:
     "#,
 );
 
+testcase!(
+    test_int_supports_index,
+    r#"
+from typing import SupportsIndex
+x: SupportsIndex = 3
+    "#,
+);
+
 // This error kind was renamed from async-error to not-async.
 testcase!(
     test_disable_with_old_error_kind,
