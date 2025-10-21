@@ -1400,18 +1400,39 @@ impl Server {
         Ok(())
     }
 
+    /// Determines whether file watchers should be re-registered based on event types.
+    /// Returns true if config files changed or files were created/removed/unknown.
+    fn should_rewatch(events: &CategorizedEvents) -> bool {
+        let config_changed = events.iter().any(|x| {
+            x.file_name()
+                .and_then(|x| x.to_str())
+                .is_some_and(|x| ConfigFile::CONFIG_FILE_NAMES.contains(&x))
+        });
+
+        // Re-register watchers if files were created/removed (pip install, new files, etc.)
+        // or if unknown events occurred. This ensures we discover new files while avoiding
+        // unnecessary re-registration on simple file modifications.
+        let files_added_or_removed =
+            !events.created.is_empty() || !events.removed.is_empty() || !events.unknown.is_empty();
+
+        config_changed || files_added_or_removed
+    }
+
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
         if params.changes.is_empty() {
             return;
         }
 
         let events = CategorizedEvents::new_lsp(params.changes);
-
         let should_requery_build_system = should_requery_build_system(&events);
 
+        // Rewatch files if necessary (config changed, files added/removed, etc.)
+        if Self::should_rewatch(&events) {
+            eprintln!("[Pyrefly] Re-registering file watchers");
+            self.setup_file_watcher_if_necessary();
+        }
+
         self.invalidate(move |t| t.invalidate_events(&events));
-        // rewatch files in case we loaded or dropped any configs
-        self.setup_file_watcher_if_necessary();
 
         // If a non-Python, non-config file was changed, then try rebuilding build systems.
         // If no build system file was changed, then we should just not do anything. If

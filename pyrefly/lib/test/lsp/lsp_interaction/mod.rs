@@ -13,6 +13,7 @@ mod configuration;
 mod definition;
 mod diagnostic;
 mod did_change;
+mod file_watcher;
 mod hover;
 mod inlay_hint;
 mod io;

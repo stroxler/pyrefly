@@ -313,6 +313,48 @@ impl TestServer {
         }));
     }
 
+    /// Send a file creation event notification
+    pub fn file_created(&self, file: &str) {
+        let path = self.get_root_or_panic().join(file);
+        self.send_message(Message::Notification(Notification {
+            method: "workspace/didChangeWatchedFiles".to_owned(),
+            params: serde_json::json!({
+                "changes": [{
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                    "type": 1,  // FileChangeType::CREATED
+                }],
+            }),
+        }));
+    }
+
+    /// Send a file modification event notification
+    pub fn file_modified(&self, file: &str) {
+        let path = self.get_root_or_panic().join(file);
+        self.send_message(Message::Notification(Notification {
+            method: "workspace/didChangeWatchedFiles".to_owned(),
+            params: serde_json::json!({
+                "changes": [{
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                    "type": 2,  // FileChangeType::CHANGED
+                }],
+            }),
+        }));
+    }
+
+    /// Send a file deletion event notification
+    pub fn file_deleted(&self, file: &str) {
+        let path = self.get_root_or_panic().join(file);
+        self.send_message(Message::Notification(Notification {
+            method: "workspace/didChangeWatchedFiles".to_owned(),
+            params: serde_json::json!({
+                "changes": [{
+                    "uri": Url::from_file_path(&path).unwrap().to_string(),
+                    "type": 3,  // FileChangeType::DELETED
+                }],
+            }),
+        }));
+    }
+
     pub fn get_initialize_params(&self, settings: &InitializeSettings) -> Value {
         let mut params: Value = serde_json::json!({
             "rootPath": "/",
@@ -646,6 +688,60 @@ impl TestClient {
                 }
             },
             &format!("Expected configuration request: {expected_msg:?}"),
+        );
+    }
+
+    /// Expect a file watcher registration request.
+    /// Validates that the request is specifically registering the file watcher (ID: "FILEWATCHER").
+    pub fn expect_file_watcher_register(&self) {
+        self.expect_message_helper(
+            |msg| match msg {
+                Message::Request(req)
+                    if req.method == "client/registerCapability"
+                        && req
+                            .params
+                            .get("registrations")
+                            .and_then(|r| r.as_array())
+                            .map(|arr| {
+                                arr.iter().any(|reg| {
+                                    reg.get("id").and_then(|id| id.as_str()) == Some("FILEWATCHER")
+                                })
+                            })
+                            .unwrap_or(false) =>
+                {
+                    ValidationResult::Pass
+                }
+                Message::Notification(_) => ValidationResult::Skip,
+                _ => ValidationResult::Fail,
+            },
+            "Expected file watcher registerCapability",
+        );
+    }
+
+    /// Expect a file watcher unregistration request.
+    /// Validates that the request is specifically unregistering the file watcher (ID: "FILEWATCHER").
+    pub fn expect_file_watcher_unregister(&self) {
+        self.expect_message_helper(
+            |msg| match msg {
+                Message::Request(req)
+                    if req.method == "client/unregisterCapability"
+                        && req
+                            .params
+                            .get("unregisterations")
+                            .and_then(|r| r.as_array())
+                            .map(|arr| {
+                                arr.iter().any(|reg| {
+                                    reg.get("id").and_then(|id| id.as_str()) == Some("FILEWATCHER")
+                                })
+                            })
+                            .unwrap_or(false) =>
+                {
+                    ValidationResult::Pass
+                }
+                Message::Notification(_) => ValidationResult::Skip,
+                _ => ValidationResult::Fail,
+            },
+            "Expected file watcher unregisterCapability",
         );
     }
 
