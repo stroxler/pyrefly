@@ -666,7 +666,7 @@ line: 4, column: 0, length: 4, text: Test
 token-type: class
 
 line: 4, column: 5, length: 6, text: nested
-token-type: property"#,
+token-type: class"#,
     );
 }
 
@@ -694,7 +694,7 @@ line: 3, column: 0, length: 6, text: typing
 token-type: namespace, token-modifiers: [defaultLibrary]
 
 line: 3, column: 7, length: 13, text: SupportsFloat
-token-type: property
+token-type: class
 
 line: 4, column: 0, length: 13, text: SupportsFloat
 token-type: class, token-modifiers: [defaultLibrary]"#,
