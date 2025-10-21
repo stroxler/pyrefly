@@ -574,7 +574,7 @@ impl<'a> CallGraphVisitor<'a> {
     ) -> (Option<ClassRef>, bool) {
         let receiver_type = strip_none_from_union(receiver_type);
         match receiver_type {
-            Type::ClassType(class_type) => (
+            Type::ClassType(class_type) | Type::SelfType(class_type) => (
                 Some(ClassRef::from_class(
                     class_type.class_object(),
                     self.module_context.module_ids,

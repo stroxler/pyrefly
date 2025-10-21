@@ -1166,3 +1166,38 @@ def bar():
         )]
     }
 );
+
+call_graph_testcase!(
+    test_abstract_method_call,
+    TEST_MODULE_NAME,
+    r#"
+from abc import abstractmethod
+class A:
+  def f(self):
+      return self.g()
+  @abstractmethod
+  def g(self):
+      pass
+class B(A):
+  def g(self):
+      pass
+"#,
+    &|context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.A.g", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.A".to_owned(), context),
+        ];
+        vec![(
+            "test.A.f".to_owned(),
+            vec![(
+                "5:14-5:22".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
