@@ -6,7 +6,6 @@
  */
 
 use lsp_server::Message;
-use lsp_server::Notification;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
@@ -359,21 +358,10 @@ fn test_references_after_file_modification_with_config() {
     interaction.server.did_open("with_synthetic_bindings.py");
     interaction.server.did_open("bar.py");
 
-    interaction
-        .server
-        .send_message(Message::Notification(Notification {
-            method: "textDocument/didChange".to_owned(),
-            params: serde_json::json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(bar.clone()).unwrap().to_string(),
-                    "languageId": "python",
-                    "version": 2
-                },
-                "contentChanges": [{
-                    "text": format!("\n\n{}", std::fs::read_to_string(bar.clone()).unwrap())
-                }],
-            }),
-        }));
+    interaction.server.did_change(
+        "bar.py",
+        &format!("n\n{}", std::fs::read_to_string(bar.clone()).unwrap()),
+    );
 
     interaction
         .server
@@ -460,21 +448,10 @@ fn test_references_after_file_modification_with_line_offset_with_config() {
     interaction.server.did_open("with_synthetic_bindings.py");
     interaction.server.did_open("bar.py");
 
-    interaction
-        .server
-        .send_message(Message::Notification(Notification {
-            method: "textDocument/didChange".to_owned(),
-            params: serde_json::json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(bar.clone()).unwrap().to_string(),
-                    "languageId": "python",
-                    "version": 2
-                },
-                "contentChanges": [{
-                    "text": format!("\n\n{}", std::fs::read_to_string(bar.clone()).unwrap())
-                }],
-            }),
-        }));
+    interaction.server.did_change(
+        "bar.py",
+        &format!("\n\n{}", std::fs::read_to_string(bar.clone()).unwrap()),
+    );
 
     interaction
         .server

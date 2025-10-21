@@ -184,7 +184,7 @@ impl TestServer {
         }));
     }
 
-    pub fn did_change(&self, file: &'static str, contents: &'static str) {
+    pub fn did_change(&self, file: &str, contents: &str) {
         let path = self.get_root_or_panic().join(file);
         self.send_message(Message::Notification(Notification {
             method: "textDocument/didChange".to_owned(),
