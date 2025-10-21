@@ -9,6 +9,7 @@
 mod auto_generated_fields;
 mod config;
 mod enums;
+mod foreign_key;
 mod model;
 mod util;
 mod view;
