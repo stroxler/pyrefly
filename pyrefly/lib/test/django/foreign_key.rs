@@ -8,19 +8,21 @@
 use crate::django_testcase;
 
 django_testcase!(
-    bug = "infer ForeignKey field type",
+    bug = "infer ForeignKey field type and support chained access",
     test_foreign_key_basic,
     r#"
 from typing import assert_type
 
 from django.db import models
 
-class Reporter(models.Model): ...
+class Reporter(models.Model):
+    full_name = models.CharField(max_length=70)
 
 class Article(models.Model):
     reporter = models.ForeignKey(Reporter, on_delete=models.CASCADE)
 
 article = Article()
 assert_type(article.reporter, Reporter) # E: assert_type(Any, Reporter) failed 
+assert_type(article.reporter.full_name, str) # E: assert_type(Any, str) failed 
 "#,
 );
