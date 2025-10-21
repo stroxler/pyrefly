@@ -1119,22 +1119,22 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (Type::Var(v1), t2) => {
                 let variables = self.solver.variables.lock();
-                let variable = variables.get(*v1);
-                match &*variable {
+                let v1_ref = variables.get(*v1);
+                match &*v1_ref {
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
                     Variable::Answer(t1) => {
                         let t1 = t1.clone();
-                        drop(variable);
+                        drop(v1_ref);
                         drop(variables);
                         self.is_subset_eq(&t1, t2)
                     }
-                    var_type => {
-                        if let Variable::Quantified(q) = var_type {
+                    variable1 => {
+                        if let Variable::Quantified(q) = variable1 {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
-                            drop(variable);
+                            drop(v1_ref);
                             variables.update(*v1, Variable::Answer(t2.clone()));
                             drop(variables);
                             if let Err(e) = self.is_subset_eq(t2, &bound) {
@@ -1149,7 +1149,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 );
                             }
                         } else {
-                            drop(variable);
+                            drop(v1_ref);
                             variables.update(*v1, Variable::Answer(t2.clone()));
                         }
                         Ok(())
@@ -1158,25 +1158,25 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             }
             (t1, Type::Var(v2)) => {
                 let variables = self.solver.variables.lock();
-                let variable = variables.get(*v2);
-                match &*variable {
+                let v2_ref = variables.get(*v2);
+                match &*v2_ref {
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
                     Variable::Answer(t2) => {
                         let t2 = t2.clone();
-                        drop(variable);
+                        drop(v2_ref);
                         drop(variables);
                         self.is_subset_eq(t1, &t2)
                     }
-                    var_type => {
+                    variable2 => {
                         // Note that we promote the type when the var is on the RHS, but not when it's on the
                         // LHS, so that we infer more general types but leave user-specified types alone.
-                        let t1_p = self.maybe_promote(t1.clone(), var_type);
-                        if let Variable::Quantified(q) = var_type {
+                        let t1_p = self.maybe_promote(t1.clone(), variable2);
+                        if let Variable::Quantified(q) = variable2 {
                             let name = q.name.clone();
                             let bound = q.restriction().as_type(self.type_order.stdlib());
-                            drop(variable);
+                            drop(v2_ref);
                             variables.update(*v2, Variable::Answer(t1_p.clone()));
                             drop(variables);
                             if let Err(err_p) = self.is_subset_eq(&t1_p, &bound) {
@@ -1204,7 +1204,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                                 }
                             }
                         } else {
-                            drop(variable);
+                            drop(v2_ref);
                             variables.update(*v2, Variable::Answer(t1_p));
                         }
                         Ok(())
