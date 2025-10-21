@@ -82,6 +82,7 @@ pub enum ModulePathDetails {
     /// The module source comes from memory, only for files (not namespace).
     Memory(ModulePathBuf),
     /// The module source comes from typeshed bundled with Pyrefly (which gets stored in-memory).
+    /// The path is relative to the root of the typeshed/stdlib directory.
     /// The path is relative to the root of the typeshed directory.
     BundledTypeshed(ModulePathBuf),
 }
