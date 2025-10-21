@@ -111,6 +111,57 @@ impl QuerySourceDatabase {
         debug!("Finished updating source DB with Buck response");
         true
     }
+
+    fn find_in_manifest<'a>(
+        &'a self,
+        module: ModuleName,
+        manifest: &'a PythonLibraryManifest,
+        style_filter: Option<ModuleStyle>,
+    ) -> Option<ModulePath> {
+        if let Some(paths) = manifest.srcs.get(&module) {
+            // Since the sourcedb contains the full set of reachable files, if we find a
+            // result, we know a module path matching the style filter would exist in `paths`.
+            // Therefore, if it's not there, we can immediately fall back to whatever's
+            // available instead of re-performing the search like we normally do in module
+            // finding.
+            let style = style_filter.unwrap_or(ModuleStyle::Interface);
+            if let Some(result) = paths.iter().find(|p| ModuleStyle::of_path(p) == style) {
+                return Some(self.cached_modules.get(result));
+            }
+            return Some(self.cached_modules.get(paths.first()));
+        }
+        None
+    }
+
+    fn lookup_in_target<'a>(
+        &'a self,
+        read: &'a Inner,
+        module: ModuleName,
+        target: Target,
+        style_filter: Option<ModuleStyle>,
+    ) -> Option<ModulePath> {
+        let mut queue = VecDeque::new();
+        let mut visited = SmallSet::new();
+        queue.push_front(target);
+
+        while let Some(current_target) = queue.pop_front() {
+            if !visited.insert(current_target) {
+                continue;
+            }
+            let Some(manifest) = read.db.get(&current_target) else {
+                continue;
+            };
+
+            match self.find_in_manifest(module, manifest, style_filter) {
+                Some(result) => return Some(result),
+                _ => (),
+            }
+
+            manifest.deps.iter().for_each(|t| queue.push_back(t.dupe()));
+        }
+
+        None
+    }
 }
 
 impl SourceDatabase for QuerySourceDatabase {
@@ -127,33 +178,10 @@ impl SourceDatabase for QuerySourceDatabase {
     ) -> Option<ModulePath> {
         let origin = origin?;
         let read = self.inner.read();
-        let start_target = read.path_lookup.get(origin)?;
-        let mut queue = VecDeque::new();
-        let mut visited = SmallSet::new();
-        queue.push_front(start_target);
-
-        while let Some(current_target) = queue.pop_front() {
-            if !visited.insert(current_target) {
-                continue;
-            }
-            let Some(manifest) = read.db.get(current_target) else {
-                continue;
-            };
-
-            if let Some(paths) = manifest.srcs.get(module) {
-                // Since the sourcedb contains the full set of reachable files, if we find a
-                // result, we know a module path matching the style filter would exist in `paths`.
-                // Therefore, if it's not there, we can immediately fall back to whatever's
-                // available instead of re-performing the search like we normally do in module
-                // finding.
-                let style = style_filter.unwrap_or(ModuleStyle::Interface);
-                if let Some(result) = paths.iter().find(|p| ModuleStyle::of_path(p) == style) {
-                    return Some(self.cached_modules.get(result));
-                }
-                return Some(self.cached_modules.get(paths.first()));
-            }
-
-            manifest.deps.iter().for_each(|t| queue.push_back(t));
+        if let Some(start_target) = read.path_lookup.get(origin)
+            && let Some(result) = self.lookup_in_target(&read, *module, *start_target, style_filter)
+        {
+            return Some(result);
         }
 
         None
