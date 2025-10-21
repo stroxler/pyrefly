@@ -1047,6 +1047,8 @@ impl<'a> CallGraphVisitor<'a> {
                     _ => false,
                 })
         });
+        // Go-to-definition always resolves to the property getters, even when used as a left hand side of an
+        // assignment. Therefore we use heuristics to differentiate setters from getters.
         let (property_setters, property_getters) = if in_assignment_lhs {
             (property_callees, vec![])
         } else {
@@ -1058,56 +1060,68 @@ impl<'a> CallGraphVisitor<'a> {
             .module_context
             .answers
             .get_type_trace(attribute.value.range());
-        let call_target_from_function_ref = |function_ref: FunctionRef| {
-            self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
-                .into_iter()
-                .map(|target| match target {
-                    Target::Function(function_ref) => self.call_target_from_function_ref(
-                        function_ref,
-                        return_type,
-                        receiver_type.as_ref(),
-                        callee_expr_suffix,
-                        /* is_override_target */ false,
-                        /* override_implicit_receiver*/ None,
-                    ),
-                    Target::Override(function_ref) => self.call_target_from_function_ref(
-                        function_ref,
-                        return_type,
-                        receiver_type.as_ref(),
-                        callee_expr_suffix,
-                        /* is_override_target */ true,
-                        /* override_implicit_receiver*/ None,
-                    ),
-                    Target::Object(_) => CallTarget {
-                        target,
-                        implicit_receiver: ImplicitReceiver::False,
-                        receiver_class: None,
-                        implicit_dunder_call: false,
-                        is_class_method: false,
-                        is_static_method: false,
-                        return_type,
-                    },
-                })
-                .collect::<Vec<_>>()
-        };
+        let call_target_from_function_ref =
+            |function_ref: FunctionRef, return_type: Option<ScalarTypeProperties>| {
+                self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
+                    .into_iter()
+                    .map(|target| match target {
+                        Target::Function(function_ref) => self.call_target_from_function_ref(
+                            function_ref,
+                            return_type,
+                            receiver_type.as_ref(),
+                            callee_expr_suffix,
+                            /* is_override_target */ false,
+                            /* override_implicit_receiver*/ None,
+                        ),
+                        Target::Override(function_ref) => self.call_target_from_function_ref(
+                            function_ref,
+                            return_type,
+                            receiver_type.as_ref(),
+                            callee_expr_suffix,
+                            /* is_override_target */ true,
+                            /* override_implicit_receiver*/ None,
+                        ),
+                        Target::Object(_) => CallTarget {
+                            target,
+                            implicit_receiver: ImplicitReceiver::False,
+                            receiver_class: None,
+                            implicit_dunder_call: false,
+                            is_class_method: false,
+                            is_static_method: false,
+                            return_type,
+                        },
+                    })
+                    .collect::<Vec<_>>()
+            };
 
         Some(AttributeAccessCallees {
             if_called: CallCallees {
                 call_targets: non_property_callees
                     .into_iter()
-                    .flat_map(&call_target_from_function_ref)
+                    .flat_map(|function| call_target_from_function_ref(function, return_type))
                     .collect(),
                 init_targets: vec![],
                 new_targets: vec![],
             },
             property_setters: property_setters
                 .into_iter()
-                .flat_map(&call_target_from_function_ref)
+                .flat_map(|function| {
+                    call_target_from_function_ref(function, Some(ScalarTypeProperties::none()))
+                })
                 .collect(),
-            property_getters: property_getters
-                .into_iter()
-                .flat_map(call_target_from_function_ref)
-                .collect(),
+            property_getters: {
+                // We cannot get the return types by treating the property getter expressions as callable types.
+                // Hence we use the types of the whole expressions.
+                let return_type = self
+                    .module_context
+                    .answers
+                    .get_type_trace(attribute.range())
+                    .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+                property_getters
+                    .into_iter()
+                    .flat_map(|function| call_target_from_function_ref(function, return_type))
+                    .collect()
+            },
         })
     }
 

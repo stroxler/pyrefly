@@ -928,10 +928,10 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         let property_getters = vec![
-            // TODO: Missing return type
             create_call_target("test.C.p", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("test.C".to_owned(), context),
+                .with_receiver_class_for_test("test.C".to_owned(), context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -1025,7 +1025,8 @@ def foo(c_or_d: C | D, c_or_e: C | E):
         ];
         let property_getters_c_or_e = vec![
             create_call_target("test.C.foo", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
@@ -1074,9 +1075,9 @@ def foo(c_or_d: TCOrD):
 "#,
     &|_context: &ModuleContext| {
         let property_getters = vec![
-            // TODO: Missing return type
             create_call_target("test.C.foo", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
             TEST_DEFINITION_NAME.to_owned(),
