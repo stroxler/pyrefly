@@ -318,20 +318,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<AbstractClassMembers> {
         let metadata = self.get_metadata_for_class(cls);
         let abstract_members = self.calculate_abstract_members(cls);
-        if metadata.is_final() {
-            let unimplemented = abstract_members.unimplemented_abstract_methods();
-            if !unimplemented.is_empty() {
-                let members = unimplemented
-                    .iter()
-                    .map(|member| format!("`{member}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+        let unimplemented = abstract_members.unimplemented_abstract_methods();
+        if !unimplemented.is_empty() {
+            let members = unimplemented
+                .iter()
+                .map(|member| format!("`{member}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            if metadata.is_final() {
                 self.error(
                     errors,
                     cls.range(),
                     ErrorInfo::Kind(ErrorKind::BadClassDefinition),
                     format!(
                         "Final class `{}` cannot have unimplemented abstract members: {}",
+                        cls.name(),
+                        members
+                    ),
+                );
+            } else if !metadata.is_protocol()
+                && !metadata.is_new_type()
+                && !metadata.is_explicitly_abstract()
+            {
+                self.error(
+                    errors,
+                    cls.range(),
+                    ErrorInfo::Kind(ErrorKind::ImplicitAbstractClass),
+                    format!(
+                        "Class `{}` has unimplemented abstract members: {}",
                         cls.name(),
                         members
                     ),
