@@ -16,7 +16,7 @@ use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 
 #[test]
-fn test_references() {
+fn test_references_for_usage_with_config() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
     let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
@@ -37,6 +37,7 @@ fn test_references() {
     interaction.server.did_open("various_imports.py");
     interaction.server.did_open("with_synthetic_bindings.py");
     interaction.server.did_open("bar.py");
+
     interaction
         .server
         .send_message(Message::Request(lsp_server::Request {
@@ -98,6 +99,32 @@ fn test_references() {
         ])),
         error: None,
     });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_references_for_definition_with_config() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    let foo = root_path.join("foo.py");
+    let bar = root_path.join("bar.py");
+    let various_imports = root_path.join("various_imports.py");
+    let with_synthetic_bindings = root_path.join("with_synthetic_bindings.py");
+
+    interaction.server.did_open("foo.py");
+    interaction.server.did_open("various_imports.py");
+    interaction.server.did_open("with_synthetic_bindings.py");
+    interaction.server.did_open("bar.py");
 
     interaction
         .server
@@ -161,6 +188,32 @@ fn test_references() {
         error: None,
     });
 
+    interaction.shutdown();
+}
+
+#[test]
+fn test_references_for_import_with_config() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    let foo = root_path.join("foo.py");
+    let bar = root_path.join("bar.py");
+    let various_imports = root_path.join("various_imports.py");
+    let with_synthetic_bindings = root_path.join("with_synthetic_bindings.py");
+
+    interaction.server.did_open("foo.py");
+    interaction.server.did_open("various_imports.py");
+    interaction.server.did_open("with_synthetic_bindings.py");
+    interaction.server.did_open("bar.py");
+
     interaction
         .server
         .send_message(Message::Request(lsp_server::Request {
@@ -223,6 +276,29 @@ fn test_references() {
         error: None,
     });
 
+    interaction.shutdown();
+}
+
+#[test]
+fn test_references_for_aliased_import_with_config() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    let various_imports = root_path.join("various_imports.py");
+
+    interaction.server.did_open("foo.py");
+    interaction.server.did_open("various_imports.py");
+    interaction.server.did_open("with_synthetic_bindings.py");
+    interaction.server.did_open("bar.py");
+
     interaction
         .server
         .send_message(Message::Request(lsp_server::Request {
@@ -256,6 +332,32 @@ fn test_references() {
         ])),
         error: None,
     });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_references_after_file_modification_with_config() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    let foo = root_path.join("foo.py");
+    let bar = root_path.join("bar.py");
+    let various_imports = root_path.join("various_imports.py");
+    let with_synthetic_bindings = root_path.join("with_synthetic_bindings.py");
+
+    interaction.server.did_open("foo.py");
+    interaction.server.did_open("various_imports.py");
+    interaction.server.did_open("with_synthetic_bindings.py");
+    interaction.server.did_open("bar.py");
 
     interaction
         .server
@@ -334,6 +436,45 @@ fn test_references() {
         ])),
         error: None,
     });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_references_after_file_modification_with_line_offset_with_config() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("tests_requiring_config");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    let bar = root_path.join("bar.py");
+
+    interaction.server.did_open("foo.py");
+    interaction.server.did_open("various_imports.py");
+    interaction.server.did_open("with_synthetic_bindings.py");
+    interaction.server.did_open("bar.py");
+
+    interaction
+        .server
+        .send_message(Message::Notification(Notification {
+            method: "textDocument/didChange".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(bar.clone()).unwrap().to_string(),
+                    "languageId": "python",
+                    "version": 2
+                },
+                "contentChanges": [{
+                    "text": format!("\n\n{}", std::fs::read_to_string(bar.clone()).unwrap())
+                }],
+            }),
+        }));
 
     interaction
         .server
