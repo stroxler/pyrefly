@@ -1775,11 +1775,11 @@ impl State {
 
     pub fn new_committable_transaction<'a>(
         &'a self,
-        require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> CommittingTransaction<'a> {
         let committing_transaction_guard = self.committing_transaction_lock.lock();
-        let transaction = self.new_transaction(require, subscriber);
+        let transaction = self.new_transaction(default_require, subscriber);
         CommittingTransaction {
             transaction,
             committing_transaction_guard,
@@ -1788,11 +1788,11 @@ impl State {
 
     pub fn try_new_committable_transaction<'a>(
         &'a self,
-        require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> Option<CommittingTransaction<'a>> {
         if let Some(committing_transaction_guard) = self.committing_transaction_lock.try_lock() {
-            let transaction = self.new_transaction(require, subscriber);
+            let transaction = self.new_transaction(default_require, subscriber);
             Some(CommittingTransaction {
                 transaction,
                 committing_transaction_guard,
@@ -1855,10 +1855,10 @@ impl State {
         &self,
         handles: &[Handle],
         require: Require,
-        new_require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) {
-        let mut transaction = self.new_committable_transaction(new_require, subscriber);
+        let mut transaction = self.new_committable_transaction(default_require, subscriber);
         transaction.transaction.run(handles, require);
         self.commit_transaction(transaction);
     }
