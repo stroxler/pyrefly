@@ -36,11 +36,11 @@ pub mod custom;
 pub(crate) enum Include {
     #[allow(unused)]
     Target(Target),
-    Path(PathBuf),
+    Path(ModulePathBuf),
 }
 
 impl Include {
-    pub fn path(path: PathBuf) -> Self {
+    pub fn path(path: ModulePathBuf) -> Self {
         Self::Path(path)
     }
 
@@ -180,36 +180,32 @@ impl PythonLibraryManifest {
             ModuleName,
             Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>,
         >| {
-            let mut any_found = false;
             let Some(parent) = paths.first().parent() else {
-                return any_found;
+                return false;
             };
             if !parent.starts_with(target_root) {
-                return any_found;
+                return false;
             }
             let Some(parent_parent) = parent.parent() else {
                 return false;
             };
-            for path in paths {
-                if !all_dunder_inits.contains(path) {
-                    continue;
-                }
-                any_found = true;
-                if let Some(Ok((paths, _))) = start_packages.get_mut(module) {
-                    paths.push(ModulePathBuf::from_path(path));
-                } else {
-                    // `parent_parent` is used here, since we want to continue searching
-                    // from the package's parent, which is the file's directory's parent.
-                    start_packages.insert(
-                        module.dupe(),
-                        Ok((
-                            vec1![ModulePathBuf::from_path(path)],
-                            ModulePathBuf::from_path(parent_parent),
-                        )),
-                    );
-                }
+
+            // if one of the paths here is a dunder init, then all paths here will be
+            // a dunder init
+            let path = paths.first();
+            if !all_dunder_inits.contains(path) {
+                return false;
             }
-            any_found
+            start_packages.insert(
+                module.dupe(),
+                // `parent_parent` is used here, since we want to continue searching
+                // from the package's parent, which is the file's directory's parent.
+                Ok((
+                    paths.mapped_ref(|p| ModulePathBuf::from_path(p)),
+                    ModulePathBuf::from_path(parent_parent),
+                )),
+            );
+            true
         };
         for (module, paths) in &self.srcs {
             if push_if_init_exists(module, paths, &mut start_packages) {

@@ -294,7 +294,11 @@ impl SourceDatabase for QuerySourceDatabase {
     }
 
     fn requery_source_db(&self, files: SmallSet<PathBuf>) -> anyhow::Result<bool> {
-        let new_includes = files.into_iter().map(Include::path).collect();
+        let new_includes = files
+            .into_iter()
+            .map(ModulePathBuf::new)
+            .map(Include::path)
+            .collect();
         let mut includes = self.includes.lock();
         if *includes == new_includes {
             debug!("Not querying Buck source DB, since no inputs have changed");
@@ -367,7 +371,7 @@ mod tests {
                 includes: Mutex::new(
                     files
                         .iter()
-                        .map(|p| Include::path(p.to_path_buf()))
+                        .map(|p| Include::path(ModulePathBuf::new(p.to_path_buf())))
                         .collect(),
                 ),
                 cwd: PathBuf::new(),
