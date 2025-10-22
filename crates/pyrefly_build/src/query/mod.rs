@@ -22,6 +22,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tempfile::NamedTempFile;
 use vec1::Vec1;
+use vec1::vec1;
 
 use crate::source_db::Target;
 
@@ -113,9 +114,8 @@ pub(crate) struct PythonLibraryManifest {
     #[serde(flatten)]
     pub sys_info: SysInfo,
     pub buildfile_path: PathBuf,
-    // TODO(connernilsen): make this required at some point
-    #[serde(default)]
-    pub packages: SmallMap<ModuleName, PathBuf>,
+    #[serde(default, skip)]
+    pub packages: SmallMap<ModuleName, Vec1<PathBuf>>,
 }
 
 impl PythonLibraryManifest {
@@ -136,10 +136,10 @@ impl PythonLibraryManifest {
     fn rewrite_relative_to_root(&mut self, root: &Path) {
         self.srcs
             .iter_mut()
-            .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&**p)));
+            .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&p)));
         self.packages
             .iter_mut()
-            .for_each(|(_, p)| *p = root.join(&**p));
+            .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&p)));
         self.buildfile_path = root.join(&self.buildfile_path);
     }
 }

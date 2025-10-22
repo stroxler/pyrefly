@@ -108,11 +108,13 @@ impl QuerySourceDatabase {
                     path_lookup.insert(source.clone(), target.dupe());
                 }
             }
-            for path in manifest.packages.values() {
-                package_lookup
-                    .entry(path.to_path_buf())
-                    .or_default()
-                    .insert(target.dupe());
+            for paths in manifest.packages.values() {
+                for path in paths {
+                    package_lookup
+                        .entry(path.to_path_buf())
+                        .or_default()
+                        .insert(target.dupe());
+                }
             }
         }
         let read = self.inner.read();
