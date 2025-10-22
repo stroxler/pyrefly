@@ -2174,7 +2174,7 @@ This has documentation.
 }
 
 #[test]
-#[should_panic(expected = "a variable has leaked from one module to another")]
+#[should_panic(expected = "unexpected Var::ZERO")]
 fn dot_complete_var_crash() {
     let code = r#"
 class C[T]:

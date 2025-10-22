@@ -227,6 +227,11 @@ impl Variables {
     }
 
     fn get_node(&self, x: Var) -> &RefCell<VariableNode> {
+        assert_ne!(
+            x,
+            Var::ZERO,
+            "Internal error: unexpected Var::ZERO, which is a dummy value."
+        );
         self.0.get(&x).expect(VAR_LEAK)
     }
 }
@@ -348,11 +353,6 @@ impl Solver {
     /// and returns that answer. Note that if the `Var` is already bound to something that contains a
     /// `Var` (including itself), then we will return the answer.
     pub fn force_var(&self, v: Var) -> Type {
-        assert_ne!(
-            v,
-            Var::ZERO,
-            "Cannot force Var::ZERO, which is a dummy value"
-        );
         let lock = self.variables.lock();
         let mut e = lock.get_mut(v);
         match &mut *e {
