@@ -27,3 +27,22 @@ assert_type(article.reporter.full_name, str) # E: assert_type(Any, str) failed
 assert_type(article.reporter_id, int) # E: assert_type(Any, int) failed # E: Object of class `Article` has no attribute `reporter_id`
 "#,
 );
+
+django_testcase!(
+    bug = "We should take into account the nullability of the foreign key",
+    test_foreign_key_nullable,
+    r#"
+from typing import assert_type
+
+from django.db import models
+
+class Reporter(models.Model): ...
+
+class Article(models.Model):
+    reporter = models.ForeignKey(Reporter, null=True, on_delete=models.CASCADE)
+
+article = Article()
+assert_type(article.reporter,  Reporter | None) # E: assert_type(Any, Reporter | None) failed 
+
+"#,
+);
