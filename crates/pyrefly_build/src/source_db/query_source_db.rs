@@ -13,6 +13,7 @@ use std::sync::Arc;
 use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_python::module_path::ModulePathBuf;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
@@ -41,7 +42,7 @@ struct Inner {
     /// - if a path exists in `path_lookup`, its target must exist in `db`.
     /// - if a path exists in `path_lookup`, its target's `srcs` must have a
     ///   module name with `path` as a module path.
-    path_lookup: SmallMap<PathBuf, Target>,
+    path_lookup: SmallMap<ModulePathBuf, Target>,
     /// An index for doing fast lookups of a package to possible owning targets.
     /// We keep this, since it's possible an init file is defined in one target, but not
     /// a dependency or dependent target in the same directory. We also need to
@@ -52,7 +53,7 @@ struct Inner {
     /// The key in this map will always point to an `__init__` file if *any*
     /// target pointing to the "regular package" contains a real `__init__` file on
     /// disk. Otherwise, the key will point to a synthesized package's directory.
-    package_lookup: SmallMap<PathBuf, SmallSet<Target>>,
+    package_lookup: SmallMap<ModulePathBuf, SmallSet<Target>>,
 }
 
 impl Inner {
@@ -98,21 +99,21 @@ impl QuerySourceDatabase {
             return false;
         }
         drop(read);
-        let mut path_lookup: SmallMap<PathBuf, Target> = SmallMap::new();
-        let mut package_lookup: SmallMap<PathBuf, SmallSet<Target>> = SmallMap::new();
+        let mut path_lookup: SmallMap<ModulePathBuf, Target> = SmallMap::new();
+        let mut package_lookup: SmallMap<ModulePathBuf, SmallSet<Target>> = SmallMap::new();
         for (target, manifest) in new_db.iter() {
             for source in manifest.srcs.values().flatten() {
-                if let Some(old_target) = path_lookup.get_mut(&**source) {
+                if let Some(old_target) = path_lookup.get_mut(source) {
                     let new_target = (&*old_target).min(target);
                     *old_target = new_target.dupe();
                 } else {
-                    path_lookup.insert(source.clone(), target.dupe());
+                    path_lookup.insert(source.dupe(), target.dupe());
                 }
             }
             for paths in manifest.packages.values() {
                 for path in paths {
                     package_lookup
-                        .entry(path.to_path_buf())
+                        .entry(path.dupe())
                         .or_default()
                         .insert(target.dupe());
                 }
@@ -145,7 +146,7 @@ impl QuerySourceDatabase {
         manifest: &'a PythonLibraryManifest,
         style_filter: Option<ModuleStyle>,
     ) -> Option<Result<ModulePath, ModulePath>> {
-        let try_get_filtered = |paths: &Vec1<PathBuf>| {
+        let try_get_filtered = |paths: &Vec1<ModulePathBuf>| {
             // Since the sourcedb contains the full set of reachable files, if we find a
             // result, we know a module path matching the style filter would exist in `paths`.
             // Therefore, if it's not there, we can immediately fall back to whatever's
@@ -219,14 +220,14 @@ impl SourceDatabase for QuerySourceDatabase {
         origin: Option<&Path>,
         style_filter: Option<ModuleStyle>,
     ) -> Option<ModulePath> {
-        let origin = origin?;
+        let origin = ModulePathBuf::from_path(origin?);
         let read = self.inner.read();
-        if let Some(start_target) = read.path_lookup.get(origin)
+        if let Some(start_target) = read.path_lookup.get(&origin)
             && let Some(result) =
                 self.lookup_from_target(&read, *module, *start_target, style_filter)
         {
             return Some(result);
-        } else if let Some(package_targets) = read.package_lookup.get(origin) {
+        } else if let Some(package_targets) = read.package_lookup.get(&origin) {
             let mut package_matches = SmallSet::new();
             // Gather all of the implicit package targets and deterministically return
             // one of them. There will either be:
@@ -273,14 +274,14 @@ impl SourceDatabase for QuerySourceDatabase {
 
     fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle> {
         let read = self.inner.read();
-        let target = read.path_lookup.get(&module_path.as_path().to_path_buf())?;
+        let target = read.path_lookup.get(&module_path.module_path_buf())?;
 
         // if we get a target from `path_lookup`, it must exist in manifest
         let manifest = read.db.get(target).unwrap();
         let module_name = manifest
             .srcs
             .iter()
-            .find(|(_, paths)| paths.iter().any(|p| *p == module_path.as_path()))
+            .find(|(_, paths)| paths.iter().any(|p| *p == module_path.module_path_buf()))
             // similarly, if we get a target for a path in `path_lookup`, it must exist
             // in that target's srcs
             .unwrap()
@@ -320,9 +321,9 @@ impl SourceDatabase for QuerySourceDatabase {
     }
 
     fn get_target(&self, origin: Option<&Path>) -> Option<Target> {
-        let origin = origin?;
+        let origin = ModulePathBuf::from_path(origin?);
         let read = self.inner.read();
-        read.path_lookup.get(origin).copied()
+        read.path_lookup.get(&origin).copied()
     }
 }
 
@@ -397,29 +398,29 @@ mod tests {
         let (db, root) = get_db();
         let path_lookup = db.inner.read().path_lookup.clone();
         let expected = smallmap! {
-            root.join("colorama/__init__.py") =>
+            ModulePathBuf::new(root.join("colorama/__init__.py")) =>
                 Target::from_string("//colorama:py".to_owned()),
-            root.join("colorama/__init__.pyi") =>
+            ModulePathBuf::new(root.join("colorama/__init__.pyi")) =>
                 Target::from_string("//colorama:py".to_owned()),
-            root.join("click/__init__.pyi") =>
+            ModulePathBuf::new(root.join("click/__init__.pyi")) =>
                 Target::from_string("//click:py".to_owned()),
-            root.join("click/__init__.py") =>
+            ModulePathBuf::new(root.join("click/__init__.py")) =>
                 Target::from_string("//click:py".to_owned()),
-            root.join("pyre/client/log/__init__.py") =>
+            ModulePathBuf::new(root.join("pyre/client/log/__init__.py")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("pyre/client/log/log.py") =>
+            ModulePathBuf::new(root.join("pyre/client/log/log.py")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("pyre/client/log/log.pyi") =>
+            ModulePathBuf::new(root.join("pyre/client/log/log.pyi")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("pyre/client/log/format.py") =>
+            ModulePathBuf::new(root.join("pyre/client/log/format.py")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("implicit_package/test/main.py") =>
+            ModulePathBuf::new(root.join("implicit_package/test/main.py")) =>
                 Target::from_string("//implicit_package/test:main".to_owned()),
-            root.join("implicit_package/test/lib/utils.py") =>
+            ModulePathBuf::new(root.join("implicit_package/test/lib/utils.py")) =>
                 Target::from_string("//implicit_package/test:lib".to_owned()),
-            root.join("implicit_package/package_boundary_violation.py") =>
+            ModulePathBuf::new(root.join("implicit_package/package_boundary_violation.py")) =>
                 Target::from_string("//implicit_package/test:lib".to_owned()),
-            root.join("implicit_package/test/deeply/nested/package/file.py") =>
+            ModulePathBuf::new(root.join("implicit_package/test/deeply/nested/package/file.py")) =>
                 Target::from_string("//implicit_package/test:lib".to_owned()),
         };
 
@@ -431,36 +432,36 @@ mod tests {
         let (db, root) = get_db();
         let path_lookup = db.inner.read().package_lookup.clone();
         let expected = smallmap! {
-            root.join("click/__init__.py") => smallset! {
+            ModulePathBuf::new(root.join("click/__init__.py")) => smallset! {
                 Target::from_string("//click:py".to_owned()),
             },
-            root.join("click/__init__.pyi") => smallset! {
+            ModulePathBuf::new(root.join("click/__init__.pyi")) => smallset! {
                 Target::from_string("//click:py".to_owned()),
             },
-            root.join("colorama/__init__.py") => smallset! {
+            ModulePathBuf::new(root.join("colorama/__init__.py")) => smallset! {
                 Target::from_string("//colorama:py".to_owned()),
             },
-            root.join("colorama/__init__.pyi") => smallset! {
+            ModulePathBuf::new(root.join("colorama/__init__.pyi")) => smallset! {
                 Target::from_string("//colorama:py".to_owned()),
             },
-            root.join("pyre/client/log/__init__.py") => smallset! {
+            ModulePathBuf::new(root.join("pyre/client/log/__init__.py")) => smallset! {
                 Target::from_string("//pyre/client/log:log".to_owned()),
                 Target::from_string("//pyre/client/log:log2".to_owned()),
             },
-            root.join("implicit_package/test") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test")) => smallset! {
                 Target::from_string("//implicit_package/test:main".to_owned()),
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
-            root.join("implicit_package/test/lib") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test/lib")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
-            root.join("implicit_package/test/deeply/nested/package") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test/deeply/nested/package")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
-            root.join("implicit_package/test/deeply/nested") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test/deeply/nested")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
-            root.join("implicit_package/test/deeply") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test/deeply")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
         };
@@ -719,34 +720,34 @@ mod tests {
         let inner = db.inner.read();
         assert_eq!(inner.db, manifest_db);
         let expected_path_lookup = smallmap! {
-            root.join("colorama/__init__.py") =>
+            ModulePathBuf::new(root.join("colorama/__init__.py")) =>
                 Target::from_string("//colorama:py".to_owned()),
-            root.join("colorama/__init__.pyi") =>
+            ModulePathBuf::new(root.join("colorama/__init__.pyi")) =>
                 Target::from_string("//colorama:py".to_owned()),
-            root.join("pyre/client/log/__init__.py") =>
+            ModulePathBuf::new(root.join("pyre/client/log/__init__.py")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("pyre/client/log/log.py") =>
+            ModulePathBuf::new(root.join("pyre/client/log/log.py")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("pyre/client/log/log.pyi") =>
+            ModulePathBuf::new(root.join("pyre/client/log/log.pyi")) =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
-            root.join("implicit_package/test/lib/utils.py") =>
+            ModulePathBuf::new(root.join("implicit_package/test/lib/utils.py")) =>
                 Target::from_string("//implicit_package/test:lib".to_owned()),
         };
         assert_eq!(inner.path_lookup, expected_path_lookup);
         let expected_package_lookup = smallmap! {
-            root.join("implicit_package/test") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
-            root.join("implicit_package/test/lib") => smallset! {
+            ModulePathBuf::new(root.join("implicit_package/test/lib")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
-            root.join("colorama/__init__.py") => smallset! {
+            ModulePathBuf::new(root.join("colorama/__init__.py")) => smallset! {
                 Target::from_string("//colorama:py".to_owned()),
             },
-            root.join("colorama/__init__.pyi") => smallset! {
+            ModulePathBuf::new(root.join("colorama/__init__.pyi")) => smallset! {
                 Target::from_string("//colorama:py".to_owned()),
             },
-            root.join("pyre/client/log/__init__.py") => smallset! {
+            ModulePathBuf::new(root.join("pyre/client/log/__init__.py")) => smallset! {
                 Target::from_string("//pyre/client/log:log".to_owned()),
             },
         };

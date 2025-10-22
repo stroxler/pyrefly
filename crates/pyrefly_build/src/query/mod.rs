@@ -16,6 +16,7 @@ use std::process::Command;
 use anyhow::Context as _;
 use dupe::Dupe as _;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePathBuf;
 use pyrefly_python::sys_info::SysInfo;
 use serde::Deserialize;
 use starlark_map::small_map::SmallMap;
@@ -114,12 +115,12 @@ fn is_path_initfile(path: &Path) -> bool {
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 pub(crate) struct PythonLibraryManifest {
     pub deps: SmallSet<Target>,
-    pub srcs: SmallMap<ModuleName, Vec1<PathBuf>>,
+    pub srcs: SmallMap<ModuleName, Vec1<ModulePathBuf>>,
     #[serde(flatten)]
     pub sys_info: SysInfo,
     pub buildfile_path: PathBuf,
     #[serde(default, skip)]
-    pub packages: SmallMap<ModuleName, Vec1<PathBuf>>,
+    pub packages: SmallMap<ModuleName, Vec1<ModulePathBuf>>,
 }
 
 impl PythonLibraryManifest {
@@ -138,12 +139,16 @@ impl PythonLibraryManifest {
     }
 
     fn rewrite_relative_to_root(&mut self, root: &Path) {
-        self.srcs
-            .iter_mut()
-            .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&p)));
-        self.packages
-            .iter_mut()
-            .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&p)));
+        self.srcs.iter_mut().for_each(|(_, paths)| {
+            paths
+                .iter_mut()
+                .for_each(|p| *p = ModulePathBuf::new(root.join(&**p)))
+        });
+        self.packages.iter_mut().for_each(|(_, paths)| {
+            paths
+                .iter_mut()
+                .for_each(|p| *p = ModulePathBuf::new(root.join(&**p)))
+        });
         self.buildfile_path = root.join(&self.buildfile_path);
     }
 
@@ -160,18 +165,20 @@ impl PythonLibraryManifest {
     fn get_explicit_and_basic_implicit_packages(
         &self,
         target_root: &Path,
-        all_dunder_inits: &SmallSet<PathBuf>,
-    ) -> SmallMap<ModuleName, Result<(Vec1<PathBuf>, PathBuf), &Path>> {
-        let mut start_packages: SmallMap<ModuleName, Result<(Vec1<PathBuf>, PathBuf), &Path>> =
-            SmallMap::new();
+        all_dunder_inits: &SmallSet<ModulePathBuf>,
+    ) -> SmallMap<ModuleName, Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>> {
+        let mut start_packages: SmallMap<
+            ModuleName,
+            Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>,
+        > = SmallMap::new();
 
         // attempt to push the given init file onto `start_packages` if `all_dunder_inits` knows about
         // it. Return false if we didn't push, true otherwise.
         let push_if_init_exists = |module: &ModuleName,
-                                   paths: &Vec1<PathBuf>,
+                                   paths: &Vec1<ModulePathBuf>,
                                    start_packages: &mut SmallMap<
             ModuleName,
-            Result<(Vec1<PathBuf>, PathBuf), &Path>,
+            Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>,
         >| {
             let mut any_found = false;
             let Some(parent) = paths.first().parent() else {
@@ -189,13 +196,16 @@ impl PythonLibraryManifest {
                 }
                 any_found = true;
                 if let Some(Ok((paths, _))) = start_packages.get_mut(module) {
-                    paths.push(path.to_path_buf());
+                    paths.push(ModulePathBuf::from_path(path));
                 } else {
                     // `parent_parent` is used here, since we want to continue searching
                     // from the package's parent, which is the file's directory's parent.
                     start_packages.insert(
                         module.dupe(),
-                        Ok((vec1![path.to_path_buf()], parent_parent.to_path_buf())),
+                        Ok((
+                            vec1![ModulePathBuf::from_path(path)],
+                            ModulePathBuf::from_path(parent_parent),
+                        )),
                     );
                 }
             }
@@ -213,7 +223,10 @@ impl PythonLibraryManifest {
 
             if push_if_init_exists(
                 module,
-                &vec1![path.join("__init__.py"), path.join("__init__.pyi")],
+                &vec1![
+                    ModulePathBuf::new(path.join("__init__.py")),
+                    ModulePathBuf::new(path.join("__init__.pyi"))
+                ],
                 &mut start_packages,
             ) {
                 continue;
@@ -238,16 +251,16 @@ impl PythonLibraryManifest {
     /// and including this manifest's build file.
     fn fill_ancestor_synthesized_packages(
         &self,
-        start_packages: SmallMap<ModuleName, Result<(Vec1<PathBuf>, PathBuf), &Path>>,
+        start_packages: SmallMap<ModuleName, Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>>,
         target_root: &Path,
-    ) -> SmallMap<ModuleName, Vec1<PathBuf>> {
+    ) -> SmallMap<ModuleName, Vec1<ModulePathBuf>> {
         // the result we're going to use, with all the files we've found so far
-        let mut inits: SmallMap<ModuleName, Vec1<PathBuf>> = start_packages
+        let mut inits: SmallMap<ModuleName, Vec1<ModulePathBuf>> = start_packages
             .iter()
             .map(|(name, path)| {
                 let files = match path {
                     Ok((files, _)) => files.clone(),
-                    Err(file) => vec1![file.to_path_buf()],
+                    Err(file) => vec1![ModulePathBuf::from_path(file)],
                 };
                 (name.dupe(), files)
             })
@@ -268,7 +281,10 @@ impl PythonLibraryManifest {
                     break;
                 }
 
-                inits.insert(parent_module.dupe(), vec1![parent_path.to_path_buf()]);
+                inits.insert(
+                    parent_module.dupe(),
+                    vec1![ModulePathBuf::from_path(parent_path)],
+                );
                 module = parent_module;
                 path = parent_path;
             }
@@ -279,7 +295,7 @@ impl PythonLibraryManifest {
 
     /// Get all explicit and implicit dunder inits, preferring explicit. Produces
     /// dunder inits all the way up to the directory containing this manifest's build file.
-    fn fill_implicit_packages(&mut self, all_dunder_inits: &SmallSet<PathBuf>) {
+    fn fill_implicit_packages(&mut self, all_dunder_inits: &SmallSet<ModulePathBuf>) {
         let Some(target_root) = self.buildfile_path.parent() else {
             return;
         };
@@ -328,7 +344,7 @@ impl TargetManifestDatabase {
                             continue;
                         }
                         for path in paths {
-                            explicit_dunder_inits.insert(path.to_path_buf());
+                            explicit_dunder_inits.insert(path.dupe());
                         }
                     }
                 }
@@ -510,9 +526,14 @@ mod tests {
     fn map_srcs(
         srcs: &[(&str, &[&str])],
         prefix_paths: Option<&str>,
-    ) -> SmallMap<ModuleName, Vec1<PathBuf>> {
+    ) -> SmallMap<ModuleName, Vec1<ModulePathBuf>> {
         let prefix = prefix_paths.map(Path::new);
-        let map_path = |p| prefix.map_or_else(|| PathBuf::from(p), |prefix| prefix.join(p));
+        let map_path = |p| {
+            prefix.map_or_else(
+                || ModulePathBuf::from_path(Path::new(p)),
+                |prefix| ModulePathBuf::new(prefix.join(p)),
+            )
+        };
         srcs.iter()
             .map(|(n, paths)| {
                 (
@@ -532,15 +553,20 @@ mod tests {
     fn map_implicit_packages(
         inits: &[(&str, &[&str])],
         prefix_paths: Option<&str>,
-    ) -> SmallMap<ModuleName, Vec1<PathBuf>> {
-        let prefix_paths = prefix_paths.map_or(PathBuf::new(), PathBuf::from);
+    ) -> SmallMap<ModuleName, Vec1<ModulePathBuf>> {
+        let prefix = prefix_paths.map(Path::new);
+        let map_path = |p| {
+            prefix.map_or_else(
+                || ModulePathBuf::from_path(Path::new(p)),
+                |prefix| ModulePathBuf::new(prefix.join(p)),
+            )
+        };
         inits
             .iter()
             .map(|(n, paths)| {
                 (
                     ModuleName::from_str(n),
-                    Vec1::try_from_vec(paths.iter().map(|p| prefix_paths.join(p)).collect())
-                        .unwrap(),
+                    Vec1::try_from_vec(paths.iter().map(map_path).collect()).unwrap(),
                 )
             })
             .collect()
