@@ -1238,7 +1238,7 @@ impl Server {
         let cancellation_handles = self.cancellation_handles.dupe();
         let open_files = self.open_files.dupe();
         self.recheck_queue.queue_task(Box::new(move || {
-            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
             f(transaction.as_mut());
 
             Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
@@ -1270,7 +1270,7 @@ impl Server {
         let unknown = ModuleName::unknown();
 
         eprintln!("Populating all files in the config ({:?}).", config.source);
-        let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+        let mut transaction = state.new_committable_transaction(Require::indexing(), None);
 
         let project_path_blobs = config.get_filtered_globs(None);
         let paths = project_path_blobs.files().unwrap_or_default();
@@ -1285,7 +1285,7 @@ impl Server {
         }
 
         eprintln!("Prepare to check {} files.", handles.len());
-        transaction.as_mut().run(&handles, Require::Indexing);
+        transaction.as_mut().run(&handles, Require::indexing());
         state.commit_transaction(transaction);
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
@@ -1304,7 +1304,7 @@ impl Server {
             eprintln!(
                 "Populating up to {workspace_indexing_limit} files in the workspace ({workspace_root:?}).",
             );
-            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
 
             let globs = Globs::new_with_root(workspace_root.as_path(), vec!["**/*".to_owned()])
                 .unwrap_or_default();
@@ -1320,7 +1320,7 @@ impl Server {
             }
 
             eprintln!("Prepare to check {} files.", handles.len());
-            transaction.as_mut().run(&handles, Require::Indexing);
+            transaction.as_mut().run(&handles, Require::indexing());
             state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
@@ -1469,7 +1469,7 @@ impl Server {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
-            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().set_memory(vec![(uri, None)]);
             let handles =
                 Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
@@ -2155,7 +2155,7 @@ impl Server {
         let cancellation_handles = self.cancellation_handles.dupe();
         let open_files = self.open_files.dupe();
         self.recheck_queue.queue_task(Box::new(move || {
-            let mut transaction = state.new_committable_transaction(Require::Indexing, None);
+            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().invalidate_config();
 
             Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
