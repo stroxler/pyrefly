@@ -8,7 +8,7 @@
 use crate::django_testcase;
 
 django_testcase!(
-    bug = "infer ForeignKey field type and support chained access",
+    bug = "infer ForeignKey field type and support chained access, as well as support _id suffix",
     test_foreign_key_basic,
     r#"
 from typing import assert_type
@@ -24,5 +24,6 @@ class Article(models.Model):
 article = Article()
 assert_type(article.reporter, Reporter) # E: assert_type(Any, Reporter) failed 
 assert_type(article.reporter.full_name, str) # E: assert_type(Any, str) failed 
+assert_type(article.reporter_id, int) # E: assert_type(Any, int) failed # E: Object of class `Article` has no attribute `reporter_id`
 "#,
 );
