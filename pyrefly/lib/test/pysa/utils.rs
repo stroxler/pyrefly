@@ -105,7 +105,9 @@ pub fn get_method_ref(
                         .defining_cls()
                         .is_some_and(|class| class.name().as_str() == class_name)
             }
-            _ => false,
+            FunctionNode::ClassField { class, name, .. } => {
+                class.name().as_str() == class_name && name.as_str() == function_name
+            }
         })
         .expect("valid method name")
         .as_function_ref(&context)

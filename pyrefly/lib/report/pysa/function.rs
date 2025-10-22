@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
@@ -30,10 +31,12 @@ use serde::Serialize;
 
 use crate::alt::class::class_field::ClassField;
 use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::binding::binding::Binding;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyDecoratedFunction;
+use crate::graph::index::Idx;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::resolve_decorator_callees;
@@ -397,6 +400,40 @@ pub fn should_export_decorated_function(
     !has_successor || !function.is_overload()
 }
 
+// From any decorated function, returns the function that should be exported.
+// Requires `context` to be the module context of the decorated function.
+pub fn get_exported_decorated_function(
+    key_decorated_function: Idx<KeyDecoratedFunction>,
+    context: &ModuleContext,
+) -> DecoratedFunction {
+    // Follow the successor chain to find either the last function or a function that is not an overload.
+    let mut last_decorated_function = key_decorated_function;
+    loop {
+        let binding_decorated_function = context.bindings.get(last_decorated_function);
+
+        let undecorated_function = context
+            .answers
+            .get_idx(binding_decorated_function.undecorated_idx)
+            .unwrap();
+        if !undecorated_function.metadata.flags.is_overload {
+            break;
+        }
+
+        let successor = binding_decorated_function.successor;
+        if let Some(successor) = successor {
+            last_decorated_function = successor;
+        } else {
+            break;
+        }
+    }
+
+    DecoratedFunction::from_bindings_answers(
+        last_decorated_function,
+        &context.bindings,
+        &context.answers,
+    )
+}
+
 fn export_function_signature(function: &Callable, context: &ModuleContext) -> FunctionSignature {
     FunctionSignature {
         parameters: export_function_parameters(&function.params, context),
@@ -546,6 +583,42 @@ impl FunctionNode {
             FunctionNode::ClassField { field, .. } => {
                 export_signatures_from_type(&field.ty(), context)
             }
+        }
+    }
+
+    pub fn exported_function_from_class_field(
+        class: &Class,
+        field_name: &Name,
+        class_field: Arc<ClassField>,
+        context: &ModuleContext,
+    ) -> Option<Self> {
+        let function_node = match get_class_field_declaration(class, field_name, context) {
+            // Class field is a `def` statement.
+            Some(BindingClassField {
+                definition: ClassFieldDefinition::MethodLike { definition, .. },
+                ..
+            }) => {
+                let binding = context.bindings.get(*definition);
+                if let Binding::Function(key_decorated_function, _, _) = binding {
+                    let exported_function =
+                        get_exported_decorated_function(*key_decorated_function, context);
+                    Some(FunctionNode::DecoratedFunction(exported_function))
+                } else {
+                    // TODO(T225700656): Handle special case
+                    None
+                }
+            }
+            _ => Some(FunctionNode::ClassField {
+                class: class.dupe(),
+                name: field_name.clone(),
+                field: class_field.dupe(),
+            }),
+        }?;
+
+        if function_node.should_export(context) {
+            Some(function_node)
+        } else {
+            None
         }
     }
 

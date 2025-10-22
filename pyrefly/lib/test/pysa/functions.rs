@@ -1119,8 +1119,8 @@ class B(A):
                     PysaType::none(),
                 )],
             )
-            .with_defining_class(get_class_ref("test", "B", context)),
-            // TODO(T225700656): Overriden base method should be test.A.__init__
+            .with_defining_class(get_class_ref("test", "B", context))
+            .with_overridden_base_method(get_method_ref("test", "A", "__init__", context)),
             create_function_definition(
                 "__init__",
                 ScopeParent::Class {
