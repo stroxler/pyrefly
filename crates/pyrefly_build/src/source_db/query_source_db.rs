@@ -20,6 +20,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::info;
+use vec1::Vec1;
 
 use crate::handle::Handle;
 use crate::query::Include;
@@ -134,13 +135,17 @@ impl QuerySourceDatabase {
         true
     }
 
+    /// Attempts to search in the given [`PythonLibraryManifest`] for the import,
+    /// checking `srcs` and `package_lookup`.
+    /// Returns the module path, if one can be found as [`Ok`], otherwise,
+    /// if a synthesized dunder init is found, returns that value as [`Err`].
     fn find_in_manifest<'a>(
         &'a self,
         module: ModuleName,
         manifest: &'a PythonLibraryManifest,
         style_filter: Option<ModuleStyle>,
-    ) -> Option<ModulePath> {
-        if let Some(paths) = manifest.srcs.get(&module) {
+    ) -> Option<Result<ModulePath, ModulePath>> {
+        let try_get_filtered = |paths: &Vec1<PathBuf>| {
             // Since the sourcedb contains the full set of reachable files, if we find a
             // result, we know a module path matching the style filter would exist in `paths`.
             // Therefore, if it's not there, we can immediately fall back to whatever's
@@ -148,14 +153,26 @@ impl QuerySourceDatabase {
             // finding.
             let style = style_filter.unwrap_or(ModuleStyle::Interface);
             if let Some(result) = paths.iter().find(|p| ModuleStyle::of_path(p) == style) {
-                return Some(self.cached_modules.get(result));
+                return self.cached_modules.get(result);
             }
-            return Some(self.cached_modules.get(paths.first()));
+            self.cached_modules.get(paths.first())
+        };
+        if let Some(paths) = manifest.srcs.get(&module) {
+            return Some(Ok(try_get_filtered(paths)));
         }
-        None
+
+        // Take the first dunder init package we see, since it will have an `__init__.py` file
+        // output on disk during actual build system building.
+        manifest
+            .packages
+            .get(&module)
+            .map(|p| Err(try_get_filtered(p)))
     }
 
-    fn lookup_in_target<'a>(
+    /// Perform a lookup, starting from the given target, and searching through all of
+    /// its dependencies. The first found result (file, regular package,
+    /// or implicit package) is returned.
+    fn lookup_from_target<'a>(
         &'a self,
         read: &'a Inner,
         module: ModuleName,
@@ -175,7 +192,11 @@ impl QuerySourceDatabase {
             };
 
             match self.find_in_manifest(module, manifest, style_filter) {
-                Some(result) => return Some(result),
+                // Return the value immediately. It's safe to return
+                // a implicit package here instead of continuing to search
+                // because during build system building, an __init__.py file will
+                // be output.
+                Some(Ok(result) | Err(result)) => return Some(result),
                 _ => (),
             }
 
@@ -201,9 +222,50 @@ impl SourceDatabase for QuerySourceDatabase {
         let origin = origin?;
         let read = self.inner.read();
         if let Some(start_target) = read.path_lookup.get(origin)
-            && let Some(result) = self.lookup_in_target(&read, *module, *start_target, style_filter)
+            && let Some(result) =
+                self.lookup_from_target(&read, *module, *start_target, style_filter)
         {
             return Some(result);
+        } else if let Some(package_init_targets) = read.package_lookup.get(origin) {
+            let mut package_matches = SmallSet::new();
+            // Gather all of the implicit package targets and deterministically return
+            // one of them. There will either be:
+            // 1. no results, in which case we return `None`
+            // 2. a result that's a src file included in a package's manifest, in which
+            //    case we can return immediately. The build system will complain if
+            //    multiple reachable targets have files that write to the same output
+            //    location, so we don't need to check for/handle that.
+            // 3. a result that's a package file, which might refer to mulitple directories.
+            //    In this case, we collect all possible results, and deterministically
+            //    return one of them.
+            for target in package_init_targets {
+                let Some(manifest) = read.db.get(target) else {
+                    continue;
+                };
+                // We only do a search with depth 1, since an import originating from an
+                // implicit package will be defined in that package's target.
+                // If we've reached this (top level) 'else if' block and found a match in
+                // `init_lookup`, then our origin must be some kind of package.
+                // There are two cases here:
+                // 1. The package is pointing to an `__init__.py` file, in which case,
+                //    we would have checked the target and its dependencies in the
+                //    previous (top level) `if` block. That would find anything from
+                //    another target the actual `__init__.py` file is attempting to
+                //    import, in which case the user is required to specify the dependency
+                //    on the target owning the init file by virtue of using a build system.
+                // 2. The package is pointing to an `__init__.py` file or synthesized package
+                //    directory. In this case, the dependencies don't really matter, because
+                //    what we're looking for is a relative import within *this* target
+                //    or another target that has a package at the origin's location.
+                match self.find_in_manifest(*module, manifest, style_filter) {
+                    Some(Ok(result)) => return Some(result),
+                    Some(Err(implicit_package)) => {
+                        package_matches.insert(implicit_package);
+                    }
+                    _ => (),
+                }
+            }
+            return package_matches.into_iter().min();
         }
 
         None
@@ -375,8 +437,6 @@ mod tests {
             None
         );
         assert_lookup("does_not_exist", "pyre/client/log/__init__.py", None, None);
-        // can't be found, since the path's target only has `pyre.client.log.log` as reachable
-        assert_lookup("log.log", "pyre/client/log/__init__.py", None, None);
         assert_lookup(
             "pyre.client.log.log",
             "pyre/client/log/__init__.py",
@@ -394,6 +454,13 @@ mod tests {
             "pyre/client/log/__init__.py",
             Some(ModuleStyle::Executable),
             Some("pyre/client/log/log.py"),
+        );
+        // can be found, since we do an `init_lookup` and can find a result.
+        assert_lookup(
+            "log.log",
+            "pyre/client/log/__init__.py",
+            None,
+            Some("pyre/client/log/log.pyi"),
         );
         assert_lookup(
             "pyre.client.log",
