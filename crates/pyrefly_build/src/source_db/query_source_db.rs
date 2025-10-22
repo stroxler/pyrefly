@@ -226,7 +226,7 @@ impl SourceDatabase for QuerySourceDatabase {
                 self.lookup_from_target(&read, *module, *start_target, style_filter)
         {
             return Some(result);
-        } else if let Some(package_init_targets) = read.package_lookup.get(origin) {
+        } else if let Some(package_targets) = read.package_lookup.get(origin) {
             let mut package_matches = SmallSet::new();
             // Gather all of the implicit package targets and deterministically return
             // one of them. There will either be:
@@ -238,7 +238,7 @@ impl SourceDatabase for QuerySourceDatabase {
             // 3. a result that's a package file, which might refer to mulitple directories.
             //    In this case, we collect all possible results, and deterministically
             //    return one of them.
-            for target in package_init_targets {
+            for target in package_targets {
                 let Some(manifest) = read.db.get(target) else {
                     continue;
                 };
@@ -411,9 +411,60 @@ mod tests {
                 Target::from_string("//pyre/client/log:log".to_owned()),
             root.join("pyre/client/log/log.pyi") =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("pyre/client/log/format.py") =>
+                Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("implicit_package/test/main.py") =>
+                Target::from_string("//implicit_package/test:main".to_owned()),
+            root.join("implicit_package/test/lib/utils.py") =>
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            root.join("implicit_package/package_boundary_violation.py") =>
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            root.join("implicit_package/test/deeply/nested/package/file.py") =>
+                Target::from_string("//implicit_package/test:lib".to_owned()),
         };
 
         assert_eq!(expected, path_lookup);
+    }
+
+    #[test]
+    fn test_implicit_package_lookup_index_creation() {
+        let (db, root) = get_db();
+        let path_lookup = db.inner.read().package_lookup.clone();
+        let expected = smallmap! {
+            root.join("click/__init__.py") => smallset! {
+                Target::from_string("//click:py".to_owned()),
+            },
+            root.join("click/__init__.pyi") => smallset! {
+                Target::from_string("//click:py".to_owned()),
+            },
+            root.join("colorama/__init__.py") => smallset! {
+                Target::from_string("//colorama:py".to_owned()),
+            },
+            root.join("colorama/__init__.pyi") => smallset! {
+                Target::from_string("//colorama:py".to_owned()),
+            },
+            root.join("pyre/client/log/__init__.py") => smallset! {
+                Target::from_string("//pyre/client/log:log".to_owned()),
+                Target::from_string("//pyre/client/log:log2".to_owned()),
+            },
+            root.join("implicit_package/test") => smallset! {
+                Target::from_string("//implicit_package/test:main".to_owned()),
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+            root.join("implicit_package/test/lib") => smallset! {
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+            root.join("implicit_package/test/deeply/nested/package") => smallset! {
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+            root.join("implicit_package/test/deeply/nested") => smallset! {
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+            root.join("implicit_package/test/deeply") => smallset! {
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+        };
+        assert_eq!(path_lookup, expected);
     }
 
     #[test]
@@ -437,11 +488,27 @@ mod tests {
             None
         );
         assert_lookup("does_not_exist", "pyre/client/log/__init__.py", None, None);
+        // can be found, since we do an `init_lookup` and can find a result.
+        assert_lookup(
+            "log.log",
+            "pyre/client/log/__init__.py",
+            None,
+            Some("pyre/client/log/log.pyi"),
+        );
         assert_lookup(
             "pyre.client.log.log",
             "pyre/client/log/__init__.py",
             None,
             Some("pyre/client/log/log.pyi"),
+        );
+        // can't be found, since we're not doing an `init_lookup`, so this should only
+        // be looked up through `pyre.client.log.format`.
+        assert_lookup("log.format", "pyre/client/log/log.pyi", None, None);
+        assert_lookup(
+            "pyre.client.log.format",
+            "pyre/client/log/log.pyi",
+            None,
+            Some("pyre/client/log/format.py"),
         );
         assert_lookup(
             "pyre.client.log.log",
@@ -454,13 +521,6 @@ mod tests {
             "pyre/client/log/__init__.py",
             Some(ModuleStyle::Executable),
             Some("pyre/client/log/log.py"),
-        );
-        // can be found, since we do an `init_lookup` and can find a result.
-        assert_lookup(
-            "log.log",
-            "pyre/client/log/__init__.py",
-            None,
-            Some("pyre/client/log/log.pyi"),
         );
         assert_lookup(
             "pyre.client.log",
@@ -501,6 +561,67 @@ mod tests {
         assert_lookup("log.log", "click/__init__.pyi", None, None);
         assert_lookup("log.log", "colorama/__init__.pyi", None, None);
         assert_lookup("pyre.client.log.log", "click/__init__.py", None, None);
+        // test implicit_package lookups
+        assert_lookup(
+            "implicit_package.lib.utils",
+            "implicit_package/test/main.py",
+            None,
+            Some("implicit_package/test/lib/utils.py"),
+        );
+        assert_lookup(
+            "implicit_package.lib",
+            "implicit_package/test/main.py",
+            None,
+            Some("implicit_package/test/lib"),
+        );
+        assert_lookup(
+            "implicit_package.lib",
+            "implicit_package/test/lib/utils.py",
+            None,
+            Some("implicit_package/test/lib"),
+        );
+        assert_lookup(
+            "implicit_package",
+            "implicit_package/test/main.py",
+            None,
+            Some("implicit_package/test"),
+        );
+        assert_lookup(
+            "implicit_package",
+            "implicit_package/test/lib/utils.py",
+            None,
+            Some("implicit_package/test"),
+        );
+        assert_lookup(
+            "implicit_package.main",
+            "implicit_package/test",
+            None,
+            Some("implicit_package/test/main.py"),
+        );
+        assert_lookup(
+            "implicit_package.lib",
+            "implicit_package/test",
+            None,
+            Some("implicit_package/test/lib"),
+        );
+        assert_lookup(
+            "implicit_package",
+            "implicit_package/test/lib/utils.py",
+            None,
+            Some("implicit_package/test"),
+        );
+        assert_lookup(
+            "implicit_package",
+            "implicit_package/test/lib",
+            None,
+            Some("implicit_package/test"),
+        );
+        assert_lookup(
+            "implicit_package.main",
+            "implicit_package/test/lib/utils.py",
+            None,
+            None,
+        );
     }
 
     #[test]
@@ -553,6 +674,7 @@ mod tests {
                         ],
                         &[],
                         "colorama/BUCK",
+                        &[],
                     ),
                     Target::from_string("//pyre/client/log:log".to_owned()) => TargetManifest::lib(
                         &[
@@ -572,6 +694,22 @@ mod tests {
                         ],
                         &[],
                         "pyre/client/log/BUCK",
+                        &[],
+                    ),
+                    Target::from_string("//implicit_package/test:lib".to_owned()) => TargetManifest::lib(
+                        &[
+                        (
+                            "implicit_package.lib.utils", &[
+                                "implicit_package/test/lib/utils.py"
+                            ]
+                        )
+                        ],
+                        &[],
+                        "implicit_package/test/BUCK",
+                        &[
+                        ("implicit_package", &["implicit_package/test"]),
+                        ("implicit_package/lib", &["implicit_package/test/lib"]),
+                        ],
                     ),
             },
             root.clone(),
@@ -591,7 +729,27 @@ mod tests {
                 Target::from_string("//pyre/client/log:log".to_owned()),
             root.join("pyre/client/log/log.pyi") =>
                 Target::from_string("//pyre/client/log:log".to_owned()),
+            root.join("implicit_package/test/lib/utils.py") =>
+                Target::from_string("//implicit_package/test:lib".to_owned()),
         };
         assert_eq!(inner.path_lookup, expected_path_lookup);
+        let expected_package_lookup = smallmap! {
+            root.join("implicit_package/test") => smallset! {
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+            root.join("implicit_package/test/lib") => smallset! {
+                Target::from_string("//implicit_package/test:lib".to_owned()),
+            },
+            root.join("colorama/__init__.py") => smallset! {
+                Target::from_string("//colorama:py".to_owned()),
+            },
+            root.join("colorama/__init__.pyi") => smallset! {
+                Target::from_string("//colorama:py".to_owned()),
+            },
+            root.join("pyre/client/log/__init__.py") => smallset! {
+                Target::from_string("//pyre/client/log:log".to_owned()),
+            },
+        };
+        assert_eq!(inner.package_lookup, expected_package_lookup);
     }
 }

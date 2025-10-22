@@ -219,6 +219,9 @@ impl PythonLibraryManifest {
                 continue;
             }
 
+            if !parent_path.starts_with(target_root) {
+                continue;
+            }
             let Some(parent_module) = module.parent() else {
                 continue;
             };
@@ -378,6 +381,7 @@ mod tests {
                         ],
                         &[],
                         "colorama/BUCK",
+                        &[],
                     ),
                     Target::from_string("//colorama:colorama".to_owned()) => TargetManifest::alias(
                         "//colorama:py"
@@ -396,6 +400,7 @@ mod tests {
                         "//colorama:colorama"
                         ],
                         "click/BUCK",
+                        &[],
                     ),
                     Target::from_string("//click:click".to_owned()) => TargetManifest::alias(
                         "//click:py"
@@ -413,13 +418,20 @@ mod tests {
                             &[
                             "pyre/client/log/log.py",
                             "pyre/client/log/log.pyi",
-                            ]
+                            ],
+                        ),
+                        (
+                            "pyre.client.log.format",
+                            &[
+                            "pyre/client/log/format.py",
+                            ],
                         ),
                         ],
                         &[
                         "//click:click"
                         ],
-                        "pyre/client/log/BUCK"
+                        "pyre/client/log/BUCK",
+                        &[],
                     ),
                     Target::from_string("//pyre/client/log:log2".to_owned()) => TargetManifest::lib(
                         &[
@@ -435,13 +447,60 @@ mod tests {
                             "pyre/client/log/log.py",
                             "pyre/client/log/log.pyi",
                             ]
-                        )
+                        ),
+                        (
+                            "log.format",
+                            &[
+                            "pyre/client/log/format.py",
+                            ]
+                        ),
                         ],
                         &[
                         "//click:click"
                         ],
-                        "pyre/client/log/BUCK"
-                    )
+                        "pyre/client/log/BUCK",
+                        &[],
+                    ),
+                    Target::from_string("//implicit_package/test:main".to_owned()) => TargetManifest::lib(
+                            &[
+                            (
+                                "implicit_package.main",
+                                &[
+                                "implicit_package/test/main.py",
+                                ],
+                            ),
+                            ],
+                            &[
+                            "//implicit_package/test:lib",
+                            ],
+                            "implicit_package/test/BUCK",
+                            &[],
+                    ),
+                    Target::from_string("//implicit_package/test:lib".to_owned()) => TargetManifest::lib(
+                            &[
+                            (
+                                "implicit_package.lib.utils",
+                                &[
+                                "implicit_package/test/lib/utils.py",
+                                ],
+                            ),
+                            (
+                                "implicit_package.package_boundary_violation",
+                                &[
+                                "implicit_package/package_boundary_violation.py",
+                                ]
+                            ),
+                            (
+                                "implicit_package.deeply.nested.package.file",
+                                &[
+                                "implicit_package/test/deeply/nested/package/file.py",
+                                ],
+                            )
+                            ],
+                            &[],
+                            "implicit_package/test/BUCK",
+                            &[]
+                    ),
                 },
                 PathBuf::from("/path/to/this/repository"),
             )
@@ -494,13 +553,18 @@ mod tests {
             }
         }
 
-        pub fn lib(srcs: &[(&str, &[&str])], deps: &[&str], buildfile: &str) -> Self {
+        pub fn lib(
+            srcs: &[(&str, &[&str])],
+            deps: &[&str],
+            buildfile: &str,
+            implicit_packages: &[(&str, &[&str])],
+        ) -> Self {
             TargetManifest::Library(PythonLibraryManifest {
                 srcs: map_srcs(srcs, None),
                 deps: map_deps(deps),
                 sys_info: SysInfo::new(PythonVersion::new(3, 12, 0), PythonPlatform::linux()),
                 buildfile_path: PathBuf::from(buildfile),
-                packages: SmallMap::new(),
+                packages: map_implicit_packages(implicit_packages, None),
             })
         }
     }
@@ -568,6 +632,9 @@ mod tests {
         "pyre.client.log.log": [
           "pyre/client/log/log.py",
           "pyre/client/log/log.pyi"
+        ],
+        "pyre.client.log.format": [
+          "pyre/client/log/format.py"
         ]
       },
       "deps": [
@@ -585,12 +652,43 @@ mod tests {
         "log.log": [
           "pyre/client/log/log.py",
           "pyre/client/log/log.pyi"
+        ],
+        "log.format": [
+          "pyre/client/log/format.py"
         ]
       },
       "deps": [
         "//click:click"
       ],
       "buildfile_path": "pyre/client/log/BUCK",
+      "python_version": "3.12",
+      "python_platform": "linux"
+    },
+    "//implicit_package/test:main": {
+      "srcs": {
+          "implicit_package.main": [
+              "implicit_package/test/main.py"
+          ]
+      },
+      "deps": ["//implicit_package/test:lib"],
+      "buildfile_path": "implicit_package/test/BUCK",
+      "python_version": "3.12",
+      "python_platform": "linux"
+    },
+    "//implicit_package/test:lib": {
+      "srcs": {
+          "implicit_package.lib.utils": [
+              "implicit_package/test/lib/utils.py"
+          ],
+          "implicit_package.package_boundary_violation": [
+              "implicit_package/package_boundary_violation.py"
+          ],
+          "implicit_package.deeply.nested.package.file": [
+              "implicit_package/test/deeply/nested/package/file.py"
+          ]
+      },
+      "deps": [],
+      "buildfile_path": "implicit_package/test/BUCK",
       "python_version": "3.12",
       "python_platform": "linux"
     }
@@ -660,6 +758,12 @@ mod tests {
                             "pyre/client/log/log.pyi",
                         ]
                     ),
+                    (
+                        "pyre.client.log.format",
+                        &[
+                            "pyre/client/log/format.py",
+                        ],
+                    ),
                 ],
                 &[
                     "//click:py"
@@ -685,7 +789,13 @@ mod tests {
                             "pyre/client/log/log.py",
                             "pyre/client/log/log.pyi",
                         ]
-                    )
+                    ),
+                    (
+                        "log.format",
+                        &[
+                            "pyre/client/log/format.py",
+                        ],
+                    ),
                 ],
                 &[
                     "//click:py"
@@ -696,7 +806,69 @@ mod tests {
                         "pyre/client/log/__init__.py",
                     ]),
                 ],
-            )
+            ),
+            Target::from_string("//implicit_package/test:main".to_owned()) => PythonLibraryManifest::new(
+                &[
+                (
+                    "implicit_package.main", &[
+                        "implicit_package/test/main.py"
+                    ]
+                )
+                ],
+                &[
+                    "//implicit_package/test:lib"
+                ],
+                "implicit_package/test/BUCK",
+                &[
+                ("implicit_package", &[
+                        "implicit_package/test",
+                    ],
+                )
+                ],
+            ),
+            Target::from_string("//implicit_package/test:lib".to_owned()) => PythonLibraryManifest::new(
+                &[
+                (
+                    "implicit_package.lib.utils", &[
+                        "implicit_package/test/lib/utils.py"
+                    ],
+                ),
+                (
+                    "implicit_package.package_boundary_violation", &[
+                        "implicit_package/package_boundary_violation.py",
+                    ],
+                ),
+                (
+                    "implicit_package.deeply.nested.package.file", &[
+                        "implicit_package/test/deeply/nested/package/file.py",
+                    ],
+                )
+                ],
+                &[],
+                "implicit_package/test/BUCK",
+                &[
+                ("implicit_package", &[
+                        "implicit_package/test",
+                    ],
+                ),
+                ("implicit_package.lib", &[
+                        "implicit_package/test/lib",
+                    ],
+                ),
+                ("implicit_package.deeply.nested.package", &[
+                        "implicit_package/test/deeply/nested/package",
+                    ],
+                ),
+                ("implicit_package.deeply.nested", &[
+                        "implicit_package/test/deeply/nested",
+                    ],
+                ),
+                ("implicit_package.deeply", &[
+                        "implicit_package/test/deeply",
+                    ],
+                ),
+                ],
+            ),
         };
         assert_eq!(
             TargetManifestDatabase::get_test_database().produce_map(),
