@@ -286,6 +286,12 @@ impl FunctionDefinition {
         self.decorator_callees = decorator_callees;
         self
     }
+
+    #[cfg(test)]
+    pub fn with_overridden_base_method(mut self, overridden_base_method: FunctionRef) -> Self {
+        self.base.overridden_base_method = Some(overridden_base_method);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
