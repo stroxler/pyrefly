@@ -672,7 +672,7 @@ impl ConfigFile {
             return Ok(false);
         };
 
-        let files = files.iter().map(|p| p.as_path().to_path_buf()).collect();
+        let files = files.iter().map(|p| p.module_path_buf()).collect();
         source_db.requery_source_db(files)
     }
 
