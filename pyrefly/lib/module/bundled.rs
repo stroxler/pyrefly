@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// TODO(jvansch): Refactor this to use Traits rather than this module.
 pub mod bundled {
-
     use std::collections::HashMap;
     use std::env;
     use std::fs;
