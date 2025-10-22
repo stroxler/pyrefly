@@ -107,6 +107,10 @@ pub trait SourceDbQuerier: Send + Sync + fmt::Debug {
     fn construct_command(&self) -> Command;
 }
 
+fn is_path_initfile(path: &Path) -> bool {
+    path.ends_with("__init__.py") || path.ends_with("__init__.pyi")
+}
+
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 pub(crate) struct PythonLibraryManifest {
     pub deps: SmallSet<Target>,
@@ -141,6 +145,90 @@ impl PythonLibraryManifest {
             .iter_mut()
             .for_each(|(_, paths)| paths.iter_mut().for_each(|p| *p = root.join(&p)));
         self.buildfile_path = root.join(&self.buildfile_path);
+    }
+
+    /// Returns a map of package module name to init file or implicit package directory and
+    /// path of where to continue upward searching for module names in later steps.
+    ///
+    /// When a real __init__ file is found on disk, we return `Ok()`, containing a tuple
+    /// of all init files pointing to the given module name and path of where to continue
+    /// searching from next.
+    ///
+    /// When no init file is found, we return `Err()`, which is both the directory
+    /// where we synthesize an implicit package, as well as the path of where to continue
+    /// searching from next.
+    fn get_explicit_and_basic_implicit_packages(
+        &self,
+        target_root: &Path,
+        all_dunder_inits: &SmallSet<PathBuf>,
+    ) -> SmallMap<ModuleName, Result<(Vec1<PathBuf>, PathBuf), &Path>> {
+        let mut start_packages: SmallMap<ModuleName, Result<(Vec1<PathBuf>, PathBuf), &Path>> =
+            SmallMap::new();
+
+        // attempt to push the given init file onto `start_packages` if `all_dunder_inits` knows about
+        // it. Return false if we didn't push, true otherwise.
+        let push_if_init_exists = |module: &ModuleName,
+                                   paths: &Vec1<PathBuf>,
+                                   start_packages: &mut SmallMap<
+            ModuleName,
+            Result<(Vec1<PathBuf>, PathBuf), &Path>,
+        >| {
+            let mut any_found = false;
+            let Some(parent) = paths.first().parent() else {
+                return any_found;
+            };
+            if !parent.starts_with(target_root) {
+                return any_found;
+            }
+            let Some(parent_parent) = parent.parent() else {
+                return false;
+            };
+            for path in paths {
+                if !all_dunder_inits.contains(path) {
+                    continue;
+                }
+                any_found = true;
+                if let Some(Ok((paths, _))) = start_packages.get_mut(module) {
+                    paths.push(path.to_path_buf());
+                } else {
+                    // `parent_parent` is used here, since we want to continue searching
+                    // from the package's parent, which is the file's directory's parent.
+                    start_packages.insert(
+                        module.dupe(),
+                        Ok((vec1![path.to_path_buf()], parent_parent.to_path_buf())),
+                    );
+                }
+            }
+            any_found
+        };
+        for (module, paths) in &self.srcs {
+            if push_if_init_exists(module, paths, &mut start_packages) {
+                continue;
+            }
+
+            let path = paths.first();
+            let Some(parent_path) = path.parent() else {
+                continue;
+            };
+
+            if push_if_init_exists(
+                module,
+                &vec1![path.join("__init__.py"), path.join("__init__.pyi")],
+                &mut start_packages,
+            ) {
+                continue;
+            }
+
+            let Some(parent_module) = module.parent() else {
+                continue;
+            };
+
+            start_packages
+                .entry(parent_module)
+                .or_insert(Err(parent_path));
+        }
+
+        start_packages
     }
 }
 
