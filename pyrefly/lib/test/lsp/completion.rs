@@ -2172,3 +2172,17 @@ This has documentation.
         report.trim(),
     );
 }
+
+#[test]
+#[should_panic(expected = "a variable has leaked from one module to another")]
+fn dot_complete_var_crash() {
+    let code = r#"
+class C[T]:
+    def m(self):
+        pass
+def f[T]() -> C[T]: ...
+f().
+#   ^
+"#;
+    get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+}
