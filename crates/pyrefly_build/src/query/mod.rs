@@ -230,6 +230,49 @@ impl PythonLibraryManifest {
 
         start_packages
     }
+
+    /// Given a map of modules to real or synthesized packages, synthesize missing packages up to
+    /// and including this manifest's build file.
+    fn fill_ancestor_synthesized_packages(
+        &self,
+        start_packages: SmallMap<ModuleName, Result<(Vec1<PathBuf>, PathBuf), &Path>>,
+        target_root: &Path,
+    ) -> SmallMap<ModuleName, Vec1<PathBuf>> {
+        // the result we're going to use, with all the files we've found so far
+        let mut inits: SmallMap<ModuleName, Vec1<PathBuf>> = start_packages
+            .iter()
+            .map(|(name, path)| {
+                let files = match path {
+                    Ok((files, _)) => files.clone(),
+                    Err(file) => vec1![file.to_path_buf()],
+                };
+                (name.dupe(), files)
+            })
+            .collect();
+
+        // fill in implicit packages for parent directories, if there's not an entry already
+        for (mut module, path) in start_packages {
+            let mut path = match &path {
+                Ok((_, next_path)) => &**next_path,
+                Err(next_path) => *next_path,
+            };
+            while let Some(parent_module) = module.parent() {
+                let Some(parent_path) = path.parent() else {
+                    break;
+                };
+
+                if inits.contains_key(&parent_module) || !parent_path.starts_with(target_root) {
+                    break;
+                }
+
+                inits.insert(parent_module.dupe(), vec1![parent_path.to_path_buf()]);
+                module = parent_module;
+                path = parent_path;
+            }
+        }
+
+        inits
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
