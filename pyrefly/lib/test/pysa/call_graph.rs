@@ -270,7 +270,6 @@ fn call_callees(
     })
 }
 
-#[allow(dead_code)]
 fn attribute_access_callees(
     call_targets: Vec<CallTarget<FunctionRefForTest>>,
     init_targets: Vec<CallTarget<FunctionRefForTest>>,
@@ -1246,6 +1245,31 @@ def foo(c: C):
             TEST_DEFINITION_NAME.to_owned(),
             vec![(
                 "5:3-5:10".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_default_parameter_call,
+    TEST_MODULE_NAME,
+    r#"
+def bar():
+  pass
+def foo(x=bar()):
+  pass
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
+        vec![(
+            "test.$toplevel".to_owned(),
+            vec![(
+                "4:11-4:16".to_owned(),
                 call_callees(
                     call_targets.clone(),
                     /* init_targets */ vec![],
