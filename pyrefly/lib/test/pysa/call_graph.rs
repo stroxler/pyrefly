@@ -1201,3 +1201,57 @@ class B(A):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_overriden_repr_call,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def __repr__(self) -> str: ...
+def foo(c: C):
+  repr(c)
+"#,
+    &|context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.__repr__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C".to_owned(), context),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![(
+                "5:3-5:10".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_default_repr_call,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  pass
+def foo(c: C):
+  repr(c)
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![create_call_target("builtins.repr", TargetType::Function)];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![(
+                "5:3-5:10".to_owned(),
+                call_callees(
+                    call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);

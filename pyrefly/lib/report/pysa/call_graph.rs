@@ -867,9 +867,9 @@ impl<'a> CallGraphVisitor<'a> {
     fn resolve_name(
         &self,
         name: &ExprName,
+        call_arguments: Option<&ruff_python_ast::Arguments>,
         return_type: Option<ScalarTypeProperties>,
     ) -> Option<CallCallees<FunctionRef>> {
-        let callee_expr_suffix = name.id.as_str();
         let identifier = Ast::expr_name_identifier(name.clone());
         let go_to_definitions = self
             .module_context
@@ -887,20 +887,52 @@ impl<'a> CallGraphVisitor<'a> {
                     self.function_base_definitions,
                     self.module_context,
                 )
-                .map(|function_ref| {
-                    self.call_target_from_function_ref(
-                        function_ref,
-                        return_type,
-                        /* receiver_type */
-                        None, // We don't know receiver type since we are given an `ExprName`
-                        callee_expr_suffix,
-                        /* is_override_target */ false,
-                        /* override_implicit_receiver*/ None,
-                    )
-                })
             })
             .collect::<Vec<_>>();
+
+        let callee_expr_suffix = name.id.as_str();
         if !go_to_definitions.is_empty() {
+            let go_to_definitions = go_to_definitions
+                .into_iter()
+                .map(|function_ref| {
+                    let call_target = || {
+                        self.call_target_from_function_ref(
+                            function_ref.clone(),
+                            return_type,
+                            /* receiver_type */
+                            None, // We don't know receiver type since we are given an `ExprName`
+                            callee_expr_suffix,
+                            /* is_override_target */ false,
+                            /* override_implicit_receiver*/ None,
+                        )
+                    };
+                    if function_ref.module_name == ModuleName::builtins()
+                        && function_ref.function_name == "repr"
+                    {
+                        // Find the actual `__repr__`
+                        call_arguments
+                            .as_ref()
+                            .and_then(|arguments| {
+                                arguments.find_positional(0).and_then(|argument| {
+                                    self.module_context.answers.get_type_trace(argument.range())
+                                })
+                            })
+                            .and_then(|first_argument_type| {
+                                self.call_target_from_method_name(
+                                    &Name::new_static("__repr__"),
+                                    Some(&first_argument_type),
+                                    return_type,
+                                    /* is_bound_method */ true,
+                                    callee_expr_suffix,
+                                    /* override_implicit_receiver*/ None,
+                                )
+                            })
+                            .unwrap_or(call_target())
+                    } else {
+                        call_target()
+                    }
+                })
+                .collect::<Vec<_>>();
             Some(CallCallees {
                 call_targets: go_to_definitions,
                 init_targets: vec![],
@@ -1124,7 +1156,7 @@ impl<'a> CallGraphVisitor<'a> {
 
         match &*call.func {
             Expr::Name(name) => {
-                let callees = self.resolve_name(name, return_type);
+                let callees = self.resolve_name(name, Some(&call.arguments), return_type);
                 debug_println!(
                     self.debug,
                     "Resolved call `{:#?}` into `{:#?}`",
@@ -1195,7 +1227,11 @@ impl<'a> CallGraphVisitor<'a> {
                 .resolve_call(call, assignment_targets)
                 .map(ExpressionCallees::Call),
             Expr::Name(name) if !is_nested_callee_or_base => self
-                .resolve_name(name, Some(return_type_when_called()))
+                .resolve_name(
+                    name,
+                    /* call_arguments */ None,
+                    Some(return_type_when_called()),
+                )
                 .map(|call_callees| {
                     ExpressionCallees::Identifier(IdentifierCallees {
                         if_called: call_callees,
