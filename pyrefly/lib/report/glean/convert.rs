@@ -576,8 +576,14 @@ impl GleanState<'_> {
                 }
             }
             Expr::StringLiteral(str_lit) => self.get_xrefs_types_for_str_lit(str_lit),
+            Expr::BooleanLiteral(bool_lit) => {
+                let name = if bool_lit.value { "True" } else { "False" };
+                vec![(name.to_owned(), bool_lit.range())]
+            }
             Expr::NoneLiteral(none) => vec![("None".to_owned(), none.range())],
-            _ => vec![],
+            _ => {
+                vec![]
+            }
         };
 
         xrefs

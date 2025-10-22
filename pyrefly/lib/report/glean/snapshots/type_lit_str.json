@@ -886,6 +886,25 @@
           "spans": [
             {
               "length": 5,
+              "start": 134
+            }
+          ],
+          "target": {
+            "id": 0,
+            "key": "False"
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "type_lit_str.py"
+          },
+          "spans": [
+            {
+              "length": 5,
               "start": 19
             }
           ],
@@ -975,6 +994,16 @@
               "target": {
                 "id": 0,
                 "key": "list"
+              }
+            },
+            {
+              "source": {
+                "length": 5,
+                "start": 134
+              },
+              "target": {
+                "id": 0,
+                "key": "False"
               }
             },
             {
