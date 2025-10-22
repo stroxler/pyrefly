@@ -590,6 +590,16 @@
                         "id": 0,
                         "key": "list"
                       }
+                    },
+                    {
+                      "source": {
+                        "length": 5,
+                        "start": 1
+                      },
+                      "target": {
+                        "id": 0,
+                        "key": "typing.Union"
+                      }
                     }
                   ]
                 }
@@ -906,6 +916,10 @@
             {
               "length": 5,
               "start": 19
+            },
+            {
+              "length": 5,
+              "start": 93
             }
           ],
           "target": {
@@ -1010,6 +1024,16 @@
               "source": {
                 "length": 5,
                 "start": 19
+              },
+              "target": {
+                "id": 0,
+                "key": "typing.Union"
+              }
+            },
+            {
+              "source": {
+                "length": 5,
+                "start": 93
               },
               "target": {
                 "id": 0,
