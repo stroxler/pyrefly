@@ -273,6 +273,18 @@ impl PythonLibraryManifest {
 
         inits
     }
+
+    /// Get all explicit and implicit dunder inits, preferring explicit. Produces
+    /// dunder inits all the way up to the directory containing this manifest's build file.
+    fn fill_implicit_packages(&mut self, all_dunder_inits: &SmallSet<PathBuf>) {
+        let Some(target_root) = self.buildfile_path.parent() else {
+            return;
+        };
+        let start_packages =
+            self.get_explicit_and_basic_implicit_packages(target_root, all_dunder_inits);
+
+        self.packages = self.fill_ancestor_synthesized_packages(start_packages, target_root);
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
@@ -289,7 +301,7 @@ pub(crate) struct TargetManifestDatabase {
 }
 
 impl TargetManifestDatabase {
-    pub fn produce_map(self) -> SmallMap<Target, PythonLibraryManifest> {
+    pub fn produce_map(mut self) -> SmallMap<Target, PythonLibraryManifest> {
         let mut result = SmallMap::new();
         let aliases: SmallMap<Target, Target> = self
             .db
@@ -299,12 +311,32 @@ impl TargetManifestDatabase {
                 _ => None,
             })
             .collect();
+
+        let mut explicit_dunder_inits = SmallSet::new();
+        for manifest in self.db.values_mut() {
+            match manifest {
+                TargetManifest::Alias { .. } => continue,
+                TargetManifest::Library(lib) => {
+                    lib.replace_alias_deps(&aliases);
+                    lib.rewrite_relative_to_root(&self.root);
+
+                    for paths in lib.srcs.values() {
+                        if !is_path_initfile(paths.first()) {
+                            continue;
+                        }
+                        for path in paths {
+                            explicit_dunder_inits.insert(path.to_path_buf());
+                        }
+                    }
+                }
+            }
+        }
+
         for (target, manifest) in self.db {
             match manifest {
                 TargetManifest::Alias { .. } => continue,
                 TargetManifest::Library(mut lib) => {
-                    lib.replace_alias_deps(&aliases);
-                    lib.rewrite_relative_to_root(&self.root);
+                    lib.fill_implicit_packages(&explicit_dunder_inits);
                     result.insert(target, lib);
                 }
             }
@@ -438,6 +470,23 @@ mod tests {
             .collect()
     }
 
+    fn map_implicit_packages(
+        inits: &[(&str, &[&str])],
+        prefix_paths: Option<&str>,
+    ) -> SmallMap<ModuleName, Vec1<PathBuf>> {
+        let prefix_paths = prefix_paths.map_or(PathBuf::new(), PathBuf::from);
+        inits
+            .iter()
+            .map(|(n, paths)| {
+                (
+                    ModuleName::from_str(n),
+                    Vec1::try_from_vec(paths.iter().map(|p| prefix_paths.join(p)).collect())
+                        .unwrap(),
+                )
+            })
+            .collect()
+    }
+
     impl TargetManifest {
         fn alias(target: &str) -> Self {
             TargetManifest::Alias {
@@ -457,14 +506,19 @@ mod tests {
     }
 
     impl PythonLibraryManifest {
-        fn new(srcs: &[(&str, &[&str])], deps: &[&str], buildfile: &str) -> Self {
+        fn new(
+            srcs: &[(&str, &[&str])],
+            deps: &[&str],
+            buildfile: &str,
+            inits: &[(&str, &[&str])],
+        ) -> Self {
             let root = "/path/to/this/repository";
             Self {
                 srcs: map_srcs(srcs, Some(root)),
                 deps: map_deps(deps),
                 sys_info: SysInfo::new(PythonVersion::new(3, 12, 0), PythonPlatform::linux()),
                 buildfile_path: PathBuf::from(root).join(buildfile),
-                packages: SmallMap::new(),
+                packages: map_implicit_packages(inits, Some(root)),
             }
         }
     }
@@ -563,6 +617,12 @@ mod tests {
                 ],
                 &[],
                 "colorama/BUCK",
+                &[
+                    ("colorama", &[
+                        "colorama/__init__.py",
+                        "colorama/__init__.pyi",
+                    ]),
+                ],
             ),
             Target::from_string("//click:py".to_owned()) => PythonLibraryManifest::new(
                 &[
@@ -578,6 +638,12 @@ mod tests {
                     "//colorama:py"
                 ],
                 "click/BUCK",
+                &[
+                    ("click", &[
+                        "click/__init__.pyi",
+                        "click/__init__.py",
+                    ]),
+                ],
             ),
             Target::from_string("//pyre/client/log:log".to_owned()) => PythonLibraryManifest::new(
                 &[
@@ -599,6 +665,11 @@ mod tests {
                     "//click:py"
                 ],
                 "pyre/client/log/BUCK",
+                &[
+                    ("pyre.client.log", &[
+                     "pyre/client/log/__init__.py",
+                    ]),
+                ],
             ),
             Target::from_string("//pyre/client/log:log2".to_owned()) => PythonLibraryManifest::new(
                 &[
@@ -620,6 +691,11 @@ mod tests {
                     "//click:py"
                 ],
                 "pyre/client/log/BUCK",
+                &[
+                    ("log", &[
+                        "pyre/client/log/__init__.py",
+                    ]),
+                ],
             )
         };
         assert_eq!(
