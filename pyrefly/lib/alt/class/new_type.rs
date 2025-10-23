@@ -76,7 +76,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let base_type = self.new_type_base_type(cls, base_class);
             Some(ClassSynthesizedFields::new(smallmap! {
                 dunder::NEW => self.get_new_type_new(cls, base_type.clone()),
-                dunder::INIT => self.get_new_type_init(cls, base_type.clone()),
+                dunder::INIT => self.get_new_type_init(cls, base_type),
             }))
         } else {
             None
