@@ -283,12 +283,7 @@ impl ModulePath {
 
     /// Convert to a path, that may not exist on disk.
     pub fn module_path_buf(&self) -> ModulePathBuf {
-        match &self.0 {
-            ModulePathDetails::FileSystem(path)
-            | ModulePathDetails::BundledTypeshed(path)
-            | ModulePathDetails::Memory(path)
-            | ModulePathDetails::Namespace(path) => *path,
-        }
+        ModulePathBuf::from_path(self.as_path())
     }
 
     /// For nominal types, we consider FileSystem and Memory to be equal. This is important in the
