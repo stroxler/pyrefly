@@ -69,9 +69,11 @@ enum Variable {
     Partial,
     /// A variable due to generic instantiation, `def f[T](x: T): T` with `f(1)`
     Quantified(Box<Quantified>),
-    /// A variable caused by recursion, e.g. `x = f(); def f(): return x`.
-    /// The second value is the default value of the Var, if one exists.
-    Recursive(Option<Type>),
+    /// A variable caused by general recursion, e.g. `x = f(); def f(): return x`.
+    Recursive,
+    /// A loop-recursive variable, e.g. `x = None; while x is None: x = f()`
+    /// The type is the binding at the top of the loop
+    LoopRecursive(Type),
     /// A variable that used to decompose a type, e.g. getting T from Awaitable[T]
     Unwrap,
     /// A variable used for a parameter type (either a function or lambda parameter).
@@ -96,8 +98,8 @@ impl Display for Variable {
                     write!(f, "Quantified({k})")
                 }
             }
-            Variable::Recursive(Some(t)) => write!(f, "Recursive(default={t})"),
-            Variable::Recursive(None) => write!(f, "Recursive"),
+            Variable::LoopRecursive(t) => write!(f, "LoopRecursive({t})"),
+            Variable::Recursive => write!(f, "Recursive"),
             Variable::Parameter => write!(f, "Parameter"),
             Variable::Unwrap => write!(f, "Unwrap"),
             Variable::Answer(t) => write!(f, "{t}"),
@@ -291,7 +293,7 @@ impl Solver {
         let variables = self.variables.lock();
         let mut variable = variables.get_mut(var);
         match &mut *variable {
-            Variable::Recursive(..) | Variable::Answer(..) => {
+            Variable::LoopRecursive(..) | Variable::Recursive | Variable::Answer(..) => {
                 // Nothing to do if we have an answer already, and we want to skip recursive Vars
                 // which do not represent placeholder types.
             }
@@ -367,7 +369,7 @@ impl Solver {
             _ => {
                 let default = match &mut *e {
                     Variable::Quantified(q) => q.as_gradual_type(),
-                    Variable::Recursive(Some(default)) => default.clone(),
+                    Variable::LoopRecursive(default) => default.clone(),
                     _ => Type::any_implicit(),
                 };
                 *e = Variable::Answer(default.clone());
@@ -740,9 +742,7 @@ impl Solver {
     /// Generate a fresh variable used to tie recursive bindings.
     pub fn fresh_recursive(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
-        self.variables
-            .lock()
-            .insert_fresh(v, Variable::Recursive(None));
+        self.variables.lock().insert_fresh(v, Variable::Recursive);
         v
     }
 
@@ -750,7 +750,7 @@ impl Solver {
         let v = Var::new(uniques);
         self.variables
             .lock()
-            .insert_fresh(v, Variable::Recursive(Some(default)));
+            .insert_fresh(v, Variable::LoopRecursive(default));
         v
     }
 
@@ -1171,7 +1171,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         }
                         Ok(())
                     }
-                    Variable::Partial | Variable::Unwrap | Variable::Recursive(..) => {
+                    Variable::Partial
+                    | Variable::Unwrap
+                    | Variable::LoopRecursive(..)
+                    | Variable::Recursive => {
                         drop(v1_ref);
                         variables.update(*v1, Variable::Answer(t2.clone()));
                         Ok(())
@@ -1230,7 +1233,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         variables.update(*v2, Variable::Answer(t1_p));
                         Ok(())
                     }
-                    Variable::Unwrap | Variable::Recursive(..) => {
+                    Variable::Unwrap | Variable::LoopRecursive(..) | Variable::Recursive => {
                         drop(v2_ref);
                         variables.update(*v2, Variable::Answer(t1.clone()));
                         Ok(())
