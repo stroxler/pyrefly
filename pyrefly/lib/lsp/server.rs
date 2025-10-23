@@ -1114,6 +1114,18 @@ impl Server {
         );
     }
 
+    fn validate_in_memory_without_committing<'a>(
+        &'a self,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+    ) {
+        let noncommittable_transaction =
+            ide_transaction_manager.non_committable_transaction(&self.state);
+        self.validate_in_memory_for_possibly_committable_transaction(
+            ide_transaction_manager,
+            Err(noncommittable_transaction),
+        );
+    }
+
     /// Validate open files and send errors to the LSP. In the case of an ongoing recheck
     /// (i.e., another transaction is already being committed or the state is locked for writing),
     /// we still update diagnostics using a non-committable transaction, which may have slightly stale
@@ -1376,7 +1388,14 @@ impl Server {
             .write()
             .insert(uri, Arc::new(params.text_document.text));
         if !subsequent_mutation {
-            self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
+            // In order to improve perceived startup perf, when a file is opened, we run a
+            // non-committing transaction that indexes the file with default require level Exports.
+            // This is very fast but doesn't follow transitive dependencies, so completions are
+            // incomplete. This makes most IDE features available immediately while
+            // populate_{project,workspace}_files below runs a transaction at default require level
+            // Indexing in the background, generating a more complete index which becomes available
+            // a few seconds later.
+            self.validate_in_memory_without_committing(ide_transaction_manager);
         }
         self.populate_project_files_if_necessary(config_to_populate_files);
         self.populate_workspace_files_if_necessary();

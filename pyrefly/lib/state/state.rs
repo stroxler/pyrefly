@@ -1790,6 +1790,9 @@ impl State {
     }
 
     pub fn transaction<'a>(&'a self) -> Transaction<'a> {
+        // IMPORTANT: the LSP depends on default_require here being Require::Exports for good
+        // startup time performance. See the call to Server::validate_in_memory_without_committing
+        // in Server::did_open for details.
         self.new_transaction(Require::Exports, None)
     }
 
