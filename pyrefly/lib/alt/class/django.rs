@@ -24,6 +24,7 @@ use crate::alt::class::class_field::WithDefiningClass;
 use crate::alt::class::enums::VALUE_PROP;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::binding::binding::KeyExport;
 use crate::types::simplify::unions;
 
 /// Django stubs use this attribute to specify the Python type that a field should infer to
@@ -34,6 +35,7 @@ const LABEL: Name = Name::new_static("label");
 const LABELS: Name = Name::new_static("labels");
 const VALUES: Name = Name::new_static("values");
 const ID: Name = Name::new_static("id");
+const AUTO_FIELD: Name = Name::new_static("AutoField");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(&self, ty: &Type, class: &Class) -> Option<Type> {
@@ -48,6 +50,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && self.inherits_from_django_field(cls.class_object()) =>
             {
                 self.get_class_member(cls.class_object(), &DJANGO_PRIVATE_GET_TYPE)
+                    .map(|member| member.value.ty())
+            }
+            Type::ClassDef(cls)
+                if self.get_metadata_for_class(class).is_django_model()
+                    && self.inherits_from_django_field(cls) =>
+            {
+                self.get_class_member(cls, &DJANGO_PRIVATE_GET_TYPE)
                     .map(|member| member.value.ty())
             }
             Type::Union(union) => {
@@ -185,12 +194,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut fields = SmallMap::new();
 
-        // Synthesize the 'id' field with type int
-        // TODO: Read the AutoField type from stubs
-        fields.insert(
-            ID,
-            ClassSynthesizedField::new(self.stdlib.int().clone().to_type()),
-        );
+        let auto_field_export = KeyExport(AUTO_FIELD);
+        let auto_field_type =
+            self.get_from_export(ModuleName::django_models_fields(), None, &auto_field_export);
+
+        if let Some(id_type) = self.get_django_field_type(&auto_field_type, cls) {
+            fields.insert(ID, ClassSynthesizedField::new(id_type));
+        }
 
         Some(ClassSynthesizedFields::new(fields))
     }
