@@ -200,6 +200,7 @@ use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
+use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 
@@ -569,7 +570,7 @@ impl Server {
             }
             LspEvent::RecheckFinished => {
                 // We did a commit and want to get back to a stable state.
-                self.validate_in_memory(ide_transaction_manager);
+                self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
             }
             LspEvent::CancelRequest(id) => {
                 eprintln!("We should cancel request {id:?}");
@@ -653,7 +654,7 @@ impl Server {
                     // We probably didn't bother completing a previous check, but we are now answering a query that
                     // really needs a previous check to be correct.
                     // Validating sends out notifications, which isn't required, but this is the safest way.
-                    self.validate_in_memory(ide_transaction_manager);
+                    self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
                 }
 
                 eprintln!("Handling non-canceled request {} ({})", x.method, &x.id);
@@ -880,7 +881,7 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        self.validate_in_memory(ide_transaction_manager);
+                        self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
                         let transaction =
                             ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
@@ -1101,13 +1102,27 @@ impl Server {
         }
     }
 
+    fn validate_in_memory_and_commit_if_possible<'a>(
+        &'a self,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+    ) {
+        let possibly_committable_transaction =
+            ide_transaction_manager.get_possibly_committable_transaction(&self.state);
+        self.validate_in_memory_for_possibly_committable_transaction(
+            ide_transaction_manager,
+            possibly_committable_transaction,
+        );
+    }
+
     /// Validate open files and send errors to the LSP. In the case of an ongoing recheck
     /// (i.e., another transaction is already being committed or the state is locked for writing),
     /// we still update diagnostics using a non-committable transaction, which may have slightly stale
     /// data compared to the main state
-    fn validate_in_memory<'a>(&'a self, ide_transaction_manager: &mut TransactionManager<'a>) {
-        let mut possibly_committable_transaction =
-            ide_transaction_manager.get_possibly_committable_transaction(&self.state);
+    fn validate_in_memory_for_possibly_committable_transaction<'a>(
+        &'a self,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+        mut possibly_committable_transaction: Result<CommittingTransaction<'a>, Transaction<'a>>,
+    ) {
         let transaction = match &mut possibly_committable_transaction {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
@@ -1361,7 +1376,7 @@ impl Server {
             .write()
             .insert(uri, Arc::new(params.text_document.text));
         if !subsequent_mutation {
-            self.validate_in_memory(ide_transaction_manager);
+            self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
         }
         self.populate_project_files_if_necessary(config_to_populate_files);
         self.populate_workspace_files_if_necessary();
@@ -1395,7 +1410,7 @@ impl Server {
         ));
         drop(lock);
         if !subsequent_mutation {
-            self.validate_in_memory(ide_transaction_manager);
+            self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
         }
         Ok(())
     }
