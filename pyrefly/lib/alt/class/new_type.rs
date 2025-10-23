@@ -37,8 +37,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn get_new_type_init(&self, cls: &Class, base: Class) -> ClassSynthesizedField {
-        let base_type = self.new_type_base_type(cls, &base);
+    fn get_new_type_init(&self, cls: &Class, base_type: Type) -> ClassSynthesizedField {
         let params = vec![
             self.class_self_param(cls, false),
             Param::Pos(Name::new_static("_x"), base_type, Required::Required),
@@ -50,8 +49,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassSynthesizedField::new(ty)
     }
 
-    fn get_new_type_new(&self, cls: &Class, base: Class) -> ClassSynthesizedField {
-        let base_type = self.new_type_base_type(cls, &base);
+    fn get_new_type_new(&self, cls: &Class, base_type: Type) -> ClassSynthesizedField {
         let params = vec![
             Param::Pos(
                 Name::new_static("cls"),
@@ -75,9 +73,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         if is_new_type && base_classes.len() == 1 {
             let base_class = &base_classes[0];
+            let base_type = self.new_type_base_type(cls, base_class);
             Some(ClassSynthesizedFields::new(smallmap! {
-                dunder::NEW => self.get_new_type_new(cls, base_class.clone()),
-                dunder::INIT => self.get_new_type_init(cls, base_class.clone()),
+                dunder::NEW => self.get_new_type_new(cls, base_type.clone()),
+                dunder::INIT => self.get_new_type_init(cls, base_type.clone()),
             }))
         } else {
             None
