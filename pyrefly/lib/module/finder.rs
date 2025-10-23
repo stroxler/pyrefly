@@ -104,12 +104,17 @@ fn find_one_part_in_root(
     style_filter: Option<ModuleStyle>,
 ) -> Option<FindResult> {
     let candidate_dir = root.join(name.as_str());
+    // Do not filter by style filter here since __init__.pyi could potentially have .py files covered under it.
+    // Instead, use `ModuleStyle` as a preference.
+    let candidate_init_suffixes = if style_filter.is_some_and(|s| s == ModuleStyle::Executable) {
+        ["__init__.py", "__init__.pyi"]
+    } else {
+        ["__init__.pyi", "__init__.py"]
+    };
     // First check if `name` corresponds to a regular package.
-    for candidate_init_suffix in ["__init__.pyi", "__init__.py"] {
+    for candidate_init_suffix in candidate_init_suffixes {
         let init_path = candidate_dir.join(candidate_init_suffix);
         if init_path.exists() {
-            // Note: do not filter by style filter here since __init__.pyi could potentially have .py files covered under it
-            // todo(connernilsen): do we filter here?
             return Some(FindResult::RegularPackage(init_path, candidate_dir));
         }
     }
@@ -436,8 +441,13 @@ fn find_module_prefixes<'a>(
     results.iter().map(|(_, name)| *name).collect::<Vec<_>>()
 }
 
-// TODO(connernilsen): refactor/clean this up so that we can have filtering and module priority
-// stuff up at this level too.
+// TODO(connernilsen): change things so that we return all entries that match for a given
+// module name across all path components (search path, site package path, ...).
+// Instead, at specific times (`find_module_components`, `find_module`, `find_import_filtered`),
+// see if we have a result for a highest priority item (something that is a single file module
+// matching our style_filter (if applicable) or regular package, and return that. Otherwise,
+// keep searching, and if we get the end, look through everything we've found and select the
+// best thing.
 /// Attempt to find an import with [`ModuleName`] from the search components specified
 /// in the config (including build system). Origin specifies the file we're importing from,
 /// and should only be empty when importing from typeshed/builtins.
@@ -1647,7 +1657,17 @@ mod tests {
         let root = tempdir.path();
         TestPath::setup_test_directory(
             root,
-            vec![TestPath::file("bar.py"), TestPath::file("bar.pyi")],
+            vec![
+                TestPath::file("bar.py"),
+                TestPath::file("bar.pyi"),
+                TestPath::dir(
+                    "module",
+                    vec![
+                        TestPath::file("__init__.py"),
+                        TestPath::file("__init__.pyi"),
+                    ],
+                ),
+            ],
         );
 
         assert_eq!(
@@ -1660,6 +1680,29 @@ mod tests {
             )
             .unwrap(),
             Some(ModulePath::filesystem(root.join("bar.py")))
+        );
+
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("module"),
+                [root.to_path_buf()].iter(),
+                &mut vec![],
+                true,
+                Some(ModuleStyle::Interface),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(root.join("module/__init__.pyi")))
+        );
+        assert_eq!(
+            find_module(
+                ModuleName::from_str("module"),
+                [root.to_path_buf()].iter(),
+                &mut vec![],
+                true,
+                Some(ModuleStyle::Executable),
+            )
+            .unwrap(),
+            Some(ModulePath::filesystem(root.join("module/__init__.py")))
         );
 
         assert_eq!(
