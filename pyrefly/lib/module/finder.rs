@@ -438,6 +438,21 @@ fn find_module_prefixes<'a>(
 
 // TODO(connernilsen): refactor/clean this up so that we can have filtering and module priority
 // stuff up at this level too.
+/// Attempt to find an import with [`ModuleName`] from the search components specified
+/// in the config (including build system). Origin specifies the file we're importing from,
+/// and should only be empty when importing from typeshed/builtins.
+///
+/// [`ModuleStyle`] specifies whether we prefer a `.py` or `.pyi` file. When provided,
+/// - if the result is an init file, we will treat `style_filter` as a preference, meaning
+///   if we find a match, we'll see if the preferred value exists, but return whatever we
+///   find immediately.
+/// - if our best result is a namespace, we return nothing. Anything else is always
+///   preferable to a namespace.
+/// - otherwise, we return the first value if it matches the `style_filter`. If nothing
+///   matches, we return None, even if there were other results.
+///
+/// If `None` is returned when `style_filter.is_some()`, the import should be retried
+/// with `style_filter.is_none()`, since we hard-filter a lot of values here.
 pub fn find_import_filtered(
     config: &ConfigFile,
     module: ModuleName,
@@ -494,7 +509,12 @@ pub fn find_import_filtered(
         style_filter,
     )? {
         Ok(path)
-    } else if let Some(namespace) = namespaces_found.into_iter().next() {
+    } else if let Some(namespace) = namespaces_found.into_iter().next() &&
+        // only use namespaces if style filter is none, since otherwise we might be
+        // skipping a result that's more preferable, but excluded because of the style
+        // filter
+    style_filter.is_none()
+    {
         Ok(ModulePath::namespace(namespace))
     } else if config.ignore_missing_imports(origin, module) {
         Err(FindError::Ignored)
@@ -805,7 +825,7 @@ mod tests {
                     "search_root0",
                     vec![
                         TestPath::dir("a", vec![TestPath::file("b.py")]),
-                        TestPath::dir("spp_priority", vec![]),
+                        TestPath::dir("spp_priority", vec![TestPath::dir("d", vec![])]),
                     ],
                 ),
                 TestPath::dir(
@@ -816,7 +836,7 @@ mod tests {
                     "site_package_path",
                     vec![TestPath::dir(
                         "spp_priority",
-                        vec![TestPath::file("__init__.py")],
+                        vec![TestPath::file("__init__.py"), TestPath::file("d.py")],
                     )],
                 ),
             ],
@@ -846,7 +866,29 @@ mod tests {
             // We will find `spp_priority` in `site_package_path`, even though it's
             // in a later module find component, because we continue searching for
             // a better option when we find a namespace package
-            ModulePath::filesystem(root.join("site_package_path/spp_priority/__init__.py"))
+            ModulePath::filesystem(root.join("site_package_path/spp_priority/__init__.py")),
+        );
+        // we would either take the `__init__.py` result or nothing when a `ModuleStyle` is
+        // provided than a namespace package
+        assert_eq!(
+            find_import_filtered(&config, ModuleName::from_str("spp_priority.d"), None, None,)
+                .unwrap(),
+            ModulePath::filesystem(root.join("site_package_path/spp_priority/d.py")),
+        );
+        assert_eq!(
+            find_import_filtered(
+                &config,
+                ModuleName::from_str("spp_priority.d"),
+                None,
+                Some(ModuleStyle::Interface)
+            ),
+            // When applying a `ModuleStyle`, we don't find a result and force a find import
+            // without a module style.
+            Err(FindError::import_lookup_path(
+                config.structured_import_lookup_path(None),
+                ModuleName::from_str("spp_priority.d"),
+                &config.source,
+            )),
         );
     }
 
