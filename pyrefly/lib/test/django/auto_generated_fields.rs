@@ -38,3 +38,18 @@ reporter = Reporter()
 assert_type(reporter.id, str)
 "#,
 );
+
+django_testcase!(
+    bug = "do not generate an id field when a custom key is present.",
+    test_custom_pk,
+    r#"
+from typing import assert_type
+from django.db import models
+
+class Article(models.Model):
+    uuid = models.UUIDField(primary_key=True)
+
+article = Article()
+article.id
+"#,
+);
