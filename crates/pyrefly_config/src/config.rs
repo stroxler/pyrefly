@@ -799,7 +799,7 @@ impl ConfigFile {
     /// We do this as a step separate from `configure()` because CLI args may override some of these
     /// values, but CLI args will always be relative to CWD, whereas config values should be relative
     /// to the config root.
-    fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
+    pub fn rewrite_with_path_to_config(&mut self, config_root: &Path) {
         self.project_includes = self.project_includes.clone().from_root(config_root);
         self.project_excludes = self.project_excludes.clone().from_root(config_root);
         self.search_path_from_file

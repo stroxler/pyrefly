@@ -1050,6 +1050,7 @@ impl Server {
                 .config_finder()
                 .python_file(ModuleName::unknown(), e.path());
             if open_files.contains_key(&path)
+                && config.project_includes.covers(&path)
                 && !config.project_excludes.covers(&path)
                 && self
                     .type_error_display_status(e.path().as_path())
