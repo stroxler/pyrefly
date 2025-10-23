@@ -170,31 +170,31 @@ use starlark_map::small_set::SmallSet;
 use crate::commands::lsp::IndexingMode;
 use crate::config::config::ConfigFile;
 use crate::error::error::Error;
-use crate::lsp::build_system::queue_source_db_rebuild_and_recheck;
-use crate::lsp::build_system::should_requery_build_system;
-use crate::lsp::lsp::apply_change_events;
-use crate::lsp::lsp::as_notification;
-use crate::lsp::lsp::as_request;
-use crate::lsp::lsp::as_request_response_pair;
-use crate::lsp::lsp::new_notification;
-use crate::lsp::lsp::new_response;
-use crate::lsp::module_helpers::handle_from_module_path;
-use crate::lsp::module_helpers::make_open_handle;
-use crate::lsp::module_helpers::module_info_to_uri;
-use crate::lsp::module_helpers::to_lsp_location;
-use crate::lsp::module_helpers::to_real_path;
-use crate::lsp::queue::HeavyTaskQueue;
-use crate::lsp::queue::LspEvent;
-use crate::lsp::queue::LspQueue;
-use crate::lsp::transaction_manager::TransactionManager;
-use crate::lsp::workspace::LspAnalysisConfig;
-use crate::lsp::workspace::Workspace;
-use crate::lsp::workspace::Workspaces;
-use crate::lsp_features::hover::get_hover;
-use crate::lsp_features::provide_type::ProvideType;
-use crate::lsp_features::provide_type::ProvideTypeResponse;
-use crate::lsp_features::provide_type::provide_type;
-use crate::lsp_features::will_rename_files::will_rename_files;
+use crate::lsp::non_wasm::build_system::queue_source_db_rebuild_and_recheck;
+use crate::lsp::non_wasm::build_system::should_requery_build_system;
+use crate::lsp::non_wasm::lsp::apply_change_events;
+use crate::lsp::non_wasm::lsp::as_notification;
+use crate::lsp::non_wasm::lsp::as_request;
+use crate::lsp::non_wasm::lsp::as_request_response_pair;
+use crate::lsp::non_wasm::lsp::new_notification;
+use crate::lsp::non_wasm::lsp::new_response;
+use crate::lsp::non_wasm::module_helpers::handle_from_module_path;
+use crate::lsp::non_wasm::module_helpers::make_open_handle;
+use crate::lsp::non_wasm::module_helpers::module_info_to_uri;
+use crate::lsp::non_wasm::module_helpers::to_lsp_location;
+use crate::lsp::non_wasm::module_helpers::to_real_path;
+use crate::lsp::non_wasm::queue::HeavyTaskQueue;
+use crate::lsp::non_wasm::queue::LspEvent;
+use crate::lsp::non_wasm::queue::LspQueue;
+use crate::lsp::non_wasm::transaction_manager::TransactionManager;
+use crate::lsp::non_wasm::workspace::LspAnalysisConfig;
+use crate::lsp::non_wasm::workspace::Workspace;
+use crate::lsp::non_wasm::workspace::Workspaces;
+use crate::lsp::wasm::hover::get_hover;
+use crate::lsp::wasm::provide_type::ProvideType;
+use crate::lsp::wasm::provide_type::ProvideTypeResponse;
+use crate::lsp::wasm::provide_type::provide_type;
+use crate::lsp::wasm::will_rename_files::will_rename_files;
 use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -1065,7 +1065,7 @@ impl Server {
     fn provide_type(
         &self,
         transaction: &Transaction<'_>,
-        params: crate::lsp_features::provide_type::ProvideTypeParams,
+        params: crate::lsp::wasm::provide_type::ProvideTypeParams,
     ) -> Option<ProvideTypeResponse> {
         let uri = &params.text_document.uri;
         let handle = self.make_handle_if_enabled(uri)?;

@@ -24,7 +24,7 @@ use crate::commands::files::FilesArgs;
 use crate::commands::files::get_project_config_for_current_dir;
 use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::ErrorKind;
-use crate::lsp::module_helpers::handle_from_module_path;
+use crate::lsp::non_wasm::module_helpers::handle_from_module_path;
 use crate::state::ide::insert_import_edit_with_forced_import_format;
 use crate::state::lsp::AnnotationKind;
 use crate::state::lsp::ParameterAnnotation;

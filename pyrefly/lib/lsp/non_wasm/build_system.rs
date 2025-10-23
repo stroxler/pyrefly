@@ -21,9 +21,9 @@ use pyrefly_util::lock::Mutex;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::lsp::queue::HeavyTaskQueue;
-use crate::lsp::queue::LspEvent;
-use crate::lsp::queue::LspQueue;
+use crate::lsp::non_wasm::queue::HeavyTaskQueue;
+use crate::lsp::non_wasm::queue::LspEvent;
+use crate::lsp::non_wasm::queue::LspQueue;
 use crate::state::state::State;
 
 pub fn should_requery_build_system(events: &CategorizedEvents) -> bool {

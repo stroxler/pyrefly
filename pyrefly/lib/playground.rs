@@ -42,7 +42,7 @@ use starlark_map::small_set::SmallSet;
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
-use crate::lsp_features::hover::get_hover;
+use crate::lsp::wasm::hover::get_hover;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::State;
