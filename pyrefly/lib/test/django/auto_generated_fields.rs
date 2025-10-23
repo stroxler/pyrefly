@@ -39,7 +39,7 @@ assert_type(reporter.id, str)
 );
 
 django_testcase!(
-    bug = "do not generate an id field when a custom key is present.",
+    bug = "do not generate an id field when a custom key is present; wrong pk type",
     test_custom_pk,
     r#"
 from typing import assert_type
@@ -49,8 +49,17 @@ from uuid import UUID
 class Article(models.Model):
     uuid = models.UUIDField(primary_key=True)
 
+class B(Article):
+    pass
+
 article = Article()
 article.id
 assert_type(article.uuid, UUID) 
+assert_type(article.pk, UUID) # E: assert_type(int, UUID) 
+
+article2 = B()
+article2.id
+assert_type(article2.uuid, UUID)
+assert_type(article2.pk, UUID) # E: assert_type(int, UUID) 
 "#,
 );
