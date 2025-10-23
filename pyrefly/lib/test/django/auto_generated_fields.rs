@@ -23,3 +23,18 @@ assert_type(reporter.id, int) # E: assert_type(Any, int) failed # E: Object of c
 assert_type(reporter.pk, int) # E: assert_type(Any, int) failed 
 "#,
 );
+
+django_testcase!(
+    test_existing_field,
+    r#"
+from typing import assert_type
+
+from django.db import models
+
+class Reporter(models.Model):
+    id : str = "id"
+
+reporter = Reporter()
+assert_type(reporter.id, str)
+"#,
+);
