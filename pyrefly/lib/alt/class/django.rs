@@ -33,6 +33,7 @@ const CHOICES: Name = Name::new_static("choices");
 const LABEL: Name = Name::new_static("label");
 const LABELS: Name = Name::new_static("labels");
 const VALUES: Name = Name::new_static("values");
+const ID: Name = Name::new_static("id");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(&self, ty: &Type, class: &Class) -> Option<Type> {
@@ -171,5 +172,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             signature,
             metadata,
         }))
+    }
+
+    pub fn get_django_model_synthesized_fields(
+        &self,
+        cls: &Class,
+    ) -> Option<ClassSynthesizedFields> {
+        let metadata = self.get_metadata_for_class(cls);
+        if !metadata.is_django_model() {
+            return None;
+        }
+
+        let mut fields = SmallMap::new();
+
+        // Synthesize the 'id' field with type int
+        // TODO: Read the AutoField type from stubs
+        fields.insert(
+            ID,
+            ClassSynthesizedField::new(self.stdlib.int().clone().to_type()),
+        );
+
+        Some(ClassSynthesizedFields::new(fields))
     }
 }
