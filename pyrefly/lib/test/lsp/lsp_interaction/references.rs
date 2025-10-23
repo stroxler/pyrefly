@@ -86,6 +86,66 @@ fn test_references_for_usage_with_config() {
 }
 
 #[test]
+fn test_references_workspace_smaller_than_config() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("config_with_workspace_smaller");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    let core = root_path.join("core.py");
+    let usage_in_config = root_path.join("usage_in_config.py");
+    let usage_outside_workspace = root_path.join("subdir/usage_outside_workspace.py");
+
+    interaction.server.did_open("core.py");
+    interaction.server.did_open("usage_in_config.py");
+
+    interaction.server.references("core.py", 6, 7, true);
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":5,"character":17},"end":{"character":22,"line":5}},
+                "uri": Url::from_file_path(usage_outside_workspace.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":7,"character":0},"end":{"character":5,"line":7}},
+                "uri": Url::from_file_path(usage_outside_workspace.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":0},"end":{"character":5,"line":8}},
+                "uri": Url::from_file_path(usage_outside_workspace.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":6,"character":6},"end":{"character":11,"line":6}},
+                "uri": Url::from_file_path(core.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":5,"character":17},"end":{"character":22,"line":5}},
+                "uri": Url::from_file_path(usage_in_config.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":7,"character":0},"end":{"character":5,"line":7}},
+                "uri": Url::from_file_path(usage_in_config.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":0},"end":{"character":5,"line":8}},
+                "uri": Url::from_file_path(usage_in_config.clone()).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_references_cross_file_no_config() {
     let root = get_test_files_root();
     let root_path = root.path().to_path_buf();
