@@ -23,10 +23,22 @@ use crate::types::class::Class;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    fn new_type_base_type(&self, cls: &Class, base: &Class) -> Type {
+        if base.is_builtin("tuple")
+            && let Some(tuple_base) = self.get_base_types_for_class(cls).tuple_base()
+        {
+            // In order to make `__new__` and `__init__` accept only the exact right shape
+            // of tuple, we have to special case the scenario where the NewType wraps a tuple -
+            // we want to provide use the raw tuple type rather than the `tuple` class.
+            Type::Tuple(tuple_base.clone())
+        } else {
+            self.promote_nontypeddict_silently_to_classtype(base)
+                .to_type()
+        }
+    }
+
     fn get_new_type_init(&self, cls: &Class, base: Class) -> ClassSynthesizedField {
-        let base_type = self
-            .promote_nontypeddict_silently_to_classtype(&base)
-            .to_type();
+        let base_type = self.new_type_base_type(cls, &base);
         let params = vec![
             self.class_self_param(cls, false),
             Param::Pos(Name::new_static("_x"), base_type, Required::Required),
@@ -39,9 +51,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_new_type_new(&self, cls: &Class, base: Class) -> ClassSynthesizedField {
-        let base_type = self
-            .promote_nontypeddict_silently_to_classtype(&base)
-            .to_type();
+        let base_type = self.new_type_base_type(cls, &base);
         let params = vec![
             Param::Pos(
                 Name::new_static("cls"),
