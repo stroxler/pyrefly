@@ -190,29 +190,26 @@ pub fn will_rename_files(
         }
 
         // Important: only use filesystem handle (never use an in-memory handle)
-        let old_handle = handle_from_module_path(state, ModulePath::filesystem(old_path.clone()));
-        let config = state
-            .config_finder()
-            .python_file(old_handle.module(), old_handle.path());
+        let module_path = ModulePath::filesystem(old_path.clone());
+        let old_handle = handle_from_module_path(state, module_path.clone());
 
         // Convert paths to module names
-        let old_module_name =
-            ModuleName::from_path(&old_path, config.search_path()).or_else(|| {
-                // Fallback: try to get module name from the handle
-                Some(old_handle.module())
-            });
+        let old_module_name = old_handle.module();
 
-        // For the new module name, we can't rely on from_path because the file doesn't exist yet.
-        // Instead, we compute the relative path from the old to new file and adjust the module name.
-        let new_module_name = ModuleName::from_path(&new_path, config.search_path());
+        let config = state
+            .config_finder()
+            .python_file(old_module_name, &module_path);
+        let new_module_name = ModuleName::from_path(
+            &new_path,
+            config
+                .search_path()
+                .chain(config.fallback_search_path.iter()),
+        );
 
-        let (old_module_name, new_module_name) = match (old_module_name, new_module_name) {
-            (Some(old), Some(new)) => (old, new),
-            _ => {
-                eprintln!(
-                    "    Could not determine module names for the rename (old={:?}, new={:?})",
-                    old_module_name, new_module_name
-                );
+        let new_module_name = match new_module_name {
+            Some(name) => name,
+            None => {
+                eprintln!("    Could not determine new module name, skipping");
                 continue;
             }
         };
