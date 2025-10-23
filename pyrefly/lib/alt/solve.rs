@@ -326,7 +326,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .map(|member| format!("`{member}`"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            if metadata.is_final() {
+            if !metadata.is_protocol() && metadata.is_final() {
                 self.error(
                     errors,
                     cls.range(),
