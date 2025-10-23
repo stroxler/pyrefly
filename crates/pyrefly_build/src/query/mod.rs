@@ -897,4 +897,187 @@ mod tests {
             expected
         );
     }
+
+    #[test]
+    fn test_package_finding() {
+        let db = TargetManifestDatabase::get_test_database();
+        let all_dunder_inits = [
+            "colorama/__init__.pyi",
+            "colorama/__init__.py",
+            "click/__init__.pyi",
+            "click/__init__.py",
+            "pyre/client/log/__init__.py",
+        ]
+        .iter()
+        .map(|p| ModulePathBuf::from_path(Path::new(p)))
+        .collect::<SmallSet<ModulePathBuf>>();
+
+        let result: (
+            SmallMap<
+                Target,
+                SmallMap<ModuleName, Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>>,
+            >,
+            SmallMap<Target, SmallMap<ModuleName, Vec1<ModulePathBuf>>>,
+        ) = db
+            .db
+            .iter()
+            .filter_map(|(t, m)| match m {
+                TargetManifest::Library(lib) => Some((t, lib)),
+                TargetManifest::Alias { .. } => None,
+            })
+            .fold(
+                (SmallMap::new(), SmallMap::new()),
+                |(mut first, mut second), (t, l)| {
+                    let root = l.buildfile_path.parent().unwrap();
+                    let base_packages =
+                        l.get_explicit_and_basic_implicit_packages(root, &all_dunder_inits);
+                    first.insert(t.dupe(), base_packages.clone());
+                    second.insert(
+                        t.dupe(),
+                        l.fill_ancestor_synthesized_packages(base_packages, root),
+                    );
+                    (first, second)
+                },
+            );
+
+        let expected_start_packages: SmallMap<
+            Target,
+            SmallMap<ModuleName, Result<(Vec1<ModulePathBuf>, ModulePathBuf), &Path>>,
+        > = smallmap! {
+            "//colorama:py" => smallmap! {
+                "colorama" => Ok((
+                    vec1![
+                        "colorama/__init__.py",
+                        "colorama/__init__.pyi",
+                    ],
+                    "",
+                )),
+            },
+            "//click:py" => smallmap! {
+                "click" => Ok((
+                    vec1![
+                        "click/__init__.pyi",
+                        "click/__init__.py",
+                    ],
+                    "",
+                )),
+            },
+            "//pyre/client/log:log" => smallmap! {
+                "pyre.client.log" => Ok((
+                    vec1![
+                        "pyre/client/log/__init__.py",
+                    ],
+                    "pyre/client",
+                )),
+            },
+            "//pyre/client/log:log2" => smallmap! {
+                "log" => Ok((
+                    vec1![
+                        "pyre/client/log/__init__.py",
+                    ],
+                    "pyre/client",
+                )),
+            },
+            "//implicit_package/test:main" => smallmap! {
+                "implicit_package" => Err(
+                    "implicit_package/test",
+                ),
+            },
+            "//implicit_package/test:lib" => smallmap! {
+                "implicit_package.lib" => Err(
+                    "implicit_package/test/lib",
+                ),
+                "implicit_package.deeply.nested.package" => Err(
+                    "implicit_package/test/deeply/nested/package",
+                ),
+            },
+        }
+        .into_iter()
+        .map(|(t, m)| {
+            (
+                Target::from_string(t.to_owned()),
+                m.into_iter()
+                    .map(|(name, r)| {
+                        (
+                            ModuleName::from_str(name),
+                            match r {
+                                Ok((paths, next)) => Ok((
+                                    paths.mapped(|p| ModulePathBuf::from_path(Path::new(p))),
+                                    ModulePathBuf::from_path(Path::new(next)),
+                                )),
+                                Err(next) => Err(Path::new(next)),
+                            },
+                        )
+                    })
+                    .collect(),
+            )
+        })
+        .collect();
+
+        assert_eq!(result.0, expected_start_packages,);
+
+        let expected_ancestor_synthesized_packages = smallmap! {
+            "//colorama:py" => smallmap! {
+                "colorama" => vec1![
+                        "colorama/__init__.py",
+                        "colorama/__init__.pyi",
+                ],
+            },
+            "//click:py" => smallmap! {
+                "click" => vec1![
+                        "click/__init__.pyi",
+                        "click/__init__.py",
+                ],
+            },
+            "//pyre/client/log:log" => smallmap! {
+                "pyre.client.log" => vec1![
+                        "pyre/client/log/__init__.py",
+                ],
+            },
+            "//pyre/client/log:log2" => smallmap! {
+                "log" => vec1![
+                        "pyre/client/log/__init__.py",
+                ],
+            },
+            "//implicit_package/test:main" => smallmap! {
+                "implicit_package" => vec1![
+                    "implicit_package/test",
+                ],
+            },
+            "//implicit_package/test:lib" => smallmap! {
+                "implicit_package.lib" => vec1![
+                    "implicit_package/test/lib",
+                ],
+                "implicit_package.deeply.nested.package" => vec1![
+                    "implicit_package/test/deeply/nested/package",
+                ],
+                "implicit_package.deeply.nested" => vec1![
+                    "implicit_package/test/deeply/nested",
+                ],
+                "implicit_package.deeply" => vec1![
+                    "implicit_package/test/deeply",
+                ],
+                "implicit_package" => vec1![
+                    "implicit_package/test",
+                ],
+            },
+        }
+        .into_iter()
+        .map(|(t, m)| {
+            (
+                Target::from_string(t.to_owned()),
+                m.into_iter()
+                    .map(|(name, paths)| {
+                        (
+                            ModuleName::from_str(name),
+                            paths.mapped(|p| ModulePathBuf::from_path(Path::new(p))),
+                        )
+                    })
+                    .collect(),
+            )
+        })
+        .collect();
+
+        assert_eq!(result.1, expected_ancestor_synthesized_packages,);
+    }
 }
