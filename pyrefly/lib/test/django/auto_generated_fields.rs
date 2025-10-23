@@ -8,7 +8,6 @@
 use crate::django_testcase;
 
 django_testcase!(
-    bug = "infer pk and id field types",
     test_auto_generated_id_field,
     r#"
 from typing import assert_type
@@ -20,7 +19,7 @@ class Reporter(models.Model):
 
 reporter = Reporter()
 assert_type(reporter.id, int)
-assert_type(reporter.pk, int) # E: assert_type(Any, int) failed 
+assert_type(reporter.pk, int) 
 "#,
 );
 

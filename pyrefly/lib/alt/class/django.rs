@@ -35,6 +35,7 @@ const LABEL: Name = Name::new_static("label");
 const LABELS: Name = Name::new_static("labels");
 const VALUES: Name = Name::new_static("values");
 const ID: Name = Name::new_static("id");
+const PK: Name = Name::new_static("pk");
 const AUTO_FIELD: Name = Name::new_static("AutoField");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -198,8 +199,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let auto_field_type =
             self.get_from_export(ModuleName::django_models_fields(), None, &auto_field_export);
 
+        // TODO: Extend the solution to handle custom pk
         if let Some(id_type) = self.get_django_field_type(&auto_field_type, cls) {
-            fields.insert(ID, ClassSynthesizedField::new(id_type));
+            fields.insert(ID, ClassSynthesizedField::new(id_type.clone()));
+            fields.insert(PK, ClassSynthesizedField::new(id_type));
         }
 
         Some(ClassSynthesizedFields::new(fields))
