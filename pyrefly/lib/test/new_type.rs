@@ -111,7 +111,6 @@ testcase!(
     r#"
 from typing import NewType
 Foo = NewType("Foo", tuple[int, int])
-Bar = NewType("Bar", tuple[int, ...])
 
 Foo((1, 2))  # OK
 Foo((1, 2, 3))  # this shouldn't be allowed
