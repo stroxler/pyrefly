@@ -45,11 +45,13 @@ django_testcase!(
     r#"
 from typing import assert_type
 from django.db import models
+from uuid import UUID
 
 class Article(models.Model):
     uuid = models.UUIDField(primary_key=True)
 
 article = Article()
 article.id
+assert_type(article.uuid, UUID) 
 "#,
 );
