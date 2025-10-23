@@ -691,9 +691,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn create_recursive(&self, binding: &Binding) -> Var {
         match binding {
-            Binding::LoopPhi(default, _) => self.solver().fresh_loop_recursive(
+            Binding::LoopPhi(prior_idx, _) => self.solver().fresh_loop_recursive(
                 self.uniques,
-                self.get_idx(*default)
+                self.get_idx(*prior_idx)
                     .arc_clone_ty()
                     .promote_literals(self.stdlib),
             ),

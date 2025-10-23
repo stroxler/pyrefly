@@ -72,7 +72,7 @@ enum Variable {
     /// A variable caused by general recursion, e.g. `x = f(); def f(): return x`.
     Recursive,
     /// A loop-recursive variable, e.g. `x = None; while x is None: x = f()`
-    /// The type is the binding at the top of the loop
+    /// The Variable tracks the prior type bound to this name before the loop.
     LoopRecursive(Type),
     /// A variable that used to decompose a type, e.g. getting T from Awaitable[T]
     Unwrap,
@@ -367,13 +367,13 @@ impl Solver {
         match &mut *e {
             Variable::Answer(t) => t.clone(),
             _ => {
-                let default = match &mut *e {
+                let ty = match &mut *e {
                     Variable::Quantified(q) => q.as_gradual_type(),
-                    Variable::LoopRecursive(default) => default.clone(),
+                    Variable::LoopRecursive(prior_type) => prior_type.clone(),
                     _ => Type::any_implicit(),
                 };
-                *e = Variable::Answer(default.clone());
-                default
+                *e = Variable::Answer(ty.clone());
+                ty
             }
         }
     }
@@ -746,11 +746,11 @@ impl Solver {
         v
     }
 
-    pub fn fresh_loop_recursive(&self, uniques: &UniqueFactory, default: Type) -> Var {
+    pub fn fresh_loop_recursive(&self, uniques: &UniqueFactory, prior_type: Type) -> Var {
         let v = Var::new(uniques);
         self.variables
             .lock()
-            .insert_fresh(v, Variable::LoopRecursive(default));
+            .insert_fresh(v, Variable::LoopRecursive(prior_type));
         v
     }
 
