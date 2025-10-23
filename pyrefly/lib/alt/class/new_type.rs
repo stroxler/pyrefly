@@ -23,7 +23,7 @@ use crate::types::class::Class;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn new_type_base_type(&self, class: &Class, base_class: &Class) -> Type {
+    fn base_type_for_newtype(&self, class: &Class, base_class: &Class) -> Type {
         if base_class.is_builtin("tuple")
             && let Some(tuple_base) = self.get_base_types_for_class(class).tuple_base()
         {
@@ -73,7 +73,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         if is_new_type && base_classes.len() == 1 {
             let base_class = &base_classes[0];
-            let base_type = self.new_type_base_type(cls, base_class);
+            let base_type = self.base_type_for_newtype(cls, base_class);
             Some(ClassSynthesizedFields::new(smallmap! {
                 dunder::NEW => self.get_new_type_new(cls, base_type.clone()),
                 dunder::INIT => self.get_new_type_init(cls, base_type),
