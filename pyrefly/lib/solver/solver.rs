@@ -738,11 +738,19 @@ impl Solver {
     }
 
     /// Generate a fresh variable used to tie recursive bindings.
-    pub fn fresh_recursive(&self, uniques: &UniqueFactory, default: Option<Type>) -> Var {
+    pub fn fresh_recursive(&self, uniques: &UniqueFactory) -> Var {
         let v = Var::new(uniques);
         self.variables
             .lock()
-            .insert_fresh(v, Variable::Recursive(default));
+            .insert_fresh(v, Variable::Recursive(None));
+        v
+    }
+
+    pub fn fresh_loop_recursive(&self, uniques: &UniqueFactory, default: Type) -> Var {
+        let v = Var::new(uniques);
+        self.variables
+            .lock()
+            .insert_fresh(v, Variable::Recursive(Some(default)));
         v
     }
 

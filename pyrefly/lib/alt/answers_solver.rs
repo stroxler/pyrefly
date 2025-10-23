@@ -690,15 +690,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn create_recursive(&self, binding: &Binding) -> Var {
-        let t = match binding {
-            Binding::LoopPhi(default, _) => Some(
+        match binding {
+            Binding::LoopPhi(default, _) => self.solver().fresh_loop_recursive(
+                self.uniques,
                 self.get_idx(*default)
                     .arc_clone_ty()
                     .promote_literals(self.stdlib),
             ),
-            _ => None,
-        };
-        self.solver().fresh_recursive(self.uniques, t)
+            _ => self.solver().fresh_recursive(self.uniques),
+        }
     }
 
     pub fn recurse(&'a self, var: Var) -> Option<Guard<'a, Var>> {
