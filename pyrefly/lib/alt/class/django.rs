@@ -46,20 +46,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 cls.targs().as_slice().first().cloned()
             }
-            Type::ClassType(cls)
-                if self.get_metadata_for_class(class).is_django_model()
-                    && self.inherits_from_django_field(cls.class_object()) =>
-            {
-                self.get_class_member(cls.class_object(), &DJANGO_PRIVATE_GET_TYPE)
-                    .map(|member| member.value.ty())
+            Type::ClassType(cls) => {
+                self.get_django_field_type_from_class(cls.class_object(), class)
             }
-            Type::ClassDef(cls)
-                if self.get_metadata_for_class(class).is_django_model()
-                    && self.inherits_from_django_field(cls) =>
-            {
-                self.get_class_member(cls, &DJANGO_PRIVATE_GET_TYPE)
-                    .map(|member| member.value.ty())
-            }
+            Type::ClassDef(cls) => self.get_django_field_type_from_class(cls, class),
             Type::Union(union) => {
                 let transformed: Vec<_> = union
                     .iter()
@@ -76,6 +66,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             _ => None,
+        }
+    }
+
+    fn get_django_field_type_from_class(&self, field: &Class, class: &Class) -> Option<Type> {
+        if self.get_metadata_for_class(class).is_django_model()
+            && self.inherits_from_django_field(field)
+        {
+            self.get_class_member(field, &DJANGO_PRIVATE_GET_TYPE)
+                .map(|member| member.value.ty())
+        } else {
+            None
         }
     }
 
