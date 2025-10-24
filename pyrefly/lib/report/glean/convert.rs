@@ -376,13 +376,13 @@ impl GleanState<'_> {
 
     fn fq_name_for_xref_definition(
         &self,
-        name: &Name,
         def_range: TextRange,
         module: &ModuleInfo,
     ) -> Option<String> {
+        let local_name = module.code_at(def_range);
         let module_name = module.name();
         if module_name == ModuleName::builtins() {
-            Some(name.to_string())
+            Some(local_name.to_owned())
         } else if module_name == self.module_name {
             self.locations_fqnames
                 .get(&def_range.start())
@@ -415,15 +415,11 @@ impl GleanState<'_> {
         let definition = self.transaction.find_definition_for_name_use(
             self.handle,
             &identifier,
-            &FindPreference {
-                jump_through_renamed_import: false,
-                ..Default::default()
-            },
+            &FindPreference::default(),
         );
 
-        definition.and_then(|def| {
-            self.fq_name_for_xref_definition(identifier.id(), def.definition_range, &def.module)
-        })
+        definition
+            .and_then(|def| self.fq_name_for_xref_definition(def.definition_range, &def.module))
     }
 
     fn fq_name_for_type(&self, ty: Type, range: TextRange) -> Option<String> {
@@ -435,9 +431,9 @@ impl GleanState<'_> {
                 let identifier = Identifier::new(x.to_string(), range);
                 self.fq_name_for_name_use(identifier)
             }
-            _ => ty.qname().and_then(|qname| {
-                self.fq_name_for_xref_definition(qname.id(), qname.range(), qname.module())
-            }),
+            _ => ty
+                .qname()
+                .and_then(|qname| self.fq_name_for_xref_definition(qname.range(), qname.module())),
         }
     }
 
@@ -845,6 +841,17 @@ impl GleanState<'_> {
         });
     }
 
+    fn find_fqname_definition_at_position(&self, position: TextSize) -> Vec<String> {
+        let definitions =
+            self.transaction
+                .find_definition(self.handle, position, &FindPreference::default());
+
+        definitions
+            .into_iter()
+            .filter_map(|def| self.fq_name_for_xref_definition(def.definition_range, &def.module))
+            .collect()
+    }
+
     fn make_import_fact(
         &mut self,
         from_name: &str,
@@ -852,6 +859,7 @@ impl GleanState<'_> {
         as_name: &str,
         as_name_range: TextRange,
         top_level_declaration: &python::Declaration,
+        resolve_original_name: bool,
     ) -> DeclarationInfo {
         let as_name_fqname = join_names(self.module_name.as_str(), as_name);
         self.record_name(from_name.to_owned(), Some(as_name_range.start()));
@@ -859,8 +867,18 @@ impl GleanState<'_> {
 
         let from_name_fact = python::Name::new(from_name.to_owned());
         let as_name_fact = python::Name::new(as_name_fqname);
+
+        let original_name = if resolve_original_name
+            && let Some(name) = self
+                .find_fqname_definition_at_position(from_name_range.start())
+                .first()
+        {
+            name.clone()
+        } else {
+            from_name.to_owned()
+        };
         self.add_xref(python::XRefViaName {
-            target: from_name_fact.clone(),
+            target: python::Name::new(original_name),
             source: to_span(from_name_range),
         });
         let import_fact = python::ImportStatement::new(from_name_fact, as_name_fact);
@@ -873,22 +891,6 @@ impl GleanState<'_> {
             top_level_decl: top_level_declaration.clone(),
             docstring_range: None,
         }
-    }
-
-    fn make_import_fact_with_alias(
-        &mut self,
-        from_name: &str,
-        from_name_range: TextRange,
-        as_name: &Identifier,
-        top_level_declaration: &python::Declaration,
-    ) -> DeclarationInfo {
-        self.make_import_fact(
-            from_name,
-            from_name_range,
-            as_name.as_str(),
-            as_name.range(),
-            top_level_declaration,
-        )
     }
 
     fn make_import_facts_for_module(
@@ -910,6 +912,7 @@ impl GleanState<'_> {
                     module.as_str(),
                     range,
                     top_level_declaration,
+                    false,
                 )
             })
             .collect()
@@ -926,11 +929,13 @@ impl GleanState<'_> {
             .flat_map(|import| {
                 let from_name = &import.name;
                 if let Some(as_name) = &import.asname {
-                    vec![self.make_import_fact_with_alias(
+                    vec![self.make_import_fact(
                         from_name.as_str(),
-                        from_name.range,
-                        as_name,
+                        from_name.range(),
+                        as_name.as_str(),
+                        as_name.range(),
                         top_level_declaration,
+                        true,
                     )]
                 } else {
                     self.make_import_facts_for_module(&import.name, top_level_declaration)
@@ -996,6 +1001,7 @@ impl GleanState<'_> {
                     as_name.as_str(),
                     as_name.range,
                     top_level_declaration,
+                    true,
                 ));
             }
         }
