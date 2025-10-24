@@ -393,7 +393,17 @@ where
                     namespaces_found.append(&mut namespaces.into_vec());
                     None
                 }
-                (Some(normal_result), _) => Some(normal_result.module_path()),
+                (Some(normal_result), None) => {
+                    if let Some(missing_stub_result) = recommended_stubs_package(module) {
+                        Some(
+                            normal_result
+                                .module_path()
+                                .with_error(FindError::NoStubs(module, missing_stub_result)),
+                        )
+                    } else {
+                        Some(normal_result.module_path())
+                    }
+                }
                 (None, _) => None,
             }
         }
@@ -575,6 +585,13 @@ pub fn find_import_prefixes(config: &ConfigFile, module: ModuleName) -> Vec<Modu
     }
 
     results
+}
+
+fn recommended_stubs_package(module: ModuleName) -> Option<ModuleName> {
+    match module.first_component().as_str() {
+        "django" => Some(ModuleName::from_str("django-stubs")),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
