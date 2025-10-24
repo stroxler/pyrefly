@@ -104,7 +104,8 @@ use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
 use crate::state::load::Load;
 use crate::state::loader::LoaderFindCache;
-use crate::state::loader::WithFindError;
+use crate::state::loader::ResultWithFindError;
+use crate::state::loader::map_finding;
 use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
@@ -600,14 +601,16 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<Handle, WithFindError<ModulePath>> {
+    ) -> ResultWithFindError<Handle> {
         let path = match path {
-            Some(path) => path.dupe(),
+            Some(path) => Ok(path.dupe()),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
-                .find_import(module, Some(handle.path()))?,
+                .find_import(module, Some(handle.path())),
         };
-        Ok(Handle::new(module, path, handle.sys_info().dupe()))
+        map_finding(path, |path| {
+            Handle::new(module, path, handle.sys_info().dupe())
+        })
     }
 
     /// Create a handle for import `module` within the handle `handle`, preferring `.py` over `.pyi`
@@ -616,14 +619,16 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<Handle, WithFindError<ModulePath>> {
+    ) -> ResultWithFindError<Handle> {
         let path = match path {
-            Some(path) => path.dupe(),
+            Some(path) => Ok(path.dupe()),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
-                .find_import_prefer_executable(module, Some(handle.path()))?,
+                .find_import_prefer_executable(module, Some(handle.path())),
         };
-        Ok(Handle::new(module, path, handle.sys_info().dupe()))
+        map_finding(path, |path| {
+            Handle::new(module, path, handle.sys_info().dupe())
+        })
     }
 
     /// Create a handle for import `module` within the handle `handle`
@@ -1592,7 +1597,7 @@ impl<'a> TransactionHandle<'a> {
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<ArcId<ModuleDataMut>, WithFindError<ModulePath>> {
+    ) -> ResultWithFindError<ArcId<ModuleDataMut>> {
         let require = self.module_data.state.read().require;
         if let Some(res) = self.module_data.deps.read().get(&module).map(|x| x.first())
             && path.is_none_or(|path| path == res.path())
@@ -1602,49 +1607,53 @@ impl<'a> TransactionHandle<'a> {
 
         let handle = self
             .transaction
-            .import_handle(&self.module_data.handle, module, path)?;
-        let res = self.transaction.get_imported_module(&handle, require);
-        let mut write = self.module_data.deps.write();
-        let did_insert = match write.entry(module) {
-            Entry::Vacant(e) => {
-                e.insert(SmallSet1::new(handle));
-                true
+            .import_handle(&self.module_data.handle, module, path);
+        map_finding(handle, |handle| {
+            let res = self.transaction.get_imported_module(&handle, require);
+            let mut write = self.module_data.deps.write();
+            let did_insert = match write.entry(module) {
+                Entry::Vacant(e) => {
+                    e.insert(SmallSet1::new(handle));
+                    true
+                }
+                Entry::Occupied(mut e) => e.get_mut().insert(handle),
+            };
+            if did_insert {
+                let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
+                assert!(inserted);
             }
-            Entry::Occupied(mut e) => e.get_mut().insert(handle),
-        };
-        if did_insert {
-            let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
-            assert!(inserted);
-        }
-        // Make sure we hold the deps write lock until after we insert into rdeps.
-        drop(write);
-        Ok(res)
+            // Make sure we hold the deps write lock until after we insert into rdeps.
+            drop(write);
+            res
+        })
     }
 }
 
 impl<'a> LookupExport for TransactionHandle<'a> {
-    fn get(&self, module: ModuleName) -> Result<Exports, WithFindError<ModulePath>> {
-        let module_data = self.get_module(module, None)?;
-        let exports = self.transaction.lookup_export(&module_data);
+    fn get(&self, module: ModuleName) -> ResultWithFindError<Exports> {
+        let module_data = self.get_module(module, None);
+        map_finding(module_data, |module_data| {
+            let exports = self.transaction.lookup_export(&module_data);
 
-        // TODO: Design this better.
-        //
-        // Currently to resolve Exports we have to recursively look at `import *` to get the full set of exported symbols.
-        // We write `lookup.get("imported").wildcards(lookup)` to do that.
-        // But that's no longer correct, because the module resolver for "imported" might be different to our resolver, so should be:
-        //
-        // `lookup.get("imported").wildcards(lookup_for_imported)`
-        //
-        // Since Bindings gets this right, we might have a mismatch from the exports, leading to a crash.
-        // Temporary band-aid is to just force it with the right lookup, but we probably want a type distinction
-        // between templated and resolved exports, or a different API that gives the pair of exports and lookup.
-        let transaction2 = TransactionHandle {
-            transaction: self.transaction,
-            module_data,
-        };
-        exports.wildcard(&transaction2);
-        exports.exports(&transaction2);
-        Ok(exports)
+            // TODO: Design this better.
+            //
+            // Currently to resolve Exports we have to recursively look at `import *` to get the full set of exported symbols.
+            // We write `lookup.get("imported").wildcards(lookup)` to do that.
+            // But that's no longer correct, because the module resolver for "imported" might be different to our resolver, so should be:
+            //
+            // `lookup.get("imported").wildcards(lookup_for_imported)`
+            //
+            // Since Bindings gets this right, we might have a mismatch from the exports, leading to a crash.
+            // Temporary band-aid is to just force it with the right lookup, but we probably want a type distinction
+            // between templated and resolved exports, or a different API that gives the pair of exports and lookup.
+            let transaction2 = TransactionHandle {
+                transaction: self.transaction,
+                module_data,
+            };
+            exports.wildcard(&transaction2);
+            exports.exports(&transaction2);
+            exports
+        })
     }
 }
 

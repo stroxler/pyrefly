@@ -120,7 +120,6 @@ impl<T> WithFindError<T> {
 
 pub type ResultWithFindError<T> = Result<T, WithFindError<T>>;
 
-#[expect(dead_code)]
 pub fn map_finding<T1, T2>(
     result: ResultWithFindError<T1>,
     f: impl Fn(T1) -> T2,
