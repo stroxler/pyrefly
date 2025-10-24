@@ -80,9 +80,20 @@ impl ConfigConfigurer for WorkspaceConfigConfigurer {
         mut errors: Vec<pyrefly_config::finder::ConfigError>,
     ) -> (ArcId<ConfigFile>, Vec<pyrefly_config::finder::ConfigError>) {
         if let Some(dir) = root {
-            self.0.get_with(dir.to_owned(), |(_, w)| {
+            self.0.get_with(dir.to_owned(), |(workspace_root, w)| {
                 if let Some(search_path) = w.search_path.clone() {
                     config.search_path_from_args = search_path;
+                }
+                // If we already have a fallback search path (meaning no config was found
+                // and we're already using heuristics), insert workspace root as first
+                // fallback_search_path so our handles (which are created from first fallback)
+                // are created correctly for workspaces
+                if !config.fallback_search_path.is_empty()
+                    && let Some(workspace_root) = workspace_root
+                {
+                    config
+                        .fallback_search_path
+                        .insert(0, workspace_root.to_path_buf());
                 }
                 if let Some(PythonInfo {
                     interpreter,

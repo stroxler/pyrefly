@@ -219,6 +219,8 @@ fn test_references_cross_file_no_config_nested() {
     });
 
     let bar = root_path.join("models/bar.py");
+    let foo = root_path.join("services/foo.py");
+    let foo_relative = root_path.join("utils/foo_relative.py");
 
     interaction.server.did_open("models/bar.py");
 
@@ -228,6 +230,29 @@ fn test_references_cross_file_no_config_nested() {
         id: RequestId::from(2),
         result: Some(serde_json::json!([
             {
+                "range": {"start":{"line":6,"character":23},"end":{"character":26,"line":6}},
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
+            },
+            {
+                "range":{"end":{"character":3,"line":8},"start":{"character":0,"line":8}},
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
+            },
+            {
+                "range":{"end":{"character":14,"line":9},"start":{"character":11,"line":9}},
+                "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":6,"character":25},"end":{"character":28,"line":6}},
+                "uri": Url::from_file_path(foo_relative.clone()).unwrap().to_string()
+            },
+            {
+                "range":{"end":{"character":3,"line":8},"start":{"character":0,"line":8}},
+                "uri": Url::from_file_path(foo_relative.clone()).unwrap().to_string()
+            },
+            {
+                "range":{"end":{"character":7,"line":9},"start":{"character":4,"line":9}},
+                "uri": Url::from_file_path(foo_relative.clone()).unwrap().to_string()
+            },            {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
