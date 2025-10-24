@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::ops::Not;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
@@ -57,6 +58,14 @@ pub enum ImplicitReceiver {
     False,
 }
 
+impl ImplicitReceiver {
+    // Required to pass by ref to use in `serde(skip_serializing_if=..)`
+    #![allow(clippy::trivially_copy_pass_by_ref)]
+    fn is_false(&self) -> bool {
+        *self == ImplicitReceiver::False
+    }
+}
+
 pub trait FunctionTrait:
     std::fmt::Debug + PartialEq + Eq + Clone + Hash + Serialize + PartialOrd + Ord
 {
@@ -96,16 +105,22 @@ pub struct CallTarget<Function: FunctionTrait> {
     // such as calling an instance or a class method.
     // For instance, `x.foo(0)` should be treated as `C.foo(x, 0)`. As another example, `C.foo(0)`
     // should be treated as `C.foo(C, 0)`.
+    #[serde(skip_serializing_if = "ImplicitReceiver::is_false")]
     pub(crate) implicit_receiver: ImplicitReceiver,
     // True if this is an implicit call to the `__call__` method.
+    #[serde(skip_serializing_if = "<&bool>::not")]
     pub(crate) implicit_dunder_call: bool,
     // The class of the receiver object at this call site, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) receiver_class: Option<ClassRef>,
     // True if calling a class method.
+    #[serde(skip_serializing_if = "<&bool>::not")]
     pub(crate) is_class_method: bool,
     // True if calling a static method.
+    #[serde(skip_serializing_if = "<&bool>::not")]
     pub(crate) is_static_method: bool,
     // The return type of the call expression, or `None` for object targets.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) return_type: Option<ScalarTypeProperties>,
 }
 
@@ -162,8 +177,11 @@ impl<Function: FunctionTrait> CallTarget<Function> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CallCallees<Function: FunctionTrait> {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) call_targets: Vec<CallTarget<Function>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) init_targets: Vec<CallTarget<Function>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) new_targets: Vec<CallTarget<Function>>,
 }
 
@@ -214,7 +232,9 @@ impl<Function: FunctionTrait> CallCallees<Function> {
 pub struct AttributeAccessCallees<Function: FunctionTrait> {
     /// When the attribute access is called, the callees it may resolve to
     pub(crate) if_called: CallCallees<Function>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) property_setters: Vec<CallTarget<Function>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) property_getters: Vec<CallTarget<Function>>,
 }
 
@@ -1272,6 +1292,14 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
             /* include_decorators_in_decorated_definition */ true,
             /* include_default_arguments_in_function */ true,
         );
+        if let Some(current_function) = &self.current_function {
+            // Always insert an empty call graph for the function.
+            // This way we can error on missing call graphs in Pysa.
+            self.call_graphs
+                .0
+                .entry(current_function.clone())
+                .or_default();
+        }
     }
 
     fn enter_function_scope(&mut self, function_def: &StmtFunctionDef, _: &Scopes) {
