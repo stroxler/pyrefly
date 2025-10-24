@@ -80,7 +80,7 @@ impl ConfigConfigurer for WorkspaceConfigConfigurer {
         mut errors: Vec<pyrefly_config::finder::ConfigError>,
     ) -> (ArcId<ConfigFile>, Vec<pyrefly_config::finder::ConfigError>) {
         if let Some(dir) = root {
-            self.0.get_with(dir.to_owned(), |w| {
+            self.0.get_with(dir.to_owned(), |(_, w)| {
                 if let Some(search_path) = w.search_path.clone() {
                     config.search_path_from_args = search_path;
                 }
@@ -211,9 +211,12 @@ impl Workspaces {
         }
     }
 
+    /// Get best workspace for a given file. Return pathbuf of workspace root along
+    /// with the workspace. If PathBuf is None, we could not find
+    /// a workspace and are returning the default workspace.
     pub fn get_with<F, R>(&self, uri: PathBuf, f: F) -> R
     where
-        F: FnOnce(&Workspace) -> R,
+        F: FnOnce((Option<&PathBuf>, &Workspace)) -> R,
     {
         let workspaces = self.workspaces.read();
         let default_workspace = self.default.read();
@@ -222,8 +225,8 @@ impl Workspaces {
             .filter(|(key, _)| uri.starts_with(key))
             // select the LONGEST match (most specific workspace folder)
             .max_by(|(key1, _), (key2, _)| key1.ancestors().count().cmp(&key2.ancestors().count()))
-            .map(|(_, workspace)| workspace);
-        f(workspace.unwrap_or(&default_workspace))
+            .map(|(path, workspace)| (Some(path), workspace));
+        f(workspace.unwrap_or((None, &default_workspace)))
     }
 
     pub fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
@@ -413,30 +416,46 @@ mod tests {
                 .search_path = Some(vec![PathBuf::from("/projects/my_project/search_nested")]);
         }
 
-        let result = workspaces
-            .get_with(PathBuf::from("/projects/my_project/nested_file.py"), |w| {
-                w.search_path.clone()
-            });
+        let (workspace_path, search_path) = workspaces.get_with(
+            PathBuf::from("/projects/my_project/nested_file.py"),
+            |(path, w)| (path.cloned(), w.search_path.clone()),
+        );
         assert_eq!(
-            result,
+            workspace_path,
+            Some(workspace_nested.clone()),
+            "Nested file should return nested workspace path"
+        );
+        assert_eq!(
+            search_path,
             Some(vec![PathBuf::from("/projects/my_project/search_nested")]),
             "Nested file should match nested workspace (longest match), not root"
         );
 
-        let result = workspaces.get_with(PathBuf::from("/projects/file.py"), |w| {
-            w.search_path.clone()
-        });
+        let (workspace_path, search_path) = workspaces
+            .get_with(PathBuf::from("/projects/file.py"), |(path, w)| {
+                (path.cloned(), w.search_path.clone())
+            });
         assert_eq!(
-            result,
+            workspace_path,
+            Some(workspace_root.clone()),
+            "Root file should return root workspace path"
+        );
+        assert_eq!(
+            search_path,
             Some(vec![PathBuf::from("/projects/search_root")]),
             "Root file should match root workspace"
         );
 
-        let result = workspaces.get_with(PathBuf::from("/other/path/file.py"), |w| {
-            w.search_path.clone()
-        });
+        let (workspace_path, search_path) = workspaces
+            .get_with(PathBuf::from("/other/path/file.py"), |(path, w)| {
+                (path.cloned(), w.search_path.clone())
+            });
         assert_eq!(
-            result, None,
+            workspace_path, None,
+            "File outside workspaces should return None for workspace path"
+        );
+        assert_eq!(
+            search_path, None,
             "File outside workspaces should use default workspace"
         );
     }
@@ -458,17 +477,29 @@ mod tests {
         }
 
         let file_a = PathBuf::from("/workspace/file.py");
-        let result = workspaces.get_with(file_a, |w| w.search_path.clone());
+        let (workspace_path, search_path) =
+            workspaces.get_with(file_a, |(path, w)| (path.cloned(), w.search_path.clone()));
         assert_eq!(
-            result,
+            workspace_path,
+            Some(workspace_a.clone()),
+            "File in /workspace should return /workspace workspace path"
+        );
+        assert_eq!(
+            search_path,
             Some(vec![PathBuf::from("/workspace/search_a")]),
             "File in /workspace should match /workspace workspace"
         );
 
         let file_b = PathBuf::from("/workspace_other/file.py");
-        let result = workspaces.get_with(file_b, |w| w.search_path.clone());
+        let (workspace_path, search_path) =
+            workspaces.get_with(file_b, |(path, w)| (path.cloned(), w.search_path.clone()));
         assert_eq!(
-            result,
+            workspace_path,
+            Some(workspace_b.clone()),
+            "File in /workspace_other should return /workspace_other workspace path"
+        );
+        assert_eq!(
+            search_path,
             Some(vec![PathBuf::from("/workspace_other/search_b")]),
             "File in /workspace_other should match /workspace_other workspace"
         );

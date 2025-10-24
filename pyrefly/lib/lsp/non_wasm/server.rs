@@ -1080,7 +1080,7 @@ impl Server {
             .python_file(handle.module(), handle.path());
         match self
             .workspaces
-            .get_with(path.to_path_buf(), |w| w.display_type_errors)
+            .get_with(path.to_path_buf(), |(_, w)| w.display_type_errors)
         {
             Some(DisplayTypeErrors::ForceOn) => TypeErrorDisplayStatus::EnabledInIdeConfig,
             Some(DisplayTypeErrors::ForceOff) => TypeErrorDisplayStatus::DisabledInIdeConfig,
@@ -1571,7 +1571,7 @@ impl Server {
         uri: &Url,
     ) -> Option<(Handle, Option<LspAnalysisConfig>)> {
         let path = uri.to_file_path().unwrap();
-        self.workspaces.get_with(path.clone(), |workspace| {
+        self.workspaces.get_with(path.clone(), |(_, workspace)| {
             if workspace.disable_language_services {
                 eprintln!("Skipping request - language services disabled");
                 None
@@ -1996,7 +1996,7 @@ impl Server {
         let uri = &params.text_document.uri;
         if self
             .workspaces
-            .get_with(uri.to_file_path().unwrap(), |workspace| {
+            .get_with(uri.to_file_path().unwrap(), |(_, workspace)| {
                 workspace.disable_language_services
             })
             || !self
