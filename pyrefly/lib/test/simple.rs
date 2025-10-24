@@ -1861,14 +1861,3 @@ from typing import SupportsIndex
 x: SupportsIndex = 3
     "#,
 );
-
-// This error kind was renamed from async-error to not-async.
-testcase!(
-    test_disable_with_old_error_kind,
-    r#"
-def f():
-    pass
-async def g():
-    await f()  # pyrefly: ignore[async-error]
-    "#,
-);

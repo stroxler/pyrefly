@@ -267,10 +267,7 @@ impl Ignore {
             let inside = rest.split_once(']').map_or(rest, |x| x.0);
             return Some(Suppression {
                 tool,
-                kind: inside
-                    .split(',')
-                    .map(|x| Self::map_old_error_kinds(x.trim()).to_owned())
-                    .collect(),
+                kind: inside.split(',').map(|x| x.trim().to_owned()).collect(),
             });
         } else if gap || lex.word_boundary() {
             return Some(Suppression {
@@ -279,20 +276,6 @@ impl Ignore {
             });
         }
         None
-    }
-
-    /// For backwards compatibility, allow renamed error kinds to continue to be suppressed via their old names.
-    fn map_old_error_kinds(old: &str) -> &str {
-        match old {
-            "async-error" => "not-async",
-            "delete-error" => "unsupported-delete",
-            "import-error" => "missing-import",
-            "index-error" => "bad-index",
-            "match-error" => "bad-match",
-            "type-alias-error" => "invalid-type-alias",
-            "typed-dict-key-error" => "bad-typed-dict-key",
-            _ => old,
-        }
     }
 
     pub fn is_ignored(
