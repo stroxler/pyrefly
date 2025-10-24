@@ -13,6 +13,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use ruff_python_ast::Stmt;
@@ -27,12 +28,12 @@ use crate::export::definitions::DunderAllEntry;
 use crate::export::special::SpecialExport;
 use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
-use crate::state::loader::FindError;
+use crate::state::loader::WithFindError;
 
 /// Find the exports of a given module.
 pub trait LookupExport {
     /// Get the exports of a given module, or an error if the module is not available.
-    fn get(&self, module: ModuleName) -> Result<Exports, FindError>;
+    fn get(&self, module: ModuleName) -> Result<Exports, WithFindError<ModulePath>>;
 }
 
 #[derive(Debug, Clone)]
@@ -229,12 +230,16 @@ mod tests {
     use starlark_map::smallmap;
 
     use super::*;
+    use crate::state::loader::FindError;
 
     impl LookupExport for SmallMap<ModuleName, Exports> {
-        fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
+        fn get(&self, module: ModuleName) -> Result<Exports, WithFindError<ModulePath>> {
             match self.get(&module) {
                 Some(x) => Ok(x.dupe()),
-                None => Err(FindError::not_found(anyhow!("Error"), module)),
+                None => Err(WithFindError::new(FindError::not_found(
+                    anyhow!("Error"),
+                    module,
+                ))),
             }
         }
     }

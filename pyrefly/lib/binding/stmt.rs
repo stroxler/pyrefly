@@ -48,6 +48,7 @@ use crate::export::exports::ExportLocation;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::state::loader::FindError;
+use crate::state::loader::WithFindError;
 use crate::types::alias::resolve_typeshed_alias;
 use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
@@ -840,7 +841,7 @@ impl<'a> BindingsBuilder<'a> {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
                     if let Err(err) = self.lookup.get(m) {
-                        self.find_error(&err, x.range);
+                        self.find_error(&err.error, x.range);
                     }
                     match x.asname {
                         Some(asname) => {
@@ -943,9 +944,10 @@ impl<'a> BindingsBuilder<'a> {
                                                 x_as_module_name.components(),
                                                 None,
                                             ),
-                                            Err(FindError::Ignored) => {
-                                                Binding::Type(Type::any_explicit())
-                                            }
+                                            Err(WithFindError {
+                                                error: FindError::Ignored,
+                                                finding: _,
+                                            }) => Binding::Type(Type::any_explicit()),
                                             _ => {
                                                 self.error(
                                                     x.range,
@@ -969,8 +971,14 @@ impl<'a> BindingsBuilder<'a> {
                                 }
                             }
                         }
-                        Err(FindError::Ignored) => self.bind_unimportable_names(&x, false),
-                        Err(err @ (FindError::NoSource(_) | FindError::NotFound(..))) => {
+                        Err(WithFindError {
+                            error: FindError::Ignored,
+                            finding: _,
+                        }) => self.bind_unimportable_names(&x, false),
+                        Err(WithFindError {
+                            error: err @ (FindError::NoSource(_) | FindError::NotFound(..)),
+                            finding: _,
+                        }) => {
                             self.find_error(&err, x.range);
                             self.bind_unimportable_names(&x, true);
                         }

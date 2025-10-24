@@ -110,7 +110,6 @@ pub struct WithFindError<T> {
 }
 
 impl<T> WithFindError<T> {
-    #[expect(dead_code)]
     pub fn new(error: FindError) -> Self {
         Self {
             error,
@@ -119,7 +118,7 @@ impl<T> WithFindError<T> {
     }
 }
 
-type ResultWithFindError<T> = Result<T, WithFindError<T>>;
+pub type ResultWithFindError<T> = Result<T, WithFindError<T>>;
 
 #[expect(dead_code)]
 pub fn map_finding<T1, T2>(
@@ -138,7 +137,7 @@ pub fn map_finding<T1, T2>(
 #[derive(Debug)]
 pub struct LoaderFindCache {
     config: ArcId<ConfigFile>,
-    cache: LockedMap<(ModuleName, Option<ModulePath>), Result<ModulePath, FindError>>,
+    cache: LockedMap<(ModuleName, Option<ModulePath>), ResultWithFindError<ModulePath>>,
     // If a python executable module (excludes .pyi) exists and differs from the imported python module, store it here
     executable_cache: LockedMap<(ModuleName, Option<ModulePath>), Option<ModulePath>>,
 }
@@ -156,7 +155,7 @@ impl LoaderFindCache {
         &self,
         module: ModuleName,
         origin: Option<&ModulePath>,
-    ) -> Result<ModulePath, FindError> {
+    ) -> ResultWithFindError<ModulePath> {
         let key = (module.dupe(), origin.cloned());
         match self.executable_cache.get(&key) {
             Some(Some(module)) => Ok(module.dupe()),
@@ -185,7 +184,7 @@ impl LoaderFindCache {
         &self,
         module: ModuleName,
         origin: Option<&ModulePath>,
-    ) -> Result<ModulePath, FindError> {
+    ) -> ResultWithFindError<ModulePath> {
         self.cache
             .ensure(&(module.dupe(), origin.cloned()), || {
                 find_import(&self.config, module, origin)

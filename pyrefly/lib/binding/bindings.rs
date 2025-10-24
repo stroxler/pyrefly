@@ -78,6 +78,7 @@ use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
 use crate::solver::solver::Solver;
 use crate::state::loader::FindError;
+use crate::state::loader::WithFindError;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
@@ -635,7 +636,10 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_name(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
-            Err(err @ FindError::NotFound(..)) => {
+            Err(WithFindError {
+                error: err @ FindError::NotFound(..),
+                finding: _,
+            }) => {
                 if !ignore_if_missing {
                     let (ctx, msg) = err.display();
                     self.error_multiline(
@@ -645,7 +649,10 @@ impl<'a> BindingsBuilder<'a> {
                     );
                 }
             }
-            Err(FindError::Ignored | FindError::NoSource(_)) => (),
+            Err(WithFindError {
+                error: FindError::Ignored | FindError::NoSource(_),
+                finding: _,
+            }) => (),
         }
     }
 

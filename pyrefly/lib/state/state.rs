@@ -103,8 +103,8 @@ use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
 use crate::state::load::Load;
-use crate::state::loader::FindError;
 use crate::state::loader::LoaderFindCache;
+use crate::state::loader::WithFindError;
 use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
@@ -600,7 +600,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<Handle, FindError> {
+    ) -> Result<Handle, WithFindError<ModulePath>> {
         let path = match path {
             Some(path) => path.dupe(),
             None => self
@@ -616,7 +616,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<Handle, FindError> {
+    ) -> Result<Handle, WithFindError<ModulePath>> {
         let path = match path {
             Some(path) => path.dupe(),
             None => self
@@ -1592,7 +1592,7 @@ impl<'a> TransactionHandle<'a> {
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<ArcId<ModuleDataMut>, FindError> {
+    ) -> Result<ArcId<ModuleDataMut>, WithFindError<ModulePath>> {
         let require = self.module_data.state.read().require;
         if let Some(res) = self.module_data.deps.read().get(&module).map(|x| x.first())
             && path.is_none_or(|path| path == res.path())
@@ -1623,7 +1623,7 @@ impl<'a> TransactionHandle<'a> {
 }
 
 impl<'a> LookupExport for TransactionHandle<'a> {
-    fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
+    fn get(&self, module: ModuleName) -> Result<Exports, WithFindError<ModulePath>> {
         let module_data = self.get_module(module, None)?;
         let exports = self.transaction.lookup_export(&module_data);
 

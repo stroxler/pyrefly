@@ -21,6 +21,8 @@ use crate::config::config::ConfigFile;
 use crate::module::bundled::BundledStub;
 use crate::module::typeshed::typeshed;
 use crate::state::loader::FindError;
+use crate::state::loader::ResultWithFindError;
+use crate::state::loader::WithFindError;
 
 #[derive(Debug, PartialEq, Clone)]
 enum FindResult {
@@ -80,7 +82,7 @@ impl FindResult {
 
     /// Converts a `FindResult` into a [`ModulePath`], returning a [`FindError`] instead
     /// if the module is not reachable.
-    fn module_path(self) -> Result<ModulePath, FindError> {
+    fn module_path(self) -> ResultWithFindError<ModulePath> {
         match self {
             FindResult::SingleFilePyiModule(path)
             | FindResult::SingleFilePyModule(path)
@@ -89,7 +91,7 @@ impl FindResult {
                 // TODO(grievejia): Preserving all info in the list instead of dropping all but the first one.
                 Ok(ModulePath::namespace(roots.first().clone()))
             }
-            FindResult::CompiledModule(_) => Err(FindError::Ignored),
+            FindResult::CompiledModule(_) => Err(WithFindError::new(FindError::Ignored)),
         }
     }
 }
@@ -356,7 +358,7 @@ fn find_module<'a, I>(
     namespaces_found: &mut Vec<PathBuf>,
     ignore_missing_source: bool,
     style_filter: Option<ModuleStyle>,
-) -> Result<Option<ModulePath>, FindError>
+) -> Result<Option<ModulePath>, WithFindError<ModulePath>>
 where
     I: Iterator<Item = &'a PathBuf> + Clone,
 {
@@ -380,7 +382,9 @@ where
             let normal_result = find_module_components(first, rest, include, style_filter);
 
             match (normal_result, stub_result) {
-                (None, Some(_)) if !ignore_missing_source => Err(FindError::NoSource(module)),
+                (None, Some(_)) if !ignore_missing_source => {
+                    Err(WithFindError::new(FindError::NoSource(module)))
+                }
                 (Some(_), Some(stub_result)) => Ok(Some(stub_result.module_path()?)),
                 (Some(FindResult::NamespacePackage(namespaces)), _) => {
                     namespaces_found.append(&mut namespaces.into_vec());
@@ -468,11 +472,11 @@ pub fn find_import_filtered(
     module: ModuleName,
     origin: Option<&ModulePath>,
     style_filter: Option<ModuleStyle>,
-) -> Result<ModulePath, FindError> {
+) -> ResultWithFindError<ModulePath> {
     let mut namespaces_found = vec![];
     let origin = origin.map(|p| p.as_path());
     if module != ModuleName::builtins() && config.replace_imports_with_any(origin, module) {
-        Err(FindError::Ignored)
+        Err(WithFindError::new(FindError::Ignored))
     } else if let Some(sourcedb) = config.source_db.as_ref()
         && let Some(path) = sourcedb.lookup(&module, origin, style_filter)
     {
@@ -497,7 +501,7 @@ pub fn find_import_filtered(
         Ok(path)
     } else if matches!(style_filter, Some(ModuleStyle::Interface) | None)
         && let Some(path) = typeshed()
-            .map_err(|err| FindError::not_found(err, module))?
+            .map_err(|err| WithFindError::new(FindError::not_found(err, module)))?
             .find(module)
     {
         Ok(path)
@@ -527,13 +531,13 @@ pub fn find_import_filtered(
     {
         Ok(ModulePath::namespace(namespace))
     } else if config.ignore_missing_imports(origin, module) {
-        Err(FindError::Ignored)
+        Err(WithFindError::new(FindError::Ignored))
     } else {
-        Err(FindError::import_lookup_path(
+        Err(WithFindError::new(FindError::import_lookup_path(
             config.structured_import_lookup_path(origin),
             module,
             &config.source,
-        ))
+        )))
     }
 }
 
@@ -546,7 +550,7 @@ pub fn find_import(
     config: &ConfigFile,
     module: ModuleName,
     origin: Option<&ModulePath>,
-) -> Result<ModulePath, FindError> {
+) -> ResultWithFindError<ModulePath> {
     find_import_filtered(config, module, origin, None)
 }
 
@@ -894,11 +898,11 @@ mod tests {
             ),
             // When applying a `ModuleStyle`, we don't find a result and force a find import
             // without a module style.
-            Err(FindError::import_lookup_path(
+            Err(WithFindError::new(FindError::import_lookup_path(
                 config.structured_import_lookup_path(None),
                 ModuleName::from_str("spp_priority.d"),
                 &config.source,
-            )),
+            ))),
         );
     }
 
@@ -1467,7 +1471,10 @@ mod tests {
             true,
             None,
         );
-        assert!(matches!(find_compiled_result, Err(FindError::Ignored)));
+        assert_eq!(
+            find_compiled_result,
+            Err(WithFindError::new(FindError::Ignored))
+        );
         assert_eq!(
             find_module(
                 ModuleName::from_str("compiled_module.nested"),
@@ -1535,7 +1542,10 @@ mod tests {
             true,
             None,
         );
-        assert!(matches!(find_compiled_result, Err(FindError::Ignored)));
+        assert_eq!(
+            find_compiled_result,
+            Err(WithFindError::new(FindError::Ignored))
+        );
     }
 
     #[test]
@@ -1615,7 +1625,10 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(matches!(find_result.module_path(), Err(FindError::Ignored)));
+        assert_eq!(
+            find_result.module_path(),
+            Err(WithFindError::new(FindError::Ignored))
+        );
         let module_path = find_module_components(
             &first,
             &[Name::new("another_nested_module")],
@@ -1727,7 +1740,7 @@ mod tests {
             vec![TestPath::file("bar.pyc"), TestPath::file("bar.pyi")],
         );
 
-        assert!(matches!(
+        assert_eq!(
             find_module(
                 ModuleName::from_str("bar"),
                 [root.to_path_buf()].iter(),
@@ -1735,8 +1748,8 @@ mod tests {
                 true,
                 Some(ModuleStyle::Executable),
             ),
-            Err(FindError::Ignored)
-        ));
+            Err(WithFindError::new(FindError::Ignored))
+        );
         assert_eq!(
             find_module(
                 ModuleName::from_str("bar"),
