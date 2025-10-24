@@ -45,6 +45,7 @@ use crate::error::context::ErrorInfo;
 use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
+use crate::export::exports::Exports;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::state::loader::FindError;
@@ -871,105 +872,7 @@ impl<'a> BindingsBuilder<'a> {
                 ) {
                     match self.lookup.get(m) {
                         Ok(module_exports) => {
-                            let exported = module_exports.exports(self.lookup);
-                            for x in x.names {
-                                if &x.name == "*" {
-                                    for name in module_exports.wildcard(self.lookup).iter_hashed() {
-                                        let key = Key::Import(name.into_key().clone(), x.range);
-                                        if let Some(ExportLocation::ThisModule(Export {
-                                            is_deprecated,
-                                            ..
-                                        })) = exported.get_hashed(name)
-                                            && *is_deprecated
-                                        {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::Deprecated),
-                                                format!("`{name}` is deprecated"),
-                                            );
-                                        }
-                                        let val = if exported.contains_key_hashed(name) {
-                                            Binding::Import(m, name.into_key().clone(), None)
-                                        } else {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
-                                                format!("Could not import `{name}` from `{m}`"),
-                                            );
-                                            Binding::Type(Type::any_error())
-                                        };
-                                        let key = self.insert_binding(key, val);
-                                        self.bind_name(
-                                            name.key(),
-                                            key,
-                                            FlowStyle::Import(m, name.into_key().clone()),
-                                        );
-                                    }
-                                } else {
-                                    let original_name_range = if x.asname.is_some() {
-                                        Some(x.name.range)
-                                    } else {
-                                        None
-                                    };
-                                    let asname = x.asname.unwrap_or_else(|| x.name.clone());
-                                    // A `from x import y` statement is ambiguous; if `x` is a package with
-                                    // an `__init__.py` file, then it might import the name `y` from the
-                                    // module `x` defined by the `__init__.py` file, or it might import a
-                                    // submodule `x.y` of the package `x`.
-                                    //
-                                    // If both are present, generally we prefer the name defined in `x`,
-                                    // but there is an exception: if we are already looking at the
-                                    // `__init__` module of `x`, we always prefer the submodule.
-                                    let val = if (self.module_info.name() != m)
-                                        && exported.contains_key(&x.name.id)
-                                    {
-                                        if let Some(ExportLocation::ThisModule(Export {
-                                            is_deprecated,
-                                            ..
-                                        })) = exported.get(&x.name.id)
-                                            && *is_deprecated
-                                        {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::Deprecated),
-                                                format!("`{}` is deprecated", x.name),
-                                            );
-                                        }
-                                        Binding::Import(m, x.name.id.clone(), original_name_range)
-                                    } else {
-                                        let x_as_module_name = m.append(&x.name.id);
-                                        match self.lookup.get(x_as_module_name) {
-                                            Ok(_) => Binding::Module(
-                                                x_as_module_name,
-                                                x_as_module_name.components(),
-                                                None,
-                                            ),
-                                            Err(WithFindError {
-                                                error: FindError::Ignored,
-                                                finding: _,
-                                            }) => Binding::Type(Type::any_explicit()),
-                                            _ => {
-                                                self.error(
-                                                    x.range,
-                                                    ErrorInfo::Kind(
-                                                        ErrorKind::MissingModuleAttribute,
-                                                    ),
-                                                    format!(
-                                                        "Could not import `{}` from `{m}`",
-                                                        x.name.id
-                                                    ),
-                                                );
-                                                Binding::Type(Type::any_error())
-                                            }
-                                        }
-                                    };
-                                    self.bind_definition(
-                                        &asname,
-                                        val,
-                                        FlowStyle::Import(m, x.name.id),
-                                    );
-                                }
-                            }
+                            self.bind_module_exports(x, m, module_exports);
                         }
                         Err(WithFindError {
                             error: FindError::Ignored,
@@ -1057,6 +960,91 @@ impl<'a> BindingsBuilder<'a> {
                 ErrorInfo::Kind(ErrorKind::Unsupported),
                 "IPython escapes are not supported".to_owned(),
             ),
+        }
+    }
+
+    fn bind_module_exports(&mut self, x: StmtImportFrom, m: ModuleName, module_exports: Exports) {
+        let exported = module_exports.exports(self.lookup);
+        for x in x.names {
+            if &x.name == "*" {
+                for name in module_exports.wildcard(self.lookup).iter_hashed() {
+                    let key = Key::Import(name.into_key().clone(), x.range);
+                    if let Some(ExportLocation::ThisModule(Export { is_deprecated, .. })) =
+                        exported.get_hashed(name)
+                        && *is_deprecated
+                    {
+                        self.error(
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::Deprecated),
+                            format!("`{name}` is deprecated"),
+                        );
+                    }
+                    let val = if exported.contains_key_hashed(name) {
+                        Binding::Import(m, name.into_key().clone(), None)
+                    } else {
+                        self.error(
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
+                            format!("Could not import `{name}` from `{m}`"),
+                        );
+                        Binding::Type(Type::any_error())
+                    };
+                    let key = self.insert_binding(key, val);
+                    self.bind_name(
+                        name.key(),
+                        key,
+                        FlowStyle::Import(m, name.into_key().clone()),
+                    );
+                }
+            } else {
+                let original_name_range = if x.asname.is_some() {
+                    Some(x.name.range)
+                } else {
+                    None
+                };
+                let asname = x.asname.unwrap_or_else(|| x.name.clone());
+                // A `from x import y` statement is ambiguous; if `x` is a package with
+                // an `__init__.py` file, then it might import the name `y` from the
+                // module `x` defined by the `__init__.py` file, or it might import a
+                // submodule `x.y` of the package `x`.
+                //
+                // If both are present, generally we prefer the name defined in `x`,
+                // but there is an exception: if we are already looking at the
+                // `__init__` module of `x`, we always prefer the submodule.
+                let val = if (self.module_info.name() != m) && exported.contains_key(&x.name.id) {
+                    if let Some(ExportLocation::ThisModule(Export { is_deprecated, .. })) =
+                        exported.get(&x.name.id)
+                        && *is_deprecated
+                    {
+                        self.error(
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::Deprecated),
+                            format!("`{}` is deprecated", x.name),
+                        );
+                    }
+                    Binding::Import(m, x.name.id.clone(), original_name_range)
+                } else {
+                    let x_as_module_name = m.append(&x.name.id);
+                    match self.lookup.get(x_as_module_name) {
+                        Ok(_) => {
+                            Binding::Module(x_as_module_name, x_as_module_name.components(), None)
+                        }
+                        Err(WithFindError {
+                            error: FindError::Ignored,
+                            finding: _,
+                        }) => Binding::Type(Type::any_explicit()),
+                        _ => {
+                            self.error(
+                                x.range,
+                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
+                                format!("Could not import `{}` from `{m}`", x.name.id),
+                            );
+                            Binding::Type(Type::any_error())
+                        }
+                    }
+                };
+                self.bind_definition(&asname, val, FlowStyle::Import(m, x.name.id));
+            }
         }
     }
 }
