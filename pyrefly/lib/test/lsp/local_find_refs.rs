@@ -261,7 +261,6 @@ References:
     );
 }
 
-// todo(kylei): self.f is a reference
 #[test]
 fn method() {
     let code = r#"
