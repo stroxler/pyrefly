@@ -2077,13 +2077,27 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    // Kept for backwards compatibility - used by external callers (lsp/server.rs, playground.rs)
+    // who don't need the is_incomplete flag
     pub fn completion(
         &self,
         handle: &Handle,
         position: TextSize,
         import_format: ImportFormat,
     ) -> Vec<CompletionItem> {
-        let mut results = self.completion_sorted_opt(handle, position, import_format);
+        self.completion_with_incomplete(handle, position, import_format)
+            .0
+    }
+
+    // Returns the completions, and true if they are incomplete so client will keep asking for more completions
+    pub fn completion_with_incomplete(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+        import_format: ImportFormat,
+    ) -> (Vec<CompletionItem>, bool) {
+        let (mut results, is_incomplete) =
+            self.completion_sorted_opt_with_incomplete(handle, position, import_format);
         results.sort_by(|item1, item2| {
             item1
                 .sort_text
@@ -2092,16 +2106,17 @@ impl<'a> Transaction<'a> {
                 .then_with(|| item1.detail.cmp(&item2.detail))
         });
         results.dedup_by(|item1, item2| item1.label == item2.label && item1.detail == item2.detail);
-        results
+        (results, is_incomplete)
     }
 
-    fn completion_sorted_opt(
+    fn completion_sorted_opt_with_incomplete(
         &self,
         handle: &Handle,
         position: TextSize,
         import_format: ImportFormat,
-    ) -> Vec<CompletionItem> {
+    ) -> (Vec<CompletionItem>, bool) {
         let mut result = Vec::new();
+        let mut is_incomplete = false;
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier,
@@ -2200,18 +2215,26 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext { identifier, .. }) => {
                 self.add_kwargs_completions(handle, position, &mut result);
                 self.add_keyword_completions(handle, &mut result);
-                if !self.add_local_variable_completions(
+                let has_local_completions = self.add_local_variable_completions(
                     handle,
                     Some(&identifier),
                     position,
                     &mut result,
-                ) {
+                );
+                if !has_local_completions {
                     self.add_autoimport_completions(
                         handle,
                         &identifier,
                         &mut result,
                         import_format,
                     );
+                }
+                // If autoimport completions were skipped due to character threshold,
+                // mark the results as incomplete so clients keep asking for completions.
+                // This ensures autoimport completions will be checked once the threshold is reached,
+                // even if local completions are currently available.
+                if identifier.as_str().len() < MIN_CHARACTERS_TYPED_AUTOIMPORT {
+                    is_incomplete = true;
                 }
                 self.add_builtins_autoimport_completions(handle, Some(&identifier), &mut result);
             }
@@ -2251,7 +2274,7 @@ impl<'a> Transaction<'a> {
             .to_owned();
             item.sort_text = Some(sort_text);
         }
-        result
+        (result, is_incomplete)
     }
 
     fn collect_types_from_callees(&self, range: TextRange, handle: &Handle) -> Vec<Type> {

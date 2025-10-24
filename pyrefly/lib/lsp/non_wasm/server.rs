@@ -1661,10 +1661,10 @@ impl Server {
                 }
                 Some((x, config)) => (x, config.and_then(|c| c.import_format).unwrap_or_default()),
             };
-        let items = transaction
+        let (items, is_incomplete) = transaction
             .get_module_info(&handle)
             .map(|info| {
-                transaction.completion(
+                transaction.completion_with_incomplete(
                     &handle,
                     info.lined_buffer()
                         .from_lsp_position(params.text_document_position.position),
@@ -1673,7 +1673,7 @@ impl Server {
             })
             .unwrap_or_default();
         Ok(CompletionResponse::List(CompletionList {
-            is_incomplete: false,
+            is_incomplete,
             items,
         }))
     }
