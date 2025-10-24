@@ -1267,11 +1267,92 @@ def foo(x=bar()):
     &|_context: &ModuleContext| {
         let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
-            "test.foo".to_owned(),
+            TEST_DEFINITION_NAME.to_owned(),
             vec![(
                 "4:11-4:16".to_owned(),
                 call_callees(
                     call_targets.clone(),
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_super_method_call,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def f(self, x: int) -> int:
+    return x
+class D(C):
+  def f(self, x: int) -> int:
+    return x
+  def g(self) -> None:
+    super().f(1)
+"#,
+    &|context: &ModuleContext| {
+        let init_targets = vec![
+            create_call_target("builtins.super.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.super".to_owned(), context),
+        ];
+        let new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        let call_targets = vec![
+            create_call_target("test.C.f", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_return_type(Some(ScalarTypeProperties::int()))
+                .with_receiver_class_for_test("test.C".to_owned(), context),
+        ];
+        vec![(
+            "test.D.g".to_owned(),
+            vec![
+                (
+                    "9:5-9:12".to_owned(),
+                    call_callees(/* call_targets */ vec![], init_targets, new_targets),
+                ),
+                (
+                    "9:5-9:17".to_owned(),
+                    call_callees(
+                        call_targets,
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_explicit_class_method_call_with_instance,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  def f(self, x: int) -> int:
+    return x
+class D(C):
+  def f(self, x: int) -> int:
+    return x
+def foo(c: C):
+  C.f(c, 1)
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![
+            create_call_target("test.C.f", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            TEST_DEFINITION_NAME.to_owned(),
+            vec![(
+                "9:3-9:12".to_owned(),
+                call_callees(
+                    call_targets,
                     /* init_targets */ vec![],
                     /* new_targets */ vec![],
                 ),

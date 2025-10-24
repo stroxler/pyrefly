@@ -19,6 +19,7 @@ use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
+use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -555,6 +556,31 @@ fn method_name_from_function(function: &pyrefly_types::callable::Function) -> Na
     function.metadata.kind.as_func_id().func
 }
 
+// Whether the call is non-dynamically dispatched
+fn is_direct_call(callee: AnyNodeRef, callee_type: Option<&Type>) -> bool {
+    fn is_super_call(callee: AnyNodeRef) -> bool {
+        match callee {
+            AnyNodeRef::ExprCall(call) => is_super_call(call.func.as_ref().into()),
+            AnyNodeRef::ExprName(name) => name.id == "super",
+            AnyNodeRef::ExprAttribute(attribute) => is_super_call(attribute.value.as_ref().into()),
+            _ => false,
+        }
+    }
+
+    is_super_call(callee) || {
+        match callee_type {
+            Some(Type::BoundMethod(_)) => {
+                // Dynamic dispatch if calling a method via an attribute lookup
+                // on an instance or class
+                false
+            }
+            Some(Type::Function(_)) => true,
+            Some(Type::Union(types)) => is_direct_call(callee, Some(types.first().unwrap())),
+            _ => false,
+        }
+    }
+}
+
 struct CallGraphVisitor<'a> {
     call_graphs: &'a mut CallGraphs<FunctionRef>,
     module_context: &'a ModuleContext<'a>,
@@ -591,7 +617,9 @@ impl<'a> CallGraphVisitor<'a> {
     ) -> (Option<ClassRef>, bool) {
         let receiver_type = strip_none_from_union(receiver_type);
         match receiver_type {
-            Type::ClassType(class_type) | Type::SelfType(class_type) => (
+            Type::ClassType(class_type)
+            | Type::SelfType(class_type)
+            | Type::SuperInstance(box (class_type, _)) => (
                 Some(ClassRef::from_class(
                     class_type.class_object(),
                     self.module_context.module_ids,
@@ -653,7 +681,6 @@ impl<'a> CallGraphVisitor<'a> {
         receiver_type: Option<&Type>,
         callee: FunctionRef,
     ) -> Vec<Target<FunctionRef>> {
-        // TODO: Optimize by avoiding to call this function when we are sure this is a direct call
         if receiver_type.is_none() {
             return vec![Target::Function(callee)];
         }
@@ -1098,38 +1125,56 @@ impl<'a> CallGraphVisitor<'a> {
             .module_context
             .answers
             .get_type_trace(attribute.value.range());
+        let is_direct_call = is_direct_call(
+            attribute.into(),
+            self.module_context
+                .answers
+                .get_type_trace(attribute.range())
+                .as_ref(),
+        );
         let call_target_from_function_ref =
             |function_ref: FunctionRef, return_type: Option<ScalarTypeProperties>| {
-                self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
-                    .into_iter()
-                    .map(|target| match target {
-                        Target::Function(function_ref) => self.call_target_from_function_ref(
-                            function_ref,
-                            return_type,
-                            receiver_type.as_ref(),
-                            callee_expr_suffix,
-                            /* is_override_target */ false,
-                            /* override_implicit_receiver*/ None,
-                        ),
-                        Target::Override(function_ref) => self.call_target_from_function_ref(
-                            function_ref,
-                            return_type,
-                            receiver_type.as_ref(),
-                            callee_expr_suffix,
-                            /* is_override_target */ true,
-                            /* override_implicit_receiver*/ None,
-                        ),
-                        Target::Object(_) => CallTarget {
-                            target,
-                            implicit_receiver: ImplicitReceiver::False,
-                            receiver_class: None,
-                            implicit_dunder_call: false,
-                            is_class_method: false,
-                            is_static_method: false,
-                            return_type,
-                        },
-                    })
-                    .collect::<Vec<_>>()
+                if is_direct_call {
+                    vec![self.call_target_from_function_ref(
+                        function_ref,
+                        return_type,
+                        receiver_type.as_ref(),
+                        callee_expr_suffix,
+                        /* is_override_target */ false,
+                        /* override_implicit_receiver*/ None,
+                    )]
+                } else {
+                    self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
+                        .into_iter()
+                        .map(|target| match target {
+                            Target::Function(function_ref) => self.call_target_from_function_ref(
+                                function_ref,
+                                return_type,
+                                receiver_type.as_ref(),
+                                callee_expr_suffix,
+                                /* is_override_target */ false,
+                                /* override_implicit_receiver*/ None,
+                            ),
+                            Target::Override(function_ref) => self.call_target_from_function_ref(
+                                function_ref,
+                                return_type,
+                                receiver_type.as_ref(),
+                                callee_expr_suffix,
+                                /* is_override_target */ true,
+                                /* override_implicit_receiver*/ None,
+                            ),
+                            Target::Object(_) => CallTarget {
+                                target,
+                                implicit_receiver: ImplicitReceiver::False,
+                                receiver_class: None,
+                                implicit_dunder_call: false,
+                                is_class_method: false,
+                                is_static_method: false,
+                                return_type,
+                            },
+                        })
+                        .collect::<Vec<_>>()
+                }
             };
 
         Some(AttributeAccessCallees {
