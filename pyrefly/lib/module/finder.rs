@@ -383,9 +383,11 @@ where
             let normal_result = find_module_components(first, rest, include, style_filter);
 
             match (normal_result, stub_result) {
-                (None, Some(_)) if !ignore_missing_source => {
-                    Some(FindingOrError::Error(FindError::NoSource(module)))
-                }
+                (None, Some(stub_result)) if !ignore_missing_source => Some(
+                    stub_result
+                        .module_path()
+                        .with_error(FindError::NoSource(module)),
+                ),
                 (Some(_), Some(stub_result)) => Some(stub_result.module_path()),
                 (Some(FindResult::NamespacePackage(namespaces)), _) => {
                     namespaces_found.append(&mut namespaces.into_vec());
@@ -582,6 +584,7 @@ mod tests {
     use pyrefly_util::test_path::TestPath;
 
     use super::*;
+    use crate::state::loader::Finding;
 
     #[test]
     fn test_find_module_simple() {
@@ -1245,7 +1248,10 @@ mod tests {
                 None,
             )
             .unwrap(),
-            FindingOrError::Error(_)
+            FindingOrError::Finding(Finding {
+                finding: _,
+                error: Some(FindError::NoSource(_)),
+            })
         ));
         assert_eq!(
             find_module(
@@ -1269,7 +1275,10 @@ mod tests {
                 None,
             )
             .unwrap(),
-            FindingOrError::Error(_)
+            FindingOrError::Finding(Finding {
+                finding: _,
+                error: Some(FindError::NoSource(_)),
+            })
         ));
     }
 

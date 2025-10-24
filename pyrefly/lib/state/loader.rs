@@ -147,6 +147,16 @@ impl<T> FindingOrError<T> {
             Self::Error(e) => FindingOrError::Error(e),
         }
     }
+
+    pub fn with_error(self, error: FindError) -> Self {
+        match self {
+            Self::Finding(x) if x.error.is_none() => Self::Finding(Finding {
+                finding: x.finding,
+                error: Some(error),
+            }),
+            x => x,
+        }
+    }
 }
 
 #[derive(Debug)]

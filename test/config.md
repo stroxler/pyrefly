@@ -285,7 +285,7 @@ $ mkdir $TMPDIR/contains_hidden && \
 ```scrut {output_stream.stdout}
 $ mkdir $TMPDIR/site_package_missing_source && \
 > mkdir $TMPDIR/site_package_missing_source/pkg-stubs && \
-> echo "class X: ..." > $TMPDIR/site_package_missing_source/pkg-stubs/pkg.py && \
+> echo "class X: ..." > $TMPDIR/site_package_missing_source/pkg-stubs/__init__.py && \
 > echo "import pkg" > $TMPDIR/foo.py && \
 > $PYREFLY check $TMPDIR/foo.py --ignore-missing-source=false --site-package-path $TMPDIR/site_package_missing_source --output-format=min-text
 ERROR * Found stubs for `pkg`, but no source* (glob)
