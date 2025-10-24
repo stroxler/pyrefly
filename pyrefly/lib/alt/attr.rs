@@ -937,7 +937,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 Attribute::Simple(_) => {
-                    // Allow deleting most attributes for now, for compatbility with mypy.
+                    // Allow deleting most attributes for now, for compatibility with mypy.
                 }
                 Attribute::ClassAttribute(class_attr) => {
                     self.check_class_attr_delete(class_attr, attr_name, range, errors, context);
@@ -1506,13 +1506,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn force_var_for_attribute_base(&self, var: Var) -> Type {
+    fn force_var_for_attribute_base(&self, var: Var, f: impl FnOnce(Type)) {
         if let Some(_guard) = self.recurse(var) {
-            self.solver().force_var(var)
+            // Ensure that the guard is still held when we call `f`, to avoid
+            // non-termination when the var appears inside itself.
+            f(self.solver().force_var(var))
         } else {
-            Type::any_implicit()
+            f(Type::any_implicit())
         }
     }
+
     fn as_attribute_base(&self, ty: Type) -> Option<AttributeBase> {
         let mut acc = Vec::new();
         self.as_attribute_base1(ty, &mut acc);
@@ -1699,10 +1702,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Type::Forall(forall) => self.as_attribute_base1(forall.body.as_type(), acc),
-            Type::Var(v) => self.as_attribute_base1(self.force_var_for_attribute_base(v), acc),
-            Type::Type(box Type::Var(v)) => {
-                self.as_attribute_base1(Type::type_form(self.force_var_for_attribute_base(v)), acc)
+            Type::Var(v) => {
+                self.force_var_for_attribute_base(v, |ty| self.as_attribute_base1(ty, acc))
             }
+            Type::Type(box Type::Var(v)) => self.force_var_for_attribute_base(v, |ty| {
+                self.as_attribute_base1(Type::type_form(ty), acc)
+            }),
             Type::SuperInstance(box (cls, obj)) => {
                 acc.push(AttributeBase1::SuperInstance(cls, obj))
             }
