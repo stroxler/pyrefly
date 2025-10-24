@@ -387,7 +387,7 @@ impl Static {
 
         let mut wildcards = Vec::with_capacity(d.import_all.len());
         for (m, range) in d.import_all {
-            if let Ok(exports) = lookup.get(m) {
+            if let Some(exports) = lookup.get(m).finding() {
                 wildcards.push((range, exports.wildcard(lookup)));
             }
         }
@@ -1306,7 +1306,7 @@ impl Scopes {
         lookup: &dyn LookupExport,
     ) -> Option<SpecialExport> {
         let mut seen = HashSet::new();
-        let mut exports = lookup.get(module).ok()?.exports(lookup);
+        let mut exports = lookup.get(module).finding()?.exports(lookup);
         loop {
             if let Some(special) = SpecialExport::new(&name)
                 && special.defined_in(module)
@@ -1325,7 +1325,7 @@ impl Scopes {
                         name = original_name.clone();
                     }
                     module = *other_module;
-                    exports = lookup.get(module).ok()?.exports(lookup);
+                    exports = lookup.get(module).finding()?.exports(lookup);
                 }
             }
         }

@@ -1452,7 +1452,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_module_exports(&self, module_name: ModuleName) -> Option<Exports> {
-        self.exports.get(module_name).ok()
+        self.exports.get(module_name).finding()
     }
 
     fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Attribute> {

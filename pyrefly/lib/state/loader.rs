@@ -102,41 +102,57 @@ impl FindError {
 }
 
 #[derive(Debug, Clone, Dupe, PartialEq, Eq)]
-pub struct WithFindError<T> {
-    /// An error we encountered while trying to find a module
-    pub error: FindError,
-    /// If the error is recoverable, the find result
-    pub finding: Option<T>,
+pub struct Finding<T> {
+    pub finding: T,
+    pub error: Option<FindError>,
 }
 
-impl<T> WithFindError<T> {
-    pub fn new(error: FindError) -> Self {
-        Self {
-            error,
-            finding: None,
+/// Result of an attempt to find a module
+#[derive(Debug, Clone, Dupe, PartialEq, Eq)]
+pub enum FindingOrError<T> {
+    /// Information about a found module. May have a non-fatal error attached.
+    Finding(Finding<T>),
+    /// A fatal error that prevented us from finding a module.
+    Error(FindError),
+}
+
+impl<T> FindingOrError<T> {
+    pub fn new_finding(finding: T) -> Self {
+        Self::Finding(Finding {
+            finding,
+            error: None,
+        })
+    }
+
+    pub fn finding(self) -> Option<T> {
+        match self {
+            Self::Finding(finding) => Some(finding.finding),
+            Self::Error(_) => None,
         }
     }
-}
 
-pub type ResultWithFindError<T> = Result<T, WithFindError<T>>;
+    pub fn error(self) -> Option<FindError> {
+        match self {
+            Self::Finding(Finding { error, finding: _ }) => error,
+            Self::Error(error) => Some(error),
+        }
+    }
 
-pub fn map_finding<T1, T2>(
-    result: ResultWithFindError<T1>,
-    f: impl Fn(T1) -> T2,
-) -> ResultWithFindError<T2> {
-    match result {
-        Ok(finding) => Ok(f(finding)),
-        Err(WithFindError { error, finding }) => Err(WithFindError {
-            error,
-            finding: finding.map(f),
-        }),
+    pub fn map<T2>(self, f: impl Fn(T) -> T2) -> FindingOrError<T2> {
+        match self {
+            Self::Finding(Finding { finding, error }) => FindingOrError::Finding(Finding {
+                finding: f(finding),
+                error,
+            }),
+            Self::Error(e) => FindingOrError::Error(e),
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct LoaderFindCache {
     config: ArcId<ConfigFile>,
-    cache: LockedMap<(ModuleName, Option<ModulePath>), ResultWithFindError<ModulePath>>,
+    cache: LockedMap<(ModuleName, Option<ModulePath>), FindingOrError<ModulePath>>,
     // If a python executable module (excludes .pyi) exists and differs from the imported python module, store it here
     executable_cache: LockedMap<(ModuleName, Option<ModulePath>), Option<ModulePath>>,
 }
@@ -154,10 +170,10 @@ impl LoaderFindCache {
         &self,
         module: ModuleName,
         origin: Option<&ModulePath>,
-    ) -> ResultWithFindError<ModulePath> {
+    ) -> FindingOrError<ModulePath> {
         let key = (module.dupe(), origin.cloned());
         match self.executable_cache.get(&key) {
-            Some(Some(module)) => Ok(module.dupe()),
+            Some(Some(module)) => FindingOrError::new_finding(module.dupe()),
             Some(None) => self.find_import(module, origin),
             None => {
                 match find_import_filtered(
@@ -166,11 +182,12 @@ impl LoaderFindCache {
                     origin,
                     Some(ModuleStyle::Executable),
                 ) {
-                    Ok(import) => {
-                        self.executable_cache.insert(key, Some(import.dupe()));
-                        Ok(import)
+                    FindingOrError::Finding(import) => {
+                        self.executable_cache
+                            .insert(key, Some(import.finding.dupe()));
+                        FindingOrError::Finding(import)
                     }
-                    Err(_) => {
+                    FindingOrError::Error(_) => {
                         self.executable_cache.insert(key, None);
                         self.find_import(module, origin)
                     }
@@ -183,7 +200,7 @@ impl LoaderFindCache {
         &self,
         module: ModuleName,
         origin: Option<&ModulePath>,
-    ) -> ResultWithFindError<ModulePath> {
+    ) -> FindingOrError<ModulePath> {
         self.cache
             .ensure(&(module.dupe(), origin.cloned()), || {
                 find_import(&self.config, module, origin)

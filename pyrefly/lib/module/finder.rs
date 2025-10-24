@@ -21,8 +21,7 @@ use crate::config::config::ConfigFile;
 use crate::module::bundled::BundledStub;
 use crate::module::typeshed::typeshed;
 use crate::state::loader::FindError;
-use crate::state::loader::ResultWithFindError;
-use crate::state::loader::WithFindError;
+use crate::state::loader::FindingOrError;
 
 #[derive(Debug, PartialEq, Clone)]
 enum FindResult {
@@ -82,16 +81,18 @@ impl FindResult {
 
     /// Converts a `FindResult` into a [`ModulePath`], returning a [`FindError`] instead
     /// if the module is not reachable.
-    fn module_path(self) -> ResultWithFindError<ModulePath> {
+    fn module_path(self) -> FindingOrError<ModulePath> {
         match self {
             FindResult::SingleFilePyiModule(path)
             | FindResult::SingleFilePyModule(path)
-            | FindResult::RegularPackage(path, _) => Ok(ModulePath::filesystem(path)),
+            | FindResult::RegularPackage(path, _) => {
+                FindingOrError::new_finding(ModulePath::filesystem(path))
+            }
             FindResult::NamespacePackage(roots) => {
                 // TODO(grievejia): Preserving all info in the list instead of dropping all but the first one.
-                Ok(ModulePath::namespace(roots.first().clone()))
+                FindingOrError::new_finding(ModulePath::namespace(roots.first().clone()))
             }
-            FindResult::CompiledModule(_) => Err(WithFindError::new(FindError::Ignored)),
+            FindResult::CompiledModule(_) => FindingOrError::Error(FindError::Ignored),
         }
     }
 }
@@ -358,12 +359,12 @@ fn find_module<'a, I>(
     namespaces_found: &mut Vec<PathBuf>,
     ignore_missing_source: bool,
     style_filter: Option<ModuleStyle>,
-) -> Result<Option<ModulePath>, WithFindError<ModulePath>>
+) -> Option<FindingOrError<ModulePath>>
 where
     I: Iterator<Item = &'a PathBuf> + Clone,
 {
     match module.components().as_slice() {
-        [] => Ok(None),
+        [] => None,
         [first, rest @ ..] => {
             // First try finding the module in `-stubs`.
             let stub_first = Name::new(format!("{first}-stubs"));
@@ -372,9 +373,9 @@ where
             if ignore_missing_source && let Some(stub_result) = stub_result {
                 if let FindResult::NamespacePackage(namespaces) = stub_result {
                     namespaces_found.append(&mut namespaces.into_vec());
-                    return Ok(None);
+                    return None;
                 } else {
-                    return Ok(Some(stub_result.module_path()?));
+                    return Some(stub_result.module_path());
                 }
             }
             //
@@ -383,15 +384,15 @@ where
 
             match (normal_result, stub_result) {
                 (None, Some(_)) if !ignore_missing_source => {
-                    Err(WithFindError::new(FindError::NoSource(module)))
+                    Some(FindingOrError::Error(FindError::NoSource(module)))
                 }
-                (Some(_), Some(stub_result)) => Ok(Some(stub_result.module_path()?)),
+                (Some(_), Some(stub_result)) => Some(stub_result.module_path()),
                 (Some(FindResult::NamespacePackage(namespaces)), _) => {
                     namespaces_found.append(&mut namespaces.into_vec());
-                    Ok(None)
+                    None
                 }
-                (Some(normal_result), _) => Ok(Some(normal_result.module_path()?)),
-                (None, _) => Ok(None),
+                (Some(normal_result), _) => Some(normal_result.module_path()),
+                (None, _) => None,
             }
         }
     }
@@ -472,23 +473,23 @@ pub fn find_import_filtered(
     module: ModuleName,
     origin: Option<&ModulePath>,
     style_filter: Option<ModuleStyle>,
-) -> ResultWithFindError<ModulePath> {
+) -> FindingOrError<ModulePath> {
     let mut namespaces_found = vec![];
     let origin = origin.map(|p| p.as_path());
     if module != ModuleName::builtins() && config.replace_imports_with_any(origin, module) {
-        Err(WithFindError::new(FindError::Ignored))
+        FindingOrError::Error(FindError::Ignored)
     } else if let Some(sourcedb) = config.source_db.as_ref()
         && let Some(path) = sourcedb.lookup(&module, origin, style_filter)
     {
-        Ok(path.clone())
+        FindingOrError::new_finding(path.clone())
     } else if let Some(path) = find_module(
         module,
         config.search_path(),
         &mut namespaces_found,
         true,
         style_filter,
-    )? {
-        Ok(path)
+    ) {
+        path
     } else if let Some(custom_typeshed_path) = &config.typeshed_path
         && let Some(path) = find_module(
             module,
@@ -496,15 +497,16 @@ pub fn find_import_filtered(
             &mut namespaces_found,
             true,
             style_filter,
-        )?
+        )
     {
-        Ok(path)
+        path
     } else if matches!(style_filter, Some(ModuleStyle::Interface) | None)
-        && let Some(path) = typeshed()
-            .map_err(|err| WithFindError::new(FindError::not_found(err, module)))?
-            .find(module)
+        && let Some(path) = typeshed().map_or_else(
+            |err| Some(FindingOrError::Error(FindError::not_found(err, module))),
+            |ts| ts.find(module).map(FindingOrError::new_finding),
+        )
     {
-        Ok(path)
+        path
     } else if !config.disable_search_path_heuristics
         && let Some(path) = find_module(
             module,
@@ -512,32 +514,32 @@ pub fn find_import_filtered(
             &mut namespaces_found,
             true,
             style_filter,
-        )?
+        )
     {
-        Ok(path)
+        path
     } else if let Some(path) = find_module(
         module,
         config.site_package_path(),
         &mut namespaces_found,
         config.ignore_missing_source,
         style_filter,
-    )? {
-        Ok(path)
+    ) {
+        path
     } else if let Some(namespace) = namespaces_found.into_iter().next() &&
         // only use namespaces if style filter is none, since otherwise we might be
         // skipping a result that's more preferable, but excluded because of the style
         // filter
     style_filter.is_none()
     {
-        Ok(ModulePath::namespace(namespace))
+        FindingOrError::new_finding(ModulePath::namespace(namespace))
     } else if config.ignore_missing_imports(origin, module) {
-        Err(WithFindError::new(FindError::Ignored))
+        FindingOrError::Error(FindError::Ignored)
     } else {
-        Err(WithFindError::new(FindError::import_lookup_path(
+        FindingOrError::Error(FindError::import_lookup_path(
             config.structured_import_lookup_path(origin),
             module,
             &config.source,
-        )))
+        ))
     }
 }
 
@@ -550,7 +552,7 @@ pub fn find_import(
     config: &ConfigFile,
     module: ModuleName,
     origin: Option<&ModulePath>,
-) -> ResultWithFindError<ModulePath> {
+) -> FindingOrError<ModulePath> {
     find_import_filtered(config, module, origin, None)
 }
 
@@ -605,7 +607,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo/bar.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar.py")))
         );
         assert_eq!(
             find_module(
@@ -616,7 +618,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo/baz.pyi")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/baz.pyi")))
         );
         assert_eq!(
             find_module(
@@ -625,8 +627,7 @@ mod tests {
                 &mut vec![],
                 true,
                 None,
-            )
-            .unwrap(),
+            ),
             None,
         );
     }
@@ -655,7 +656,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
         );
         assert_eq!(
             find_module(
@@ -666,7 +667,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
         );
     }
 
@@ -694,7 +695,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo/bar.pyi")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar.pyi")))
         );
     }
 
@@ -722,7 +723,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
         );
     }
 
@@ -754,16 +755,15 @@ mod tests {
         let search_roots = [root.join("first"), root.join("second")];
         let assert_namespace = |name, expected: &str| {
             let mut namespaces = vec![];
-            assert!(
+            assert_eq!(
                 find_module(
                     ModuleName::from_str(name),
                     search_roots.iter(),
                     &mut namespaces,
                     true,
                     None
-                )
-                .unwrap()
-                .is_none()
+                ),
+                None
             );
             assert_eq!(
                 namespaces,
@@ -785,7 +785,7 @@ mod tests {
                 None
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("first/c/d/e.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("first/c/d/e.py")))
         );
     }
 
@@ -819,8 +819,7 @@ mod tests {
                 &mut vec![],
                 true,
                 None,
-            )
-            .unwrap(),
+            ),
             // We won't find `a.c` because when searching for package `a`, we've already
             // committed to `search_root0/a/` as the path to search next for `c`. And there's
             // no `c.py` in `search_root0/a/`.
@@ -869,25 +868,27 @@ mod tests {
         };
         config.configure();
         assert_eq!(
-            find_import_filtered(&config, ModuleName::from_str("a.c"), None, None).unwrap(),
+            find_import_filtered(&config, ModuleName::from_str("a.c"), None, None),
             // We will find `a.c` because `a` is a namespace package whose search roots
             // include both `search_root0/a/` and `search_root1/a/`.
-            ModulePath::filesystem(root.join("search_root1/a/c.py"))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("search_root1/a/c.py")))
         );
         assert_eq!(
-            find_import_filtered(&config, ModuleName::from_str("spp_priority"), None, None)
-                .unwrap(),
+            find_import_filtered(&config, ModuleName::from_str("spp_priority"), None, None),
             // We will find `spp_priority` in `site_package_path`, even though it's
             // in a later module find component, because we continue searching for
             // a better option when we find a namespace package
-            ModulePath::filesystem(root.join("site_package_path/spp_priority/__init__.py")),
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("site_package_path/spp_priority/__init__.py")
+            )),
         );
         // we would either take the `__init__.py` result or nothing when a `ModuleStyle` is
         // provided than a namespace package
         assert_eq!(
-            find_import_filtered(&config, ModuleName::from_str("spp_priority.d"), None, None,)
-                .unwrap(),
-            ModulePath::filesystem(root.join("site_package_path/spp_priority/d.py")),
+            find_import_filtered(&config, ModuleName::from_str("spp_priority.d"), None, None),
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("site_package_path/spp_priority/d.py")
+            )),
         );
         assert_eq!(
             find_import_filtered(
@@ -898,11 +899,11 @@ mod tests {
             ),
             // When applying a `ModuleStyle`, we don't find a result and force a find import
             // without a module style.
-            Err(WithFindError::new(FindError::import_lookup_path(
+            FindingOrError::Error(FindError::import_lookup_path(
                 config.structured_import_lookup_path(None),
                 ModuleName::from_str("spp_priority.d"),
                 &config.source,
-            ))),
+            )),
         );
     }
 
@@ -1029,9 +1030,10 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("foo-stubs/bar/__init__.py")
+            )),
         );
         assert_eq!(
             find_module(
@@ -1041,20 +1043,18 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))),
         );
-        assert!(
+        assert_eq!(
             find_module(
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 &mut vec![],
                 false,
                 None,
-            )
-            .unwrap()
-            .is_none()
+            ),
+            None
         );
     }
 
@@ -1081,9 +1081,8 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/bar/__init__.py"))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar/__init__.py")))
         );
         assert_eq!(
             find_module(
@@ -1093,11 +1092,10 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
         );
-        assert!(matches!(
+        assert_eq!(
             find_module(
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
@@ -1105,8 +1103,8 @@ mod tests {
                 false,
                 None,
             ),
-            Ok(None)
-        ));
+            None
+        );
     }
 
     #[test]
@@ -1138,9 +1136,8 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar/__init__.py"))),
         );
         assert_eq!(
             find_module(
@@ -1150,20 +1147,18 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/baz/__init__.pyi")))
         );
-        assert!(
+        assert_eq!(
             find_module(
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 &mut vec![],
                 false,
                 None,
-            )
-            .unwrap()
-            .is_none()
+            ),
+            None
         );
     }
 
@@ -1191,9 +1186,8 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/bar/__init__.py")),
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/bar/__init__.py"))),
         );
         assert_eq!(
             find_module(
@@ -1203,20 +1197,18 @@ mod tests {
                 false,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo/baz/__init__.pyi")),
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo/baz/__init__.pyi"))),
         );
-        assert!(
+        assert_eq!(
             find_module(
                 ModuleName::from_str("foo.qux"),
                 [root.to_path_buf()].iter(),
                 &mut vec![],
                 false,
                 None,
-            )
-            .unwrap()
-            .is_none()
+            ),
+            None
         );
     }
 
@@ -1244,7 +1236,7 @@ mod tests {
                 ),
             ],
         );
-        assert!(
+        assert!(matches!(
             find_module(
                 ModuleName::from_str("foo.bar"),
                 [root.to_path_buf()].iter(),
@@ -1252,8 +1244,9 @@ mod tests {
                 false,
                 None,
             )
-            .is_err()
-        );
+            .unwrap(),
+            FindingOrError::Error(_)
+        ));
         assert_eq!(
             find_module(
                 ModuleName::from_str("foo.bar"),
@@ -1262,11 +1255,12 @@ mod tests {
                 true,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("foo-stubs/bar/__init__.py")),
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("foo-stubs/bar/__init__.py")
+            )),
         );
-        assert!(
+        assert!(matches!(
             find_module(
                 ModuleName::from_str("baz.qux"),
                 [root.to_path_buf()].iter(),
@@ -1274,8 +1268,9 @@ mod tests {
                 false,
                 None,
             )
-            .is_err()
-        );
+            .unwrap(),
+            FindingOrError::Error(_)
+        ));
     }
 
     #[test]
@@ -1421,16 +1416,15 @@ mod tests {
         );
 
         let mut namespaces = vec![];
-        assert!(
+        assert_eq!(
             find_module(
                 ModuleName::from_str("namespace"),
                 [root.to_path_buf()].iter(),
                 &mut namespaces,
                 true,
                 None,
-            )
-            .unwrap()
-            .is_none()
+            ),
+            None
         );
         assert_eq!(namespaces, vec![root.join("namespace")]);
         assert_eq!(
@@ -1441,9 +1435,10 @@ mod tests {
                 true,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("namespace/a/__init__.py"))
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("namespace/a/__init__.py")
+            ))
         );
         assert_eq!(
             find_module(
@@ -1453,9 +1448,10 @@ mod tests {
                 true,
                 None,
             )
-            .unwrap()
             .unwrap(),
-            ModulePath::filesystem(root.join("namespace/b/__init__.py"))
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("namespace/b/__init__.py")
+            ))
         );
     }
 
@@ -1472,8 +1468,8 @@ mod tests {
             None,
         );
         assert_eq!(
-            find_compiled_result,
-            Err(WithFindError::new(FindError::Ignored))
+            find_compiled_result.unwrap(),
+            FindingOrError::Error(FindError::Ignored)
         );
         assert_eq!(
             find_module(
@@ -1482,8 +1478,7 @@ mod tests {
                 &mut vec![],
                 true,
                 None,
-            )
-            .unwrap(),
+            ),
             None
         );
     }
@@ -1506,7 +1501,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("foo.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("foo.py")))
         );
     }
 
@@ -1533,7 +1528,9 @@ mod tests {
                 None,
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("subdir/nested_import.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(
+                root.join("subdir/nested_import.py")
+            ))
         );
         let find_compiled_result = find_module(
             ModuleName::from_str("subdir.another_compiled_module"),
@@ -1543,8 +1540,8 @@ mod tests {
             None,
         );
         assert_eq!(
-            find_compiled_result,
-            Err(WithFindError::new(FindError::Ignored))
+            find_compiled_result.unwrap(),
+            FindingOrError::Error(FindError::Ignored)
         );
     }
 
@@ -1627,7 +1624,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             find_result.module_path(),
-            Err(WithFindError::new(FindError::Ignored))
+            FindingOrError::Error(FindError::Ignored)
         );
         let module_path = find_module_components(
             &first,
@@ -1692,7 +1689,7 @@ mod tests {
                 Some(ModuleStyle::Executable),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("bar.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("bar.py")))
         );
 
         assert_eq!(
@@ -1704,7 +1701,7 @@ mod tests {
                 Some(ModuleStyle::Interface),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("module/__init__.pyi")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("module/__init__.pyi")))
         );
         assert_eq!(
             find_module(
@@ -1715,7 +1712,7 @@ mod tests {
                 Some(ModuleStyle::Executable),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("module/__init__.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("module/__init__.py")))
         );
 
         assert_eq!(
@@ -1727,7 +1724,7 @@ mod tests {
                 Some(ModuleStyle::Interface),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("bar.pyi")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("bar.pyi")))
         );
     }
 
@@ -1747,8 +1744,9 @@ mod tests {
                 &mut vec![],
                 true,
                 Some(ModuleStyle::Executable),
-            ),
-            Err(WithFindError::new(FindError::Ignored))
+            )
+            .unwrap(),
+            FindingOrError::Error(FindError::Ignored)
         );
         assert_eq!(
             find_module(
@@ -1759,7 +1757,7 @@ mod tests {
                 Some(ModuleStyle::Interface),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("bar.pyi")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("bar.pyi")))
         );
     }
 
@@ -1784,7 +1782,7 @@ mod tests {
                 Some(ModuleStyle::Executable),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(root.join("baz").join("bar.py")))
+            FindingOrError::new_finding(ModulePath::filesystem(root.join("baz").join("bar.py")))
         );
     }
 
@@ -1817,7 +1815,7 @@ mod tests {
                 Some(ModuleStyle::Executable),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(
+            FindingOrError::new_finding(ModulePath::filesystem(
                 root.join("search_root2/standalone.py")
             ))
         );
@@ -1830,7 +1828,7 @@ mod tests {
                 Some(ModuleStyle::Interface),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(
+            FindingOrError::new_finding(ModulePath::filesystem(
                 root.join("search_root1/standalone.pyi")
             ))
         );
@@ -1842,8 +1840,7 @@ mod tests {
                 &mut vec![],
                 true,
                 Some(ModuleStyle::Interface),
-            )
-            .unwrap(),
+            ),
             None
         );
         assert_eq!(
@@ -1855,7 +1852,7 @@ mod tests {
                 Some(ModuleStyle::Executable),
             )
             .unwrap(),
-            Some(ModulePath::filesystem(
+            FindingOrError::new_finding(ModulePath::filesystem(
                 root.join("search_root2/standalone2.py")
             ))
         );

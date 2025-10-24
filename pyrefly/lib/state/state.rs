@@ -103,9 +103,8 @@ use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
 use crate::state::load::Load;
+use crate::state::loader::FindingOrError;
 use crate::state::loader::LoaderFindCache;
-use crate::state::loader::ResultWithFindError;
-use crate::state::loader::map_finding;
 use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
@@ -601,16 +600,14 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> ResultWithFindError<Handle> {
+    ) -> FindingOrError<Handle> {
         let path = match path {
-            Some(path) => Ok(path.dupe()),
+            Some(path) => FindingOrError::new_finding(path.dupe()),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
                 .find_import(module, Some(handle.path())),
         };
-        map_finding(path, |path| {
-            Handle::new(module, path, handle.sys_info().dupe())
-        })
+        path.map(|path| Handle::new(module, path, handle.sys_info().dupe()))
     }
 
     /// Create a handle for import `module` within the handle `handle`, preferring `.py` over `.pyi`
@@ -619,16 +616,14 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> ResultWithFindError<Handle> {
+    ) -> FindingOrError<Handle> {
         let path = match path {
-            Some(path) => Ok(path.dupe()),
+            Some(path) => FindingOrError::new_finding(path.dupe()),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
                 .find_import_prefer_executable(module, Some(handle.path())),
         };
-        map_finding(path, |path| {
-            Handle::new(module, path, handle.sys_info().dupe())
-        })
+        path.map(|path| Handle::new(module, path, handle.sys_info().dupe()))
     }
 
     /// Create a handle for import `module` within the handle `handle`
@@ -742,7 +737,7 @@ impl<'a> Transaction<'a> {
                 match loader
                     .find_import(dependency_handle.module(), Some(module_data.handle.path()))
                 {
-                    Ok(path) if &path == dependency_handle.path() => {}
+                    FindingOrError::Finding(path) if &path.finding == dependency_handle.path() => {}
                     _ => {
                         is_dirty = true;
                         break;
@@ -1176,7 +1171,7 @@ impl<'a> Transaction<'a> {
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
             let v = Arc::new(Stdlib::new(k.version(), &|module, name| {
-                let path = loader.find_import(module, None).ok()?;
+                let path = loader.find_import(module, None).finding()?;
                 self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name, &thread_state)
             }));
             self.data.stdlib.insert_hashed(k, v);
@@ -1597,18 +1592,18 @@ impl<'a> TransactionHandle<'a> {
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> ResultWithFindError<ArcId<ModuleDataMut>> {
+    ) -> FindingOrError<ArcId<ModuleDataMut>> {
         let require = self.module_data.state.read().require;
         if let Some(res) = self.module_data.deps.read().get(&module).map(|x| x.first())
             && path.is_none_or(|path| path == res.path())
         {
-            return Ok(self.transaction.get_imported_module(res, require));
+            return FindingOrError::new_finding(self.transaction.get_imported_module(res, require));
         }
 
         let handle = self
             .transaction
             .import_handle(&self.module_data.handle, module, path);
-        map_finding(handle, |handle| {
+        handle.map(|handle| {
             let res = self.transaction.get_imported_module(&handle, require);
             let mut write = self.module_data.deps.write();
             let did_insert = match write.entry(module) {
@@ -1630,9 +1625,9 @@ impl<'a> TransactionHandle<'a> {
 }
 
 impl<'a> LookupExport for TransactionHandle<'a> {
-    fn get(&self, module: ModuleName) -> ResultWithFindError<Exports> {
+    fn get(&self, module: ModuleName) -> FindingOrError<Exports> {
         let module_data = self.get_module(module, None);
-        map_finding(module_data, |module_data| {
+        module_data.map(|module_data| {
             let exports = self.transaction.lookup_export(&module_data);
 
             // TODO: Design this better.
@@ -1672,7 +1667,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
     {
         // The unwrap is safe because we must have said there were no exports,
         // so no one can be trying to get at them
-        let module_data = self.get_module(module, path).unwrap();
+        let module_data = self.get_module(module, path).finding().unwrap();
         let res = self.transaction.lookup_answer(module_data, k, thread_state);
         if res.is_none() {
             let msg = format!(

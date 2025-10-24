@@ -944,8 +944,10 @@ impl<'a> Transaction<'a> {
         let mut name = name;
         while !gas.stop() {
             let handle = match preference.prefer_pyi {
-                true => self.import_handle(handle, m, None).ok()?,
-                false => self.import_handle_prefer_executable(handle, m, None).ok()?,
+                true => self.import_handle(handle, m, None).finding()?,
+                false => self
+                    .import_handle_prefer_executable(handle, m, None)
+                    .finding()?,
             };
             match self.get_exports(&handle).get(&name) {
                 Some(ExportLocation::ThisModule(export)) => {
@@ -996,10 +998,10 @@ impl<'a> Transaction<'a> {
             }
             IntermediateDefinition::Module(name) => {
                 let handle = match preference.prefer_pyi {
-                    true => self.import_handle(handle, name, None).ok()?,
+                    true => self.import_handle(handle, name, None).finding()?,
                     false => self
                         .import_handle_prefer_executable(handle, name, None)
-                        .ok()?,
+                        .finding()?,
                 };
                 let docstring_range = self.get_module_docstring_range(&handle);
                 Some((
@@ -1201,10 +1203,10 @@ impl<'a> Transaction<'a> {
     ) -> Option<FindDefinitionItemWithDocstring> {
         // TODO: Handle relative import (via ModuleName::new_maybe_relative)
         let handle = match preference.prefer_pyi {
-            true => self.import_handle(handle, module_name, None).ok()?,
+            true => self.import_handle(handle, module_name, None).finding()?,
             false => self
                 .import_handle_prefer_executable(handle, module_name, None)
-                .ok()?,
+                .finding()?,
         };
         // if the module is not yet loaded, force loading by asking for exports
         // necessary for imports that are not in tdeps (e.g. .py when there is also a .pyi)
@@ -1519,7 +1521,8 @@ impl<'a> Transaction<'a> {
                             if module_name == handle.module() {
                                 continue;
                             }
-                            if let Ok(module_handle) = self.import_handle(handle, module_name, None)
+                            if let Some(module_handle) =
+                                self.import_handle(handle, module_name, None).finding()
                             {
                                 let (position, insert_text) =
                                     import_regular_import_edit(&ast, module_handle);
@@ -1793,7 +1796,10 @@ impl<'a> Transaction<'a> {
         identifier: Option<&Identifier>,
         completions: &mut Vec<CompletionItem>,
     ) {
-        if let Ok(builtin_handle) = self.import_handle(handle, ModuleName::builtins(), None) {
+        if let Some(builtin_handle) = self
+            .import_handle(handle, ModuleName::builtins(), None)
+            .finding()
+        {
             let builtin_exports = self.get_exports(&builtin_handle);
             for (name, location) in builtin_exports.iter() {
                 if let Some(identifier) = identifier
@@ -1886,7 +1892,8 @@ impl<'a> Transaction<'a> {
                     continue;
                 }
                 let module_name_str = module_name.as_str();
-                if let Ok(module_handle) = self.import_handle(handle, module_name, None) {
+                if let Some(module_handle) = self.import_handle(handle, module_name, None).finding()
+                {
                     let (insert_text, additional_text_edits) = {
                         let (position, insert_text) =
                             import_regular_import_edit(&ast, module_handle);
@@ -2122,7 +2129,7 @@ impl<'a> Transaction<'a> {
                 identifier,
                 context: IdentifierContext::ImportedName { module_name, .. },
             }) => {
-                if let Ok(handle) = self.import_handle(handle, module_name, None) {
+                if let Some(handle) = self.import_handle(handle, module_name, None).finding() {
                     // Because of parser error recovery, `from x impo...` looks like `from x import impo...`
                     // If the user might be typing the `import` keyword, add that as an autocomplete option.
                     if "import".starts_with(identifier.as_str()) {

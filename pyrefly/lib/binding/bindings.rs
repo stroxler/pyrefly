@@ -78,7 +78,7 @@ use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
 use crate::solver::solver::Solver;
 use crate::state::loader::FindError;
-use crate::state::loader::WithFindError;
+use crate::state::loader::FindingOrError;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
@@ -627,8 +627,8 @@ impl<'a> BindingsBuilder<'a> {
 
     fn inject_builtins(&mut self, builtins_module: ModuleName, ignore_if_missing: bool) {
         match self.lookup.get(builtins_module) {
-            Ok(builtins_export) => {
-                for name in builtins_export.wildcard(self.lookup).iter() {
+            FindingOrError::Finding(builtins_export) => {
+                for name in builtins_export.finding.wildcard(self.lookup).iter() {
                     let key = Key::Import(name.clone(), TextRange::default());
                     let idx = self
                         .table
@@ -636,23 +636,15 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_name(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
-            Err(WithFindError {
-                error: err @ FindError::NotFound(..),
-                finding: _,
-            }) => {
-                if !ignore_if_missing {
-                    let (ctx, msg) = err.display();
-                    self.error_multiline(
-                        TextRange::default(),
-                        ErrorInfo::new(ErrorKind::InternalError, ctx.as_deref()),
-                        msg,
-                    );
-                }
+            FindingOrError::Error(err @ FindError::NotFound(..)) if !ignore_if_missing => {
+                let (ctx, msg) = err.display();
+                self.error_multiline(
+                    TextRange::default(),
+                    ErrorInfo::new(ErrorKind::InternalError, ctx.as_deref()),
+                    msg,
+                );
             }
-            Err(WithFindError {
-                error: FindError::Ignored | FindError::NoSource(_),
-                finding: _,
-            }) => (),
+            FindingOrError::Error(_) => (),
         }
     }
 

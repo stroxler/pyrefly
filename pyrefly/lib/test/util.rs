@@ -289,7 +289,7 @@ impl TestEnv {
             let name = ModuleName::from_str(module);
             Handle::new(
                 name,
-                find_import(&config_file, name, None).unwrap(),
+                find_import(&config_file, name, None).finding().unwrap(),
                 config.dupe(),
             )
         })

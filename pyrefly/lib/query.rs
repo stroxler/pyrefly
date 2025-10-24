@@ -1022,7 +1022,8 @@ impl Query {
                                 ModuleName::from_string(module_name.clone()),
                                 None,
                             )
-                            .is_ok()
+                            .finding()
+                            .is_some()
                             {
                                 // We found the longest matching prefix, assume this is the import.
                                 res.insert(names.map(|name| name.as_str()).join("."));
