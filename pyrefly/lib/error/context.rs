@@ -47,6 +47,7 @@ pub enum ErrorContext {
     /// match x: case Foo(y): ...
     MatchPositional(Type),
     ImportNotFound(ModuleName),
+    ImportNotTyped(ModuleName),
 }
 
 impl ErrorContext {
@@ -64,6 +65,7 @@ impl ErrorContext {
             Self::DelItem(..) => ErrorKind::UnsupportedOperation,
             Self::MatchPositional(..) => ErrorKind::BadMatch,
             Self::ImportNotFound(..) => ErrorKind::MissingImport,
+            Self::ImportNotTyped(..) => ErrorKind::UntypedImport,
         }
     }
 }

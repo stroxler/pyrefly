@@ -236,6 +236,8 @@ pub enum ErrorKind {
     UnsupportedDelete,
     /// Attempting to apply an operation to arguments that do not support it.
     UnsupportedOperation,
+    /// Import is missing an expected stubs package
+    UntypedImport,
     /// Result of async function call is never used or awaited
     UnusedCoroutine,
 }
@@ -277,6 +279,7 @@ impl ErrorKind {
             ErrorKind::RevealType => Severity::Info,
             ErrorKind::Deprecated => Severity::Warn,
             ErrorKind::RedundantCast => Severity::Warn,
+            ErrorKind::UntypedImport => Severity::Warn,
             ErrorKind::ImplicitlyDefinedAttribute => Severity::Ignore,
             ErrorKind::ImplicitAbstractClass => Severity::Ignore,
             ErrorKind::ImplicitAny => Severity::Ignore,

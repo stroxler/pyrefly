@@ -52,6 +52,7 @@ impl ErrorContext {
             Self::ImportNotFound(import) => {
                 format!("Could not find import of `{import}`")
             }
+            Self::ImportNotTyped(import) => format!("Missing type stubs for `{import}`"),
         }
     }
 }
