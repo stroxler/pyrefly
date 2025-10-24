@@ -9,6 +9,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModuleStyle;
@@ -88,6 +89,14 @@ impl FindError {
                     installed/unimportable. See `ignore-missing-source` to disable this error."
                 )],
             ),
+        }
+    }
+
+    pub fn kind(&self) -> Option<ErrorKind> {
+        match self {
+            Self::NotFound(..) => Some(ErrorKind::MissingImport),
+            Self::NoSource(..) => Some(ErrorKind::MissingSource),
+            Self::Ignored => None,
         }
     }
 }

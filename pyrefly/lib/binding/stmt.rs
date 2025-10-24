@@ -280,12 +280,8 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn find_error(&self, error: &FindError, range: TextRange) {
-        let kind = match error {
-            FindError::NotFound(..) => ErrorKind::MissingImport,
-            FindError::NoSource(..) => ErrorKind::MissingSource,
-            FindError::Ignored => {
-                return;
-            }
+        let Some(kind) = error.kind() else {
+            return;
         };
         let (ctx, msg) = error.display();
         self.error_multiline(range, ErrorInfo::new(kind, ctx.as_deref()), msg);
