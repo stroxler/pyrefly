@@ -101,6 +101,40 @@ impl FindError {
     }
 }
 
+#[derive(Debug, Clone, Dupe, PartialEq, Eq)]
+pub struct WithFindError<T> {
+    /// An error we encountered while trying to find a module
+    pub error: FindError,
+    /// If the error is recoverable, the find result
+    pub finding: Option<T>,
+}
+
+impl<T> WithFindError<T> {
+    #[expect(dead_code)]
+    pub fn new(error: FindError) -> Self {
+        Self {
+            error,
+            finding: None,
+        }
+    }
+}
+
+type ResultWithFindError<T> = Result<T, WithFindError<T>>;
+
+#[expect(dead_code)]
+pub fn map_finding<T1, T2>(
+    result: ResultWithFindError<T1>,
+    f: impl Fn(T1) -> T2,
+) -> ResultWithFindError<T2> {
+    match result {
+        Ok(finding) => Ok(f(finding)),
+        Err(WithFindError { error, finding }) => Err(WithFindError {
+            error,
+            finding: finding.map(f),
+        }),
+    }
+}
+
 #[derive(Debug)]
 pub struct LoaderFindCache {
     config: ArcId<ConfigFile>,
