@@ -207,6 +207,42 @@ fn test_references_cross_file_no_config() {
 }
 
 #[test]
+fn test_references_cross_file_no_config_nested() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("nested_test").to_path_buf();
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        ..Default::default()
+    });
+
+    let bar = root_path.join("models/bar.py");
+
+    interaction.server.did_open("models/bar.py");
+
+    interaction.server.references("models/bar.py", 10, 1, true);
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
+                "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_references_cross_file_with_marker_file() {
     let root = get_test_files_root();
     let root_path = root.path().join("marker_file_no_config");
