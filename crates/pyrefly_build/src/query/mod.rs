@@ -23,6 +23,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tempfile::NamedTempFile;
 use vec1::Vec1;
+#[allow(unused_imports)]
 use vec1::vec1;
 
 use crate::source_db::Target;
