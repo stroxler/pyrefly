@@ -119,15 +119,6 @@ impl QuerySourceDatabase {
                 }
             }
         }
-        let read = self.inner.read();
-        // Check one more time to make sure nobody else did this already.
-        // Realistically this shouldn't happen, since in LSP mode we only have one
-        // sourcedb reload task at a time.
-        if new_db == read.db {
-            debug!("No source DB changes from Buck query");
-            return false;
-        }
-        drop(read);
         let mut write = self.inner.write();
         write.db = new_db;
         write.path_lookup = path_lookup;
