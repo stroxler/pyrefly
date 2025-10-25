@@ -54,7 +54,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
 
-        let has_strict = self.get_base_types_for_class(class).has_strict;
+        let has_strict = self
+            .get_base_types_for_class(class)
+            .has_pydantic_strict_metadata;
 
         let mro = self.get_mro_for_class(class);
         for base_type in mro.ancestors_no_object() {

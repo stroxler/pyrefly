@@ -54,7 +54,7 @@ pub struct ClassBases {
     /// case we prefer the more precise type).
     tuple_base: Option<Tuple>,
     /// Is this a pydantic strict model? Part of ClassBases because computation for this involves matching base class ASTs.
-    pub has_strict: bool,
+    pub has_pydantic_strict_metadata: bool,
 }
 
 impl ClassBases {
@@ -62,7 +62,7 @@ impl ClassBases {
         Self {
             base_types: Box::new([]),
             tuple_base: None,
-            has_strict: false,
+            has_pydantic_strict_metadata: false,
         }
     }
 
@@ -262,7 +262,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Type::ClassType(c), range) => {
                         let bases = self.get_base_types_for_class(c.class_object());
                         // Propagate has_strict from parent class
-                        if bases.has_strict {
+                        if bases.has_pydantic_strict_metadata {
                             has_pydantic_strict_metadata = true;
                         }
                         Some((c, bases, range))
@@ -355,7 +355,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassBases {
             base_types: base_class_types.into_boxed_slice(),
             tuple_base,
-            has_strict: has_pydantic_strict_metadata,
+            has_pydantic_strict_metadata,
         }
     }
 }
