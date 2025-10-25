@@ -188,6 +188,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .any(|metadata| self.is_pydantic_strict_metadata(metadata)))
     }
 
+    /// Get the untyped form (in other words, the instance type, after applying
+    /// any type arguments) for a base class.
+    ///
+    /// Also return whether the base class implies pydantic strict metadata through
+    /// a type alias. This is used to handle inheriting from `RootModel[X]` in some cases.
     fn base_class_expr_untype(
         &self,
         base_expr: &BaseClassExpr,
@@ -196,12 +201,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> (Type, bool) {
         let range = base_expr.range();
         let (inferred_ty, has_strict_from_infer) = self.base_class_expr_infer(base_expr, errors);
-        let has_strict =
+        let has_pydantic_strict_metadata =
             self.is_type_alias_with_pydantic_strict_metadata(&inferred_ty) || has_strict_from_infer;
         let ty = self.untype(inferred_ty, range, errors);
         (
             self.validate_type_form(ty, range, type_form_context, errors),
-            has_strict,
+            has_pydantic_strict_metadata,
         )
     }
 
@@ -215,7 +220,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Make sure errors in base class expr are not reported during expr_untype -- they'll be checked in
         // another binding.
         let fake_error_collector = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
-        let mut has_strict = false;
+        let mut has_pydantic_strict_metadata = false;
 
         let base_types_with_ranges = bases
             .iter()
@@ -227,7 +232,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &fake_error_collector,
                     );
                     if base_has_strict {
-                        has_strict = true;
+                        has_pydantic_strict_metadata = true;
                     }
                     Some((ty, x.range()))
                 }
@@ -258,7 +263,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let bases = self.get_base_types_for_class(c.class_object());
                         // Propagate has_strict from parent class
                         if bases.has_strict {
-                            has_strict = true;
+                            has_pydantic_strict_metadata = true;
                         }
                         Some((c, bases, range))
                     }
@@ -350,7 +355,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassBases {
             base_types: base_class_types.into_boxed_slice(),
             tuple_base,
-            has_strict,
+            has_strict: has_pydantic_strict_metadata,
         }
     }
 }
