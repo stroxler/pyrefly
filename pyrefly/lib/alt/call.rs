@@ -265,10 +265,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We manually construct an error using the message from the context but a
                     // Deprecated error kind so that the error is shown at the Deprecated severity
                     // (default: WARN) rather than the severity of the context's error kind.
-                    let msg = format!(
-                        "`{}` is deprecated",
-                        m.kind.as_func_id().format(self.module().name())
-                    );
+                    let msg = format!("`{}` is deprecated", m.kind.format(self.module().name()));
                     let full_msg = if let Some(ctx) = context {
                         vec1![ctx().format(), msg]
                     } else {
@@ -675,7 +672,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             ) => self.callable_infer(
                 signature,
-                Some(metadata.kind.as_func_id()),
+                Some(&metadata.kind),
                 tparams.as_deref(),
                 Some(obj),
                 args,
@@ -709,7 +706,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 },
             )) => self.callable_infer(
                 callable,
-                Some(metadata.kind.as_func_id()),
+                Some(&metadata.kind),
                 tparams.as_deref(),
                 None,
                 args,

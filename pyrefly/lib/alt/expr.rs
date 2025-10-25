@@ -17,7 +17,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_types::callable::FuncId;
+use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
@@ -132,7 +132,7 @@ enum ConditionRedundantReason {
     BytesLiteral(bool),
     /// Class name + member name
     EnumLiteral(Name, Name),
-    Function(ModuleName, FuncId),
+    Function(ModuleName, FunctionKind),
     Class(Name),
 }
 
@@ -238,8 +238,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
         let deprecated_function = ty
-            .to_funcid()
-            .map(|func_id| func_id.format(self.module().name()));
+            .to_func_kind()
+            .map(|func_kind| func_kind.format(self.module().name()));
         if let Some(deprecated_function) = deprecated_function {
             self.error(
                 errors,
@@ -2169,15 +2169,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )),
             Type::Function(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.metadata.kind.as_func_id(),
+                f.metadata.kind.clone(),
             )),
             Type::Overload(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.metadata.kind.as_func_id(),
+                f.metadata.kind.clone(),
             )),
             Type::BoundMethod(f) => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.func.metadata().kind.as_func_id(),
+                f.func.metadata().kind.clone(),
             )),
             Type::ClassDef(cls) => Some(ConditionRedundantReason::Class(cls.name().clone())),
             _ => None,

@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use dupe::Dupe;
 use pyrefly_python::dunder;
 use ruff_python_ast::name::Name;
 use starlark_map::smallmap;
@@ -44,7 +45,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ];
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), self.instantiate(cls)),
-            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::INIT),
+            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
         }));
         ClassSynthesizedField::new(ty)
     }
@@ -60,7 +61,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ];
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), self.instantiate(cls)),
-            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::NEW),
+            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::NEW),
         }));
         ClassSynthesizedField::new(ty)
     }

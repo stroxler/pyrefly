@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use dupe::Dupe;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::FuncMetadata;
@@ -177,7 +178,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn property(&self, cls: &Class, name: Name, ty: Type) -> Type {
         let signature = Callable::list(ParamList::new(vec![self.class_self_param(cls, false)]), ty);
-        let mut metadata = FuncMetadata::def(self.module().name(), cls.name().clone(), name);
+        let mut metadata = FuncMetadata::def(self.module().dupe(), cls.dupe(), name);
         metadata.flags.is_property_getter = true;
         Type::Function(Box::new(Function {
             signature,

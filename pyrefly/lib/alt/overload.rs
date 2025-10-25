@@ -331,7 +331,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .1
                             .metadata
                             .kind
-                            .as_func_id()
                             .format(self.module().name())
                     ),
                 );
@@ -362,7 +361,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let mut msg = vec1![
                 format!(
                     "No matching overload found for function `{}` called with arguments: {}",
-                    metadata.kind.as_func_id().format(self.module().name()),
+                    metadata.kind.format(self.module().name()),
                     args_display
                 ),
                 "Possible overloads:".to_owned(),
@@ -588,7 +587,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let call_errors = self.error_collector();
             let res = self.callable_infer(
                 callable.1.signature.clone(),
-                Some(metadata.kind.as_func_id()),
+                Some(&metadata.kind),
                 tparams,
                 self_obj.cloned(),
                 args,

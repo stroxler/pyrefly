@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use dupe::Dupe;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
@@ -89,7 +90,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let params = vec![self.class_self_param(cls, false), root_param];
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), Type::None),
-            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::INIT),
+            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
         }));
         ClassSynthesizedField::new(ty)
     }

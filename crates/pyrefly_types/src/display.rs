@@ -320,7 +320,7 @@ impl<'a> TypeDisplayContext<'a> {
                 metadata,
             }) => {
                 if self.hover && is_toplevel {
-                    let func_name = metadata.kind.as_func_id().func;
+                    let func_name = metadata.kind.function_name();
                     write!(f, "def {func_name}")?;
                     signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                 } else {
@@ -362,7 +362,7 @@ impl<'a> TypeDisplayContext<'a> {
                             signature,
                             metadata,
                         }) => {
-                            let func_name = metadata.kind.as_func_id().func;
+                            let func_name = metadata.kind.function_name();
                             write!(f, "def {func_name}")?;
                             signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
                         }
@@ -374,7 +374,7 @@ impl<'a> TypeDisplayContext<'a> {
                                     metadata,
                                 },
                         }) => {
-                            let func_name = metadata.kind.as_func_id().func;
+                            let func_name = metadata.kind.function_name();
                             write!(f, "def {func_name}")?;
                             write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
                             signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
@@ -471,7 +471,7 @@ impl<'a> TypeDisplayContext<'a> {
                     }),
             }) => {
                 if self.hover && is_toplevel {
-                    let func_name = metadata.kind.as_func_id().func;
+                    let func_name = metadata.kind.function_name();
                     write!(f, "def {func_name}")?;
                     write!(f, "[{}]", commas_iter(|| tparams.iter()))?;
                     signature.fmt_with_type_with_newlines(f, &|t| self.display_internal(t))
@@ -685,7 +685,6 @@ pub mod tests {
     }
 
     fn fake_bound_method(method_name: &str, class_name: &str, module_name_str: &str) -> Type {
-        let module_name = ModuleName::from_str(module_name_str);
         let class = fake_class(class_name, module_name_str, 10);
         let method = Callable::list(
             ParamList::new(vec![
@@ -708,12 +707,12 @@ pub mod tests {
             Type::None,
         );
         Type::BoundMethod(Box::new(BoundMethod {
-            obj: Type::ClassDef(class),
+            obj: Type::ClassDef(class.dupe()),
             func: BoundMethodType::Function(Function {
                 signature: method,
                 metadata: FuncMetadata::def(
-                    module_name,
-                    Name::new(class_name),
+                    class.dupe().module().dupe(),
+                    class.dupe(),
                     Name::new(method_name),
                 ),
             }),
@@ -726,7 +725,6 @@ pub mod tests {
         module_name_str: &str,
         tparams: Arc<TParams>,
     ) -> Type {
-        let module_name = ModuleName::from_str(module_name_str);
         let class = fake_class(class_name, module_name_str, 10);
         let method = Callable::list(
             ParamList::new(vec![
@@ -749,14 +747,14 @@ pub mod tests {
             Type::None,
         );
         Type::BoundMethod(Box::new(BoundMethod {
-            obj: Type::ClassDef(class),
+            obj: Type::ClassDef(class.dupe()),
             func: BoundMethodType::Forall(Forall {
                 tparams,
                 body: Function {
                     signature: method,
                     metadata: FuncMetadata::def(
-                        module_name,
-                        Name::new(class_name),
+                        class.dupe().module().dupe(),
+                        class.dupe(),
                         Name::new(method_name),
                     ),
                 },
@@ -1282,6 +1280,7 @@ pub mod tests {
     #[test]
     fn test_display_overload() {
         let uniques = UniqueFactory::new();
+        let class = fake_class("TestClass", "test", 0);
         let sig1 = Function {
             signature: Callable::list(
                 ParamList::new(vec![Param::Pos(
@@ -1292,8 +1291,8 @@ pub mod tests {
                 Type::None,
             ),
             metadata: FuncMetadata::def(
-                ModuleName::from_str("test"),
-                Name::new_static("TestClass"),
+                class.dupe().module().dupe(),
+                class.dupe(),
                 Name::new_static("overloaded_func"),
             ),
         };
@@ -1315,8 +1314,8 @@ pub mod tests {
                 Type::None,
             ),
             metadata: FuncMetadata::def(
-                ModuleName::from_str("test"),
-                Name::new_static("TestClass"),
+                class.dupe().module().dupe(),
+                class.dupe(),
                 Name::new_static("overloaded_func"),
             ),
         };

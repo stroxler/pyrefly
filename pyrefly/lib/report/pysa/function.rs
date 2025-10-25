@@ -108,7 +108,7 @@ impl FunctionRef {
     pub fn from_decorated_function(function: &DecoratedFunction, context: &ModuleContext) -> Self {
         assert_decorated_function_in_context(function, context);
         assert!(should_export_decorated_function(function, context));
-        let name = function.metadata().kind.as_func_id().func;
+        let name = function.metadata().kind.function_name().into_owned();
         let display_range = context.module_info.display_range(function.id_range());
         FunctionRef {
             module_id: context.module_id,
@@ -382,7 +382,7 @@ fn export_function_parameters(params: &Params, context: &ModuleContext) -> Funct
 fn assert_decorated_function_in_context(function: &DecoratedFunction, context: &ModuleContext) {
     match &function.undecorated.metadata.kind {
         FunctionKind::Def(func_id) => {
-            assert_eq!(func_id.module, context.module_info.name());
+            assert_eq!(func_id.module, context.module_info);
         }
         _ => (),
     }

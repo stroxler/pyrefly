@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Not;
@@ -552,8 +553,8 @@ fn find_class_type_for_new_method(new_method_parameters: &Params) -> Option<&Typ
     })
 }
 
-fn method_name_from_function(function: &pyrefly_types::callable::Function) -> Name {
-    function.metadata.kind.as_func_id().func
+fn method_name_from_function(function: &pyrefly_types::callable::Function) -> Cow<'_, Name> {
+    function.metadata.kind.function_name()
 }
 
 // Whether the call is non-dynamically dispatched

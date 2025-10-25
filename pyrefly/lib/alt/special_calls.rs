@@ -296,7 +296,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &|| {
                 TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
                     Some(Name::new_static("cls")),
-                    Some(FunctionKind::IsSubclass.as_func_id()),
+                    Some(FunctionKind::IsSubclass),
                 ))
             },
         );
@@ -323,8 +323,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 let metadata = self.get_metadata_for_class(cls);
-                let func_display =
-                    || format!("{}()", func_kind.as_func_id().format(self.module().name()));
+                let func_display = || format!("{}()", func_kind.format(self.module().name()));
                 if metadata.is_new_type() {
                     self.error(
                         errors,
@@ -397,7 +396,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
                             Some(Name::new_static("class_or_tuple")),
-                            Some(func_kind.as_func_id()),
+                            Some(func_kind.clone()),
                         ))
                     },
                 );

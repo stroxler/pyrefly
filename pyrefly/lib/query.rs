@@ -405,9 +405,9 @@ impl<'a> CalleesWithLocation<'a> {
     }
     fn class_name_from_def_kind(kind: &FunctionKind) -> String {
         if let FunctionKind::Def(f) = kind
-            && let Some(class_name) = &f.cls
+            && let Some(cls) = &f.cls
         {
-            format!("{}.{}", f.module, class_name)
+            format!("{}.{}", f.module.name(), cls.name())
         } else if let FunctionKind::CallbackProtocol(c) = kind {
             Self::qname_to_string(c.qname())
         } else {
@@ -418,14 +418,14 @@ impl<'a> CalleesWithLocation<'a> {
         match kind {
             FunctionKind::Def(f) => {
                 if let Some(module_name_override) = module_name_override {
-                    format!("{module_name_override}.{}", f.func)
+                    format!("{module_name_override}.{}", f.name)
                 } else {
                     match &f.cls {
-                        Some(class_name) => {
-                            format!("{}.{}.{}", f.module, class_name, f.func)
+                        Some(cls) => {
+                            format!("{}.{}.{}", f.module.name(), cls.name(), f.name)
                         }
                         None => {
-                            format!("{}.{}", f.module, f.func)
+                            format!("{}.{}", f.module.name(), f.name)
                         }
                     }
                 }
@@ -434,7 +434,7 @@ impl<'a> CalleesWithLocation<'a> {
                 format!("{}.__call__", Self::qname_to_string(cls.qname()))
             }
 
-            x => x.as_func_id().format(ModuleName::builtins()),
+            x => x.format(ModuleName::builtins()),
         }
     }
     fn repr_from_arguments(&self, arguments: &Arguments) -> Option<Callee> {
@@ -478,8 +478,8 @@ impl<'a> CalleesWithLocation<'a> {
         } else {
             // Check if this is a builtins function that needs special casing.
             if let FunctionKind::Def(def) = &f.metadata.kind
-                && def.module.as_str() == "builtins"
-                && def.func == "repr"
+                && def.module.name().as_str() == "builtins"
+                && def.name == "repr"
                 && let Some(args) = call_arguments
                 && let Some(callee) = self.repr_from_arguments(args)
             {
