@@ -195,11 +195,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> (Type, bool) {
         let range = base_expr.range();
-
         let (inferred_ty, has_strict_from_infer) = self.base_class_expr_infer(base_expr, errors);
-
         let has_strict = self.type_has_strict_metadata(&inferred_ty) || has_strict_from_infer;
-
         let ty = self.untype(inferred_ty, range, errors);
         (
             self.validate_type_form(ty, range, type_form_context, errors),
