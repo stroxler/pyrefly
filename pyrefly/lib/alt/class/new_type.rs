@@ -25,12 +25,12 @@ use crate::types::types::Type;
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn base_type_for_newtype(&self, class: &Class, base_class: &Class) -> Type {
         if base_class.is_builtin("tuple")
-            && let Some(tuple_base) = self.get_base_types_for_class(class).tuple_base()
+            && let Some(tuple_ancestor) = self.get_base_types_for_class(class).tuple_ancestor()
         {
             // In order to make `__new__` and `__init__` accept only the exact right shape
             // of tuple, we have to special case the scenario where the NewType wraps a tuple -
             // we want to provide use the raw tuple type rather than the `tuple` class.
-            Type::Tuple(tuple_base.clone())
+            Type::Tuple(tuple_ancestor.clone())
         } else {
             self.promote_nontypeddict_silently_to_classtype(base_class)
                 .to_type()

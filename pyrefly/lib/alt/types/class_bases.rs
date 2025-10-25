@@ -52,7 +52,7 @@ pub struct ClassBases {
     /// This is recursively computed, not just a direct tuple base. We throw an error and keep only
     /// the first tuple ancestor if there are multiple (unless one of them is `tuple[Any, ...]` in which
     /// case we prefer the more precise type).
-    tuple_base: Option<Tuple>,
+    tuple_ancestor: Option<Tuple>,
     /// Is this a pydantic strict model? Part of ClassBases because computation for this involves matching base class ASTs.
     pub has_pydantic_strict_metadata: bool,
 }
@@ -61,13 +61,13 @@ impl ClassBases {
     pub fn recursive() -> Self {
         Self {
             base_types: Box::new([]),
-            tuple_base: None,
+            tuple_ancestor: None,
             has_pydantic_strict_metadata: false,
         }
     }
 
-    pub fn tuple_base(&self) -> Option<&Tuple> {
-        self.tuple_base.as_ref()
+    pub fn tuple_ancestor(&self) -> Option<&Tuple> {
+        self.tuple_ancestor.as_ref()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &ClassType> {
@@ -246,7 +246,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<Vec<_>>();
 
-        let mut tuple_base = base_types_with_ranges.iter().find_map(|(ty, _)| {
+        let mut tuple_ancestor = base_types_with_ranges.iter().find_map(|(ty, _)| {
             if let Type::Tuple(tuple) = ty {
                 Some(tuple.clone())
             } else {
@@ -317,12 +317,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         "Second argument to NewType cannot be an unbound generic".to_owned(),
                     );
                 }
-                if let Some(base_class_tuple_base) = base_class_bases.tuple_base() {
-                    if let Some(existing_tuple_base) = &tuple_base {
-                        if existing_tuple_base.is_any_tuple() {
-                            tuple_base = Some(base_class_tuple_base.clone());
-                        } else if !base_class_tuple_base.is_any_tuple()
-                            && base_class_tuple_base != existing_tuple_base
+                if let Some(base_tuple_ancestor) = base_class_bases.tuple_ancestor() {
+                    if let Some(existing_tuple_ancestor) = &tuple_ancestor {
+                        if existing_tuple_ancestor.is_any_tuple() {
+                            tuple_ancestor = Some(base_tuple_ancestor.clone());
+                        } else if !base_tuple_ancestor.is_any_tuple()
+                            && base_tuple_ancestor != existing_tuple_ancestor
                         {
                             self.error(
                                 errors,
@@ -330,13 +330,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ErrorInfo::Kind(ErrorKind::InvalidInheritance),
                                 format!(
                                     "Cannot extend multiple incompatible tuples: `{}` and `{}`",
-                                    self.for_display(Type::Tuple(existing_tuple_base.clone())),
-                                    self.for_display(Type::Tuple(base_class_tuple_base.clone())),
+                                    self.for_display(Type::Tuple(existing_tuple_ancestor.clone())),
+                                    self.for_display(Type::Tuple(base_tuple_ancestor.clone())),
                                 ),
                             );
                         }
                     } else {
-                        tuple_base = Some(base_class_tuple_base.clone());
+                        tuple_ancestor = Some(base_tuple_ancestor.clone());
                     }
                 }
                 base_class_type
@@ -354,7 +354,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         ClassBases {
             base_types: base_class_types.into_boxed_slice(),
-            tuple_base,
+            tuple_ancestor,
             has_pydantic_strict_metadata,
         }
     }
