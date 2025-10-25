@@ -325,6 +325,65 @@ References:
     );
 }
 
+// todo(kylei): reference on child method should find parent method
+#[test]
+fn parent_method() {
+    let code = r#"
+class C:
+    def f(self) -> str: ...
+    
+class Concrete(C):
+    def f(self) -> str:
+    #   ^
+        return "test"
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+6 |     def f(self) -> str:
+            ^
+References:
+6 |     def f(self) -> str:
+            ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(kylei): reference on child method should find parent + other child methods
+#[test]
+fn sibling_method() {
+    let code = r#"
+class C:
+    def f(self) -> str: ...
+    
+class Concrete(C):
+    def f(self) -> str:
+    #   ^
+        return "test"
+
+class Concrete2(C):
+    def f(self) -> str:
+        return "test"
+
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+6 |     def f(self) -> str:
+            ^
+References:
+6 |     def f(self) -> str:
+            ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
 // todo(kylei): references on renames should find lhs of assignment
 #[test]
 fn reassigned_local() {
