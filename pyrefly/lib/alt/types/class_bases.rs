@@ -33,15 +33,27 @@ use crate::types::class::Class;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
-/// The bases of a class, in type form.
+/// Information computed from the full base types of a class
+/// - The base types themselves
+/// - Some additional metadata derived from the bases
+///
 /// This is intended to be used for any downstream computation that needs to inspect the full types
 /// (in particular, the targs of generic bases) of the bases of a class. If only the class objects are
 /// needed, query `ClassMetadata` instead since that one doesn't require calculating the full types.
+///
+/// The reason this is tracked separately from `ClassMetadata` is to avoid the possiblity of
+/// cycles when type arguments of the base classes may depend on the class itself.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut, Default)]
 pub struct ClassBases {
+    /// The direct base types in the base class list
     base_types: Box<[ClassType]>,
+    /// The first tuple ancestor, if there is one in the inheritance tree.
+    ///
+    /// This is recursively computed, not just a direct tuple base. We throw an error and keep only
+    /// the first tuple ancestor if there are multiple (unless one of them is `tuple[Any, ...]` in which
+    /// case we prefer the more precise type).
     tuple_base: Option<Tuple>,
-    // Is this a pydatic strict model?
+    /// Is this a pydantic strict model? Part of ClassBases because computation for this involves matching base class ASTs.
     pub has_strict: bool,
 }
 
