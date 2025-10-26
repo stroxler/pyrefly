@@ -1406,7 +1406,6 @@ def test(o: C):
 );
 
 testcase!(
-    bug = "Our handling of `__bool__` checks on unions is only partially correct",
     test_union_dunder_bool,
     r#"
 from typing import Literal
@@ -1422,16 +1421,15 @@ class E:
 
 def f(ok: B | C, bad: B | D):
     if ok: ...
-    if bad: ...  # E: has type `BoundMethod[B, (self: B) -> bool] | int`, which is not callable
+    if bad: ...  # E: The `__bool__` attribute of `D` has type `int`, which is not callable
 
 # Regression tests for https://github.com/facebook/pyrefly/issues/1364
 def g(ok: B | None, bad1: D | None, bad2: D | E):
     if ok: ...
     if bad1 is None: ...  # This is okay - we are not using a truthiness check
-    if bad1: ...  # E: has type `BoundMethod[NoneType, (self: NoneType) -> Literal[False]] | int`, which is not callable
-    # TODO(stroxler): this error is right, but our error message shouldn't differ from the one above
-    if not bad1: ... # E: has type `int`, which is not callable
-    if bad2: ...  # Missing error here - this is a bug!
+    if bad1: ...  # E: The `__bool__` attribute of `D` has type `int`, which is not callable
+    if not bad1: ... # E: The `__bool__` attribute of `D` has type `int`, which is not callable
+    if bad2: ...  # E: The `__bool__` attribute of `D` has type `int`, which is not callable
     if not bad2: ...  # E: The `__bool__` attribute of `D` has type `int`, which is not callable
 "#,
 );

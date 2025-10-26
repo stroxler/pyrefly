@@ -1819,31 +1819,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let dunder_bool_ty = self.type_of_magic_dunder_attr(
-            type_of_term_used_as_bool,
-            &dunder::BOOL,
-            range,
-            errors,
-            None,
-            "__bool__",
-            false,
-        );
-
-        if let Some(dunder_bool_ty) = dunder_bool_ty
-            && !dunder_bool_ty.is_never()
-            && self.as_call_target(dunder_bool_ty.clone()).is_none()
-        {
-            self.error(
-                errors,
+        // TODO(stroxler): Ideally, we would collect up the error messages and produce a single
+        // error here. But this is a quick fix for a client team, and honestly I expect `__bool__`
+        // failures to be pretty rare in most real-world codebases so it's not high priority.
+        let f = |union_member_ty: &Type| {
+            let dunder_bool_ty = self.type_of_magic_dunder_attr(
+                union_member_ty,
+                &dunder::BOOL,
                 range,
-                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                format!(
-                    "The `__bool__` attribute of `{}` has type `{}`, which is not callable",
-                    self.for_display(type_of_term_used_as_bool.clone()),
-                    self.for_display(dunder_bool_ty.clone()),
-                ),
+                errors,
+                None,
+                "__bool__",
+                false,
             );
-        }
+
+            if let Some(dunder_bool_ty) = dunder_bool_ty
+                && !dunder_bool_ty.is_never()
+                && self.as_call_target(dunder_bool_ty.clone()).is_none()
+            {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                    format!(
+                        "The `__bool__` attribute of `{}` has type `{}`, which is not callable",
+                        self.for_display(union_member_ty.clone()),
+                        self.for_display(dunder_bool_ty.clone()),
+                    ),
+                );
+            }
+        };
+        self.map_over_union(type_of_term_used_as_bool, f)
     }
 }
 
