@@ -1807,16 +1807,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.unions(results)
     }
 
-    // When coercing an instance of condition_type to bool, check that either it does not override
-    // __bool__, or that condition_type.__bool__ is callable.
+    // When determining the boolean value of some term used in a boolean context
+    // to bool, check that either it does not override __bool__, or the
+    // condition_type.__bool__ is callable.
+    //
+    // This allows users to mark a class as not allowing truthiness checks by
+    // explicitly setting `__bool__` to any non-callable type.
     pub fn check_dunder_bool_is_callable(
         &self,
-        condition_type: &Type,
+        type_of_term_used_as_bool: &Type,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let cond_bool_ty = self.type_of_magic_dunder_attr(
-            condition_type,
+        let dunder_bool_ty = self.type_of_magic_dunder_attr(
+            type_of_term_used_as_bool,
             &dunder::BOOL,
             range,
             errors,
@@ -1825,9 +1829,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             false,
         );
 
-        if let Some(ty) = cond_bool_ty
-            && !ty.is_never()
-            && self.as_call_target(ty.clone()).is_none()
+        if let Some(dunder_bool_ty) = dunder_bool_ty
+            && !dunder_bool_ty.is_never()
+            && self.as_call_target(dunder_bool_ty.clone()).is_none()
         {
             self.error(
                 errors,
@@ -1835,8 +1839,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ErrorInfo::Kind(ErrorKind::InvalidArgument),
                 format!(
                     "The `__bool__` attribute of `{}` has type `{}`, which is not callable",
-                    self.for_display(condition_type.clone()),
-                    self.for_display(ty.clone()),
+                    self.for_display(type_of_term_used_as_bool.clone()),
+                    self.for_display(dunder_bool_ty.clone()),
                 ),
             );
         }
