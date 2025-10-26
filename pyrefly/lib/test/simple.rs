@@ -1369,7 +1369,7 @@ z = not NotBoolable()  # E: has type `int`, which is not callable
 x = 0 if NotBoolable() else 1  # E: has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got `int`
 if NotBoolable(): ...  # E: has type `int`, which is not callable
 while NotBoolable(): ...  # E: has type `int`, which is not callable
-if (f() if True else None): ...  # E: has type `int`, which is not callable
+if f(): ...  # E: has type `int`, which is not callable
 
 # We don't treat `__getattr__` as implying a `__bool__`.
 class C:
