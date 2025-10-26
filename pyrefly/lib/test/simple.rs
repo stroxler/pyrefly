@@ -1402,32 +1402,29 @@ class C:
 def test(o: C):
     if o: # should not fail
         pass
+"#,
+);
 
-# Union types are not checked due to risk of false positives
+testcase!(
+    test_union_dunder_bool,
+    r#"
+from typing import Literal
+
 class B:
-  def __bool__(self) -> bool:
-    return True
-
+    def __bool__(self) -> bool: return True
 class C:
-  def __bool__(self) -> Literal[False]:
-    return False
-
+    def __bool__(self) -> Literal[False]: return False
 class D:
     __bool__ = 42
 
-def j(x: B | C):
-    if x: ...
+def f(ok: B | C, bad: B | D):
+    if ok: ...
+    if bad: ...  # E: has type `BoundMethod[B, (self: B) -> bool] | int`, which is not callable
 
-# Invalid
-def k(x: B | D):
-    if x: ...  # E: has type `BoundMethod[B, (self: B) -> bool] | int`, which is not callable
-
-def l(x: int | None):
-    if x: ...
-
-def m(x: D | None):
-    if x: ...  # E: has type `BoundMethod[NoneType, (self: NoneType) -> Literal[False]] | int`, which is not callable
-
+def g(ok: B | None, bad: D | None):
+    if ok: ...
+    if bad: ...  # E: has type `BoundMethod[NoneType, (self: NoneType) -> Literal[False]] | int`, which is not callable
+    if bad is None: ...
 "#,
 );
 
