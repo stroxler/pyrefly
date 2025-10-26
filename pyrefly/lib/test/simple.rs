@@ -1361,31 +1361,19 @@ testcase!(
     r#"
 class NotBoolable:
     __bool__: int = 3
-
-# bool()
-y = bool(NotBoolable())  # E: has type `int`, which is not callable
-
-# unary not
-z = not NotBoolable()  # E: has type `int`, which is not callable
-
-# if expressions
-x = 0 if NotBoolable() else 1  # E: has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got `int`
-
-# if statements
-if NotBoolable(): ...  # E: has type `int`, which is not callable
-
-# while statements
-while NotBoolable(): ...  # E: has type `int`, which is not callable
-
-# expression evaluating to NotBoolable
 def f() -> NotBoolable:
   return NotBoolable()
 
+y = bool(NotBoolable())  # E: has type `int`, which is not callable
+z = not NotBoolable()  # E: has type `int`, which is not callable
+x = 0 if NotBoolable() else 1  # E: has type `int`, which is not callable  # E: Expected `__bool__` to be a callable, got `int`
+if NotBoolable(): ...  # E: has type `int`, which is not callable
+while NotBoolable(): ...  # E: has type `int`, which is not callable
 if (f() if True else None): ...  # E: has type `int`, which is not callable
 
+# We don't treat `__getattr__` as implying a `__bool__`.
 class C:
     def __getattr__(self, x: str) -> object: ...
-
 def test(o: C):
     if o: # should not fail
         pass
