@@ -971,6 +971,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }))
     }
 
+    /// Determine the boolean behavior of a type:
+    /// - `Some(true)` or `Some(false)` when it is known to be statically truthy
+    ///   or falsey (as determined by some baked in rules for literals
+    ///   and looking at the `__bool__` method, if it is present).
+    /// - `None` if it's truthiness is not statically known.
     pub fn as_bool(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) -> Option<bool> {
         ty.as_bool().or_else(|| {
             // If the object defines `__bool__`, we can check if it returns a statically known value
