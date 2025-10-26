@@ -1380,26 +1380,28 @@ def test(o: C):
 "#,
 );
 
-// Check that we don't raise false positives (or true positives that we want to avoid failing on)
-// for some corner cases
 testcase!(
     test_valid_dunder_bool,
     r#"
-
 from typing import Any, Literal, Never
 
-# Any is always assumed to be valid
+# We always allow `Any` to be used as a bool
 def f(x):
-  if x: ...
-
+    if x: ...
 def g(x: Any):
-  if x: ...
+    if x: ...
 
-# Never does not raise a type error
+# We always allow `Never` to be used as a bool
 def g() -> Never:
     raise Exception()
-
 if g(): ...
+
+# We don't treat `__getattr__` as implying a `__bool__`
+class C:
+    def __getattr__(self, x: str) -> object: ...
+def test(o: C):
+    if o: # should not fail
+        pass
 
 # Union types are not checked due to risk of false positives
 class B:
