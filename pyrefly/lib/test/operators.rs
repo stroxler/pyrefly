@@ -471,6 +471,9 @@ class Truthy:
     def __bool__(self) -> Literal[True]:
         return True
 assert_type(Falsey() or int(), int)
+# Note that although we evaluate `__bool__` and use the result for the boolean
+# operation control flow, the resulting value is the actual `Truthy` instance
+# and not a bool. This matches the runtime.
 assert_type(Truthy() or int(), Truthy)
 assert_type(int() if Truthy() else str(), int)
 assert_type(int() if Falsey() else str(), str)
