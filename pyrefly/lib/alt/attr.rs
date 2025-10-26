@@ -1820,8 +1820,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) {
         // TODO(stroxler): Ideally, we would collect up the error messages and produce a single
-        // error here. But this is a quick fix for a client team, and honestly I expect `__bool__`
-        // failures to be pretty rare in most real-world codebases so it's not high priority.
+        // error here. But non-callable `__bool__` failures are likely to be rare in most
+        // codebases so this is not urgent unless we get complaints.
         let f = |union_member_ty: &Type| {
             let dunder_bool_ty = self.type_of_magic_dunder_attr(
                 union_member_ty,

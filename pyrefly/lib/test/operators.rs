@@ -470,6 +470,9 @@ class Falsey:
 class Truthy:
     def __bool__(self) -> Literal[True]:
         return True
+class NotBoolable:
+    __bool__: int = 0
+
 assert_type(Falsey() or int(), int)
 # Note that although we evaluate `__bool__` and use the result for the boolean
 # operation control flow, the resulting value is the actual `Truthy` instance
@@ -477,6 +480,15 @@ assert_type(Falsey() or int(), int)
 assert_type(Truthy() or int(), Truthy)
 assert_type(int() if Truthy() else str(), int)
 assert_type(int() if Falsey() else str(), str)
+
+# Test the use of a non-boolean-convertable type in boolean operators.
+#
+# TODO(stroxler): This behavior is conservative: the rightmost entry of a
+# boolean expression is actually not evaluated as a bool by the runtime (unless
+# the entire value is used as a boolean inside some other AST element), so the
+# type error on the second line is arguably a false-positive.
+assert_type(NotBoolable() or int(), int | NotBoolable)  # E: Expected `__bool__` to be a callable, got `int`
+assert_type(int() or NotBoolable(), int | NotBoolable)  # E: Expected `__bool__` to be a callable, got `int`
 "#,
 );
 
