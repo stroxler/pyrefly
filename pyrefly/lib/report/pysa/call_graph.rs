@@ -1039,7 +1039,7 @@ impl<'a> CallGraphVisitor<'a> {
                         new_targets: vec![],
                     })
                 }
-                Some(crate::alt::call::CallTarget::Class(class_type)) => {
+                Some(crate::alt::call::CallTarget::Class(class_type, _)) => {
                     // Constructing a class instance.
                     self.module_context
                         .transaction
