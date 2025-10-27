@@ -559,7 +559,11 @@ fn method_name_from_function(function: &pyrefly_types::callable::Function) -> Co
 }
 
 // Whether the call is non-dynamically dispatched
-fn is_direct_call(callee: AnyNodeRef, callee_type: Option<&Type>) -> bool {
+fn is_direct_call(
+    callee: AnyNodeRef,
+    callee_type: Option<&Type>,
+    receiver_type: Option<&Type>,
+) -> bool {
     fn is_super_call(callee: AnyNodeRef) -> bool {
         match callee {
             AnyNodeRef::ExprCall(call) => is_super_call(call.func.as_ref().into()),
@@ -570,14 +574,17 @@ fn is_direct_call(callee: AnyNodeRef, callee_type: Option<&Type>) -> bool {
     }
 
     is_super_call(callee) || {
-        match callee_type {
-            Some(Type::BoundMethod(_)) => {
+        match (callee_type, receiver_type) {
+            (Some(Type::BoundMethod(_)), Some(Type::ClassDef(_))) => true,
+            (Some(Type::BoundMethod(_)), Some(Type::ClassType(_))) => {
                 // Dynamic dispatch if calling a method via an attribute lookup
-                // on an instance or class
+                // on an instance
                 false
             }
-            Some(Type::Function(_)) => true,
-            Some(Type::Union(types)) => is_direct_call(callee, Some(types.first().unwrap())),
+            (Some(Type::Function(_)), _) => true,
+            (Some(Type::Union(types)), _) => {
+                is_direct_call(callee, Some(types.first().unwrap()), receiver_type)
+            }
             _ => false,
         }
     }
@@ -1133,6 +1140,7 @@ impl<'a> CallGraphVisitor<'a> {
                 .answers
                 .get_type_trace(attribute.range())
                 .as_ref(),
+            receiver_type.as_ref(),
         );
         let call_target_from_function_ref =
             |function_ref: FunctionRef, return_type: Option<ScalarTypeProperties>| {

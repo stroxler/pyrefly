@@ -1401,3 +1401,76 @@ def foo():
         )]
     }
 );
+
+call_graph_testcase!(
+    test_classmethod_overrides,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @classmethod
+  def f(cls, x: int) -> int:
+    return x
+  @classmethod
+  def g(cls):
+    pass
+class D(C):
+  @classmethod
+  def f(cls, x: int) -> int:
+    return x
+def foo(c: C):
+  C.f(1)
+  D.f(1)
+  D.g()
+"#,
+    &|context: &ModuleContext| {
+        let call_targets_c_f = vec![
+            create_call_target("test.C.f", TargetType::Function)
+                .with_receiver_class_for_test("test.C", context)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
+                .with_return_type(Some(ScalarTypeProperties::int()))
+                .with_is_class_method(true),
+        ];
+        let call_targets_d_f = vec![
+            create_call_target("test.D.f", TargetType::Function)
+                .with_receiver_class_for_test("test.D", context)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
+                .with_return_type(Some(ScalarTypeProperties::int()))
+                .with_is_class_method(true),
+        ];
+        let call_targets_d_g = vec![
+            create_call_target("test.C.g", TargetType::Function)
+                .with_receiver_class_for_test("test.D", context)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
+                .with_is_class_method(true),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "14:3-14:9",
+                    call_callees(
+                        call_targets_c_f,
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "15:3-15:9",
+                    call_callees(
+                        call_targets_d_f,
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+                (
+                    "16:3-16:8",
+                    call_callees(
+                        call_targets_d_g,
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                    ),
+                ),
+            ],
+        )]
+    }
+);
