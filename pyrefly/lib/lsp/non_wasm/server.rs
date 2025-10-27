@@ -1197,11 +1197,11 @@ impl Server {
             }
         }
         queue_source_db_rebuild_and_recheck(
-            &self.state,
+            self.state.dupe(),
             self.invalidated_configs.dupe(),
             self.sourcedb_queue.dupe(),
             self.lsp_queue.dupe(),
-            &handles,
+            self.open_files.dupe(),
         );
     }
 
@@ -1494,18 +1494,12 @@ impl Server {
         // If no build system file was changed, then we should just not do anything. If
         // a build system file was changed, then the change should take effect soon.
         if should_requery_build_system {
-            let handles = self
-                .open_files
-                .read()
-                .keys()
-                .map(|x| make_open_handle(&self.state, x))
-                .collect::<Vec<_>>();
             queue_source_db_rebuild_and_recheck(
-                &self.state,
+                self.state.dupe(),
                 self.invalidated_configs.dupe(),
                 self.sourcedb_queue.dupe(),
                 self.lsp_queue.dupe(),
-                &handles,
+                self.open_files.dupe(),
             );
         }
     }
@@ -1513,7 +1507,8 @@ impl Server {
     fn did_close(&self, params: DidCloseTextDocumentParams) {
         let uri = params.text_document.uri.to_file_path().unwrap();
         self.version_info.lock().remove(&uri);
-        self.open_files.write().remove(&uri);
+        let open_files = self.open_files.dupe();
+        open_files.write().remove(&uri);
         self.connection
             .publish_diagnostics_for_uri(params.text_document.uri, Vec::new(), None);
         let state = self.state.dupe();
@@ -1527,15 +1522,15 @@ impl Server {
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
             let mut transaction = state.new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().set_memory(vec![(uri, None)]);
-            let handles =
+            let _ =
                 Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             state.commit_transaction(transaction);
             queue_source_db_rebuild_and_recheck(
-                &state,
+                state.dupe(),
                 invalidated_configs,
                 sourcedb_queue,
                 lsp_queue,
-                &handles,
+                open_files.dupe(),
             );
         }));
     }
