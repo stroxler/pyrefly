@@ -995,9 +995,9 @@ impl Server {
         let s = Self {
             connection: ServerConnection(connection),
             lsp_queue,
-            recheck_queue: HeavyTaskQueue::new(false),
-            find_reference_queue: HeavyTaskQueue::new(false),
-            sourcedb_queue: HeavyTaskQueue::new(true),
+            recheck_queue: HeavyTaskQueue::new(),
+            find_reference_queue: HeavyTaskQueue::new(),
+            sourcedb_queue: HeavyTaskQueue::new(),
             invalidated_configs: Arc::new(Mutex::new(SmallSet::new())),
             initialize_params,
             indexing_mode,
