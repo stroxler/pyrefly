@@ -345,6 +345,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
                 pydantic_config_dict,
+                django_primary_key_field: None,
             },
         );
         self.insert_binding_idx(
@@ -487,6 +488,7 @@ impl<'a> BindingsBuilder<'a> {
                 decorators: Box::new([]),
                 is_new_type,
                 pydantic_config_dict: PydanticConfigDict::default(),
+                django_primary_key_field: None,
             },
         );
         self.insert_binding_idx(
