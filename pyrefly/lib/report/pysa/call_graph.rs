@@ -21,6 +21,8 @@ use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
 use ruff_python_ast::AnyNodeRef;
+use ruff_python_ast::ArgOrKeyword;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -179,6 +181,54 @@ impl<Function: FunctionTrait> CallTarget<Function> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum UnresolvedReason {
+    LambdaArgument,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum Unresolved {
+    False,
+    True(UnresolvedReason),
+}
+
+impl Unresolved {
+    fn is_resolved(&self) -> bool {
+        match self {
+            Unresolved::False => true,
+            Unresolved::True(_) => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HigherOrderParameter<Function: FunctionTrait> {
+    pub(crate) index: u32,
+    pub(crate) call_targets: Vec<CallTarget<Function>>,
+    pub(crate) unresolved: Unresolved,
+}
+
+impl<Function: FunctionTrait> HigherOrderParameter<Function> {
+    #[cfg(test)]
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
+        self,
+        map: &MapFunction,
+    ) -> HigherOrderParameter<OutputFunction>
+    where
+        MapFunction: Fn(Function) -> OutputFunction,
+    {
+        HigherOrderParameter {
+            index: self.index,
+            call_targets: self
+                .call_targets
+                .into_iter()
+                .map(|call_target| CallTarget::map_function(call_target, map))
+                .collect(),
+            unresolved: self.unresolved,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CallCallees<Function: FunctionTrait> {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) call_targets: Vec<CallTarget<Function>>,
@@ -186,6 +236,10 @@ pub struct CallCallees<Function: FunctionTrait> {
     pub(crate) init_targets: Vec<CallTarget<Function>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) new_targets: Vec<CallTarget<Function>>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub(crate) higher_order_parameters: HashMap<u32, HigherOrderParameter<Function>>,
+    #[serde(skip_serializing_if = "Unresolved::is_resolved")]
+    pub(crate) unresolved: Unresolved,
 }
 
 impl<Function: FunctionTrait> CallCallees<Function> {
@@ -207,6 +261,12 @@ impl<Function: FunctionTrait> CallCallees<Function> {
             call_targets: map_call_targets(self.call_targets),
             init_targets: map_call_targets(self.init_targets),
             new_targets: map_call_targets(self.new_targets),
+            higher_order_parameters: self
+                .higher_order_parameters
+                .into_iter()
+                .map(|(k, v)| (k, HigherOrderParameter::map_function(v, map)))
+                .collect(),
+            unresolved: self.unresolved,
         }
     }
 
@@ -228,6 +288,13 @@ impl<Function: FunctionTrait> CallCallees<Function> {
         self.init_targets.dedup();
         self.new_targets.sort();
         self.new_targets.dedup();
+    }
+
+    fn with_higher_order_parameters(
+        &mut self,
+        higher_order_parameters: HashMap<u32, HigherOrderParameter<Function>>,
+    ) {
+        self.higher_order_parameters = higher_order_parameters;
     }
 }
 
@@ -917,6 +984,8 @@ impl<'a> CallGraphVisitor<'a> {
             call_targets: vec![],
             init_targets,
             new_targets,
+            higher_order_parameters: HashMap::new(),
+            unresolved: Unresolved::False,
         }
     }
 
@@ -993,6 +1062,8 @@ impl<'a> CallGraphVisitor<'a> {
                 call_targets: go_to_definitions,
                 init_targets: vec![],
                 new_targets: vec![],
+                higher_order_parameters: HashMap::new(),
+                unresolved: Unresolved::False,
             })
         } else {
             // There is no go-to-definition when for example an `ExprName` is a class definition,
@@ -1025,6 +1096,8 @@ impl<'a> CallGraphVisitor<'a> {
                         call_targets,
                         init_targets: vec![],
                         new_targets: vec![],
+                        higher_order_parameters: HashMap::new(),
+                        unresolved: Unresolved::False,
                     })
                 }
                 Some(crate::alt::call::CallTarget::Function(function)) => {
@@ -1044,6 +1117,8 @@ impl<'a> CallGraphVisitor<'a> {
                         call_targets,
                         init_targets: vec![],
                         new_targets: vec![],
+                        higher_order_parameters: HashMap::new(),
+                        unresolved: Unresolved::False,
                     })
                 }
                 Some(crate::alt::call::CallTarget::Class(class_type, _)) => {
@@ -1195,6 +1270,8 @@ impl<'a> CallGraphVisitor<'a> {
                     .collect(),
                 init_targets: vec![],
                 new_targets: vec![],
+                higher_order_parameters: HashMap::new(),
+                unresolved: Unresolved::False,
             },
             property_setters: property_setters
                 .into_iter()
@@ -1218,6 +1295,61 @@ impl<'a> CallGraphVisitor<'a> {
         })
     }
 
+    fn resolve_higher_order_parameters(
+        &self,
+        call_arguments: &Arguments,
+    ) -> HashMap<u32, HigherOrderParameter<FunctionRef>> {
+        // TODO: Filter the results with `filter_implicit_dunder_calls`
+        call_arguments
+            .arguments_source_order()
+            .enumerate()
+            .filter_map(|(index, argument)| {
+                let argument = match argument {
+                    ArgOrKeyword::Arg(argument) => argument,
+                    ArgOrKeyword::Keyword(keyword) => &keyword.value,
+                };
+                let index = index.try_into().unwrap();
+                match argument {
+                    Expr::Lambda(_) => Some((
+                        index,
+                        HigherOrderParameter {
+                            index,
+                            call_targets: vec![],
+                            unresolved: Unresolved::True(UnresolvedReason::LambdaArgument),
+                        },
+                    )),
+                    _ => {
+                        self.resolve_expression(
+                            argument, /* parent_expression */ None,
+                            /* assignment_targets */ None,
+                        )
+                        .map(|callees| {
+                            let (call_targets, unresolved) = match callees {
+                                ExpressionCallees::Call(callees) => {
+                                    (callees.call_targets, callees.unresolved)
+                                }
+                                ExpressionCallees::AttributeAccess(callees) => {
+                                    (callees.if_called.call_targets, callees.if_called.unresolved)
+                                }
+                                ExpressionCallees::Identifier(callees) => {
+                                    (callees.if_called.call_targets, callees.if_called.unresolved)
+                                }
+                            };
+                            (
+                                index,
+                                HigherOrderParameter {
+                                    index,
+                                    call_targets,
+                                    unresolved,
+                                },
+                            )
+                        })
+                    }
+                }
+            })
+            .collect()
+    }
+
     fn resolve_call(
         &self,
         call: &ExprCall,
@@ -1229,7 +1361,9 @@ impl<'a> CallGraphVisitor<'a> {
             .get_type_trace(call.range())
             .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
 
-        match &*call.func {
+        let higher_order_parameters = self.resolve_higher_order_parameters(&call.arguments);
+
+        let mut callees = match &*call.func {
             Expr::Name(name) => {
                 let callees = self.resolve_name(name, Some(&call.arguments), return_type);
                 debug_println!(
@@ -1252,7 +1386,11 @@ impl<'a> CallGraphVisitor<'a> {
                 callees.map(|callees| callees.if_called)
             }
             _ => None,
+        };
+        if let Some(callees) = callees.as_mut() {
+            callees.with_higher_order_parameters(higher_order_parameters);
         }
+        callees
     }
 
     // Use this only when we are not analyzing a call expression (e.g., `foo` in `x = foo`), because
@@ -1429,6 +1567,8 @@ fn resolve_call(
             call_targets: vec![],
             init_targets: vec![],
             new_targets: vec![],
+            higher_order_parameters: HashMap::new(),
+            unresolved: Unresolved::False,
         })
 }
 
