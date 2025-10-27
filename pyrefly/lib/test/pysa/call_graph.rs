@@ -24,6 +24,7 @@ use crate::report::pysa::call_graph::Target;
 use crate::report::pysa::call_graph::export_call_graphs;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
+use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::collect_function_base_definitions;
@@ -42,6 +43,7 @@ struct FunctionRefForTest {
     module_name: String,
     defining_class: Option<String>,
     identifier: String,
+    is_decorated_target: bool,
 }
 
 impl FunctionTrait for FunctionRefForTest {}
@@ -79,26 +81,38 @@ impl FunctionRefForTest {
         function_ref: FunctionRef,
         function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     ) -> Self {
+        let (function_id, is_decorated_target) = match function_ref.function_id {
+            FunctionId::FunctionDecoratedTarget { location } => {
+                (FunctionId::Function { location }, true)
+            }
+            function_id => (function_id, false),
+        };
         Self {
             module_name: function_ref.module_name.to_string(),
             identifier: function_ref.function_name.to_string(),
             defining_class: function_base_definitions
-                .get(function_ref.module_id, &function_ref.function_id)
+                .get(function_ref.module_id, &function_id)
                 .and_then(|definition| {
                     definition
                         .defining_class
                         .as_ref()
                         .map(|class| class.class.name().to_string())
                 }),
+            is_decorated_target,
         }
     }
 
     fn from_string(string: &str) -> Self {
+        let (string, is_decorated_target) = match string.strip_suffix("@decorated") {
+            Some(string) => (string, true),
+            None => (string, false),
+        };
         let (module_name, defining_class, identifier) = split_module_class_and_identifier(string);
         Self {
             module_name,
             identifier,
             defining_class,
+            is_decorated_target,
         }
     }
 }
@@ -1353,6 +1367,32 @@ def foo(c: C):
             vec![(
                 "9:3-9:12",
                 call_callees(
+                    call_targets,
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                ),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_decorated_target,
+    TEST_MODULE_NAME,
+    r#"
+def bar(f):
+  return f
+@bar
+def foo():
+  pass
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
+        vec![(
+            "test.foo@decorated",
+            vec![(
+                "4:2-4:5",
+                identifier_callees(
                     call_targets,
                     /* init_targets */ vec![],
                     /* new_targets */ vec![],

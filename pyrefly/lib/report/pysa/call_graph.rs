@@ -36,6 +36,7 @@ use ruff_text_size::TextRange;
 use serde::Serialize;
 
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
+use crate::report::pysa::ast_visitor::ScopeExportedFunctionFlags;
 use crate::report::pysa::ast_visitor::Scopes;
 use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::class::ClassRef;
@@ -1333,10 +1334,14 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         self.current_function = scopes.current_exported_function(
             self.module_id,
             self.module_name,
-            /* include_top_level */ true,
-            /* include_class_top_level */ true,
-            /* include_decorators_in_decorated_definition */ true,
-            /* include_default_arguments_in_function */ true,
+            ScopeExportedFunctionFlags {
+                include_top_level: true,
+                include_class_top_level: true,
+                include_function_decorators:
+                    super::ast_visitor::ExportFunctionDecorators::InDecoratedTarget,
+                include_class_decorators: super::ast_visitor::ExportClassDecorators::InParentScope,
+                include_default_arguments: super::ast_visitor::ExportDefaultArguments::InFunction,
+            },
         );
         if let Some(current_function) = &self.current_function {
             // Always insert an empty call graph for the function.
