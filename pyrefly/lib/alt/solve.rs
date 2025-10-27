@@ -284,7 +284,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             decorators,
             is_new_type,
             pydantic_config_dict,
-            django_primary_key_field: _,
+            django_primary_key_field,
         } = binding;
         let metadata = match &self.get_idx(*k).0 {
             None => ClassMetadata::recursive(),
@@ -295,6 +295,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 decorators,
                 *is_new_type,
                 pydantic_config_dict,
+                django_primary_key_field.as_ref(),
                 errors,
             ),
         };

@@ -113,6 +113,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         pydantic_config_dict: &PydanticConfigDict,
+        _django_primary_key_field: Option<&Name>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         // Get class decorators.
