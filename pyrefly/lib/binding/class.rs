@@ -241,6 +241,9 @@ impl<'a> BindingsBuilder<'a> {
             } = &definition
             {
                 self.extract_pydantic_config_dict(e, &name, &mut pydantic_config_dict);
+
+                // TODO: We will use this to populate the django metadata
+                let _is_django_primary_key = self.extract_django_primary_key(e);
             }
             let (is_initialized_on_class, is_annotated) = match &definition {
                 ClassFieldDefinition::DefinedInMethod { annotation, .. } => {
