@@ -176,7 +176,7 @@ fn call_graph_for_test_from_actual(
 }
 
 fn call_graph_for_test_from_expected(
-    call_graph: Vec<(String, Vec<(String, ExpressionCallees<FunctionRefForTest>)>)>,
+    call_graph: Vec<(&str, Vec<(String, ExpressionCallees<FunctionRefForTest>)>)>,
 ) -> CallGraphs<FunctionRefForTest> {
     CallGraphs::from_map(
         call_graph
@@ -221,8 +221,10 @@ fn test_building_call_graph_for_module(
     code: &str,
     create_expected: &dyn Fn(
         &ModuleContext,
-    )
-        -> Vec<(String, Vec<(String, ExpressionCallees<FunctionRefForTest>)>)>,
+    ) -> Vec<(
+        &'static str,
+        Vec<(String, ExpressionCallees<FunctionRefForTest>)>,
+    )>,
 ) {
     let state = create_state(test_module_name, code);
     let transaction = state.transaction();
@@ -303,7 +305,6 @@ fn identifier_callees(
 }
 
 static TEST_MODULE_NAME: &str = "test";
-static TEST_DEFINITION_NAME: &str = "test.foo";
 
 #[macro_export]
 macro_rules! call_graph_testcase {
@@ -330,7 +331,7 @@ def bar():
 "#,
     &|_context: &ModuleContext| {
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "3:3-3:8".to_owned(),
                 call_callees(
@@ -360,7 +361,7 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "6:3-6:8".to_owned(),
                 call_callees(
@@ -388,7 +389,7 @@ def foo(b: bool):
 "#,
     &|_context: &ModuleContext| {
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![
                 (
                     "6:9-6:12".to_owned(),
@@ -436,7 +437,7 @@ def foo(c: Optional[C]):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "8:5-8:10".to_owned(),
                 call_callees(
@@ -472,7 +473,7 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "12:3-12:8".to_owned(),
                 call_callees(
@@ -526,7 +527,7 @@ def foo(c: C):
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![
                 (
                     "7:3-7:8".to_owned(),
@@ -590,7 +591,7 @@ def foo(d: D):
                 .with_receiver_class_for_test("test.D".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "11:3-11:8".to_owned(),
                 call_callees(
@@ -620,7 +621,7 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "5:4-5:8".to_owned(),
                 call_callees(
@@ -651,7 +652,7 @@ def foo(c: C):
                 .with_return_type(Some(ScalarTypeProperties::bool())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "6:4-6:8".to_owned(),
                 call_callees(
@@ -681,7 +682,7 @@ def foo(c: C):
                 .with_return_type(Some(ScalarTypeProperties::bool())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "5:4-5:17".to_owned(),
                 call_callees(
@@ -709,7 +710,7 @@ def foo():
         let baz = vec![create_call_target("test.baz", TargetType::Function)];
         let bar = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![
                 (
                     "7:4-7:12".to_owned(),
@@ -751,7 +752,7 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "6:4-6:8".to_owned(),
                 call_callees(
@@ -785,7 +786,7 @@ def foo():
                 .with_is_static_method(true),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "5:3-5:7".to_owned(),
                 call_callees(/* call_targets */ vec![], init_targets, new_targets),
@@ -813,7 +814,7 @@ def foo(x: str) -> int:
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "3:10-3:16".to_owned(),
                 call_callees(/* call_targets */ vec![], init_targets, new_targets),
@@ -840,7 +841,7 @@ def foo():
             create_call_target("test.C.__new__", TargetType::Function).with_is_static_method(true),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "5:3-5:7".to_owned(),
                 call_callees(/* call_targets */ vec![], init_targets, new_targets),
@@ -871,7 +872,7 @@ def foo():
                 .with_is_static_method(true),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "6:3-6:7".to_owned(),
                 call_callees(/* call_targets */ vec![], init_targets, new_targets),
@@ -899,7 +900,7 @@ def foo():
             create_call_target("test.B.__new__", TargetType::Function).with_is_static_method(true),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "6:3-6:7".to_owned(),
                 call_callees(/* call_targets */ vec![], init_targets, new_targets),
@@ -933,7 +934,7 @@ def foo(c: C):
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![
                 (
                     "8:3-8:6".to_owned(),
@@ -981,7 +982,7 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "10:3-10:8".to_owned(),
                 attribute_access_callees(
@@ -1028,7 +1029,7 @@ def foo(c_or_d: C | D, c_or_e: C | E):
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![
                 (
                     "13:7-13:17".to_owned(),
@@ -1079,7 +1080,7 @@ def foo(c_or_d: TCOrD):
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "13:9-13:19".to_owned(),
                 attribute_access_callees(
@@ -1111,7 +1112,7 @@ def foo():
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "6:3-6:9".to_owned(),
                 call_callees(
@@ -1153,7 +1154,7 @@ def bar():
                 .with_receiver_class_for_test("test.B".to_owned(), context),
         ];
         vec![(
-            "test.bar".to_owned(),
+            "test.bar",
             vec![(
                 "17:3-17:10".to_owned(),
                 call_callees(
@@ -1188,7 +1189,7 @@ class B(A):
                 .with_receiver_class_for_test("test.A".to_owned(), context),
         ];
         vec![(
-            "test.A.f".to_owned(),
+            "test.A.f",
             vec![(
                 "5:14-5:22".to_owned(),
                 call_callees(
@@ -1217,7 +1218,7 @@ def foo(c: C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "5:3-5:10".to_owned(),
                 call_callees(
@@ -1242,7 +1243,7 @@ def foo(c: C):
     &|_context: &ModuleContext| {
         let call_targets = vec![create_call_target("builtins.repr", TargetType::Function)];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "5:3-5:10".to_owned(),
                 call_callees(
@@ -1267,7 +1268,7 @@ def foo(x=bar()):
     &|_context: &ModuleContext| {
         let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "4:11-4:16".to_owned(),
                 call_callees(
@@ -1310,7 +1311,7 @@ class D(C):
                 .with_receiver_class_for_test("test.C".to_owned(), context),
         ];
         vec![(
-            "test.D.g".to_owned(),
+            "test.D.g",
             vec![
                 (
                     "9:5-9:12".to_owned(),
@@ -1348,7 +1349,7 @@ def foo(c: C):
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         vec![(
-            TEST_DEFINITION_NAME.to_owned(),
+            "test.foo",
             vec![(
                 "9:3-9:12".to_owned(),
                 call_callees(
