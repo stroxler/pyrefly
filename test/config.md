@@ -298,3 +298,18 @@ $ echo "from pkg import X" > $TMPDIR/foo.py && \
 ERROR * Found stubs for `pkg`, but no source* (glob)
 [1]
 ```
+
+## Regression test: we should still be able to find submodules when stubs are missing
+
+```scrut {output_stream.stdout}
+$ mkdir $TMPDIR/site_package_missing_stubs && \
+> mkdir $TMPDIR/site_package_missing_stubs/django && \
+> touch $TMPDIR/site_package_missing_stubs/django/__init__.py && \
+> mkdir $TMPDIR/site_package_missing_stubs/django/forms && \
+> touch $TMPDIR/site_package_missing_stubs/django/forms/__init__.py && \
+> echo "from django import forms; from typing import reveal_type; reveal_type(forms)" > $TMPDIR/foo.py && \
+> $PYREFLY check $TMPDIR/foo.py --error untyped-import --site-package-path $TMPDIR/site_package_missing_stubs --output-format=min-text
+ERROR * Missing type stubs for `django` * (glob)
+ INFO * revealed type: Module[django.forms] * (glob)
+[1]
+```
