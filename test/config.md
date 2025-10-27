@@ -128,26 +128,27 @@ Configuration at * (glob)
 [0]
 ```
 
-## Interpreter priority takes activated interpreter
+## Interpreter priority takes config-file interpreter
 
 <!-- Reusing interpreters dir set up in "Interpreter priority takes CLI interpreter" -->
 
 ```scrut {output_stream: stdout}
 $ VIRTUAL_ENV=$TMPDIR/alternative-venv $PYREFLY dump-config -c $TMPDIR/interpreters/pyrefly.toml
 Configuration at * (glob)
-  Using interpreter: */alternative-venv/python3 (glob)
+  Using interpreter: */test-interpreter (glob)
 * (glob+)
 [0]
 ```
 
-## Interpreter priority takes config-file interpreter
+## Interpreter priority takes activated interpreter
 
 <!-- Reusing interpreters dir set up in "Interpreter priority takes CLI interpreter" -->
 
 ```scrut {output_stream: stdout}
-$ $PYREFLY dump-config -c $TMPDIR/interpreters/pyrefly.toml
+$ echo "" > $TMPDIR/interpreters/pyrefly.toml && \
+> VIRTUAL_ENV=$TMPDIR/alternative-venv $PYREFLY dump-config -c $TMPDIR/interpreters/pyrefly.toml
 Configuration at * (glob)
-  Using interpreter: */test-interpreter (glob)
+  Using interpreter: */alternative-venv/python3 (glob)
 * (glob+)
 [0]
 ```
