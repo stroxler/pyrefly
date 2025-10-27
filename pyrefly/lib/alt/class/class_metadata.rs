@@ -113,7 +113,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         pydantic_config_dict: &PydanticConfigDict,
-        _django_primary_key_field: Option<&Name>,
+        django_primary_key_field: Option<&Name>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         // Get class decorators.
@@ -197,8 +197,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let django_model_metadata =
             if directly_inherits_model || inherited_django_metadata.is_some() {
                 Some(DjangoModelMetadata {
-                    custom_primary_key_field: inherited_django_metadata
-                        .and_then(|dm| dm.custom_primary_key_field.clone()), // TODO: Override if current class defines custom pk
+                    custom_primary_key_field: django_primary_key_field.cloned().or_else(|| {
+                        inherited_django_metadata.and_then(|dm| dm.custom_primary_key_field.clone())
+                    }),
                 })
             } else {
                 None
