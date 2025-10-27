@@ -1328,9 +1328,15 @@ impl<'a> CallGraphVisitor<'a> {
                                 ExpressionCallees::Call(callees) => {
                                     (callees.call_targets, callees.unresolved)
                                 }
-                                ExpressionCallees::AttributeAccess(callees) => {
-                                    (callees.if_called.call_targets, callees.if_called.unresolved)
-                                }
+                                ExpressionCallees::AttributeAccess(callees) => (
+                                    [
+                                        callees.if_called.call_targets,
+                                        callees.property_getters,
+                                        callees.property_setters,
+                                    ]
+                                    .concat(),
+                                    callees.if_called.unresolved,
+                                ),
                                 ExpressionCallees::Identifier(callees) => {
                                     (callees.if_called.call_targets, callees.if_called.unresolved)
                                 }

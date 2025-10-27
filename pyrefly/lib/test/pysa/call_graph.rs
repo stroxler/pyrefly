@@ -311,6 +311,31 @@ fn call_callees(
     })
 }
 
+fn regular_call_callees(
+    call_targets: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::Call(CallCallees {
+        call_targets: call_targets.to_vec(),
+        init_targets: vec![],
+        new_targets: vec![],
+        higher_order_parameters: HashMap::new(),
+        unresolved: Unresolved::False,
+    })
+}
+
+fn constructor_call_callees(
+    init_targets: Vec<CallTarget<FunctionRefForTest>>,
+    new_targets: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::Call(CallCallees {
+        call_targets: vec![],
+        init_targets: init_targets.to_vec(),
+        new_targets: new_targets.to_vec(),
+        higher_order_parameters: HashMap::new(),
+        unresolved: Unresolved::False,
+    })
+}
+
 fn attribute_access_callees(
     call_targets: Vec<CallTarget<FunctionRefForTest>>,
     init_targets: Vec<CallTarget<FunctionRefForTest>>,
@@ -333,6 +358,7 @@ fn attribute_access_callees(
     })
 }
 
+#[allow(dead_code)]
 fn identifier_callees(
     call_targets: Vec<CallTarget<FunctionRefForTest>>,
     init_targets: Vec<CallTarget<FunctionRefForTest>>,
@@ -347,6 +373,20 @@ fn identifier_callees(
             new_targets: new_targets.to_vec(),
             higher_order_parameters: create_higher_order_parameters(higher_order_parameters),
             unresolved,
+        },
+    })
+}
+
+fn regular_identifier_callees(
+    call_targets: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::Identifier(IdentifierCallees {
+        if_called: CallCallees {
+            call_targets: call_targets.to_vec(),
+            init_targets: vec![],
+            new_targets: vec![],
+            higher_order_parameters: HashMap::new(),
+            unresolved: Unresolved::False,
         },
     })
 }
@@ -381,13 +421,7 @@ def bar():
             "test.foo",
             vec![(
                 "3:3-3:8",
-                call_callees(
-                    vec![create_call_target("test.bar", TargetType::Function)],
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                regular_call_callees(vec![create_call_target("test.bar", TargetType::Function)]),
             )],
         )]
     }
@@ -411,16 +445,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "6:3-6:8",
-                call_callees(
-                    call_target,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("6:3-6:8", regular_call_callees(call_target))],
         )]
     }
 );
@@ -444,29 +469,17 @@ def foo(b: bool):
             vec![
                 (
                     "6:9-6:12",
-                    identifier_callees(
-                        vec![
-                            create_call_target("test.bar", TargetType::Function)
-                                .with_return_type(Some(ScalarTypeProperties::bool())),
-                        ],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    regular_identifier_callees(vec![
+                        create_call_target("test.bar", TargetType::Function)
+                            .with_return_type(Some(ScalarTypeProperties::bool())),
+                    ]),
                 ),
                 (
                     "8:9-8:12",
-                    identifier_callees(
-                        vec![
-                            create_call_target("test.baz", TargetType::Function)
-                                .with_return_type(Some(ScalarTypeProperties::int())),
-                        ],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    regular_identifier_callees(vec![
+                        create_call_target("test.baz", TargetType::Function)
+                            .with_return_type(Some(ScalarTypeProperties::int())),
+                    ]),
                 ),
             ],
         )]
@@ -493,16 +506,7 @@ def foo(c: Optional[C]):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "8:5-8:10",
-                call_callees(
-                    call_target,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("8:5-8:10", regular_call_callees(call_target))],
         )]
     }
 );
@@ -531,16 +535,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "12:3-12:8",
-                call_callees(
-                    call_target,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("12:3-12:8", regular_call_callees(call_target))],
         )]
     }
 );
@@ -588,46 +583,10 @@ def foo(c: C):
         vec![(
             "test.foo",
             vec![
-                (
-                    "7:3-7:8",
-                    call_callees(
-                        class_method_target,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "8:3-8:8",
-                    call_callees(
-                        class_method_target_2,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "9:3-9:9",
-                    call_callees(
-                        method_target,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "10:3-10:8",
-                    call_callees(
-                        method_target_2,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("7:3-7:8", regular_call_callees(class_method_target)),
+                ("8:3-8:8", regular_call_callees(class_method_target_2)),
+                ("9:3-9:9", regular_call_callees(method_target)),
+                ("10:3-10:8", regular_call_callees(method_target_2)),
             ],
         )]
     }
@@ -659,16 +618,7 @@ def foo(d: D):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "11:3-11:8",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("11:3-11:8", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -691,16 +641,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "5:4-5:8",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("5:4-5:8", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -724,16 +665,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "6:4-6:8",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("6:4-6:8", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -756,16 +688,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "5:4-5:17",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("5:4-5:17", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -798,16 +721,7 @@ def foo():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                (
-                    "7:8-7:11",
-                    identifier_callees(
-                        bar,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("7:8-7:11", regular_identifier_callees(bar)),
             ],
         )]
     }
@@ -833,16 +747,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "6:4-6:8",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("6:4-6:8", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -871,13 +776,7 @@ def foo():
             "test.foo",
             vec![(
                 "5:3-5:7",
-                call_callees(
-                    /* call_targets */ vec![],
-                    init_targets,
-                    new_targets,
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                constructor_call_callees(init_targets, new_targets),
             )],
         )]
     }
@@ -905,13 +804,7 @@ def foo(x: str) -> int:
             "test.foo",
             vec![(
                 "3:10-3:16",
-                call_callees(
-                    /* call_targets */ vec![],
-                    init_targets,
-                    new_targets,
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                constructor_call_callees(init_targets, new_targets),
             )],
         )]
     }
@@ -938,13 +831,7 @@ def foo():
             "test.foo",
             vec![(
                 "5:3-5:7",
-                call_callees(
-                    /* call_targets */ vec![],
-                    init_targets,
-                    new_targets,
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                constructor_call_callees(init_targets, new_targets),
             )],
         )]
     }
@@ -975,13 +862,7 @@ def foo():
             "test.foo",
             vec![(
                 "6:3-6:7",
-                call_callees(
-                    /* call_targets */ vec![],
-                    init_targets,
-                    new_targets,
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                constructor_call_callees(init_targets, new_targets),
             )],
         )]
     }
@@ -1009,13 +890,7 @@ def foo():
             "test.foo",
             vec![(
                 "6:3-6:7",
-                call_callees(
-                    /* call_targets */ vec![],
-                    init_targets,
-                    new_targets,
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                constructor_call_callees(init_targets, new_targets),
             )],
         )]
     }
@@ -1237,16 +1112,7 @@ def foo():
         ];
         vec![(
             "test.foo",
-            vec![(
-                "6:3-6:9",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("6:3-6:9", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1281,16 +1147,7 @@ def bar():
         ];
         vec![(
             "test.bar",
-            vec![(
-                "17:3-17:10",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("17:3-17:10", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1318,16 +1175,7 @@ class B(A):
         ];
         vec![(
             "test.A.f",
-            vec![(
-                "5:14-5:22",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("5:14-5:22", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1349,16 +1197,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "5:3-5:10",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("5:3-5:10", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1376,16 +1215,7 @@ def foo(c: C):
         let call_targets = vec![create_call_target("builtins.repr", TargetType::Function)];
         vec![(
             "test.foo",
-            vec![(
-                "5:3-5:10",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("5:3-5:10", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1403,16 +1233,7 @@ def foo(x=bar()):
         let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
             "test.foo",
-            vec![(
-                "4:11-4:16",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("4:11-4:16", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1451,24 +1272,9 @@ class D(C):
             vec![
                 (
                     "9:5-9:12",
-                    call_callees(
-                        /* call_targets */ vec![],
-                        init_targets,
-                        new_targets,
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    constructor_call_callees(init_targets, new_targets),
                 ),
-                (
-                    "9:5-9:17",
-                    call_callees(
-                        call_targets,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("9:5-9:17", regular_call_callees(call_targets)),
             ],
         )]
     }
@@ -1494,16 +1300,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "9:3-9:12",
-                call_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("9:3-9:12", regular_call_callees(call_targets))],
         )]
     }
 );
@@ -1522,16 +1319,7 @@ def foo():
         let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
             "test.foo@decorated",
-            vec![(
-                "4:2-4:5",
-                identifier_callees(
-                    call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("4:2-4:5", regular_identifier_callees(call_targets))],
         )]
     }
 );
@@ -1580,36 +1368,9 @@ def foo(c: C):
         vec![(
             "test.foo",
             vec![
-                (
-                    "14:3-14:9",
-                    call_callees(
-                        call_targets_c_f,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "15:3-15:9",
-                    call_callees(
-                        call_targets_d_f,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "16:3-16:8",
-                    call_callees(
-                        call_targets_d_g,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("14:3-14:9", regular_call_callees(call_targets_c_f)),
+                ("15:3-15:9", regular_call_callees(call_targets_d_f)),
+                ("16:3-16:8", regular_call_callees(call_targets_d_g)),
             ],
         )]
     }
@@ -1650,16 +1411,7 @@ def foo():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                (
-                    "8:7-8:10",
-                    identifier_callees(
-                        bar,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("8:7-8:10", regular_identifier_callees(bar)),
             ],
         )]
     }
@@ -1685,7 +1437,6 @@ def main():
             create_call_target("test.hof", TargetType::Function)
                 .with_return_type(Some(ScalarTypeProperties::bool())),
         ];
-
         let foo = vec![
             create_call_target("test.foo", TargetType::Function)
                 .with_return_type(Some(ScalarTypeProperties::int())),
@@ -1711,26 +1462,8 @@ def main():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                (
-                    "11:12-11:15",
-                    identifier_callees(
-                        bar,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "11:7-11:10",
-                    identifier_callees(
-                        foo,
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("11:12-11:15", regular_identifier_callees(bar)),
+                ("11:7-11:10", regular_identifier_callees(foo)),
             ],
         )]
     }
@@ -1769,6 +1502,63 @@ def foo():
                     /* unresolved */ Unresolved::False,
                 ),
             )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_property_access_on_property_decorator_alias,
+    TEST_MODULE_NAME,
+    r#" 
+from typing import List, Any
+_magic_enum = property
+class Enum:
+  @_magic_enum
+  def value(self) -> List[Any]: ...
+class Permission(Enum):
+  @property
+  def action_name(self) -> bool:
+    if len(self.value):
+        return True
+    return False
+"#,
+    &|context: &ModuleContext| {
+        let len = vec![
+            create_call_target("builtins.len", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        let enum_value = vec![
+            create_call_target("test.Enum.value", TargetType::Function)
+                .with_receiver_class_for_test("test.Permission", context)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        vec![(
+            "test.Permission.action_name",
+            vec![
+                (
+                    "10:8-10:23",
+                    call_callees(
+                        len,
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* higher_order_parameters */
+                        vec![(0, enum_value.clone(), Unresolved::False)],
+                        /* unresolved */ Unresolved::False,
+                    ),
+                ),
+                (
+                    "10:12-10:22",
+                    attribute_access_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* property_setters */ vec![],
+                        /* property_getters */ enum_value,
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */ Unresolved::False,
+                    ),
+                ),
+            ],
         )]
     }
 );

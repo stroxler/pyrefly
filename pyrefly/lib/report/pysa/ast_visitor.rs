@@ -9,6 +9,7 @@ use dupe::Dupe;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::class::Class;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -345,7 +346,7 @@ fn visit_statement<V: AstScopedVisitor>(
         }
         fn visit_annotation(&mut self, expr: &'e Expr) {
             if V::visit_type_annotations() {
-                self.visit_expr(expr);
+                ruff_python_ast::visitor::source_order::walk_annotation(self, expr);
             }
         }
     }
