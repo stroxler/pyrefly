@@ -90,7 +90,6 @@ use lsp_types::SemanticTokensRangeParams;
 use lsp_types::SemanticTokensRangeResult;
 use lsp_types::SemanticTokensResult;
 use lsp_types::SemanticTokensServerCapabilities;
-use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
@@ -161,6 +160,7 @@ use pyrefly_util::prelude::VecExt;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::watch_pattern::WatchPattern;
+use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -191,6 +191,8 @@ use crate::lsp::non_wasm::workspace::LspAnalysisConfig;
 use crate::lsp::non_wasm::workspace::Workspace;
 use crate::lsp::non_wasm::workspace::Workspaces;
 use crate::lsp::wasm::hover::get_hover;
+use crate::lsp::wasm::notebook::NotebookDocumentSyncOptions;
+use crate::lsp::wasm::notebook::NotebookDocumentSyncRegistrationOptions;
 use crate::lsp::wasm::provide_type::ProvideType;
 use crate::lsp::wasm::provide_type::ProvideTypeResponse;
 use crate::lsp::wasm::provide_type::provide_type;
@@ -245,6 +247,22 @@ pub trait TspInterface {
         subsequent_mutation: bool,
         event: LspEvent,
     ) -> anyhow::Result<ProcessEvent>;
+}
+
+/// Until we upgrade lsp-types to 0.96 or newer, we'll need to patch in the notebook document
+/// sync capabilities
+#[derive(Debug, PartialEq, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerCapabilities {
+    #[serde(flatten)]
+    capabilities: lsp_types::ServerCapabilities,
+
+    /// Defines how notebook documents are synced.
+    ///
+    /// @since 3.17.0
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notebook_document_sync:
+        Option<OneOf<NotebookDocumentSyncOptions, NotebookDocumentSyncRegistrationOptions>>,
 }
 
 #[derive(Clone, Dupe)]
@@ -390,82 +408,85 @@ pub fn capabilities(
         .and_then(|c| c.augments_syntax_tokens)
         .unwrap_or(false);
     ServerCapabilities {
-        position_encoding: Some(PositionEncodingKind::UTF16),
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            TextDocumentSyncKind::INCREMENTAL,
-        )),
-        definition_provider: Some(OneOf::Left(true)),
-        type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
-        code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
-            code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
-            ..Default::default()
-        })),
-        completion_provider: Some(CompletionOptions {
-            trigger_characters: Some(vec![".".to_owned()]),
-            ..Default::default()
-        }),
-        document_highlight_provider: Some(OneOf::Left(true)),
-        // Find references won't work properly if we don't know all the files.
-        references_provider: match indexing_mode {
-            IndexingMode::None => None,
-            IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
-                Some(OneOf::Left(true))
-            }
-        },
-        rename_provider: match indexing_mode {
-            IndexingMode::None => None,
-            IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
-                Some(OneOf::Right(RenameOptions {
-                    prepare_provider: Some(true),
-                    work_done_progress_options: Default::default(),
-                }))
-            }
-        },
-        signature_help_provider: Some(SignatureHelpOptions {
-            trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
-            ..Default::default()
-        }),
-        hover_provider: Some(HoverProviderCapability::Simple(true)),
-        inlay_hint_provider: Some(OneOf::Left(true)),
-        document_symbol_provider: Some(OneOf::Left(true)),
-        workspace_symbol_provider: Some(OneOf::Left(true)),
-        semantic_tokens_provider: if augments_syntax_tokens {
-            // We currently only return partial tokens (e.g. no tokens for keywords right now).
-            // If the client doesn't support `augments_syntax_tokens` to fallback baseline
-            // syntax highlighting for tokens we don't provide, it will be a regression
-            // (e.g. users might lose keyword highlighting).
-            // Therefore, we should not produce semantic tokens if the client doesn't support `augments_syntax_tokens`.
-            Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
-                SemanticTokensOptions {
-                    legend: SemanticTokensLegends::lsp_semantic_token_legends(),
-                    full: Some(SemanticTokensFullOptions::Bool(true)),
-                    range: Some(true),
-                    ..Default::default()
-                },
-            ))
-        } else {
-            None
-        },
-        workspace: Some(WorkspaceServerCapabilities {
-            workspace_folders: Some(WorkspaceFoldersServerCapabilities {
-                supported: Some(true),
-                change_notifications: Some(OneOf::Left(true)),
-            }),
-            file_operations: Some(lsp_types::WorkspaceFileOperationsServerCapabilities {
-                will_rename: Some(lsp_types::FileOperationRegistrationOptions {
-                    filters: vec![lsp_types::FileOperationFilter {
-                        pattern: lsp_types::FileOperationPattern {
-                            glob: "**/*.{py,pyi}".to_owned(),
-
-                            matches: Some(lsp_types::FileOperationPatternKind::File),
-                            options: None,
-                        },
-                        scheme: Some("file".to_owned()),
-                    }],
-                }),
+        capabilities: lsp_types::ServerCapabilities {
+            position_encoding: Some(PositionEncodingKind::UTF16),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                TextDocumentSyncKind::INCREMENTAL,
+            )),
+            definition_provider: Some(OneOf::Left(true)),
+            type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
+            code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
+                code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
+                ..Default::default()
+            })),
+            completion_provider: Some(CompletionOptions {
+                trigger_characters: Some(vec![".".to_owned()]),
                 ..Default::default()
             }),
-        }),
+            document_highlight_provider: Some(OneOf::Left(true)),
+            // Find references won't work properly if we don't know all the files.
+            references_provider: match indexing_mode {
+                IndexingMode::None => None,
+                IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
+                    Some(OneOf::Left(true))
+                }
+            },
+            rename_provider: match indexing_mode {
+                IndexingMode::None => None,
+                IndexingMode::LazyNonBlockingBackground | IndexingMode::LazyBlocking => {
+                    Some(OneOf::Right(RenameOptions {
+                        prepare_provider: Some(true),
+                        work_done_progress_options: Default::default(),
+                    }))
+                }
+            },
+            signature_help_provider: Some(SignatureHelpOptions {
+                trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
+                ..Default::default()
+            }),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            inlay_hint_provider: Some(OneOf::Left(true)),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
+            semantic_tokens_provider: if augments_syntax_tokens {
+                // We currently only return partial tokens (e.g. no tokens for keywords right now).
+                // If the client doesn't support `augments_syntax_tokens` to fallback baseline
+                // syntax highlighting for tokens we don't provide, it will be a regression
+                // (e.g. users might lose keyword highlighting).
+                // Therefore, we should not produce semantic tokens if the client doesn't support `augments_syntax_tokens`.
+                Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+                    SemanticTokensOptions {
+                        legend: SemanticTokensLegends::lsp_semantic_token_legends(),
+                        full: Some(SemanticTokensFullOptions::Bool(true)),
+                        range: Some(true),
+                        ..Default::default()
+                    },
+                ))
+            } else {
+                None
+            },
+            workspace: Some(WorkspaceServerCapabilities {
+                workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                    supported: Some(true),
+                    change_notifications: Some(OneOf::Left(true)),
+                }),
+                file_operations: Some(lsp_types::WorkspaceFileOperationsServerCapabilities {
+                    will_rename: Some(lsp_types::FileOperationRegistrationOptions {
+                        filters: vec![lsp_types::FileOperationFilter {
+                            pattern: lsp_types::FileOperationPattern {
+                                glob: "**/*.{py,pyi}".to_owned(),
+
+                                matches: Some(lsp_types::FileOperationPatternKind::File),
+                                options: None,
+                            },
+                            scheme: Some("file".to_owned()),
+                        }],
+                    }),
+                    ..Default::default()
+                }),
+            }),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
