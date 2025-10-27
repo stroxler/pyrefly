@@ -98,7 +98,7 @@ impl Display for Variable {
                     write!(f, "Quantified({k})")
                 }
             }
-            Variable::LoopRecursive(t) => write!(f, "LoopRecursive({t})"),
+            Variable::LoopRecursive(t) => write!(f, "LoopRecursive(prior={t})"),
             Variable::Recursive => write!(f, "Recursive"),
             Variable::Parameter => write!(f, "Parameter"),
             Variable::Unwrap => write!(f, "Unwrap"),
