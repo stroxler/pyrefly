@@ -786,7 +786,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
 dependencies = [
- "log",
+ "log 0.4.28",
  "regex",
 ]
 
@@ -1072,7 +1072,7 @@ checksum = "15f1ce686646e7f1e19bf7d5533fe443a45dbfb990e00629110797578b42fb19"
 dependencies = [
  "aho-corasick",
  "bstr",
- "log",
+ "log 0.4.28",
  "regex-automata",
  "regex-syntax 0.8.5",
 ]
@@ -1309,7 +1309,7 @@ checksum = "6d89fd380afde86567dfba715db065673989d6253f42b88179abd3eae47bda4b"
 dependencies = [
  "crossbeam-deque",
  "globset",
- "log",
+ "log 0.4.28",
  "memchr",
  "regex-automata",
  "same-file",
@@ -1583,9 +1583,18 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.27"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
+checksum = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
+dependencies = [
+ "log 0.4.28",
+]
+
+[[package]]
+name = "log"
+version = "0.4.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
 name = "lsp-server"
@@ -1594,7 +1603,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37ea9ae5a5082ca3b6ae824fc7666cd206b99168a4d4c769ad8fe9cc740df6a6"
 dependencies = [
  "crossbeam-channel",
- "log",
+ "log 0.4.28",
  "serde",
  "serde_json",
 ]
@@ -1700,7 +1709,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 dependencies = [
  "libc",
- "log",
+ "log 0.4.28",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
 ]
@@ -2313,7 +2322,7 @@ version = "1.0.3"
 source = "git+https://github.com/jakoschiko/quickcheck?rev=6ecdf5bb4b0132ce66670b4d46453aa022ea892c#6ecdf5bb4b0132ce66670b4d46453aa022ea892c"
 dependencies = [
  "env_logger",
- "log",
+ "log 0.4.28",
  "rand 0.8.5",
 ]
 
@@ -3225,7 +3234,7 @@ dependencies = [
  "futures-core",
  "futures-io",
  "futures-sink",
- "log",
+ "log 0.4.28",
  "pin-project-lite",
  "slab",
  "tokio",
@@ -3323,7 +3332,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
 dependencies = [
- "log",
+ "log 0.4.28",
  "once_cell",
  "tracing-core",
 ]
@@ -3444,7 +3453,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f444b8bba042fe3c1251ffaca35c603f2dc2ccc08d595c65a8c4f76f3e8426c0"
 dependencies = [
  "getopts",
- "log",
+ "log 0.3.9",
  "phf_codegen",
  "rand 0.8.5",
 ]
@@ -3578,7 +3587,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f0a0651a5c2bc21487bde11ee802ccaf4c51935d0d3d42a6101f98161700bc6"
 dependencies = [
  "bumpalo",
- "log",
+ "log 0.4.28",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
