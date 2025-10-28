@@ -799,22 +799,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) {
         let actual_type = self.expr_infer(x, errors);
-        if allow_none && actual_type.is_none() {
-            return;
-        }
         let base_exception_class = self.stdlib.base_exception();
         let base_exception_class_type = Type::ClassDef(base_exception_class.class_object().dupe());
         let base_exception_type = base_exception_class.clone().to_type();
-        let expected_types = vec![base_exception_type, base_exception_class_type];
+        let mut expected_types = vec![base_exception_type, base_exception_class_type];
+        let mut expected = "`BaseException`";
+        if allow_none {
+            expected_types.push(Type::None);
+            expected = "`BaseException` or `None`"
+        }
         if !self.is_subset_eq(&actual_type, &Type::Union(expected_types)) {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                ErrorInfo::Kind(ErrorKind::BadRaise),
                 format!(
-                    "Expression `{}` has type `{}` which does not derive from BaseException",
+                    "Expression `{}` has type `{}`, expected {}",
                     self.module().display(x),
                     self.for_display(actual_type),
+                    expected,
                 ),
             );
         }

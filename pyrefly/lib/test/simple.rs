@@ -422,17 +422,18 @@ assert_type(0 if derp() else 1, Literal[0] | Literal[1])
 testcase!(
     test_raise,
     r#"
-def test_raise() -> None:
+def test_raise(exception_or_none: BaseException | None) -> None:
     raise
-    raise None  # E: does not derive from BaseException
+    raise None  # E: expected `BaseException`
     raise BaseException
     raise BaseException()
-    raise 42  # E: does not derive from BaseException
+    raise 42  # E: expected `BaseException`
     raise BaseException from None
     raise BaseException() from None
     raise BaseException() from BaseException
     raise BaseException() from BaseException()
-    raise BaseException() from 42   # E: does not derive from BaseException
+    raise BaseException() from 42   # E: expected `BaseException` or `None`
+    raise BaseException() from exception_or_none
 "#,
 );
 

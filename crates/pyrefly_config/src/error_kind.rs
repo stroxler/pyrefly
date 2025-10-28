@@ -117,6 +117,8 @@ pub enum ErrorKind {
     /// A subclass method incorrectly changes the name of a positional parameter while overriding
     /// a method of a parent class.
     BadParamNameOverride,
+    /// Invalid exception or cause in `raise` statement.
+    BadRaise,
     /// Attempting to return a value that does not match the function's return type.
     /// Can also arise when returning values from generators.
     BadReturn,
