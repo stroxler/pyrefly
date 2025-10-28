@@ -13,6 +13,7 @@ use std::ops::Not;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
@@ -36,7 +37,10 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use serde::Serialize;
+use starlark_map::Hashed;
 
+use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
 use crate::report::pysa::ast_visitor::ScopeExportedFunctionFlags;
 use crate::report::pysa::ast_visitor::Scopes;
@@ -46,9 +50,11 @@ use crate::report::pysa::class::get_class_field;
 use crate::report::pysa::class::get_context_from_class;
 use crate::report::pysa::context::ModuleContext;
 use crate::report::pysa::function::FunctionBaseDefinition;
+use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionNode;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
+use crate::report::pysa::function::should_export_decorated_function;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::override_graph::OverrideGraph;
@@ -386,10 +392,48 @@ impl<Function: FunctionTrait> IdentifierCallees<Function> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DefineCallees<Function: FunctionTrait> {
+    pub(crate) define_targets: Vec<CallTarget<Function>>,
+}
+
+impl<Function: FunctionTrait> DefineCallees<Function> {
+    #[cfg(test)]
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
+        self,
+        map: &MapFunction,
+    ) -> DefineCallees<OutputFunction>
+    where
+        MapFunction: Fn(Function) -> OutputFunction,
+    {
+        DefineCallees {
+            define_targets: self
+                .define_targets
+                .into_iter()
+                .map(|call_target| CallTarget::map_function(call_target, map))
+                .collect(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.define_targets.is_empty()
+    }
+
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
+        self.define_targets.iter()
+    }
+
+    fn dedup_and_sort(&mut self) {
+        self.define_targets.sort();
+        self.define_targets.dedup();
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum ExpressionCallees<Function: FunctionTrait> {
     Call(CallCallees<Function>),
     Identifier(IdentifierCallees<Function>),
     AttributeAccess(AttributeAccessCallees<Function>),
+    Define(DefineCallees<Function>),
 }
 
 impl<Function: FunctionTrait> ExpressionCallees<Function> {
@@ -411,6 +455,9 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             ExpressionCallees::AttributeAccess(attribute_access_callees) => {
                 ExpressionCallees::AttributeAccess(attribute_access_callees.map_function(map))
             }
+            ExpressionCallees::Define(define_callees) => {
+                ExpressionCallees::Define(define_callees.map_function(map))
+            }
         }
     }
 
@@ -421,6 +468,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             ExpressionCallees::AttributeAccess(attribute_access_callees) => {
                 attribute_access_callees.is_empty()
             }
+            ExpressionCallees::Define(define_callees) => define_callees.is_empty(),
         }
     }
 
@@ -433,6 +481,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             ExpressionCallees::AttributeAccess(attribute_access_callees) => {
                 Box::new(attribute_access_callees.all_targets())
             }
+            ExpressionCallees::Define(define_callees) => Box::new(define_callees.all_targets()),
         }
     }
 
@@ -446,6 +495,9 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             }
             ExpressionCallees::Identifier(identifier_callees) => {
                 identifier_callees.dedup_and_sort();
+            }
+            ExpressionCallees::Define(define_callees) => {
+                define_callees.dedup_and_sort();
             }
         }
     }
@@ -823,7 +875,7 @@ impl<'a> CallGraphVisitor<'a> {
         return_type: Option<ScalarTypeProperties>,
         receiver_type: Option<&Type>,
         // For example, `f` in call expr `f(1)` or `__call__` in call expr `c.__call__(1)`
-        callee_expr_suffix: &str,
+        callee_expr_suffix: Option<&str>,
         is_override_target: bool,
         override_implicit_receiver: Option<ImplicitReceiver>,
     ) -> CallTarget<FunctionRef> {
@@ -842,7 +894,7 @@ impl<'a> CallGraphVisitor<'a> {
             )),
             receiver_class,
             implicit_dunder_call: function_ref.function_name == dunder::CALL
-                && callee_expr_suffix != dunder::CALL.as_str(),
+                && callee_expr_suffix.is_some_and(|suffix| suffix != dunder::CALL.as_str()),
             is_class_method: is_classmethod,
             is_static_method: is_staticmethod || function_ref.function_name == dunder::NEW,
             return_type,
@@ -860,7 +912,7 @@ impl<'a> CallGraphVisitor<'a> {
         defining_class: Option<&Type>,
         return_type: Option<ScalarTypeProperties>,
         is_bound_method: bool,
-        callee_expr_suffix: &str,
+        callee_expr_suffix: Option<&str>,
         override_implicit_receiver: Option<ImplicitReceiver>,
     ) -> Option<CallTarget<FunctionRef>> {
         match defining_class {
@@ -893,7 +945,7 @@ impl<'a> CallGraphVisitor<'a> {
         &self,
         new_method: &pyrefly_types::callable::Function,
         return_type: Option<ScalarTypeProperties>,
-        callee_expr_suffix: &str,
+        callee_expr_suffix: Option<&str>,
     ) -> Option<CallTarget<FunctionRef>> {
         let class_type = find_class_type_for_new_method(&new_method.signature.params);
         self.call_target_from_method_name(
@@ -911,7 +963,7 @@ impl<'a> CallGraphVisitor<'a> {
         init_method: Option<Type>,
         new_method: Option<Type>,
         return_type: Option<ScalarTypeProperties>,
-        callee_expr_suffix: &str,
+        callee_expr_suffix: Option<&str>,
     ) -> CallCallees<FunctionRef> {
         let object_class = self.module_context.stdlib.object();
         let object_init_method = || {
@@ -1015,7 +1067,7 @@ impl<'a> CallGraphVisitor<'a> {
             })
             .collect::<Vec<_>>();
 
-        let callee_expr_suffix = name.id.as_str();
+        let callee_expr_suffix = Some(name.id.as_str());
         if !go_to_definitions.is_empty() {
             let go_to_definitions = go_to_definitions
                 .into_iter()
@@ -1204,7 +1256,7 @@ impl<'a> CallGraphVisitor<'a> {
             (vec![], property_callees)
         };
 
-        let callee_expr_suffix = attribute.attr.id.as_str();
+        let callee_expr_suffix = Some(attribute.attr.id.as_str());
         let receiver_type = self
             .module_context
             .answers
@@ -1340,6 +1392,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 ExpressionCallees::Identifier(callees) => {
                                     (callees.if_called.call_targets, callees.if_called.unresolved)
                                 }
+                                ExpressionCallees::Define(_) => unreachable!(),
                             };
                             (
                                 index,
@@ -1467,6 +1520,69 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_function_def(
+        &self,
+        function_def: &StmtFunctionDef,
+    ) -> Option<ExpressionCallees<FunctionRef>> {
+        let is_inner_function = match self.current_function {
+            Some(FunctionRef {
+                module_id: _,
+                module_name: _,
+                function_id: FunctionId::ClassTopLevel { .. },
+                function_name: _,
+            }) => false,
+            Some(FunctionRef {
+                module_id: _,
+                module_name: _,
+                function_id: FunctionId::ModuleTopLevel,
+                function_name: _,
+            }) => false,
+            Some(FunctionRef {
+                module_id: _,
+                module_name: _,
+                function_id: FunctionId::FunctionDecoratedTarget { .. },
+                function_name: _,
+            }) => false,
+            _ => true,
+        };
+        if !is_inner_function {
+            return None;
+        }
+        let key = KeyDecoratedFunction(ShortIdentifier::new(&function_def.name));
+        self.module_context
+            .bindings
+            .key_to_idx_hashed_opt(Hashed::new(&key))
+            .and_then(|idx| {
+                let decorated_function = DecoratedFunction::from_bindings_answers(
+                    idx,
+                    &self.module_context.bindings,
+                    &self.module_context.answers,
+                );
+                if should_export_decorated_function(&decorated_function, self.module_context) {
+                    let return_type = decorated_function
+                        .ty
+                        .callable_return_type()
+                        .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+                    let target = self.call_target_from_function_ref(
+                        FunctionRef::from_decorated_function(
+                            &decorated_function,
+                            self.module_context,
+                        ),
+                        return_type,
+                        /* receiver_type */ None,
+                        /* callee_expr_suffix */ None,
+                        /* is_override_target */ false,
+                        /* override_implicit_receiver*/ None,
+                    );
+                    Some(ExpressionCallees::Define(DefineCallees {
+                        define_targets: vec![target],
+                    }))
+                } else {
+                    None
+                }
+            })
+    }
+
     // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
     const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
 
@@ -1545,6 +1661,20 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
             && !callees.is_empty()
         {
             self.add_callees(expr.range(), callees);
+        }
+    }
+
+    fn visit_statement(&mut self, stmt: &Stmt, _scopes: &Scopes) {
+        match stmt {
+            Stmt::FunctionDef(function_def) => {
+                let callees = self.resolve_function_def(function_def);
+                if let Some(callees) = callees
+                    && !callees.is_empty()
+                {
+                    self.add_callees(function_def.range(), callees);
+                }
+            }
+            _ => {}
         }
     }
 }

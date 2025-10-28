@@ -16,6 +16,7 @@ use crate::report::pysa::call_graph::CallCallees;
 use crate::report::pysa::call_graph::CallGraph;
 use crate::report::pysa::call_graph::CallGraphs;
 use crate::report::pysa::call_graph::CallTarget;
+use crate::report::pysa::call_graph::DefineCallees;
 use crate::report::pysa::call_graph::ExpressionCallees;
 use crate::report::pysa::call_graph::FunctionTrait;
 use crate::report::pysa::call_graph::HigherOrderParameter;
@@ -287,7 +288,7 @@ fn create_higher_order_parameters(
                 index,
                 HigherOrderParameter {
                     index,
-                    call_targets: call_targets.to_vec(),
+                    call_targets,
                     unresolved,
                 },
             )
@@ -303,11 +304,19 @@ fn call_callees(
     unresolved: Unresolved,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Call(CallCallees {
-        call_targets: call_targets.to_vec(),
-        init_targets: init_targets.to_vec(),
-        new_targets: new_targets.to_vec(),
+        call_targets,
+        init_targets,
+        new_targets,
         higher_order_parameters: create_higher_order_parameters(higher_order_parameters),
         unresolved,
+    })
+}
+
+fn define_callees(
+    call_targets: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::Define(DefineCallees {
+        define_targets: call_targets,
     })
 }
 
@@ -315,7 +324,7 @@ fn regular_call_callees(
     call_targets: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Call(CallCallees {
-        call_targets: call_targets.to_vec(),
+        call_targets,
         init_targets: vec![],
         new_targets: vec![],
         higher_order_parameters: HashMap::new(),
@@ -329,8 +338,8 @@ fn constructor_call_callees(
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Call(CallCallees {
         call_targets: vec![],
-        init_targets: init_targets.to_vec(),
-        new_targets: new_targets.to_vec(),
+        init_targets,
+        new_targets,
         higher_order_parameters: HashMap::new(),
         unresolved: Unresolved::False,
     })
@@ -347,14 +356,14 @@ fn attribute_access_callees(
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
         if_called: CallCallees {
-            call_targets: call_targets.to_vec(),
-            init_targets: init_targets.to_vec(),
-            new_targets: new_targets.to_vec(),
+            call_targets,
+            init_targets,
+            new_targets,
             higher_order_parameters: create_higher_order_parameters(higher_order_parameters),
             unresolved,
         },
-        property_setters: property_setters.to_vec(),
-        property_getters: property_getters.to_vec(),
+        property_setters,
+        property_getters,
     })
 }
 
@@ -368,9 +377,9 @@ fn identifier_callees(
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Identifier(IdentifierCallees {
         if_called: CallCallees {
-            call_targets: call_targets.to_vec(),
-            init_targets: init_targets.to_vec(),
-            new_targets: new_targets.to_vec(),
+            call_targets,
+            init_targets,
+            new_targets,
             higher_order_parameters: create_higher_order_parameters(higher_order_parameters),
             unresolved,
         },
@@ -382,7 +391,7 @@ fn regular_identifier_callees(
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Identifier(IdentifierCallees {
         if_called: CallCallees {
-            call_targets: call_targets.to_vec(),
+            call_targets,
             init_targets: vec![],
             new_targets: vec![],
             higher_order_parameters: HashMap::new(),
@@ -1643,6 +1652,55 @@ def foo(c: C):
             vec![
                 ("6:3-6:8", regular_call_callees(c_f)),
                 ("7:3-7:9", regular_call_callees(c_f_explicit)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_nested_function_call_in_outer_function,
+    TEST_MODULE_NAME,
+    r#"
+def outer(x: int) -> None:
+  def inner(x: int) -> int:
+    return 0
+  inner(x)
+"#,
+    &|_context: &ModuleContext| {
+        let inner_target = vec![
+            create_call_target("test.inner", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            "test.outer",
+            vec![
+                ("5:3-5:11", regular_call_callees(inner_target.clone())),
+                ("3:3-4:13", define_callees(inner_target)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_nested_function_call_in_class_method,
+    TEST_MODULE_NAME,
+    r#"
+class Foo:
+  def outer(self, x: int) -> None:
+    def inner(x: int) -> int:
+      return 0
+    inner(x)
+"#,
+    &|_context: &ModuleContext| {
+        let inner_target = vec![
+            create_call_target("test.inner", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            "test.Foo.outer",
+            vec![
+                ("6:5-6:13", regular_call_callees(inner_target.clone())),
+                ("4:5-5:15", define_callees(inner_target)),
             ],
         )]
     }
