@@ -1214,6 +1214,9 @@ impl Server {
         config_to_populate_files: Option<ArcId<ConfigFile>>,
     ) {
         if let Some(config) = config_to_populate_files {
+            if config.skip_lsp_config_indexing {
+                return;
+            }
             match self.indexing_mode {
                 IndexingMode::None => {}
                 IndexingMode::LazyNonBlockingBackground => {

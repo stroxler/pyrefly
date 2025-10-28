@@ -378,6 +378,11 @@ pub struct ConfigFile {
                      alias = "ignore_missing_source",
                  )]
     pub ignore_missing_source: bool,
+
+    /// Should we let Pyrefly try to index the project's files? Disabling this
+    /// may speed up LSP operations on large projects.
+    #[serde(default, skip_serializing_if = "crate::util::skip_default_false")]
+    pub skip_lsp_config_indexing: bool,
 }
 
 impl Default for ConfigFile {
@@ -406,6 +411,7 @@ impl Default for ConfigFile {
             use_ignore_files: true,
             ignore_missing_source: true,
             typeshed_path: None,
+            skip_lsp_config_indexing: false,
         }
     }
 }
@@ -1134,6 +1140,7 @@ mod tests {
                 }],
                 ignore_missing_source: true,
                 typeshed_path: None,
+                skip_lsp_config_indexing: false,
             }
         );
     }
@@ -1357,6 +1364,7 @@ mod tests {
             }],
             ignore_missing_source: false,
             typeshed_path: None,
+            skip_lsp_config_indexing: false,
         };
 
         let current_dir = std::env::current_dir().unwrap();
@@ -1413,6 +1421,7 @@ mod tests {
             }],
             ignore_missing_source: false,
             typeshed_path: None,
+            skip_lsp_config_indexing: false,
         };
         assert_eq!(config, expected_config);
     }
