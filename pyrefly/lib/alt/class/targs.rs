@@ -163,7 +163,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// specialize(list, [int]) == list[int]
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
-    pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
+    pub fn promote(&self, cls: &Class, range: TextRange, _errors: &ErrorCollector) -> Type {
         let targs = self.create_default_targs(self.get_class_tparams(cls), Some(range));
         self.type_of_instance(cls, targs)
     }
