@@ -307,6 +307,16 @@ ERROR * Found stubs for `pkg`, but no source* (glob)
 [1]
 ```
 
+## We can disable `missing-source` on the command line
+
+```scrut {output_stream.stdout}
+$ mkdir $TMPDIR/error_missing_source && \
+> echo -e '[errors]\nmissing-source="error"' > $TMPDIR/error_missing_source/pyrefly.toml && \
+> echo "from pkg import X" > $TMPDIR/error_missing_source/foo.py && \
+> $PYREFLY check $TMPDIR/error_missing_source/foo.py --ignore-missing-source --site-package-path $TMPDIR/site_package_missing_source --output-format=min-text
+[0]
+```
+
 ## Regression test: we should still be able to find submodules when stubs are missing
 
 ```scrut {output_stream.stdout}
