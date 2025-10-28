@@ -25,6 +25,17 @@ article = Article()
 assert_type(article.reporter, Reporter) # E: assert_type(Any, Reporter) failed 
 assert_type(article.reporter.full_name, str) # E: assert_type(Any, str) failed 
 assert_type(article.reporter_id, int) # E: assert_type(Any, int) failed # E: Object of class `Article` has no attribute `reporter_id`
+
+
+class B(Article):
+    pass
+
+b = B()
+
+assert_type(b.reporter, Reporter) # E: assert_type(Any, Reporter) failed 
+assert_type(b.reporter.full_name, str) # E: assert_type(Any, str) failed 
+assert_type(b.reporter_id, int) # E: assert_type(Any, int) failed # E: Object of class `B` has no attribute `reporter_id`
+
 "#,
 );
 
