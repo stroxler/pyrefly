@@ -11,10 +11,8 @@ use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
-use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::lined_buffer::LinedBuffer;
 use ruff_notebook::Notebook;
-use ruff_source_file::OneIndexed;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
@@ -92,11 +90,11 @@ impl Module {
     }
 
     pub fn display_range(&self, range: TextRange) -> DisplayRange {
-        self.0.contents.display_range(range)
+        self.0.contents.display_range(range, self.notebook())
     }
 
     pub fn display_pos(&self, offset: TextSize) -> DisplayPos {
-        self.0.contents.display_pos(offset)
+        self.0.contents.display_pos(offset, self.notebook())
     }
 
     pub fn code_at(&self, range: TextRange) -> &str {
@@ -130,8 +128,8 @@ impl Module {
         permissive_ignores: bool,
     ) -> bool {
         self.0.ignore.is_ignored(
-            source_range.start.line,
-            source_range.end.line,
+            source_range.start.line_within_file(),
+            source_range.end.line_within_file(),
             error_kind,
             permissive_ignores,
         )
@@ -156,22 +154,4 @@ impl TextRangeWithModule {
     pub fn new(module: Module, range: TextRange) -> Self {
         Self { module, range }
     }
-}
-
-/// Given a one-indexed row and column in the concatenated source,
-/// return the cell number, and the row/column in that cell.
-pub fn map_notebook_position(
-    notebook: &Notebook,
-    position: DisplayPos,
-) -> Option<(OneIndexed, DisplayPos)> {
-    let index = notebook.index();
-    let cell = index.cell(position.line.to_one_indexed())?;
-    let cell_row = index
-        .cell_row(position.line.to_one_indexed())
-        .unwrap_or(OneIndexed::MIN);
-    let display_pos = DisplayPos {
-        line: LineNumber::from_one_indexed(cell_row),
-        column: position.column,
-    };
-    Some((cell, display_pos))
 }

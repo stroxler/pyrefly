@@ -2274,6 +2274,7 @@ dependencies = [
  "path-absolutize",
  "pyrefly_derive",
  "rayon",
+ "ruff_notebook",
  "ruff_python_ast",
  "ruff_source_file",
  "ruff_text_size",
