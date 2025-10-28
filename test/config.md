@@ -300,6 +300,13 @@ ERROR * Found stubs for `pkg`, but no source* (glob)
 [1]
 ```
 
+```scrut {output_stream.stdout}
+$ echo "from pkg import X" > $TMPDIR/foo.py && \
+> $PYREFLY check $TMPDIR/foo.py --error=missing-source --site-package-path $TMPDIR/site_package_missing_source --output-format=min-text
+ERROR * Found stubs for `pkg`, but no source* (glob)
+[1]
+```
+
 ## Regression test: we should still be able to find submodules when stubs are missing
 
 ```scrut {output_stream.stdout}

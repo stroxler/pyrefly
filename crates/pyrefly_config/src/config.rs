@@ -676,6 +676,7 @@ impl ConfigFile {
             self.errors(path),
             self.ignore_errors_in_generated_code(path),
             self.permissive_ignores(path),
+            self.ignore_missing_source,
         )
     }
 

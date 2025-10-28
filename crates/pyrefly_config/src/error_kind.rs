@@ -284,6 +284,7 @@ impl ErrorKind {
             ErrorKind::ImplicitlyDefinedAttribute => Severity::Ignore,
             ErrorKind::ImplicitAbstractClass => Severity::Ignore,
             ErrorKind::ImplicitAny => Severity::Ignore,
+            ErrorKind::MissingSource => Severity::Ignore,
             _ => Severity::Error,
         }
     }
