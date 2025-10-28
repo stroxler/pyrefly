@@ -1053,6 +1053,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ExprOrBinding::Expr(e) => {
                 let (inherited_ty, inherited_annot) = if direct_annotation.is_some() {
                     (None, None)
+                } else if Self::is_mangled_attr(name) {
+                    // Private (double-underscore) attributes are name-mangled at runtime and should not
+                    // inherit types or annotations from parent classes.
+                    is_inherited = IsInherited::No;
+                    (None, None)
                 } else {
                     let (inherited_ty, annotation) =
                         self.get_inherited_type_and_annotation(class, name);
