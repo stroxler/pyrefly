@@ -1901,7 +1901,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         // Private attributes should not participate in override checks
-        if field_name.starts_with("__") && !field_name.ends_with("__") {
+        if Self::is_mangled_attr(field_name) {
             return false;
         }
 
@@ -1921,6 +1921,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         true
+    }
+
+    pub fn is_mangled_attr(name: &Name) -> bool {
+        name.starts_with("__") && !name.ends_with("__")
     }
 
     pub fn check_consistent_override_for_field(
