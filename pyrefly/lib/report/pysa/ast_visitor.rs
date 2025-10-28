@@ -9,7 +9,6 @@ use dupe::Dupe;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::class::Class;
-use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -78,21 +77,26 @@ pub struct Scopes {
 }
 
 pub enum ExportFunctionDecorators {
+    #[allow(dead_code)]
     InDecoratedFunction,
     InParentScope,
     InDecoratedTarget,
+    #[allow(dead_code)]
     Ignore,
 }
 
 pub enum ExportClassDecorators {
+    #[allow(dead_code)]
     InDecoratedClassTopLevel,
     InParentScope,
+    #[allow(dead_code)]
     Ignore,
 }
 
 pub enum ExportDefaultArguments {
     InFunction,
     InParentScope,
+    #[allow(dead_code)]
     Ignore,
 }
 

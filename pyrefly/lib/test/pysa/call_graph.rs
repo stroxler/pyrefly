@@ -1562,3 +1562,88 @@ class Permission(Enum):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_builder_pattern_method_chaining,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Optional
+class Builder:
+    def __init__(self) -> None:
+        self._saved: Optional[str] = None
+        self._not_saved: Optional[str] = None
+    def set_saved(self, saved: str) -> "Builder":
+        self._saved = saved
+        return self
+    def set_not_saved(self, not_saved: str) -> "Builder":
+        self._not_saved = not_saved
+        return self
+def foo():
+    builder = Builder()
+    builder.set_not_saved("true").set_saved("false")
+"#,
+    &|context: &ModuleContext| {
+        let init_targets = vec![
+            create_call_target("test.Builder.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Builder", context),
+        ];
+        let new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        let set_not_saved = vec![
+            create_call_target("test.Builder.set_not_saved", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Builder", context),
+        ];
+        let set_saved = vec![
+            create_call_target("test.Builder.set_saved", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Builder", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "14:15-14:24",
+                    constructor_call_callees(init_targets, new_targets),
+                ),
+                ("15:5-15:34", regular_call_callees(set_not_saved)),
+                ("15:5-15:53", regular_call_callees(set_saved)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_protocol_method_calls,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Protocol
+class C(Protocol):
+  def f(self) -> int: ...
+def foo(c: C):
+  c.f()
+  C.f(c)
+"#,
+    &|context: &ModuleContext| {
+        let c_f = vec![
+            create_call_target("test.C.f", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        let c_f_explicit = vec![
+            create_call_target("test.C.f", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                ("6:3-6:8", regular_call_callees(c_f)),
+                ("7:3-7:9", regular_call_callees(c_f_explicit)),
+            ],
+        )]
+    }
+);
