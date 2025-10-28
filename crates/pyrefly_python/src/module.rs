@@ -11,7 +11,10 @@ use dupe::Dupe;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
+use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::lined_buffer::LinedBuffer;
+use ruff_notebook::Notebook;
+use ruff_source_file::OneIndexed;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
@@ -32,6 +35,7 @@ struct ModuleInner {
     ignore: Ignore,
     is_generated: bool,
     contents: LinedBuffer,
+    notebook: Option<Box<Notebook>>,
 }
 
 impl Module {
@@ -46,6 +50,22 @@ impl Module {
             ignore,
             is_generated,
             contents,
+            notebook: None,
+        }))
+    }
+
+    pub fn new_notebook(name: ModuleName, path: ModulePath, notebook: Notebook) -> Self {
+        let contents: Arc<String> = Arc::from(notebook.source_code().to_owned());
+        let ignore = Ignore::new(&contents);
+        let is_generated = contents.contains(GENERATED_TOKEN);
+        let contents = LinedBuffer::new(contents);
+        Self(ArcId::new(ModuleInner {
+            name,
+            path,
+            ignore,
+            is_generated,
+            contents,
+            notebook: Some(Box::new(notebook)),
         }))
     }
 
@@ -87,6 +107,10 @@ impl Module {
         &self.0.path
     }
 
+    pub fn is_notebook(&self) -> bool {
+        self.0.notebook.is_some()
+    }
+
     pub fn is_generated(&self) -> bool {
         self.0.is_generated
     }
@@ -116,6 +140,10 @@ impl Module {
     pub fn ignore(&self) -> &Ignore {
         &self.0.ignore
     }
+
+    pub fn notebook(&self) -> Option<&Notebook> {
+        self.0.notebook.as_deref()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,4 +156,22 @@ impl TextRangeWithModule {
     pub fn new(module: Module, range: TextRange) -> Self {
         Self { module, range }
     }
+}
+
+/// Given a one-indexed row and column in the concatenated source,
+/// return the cell number, and the row/column in that cell.
+pub fn map_notebook_position(
+    notebook: &Notebook,
+    position: DisplayPos,
+) -> Option<(OneIndexed, DisplayPos)> {
+    let index = notebook.index();
+    let cell = index.cell(position.line.to_one_indexed())?;
+    let cell_row = index
+        .cell_row(position.line.to_one_indexed())
+        .unwrap_or(OneIndexed::MIN);
+    let display_pos = DisplayPos {
+        line: LineNumber::from_one_indexed(cell_row),
+        column: position.column,
+    };
+    Some((cell, display_pos))
 }

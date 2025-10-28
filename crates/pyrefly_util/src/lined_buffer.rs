@@ -227,7 +227,11 @@ impl LineNumber {
         self.0.get() - 1
     }
 
-    fn to_one_indexed(self) -> OneIndexed {
+    pub fn from_one_indexed(x: OneIndexed) -> Self {
+        Self(NonZeroU32::new(x.get().try_into().unwrap()).unwrap())
+    }
+
+    pub fn to_one_indexed(self) -> OneIndexed {
         OneIndexed::new(self.0.get() as usize).unwrap()
     }
 
