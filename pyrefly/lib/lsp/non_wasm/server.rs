@@ -675,6 +675,10 @@ impl Server {
                     // We probably didn't bother completing a previous check, but we are now answering a query that
                     // really needs a previous check to be correct.
                     // Validating sends out notifications, which isn't required, but this is the safest way.
+                    eprintln!(
+                        "Request {} ({}) has subsequent mutation, prepare to validate open files.",
+                        x.method, x.id,
+                    );
                     self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
                 }
 
@@ -902,6 +906,10 @@ impl Server {
                             params, &x.id,
                         )
                     {
+                        eprintln!(
+                            "Received document diagnostic request {} ({}), prepare to validate open files.",
+                            x.method, x.id,
+                        );
                         self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
                         let transaction =
                             ide_transaction_manager.non_committable_transaction(&self.state);
@@ -1185,6 +1193,7 @@ impl Server {
                 // Therefore, we can compute errors from transactions freshly created from `State``.
                 let transaction = self.state.transaction();
                 publish(&transaction);
+                eprintln!("Validated open files and committed transaction.");
             }
             Err(transaction) => {
                 // In the case where transaction cannot be committed because there is an ongoing
@@ -1194,6 +1203,7 @@ impl Server {
                 // Note: if this changes, update this function's docstring.
                 publish(&transaction);
                 ide_transaction_manager.save(transaction);
+                eprintln!("Validated open files and saved non-committable transaction.");
             }
         }
         queue_source_db_rebuild_and_recheck(
@@ -1306,6 +1316,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
+            eprintln!("Invalidated state, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
         }));
     }
@@ -1342,8 +1353,8 @@ impl Server {
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
+        eprintln!("Populated all files in the project path, prepare to recheck open files.");
         let _ = lsp_queue.send(LspEvent::RecheckFinished);
-        eprintln!("Populated all files in the project path.");
     }
 
     fn populate_all_workspaces_files(
@@ -1377,8 +1388,8 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
+            eprintln!("Populated all files in the workspace, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
-            eprintln!("Populated all files in the workspace.");
         }
     }
 
@@ -1411,7 +1422,7 @@ impl Server {
             .insert(uri.clone(), params.text_document.version);
         self.open_files
             .write()
-            .insert(uri, Arc::new(params.text_document.text));
+            .insert(uri.clone(), Arc::new(params.text_document.text));
         if !subsequent_mutation {
             // In order to improve perceived startup perf, when a file is opened, we run a
             // non-committing transaction that indexes the file with default require level Exports.
@@ -1420,6 +1431,10 @@ impl Server {
             // populate_{project,workspace}_files below runs a transaction at default require level
             // Indexing in the background, generating a more complete index which becomes available
             // a few seconds later.
+            eprintln!(
+                "File {} opened, prepare to validate open files.",
+                uri.display()
+            );
             self.validate_in_memory_without_committing(ide_transaction_manager);
         }
         self.populate_project_files_if_necessary(config_to_populate_files);
@@ -1454,6 +1469,10 @@ impl Server {
         ));
         drop(lock);
         if !subsequent_mutation {
+            eprintln!(
+                "File {} changed, prepare to validate open files.",
+                file_path.display()
+            );
             self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
         }
         Ok(())
@@ -1575,6 +1594,10 @@ impl Server {
                     &mut modified,
                     &id.scope_uri,
                     value.clone(),
+                );
+                eprintln!(
+                    "Client configuration applied to workspace: {:?}",
+                    id.scope_uri
                 );
             }
         }
@@ -2225,6 +2248,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
+            eprintln!("Invalidated config, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
         }));
     }
