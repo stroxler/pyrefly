@@ -100,7 +100,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Check if a class inherits from Django's Field class
-    fn inherits_from_django_field(&self, cls: &crate::types::class::Class) -> bool {
+    fn inherits_from_django_field(&self, cls: &Class) -> bool {
         self.get_mro_for_class(cls)
             .ancestors(self.stdlib)
             .any(|ancestor| {
