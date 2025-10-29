@@ -16,7 +16,7 @@ use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 fn test_hover_basic() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
-    interaction.set_root(root.path().to_path_buf());
+    interaction.set_root(root.path().join("basic"));
     interaction.initialize(InitializeSettings {
         configuration: Some(None),
         ..Default::default()
@@ -43,7 +43,7 @@ fn test_hover_basic() {
 fn test_hover_import() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
-    interaction.set_root(root.path().to_path_buf());
+    interaction.set_root(root.path().join("basic"));
     interaction.initialize(InitializeSettings {
         configuration: Some(None),
         ..Default::default()
@@ -58,7 +58,7 @@ fn test_hover_import() {
             "contents": {
                 "kind": "markdown",
                 "value": "```python\n(class) Bar: type[Bar]\n```\n\nGo to [Bar](".to_owned()
-                    + Url::from_file_path(root.path().join("bar.py")).unwrap().as_str()
+                    + Url::from_file_path(root.path().join("basic/bar.py")).unwrap().as_str()
                     + "#L7,7)",
             }
         })),
