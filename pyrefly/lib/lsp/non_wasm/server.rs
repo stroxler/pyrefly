@@ -37,6 +37,8 @@ use lsp_types::CompletionResponse;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Diagnostic;
+use lsp_types::DiagnosticSeverity;
+use lsp_types::DiagnosticTag;
 use lsp_types::DidChangeConfigurationParams;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidChangeWatchedFilesClientCapabilities;
@@ -202,6 +204,7 @@ use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
+use crate::state::semantic_tokens::disabled_ranges_for_module;
 use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
@@ -1183,6 +1186,10 @@ impl Server {
                     diags.entry(path.to_owned()).or_default().push(diag);
                 }
             }
+            for (path, diagnostics) in diags.iter_mut() {
+                let handle = make_open_handle(&self.state, path);
+                Self::append_unreachable_diagnostics(transaction, &handle, diagnostics);
+            }
             self.connection.publish_diagnostics(diags);
         };
 
@@ -2082,6 +2089,37 @@ impl Server {
             .collect()
     }
 
+    fn append_unreachable_diagnostics(
+        transaction: &Transaction<'_>,
+        handle: &Handle,
+        items: &mut Vec<Diagnostic>,
+    ) {
+        if let (Some(ast), Some(module_info)) = (
+            transaction.get_ast(handle),
+            transaction.get_module_info(handle),
+        ) {
+            let disabled_ranges = disabled_ranges_for_module(ast.as_ref(), handle.sys_info());
+            let mut seen = HashSet::new();
+            for range in disabled_ranges {
+                if range.is_empty() || !seen.insert(range) {
+                    continue;
+                }
+                let lsp_range = module_info.lined_buffer().to_lsp_range(range);
+                items.push(Diagnostic {
+                    range: lsp_range,
+                    severity: Some(DiagnosticSeverity::HINT),
+                    source: Some("Pyrefly".to_owned()),
+                    message: "This code is unreachable for the current configuration".to_owned(),
+                    code: Some(NumberOrString::String("unreachable-code".to_owned())),
+                    code_description: None,
+                    related_information: None,
+                    tags: Some(vec![DiagnosticTag::UNNECESSARY]),
+                    data: None,
+                });
+            }
+        }
+    }
+
     fn document_diagnostics(
         &self,
         transaction: &Transaction<'_>,
@@ -2098,6 +2136,7 @@ impl Server {
                 items.push(diag);
             }
         }
+        Self::append_unreachable_diagnostics(transaction, &handle, &mut items);
         DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
             full_document_diagnostic_report: FullDocumentDiagnosticReport {
                 items,
