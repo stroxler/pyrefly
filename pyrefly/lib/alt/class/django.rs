@@ -110,6 +110,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    fn _resolve_foreign_key_target(
+        &self,
+        to_expr: &ruff_python_ast::Expr,
+        class: &Class,
+    ) -> Option<Type> {
+        // Extract the model name from the expression
+        let model_name = match to_expr {
+            // Direct name reference. Ex: ForeignKey(Reporter, ...)
+            Expr::Name(name_expr) => name_expr.id.clone(),
+            // TODO: handle self references and forward references
+            _ => return None,
+        };
+
+        // Look up the model in the current module and convert to instance type
+        let export_key = KeyExport(model_name);
+        let related_model_type =
+            self.get_from_export(class.module_name(), Some(class.module_path()), &export_key);
+        Some(self.class_def_to_instance_type(&related_model_type))
+    }
+
+    #[allow(dead_code)]
+    fn class_def_to_instance_type(&self, ty: &Type) -> Type {
+        if let Type::ClassDef(class) = ty {
+            self.instantiate(class)
+        } else {
+            ty.clone()
+        }
+    }
+
     fn _is_foreign_key_field(&self, field: &Class) -> bool {
         field.has_toplevel_qname(
             ModuleName::django_models_fields_related().as_str(),
