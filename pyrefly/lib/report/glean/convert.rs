@@ -49,6 +49,23 @@ use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::types::Type;
 
+trait UnwrapOrDefaultAndLog<T: Default> {
+    fn unwrap_or_default_and_log(self) -> T;
+}
+
+impl<T: Default> UnwrapOrDefaultAndLog<T> for Option<T> {
+    #[track_caller]
+    fn unwrap_or_default_and_log(self) -> T {
+        match self {
+            Some(x) => x,
+            None => {
+                tracing::warn!("unexpected None");
+                Default::default()
+            }
+        }
+    }
+}
+
 const TYPE_SEPARATORS: [char; 12] = [',', '|', '[', ']', '{', '}', '(', ')', '=', ':', '\'', '"'];
 
 fn hash(x: &[u8]) -> String {
@@ -1009,7 +1026,7 @@ impl GleanState<'_> {
             from_module_name.map(|x| x.to_string())
         };
 
-        let from_module_fact = python::Name::new(from_module.clone().unwrap_or_default());
+        let from_module_fact = python::Name::new(from_module.clone().unwrap_or_default_and_log());
         if let Some(module) = &import_from.module {
             self.add_xref(python::XRefViaName {
                 target: from_module_fact.clone(),
