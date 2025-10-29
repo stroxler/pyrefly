@@ -2053,6 +2053,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 continue;
             }
+            // Special case: if parent field is an unannotated `x = None`, allow child to override
+            // with any type (effectively treating it as Optional[T])
+            if !want_class_field.has_explicit_annotation()
+                && matches!(want_class_field.ty(), Type::None)
+            {
+                continue;
+            }
             // Substitute `Self` with derived class to support contravariant occurrences of `Self`
             let want_attribute = self.as_instance_attribute(
                 &want_class_field,
