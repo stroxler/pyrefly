@@ -69,7 +69,7 @@ impl Error {
                 self.msg_header,
                 self.error_kind.to_name(),
             )?;
-            let origin = self.display_path(project_root).to_string_lossy();
+            let origin = self.path_string_with_fragment(project_root);
             let snippet = self.get_source_snippet(&origin);
             let renderer = Renderer::plain();
             writeln!(f, "{}", renderer.render(snippet))?;
@@ -81,7 +81,7 @@ impl Error {
                 f,
                 "{} {}:{}: {} [{}]",
                 self.severity.label(),
-                self.display_path(project_root).to_string_lossy(),
+                self.path_string_with_fragment(project_root),
                 self.display_range,
                 self.msg_header,
                 self.error_kind.to_name(),
@@ -98,7 +98,7 @@ impl Error {
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
             );
-            let origin = self.display_path(project_root).to_string_lossy();
+            let origin = self.path_string_with_fragment(project_root);
             let snippet = self.get_source_snippet(&origin);
             let renderer = Renderer::styled();
             anstream::println!("{}", renderer.render(snippet));
@@ -109,7 +109,7 @@ impl Error {
             anstream::println!(
                 "{} {}:{}: {} {}",
                 self.severity.painted(),
-                Paint::blue(&self.display_path(project_root).display()),
+                Paint::blue(&self.path_string_with_fragment(project_root)),
                 Paint::dim(self.display_range()),
                 Paint::new(&*self.msg_header),
                 Paint::dim(format!("[{}]", self.error_kind().to_name()).as_str()),
@@ -117,9 +117,15 @@ impl Error {
         }
     }
 
-    fn display_path(&self, project_root: &Path) -> &Path {
+    /// Return the path with a cell fragment if the error is in a notebook cell.
+    fn path_string_with_fragment(&self, project_root: &Path) -> String {
         let path = self.path().as_path();
-        path.strip_prefix(project_root).unwrap_or(path)
+        let path = path.strip_prefix(project_root).unwrap_or(path);
+        if let Some(cell) = self.display_range.start.cell() {
+            format!("{}#{cell}", path.to_string_lossy())
+        } else {
+            path.to_string_lossy().to_string()
+        }
     }
 
     fn get_source_snippet<'a>(&'a self, origin: &'a str) -> Message<'a> {

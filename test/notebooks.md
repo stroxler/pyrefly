@@ -38,7 +38,7 @@ $ echo -e '{"cells":[{"cell_type":"code","execution_count":null,"metadata":{},"o
 $ echo -e '{"cells":[{"cell_type":"code","execution_count":null,"metadata":{},"outputs":[],"source":["x: bool = 5"]}],"metadata":{"language_info":{"name":"python"}},"nbformat":4,"nbformat_minor":4}' > $TMPDIR/notebook.ipynb && \
 > $PYREFLY check $TMPDIR/notebook.ipynb
 ERROR `Literal[5]` is not assignable to `bool` [bad-assignment]
- --> */notebook.ipynb:1:11 (glob)
+ --> */notebook.ipynb#1:1:11 (glob)
   |
 1 | x: bool = 5
   |           ^
@@ -52,7 +52,7 @@ ERROR `Literal[5]` is not assignable to `bool` [bad-assignment]
 $ echo -e '{"cells":[{"cell_type":"code","execution_count":null,"metadata":{},"outputs":[],"source":["x: bool = True"]},{"cell_type":"code","execution_count":null,"metadata":{},"outputs":[],"source":["x: bool = 5"]}],"metadata":{"language_info":{"name":"python"}},"nbformat":4,"nbformat_minor":4}' > $TMPDIR/notebook.ipynb && \
 > $PYREFLY check $TMPDIR/notebook.ipynb
 ERROR `Literal[5]` is not assignable to `bool` [bad-assignment]
- --> */notebook.ipynb:1:11 (glob)
+ --> */notebook.ipynb#2:1:11 (glob)
   |
 1 | x: bool = 5
   |           ^
