@@ -513,6 +513,10 @@ impl ConfigFile {
         true
     }
 
+    pub fn from_real_config_file(&self) -> bool {
+        matches!(self.source, ConfigSource::File(_))
+    }
+
     pub fn python_version(&self) -> PythonVersion {
         // we can use unwrap here, because the value in the root config must
         // be set in `ConfigFile::configure()`.
