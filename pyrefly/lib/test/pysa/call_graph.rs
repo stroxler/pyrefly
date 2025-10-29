@@ -1800,3 +1800,93 @@ def main(x) -> None:
         )]
     }
 );
+
+call_graph_testcase!(
+    test_list_of_methods_and_functions_called_in_loop,
+    TEST_MODULE_NAME,
+    r#"
+class Foo:
+  def bar(self) -> None:
+    pass
+def baz(self) -> None:
+  pass
+def f(foo: Foo):
+  for g in [foo.bar, baz]:
+    g()
+"#,
+    &|context: &ModuleContext| {
+        // TODO(T105570363): Resolve calls with mixed function and methods
+        let foo_bar = vec![
+            create_call_target("test.Foo.bar", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Foo", context),
+        ];
+        let baz = vec![create_call_target("test.baz", TargetType::Function)];
+        vec![(
+            "test.f",
+            vec![
+                (
+                    "8:13-8:20",
+                    attribute_access_callees(
+                        /* call_targets */ foo_bar.clone(),
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* property_setters */ vec![],
+                        /* property_getters */ vec![],
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */ Unresolved::False,
+                    ),
+                ),
+                ("8:22-8:25", regular_identifier_callees(baz)),
+                ("9:5-9:8", regular_call_callees(foo_bar)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_list_of_classes_and_functions_called_in_loop,
+    TEST_MODULE_NAME,
+    r#"
+class Foo:
+  def __init__(self) -> None: ...
+def bar() -> None:
+  pass
+def f():
+  for g in [Foo, bar]:
+    g()
+"#,
+    &|context: &ModuleContext| {
+        // TODO(T105570363): Resolve calls with mixed function and constructors
+        let init_targets = vec![
+            create_call_target("test.Foo.__init__", TargetType::Function)
+                .with_receiver_class_for_test("test.Foo", context)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        let bar = vec![create_call_target("test.bar", TargetType::Function)];
+        let new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        vec![(
+            "test.f",
+            vec![
+                (
+                    "7:13-7:16",
+                    identifier_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ init_targets.clone(),
+                        /* new_targets */ new_targets.clone(),
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */ Unresolved::False,
+                    ),
+                ),
+                ("7:18-7:21", regular_identifier_callees(bar)),
+                (
+                    "8:5-8:8",
+                    constructor_call_callees(init_targets, new_targets),
+                ),
+            ],
+        )]
+    }
+);
