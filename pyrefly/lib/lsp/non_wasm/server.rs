@@ -154,7 +154,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
-use pyrefly_util::globs::Globs;
+use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::includes::Includes as _;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
@@ -1376,8 +1376,9 @@ impl Server {
             );
             let mut transaction = state.new_committable_transaction(Require::indexing(), None);
 
-            let globs = Globs::new_with_root(workspace_root.as_path(), vec!["**/*".to_owned()])
-                .unwrap_or_default();
+            let includes =
+                ConfigFile::default_project_includes().from_root(workspace_root.as_path());
+            let globs = FilteredGlobs::new(includes, ConfigFile::required_project_excludes(), None);
             let paths = globs
                 .files_with_limit(workspace_indexing_limit)
                 .unwrap_or_default();
