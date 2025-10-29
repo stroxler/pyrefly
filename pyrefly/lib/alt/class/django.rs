@@ -39,7 +39,6 @@ const VALUES: Name = Name::new_static("values");
 const ID: Name = Name::new_static("id");
 const PK: Name = Name::new_static("pk");
 const AUTO_FIELD: Name = Name::new_static("AutoField");
-#[allow(dead_code)]
 const FOREIGN_KEY: Name = Name::new_static("ForeignKey");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -88,17 +87,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         field: &Class,
         class: &Class,
-        _field_name: Option<&Name>,
-        _initial_value_expr: Option<&Expr>,
+        field_name: Option<&Name>,
+        initial_value_expr: Option<&Expr>,
     ) -> Option<Type> {
-        if self.get_metadata_for_class(class).is_django_model()
-            && self.inherits_from_django_field(field)
+        if !(self.get_metadata_for_class(class).is_django_model()
+            && self.inherits_from_django_field(field))
         {
-            self.get_class_member(field, &DJANGO_PRIVATE_GET_TYPE)
-                .map(|member| member.value.ty())
-        } else {
-            None
+            return None;
         }
+
+        // Check if this is a ForeignKey field
+        if self.is_foreign_key_field(field)
+            && field_name.is_some()
+            && let Some(e) = initial_value_expr
+            && let Some(to_expr) = e.as_call_expr()?.arguments.args.first()
+        {
+            // Resolve the expression to a type and convert to instance type
+            let related_model_type = self.resolve_foreign_key_target(to_expr, class)?;
+            return Some(related_model_type);
+        }
+
+        // Default: use _pyi_private_get_type from the field class
+        self.get_class_member(field, &DJANGO_PRIVATE_GET_TYPE)
+            .map(|member| member.value.ty())
     }
 
     /// Check if a class inherits from Django's Field class
@@ -110,7 +121,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    fn _resolve_foreign_key_target(
+    fn resolve_foreign_key_target(
         &self,
         to_expr: &ruff_python_ast::Expr,
         class: &Class,
@@ -130,7 +141,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Some(self.class_def_to_instance_type(&related_model_type))
     }
 
-    #[allow(dead_code)]
     fn class_def_to_instance_type(&self, ty: &Type) -> Type {
         if let Type::ClassDef(class) = ty {
             self.instantiate(class)
@@ -139,7 +149,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn _is_foreign_key_field(&self, field: &Class) -> bool {
+    fn is_foreign_key_field(&self, field: &Class) -> bool {
         field.has_toplevel_qname(
             ModuleName::django_models_fields_related().as_str(),
             FOREIGN_KEY.as_str(),
