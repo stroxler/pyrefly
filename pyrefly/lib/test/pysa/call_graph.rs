@@ -1722,3 +1722,81 @@ class Foo:
         )]
     }
 );
+
+call_graph_testcase!(
+    test_property_returning_callable,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @property
+  def attribute(self) -> Callable[[], int]:
+    return lambda: 0
+def foo(c: C) -> str:
+  return c.attribute()
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_try_finally_with_return_tracks_both_branches,
+    TEST_MODULE_NAME,
+    r#"
+def foo() -> None:
+  pass
+def bar() -> None:
+  pass
+def main(x) -> None:
+  try:
+    return foo()
+  finally:
+    bar()
+"#,
+    &|_context: &ModuleContext| {
+        let foo_target = vec![create_call_target("test.foo", TargetType::Function)];
+        let bar_target = vec![create_call_target("test.bar", TargetType::Function)];
+        vec![(
+            "test.main",
+            vec![
+                ("10:5-10:10", regular_call_callees(bar_target)),
+                ("8:12-8:17", regular_call_callees(foo_target)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_try_finally_with_raise_tracks_finally_branch_only,
+    TEST_MODULE_NAME,
+    r#"
+def foo() -> None:
+  pass
+def bar() -> None:
+  pass
+def main(x) -> None:
+  try:
+    raise Exception()
+  finally:
+    bar()
+"#,
+    &|_context: &ModuleContext| {
+        let init_targets = vec![
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        let new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        let bar_target = vec![create_call_target("test.bar", TargetType::Function)];
+        vec![(
+            "test.main",
+            vec![
+                ("10:5-10:10", regular_call_callees(bar_target)),
+                (
+                    "8:11-8:22",
+                    constructor_call_callees(init_targets, new_targets),
+                ),
+            ],
+        )]
+    }
+);

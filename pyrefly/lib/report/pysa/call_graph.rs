@@ -915,7 +915,7 @@ impl<'a> CallGraphVisitor<'a> {
         callee_expr_suffix: Option<&str>,
         override_implicit_receiver: Option<ImplicitReceiver>,
     ) -> Option<CallTarget<FunctionRef>> {
-        match defining_class {
+        let call_target = match defining_class {
             Some(Type::ClassType(class_type)) => {
                 self.create_callee_from_class_field(class_type.class_object(), method)
                     .map(|function_ref| {
@@ -938,7 +938,16 @@ impl<'a> CallGraphVisitor<'a> {
                     })
             }
             _ => None,
+        };
+        if call_target.is_none() {
+            debug_println!(
+                self.debug,
+                "Cannot find call target for method `{:#?}` in class `{:#?}`",
+                method,
+                defining_class,
+            );
         }
+        call_target
     }
 
     fn call_target_from_new_method(
@@ -988,11 +997,11 @@ impl<'a> CallGraphVisitor<'a> {
             )
         };
 
-        let init_targets = init_method.map_or(
+        let mut init_targets = init_method.as_ref().map_or(
             object_init_method().into_iter().collect::<Vec<_>>(),
             |init_method| match init_method {
                 Type::BoundMethod(bound_method) => {
-                    extract_function_from_bound_method(&bound_method)
+                    extract_function_from_bound_method(bound_method)
                         .into_iter()
                         .filter_map(|function| {
                             self.call_target_from_method_name(
@@ -1009,28 +1018,42 @@ impl<'a> CallGraphVisitor<'a> {
                 _ => vec![],
             },
         );
+        if init_method.is_some()
+            && init_targets.is_empty()
+            && let Some(object_init_method) = object_init_method()
+        {
+            // TODO(T243217129): Remove this to treat the callees as obscure when unresolved
+            init_targets.push(object_init_method);
+        }
 
-        let new_targets = new_method.map_or(
+        let mut new_targets = new_method.as_ref().map_or(
             object_new_method().into_iter().collect::<Vec<_>>(),
             |new_method| match new_method {
                 Type::Function(function) => self
-                    .call_target_from_new_method(&function, return_type, callee_expr_suffix)
+                    .call_target_from_new_method(function, return_type, callee_expr_suffix)
                     .into_iter()
                     .collect::<Vec<_>>(),
                 Type::Overload(overload) => overload
                     .signatures
-                    .into_iter()
+                    .iter()
                     .filter_map(|overload_type| {
                         let function = match overload_type {
                             OverloadType::Function(function) => function,
-                            OverloadType::Forall(forall) => forall.body,
+                            OverloadType::Forall(forall) => &forall.body,
                         };
-                        self.call_target_from_new_method(&function, return_type, callee_expr_suffix)
+                        self.call_target_from_new_method(function, return_type, callee_expr_suffix)
                     })
                     .collect::<Vec<_>>(),
                 _ => vec![],
             },
         );
+        if new_method.is_some()
+            && new_targets.is_empty()
+            && let Some(object_new_method) = object_new_method()
+        {
+            // TODO(T243217129): Remove this to treat the callees as obscure when unresolved
+            new_targets.push(object_new_method);
+        }
 
         CallCallees {
             call_targets: vec![],
@@ -1478,6 +1501,7 @@ impl<'a> CallGraphVisitor<'a> {
         parent_expression: Option<&Expr>,
         assignment_targets: Option<&Vec<&Expr>>,
     ) -> Option<ExpressionCallees<FunctionRef>> {
+        debug_println!(self.debug, "Resolving callees for expression `{:#?}`", expr);
         let is_nested_callee_or_base =
             parent_expression.is_some_and(|parent_expression| match parent_expression {
                 // For example, avoid visiting `x.__call__` in `x.__call__(1)`
