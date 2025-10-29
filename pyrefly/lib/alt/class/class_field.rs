@@ -1431,7 +1431,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         direct_annotation: Option<&Annotation>,
         ty: &Type,
         initialization: &ClassFieldInitialization,
-        _initial_value: &RawClassFieldInitialization,
+        initial_value: &RawClassFieldInitialization,
         is_descriptor: bool,
         range: TextRange,
         errors: &ErrorCollector,
@@ -1447,7 +1447,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
         )
         .or_else(|| self.get_pydantic_root_model_class_field_type(class, name))
-        .or_else(|| self.get_django_field_type(ty, class))
+        .or_else(|| {
+            let initial_value_expr = match initial_value {
+                RawClassFieldInitialization::ClassBody(e) => e.as_ref(),
+                _ => None,
+            };
+            self.get_django_field_type(ty, class, Some(name), initial_value_expr)
+        })
     }
 
     fn determine_read_only_reason(
