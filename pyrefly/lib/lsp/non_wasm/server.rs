@@ -1431,6 +1431,9 @@ impl Server {
             // populate_{project,workspace}_files below runs a transaction at default require level
             // Indexing in the background, generating a more complete index which becomes available
             // a few seconds later.
+            //
+            // Note that this trick works only when a pyrefly config file is present. In the absence
+            // of a config file, all features become available when background indexing completes.
             eprintln!(
                 "File {} opened, prepare to validate open files.",
                 uri.display()
