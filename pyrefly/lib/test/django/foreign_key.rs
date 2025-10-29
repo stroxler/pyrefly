@@ -77,3 +77,23 @@ assert_type(article.reporter.full_name, str) # E: assert_type(Any, str) failed
 assert_type(article.reporter_id, int) # E: assert_type(Any, int) failed # E:  Object of class `Article` has no attribute `reporter_id`
 "#,
 );
+
+django_testcase!(
+    bug = "id suffix needs to be generated; support self references",
+    test_foreign_key_self_reference,
+    r#"
+from typing import assert_type
+
+from django.db import models
+
+class Person(models.Model):
+    name = models.CharField(max_length=100)
+    parent = models.ForeignKey('self', null=True, on_delete=models.CASCADE)
+
+person = Person()
+assert_type(person.parent, Person | None) # E: assert_type(Any, Person | None) failed 
+if person.parent:
+    assert_type(person.parent.name, str) # E: assert_type(Any, str) failed
+
+"#,
+);
