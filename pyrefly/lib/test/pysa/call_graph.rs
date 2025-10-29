@@ -1626,6 +1626,23 @@ def foo():
 );
 
 call_graph_testcase!(
+    test_decorated_callable_class_infinite_recursion,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Any, Callable
+def to_c(callable: Callable[..., Any]) -> C:
+  ...
+class C:
+  @to_c
+  def __call__(self) -> "C":
+    return self
+def foo(c: C) -> None:
+  x = c
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![],)] }
+);
+
+call_graph_testcase!(
     test_protocol_method_calls,
     TEST_MODULE_NAME,
     r#"
