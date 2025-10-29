@@ -39,6 +39,8 @@ const VALUES: Name = Name::new_static("values");
 const ID: Name = Name::new_static("id");
 const PK: Name = Name::new_static("pk");
 const AUTO_FIELD: Name = Name::new_static("AutoField");
+#[allow(dead_code)]
+const FOREIGN_KEY: Name = Name::new_static("ForeignKey");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(
@@ -106,6 +108,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .any(|ancestor| {
                 ancestor.has_qname(ModuleName::django_models_fields().as_str(), "Field")
             })
+    }
+
+    fn _is_foreign_key_field(&self, field: &Class) -> bool {
+        field.has_toplevel_qname(
+            ModuleName::django_models_fields_related().as_str(),
+            FOREIGN_KEY.as_str(),
+        )
     }
 
     pub fn get_django_enum_synthesized_fields(
