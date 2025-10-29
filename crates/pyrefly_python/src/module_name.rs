@@ -172,6 +172,10 @@ impl ModuleName {
         Self::from_str("django.db.models.fields")
     }
 
+    pub fn django_models_fields_related() -> Self {
+        Self::from_str("django.db.models.fields.related")
+    }
+
     pub fn django_utils_functional() -> Self {
         Self::from_str("django.utils.functional")
     }
