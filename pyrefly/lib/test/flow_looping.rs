@@ -543,6 +543,25 @@ def f():
 "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/1234
+testcase!(
+    test_assign_result_of_call_back_to_argument,
+    r#"
+class Cursor:
+    def finished(self) -> bool:
+        ...
+
+class Query:
+    def send(self, cursor: Cursor | None) -> Cursor:
+        ...
+
+def test(q: Query) -> None:
+    cursor = None
+    while not cursor or not cursor.finished():
+        cursor = q.send(cursor)
+"#,
+);
+
 testcase!(
     test_reveal_type_in_loop,
     r#"
