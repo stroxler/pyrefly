@@ -13,6 +13,7 @@ use std::iter;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use dashmap::DashMap;
 use dupe::Dupe;
 use itertools::Itertools;
 use pyrefly_build::handle::Handle;
@@ -77,6 +78,41 @@ use crate::state::state::TransactionHandle;
 use crate::types::display::TypeDisplayContext;
 
 const REPR: Name = Name::new_static("__repr__");
+
+/// Cache for type resolution to avoid expensive re-typechecking.
+/// Thread-safe via DashMap for concurrent query access.
+struct TypeCache {
+    // Maps type_string -> Type
+    // Key is just the type string (e.g., "int", "typing.List[str]")
+    // since module name/path are constant per session
+    cache: DashMap<String, Type>,
+}
+
+impl TypeCache {
+    fn new() -> Self {
+        Self {
+            cache: DashMap::new(),
+        }
+    }
+
+    /// Get a cached type by its string representation
+    fn get(&self, type_string: &str) -> Option<Type> {
+        self.cache
+            .get(type_string)
+            .map(|entry| entry.value().clone())
+    }
+
+    /// Insert a type into the cache
+    fn insert(&self, type_string: String, ty: Type) {
+        self.cache.insert(type_string, ty);
+    }
+
+    /// Clear all cached types (called on file changes)
+    fn clear(&self) {
+        self.cache.clear();
+    }
+}
+
 pub struct Query {
     /// The state that we use.
     state: State,
@@ -84,6 +120,8 @@ pub struct Query {
     sys_info: SysInfo,
     /// The files that have been used with `add_files`, used when files change.
     files: Mutex<SmallSet<(ModuleName, ModulePath)>>,
+    /// Cache for type resolution
+    type_cache: TypeCache,
 }
 
 const CALLEE_KIND_FUNCTION: &str = "function";
@@ -803,6 +841,7 @@ impl Query {
             state,
             sys_info: SysInfo::default(),
             files: Mutex::new(SmallSet::new()),
+            type_cache: TypeCache::new(),
         }
     }
 
@@ -816,6 +855,10 @@ impl Query {
     }
 
     pub fn change_files(&self, events: &CategorizedEvents) {
+        // Clear type cache when files change since types may be invalidated
+        // Examples: class definitions change, type aliases change, imports change
+        self.type_cache.clear();
+
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
