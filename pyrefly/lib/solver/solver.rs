@@ -334,24 +334,17 @@ impl Solver {
             // but don't have any good location information to hand.
             *t = Type::any_implicit();
         } else if let Type::Var(x) = t {
-            if *x == Var::ZERO {
-                // This shouldn't happen, but we currently can see this in the LSP
-                // where we do type operations on a type value which has been passed
-                // to `for_display`.
-                *t = Type::any_implicit();
-            } else {
-                let lock = self.variables.lock();
-                if let Some(_guard) = lock.recurse(*x, recurser) {
-                    let variable = lock.get(*x);
-                    if let Variable::Answer(ty) = &*variable {
-                        *t = ty.clone();
-                        drop(variable);
-                        drop(lock);
-                        self.expand_with_limit(t, limit - 1, recurser);
-                    }
-                } else {
-                    *t = Type::any_implicit();
+            let lock = self.variables.lock();
+            if let Some(_guard) = lock.recurse(*x, recurser) {
+                let variable = lock.get(*x);
+                if let Variable::Answer(ty) = &*variable {
+                    *t = ty.clone();
+                    drop(variable);
+                    drop(lock);
+                    self.expand_with_limit(t, limit - 1, recurser);
                 }
+            } else {
+                *t = Type::any_implicit();
             }
         } else {
             t.recurse_mut(&mut |t| self.expand_with_limit(t, limit - 1, recurser));
