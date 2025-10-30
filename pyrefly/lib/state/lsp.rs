@@ -53,6 +53,7 @@ use ruff_python_ast::ModModule;
 use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtImportFrom;
+use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -1244,6 +1245,30 @@ impl<'a> Transaction<'a> {
                         {
                             return Some((left_type, dunder_name));
                         }
+                    }
+                    None
+                }
+                AnyNodeRef::ExprBinOp(binop) => {
+                    let dunder_name = Name::new_static(binop.op.dunder());
+                    if let Some(answers) = self.get_answers(handle)
+                        && let Some(left_type) = answers.get_type_trace(binop.left.range())
+                    {
+                        return Some((left_type, dunder_name));
+                    }
+                    None
+                }
+                AnyNodeRef::ExprUnaryOp(unaryop) => {
+                    let dunder_name = match unaryop.op {
+                        UnaryOp::Invert => Some(dunder::INVERT),
+                        UnaryOp::Not => None,
+                        UnaryOp::UAdd => Some(dunder::POS),
+                        UnaryOp::USub => Some(dunder::NEG),
+                    };
+                    if let Some(dunder_name) = dunder_name
+                        && let Some(answers) = self.get_answers(handle)
+                        && let Some(operand_type) = answers.get_type_trace(unaryop.operand.range())
+                    {
+                        return Some((operand_type, dunder_name));
                     }
                     None
                 }
