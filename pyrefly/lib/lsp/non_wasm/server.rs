@@ -57,7 +57,6 @@ use lsp_types::DocumentSymbolParams;
 use lsp_types::DocumentSymbolResponse;
 use lsp_types::FileSystemWatcher;
 use lsp_types::FoldingRange;
-use lsp_types::FoldingRangeKind;
 use lsp_types::FoldingRangeParams;
 use lsp_types::FoldingRangeProviderCapability;
 use lsp_types::FullDocumentDiagnosticReport;
@@ -2173,11 +2172,12 @@ impl Server {
     ) -> Option<Vec<FoldingRange>> {
         let handle = self.make_handle_if_enabled(&params.text_document.uri)?;
         let module = transaction.get_module_info(&handle)?;
-        let docstring_ranges = transaction.docstring_ranges(&handle)?;
+        let ranges = transaction.folding_ranges(&handle)?;
+
         Some(
-            docstring_ranges
+            ranges
                 .into_iter()
-                .filter_map(|range| {
+                .filter_map(|(range, kind)| {
                     let lsp_range = module.lined_buffer().to_lsp_range(range);
                     if lsp_range.start.line >= lsp_range.end.line {
                         return None;
@@ -2197,7 +2197,7 @@ impl Server {
                         start_character: Some(lsp_range.start.character),
                         end_line,
                         end_character,
-                        kind: Some(FoldingRangeKind::Comment),
+                        kind,
                         collapsed_text: None,
                     })
                 })

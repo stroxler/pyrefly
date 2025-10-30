@@ -34,6 +34,7 @@ use enum_iterator::Sequence;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
+use lsp_types::FoldingRangeKind;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module::Module;
@@ -501,12 +502,31 @@ impl<'a> Transaction<'a> {
         self.get_load(handle).map(|x| x.module_info.dupe())
     }
 
-    pub fn docstring_ranges(&self, handle: &Handle) -> Option<Vec<TextRange>> {
+    pub fn folding_ranges(
+        &self,
+        handle: &Handle,
+    ) -> Option<Vec<(TextRange, Option<FoldingRangeKind>)>> {
         let ast = self.get_ast(handle)?;
-        let mut ranges = collect_docstring_ranges(&ast.body);
-        ranges.sort_by_key(|range| range.start());
+        let mut ranges = collect_folding_ranges(&ast.body);
+        ranges.sort_by_key(|(range, _)| range.start());
         ranges.dedup();
         Some(ranges)
+    }
+
+    pub fn docstring_ranges(&self, handle: &Handle) -> Option<Vec<TextRange>> {
+        let ranges = self.folding_ranges(handle)?;
+        Some(
+            ranges
+                .into_iter()
+                .filter_map(|(range, kind)| {
+                    if kind == Some(FoldingRangeKind::Comment) {
+                        Some(range)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        )
     }
 
     /// Compute transitive dependency closure for the given handle.
@@ -1609,24 +1629,90 @@ impl<'a> Transaction<'a> {
     }
 }
 
-fn collect_docstring_ranges(body: &[Stmt]) -> Vec<TextRange> {
-    struct DocstringCollector {
-        ranges: Vec<TextRange>,
+fn collect_folding_ranges(body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeKind>)> {
+    use ruff_python_ast::ExceptHandler;
+    use ruff_text_size::Ranged;
+
+    struct FoldingRangeCollector {
+        ranges: Vec<(TextRange, Option<FoldingRangeKind>)>,
     }
 
-    impl Visitor<'_> for DocstringCollector {
+    impl Visitor<'_> for FoldingRangeCollector {
         fn visit_body(&mut self, body: &[Stmt]) {
             if let Some(range) = Docstring::range_from_stmts(body) {
-                self.ranges.push(range);
+                self.ranges.push((range, Some(FoldingRangeKind::Comment)));
             }
             walk_body(self, body);
         }
+
+        fn visit_stmt(&mut self, stmt: &Stmt) {
+            match stmt {
+                Stmt::FunctionDef(func) => {
+                    if !func.body.is_empty() {
+                        self.ranges.push((func.range, None));
+                    }
+                }
+                Stmt::ClassDef(class) => {
+                    if !class.body.is_empty() {
+                        self.ranges.push((class.range, None));
+                    }
+                }
+                Stmt::If(if_stmt) => {
+                    if !if_stmt.body.is_empty() {
+                        self.ranges.push((if_stmt.range, None));
+                    }
+                    for elif_else in &if_stmt.elif_else_clauses {
+                        if !elif_else.body.is_empty() {
+                            self.ranges.push((elif_else.range, None));
+                        }
+                    }
+                }
+                Stmt::For(for_stmt) => {
+                    if !for_stmt.body.is_empty() {
+                        self.ranges.push((for_stmt.range, None));
+                    }
+                }
+                Stmt::While(while_stmt) => {
+                    if !while_stmt.body.is_empty() {
+                        self.ranges.push((while_stmt.range, None));
+                    }
+                }
+                Stmt::With(with_stmt) => {
+                    if !with_stmt.body.is_empty() {
+                        self.ranges.push((with_stmt.range, None));
+                    }
+                }
+                Stmt::Match(match_stmt) => {
+                    self.ranges.push((match_stmt.range, None));
+                    for case in &match_stmt.cases {
+                        if !case.body.is_empty() {
+                            self.ranges.push((case.range, None));
+                        }
+                    }
+                }
+                Stmt::Try(try_stmt) => {
+                    if !try_stmt.body.is_empty() {
+                        self.ranges.push((try_stmt.range, None));
+                    }
+                    for handler in &try_stmt.handlers {
+                        let ExceptHandler::ExceptHandler(handler_inner) = handler;
+                        if !handler_inner.body.is_empty() {
+                            self.ranges.push((handler_inner.range(), None));
+                        }
+                    }
+                }
+                _ => {}
+            }
+            ruff_python_ast::visitor::walk_stmt(self, stmt);
+        }
     }
 
-    let mut collector = DocstringCollector { ranges: Vec::new() };
+    let mut collector = FoldingRangeCollector { ranges: Vec::new() };
 
     if let Some(range) = Docstring::range_from_stmts(body) {
-        collector.ranges.push(range);
+        collector
+            .ranges
+            .push((range, Some(FoldingRangeKind::Comment)));
     }
 
     for stmt in body {
