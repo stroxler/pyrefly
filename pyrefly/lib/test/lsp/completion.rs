@@ -410,7 +410,7 @@ class Foo:
 5 |   x.
         ^
 Completion Results:
-- (Field) magic
+- (Field) magic: Unknown
 
 
 # lib.py
@@ -2199,7 +2199,7 @@ f().
         ^
 Completion Results:
 - (Method) m: def m(self: C[Unknown]) -> None
-- (Field) p
+- (Field) p: Unknown
 "#
         .trim(),
         report.trim(),
