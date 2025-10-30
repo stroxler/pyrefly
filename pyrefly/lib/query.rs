@@ -1128,6 +1128,31 @@ impl Query {
         Ok(())
     }
 
+    fn find_types(
+        ast: &ModModule,
+        bindings: Bindings,
+        answers: &Answers,
+        return_first: bool,
+    ) -> (Type, Option<Type>) {
+        let mut first: Option<Type> = None;
+        for p in &ast.body {
+            if let Stmt::AnnAssign(assign) = p
+                && let Expr::Name(n) = &*assign.target
+            {
+                let key = bindings.key_to_idx(&Key::Definition(ShortIdentifier::expr_name(n)));
+                let ty = answers.get_type_at(key).unwrap();
+                if return_first {
+                    return (ty, None);
+                } else if let Some(v) = first {
+                    return (v, Some(ty));
+                } else {
+                    first = Some(ty);
+                }
+            }
+        }
+        unreachable!("No type aliases in ast")
+    }
+
     /// Return `Err` if you can't resolve them to types, otherwise return `lt <: gt`.
     pub fn is_subtype(
         &self,
@@ -1136,57 +1161,92 @@ impl Query {
         lt: &str,
         gt: &str,
     ) -> Result<bool, String> {
+        let is_typed_dict_request = gt == "TypedDictionary" || gt == "NonTotalTypedDictionary";
+
+        // Check cache for both types
+        let cached_lt = self.type_cache.get(lt);
+        let cached_gt = if !is_typed_dict_request {
+            self.type_cache.get(gt)
+        } else {
+            None
+        };
+
+        // Determine what needs to be computed
+        let need_lt = cached_lt.is_none();
+        let need_gt = !is_typed_dict_request && cached_gt.is_none();
+
+        // Fast path: everything is cached
+        if !need_lt && (!need_gt || is_typed_dict_request) {
+            let sub_ty = cached_lt.unwrap();
+            if is_typed_dict_request {
+                return Ok(matches!(
+                    sub_ty,
+                    Type::TypedDict(_) | Type::PartialTypedDict(_)
+                ));
+            } else {
+                let super_ty = cached_gt.unwrap();
+                let t = self.state.transaction();
+                let h = self.make_handle(name, ModulePath::filesystem(path));
+                let result = t
+                    .ad_hoc_solve(&h, |solver| solver.is_subset_eq(&sub_ty, &super_ty))
+                    .unwrap_or(false);
+                return Ok(result);
+            }
+        }
+
+        // Slow path: compute missing types
         let mut t = self.state.transaction();
         let h = self.make_handle(name, ModulePath::memory(path.clone()));
 
-        fn find_types(
-            ast: &ModModule,
-            bindings: Bindings,
-            answers: &Answers,
-            return_first: bool,
-        ) -> (Type, Option<Type>) {
-            let mut first: Option<Type> = None;
-            for p in &ast.body {
-                if let Stmt::AnnAssign(assign) = p
-                    && let Expr::Name(n) = &*assign.target
-                {
-                    let key = bindings.key_to_idx(&Key::Definition(ShortIdentifier::expr_name(n)));
-                    let ty = answers.get_type_at(key).unwrap();
-                    if return_first {
-                        return (ty, None);
-                    } else if let Some(v) = first {
-                        return (v, Some(ty));
-                    } else {
-                        first = Some(ty);
-                    }
-                }
-            }
-            unreachable!("No type aliases in ast")
-        }
-
-        let is_typed_dict_request = gt == "TypedDictionary" || gt == "NonTotalTypedDictionary";
-        let snippet = if is_typed_dict_request {
-            format!("X: ({lt})")
-        } else {
-            format!("X : ({lt})\nY : ({gt})")
+        // Create minimal snippet for only the types we need
+        let snippet = match (need_lt, need_gt) {
+            (true, true) => format!("X : ({lt})\nY : ({gt})"),
+            (true, false) => format!("X : ({lt})"),
+            (false, true) => format!("Y : ({gt})"),
+            (false, false) => unreachable!("handled by fast path"),
         };
+
         self.check_snippet(&mut t, &h, path, &snippet)?;
 
         let ast = t.get_ast(&h).ok_or("No ast")?;
         let answers = t.get_answers(&h).ok_or("No answers")?;
-        let bindings: Bindings = t.get_bindings(&h).ok_or("No bindings")?;
+        let bindings = t.get_bindings(&h).ok_or("No bindings")?;
 
+        // Extract and cache the computed types
+        let (sub_ty, super_ty_opt) = match (need_lt, need_gt) {
+            (true, true) => {
+                // Computed both: X is lt, Y is gt
+                let (lt_type, gt_type_opt) = Query::find_types(&ast, bindings, &answers, false);
+                let gt_type = gt_type_opt.unwrap();
+                self.type_cache.insert(lt.to_owned(), lt_type.clone());
+                self.type_cache.insert(gt.to_owned(), gt_type.clone());
+                (lt_type, Some(gt_type))
+            }
+            (true, false) => {
+                // Computed only lt: X is lt, use cached gt
+                let (lt_type, _) = Query::find_types(&ast, bindings, &answers, true);
+                self.type_cache.insert(lt.to_owned(), lt_type.clone());
+                (lt_type, cached_gt)
+            }
+            (false, true) => {
+                // Computed only gt: Y is gt, use cached lt
+                let (gt_type, _) = Query::find_types(&ast, bindings, &answers, true);
+                self.type_cache.insert(gt.to_owned(), gt_type.clone());
+                (cached_lt.unwrap(), Some(gt_type))
+            }
+            (false, false) => unreachable!("handled by fast path"),
+        };
+
+        // Compute final result
         let result = if is_typed_dict_request {
-            let (ty, _) = find_types(&ast, bindings, &answers, true);
-            matches!(ty, Type::TypedDict(_) | Type::PartialTypedDict(_))
+            matches!(sub_ty, Type::TypedDict(_) | Type::PartialTypedDict(_))
         } else {
-            let (sub_ty, super_ty) = find_types(&ast, bindings, &answers, false);
-
             t.ad_hoc_solve(&h, |solver| {
-                solver.is_subset_eq(&sub_ty, &super_ty.unwrap())
+                solver.is_subset_eq(&sub_ty, &super_ty_opt.unwrap())
             })
             .unwrap_or(false)
         };
+
         Ok(result)
     }
 
