@@ -1028,6 +1028,10 @@ pub enum SubsetError {
     IncompatibleAttribute(Box<(Name, Type, Name, AttrSubsetError)>),
     /// TypedDict subset check failed
     TypedDict(Box<TypedDictSubsetError>),
+    /// `got` is missing a field that exists in PartialTypedDict `want`.
+    /// This is an error because a subclass of `got` could have this field with an incompatible type.
+    /// The names are (got, want, field).
+    PartialTypedDictMissingField(Box<(Name, Name, Name)>),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
@@ -1049,6 +1053,7 @@ impl SubsetError {
                 Some(err.to_error_msg(&Name::new(format!("{got}")), &protocol, &attribute))
             }
             SubsetError::TypedDict(err) => Some(err.to_error_msg()),
+            SubsetError::PartialTypedDictMissingField(_) => None, // TODO
             SubsetError::Other => None,
         }
     }

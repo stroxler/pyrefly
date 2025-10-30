@@ -76,7 +76,7 @@ c4: Coord = {"x": 1, "y": "foo"}  # E: `Literal['foo']` is not assignable to Typ
 c5: Coord = {"x": 1}  # E: Missing required key `y` for TypedDict `Coord`
 c6: Coord = {"x": 1, **{"y": 2, **{"z": 3}}}
 d: dict[str, int] = {}
-c7: Coord = {"x": 1, **d}  # E: Unpacked `dict[str, int]` is not assignable to `TypedDict[Coord]`
+c7: Coord = {"x": 1, **d}  # E: Unpacked `dict[str, int]` is not assignable to `Partial[Coord]`
 
 def foo(c: Coord) -> None:
     pass
@@ -1795,5 +1795,22 @@ def func(d: type[D1] | None) -> int:
     if d:
         return 1
     return 2
+    "#,
+);
+
+testcase!(
+    test_unpack_inherited_typeddict,
+    r#"
+import typing_extensions as te
+    
+class InheritFromMe(te.TypedDict):
+    foo: bool
+    
+class TestBadUnpackingError(InheritFromMe):
+    bar: bool
+    
+unpack_this: InheritFromMe = {"foo": True}
+test1: TestBadUnpackingError = {"bar": True, **unpack_this}
+test2: TestBadUnpackingError = {"bar": True, "foo": True}
     "#,
 );

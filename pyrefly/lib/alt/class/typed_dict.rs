@@ -25,11 +25,13 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
+use crate::solver::solver::SubsetError;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -139,14 +141,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             None => {
+                // This is an unpacked item (`**some_dict`).
                 has_expansion = true;
-                self.expr_with_separate_check_errors(
+                let partial_td_ty = Type::PartialTypedDict(typed_dict.clone());
+                let item_ty = self.expr_infer_with_hint(
                     &x.value,
-                    Some((&Type::TypedDict(typed_dict.clone()), check_errors, &|| {
-                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking)
-                    })),
+                    Some(HintRef::new(&partial_td_ty, None)),
                     item_errors,
                 );
+                let subset_result = self.is_subset_eq_with_reason(&item_ty, &partial_td_ty);
+                if let Some(subset_error) = subset_result.err()
+                // TODO: we should log PartialTypedDictMissingField as a default-off error.
+                    && !matches!(
+                        subset_error,
+                        SubsetError::PartialTypedDictMissingField(_)
+                    )
+                {
+                    self.solver().error(
+                        &item_ty,
+                        &partial_td_ty,
+                        check_errors,
+                        range,
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking),
+                        subset_error,
+                    );
+                }
             }
         });
         // You can update a TypedDict with a subset of its items. Otherwise, all required fields must be present.
