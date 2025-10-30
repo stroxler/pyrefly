@@ -1164,6 +1164,64 @@ impl<'a> Transaction<'a> {
         })
     }
 
+    fn find_definition_for_base_type(
+        &self,
+        handle: &Handle,
+        preference: &FindPreference,
+        completions: Vec<AttrInfo>,
+        name: &Identifier,
+    ) -> Option<FindDefinitionItemWithDocstring> {
+        completions.into_iter().find_map(|x| {
+            if &x.name == name.id() {
+                let (definition, docstring_range) = self.resolve_attribute_definition(
+                    handle,
+                    &x.name,
+                    x.definition?,
+                    x.docstring_range,
+                    preference,
+                )?;
+                Some(FindDefinitionItemWithDocstring {
+                    metadata: DefinitionMetadata::Attribute(x.name),
+                    definition_range: definition.range,
+                    module: definition.module,
+                    docstring_range,
+                })
+            } else {
+                None
+            }
+        })
+    }
+
+    fn find_attribute_definition_for_base_type(
+        &self,
+        handle: &Handle,
+        preference: &FindPreference,
+        base_type: Type,
+        name: &Identifier,
+    ) -> Vec<FindDefinitionItemWithDocstring> {
+        self.ad_hoc_solve(handle, |solver| {
+            let completions = |ty| solver.completions(ty, Some(name.id()), false);
+
+            match base_type {
+                Type::Union(tys) | Type::Intersect(tys) => tys
+                    .into_iter()
+                    .filter_map(|ty_| {
+                        self.find_definition_for_base_type(
+                            handle,
+                            preference,
+                            completions(ty_),
+                            name,
+                        )
+                    })
+                    .collect(),
+                ty => self
+                    .find_definition_for_base_type(handle, preference, completions(ty), name)
+                    .map_or(vec![], |item| vec![item]),
+            }
+        })
+        .unwrap_or_default()
+    }
+
     pub fn find_definition_for_attribute(
         &self,
         handle: &Handle,
@@ -1174,41 +1232,7 @@ impl<'a> Transaction<'a> {
         if let Some(answers) = self.get_answers(handle)
             && let Some(base_type) = answers.get_type_trace(base_range)
         {
-            self.ad_hoc_solve(handle, |solver| {
-                let find_definition_for_base_type = |ty: Type| {
-                    solver
-                        .completions(ty, Some(name.id()), false)
-                        .into_iter()
-                        .find_map(|x| {
-                            if &x.name == name.id() {
-                                let (definition, docstring_range) = self
-                                    .resolve_attribute_definition(
-                                        handle,
-                                        &x.name,
-                                        x.definition?,
-                                        x.docstring_range,
-                                        preference,
-                                    )?;
-                                Some(FindDefinitionItemWithDocstring {
-                                    metadata: DefinitionMetadata::Attribute(x.name),
-                                    definition_range: definition.range,
-                                    module: definition.module,
-                                    docstring_range,
-                                })
-                            } else {
-                                None
-                            }
-                        })
-                };
-                match base_type {
-                    Type::Union(tys) | Type::Intersect(tys) => tys
-                        .into_iter()
-                        .filter_map(&find_definition_for_base_type)
-                        .collect(),
-                    ty => find_definition_for_base_type(ty).map_or(vec![], |item| vec![item]),
-                }
-            })
-            .unwrap_or_default()
+            self.find_attribute_definition_for_base_type(handle, preference, base_type, name)
         } else {
             vec![]
         }
