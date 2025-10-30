@@ -226,6 +226,7 @@ impl Unresolved {
 pub struct HigherOrderParameter<Function: FunctionTrait> {
     pub(crate) index: u32,
     pub(crate) call_targets: Vec<CallTarget<Function>>,
+    #[serde(skip_serializing_if = "Unresolved::is_resolved")]
     pub(crate) unresolved: Unresolved,
 }
 
