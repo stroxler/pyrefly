@@ -478,3 +478,77 @@ if True:
         report.trim(),
     );
 }
+
+#[test]
+fn folding_ranges_with_decorators() {
+    let code = r#"
+from typing import overload, Any
+
+@overload
+def foo(x: int) -> str: ...
+@overload
+def foo(x: str) -> int: ...
+def foo(*args, **kwargs) -> Any:
+    pass
+
+def decorator1(cls):
+    return cls
+
+@decorator1
+class MyClass:
+    """Class docstring"""
+    
+    @staticmethod
+    def static_method():
+        pass
+    
+    @classmethod
+    def class_method(cls):
+        pass
+"#;
+
+    let report =
+        get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_folding_ranges_report);
+
+    assert_eq!(
+        r#"# main.py
+
+[
+  {
+    "start_line": 4,
+    "end_line": 4
+  },
+  {
+    "start_line": 6,
+    "end_line": 6
+  },
+  {
+    "start_line": 7,
+    "end_line": 8
+  },
+  {
+    "start_line": 10,
+    "end_line": 11
+  },
+  {
+    "start_line": 14,
+    "end_line": 23
+  },
+  {
+    "start_line": 15,
+    "end_line": 15,
+    "kind": "comment"
+  },
+  {
+    "start_line": 18,
+    "end_line": 19
+  },
+  {
+    "start_line": 22,
+    "end_line": 23
+  }
+]"#
+        .trim(),
+        report.trim(),
+    );
+}

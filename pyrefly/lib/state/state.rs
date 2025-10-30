@@ -1633,6 +1633,19 @@ fn collect_folding_ranges(body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeK
     use ruff_python_ast::ExceptHandler;
     use ruff_text_size::Ranged;
 
+    fn range_without_decorators(
+        range: TextRange,
+        decorators: &[ruff_python_ast::Decorator],
+    ) -> TextRange {
+        let decorators_range = decorators
+            .first()
+            .map(|first| first.range().cover(decorators.last().unwrap().range()));
+
+        decorators_range.map_or(range, |x| {
+            range.add_start(x.len() + ruff_text_size::TextSize::from(1))
+        })
+    }
+
     struct FoldingRangeCollector {
         ranges: Vec<(TextRange, Option<FoldingRangeKind>)>,
     }
@@ -1649,12 +1662,14 @@ fn collect_folding_ranges(body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeK
             match stmt {
                 Stmt::FunctionDef(func) => {
                     if !func.body.is_empty() {
-                        self.ranges.push((func.range, None));
+                        let range = range_without_decorators(func.range, &func.decorator_list);
+                        self.ranges.push((range, None));
                     }
                 }
                 Stmt::ClassDef(class) => {
                     if !class.body.is_empty() {
-                        self.ranges.push((class.range, None));
+                        let range = range_without_decorators(class.range, &class.decorator_list);
+                        self.ranges.push((range, None));
                     }
                 }
                 Stmt::If(if_stmt) => {
