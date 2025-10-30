@@ -985,11 +985,16 @@ impl Query {
             range: TextRange,
             module_info: &ModuleInfo,
             res: &mut Vec<(PythonASTRange, String)>,
+            type_cache: &TypeCache,
         ) {
+            let type_string = type_to_string(ty);
             res.push((
                 python_ast_range_for_expr(module_info, range, e, parent),
-                type_to_string(ty),
+                type_string.clone(),
             ));
+
+            // Pre-warm the cache with this type
+            type_cache.insert(type_string, ty.clone());
         }
         fn try_find_key_for_name(name: &ExprName, bindings: &Bindings) -> Option<Key> {
             let key = Key::BoundName(ShortIdentifier::expr_name(name));
@@ -1010,20 +1015,31 @@ impl Query {
             answers: &Answers,
             bindings: &Bindings,
             res: &mut Vec<(PythonASTRange, String)>,
+            type_cache: &TypeCache,
         ) {
             let range = x.range();
             if let Expr::Name(name) = x
                 && let Some(key) = try_find_key_for_name(name, bindings)
                 && let Some(ty) = answers.get_type_at(bindings.key_to_idx(&key))
             {
-                add_type(&ty, x, parent, range, module_info, res);
+                add_type(&ty, x, parent, range, module_info, res, type_cache);
             } else if let Some(ty) = answers.get_type_trace(range) {
-                add_type(&ty, x, parent, range, module_info, res);
+                add_type(&ty, x, parent, range, module_info, res, type_cache);
             }
-            x.recurse(&mut |c| f(c, Some(x), module_info, answers, bindings, res));
+            x.recurse(&mut |c| f(c, Some(x), module_info, answers, bindings, res, type_cache));
         }
 
-        ast.visit(&mut |x| f(x, None, &module_info, &answers, &bindings, &mut res));
+        ast.visit(&mut |x| {
+            f(
+                x,
+                None,
+                &module_info,
+                &answers,
+                &bindings,
+                &mut res,
+                &self.type_cache,
+            )
+        });
         Some(res)
     }
 
