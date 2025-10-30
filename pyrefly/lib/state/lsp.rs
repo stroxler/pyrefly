@@ -24,6 +24,7 @@ use lsp_types::TextEdit;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
+use pyrefly_python::dunder;
 use pyrefly_python::keywords::get_keywords;
 use pyrefly_python::module::Module;
 use pyrefly_python::module::TextRangeWithModule;
@@ -1222,6 +1223,47 @@ impl<'a> Transaction<'a> {
         .unwrap_or_default()
     }
 
+    fn find_definition_for_operator(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+        preference: &FindPreference,
+    ) -> Vec<FindDefinitionItemWithDocstring> {
+        let Some(mod_module) = self.get_ast(handle) else {
+            return vec![];
+        };
+        let covering_nodes = Ast::locate_node(&mod_module, position);
+
+        let Some((base_type, dunder_method_name)) =
+            covering_nodes.iter().find_map(|node| match node {
+                AnyNodeRef::ExprCompare(compare) => {
+                    for op in &compare.ops {
+                        if let Some(dunder_name) = dunder::rich_comparison_dunder(*op)
+                            && let Some(answers) = self.get_answers(handle)
+                            && let Some(left_type) = answers.get_type_trace(compare.left.range())
+                        {
+                            return Some((left_type, dunder_name));
+                        }
+                    }
+                    None
+                }
+                _ => None,
+            })
+        else {
+            return vec![];
+        };
+
+        // Create a fake identifier for the dunder method name
+        let identifier = Identifier {
+            node_index: Default::default(),
+            id: dunder_method_name,
+            range: TextRange::default(),
+        };
+
+        // Find the attribute definition for the dunder method on the base type
+        self.find_attribute_definition_for_base_type(handle, preference, base_type, &identifier)
+    }
+
     pub fn find_definition_for_attribute(
         &self,
         handle: &Handle,
@@ -1474,7 +1516,7 @@ impl<'a> Transaction<'a> {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
             }) => self.find_definition_for_attribute(handle, base_range, &identifier, preference),
-            None => vec![],
+            None => self.find_definition_for_operator(handle, position, preference),
         }
     }
 
