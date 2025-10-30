@@ -146,7 +146,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let partial_td_ty = Type::PartialTypedDict(typed_dict.clone());
                 let item_ty = self.expr_infer_with_hint(
                     &x.value,
-                    Some(HintRef::new(&partial_td_ty, None)),
+                    Some(HintRef::soft(&partial_td_ty)),
                     item_errors,
                 );
                 let subset_result = self.is_subset_eq_with_reason(&item_ty, &partial_td_ty);
