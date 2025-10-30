@@ -552,3 +552,180 @@ class MyClass:
         report.trim(),
     );
 }
+
+#[test]
+fn folding_ranges_for_calls() {
+    let code = r#"
+def foo(*args):
+    pass
+
+def short_call(*args):
+    pass
+
+def multi_line_nested(*args):
+    pass
+
+def bar(*args):
+    pass
+
+def very_long_function_name(**kwargs):
+    pass
+
+nested_arg = 1
+another_arg = 2
+second_arg = 3
+value1 = 1
+value2 = 2
+value3 = 3
+
+result = foo(
+    1,
+    2,
+    3,
+    4
+)
+
+short_call(1, 2, 3)
+
+multi_line_nested(
+    bar(
+        nested_arg,
+        another_arg
+    ),
+    second_arg
+)
+
+x = very_long_function_name(
+    param1=value1,
+    param2=value2,
+    param3=value3
+)
+"#;
+
+    let report =
+        get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_folding_ranges_report);
+
+    assert_eq!(
+        r#"# main.py
+
+[
+  {
+    "start_line": 1,
+    "end_line": 2
+  },
+  {
+    "start_line": 4,
+    "end_line": 5
+  },
+  {
+    "start_line": 7,
+    "end_line": 8
+  },
+  {
+    "start_line": 10,
+    "end_line": 11
+  },
+  {
+    "start_line": 13,
+    "end_line": 14
+  },
+  {
+    "start_line": 23,
+    "end_line": 28
+  },
+  {
+    "start_line": 32,
+    "end_line": 38
+  },
+  {
+    "start_line": 33,
+    "end_line": 36
+  },
+  {
+    "start_line": 40,
+    "end_line": 44
+  }
+]"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn folding_ranges_for_literals() {
+    let code = r#"
+data = {
+    "key1": "value1",
+    "key2": "value2",
+    "key3": "value3"
+}
+
+items = [
+    1,
+    2,
+    3,
+    4
+]
+
+my_set = {
+    "a",
+    "b",
+    "c"
+}
+
+coordinates = (
+    10,
+    20,
+    30
+)
+
+nested = {
+    "inner_dict": {
+        "nested_key": "value"
+    },
+    "inner_list": [
+        1, 2, 3
+    ]
+}
+"#;
+
+    let report =
+        get_batched_lsp_operations_report_no_cursor(&[("main", code)], get_folding_ranges_report);
+
+    assert_eq!(
+        r#"# main.py
+
+[
+  {
+    "start_line": 1,
+    "end_line": 5
+  },
+  {
+    "start_line": 7,
+    "end_line": 12
+  },
+  {
+    "start_line": 14,
+    "end_line": 18
+  },
+  {
+    "start_line": 20,
+    "end_line": 24
+  },
+  {
+    "start_line": 26,
+    "end_line": 33
+  },
+  {
+    "start_line": 27,
+    "end_line": 29
+  },
+  {
+    "start_line": 30,
+    "end_line": 32
+  }
+]"#
+        .trim(),
+        report.trim(),
+    );
+}

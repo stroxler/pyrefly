@@ -58,10 +58,12 @@ use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::upgrade_lock::UpgradeLock;
 use pyrefly_util::upgrade_lock::UpgradeLockExclusiveGuard;
 use pyrefly_util::upgrade_lock::UpgradeLockWriteGuard;
+use ruff_python_ast::Expr;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::Visitor;
 use ruff_python_ast::visitor::walk_body;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
@@ -507,7 +509,8 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
     ) -> Option<Vec<(TextRange, Option<FoldingRangeKind>)>> {
         let ast = self.get_ast(handle)?;
-        let mut ranges = collect_folding_ranges(&ast.body);
+        let module_info = self.get_module_info(handle)?;
+        let mut ranges = collect_folding_ranges(&ast.body, &module_info);
         ranges.sort_by_key(|(range, _)| range.start());
         ranges.dedup();
         Some(ranges)
@@ -1629,7 +1632,10 @@ impl<'a> Transaction<'a> {
     }
 }
 
-fn collect_folding_ranges(body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeKind>)> {
+fn collect_folding_ranges(
+    body: &[Stmt],
+    module: &Module,
+) -> Vec<(TextRange, Option<FoldingRangeKind>)> {
     use ruff_python_ast::ExceptHandler;
     use ruff_text_size::Ranged;
 
@@ -1646,11 +1652,12 @@ fn collect_folding_ranges(body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeK
         })
     }
 
-    struct FoldingRangeCollector {
+    struct FoldingRangeCollector<'a> {
         ranges: Vec<(TextRange, Option<FoldingRangeKind>)>,
+        module: &'a Module,
     }
 
-    impl Visitor<'_> for FoldingRangeCollector {
+    impl Visitor<'_> for FoldingRangeCollector<'_> {
         fn visit_body(&mut self, body: &[Stmt]) {
             if let Some(range) = Docstring::range_from_stmts(body) {
                 self.ranges.push((range, Some(FoldingRangeKind::Comment)));
@@ -1720,9 +1727,31 @@ fn collect_folding_ranges(body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeK
             }
             ruff_python_ast::visitor::walk_stmt(self, stmt);
         }
+
+        fn visit_expr(&mut self, expr: &Expr) {
+            let range = match expr {
+                Expr::Call(call) => Some(call.arguments.range),
+                Expr::Dict(dict) => Some(dict.range),
+                Expr::List(list) => Some(list.range),
+                Expr::Set(set) => Some(set.range),
+                Expr::Tuple(tuple) => Some(tuple.range),
+                _ => None,
+            };
+
+            if let Some(range) = range {
+                let lsp_range = self.module.lined_buffer().to_lsp_range(range);
+                if lsp_range.start.line != lsp_range.end.line {
+                    self.ranges.push((range, None));
+                }
+            }
+            ruff_python_ast::visitor::walk_expr(self, expr);
+        }
     }
 
-    let mut collector = FoldingRangeCollector { ranges: Vec::new() };
+    let mut collector = FoldingRangeCollector {
+        ranges: Vec::new(),
+        module,
+    };
 
     if let Some(range) = Docstring::range_from_stmts(body) {
         collector
