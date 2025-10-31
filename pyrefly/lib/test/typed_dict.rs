@@ -1814,3 +1814,30 @@ test1: TestBadUnpackingError = {"bar": True, **unpack_this}
 test2: TestBadUnpackingError = {"bar": True, "foo": True}
     "#,
 );
+
+testcase!(
+    test_unexpected_item_in_unpacking,
+    r#"
+from typing import ReadOnly, TypedDict
+class A(TypedDict):
+    x: int
+    y: str
+class B1(TypedDict):
+    x: int
+class B2(TypedDict, extra_items=int):
+    x: int
+class B3(TypedDict, extra_items=ReadOnly[str]):
+    x: int
+class B4(TypedDict, extra_items=str):
+    x: int
+a: A = {'x': 0, 'y': ''}
+# not ok because B1 does not have key `y`
+b1: B1 = {'x': 0, **a}  # E: `TypedDict[A]` is not assignable to `Partial[B1]`
+# not ok because extra items in B2 must have type `int`, not `str`
+b2: B2 = {'x': 0, **a}  # E: `TypedDict[A]` is not assignable to `Partial[B2]`
+# not ok because extra items in B2 are read-only
+b3: B3 = {'x': 0, **a}  # E: `TypedDict[A]` is not assignable to `Partial[B3]`
+# ok, `y` in A and extra items in B2 both have type `str`
+b4: B4 = {'x': 0, **a}
+    "#,
+);
