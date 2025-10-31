@@ -22,6 +22,7 @@ use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
+use crate::solver::solver::OpenTypedDictSubsetError;
 use crate::solver::solver::Subset;
 use crate::solver::solver::SubsetError;
 use crate::solver::solver::TypedDictSubsetError;
@@ -831,11 +832,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
                 (None, ExtraItems::Default) => {
                     // A subclass of `got` could have this item with an incompatible type.
-                    return Err(SubsetError::PartialTypedDictMissingField(Box::new((
-                        got.name().clone(),
-                        want.name().clone(),
-                        k.clone(),
-                    ))));
+                    return Err(SubsetError::OpenTypedDict(Box::new(
+                        OpenTypedDictSubsetError::MissingField {
+                            got: got.name().clone(),
+                            want: want.name().clone(),
+                            field: k.clone(),
+                        },
+                    )));
                 }
             };
             self.is_subset_partial_typed_dict_field(got_ty, want_v)

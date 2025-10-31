@@ -152,7 +152,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let subset_result = self.is_subset_eq_with_reason(&item_ty, &partial_td_ty);
                 if let Some(subset_error) = subset_result.err() {
                     let tcc: &dyn Fn() -> TypeCheckContext =
-                        if matches!(subset_error, SubsetError::PartialTypedDictMissingField(_)) {
+                        if matches!(subset_error, SubsetError::OpenTypedDict(_)) {
                             // This SubsetError variant is used to report cases in which the unpacked
                             // item is an open TypedDict that, via inheritance, may contain a key from
                             // `partial_td_ty` with an incompatible type. We report this error via a

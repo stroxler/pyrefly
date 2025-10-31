@@ -970,7 +970,7 @@ pub enum TypedDictSubsetError {
 }
 
 impl TypedDictSubsetError {
-    pub fn to_error_msg(self) -> String {
+    fn to_error_msg(self) -> String {
         match self {
             TypedDictSubsetError::MissingField { got, want, field } => {
                 format!("Field `{field}` is present in `{want}` and absent in `{got}`")
@@ -1012,6 +1012,22 @@ impl TypedDictSubsetError {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum OpenTypedDictSubsetError {
+    /// `got` is missing a field in `want`
+    MissingField { got: Name, want: Name, field: Name },
+}
+
+impl OpenTypedDictSubsetError {
+    fn to_error_msg(self) -> String {
+        match self {
+            Self::MissingField { got, want, field } => format!(
+                "`{got}` is an open TypedDict with unknown extra items, which may include `{want}` item `{field}` with an incompatible type. Hint: add `closed=True` to the definition of `{got}` to close it."
+            ),
+        }
+    }
+}
+
 /// If a got <: want check fails, the failure reason
 #[derive(Debug, Clone)]
 pub enum SubsetError {
@@ -1028,10 +1044,8 @@ pub enum SubsetError {
     IncompatibleAttribute(Box<(Name, Type, Name, AttrSubsetError)>),
     /// TypedDict subset check failed
     TypedDict(Box<TypedDictSubsetError>),
-    /// `got` is missing a field that exists in PartialTypedDict `want`.
-    /// This is an error because a subclass of `got` could have this field with an incompatible type.
-    /// The names are (got, want, field).
-    PartialTypedDictMissingField(Box<(Name, Name, Name)>),
+    /// Errors involving arbitrary unknown fields in open TypedDicts
+    OpenTypedDict(Box<OpenTypedDictSubsetError>),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
@@ -1053,9 +1067,7 @@ impl SubsetError {
                 Some(err.to_error_msg(&Name::new(format!("{got}")), &protocol, &attribute))
             }
             SubsetError::TypedDict(err) => Some(err.to_error_msg()),
-            SubsetError::PartialTypedDictMissingField(box (got, want, field)) => Some(format!(
-                "`{got}` is an open TypedDict with unknown extra items, which may include `{want}` item `{field}` with an incompatible type. Hint: add `closed=True` to the definition of `{got}` to close it."
-            )),
+            SubsetError::OpenTypedDict(err) => Some(err.to_error_msg()),
             SubsetError::Other => None,
         }
     }
