@@ -841,9 +841,13 @@ impl<'a> CallGraphVisitor<'a> {
     //  2) the real target otherwise
     fn compute_indirect_targets(
         &self,
-        receiver_type: Option<&Type>,
+        callee_type: Option<&Type>,
         callee: FunctionRef,
     ) -> Vec<Target<FunctionRef>> {
+        let receiver_type = match callee_type {
+            Some(Type::BoundMethod(bound_method)) => Some(&bound_method.obj),
+            _ => None,
+        };
         if receiver_type.is_none() {
             return vec![Target::Function(callee)];
         }
@@ -1361,13 +1365,11 @@ impl<'a> CallGraphVisitor<'a> {
             .module_context
             .answers
             .get_type_trace(attribute.value.range());
-        let is_direct_call = is_direct_call(
-            AnyNodeRef::from(attribute),
-            self.module_context
-                .answers
-                .get_type_trace(attribute.range())
-                .as_ref(),
-        );
+        let callee_type = self
+            .module_context
+            .answers
+            .get_type_trace(attribute.range());
+        let is_direct_call = is_direct_call(AnyNodeRef::from(attribute), callee_type.as_ref());
         let call_target_from_function_ref =
             |function_ref: FunctionRef, return_type: Option<ScalarTypeProperties>| {
                 if is_direct_call {
@@ -1380,7 +1382,7 @@ impl<'a> CallGraphVisitor<'a> {
                         /* override_implicit_receiver*/ None,
                     )]
                 } else {
-                    self.compute_indirect_targets(receiver_type.as_ref(), function_ref)
+                    self.compute_indirect_targets(callee_type.as_ref(), function_ref)
                         .into_iter()
                         .map(|target| match target {
                             Target::Function(function_ref) => self.call_target_from_function_ref(
