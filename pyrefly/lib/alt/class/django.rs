@@ -121,11 +121,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    fn resolve_foreign_key_target(
-        &self,
-        to_expr: &ruff_python_ast::Expr,
-        class: &Class,
-    ) -> Option<Type> {
+    fn resolve_foreign_key_target(&self, to_expr: &Expr, class: &Class) -> Option<Type> {
         // Extract the model name from the expression
         let model_name = match to_expr {
             // Direct name reference. Ex: ForeignKey(Reporter, ...)
