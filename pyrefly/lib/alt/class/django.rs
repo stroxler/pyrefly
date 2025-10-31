@@ -175,14 +175,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && let Type::Tuple(Tuple::Concrete(elements)) = &lit_enum.ty
                     && elements.len() >= 2
                 {
-                    Some(elements[elements.len() - 1].clone())
+                    Some(
+                        elements[elements.len() - 1]
+                            .clone()
+                            .promote_literals(self.stdlib),
+                    )
                 } else {
                     None
                 }
             })
             .collect();
 
-        label_types.push(self.stdlib.str().clone().to_type());
+        if label_types.is_empty() || label_types.len() < enum_members.len() {
+            // Members without a custom label type have default label type str.
+            label_types.push(self.stdlib.str().clone().to_type());
+        }
 
         // Also include the type of __empty__ field if it exists, since it contributes to label types
         let empty_name = Name::new_static("__empty__");
