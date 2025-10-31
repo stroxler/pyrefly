@@ -119,7 +119,7 @@ export default function Sandbox({
             let newModel;
             if (existingModel) {
                 // File exists, update its content
-                updateModelWithFullRangeEditOperation(existingModel, content);
+                existingModel.setValue(content);
                 newModel = existingModel;
             } else {
                 // Create new file from scratch
@@ -587,19 +587,6 @@ export default function Sandbox({
                 }
         );
 
-        // Trigger Monaco to re-request inlay hints by simulating a document change
-        // This is necessary because Monaco only requests hints when it detects a change
-        model.pushEditOperations(
-            [],
-            [
-                {
-                    range: new monaco.Range(1, 1, 1, 1),
-                    text: '',
-                },
-            ],
-            () => null
-        );
-
         // typecheck on edit
         try {
             if (activeFileName === 'pyrefly.toml') {
@@ -749,8 +736,7 @@ export default function Sandbox({
         models,
         activeFileName,
         createNewFile,
-        setActiveFileName,
-        updateAllFiles
+        setActiveFileName
     );
     return (
         <div
@@ -1021,8 +1007,7 @@ function getMonacoButtons(
     models: Map<string, editor.ITextModel>,
     activeFileName: string,
     createNewFile: (fileName: string, content: string) => void,
-    setActiveFileName: (fileName: string) => void,
-    updateAllFiles: (forceUpdate: boolean) => boolean
+    setActiveFileName: (fileName: string) => void
 ): ReadonlyArray<React.ReactElement> {
     let buttons: ReadonlyArray<React.ReactElement> = [];
     if (isCodeSnippet) {
@@ -1039,8 +1024,7 @@ function getMonacoButtons(
                       models,
                       activeFileName,
                       createNewFile,
-                      setActiveFileName,
-                      updateAllFiles
+                      setActiveFileName
                   )
                 : null,
         ].filter(Boolean);
@@ -1060,8 +1044,7 @@ function getMonacoButtons(
                 models,
                 activeFileName,
                 createNewFile,
-                setActiveFileName,
-                updateAllFiles
+                setActiveFileName
             ),
             getGitHubIssuesButton(model, pythonVersion),
         ];
@@ -1228,28 +1211,6 @@ function getCopyButton(model: editor.ITextModel): React.ReactElement {
     );
 }
 
-/**
- * This function wraps a no op model update. Previously we were using setValue to update the model.
- * However, setValue will not actually trigger any refreshes on the model if the content of the same.
- * Instead to trigger refreshes we push an edit operation which is just the content of the current model.
- */
-
-function updateModelWithFullRangeEditOperation(
-    model: editor.ITextModel,
-    content: string
-): void {
-    model.pushEditOperations(
-        [],
-        [
-            {
-                range: model.getFullModelRange(),
-                text: content,
-            },
-        ],
-        () => null
-    );
-}
-
 function getResetButton(
     model: editor.ITextModel | null,
     forceRecheck: () => void,
@@ -1258,23 +1219,19 @@ function getResetButton(
     models: Map<string, editor.ITextModel>,
     activeFileName: string,
     createNewFile: (fileName: string, content: string) => void,
-    setActiveFileName: (fileName: string) => void,
-    updateAllFiles: (forceUpdate: boolean) => boolean
+    setActiveFileName: (fileName: string) => void
 ): React.ReactElement {
     return (
         <MonacoEditorButton
             id="reset-button"
             onClick={async () => {
                 if (!isCodeSnippet) {
-                    createNewFile('sandbox.py', DEFAULT_SANDBOX_PROGRAM);
                     createNewFile('utils.py', DEFAULT_UTILS_PROGRAM);
                     setActiveFileName('sandbox.py');
-                    updateAllFiles(true);
-                } else if (model) {
-                    updateModelWithFullRangeEditOperation(model, codeSample);
-
-                    // Force update to completely rebuild pyreService state
-                    updateAllFiles(true);
+                    forceRecheck();
+                }
+                if (model) {
+                    model.setValue(codeSample);
                     forceRecheck();
                 }
             }}
