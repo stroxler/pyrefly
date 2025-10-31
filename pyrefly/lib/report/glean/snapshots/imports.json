@@ -1,6 +1,10 @@
 [
   {
     "facts": [],
+    "predicate": "gencode.GenCode.1"
+  },
+  {
+    "facts": [],
     "predicate": "python.ImportStarLocation.4"
   },
   {
