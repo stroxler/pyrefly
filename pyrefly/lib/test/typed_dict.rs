@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -1839,5 +1840,43 @@ b2: B2 = {'x': 0, **a}  # E: `TypedDict[A]` is not assignable to `Partial[B2]`
 b3: B3 = {'x': 0, **a}  # E: `TypedDict[A]` is not assignable to `Partial[B3]`
 # ok, `y` in A and extra items in B2 both have type `str`
 b4: B4 = {'x': 0, **a}
+    "#,
+);
+
+testcase!(
+    test_open_unpacking,
+    TestEnv::new().enable_open_unpacking_error(),
+    r#"
+from typing import TypedDict
+
+class Open(TypedDict):
+    x: int
+
+class Closed(TypedDict, closed=True):
+    x: int
+
+class Extra(TypedDict, extra_items=str):
+    x: int
+
+class ExtraWrongType(TypedDict, extra_items=int):
+    x: int
+
+class Target(TypedDict):
+    x: int
+    y: str
+
+open: Open = {'x': 0}
+closed: Closed = {'x': 0}
+extra: Extra = {'x': 0}
+extra_wrong_type: ExtraWrongType = {'x': 0}
+
+# Not ok, we could be unpacking a subclass of `open` with `y` with an unknown type
+t1: Target = {'y': '', **open}  # E: open TypedDict with unknown extra items
+# Ok, `closed` has no unknown items
+t2: Target = {'y': '', **closed}
+# Ok, `extra` has only extra items of the right type
+t3: Target = {'y': '', **extra}
+# Not ok, the extra items have the wrong type
+t4: Target = {'y': '', **extra_wrong_type}  # E: `TypedDict[ExtraWrongType]` is not assignable to `Partial[Target]`
     "#,
 );

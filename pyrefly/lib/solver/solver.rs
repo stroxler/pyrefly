@@ -1053,7 +1053,9 @@ impl SubsetError {
                 Some(err.to_error_msg(&Name::new(format!("{got}")), &protocol, &attribute))
             }
             SubsetError::TypedDict(err) => Some(err.to_error_msg()),
-            SubsetError::PartialTypedDictMissingField(_) => None, // TODO
+            SubsetError::PartialTypedDictMissingField(box (got, want, field)) => Some(format!(
+                "`{got}` is an open TypedDict with unknown extra items, which may include `{want}` item `{field}` with an incompatible type. Hint: add `closed=True` to the definition of `{got}` to close it."
+            )),
             SubsetError::Other => None,
         }
     }
