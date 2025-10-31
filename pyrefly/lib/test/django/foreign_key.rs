@@ -97,3 +97,35 @@ if person.parent:
 
 "#,
 );
+
+django_testcase!(
+    bug = "support _id suffix with custom PK",
+    test_foreign_key_custom_pk,
+    r#"
+from typing import assert_type
+from uuid import UUID
+
+from django.db import models
+
+class Reporter(models.Model):
+    uuid = models.UUIDField(primary_key=True)
+    full_name = models.CharField(max_length=70)
+
+class Reporter2(models.Model):
+    pass
+
+class Article(models.Model):
+    reporter = models.ForeignKey(Reporter, on_delete=models.CASCADE)
+
+class B(Article):
+    pass
+
+article = Article()
+assert_type(article.reporter, Reporter)
+assert_type(article.reporter_id, UUID) # E: Object of class `Article` has no attribute `reporter_id` # E: assert_type(Any, UUID) 
+
+b = B()
+assert_type(b.reporter, Reporter)
+assert_type(b.reporter_id, UUID) # E: Object of class `B` has no attribute `reporter_id` # E: assert_type(Any, UUID) 
+"#,
+);
