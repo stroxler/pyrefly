@@ -704,11 +704,7 @@ fn method_name_from_function(function: &pyrefly_types::callable::Function) -> Co
 }
 
 // Whether the call is non-dynamically dispatched
-fn is_direct_call(
-    callee: AnyNodeRef,
-    callee_type: Option<&Type>,
-    receiver_type: Option<&Type>,
-) -> bool {
+fn is_direct_call(callee: AnyNodeRef, callee_type: Option<&Type>) -> bool {
     fn is_super_call(callee: AnyNodeRef) -> bool {
         match callee {
             AnyNodeRef::ExprCall(call) => is_super_call(call.func.as_ref().into()),
@@ -719,17 +715,30 @@ fn is_direct_call(
     }
 
     is_super_call(callee) || {
-        match (callee_type, receiver_type) {
-            (Some(Type::BoundMethod(_)), Some(Type::ClassDef(_))) => true,
-            (Some(Type::BoundMethod(_)), Some(Type::ClassType(_))) => {
+        match callee_type {
+            Some(Type::BoundMethod(box BoundMethod {
+                obj: Type::ClassDef(_) | Type::Type(_),
+                ..
+            })) => true,
+            Some(Type::BoundMethod(box BoundMethod {
+                obj: Type::ClassType(_) | Type::SelfType(_),
+                ..
+            })) => {
                 // Dynamic dispatch if calling a method via an attribute lookup
                 // on an instance
                 false
             }
-            (Some(Type::Function(_)), _) => true,
-            (Some(Type::Union(types)), _) => {
-                is_direct_call(callee, Some(types.first().unwrap()), receiver_type)
+            Some(Type::BoundMethod(bound_method)) => {
+                eprintln!(
+                    "For callee `{:#?}`, unknown object type in bound method `{:#?}`",
+                    callee, bound_method
+                );
+                // `true` would skip overrides, which may lead to false negatives. But we prefer false positives since
+                // we are blind to false negatives.
+                false
             }
+            Some(Type::Function(_)) => true,
+            Some(Type::Union(types)) => is_direct_call(callee, Some(types.first().unwrap())),
             _ => false,
         }
     }
@@ -1353,12 +1362,11 @@ impl<'a> CallGraphVisitor<'a> {
             .answers
             .get_type_trace(attribute.value.range());
         let is_direct_call = is_direct_call(
-            attribute.into(),
+            AnyNodeRef::from(attribute),
             self.module_context
                 .answers
                 .get_type_trace(attribute.range())
                 .as_ref(),
-            receiver_type.as_ref(),
         );
         let call_target_from_function_ref =
             |function_ref: FunctionRef, return_type: Option<ScalarTypeProperties>| {
