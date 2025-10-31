@@ -845,7 +845,7 @@ impl<'a> CalleesWithLocation<'a> {
                 .collect_vec(),
 
             Type::Function(f) => {
-                vec![self.callee_from_function(&f, call_target, call_arguments)]
+                vec![self.callee_from_function(f, call_target, call_arguments)]
             }
             Type::Overload(f) => {
                 let class_name = self.class_name_from_call_target(call_target);
@@ -868,7 +868,7 @@ impl<'a> CalleesWithLocation<'a> {
             Type::ClassDef(cls) => self.find_init_or_new(cls),
             Type::Forall(v) => match &v.body {
                 Forallable::Function(func) => {
-                    vec![self.callee_from_function(&func, call_target, call_arguments)]
+                    vec![self.callee_from_function(func, call_target, call_arguments)]
                 }
                 Forallable::Callable(_) => self.for_callable(callee_range),
                 Forallable::TypeAlias(t) => {
