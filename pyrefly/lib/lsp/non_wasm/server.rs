@@ -1099,6 +1099,16 @@ impl Server {
         handles
     }
 
+    #[allow(dead_code)]
+    fn is_python_stdlib_file(&self, path: &Path, stdlib_paths: &[PathBuf]) -> bool {
+        for stdlib_path in stdlib_paths {
+            if path.starts_with(stdlib_path) {
+                return true;
+            }
+        }
+        false
+    }
+
     fn get_diag_if_shown(
         &self,
         e: &Error,
@@ -2435,5 +2445,74 @@ impl TspInterface for Server {
             subsequent_mutation,
             event,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_server() -> Server {
+        let (connection, _receiver) = Connection::memory();
+        let lsp_queue = LspQueue::new();
+        let initialize_params = InitializeParams::default();
+        Server::new(
+            Arc::new(connection),
+            lsp_queue,
+            initialize_params,
+            IndexingMode::None,
+            0,
+        )
+    }
+
+    #[test]
+    fn test_stdlib_paths_for_mac_and_windows_paths() {
+        let server = create_test_server();
+
+        let stdlib_paths = vec![
+            PathBuf::from("/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12"),
+            PathBuf::from("/usr/local/Cellar/python@3.12/3.12.0/lib/python3.12"),
+        ];
+
+        assert!(server.is_python_stdlib_file(
+            &PathBuf::from(
+                "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/os.py"
+            ),
+            &stdlib_paths
+        ));
+        assert!(server.is_python_stdlib_file(
+            &PathBuf::from("/usr/local/Cellar/python@3.12/3.12.0/lib/python3.12/sys.py"),
+            &stdlib_paths
+        ));
+        assert!(!server.is_python_stdlib_file(
+            &PathBuf::from("/Users/user/my_project/main.py"),
+            &stdlib_paths
+        ));
+
+        if cfg!(windows) {
+            let stdlib_paths = vec![
+                PathBuf::from(r"C:\Python312\Lib"),
+                PathBuf::from(r"C:\Program Files\Python39\Lib"),
+            ];
+
+            assert!(
+                server.is_python_stdlib_file(
+                    &PathBuf::from(r"C:\Python312\Lib\os.py"),
+                    &stdlib_paths
+                )
+            );
+            assert!(server.is_python_stdlib_file(
+                &PathBuf::from(r"C:\Program Files\Python39\Lib\pathlib.py"),
+                &stdlib_paths
+            ));
+            assert!(!server.is_python_stdlib_file(
+                &PathBuf::from(r"C:\Python312\Scripts\pip.py"),
+                &stdlib_paths
+            ));
+            assert!(!server.is_python_stdlib_file(
+                &PathBuf::from(r"C:\Users\user\my_project\main.py"),
+                &stdlib_paths
+            ));
+        }
     }
 }
