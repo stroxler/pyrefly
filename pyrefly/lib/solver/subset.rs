@@ -853,17 +853,22 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 )
             }
         })?;
-        if want_extra_items == ExtraItems::Default {
-            // When `want` is open, checking extra items is more likely to cause false positives than catch real errors.
-            Ok(())
-        } else if got_extra_items == ExtraItems::Default {
-            // TODO: emit strict mode errors for cases like got=open, want=closed
-            Ok(())
-        } else {
-            self.is_subset_eq(
+        match (got_extra_items, want_extra_items) {
+            (_, ExtraItems::Default) => {
+                // When `want` is open, checking extra items is more likely to cause false positives than catch real errors.
+                Ok(())
+            }
+            (ExtraItems::Default, want_extra_items) => Err(SubsetError::OpenTypedDict(Box::new(
+                OpenTypedDictSubsetError::UnknownFields {
+                    got: got.name().clone(),
+                    want: want.name().clone(),
+                    extra_items: want_extra_items.extra_item(self.type_order.stdlib()).ty,
+                },
+            ))),
+            (got_extra_items, want_extra_items) => self.is_subset_eq(
                 &got_extra_items.extra_item(self.type_order.stdlib()).ty,
                 &want_extra_items.extra_item(self.type_order.stdlib()).ty,
-            )
+            ),
         }
     }
 

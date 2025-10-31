@@ -1016,15 +1016,46 @@ impl TypedDictSubsetError {
 pub enum OpenTypedDictSubsetError {
     /// `got` is missing a field in `want`
     MissingField { got: Name, want: Name, field: Name },
+    /// `got` may contain unknown fields contradicting the `extra_items` type in `want`
+    UnknownFields {
+        got: Name,
+        want: Name,
+        extra_items: Type,
+    },
 }
 
 impl OpenTypedDictSubsetError {
     fn to_error_msg(self) -> String {
-        match self {
-            Self::MissingField { got, want, field } => format!(
-                "`{got}` is an open TypedDict with unknown extra items, which may include `{want}` item `{field}` with an incompatible type. Hint: add `closed=True` to the definition of `{got}` to close it."
+        let (msg, got) = match self {
+            Self::MissingField { got, want, field } => (
+                format!(
+                    "`{got}` is an open TypedDict with unknown extra items, which may include `{want}` item `{field}` with an incompatible type"
+                ),
+                got,
             ),
-        }
+            Self::UnknownFields {
+                got,
+                want,
+                extra_items: Type::Never(_),
+            } => (
+                format!(
+                    "`{got}` is an open TypedDict with unknown extra items, which cannot be unpacked into closed TypedDict `{want}`",
+                ),
+                got,
+            ),
+            Self::UnknownFields {
+                got,
+                want,
+                extra_items,
+            } => (
+                format!(
+                    "`{got}` is an open TypedDict with unknown extra items, which may not be compatible with `extra_items` type `{}` in `{want}`",
+                    extra_items.deterministic_printing(),
+                ),
+                got,
+            ),
+        };
+        format!("{msg}. Hint: add `closed=True` to the definition of `{got}` to close it.")
     }
 }
 

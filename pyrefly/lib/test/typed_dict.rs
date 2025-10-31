@@ -1880,3 +1880,27 @@ t3: Target = {'y': '', **extra}
 t4: Target = {'y': '', **extra_wrong_type}  # E: `TypedDict[ExtraWrongType]` is not assignable to `Partial[Target]`
     "#,
 );
+
+testcase!(
+    test_open_unpacking_closed_and_extra_items,
+    TestEnv::new().enable_open_unpacking_error(),
+    r#"
+from typing import TypedDict
+
+class Open(TypedDict):
+    x: int
+
+class ClosedTarget(TypedDict, closed=True):
+    x: int
+
+class ExtraItemsTarget(TypedDict, extra_items=int):
+    x: int
+
+open: Open = {'x': 0}
+
+# not ok: `open` could contain arbitrary extra items when `t1` is supposed to be closed
+t1: ClosedTarget = {**open}  # E: open TypedDict with unknown extra items
+# not ok: `open` could contain extra items of the wrong type
+t2: ExtraItemsTarget = {**open}  # E: open TypedDict with unknown extra items
+    "#,
+);
