@@ -107,6 +107,7 @@ impl Display for Variable {
     }
 }
 
+#[derive(Debug)]
 #[must_use = "Quantified vars must be finalized. Pass to finish_quantified."]
 pub struct QuantifiedHandle(Vec<Var>);
 
