@@ -711,10 +711,12 @@ impl Solver {
                         }
                     });
                     Some(t)
-                } else {
+                } else if self.infer_with_first_use {
                     let v = Var::new(uniques);
                     self.variables.lock().insert_fresh(v, Variable::Partial);
                     Some(v.to_type())
+                } else {
+                    Some(Type::any_implicit())
                 }
             } else {
                 None
