@@ -79,7 +79,7 @@ assert_type(article.reporter_id, int) # E: assert_type(Any, int) failed # E:  Ob
 );
 
 django_testcase!(
-    bug = "id suffix needs to be generated; support self references",
+    bug = "support self references; nullability of FK should be taken into account",
     test_foreign_key_self_reference,
     r#"
 from typing import assert_type
