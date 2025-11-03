@@ -420,6 +420,9 @@ enum AttributeBase1 {
     /// type[Any] is a special case where attribute lookups first check the
     /// builtin `type` class before falling back to `Any`.
     TypeAny(AnyStyle),
+    /// type[Never] is a special case where attribute lookups first check the builtin `type` class
+    /// before falling back to `Never`.
+    TypeNever,
     /// Properties are handled via a special case so that we can understand
     /// setter decorators.
     Property(Type),
@@ -1098,6 +1101,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr.clone().as_instance_method().map(|_| attr)
     }
 
+    /// Helper for looking up attributes on `type[T]` wrappers.
+    /// First checks the builtin `type` class, then falls back to the provided fallback.
+    fn lookup_attr_from_type_wrapper(
+        &self,
+        attr_name: &Name,
+        fallback: impl FnOnce() -> Type,
+    ) -> Type {
+        let builtins_type_classtype = self.stdlib.builtins_type();
+        self.get_instance_attribute(builtins_type_classtype, attr_name)
+            .and_then(|attr| attr.as_instance_method())
+            .unwrap_or_else(fallback)
+    }
+
     fn lookup_attr_from_attribute_base1(
         &self,
         base: AttributeBase1,
@@ -1107,11 +1123,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match &base {
             AttributeBase1::Any(style) => acc.found_type(style.propagate(), base),
             AttributeBase1::TypeAny(style) => {
-                let builtins_type_classtype = self.stdlib.builtins_type();
-                let ty = self
-                    .get_instance_attribute(builtins_type_classtype, attr_name)
-                    .and_then(|attr| attr.as_instance_method())
-                    .unwrap_or_else(|| style.propagate());
+                let ty = self.lookup_attr_from_type_wrapper(attr_name, || style.propagate());
+                acc.found_type(ty, base);
+            }
+            AttributeBase1::TypeNever => {
+                let ty = self.lookup_attr_from_type_wrapper(attr_name, Type::never);
                 acc.found_type(ty, base);
             }
             AttributeBase1::Never => acc.found_type(Type::never(), base),
@@ -1612,6 +1628,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )),
             },
             Type::Type(box Type::Any(style)) => acc.push(AttributeBase1::TypeAny(style)),
+            Type::Type(box Type::Never(_)) => acc.push(AttributeBase1::TypeNever),
             // At runtime, these special forms are classes. This has been tested with Python
             // versions 3.11-3.13. Note that other special forms are classes in some versions, but
             // their representations aren't stable across versions.
@@ -2125,7 +2142,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AttributeBase1::TypeQuantified(_, class) => {
                 self.completions_class(class.class_object(), expected_attribute_name, res)
             }
-            AttributeBase1::TypeAny(_) => self.completions_class_type(
+            AttributeBase1::TypeAny(_) | AttributeBase1::TypeNever => self.completions_class_type(
                 self.stdlib.builtins_type(),
                 expected_attribute_name,
                 res,
