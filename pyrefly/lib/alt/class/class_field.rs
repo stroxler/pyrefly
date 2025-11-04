@@ -184,7 +184,7 @@ pub enum DescriptorBase {
 ///
 /// TODO(stroxler): This type is mostly an artifact of a refactor, it used to be
 /// used in `BindingClassField`. We probably can eliminate it.
-enum RawClassFieldInitialization {
+pub enum RawClassFieldInitialization {
     /// At the point where the field is declared, it does not have an initial value. This includes
     /// fields declared but not initialized in the class body, and instance-only fields of
     /// synthesized classes.
@@ -1336,7 +1336,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             name,
             direct_annotation.as_ref(),
             &ty,
-            &initialization,
             initial_value,
             descriptor.is_some(),
             range,
@@ -1430,7 +1429,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         direct_annotation: Option<&Annotation>,
         ty: &Type,
-        initialization: &ClassFieldInitialization,
         initial_value: &RawClassFieldInitialization,
         is_descriptor: bool,
         range: TextRange,
@@ -1441,7 +1439,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             name,
             direct_annotation,
             ty,
-            initialization,
+            initial_value,
             is_descriptor,
             range,
             errors,

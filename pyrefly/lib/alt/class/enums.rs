@@ -23,7 +23,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassAttribute;
-use crate::alt::class::class_field::ClassFieldInitialization;
+use crate::alt::class::class_field::RawClassFieldInitialization;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::EnumMetadata;
 use crate::error::collector::ErrorCollector;
@@ -55,7 +55,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         name: &Name,
         ty: &Type,
-        initialization: &ClassFieldInitialization,
+        initialization: &RawClassFieldInitialization,
     ) -> bool {
         // Names starting but not ending with __ are private
         // Names starting and ending with _ are reserved by the enum
@@ -63,7 +63,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return false;
         }
         // Enum members must be initialized on the class
-        if !matches!(*initialization, ClassFieldInitialization::ClassBody(_)) {
+        if !matches!(*initialization, RawClassFieldInitialization::ClassBody(_)) {
             return false;
         }
         match ty {
@@ -225,7 +225,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         direct_annotation: Option<&Annotation>,
         ty: &Type,
-        initialization: &ClassFieldInitialization,
+        initialization: &RawClassFieldInitialization,
         is_descriptor: bool,
         range: TextRange,
         errors: &ErrorCollector,
