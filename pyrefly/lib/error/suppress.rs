@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -28,7 +29,7 @@ use crate::state::errors::Errors;
 /// Combines all errors that affect one line into a single entry.
 // The current format is: `# pyrefly: ignore  # error1, error2, ...`
 fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
-    let mut deduped_errors: SmallMap<usize, Vec<String>> = SmallMap::new();
+    let mut deduped_errors: SmallMap<usize, HashSet<String>> = SmallMap::new();
     for error in errors {
         let line = error
             .display_range()
@@ -36,7 +37,7 @@ fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
             .line_within_file()
             .to_zero_indexed() as usize;
         let error_name = error.error_kind().to_name().to_owned();
-        deduped_errors.entry(line).or_default().push(error_name);
+        deduped_errors.entry(line).or_default().insert(error_name);
     }
     let mut formatted_errors = SmallMap::new();
     for (line, error_set) in deduped_errors {
@@ -507,6 +508,27 @@ def f() -> int:
     return 1
 "##;
         assert_remove_ignores(input, output, false, 2);
+    }
+
+    #[test]
+    fn test_errors_deduped() {
+        let file_contents = r#"
+# pyrefly: ignore [bad-return]
+def bar(x: int, y: str) -> int:
+    pass
+
+bar("", 1)
+"#;
+
+        let after = r#"
+# pyrefly: ignore [bad-return]
+def bar(x: int, y: str) -> int:
+    pass
+
+# pyrefly: ignore [bad-argument-type]
+bar("", 1)
+"#;
+        assert_suppress_errors(file_contents, after);
     }
 
     #[test]
