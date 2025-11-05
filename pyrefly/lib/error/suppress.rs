@@ -16,6 +16,7 @@ use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::LineNumber;
 use regex::Regex;
+use ruff_python_ast::PySourceType;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::error;
@@ -50,14 +51,16 @@ fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
 
 // TODO: In future have this return an ast as well as the string for comparison
 fn read_and_validate_file(path: &Path) -> anyhow::Result<String> {
-    if path.extension().and_then(|e| e.to_str()) == Some("ipynb") {
+    let source_type = if path.extension().and_then(|e| e.to_str()) == Some("ipynb") {
         return Err(anyhow!("Cannot suppress errors in notebook file"));
-    }
+    } else {
+        PySourceType::Python
+    };
     let file = fs_anyhow::read_to_string(path);
     match file {
         Ok(file) => {
             // Check for generated + parsable files
-            let (_ast, parse_errors, _unsupported_syntax_errors) = Ast::parse(&file);
+            let (_ast, parse_errors, _unsupported_syntax_errors) = Ast::parse(&file, source_type);
             if !parse_errors.is_empty() {
                 return Err(anyhow!("File is not parsable"));
             }

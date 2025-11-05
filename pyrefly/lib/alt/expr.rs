@@ -599,12 +599,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect::<Vec<_>>();
                 self.specialize(&self.stdlib.slice_class_object(), elts, x.range(), errors)
             }
-            Expr::IpyEscapeCommand(x) => self.error(
-                errors,
-                x.range,
-                ErrorInfo::Kind(ErrorKind::Unsupported),
-                "IPython escapes are not supported".to_owned(),
-            ),
+            Expr::IpyEscapeCommand(x) => {
+                if self.module().is_notebook() {
+                    Type::any_implicit()
+                } else {
+                    self.error(
+                        errors,
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::Unsupported),
+                        "IPython escapes are not supported".to_owned(),
+                    )
+                }
+            }
         }
     }
 

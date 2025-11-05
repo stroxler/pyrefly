@@ -249,7 +249,7 @@ pub fn will_rename_files(
             .filter_map(|rdep_handle| {
                 let module_info = transaction.get_module_info(&rdep_handle)?;
 
-                let ast = Ast::parse(module_info.contents()).0;
+                let ast = Ast::parse(module_info.contents(), module_info.source_type()).0;
                 let mut visitor = RenameUsageVisitor::new(
                     &old_module_name,
                     &new_module_name,
