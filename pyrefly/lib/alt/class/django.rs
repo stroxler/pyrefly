@@ -285,7 +285,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Returns the primary key type of the related model.
-    fn _get_foreign_key_id_type(&self, cls: &Class, field_name: &Name) -> Option<Type> {
+    fn get_foreign_key_id_type(&self, cls: &Class, field_name: &Name) -> Option<Type> {
         // Get the class field
         let class_field = self.get_field_from_current_class_only(cls, field_name)?;
 
@@ -321,6 +321,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 fields.insert(ID, ClassSynthesizedField::new(pk_type.clone()));
             }
             fields.insert(PK, ClassSynthesizedField::new(pk_type));
+        }
+
+        // Synthesize `<field_name>_id` fields for ForeignKey fields
+        for field_name in cls.fields() {
+            if let Some(fk_id_type) = self.get_foreign_key_id_type(cls, field_name) {
+                let id_field_name = Name::new(format!("{}_id", field_name));
+                fields.insert(id_field_name, ClassSynthesizedField::new(fk_id_type));
+            }
         }
 
         Some(ClassSynthesizedFields::new(fields))
