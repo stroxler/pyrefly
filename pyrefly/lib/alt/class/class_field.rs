@@ -250,6 +250,13 @@ impl ClassFieldInitialization {
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 pub struct ClassField(ClassFieldInner, IsInherited);
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
+enum DjangoFieldType {
+    ForeignKey,
+    NullableForeignKey,
+}
+
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 enum ClassFieldInner {
     // TODO(stroxler): We should refactor `ClassFieldInner` into enum cases; currently
