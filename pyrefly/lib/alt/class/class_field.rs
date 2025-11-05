@@ -1358,12 +1358,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_foreign_key = metadata.is_django_model()
             && matches!(&ty, Type::ClassType(cls) if self.is_foreign_key_field(cls.class_object()));
 
-        let django_field_type = if is_foreign_key {
-            Some(DjangoFieldType::ForeignKey)
-        } else {
-            None
-        };
-
         let ty = if let Some(special_ty) = self.get_special_class_field_type(
             class,
             name,
@@ -1379,6 +1373,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             special_ty
         } else {
             ty
+        };
+
+        let django_field_type = if is_foreign_key {
+            if matches!(&ty, Type::Union(ts) if ts.contains(&Type::None)) {
+                Some(DjangoFieldType::NullableForeignKey)
+            } else {
+                Some(DjangoFieldType::ForeignKey)
+            }
+        } else {
+            None
         };
 
         // Pin any vars in the type: leaking a var in a class field is particularly
