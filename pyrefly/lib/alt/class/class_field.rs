@@ -2197,6 +2197,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             | Type::Overload(_)
                     )
                 }) {
+                    // TODO(fangyizhou): Handle bound methods and functions properly
+                    // This is a leftover from https://github.com/facebook/pyrefly/pull/1196
                     continue;
                 }
                 let intersect = self.intersects(&types);
