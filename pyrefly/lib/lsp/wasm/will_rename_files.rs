@@ -201,9 +201,12 @@ pub fn will_rename_files(
             .python_file(old_module_name, &module_path);
         let new_module_name = ModuleName::from_path(
             &new_path,
-            config
-                .search_path()
-                .chain(config.fallback_search_path.iter()),
+            config.search_path().chain(
+                config
+                    .fallback_search_path
+                    .for_directory(new_path.parent())
+                    .iter(),
+            ),
         );
 
         let new_module_name = match new_module_name {

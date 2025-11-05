@@ -193,7 +193,7 @@ pub enum ImportLookupPathPart<'a> {
     SearchPathFromArgs(&'a [PathBuf]),
     SearchPathFromFile(&'a [PathBuf]),
     ImportRoot(Option<&'a PathBuf>),
-    FallbackSearchPath(&'a [PathBuf]),
+    FallbackSearchPath(&'a FallbackSearchPath),
     SitePackagePath(&'a [PathBuf]),
     InterpreterSitePackagePath(&'a [PathBuf]),
     BuildSystem(Option<Target>),
@@ -303,14 +303,8 @@ pub struct ConfigFile {
     /// Not exposed to the user. When we aren't able to determine the root of a
     /// project, we guess some fallback search paths that are checked after
     /// typeshed (so we don't clobber the stdlib) and before site_package_path.
-    #[serde(
-             default,
-             skip_serializing_if = "Vec::is_empty",
-             // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
-             // alias while we migrate existing fields from snake case to kebab case.
-             alias = "fallback_search_path"
-         )]
-    pub fallback_search_path: Vec<PathBuf>,
+    #[serde(default, skip)]
+    pub fallback_search_path: FallbackSearchPath,
 
     /// Disable Pyrefly default heuristics, specifically those around
     /// constructing a modified search path. Setting this flag will instruct
@@ -402,7 +396,7 @@ impl Default for ConfigFile {
             search_path_from_file: Vec::new(),
             disable_search_path_heuristics: false,
             import_root: None,
-            fallback_search_path: Vec::new(),
+            fallback_search_path: Default::default(),
             python_environment: Default::default(),
             root: Default::default(),
             sub_configs: Default::default(),
@@ -429,7 +423,7 @@ impl ConfigFile {
         if fallback {
             // De-prioritize guessed import roots, so they don't shadow typeshed. In particular,
             // we don't want the typing-extensions package to shadow the corresponding stub.
-            result.fallback_search_path = vec![import_root];
+            result.fallback_search_path = FallbackSearchPath::Static(Arc::new(vec![import_root]));
         } else {
             result.import_root = Some(import_root);
         }
@@ -1091,7 +1085,7 @@ mod tests {
                 import_root: None,
                 build_system: Default::default(),
                 use_ignore_files: true,
-                fallback_search_path: Vec::new(),
+                fallback_search_path: Default::default(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
                     python_version: Some(PythonVersion::new(1, 2, 3)),
@@ -1359,7 +1353,7 @@ mod tests {
             disable_search_path_heuristics: false,
             import_root: None,
             use_ignore_files: true,
-            fallback_search_path: Vec::new(),
+            fallback_search_path: Default::default(),
             python_environment: python_environment.clone(),
             interpreters: Interpreters {
                 python_interpreter_path: Some(ConfigOrigin::config(PathBuf::from(
