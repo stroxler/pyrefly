@@ -927,7 +927,10 @@ impl ConfigFile {
                 ConfigSource::File(path) => {
                     let mut root = path.to_path_buf();
                     root.pop();
-                    self.source_db = Some(Arc::new(build_system.get_source_db(root)));
+                    self.source_db = Some(Arc::new(build_system.get_source_db(root.to_path_buf())));
+                    self.fallback_search_path = FallbackSearchPath::DirectoryRelative(
+                        DirectoryRelativeFallbackSearchPathCache::new(Some(root)),
+                    );
                 }
                 _ => configure_errors.push(anyhow::anyhow!(
                     "Invalid config state: `build-system` is set on project without config."
