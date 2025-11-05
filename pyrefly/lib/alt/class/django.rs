@@ -317,25 +317,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Get the related model type from the field
         let ty = class_field.ty();
-        let related_cls = if class_field.is_foreign_key_nullable() {
-            // Invariants: 1- If nullable, the type is a union 2- a related model type is always a Classtype
-            match ty {
-                Type::Union(union) => union.iter().find_map(|variant| match variant {
+        let (related_cls, is_foreign_key_nullable) = match ty {
+            Type::Union(union) => {
+                // Nullable foreign key: extract the class type from the union
+                let cls = union.iter().find_map(|variant| match variant {
                     Type::ClassType(cls) => Some(cls.clone()),
                     _ => None,
-                })?,
-                _ => return None,
+                })?;
+                (cls, true)
             }
-        } else {
-            match ty {
-                Type::ClassType(cls) => cls,
-                _ => return None,
-            }
+            Type::ClassType(cls) => (cls, false),
+            _ => return None,
         };
 
         // Get the pk type from the related model and make it nullable if needed
         let (pk_type, _) = self.get_pk_field_type(related_cls.class_object())?;
-        if class_field.is_foreign_key_nullable() {
+        if is_foreign_key_nullable {
             Some(self.union(pk_type, Type::None))
         } else {
             Some(pk_type)

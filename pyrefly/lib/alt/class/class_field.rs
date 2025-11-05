@@ -250,13 +250,6 @@ impl ClassFieldInitialization {
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 pub struct ClassField(ClassFieldInner, IsInherited);
 
-/// Django ForeignKey field type
-#[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
-enum DjangoFieldType {
-    ForeignKey,
-    NullableForeignKey,
-}
-
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 enum ClassFieldInner {
     // TODO(stroxler): We should refactor `ClassFieldInner` into enum cases; currently
@@ -273,8 +266,8 @@ enum ClassFieldInner {
         is_function_without_return_annotation: bool,
         /// Whether this field is an abstract method
         is_abstract: bool,
-        /// Django ForeignKey type, if this field is a ForeignKey
-        django_field_type: Option<DjangoFieldType>,
+        /// Whether this field is a Django ForeignKey field
+        is_foreign_key: bool,
     },
 }
 
@@ -307,7 +300,7 @@ impl ClassField {
         descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         is_abstract: bool,
-        django_field_type: Option<DjangoFieldType>,
+        is_foreign_key: bool,
         is_inherited: IsInherited,
     ) -> Self {
         Self(
@@ -319,7 +312,7 @@ impl ClassField {
                 descriptor,
                 is_function_without_return_annotation,
                 is_abstract,
-                django_field_type,
+                is_foreign_key,
             },
             is_inherited,
         )
@@ -343,7 +336,7 @@ impl ClassField {
                 descriptor: None,
                 is_function_without_return_annotation: false,
                 is_abstract: false,
-                django_field_type: None,
+                is_foreign_key: false,
             },
             IsInherited::Maybe,
         )
@@ -359,7 +352,7 @@ impl ClassField {
                 descriptor: None,
                 is_function_without_return_annotation: false,
                 is_abstract: false,
-                django_field_type: None,
+                is_foreign_key: false,
             },
             IsInherited::Maybe,
         )
@@ -381,7 +374,7 @@ impl ClassField {
                 descriptor,
                 is_function_without_return_annotation,
                 is_abstract,
-                django_field_type,
+                is_foreign_key,
             } => {
                 let mut ty = ty.clone();
                 f(&mut ty);
@@ -400,7 +393,7 @@ impl ClassField {
                         is_function_without_return_annotation:
                             *is_function_without_return_annotation,
                         is_abstract: *is_abstract,
-                        django_field_type: django_field_type.clone(),
+                        is_foreign_key: *is_foreign_key,
                     },
                     self.1.clone(),
                 )
@@ -573,17 +566,7 @@ impl ClassField {
 
     pub fn is_foreign_key(&self) -> bool {
         match &self.0 {
-            ClassFieldInner::Simple {
-                django_field_type, ..
-            } => django_field_type.is_some(),
-        }
-    }
-
-    pub fn is_foreign_key_nullable(&self) -> bool {
-        match &self.0 {
-            ClassFieldInner::Simple {
-                django_field_type, ..
-            } => matches!(django_field_type, Some(DjangoFieldType::NullableForeignKey)),
+            ClassFieldInner::Simple { is_foreign_key, .. } => *is_foreign_key,
         }
     }
 
@@ -1361,7 +1344,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             _ => {}
         };
-
         // Check if this is a Django ForeignKey field
         let is_foreign_key = metadata.is_django_model()
             && matches!(&ty, Type::ClassType(cls) if self.is_foreign_key_field(cls.class_object()));
@@ -1381,16 +1363,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             special_ty
         } else {
             ty
-        };
-
-        let django_field_type = if is_foreign_key {
-            if matches!(&ty, Type::Union(ts) if ts.contains(&Type::None)) {
-                Some(DjangoFieldType::NullableForeignKey)
-            } else {
-                Some(DjangoFieldType::ForeignKey)
-            }
-        } else {
-            None
         };
 
         // Pin any vars in the type: leaking a var in a class field is particularly
@@ -1422,7 +1394,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             descriptor,
             is_function_without_return_annotation,
             is_abstract,
-            django_field_type,
+            is_foreign_key,
             is_inherited,
         );
         if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
