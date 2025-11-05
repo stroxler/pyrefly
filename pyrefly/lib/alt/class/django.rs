@@ -101,11 +101,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if self.is_foreign_key_field(field)
             && field_name.is_some()
             && let Some(e) = initial_value_expr
-            && let Some(to_expr) = e.as_call_expr()?.arguments.args.first()
+            && let Some(call_expr) = e.as_call_expr()
+            && let Some(to_expr) = call_expr.arguments.args.first()
         {
             // Resolve the expression to a type and convert to instance type
             let related_model_type = self.resolve_foreign_key_target(to_expr, class)?;
-            return Some(related_model_type);
+
+            // If nullable, union with None
+            if self.is_django_field_nullable(call_expr) {
+                return Some(self.union(related_model_type, Type::None));
+            } else {
+                return Some(related_model_type);
+            }
         }
 
         // Default: use _pyi_private_get_type from the field class
@@ -285,6 +292,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn is_django_field_nullable(&self, call_expr: &ExprCall) -> bool {
+        call_expr.arguments.keywords.iter().any(|keyword| {
+            keyword
+                .arg
+                .as_ref()
+                .is_some_and(|name| name.as_str() == NULL.as_str())
+                && matches!(
+                    &keyword.value,
+                    Expr::BooleanLiteral(bool_lit) if bool_lit.value
+                )
+        })
+    }
+
     /// Returns the primary key type of the related model.
     fn get_foreign_key_id_type(&self, cls: &Class, field_name: &Name) -> Option<Type> {
         // Get the class field
@@ -303,20 +323,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
-    }
-
-    #[allow(dead_code)]
-    fn is_django_field_nullable(&self, call_expr: &ExprCall) -> bool {
-        call_expr.arguments.keywords.iter().any(|keyword| {
-            keyword
-                .arg
-                .as_ref()
-                .is_some_and(|name| name.as_str() == NULL.as_str())
-                && matches!(
-                    &keyword.value,
-                    Expr::BooleanLiteral(bool_lit) if bool_lit.value
-                )
-        })
     }
 
     pub fn get_django_model_synthesized_fields(

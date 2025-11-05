@@ -37,7 +37,6 @@ assert_type(b.reporter_id, int)
 );
 
 django_testcase!(
-    bug = "We should take into account the nullability of the foreign key",
     test_foreign_key_nullable,
     r#"
 from typing import assert_type
@@ -50,8 +49,7 @@ class Article(models.Model):
     reporter = models.ForeignKey(Reporter, null=True, on_delete=models.CASCADE)
 
 article = Article()
-assert_type(article.reporter,  Reporter | None) # E: assert_type(Reporter, Reporter | None) failed 
-
+assert_type(article.reporter, Reporter | None)
 "#,
 );
 
