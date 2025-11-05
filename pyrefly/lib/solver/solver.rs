@@ -1080,11 +1080,18 @@ pub enum SubsetError {
     TypedDict(Box<TypedDictSubsetError>),
     /// Errors involving arbitrary unknown fields in open TypedDicts
     OpenTypedDict(Box<OpenTypedDictSubsetError>),
+    /// An invariant was violated - used for cases that should be unreachabile when - if there is ever a bug - we
+    /// would prefer to not panic and get a text location for reproducing rather than just a crash report.
+    InternalError(String),
     // TODO(rechen): replace this with specific reasons
     Other,
 }
 
 impl SubsetError {
+    fn internal_error(msg: &str) -> Self {
+        Self::InternalError(msg.to_owned())
+    }
+
     pub fn to_error_msg(self) -> Option<String> {
         match self {
             SubsetError::PosParamName(got, want) => Some(format!(
@@ -1102,6 +1109,7 @@ impl SubsetError {
             }
             SubsetError::TypedDict(err) => Some(err.to_error_msg()),
             SubsetError::OpenTypedDict(err) => Some(err.to_error_msg()),
+            SubsetError::InternalError(msg) => Some(format!("Pyrefly internal error: {msg}")),
             SubsetError::Other => None,
         }
     }
@@ -1152,11 +1160,13 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let variable1 = variables.get(*v1);
                 let variable2 = variables.get(*v2);
                 match (&*variable1, &*variable2) {
-                    (_, Variable::LoopRecursive(..)) => {
-                        unreachable!("Unexpected Variable::LoopRecursive upper bound")
-                    }
+                    (_, Variable::LoopRecursive(..)) => Err(SubsetError::internal_error(
+                        "Did not expect `Variable::LoopRecursive` to appear as `want` in is_subset_eq",
+                    )),
                     (Variable::Parameter, _) | (_, Variable::Parameter) => {
-                        unreachable!("Unexpected Variable::Parameter in constraint")
+                        Err(SubsetError::internal_error(
+                            "Did not expect a `Variable::Parameter` to ever appear in is_subset_eq",
+                        ))
                     }
                     (Variable::Answer(t1), Variable::Answer(t2)) => {
                         let t1 = t1.clone();
@@ -1203,9 +1213,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let variables = self.solver.variables.lock();
                 let v1_ref = variables.get(*v1);
                 match &*v1_ref {
-                    Variable::Parameter => {
-                        unreachable!("Unexpected Variable::Parameter in constraint");
-                    }
+                    Variable::Parameter => Err(SubsetError::internal_error(
+                        "Did not expect a `Variable::Parameter` to ever appear in is_subset_eq",
+                    )),
                     Variable::Answer(t1) => {
                         let t1 = t1.clone();
                         drop(v1_ref);
@@ -1245,12 +1255,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let variables = self.solver.variables.lock();
                 let v2_ref = variables.get(*v2);
                 match &*v2_ref {
-                    Variable::LoopRecursive(..) => {
-                        unreachable!("Unexpected Variable::LoopRecursive upper bound")
-                    }
-                    Variable::Parameter => {
-                        unreachable!("Unexpected Variable::Parameter in constraint");
-                    }
+                    Variable::LoopRecursive(..) => Err(SubsetError::internal_error(
+                        "Did not expect `Variable::LoopRecursive` to appear as `want` in is_subset_eq",
+                    )),
+                    Variable::Parameter => Err(SubsetError::internal_error(
+                        "Did not expect a `Variable::Parameter` to ever appear in is_subset_eq",
+                    )),
                     Variable::Answer(t2) => {
                         let t2 = t2.clone();
                         drop(v2_ref);
