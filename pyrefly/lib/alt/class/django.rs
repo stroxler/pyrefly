@@ -315,13 +315,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
 
-        // The field type is already the related model type, so we can get its pk type directly
+        // Get the related model type from the field
         let ty = class_field.ty();
-        if let Type::ClassType(related_cls) = ty {
-            self.get_pk_field_type(related_cls.class_object())
-                .map(|(pk_type, _)| pk_type)
+        let related_cls = if class_field.is_foreign_key_nullable() {
+            // Invariants: 1- If nullable, the type is a union 2- a related model type is always a Classtype
+            match ty {
+                Type::Union(union) => union.iter().find_map(|variant| match variant {
+                    Type::ClassType(cls) => Some(cls.clone()),
+                    _ => None,
+                })?,
+                _ => return None,
+            }
         } else {
-            None
+            match ty {
+                Type::ClassType(cls) => cls,
+                _ => return None,
+            }
+        };
+
+        // Get the pk type from the related model and make it nullable if needed
+        let (pk_type, _) = self.get_pk_field_type(related_cls.class_object())?;
+        if class_field.is_foreign_key_nullable() {
+            Some(self.union(pk_type, Type::None))
+        } else {
+            Some(pk_type)
         }
     }
 

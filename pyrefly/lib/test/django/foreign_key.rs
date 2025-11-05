@@ -50,6 +50,7 @@ class Article(models.Model):
 
 article = Article()
 assert_type(article.reporter, Reporter | None)
+assert_type(article.reporter_id, int | None)
 "#,
 );
 

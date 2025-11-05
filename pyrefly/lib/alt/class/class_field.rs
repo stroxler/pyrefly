@@ -250,7 +250,7 @@ impl ClassFieldInitialization {
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 pub struct ClassField(ClassFieldInner, IsInherited);
 
-#[allow(dead_code)]
+/// Django ForeignKey field type
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 enum DjangoFieldType {
     ForeignKey,
@@ -579,7 +579,7 @@ impl ClassField {
         }
     }
 
-    pub fn _is_foreign_key_nullable(&self) -> bool {
+    pub fn is_foreign_key_nullable(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple {
                 django_field_type, ..
