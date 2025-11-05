@@ -89,14 +89,14 @@ impl ConfigConfigurer for WorkspaceConfigConfigurer {
                 // and we're already using heuristics), insert workspace root as first
                 // fallback_search_path so our handles (which are created from first fallback)
                 // are created correctly for workspaces
-                if let FallbackSearchPath::Static(fallback_search_path) =
+                if let FallbackSearchPath::Explicit(fallback_search_path) =
                     &config.fallback_search_path
                     && let Some(workspace_root) = workspace_root
                 {
                     let mut new_fallback_search_path = (**fallback_search_path).clone();
                     new_fallback_search_path.insert(0, workspace_root.to_path_buf());
                     config.fallback_search_path =
-                        FallbackSearchPath::Static(Arc::new(new_fallback_search_path));
+                        FallbackSearchPath::Explicit(Arc::new(new_fallback_search_path));
                 }
                 if let Some(PythonInfo {
                     interpreter,

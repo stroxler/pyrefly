@@ -206,7 +206,7 @@ pub fn standard_config_finder(configure: Arc<dyn ConfigConfigurer>) -> ConfigFin
                             project_includes: ConfigFile::default_project_includes(),
                             // We use `fallback_search_path` because otherwise a user with `/sys` on their
                             // computer (all of them) will override `sys.version` in preference to typeshed.
-                            fallback_search_path: FallbackSearchPath::Static(Arc::new(
+                            fallback_search_path: FallbackSearchPath::Explicit(Arc::new(
                                 parent.ancestors().map(|x| x.to_owned()).collect::<Vec<_>>(),
                             )),
                             root: ConfigBase::default_for_ide_without_config(),
@@ -359,7 +359,7 @@ mod tests {
         );
         assert_eq!(
             config_file.fallback_search_path,
-            FallbackSearchPath::Static(Arc::new(vec![root.join("no_config")])),
+            FallbackSearchPath::Explicit(Arc::new(vec![root.join("no_config")])),
         );
 
         // check invalid module path parent
@@ -393,7 +393,7 @@ mod tests {
         assert_eq!(config_file.search_path_from_file, Vec::<PathBuf>::new());
         assert_eq!(
             config_file.fallback_search_path,
-            FallbackSearchPath::Static(Arc::new(
+            FallbackSearchPath::Explicit(Arc::new(
                 [root.join("no_config/foo"), root.join("no_config")]
                     .into_iter()
                     .chain(root.ancestors().map(PathBuf::from))
@@ -411,7 +411,7 @@ mod tests {
         assert_eq!(config_file.search_path_from_file, Vec::<PathBuf>::new());
         assert_eq!(
             config_file.fallback_search_path,
-            FallbackSearchPath::Static(Arc::new(
+            FallbackSearchPath::Explicit(Arc::new(
                 [root.join("no_config/foo"), root.join("no_config")]
                     .into_iter()
                     .chain(root.ancestors().map(PathBuf::from))
