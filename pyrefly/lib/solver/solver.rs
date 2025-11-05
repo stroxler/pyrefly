@@ -1152,6 +1152,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let variable1 = variables.get(*v1);
                 let variable2 = variables.get(*v2);
                 match (&*variable1, &*variable2) {
+                    (_, Variable::LoopRecursive(..)) => {
+                        unreachable!("Unexpected Variable::LoopRecursive upper bound")
+                    }
                     (Variable::Parameter, _) | (_, Variable::Parameter) => {
                         unreachable!("Unexpected Variable::Parameter in constraint")
                     }
@@ -1242,6 +1245,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 let variables = self.solver.variables.lock();
                 let v2_ref = variables.get(*v2);
                 match &*v2_ref {
+                    Variable::LoopRecursive(..) => {
+                        unreachable!("Unexpected Variable::LoopRecursive upper bound")
+                    }
                     Variable::Parameter => {
                         unreachable!("Unexpected Variable::Parameter in constraint");
                     }
@@ -1290,7 +1296,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         variables.update(*v2, Variable::Answer(t1_p));
                         Ok(())
                     }
-                    Variable::Unwrap | Variable::LoopRecursive(..) | Variable::Recursive => {
+                    Variable::Unwrap | Variable::Recursive => {
                         drop(v2_ref);
                         variables.update(*v2, Variable::Answer(t1.clone()));
                         Ok(())
