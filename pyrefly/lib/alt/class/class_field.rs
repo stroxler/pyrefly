@@ -579,6 +579,14 @@ impl ClassField {
         }
     }
 
+    pub fn _is_foreign_key_nullable(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple {
+                django_field_type, ..
+            } => matches!(django_field_type, Some(DjangoFieldType::NullableForeignKey)),
+        }
+    }
+
     pub fn as_named_tuple_type(&self) -> Type {
         self.ty()
     }
