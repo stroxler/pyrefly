@@ -9,15 +9,15 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
-    bug = "We should not be dropping prior type information when a loop recursive Var passes through a generic call",
+    bug = "The results include over-eager pinning of vars in generic solving, see https://github.com/facebook/pyrefly/issues/105",
     test_loop_with_generic_pin,
     r#"
 def condition() -> bool: ...
 def f[T](x: T, y: list[T]) -> T: ...
 x = 5
 y: list[str] = []
-while condition():  # E:  `Literal[5] | str` is not assignable to `str`
-    x = f(x, y)
+while condition():
+    x = f(x, y)  # E: Argument `list[str]` is not assignable to parameter `y` with type `list[int]` in function `f`
 "#,
 );
 

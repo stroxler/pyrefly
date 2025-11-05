@@ -1177,6 +1177,17 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(&t1, want)
                     }
+                    (Variable::LoopRecursive(t1), _) => {
+                        // If we have to solve a type variable against a loop recursive type, it means
+                        // we need to commit to the loop recursion type, so we
+                        // should pin it to the loop prior.
+                        let t1 = t1.clone();
+                        drop(variable1);
+                        drop(variable2);
+                        variables.update(*v1, Variable::Answer(t1.clone()));
+                        drop(variables);
+                        self.is_subset_eq(&t1, want)
+                    }
                     (_, _) => {
                         drop(variable1);
                         drop(variable2);
