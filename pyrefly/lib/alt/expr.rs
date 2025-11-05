@@ -1073,7 +1073,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if t_acc.is_never() {
                     None
                 } else {
-                    Some(HintRef::new(&t_acc, None))
+                    Some(HintRef::soft(&t_acc))
                 }
             });
             let mut t = self.expr_infer_with_hint(value, hint, errors);
