@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
@@ -257,11 +258,7 @@ pub enum FallbackSearchPath {
 
 impl fmt::Debug for FallbackSearchPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Explicit(paths) => write!(f, "{paths:?}"),
-            Self::DirectoryRelative(s) => write!(f, "{}", s),
-            Self::Empty => write!(f, "None"),
-        }
+        write!(f, "{}", self.repr_for_directory(None))
     }
 }
 
@@ -285,6 +282,21 @@ impl FallbackSearchPath {
         }
     }
 
+    pub fn repr_for_directory(&self, directory: Option<&Path>) -> String {
+        match (self, directory) {
+            (Self::Explicit(paths), _) => format!("{:?}", &**paths),
+            (Self::DirectoryRelative(c), Some(start)) => format!("{:?}", &**c.get_ancestors(start)),
+            (Self::DirectoryRelative(c), None) => format!(
+                "<paths from parent directory of all files up to {:?}>",
+                c.up_to
+                    .as_ref()
+                    .map(|p| p.to_string_lossy())
+                    .unwrap_or(Cow::Borrowed("/"))
+            ),
+            (Self::Empty, _) => "None".to_owned(),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         match self {
             Self::Explicit(paths) => paths.is_empty(),
@@ -298,7 +310,7 @@ pub enum ImportLookupPathPart<'a> {
     SearchPathFromArgs(&'a [PathBuf]),
     SearchPathFromFile(&'a [PathBuf]),
     ImportRoot(Option<&'a PathBuf>),
-    FallbackSearchPath(&'a FallbackSearchPath),
+    FallbackSearchPath(&'a FallbackSearchPath, Option<&'a Path>),
     SitePackagePath(&'a [PathBuf]),
     InterpreterSitePackagePath(&'a [PathBuf]),
     BuildSystem(Option<Target>),
@@ -317,10 +329,23 @@ impl Display for ImportLookupPathPart<'_> {
                 write!(f, "Import root (inferred from project layout): {root:?}")
             }
             Self::ImportRoot(None) => write!(f, "Import root (inferred from project layout): None"),
-            Self::FallbackSearchPath(fallback) => write!(
-                f,
-                "Fallback search path (guessed from project_includes): {fallback:?}"
-            ),
+            Self::FallbackSearchPath(fallback, start) => {
+                let guessed_from = if let FallbackSearchPath::Explicit(_) = &fallback {
+                    " (guessed from importing file with heuristics)"
+                } else if let FallbackSearchPath::DirectoryRelative(_) = &fallback
+                    && start.is_some()
+                {
+                    " (expanded directory relative paths for file)"
+                } else {
+                    ""
+                };
+
+                write!(
+                    f,
+                    "Fallback search path{guessed_from}: {}",
+                    fallback.repr_for_directory(*start),
+                )
+            }
             Self::SitePackagePath(paths) => {
                 write!(f, "Site package path from user: {paths:?}")
             }
@@ -346,7 +371,7 @@ impl ImportLookupPathPart<'_> {
             | Self::SitePackagePath(paths)
             | Self::InterpreterSitePackagePath(paths) => paths.is_empty(),
             Self::ImportRoot(root) => root.is_none(),
-            Self::FallbackSearchPath(inner) => inner.is_empty(),
+            Self::FallbackSearchPath(inner, _) => inner.is_empty(),
             Self::BuildSystem(_) => false,
         }
     }
@@ -651,10 +676,10 @@ impl ConfigFile {
     }
 
     /// Gets the full, ordered path used for import lookup. Used for pretty-printing.
-    pub fn structured_import_lookup_path(
-        &self,
-        origin: Option<&Path>,
-    ) -> Vec<ImportLookupPathPart<'_>> {
+    pub fn structured_import_lookup_path<'a>(
+        &'a self,
+        origin: Option<&'a Path>,
+    ) -> Vec<ImportLookupPathPart<'a>> {
         let mut result = vec![];
         if let Some(source_db) = &self.source_db {
             result.push(ImportLookupPathPart::BuildSystem(
@@ -671,6 +696,7 @@ impl ConfigFile {
             result.push(ImportLookupPathPart::ImportRoot(self.import_root.as_ref()));
             result.push(ImportLookupPathPart::FallbackSearchPath(
                 &self.fallback_search_path,
+                origin.and_then(|p| p.parent()),
             ));
         }
         result.push(ImportLookupPathPart::SitePackagePath(
