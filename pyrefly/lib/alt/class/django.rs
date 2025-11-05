@@ -16,6 +16,7 @@ use pyrefly_types::literal::Lit;
 use pyrefly_types::tuple::Tuple;
 use pyrefly_types::types::Type;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprCall;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
@@ -31,7 +32,6 @@ use crate::types::simplify::unions;
 
 /// Django stubs use this attribute to specify the Python type that a field should infer to
 const DJANGO_PRIVATE_GET_TYPE: Name = Name::new_static("_pyi_private_get_type");
-
 const CHOICES: Name = Name::new_static("choices");
 const LABEL: Name = Name::new_static("label");
 const LABELS: Name = Name::new_static("labels");
@@ -40,6 +40,7 @@ const ID: Name = Name::new_static("id");
 const PK: Name = Name::new_static("pk");
 const AUTO_FIELD: Name = Name::new_static("AutoField");
 const FOREIGN_KEY: Name = Name::new_static("ForeignKey");
+const NULL: Name = Name::new_static("null");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(
@@ -302,6 +303,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             None
         }
+    }
+
+    #[allow(dead_code)]
+    fn is_django_field_nullable(&self, call_expr: &ExprCall) -> bool {
+        call_expr.arguments.keywords.iter().any(|keyword| {
+            keyword
+                .arg
+                .as_ref()
+                .is_some_and(|name| name.as_str() == NULL.as_str())
+                && matches!(
+                    &keyword.value,
+                    Expr::BooleanLiteral(bool_lit) if bool_lit.value
+                )
+        })
     }
 
     pub fn get_django_model_synthesized_fields(
