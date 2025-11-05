@@ -145,7 +145,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn is_foreign_key_field(&self, field: &Class) -> bool {
+    pub fn is_foreign_key_field(&self, field: &Class) -> bool {
         field.has_toplevel_qname(
             ModuleName::django_models_fields_related().as_str(),
             FOREIGN_KEY.as_str(),
@@ -281,6 +281,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.get_from_export(ModuleName::django_models_fields(), None, &auto_field_export);
             self.get_django_field_type(&auto_field_type, model, None, None)
                 .map(|ty| (ty, false))
+        }
+    }
+
+    /// Returns the primary key type of the related model.
+    fn _get_foreign_key_id_type(&self, cls: &Class, field_name: &Name) -> Option<Type> {
+        // Get the class field
+        let class_field = self.get_field_from_current_class_only(cls, field_name)?;
+
+        // Check if this is a ForeignKey field using the cached metadata
+        if !class_field.is_foreign_key() {
+            return None;
+        }
+
+        // The field type is already the related model type, so we can get its pk type directly
+        let ty = class_field.ty();
+        if let Type::ClassType(related_cls) = ty {
+            self.get_pk_field_type(related_cls.class_object())
+                .map(|(pk_type, _)| pk_type)
+        } else {
+            None
         }
     }
 

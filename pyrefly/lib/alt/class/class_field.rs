@@ -266,6 +266,8 @@ enum ClassFieldInner {
         is_function_without_return_annotation: bool,
         /// Whether this field is an abstract method
         is_abstract: bool,
+        /// Whether this field is a Django ForeignKey field
+        is_foreign_key: bool,
     },
 }
 
@@ -298,6 +300,7 @@ impl ClassField {
         descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         is_abstract: bool,
+        is_foreign_key: bool,
         is_inherited: IsInherited,
     ) -> Self {
         Self(
@@ -309,6 +312,7 @@ impl ClassField {
                 descriptor,
                 is_function_without_return_annotation,
                 is_abstract,
+                is_foreign_key,
             },
             is_inherited,
         )
@@ -332,6 +336,7 @@ impl ClassField {
                 descriptor: None,
                 is_function_without_return_annotation: false,
                 is_abstract: false,
+                is_foreign_key: false,
             },
             IsInherited::Maybe,
         )
@@ -347,6 +352,7 @@ impl ClassField {
                 descriptor: None,
                 is_function_without_return_annotation: false,
                 is_abstract: false,
+                is_foreign_key: false,
             },
             IsInherited::Maybe,
         )
@@ -368,6 +374,7 @@ impl ClassField {
                 descriptor,
                 is_function_without_return_annotation,
                 is_abstract,
+                is_foreign_key,
             } => {
                 let mut ty = ty.clone();
                 f(&mut ty);
@@ -386,6 +393,7 @@ impl ClassField {
                         is_function_without_return_annotation:
                             *is_function_without_return_annotation,
                         is_abstract: *is_abstract,
+                        is_foreign_key: *is_foreign_key,
                     },
                     self.1.clone(),
                 )
@@ -553,6 +561,12 @@ impl ClassField {
     pub fn is_abstract(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { is_abstract, .. } => *is_abstract,
+        }
+    }
+
+    pub fn is_foreign_key(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple { is_foreign_key, .. } => *is_foreign_key,
         }
     }
 
@@ -1331,6 +1345,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             _ => {}
         };
 
+        // Check if this is a Django ForeignKey field
+        let is_foreign_key = metadata.is_django_model()
+            && matches!(&ty, Type::ClassType(cls) if self.is_foreign_key_field(cls.class_object()));
+
         let ty = if let Some(special_ty) = self.get_special_class_field_type(
             class,
             name,
@@ -1377,6 +1395,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             descriptor,
             is_function_without_return_annotation,
             is_abstract,
+            is_foreign_key,
             is_inherited,
         );
         if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
