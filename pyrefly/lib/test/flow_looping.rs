@@ -589,6 +589,19 @@ else:
 "#,
 );
 
+// Test for https://github.com/facebook/pyrefly/issues/726
+testcase!(
+    bug = "Pyrefly currently pins the type too aggressively, resulting in a spurious error",
+    test_reassign_literal_str_to_str_in_loop,
+    r#"
+import os
+
+path = '/'
+for x in ['home', 'other']:  # E: `str` is not assignable to `LiteralString` (caused by inconsistent types when breaking cycles)
+    path = os.path.join(path, x)
+    "#,
+);
+
 // Test for https://github.com/facebook/pyrefly/issues/747
 testcase!(
     bug = "Pyrefly currently fails to narrow a `Var` that is `LoopRecursive`",
