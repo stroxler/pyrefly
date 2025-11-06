@@ -35,9 +35,7 @@ use enum_iterator::Sequence;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
-use lsp_types::FoldingRangeKind;
 use pyrefly_build::handle::Handle;
-use pyrefly_python::folding::folding_ranges;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -503,31 +501,6 @@ impl<'a> Transaction<'a> {
 
     pub fn get_module_info(&self, handle: &Handle) -> Option<Module> {
         self.get_load(handle).map(|x| x.module_info.dupe())
-    }
-
-    pub fn folding_ranges(
-        &self,
-        handle: &Handle,
-    ) -> Option<Vec<(TextRange, Option<FoldingRangeKind>)>> {
-        let ast = self.get_ast(handle)?;
-        let module_info = self.get_module_info(handle)?;
-        Some(folding_ranges(&module_info, &ast.body))
-    }
-
-    pub fn docstring_ranges(&self, handle: &Handle) -> Option<Vec<TextRange>> {
-        let ranges = self.folding_ranges(handle)?;
-        Some(
-            ranges
-                .into_iter()
-                .filter_map(|(range, kind)| {
-                    if kind == Some(FoldingRangeKind::Comment) {
-                        Some(range)
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
-        )
     }
 
     /// Compute transitive dependency closure for the given handle.

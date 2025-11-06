@@ -16,6 +16,7 @@ use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::CompletionItemTag;
 use lsp_types::DocumentSymbol;
+use lsp_types::FoldingRangeKind;
 use lsp_types::ParameterInformation;
 use lsp_types::ParameterLabel;
 use lsp_types::SemanticToken;
@@ -26,6 +27,7 @@ use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
+use pyrefly_python::folding::folding_ranges;
 use pyrefly_python::keywords::get_keywords;
 use pyrefly_python::module::Module;
 use pyrefly_python::module::TextRangeWithModule;
@@ -1573,6 +1575,31 @@ impl<'a> Transaction<'a> {
         }
 
         definitions.into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
+    }
+
+    pub fn folding_ranges(
+        &self,
+        handle: &Handle,
+    ) -> Option<Vec<(TextRange, Option<FoldingRangeKind>)>> {
+        let ast = self.get_ast(handle)?;
+        let module_info = self.get_module_info(handle)?;
+        Some(folding_ranges(&module_info, &ast.body))
+    }
+
+    pub fn docstring_ranges(&self, handle: &Handle) -> Option<Vec<TextRange>> {
+        let ranges = self.folding_ranges(handle)?;
+        Some(
+            ranges
+                .into_iter()
+                .filter_map(|(range, kind)| {
+                    if kind == Some(FoldingRangeKind::Comment) {
+                        Some(range)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        )
     }
 
     pub fn goto_type_definition(
