@@ -764,7 +764,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .collect();
                     Type::Tuple(Tuple::unpacked(
                         prefix,
-                        Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
+                        Type::Tuple(Tuple::unbounded(self.unions(middle_types))),
                         suffix,
                     ))
                 }

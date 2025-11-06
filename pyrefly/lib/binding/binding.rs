@@ -1725,9 +1725,7 @@ impl AnnotationWithTarget {
                 } else if matches!(annotation_ty, Type::Args(_)) {
                     Some(annotation_ty.clone())
                 } else {
-                    Some(Type::Tuple(Tuple::Unbounded(Box::new(
-                        annotation_ty.clone(),
-                    ))))
+                    Some(Type::Tuple(Tuple::unbounded(annotation_ty.clone())))
                 }
             }
             AnnotationTarget::KwargsParam(_) => {
