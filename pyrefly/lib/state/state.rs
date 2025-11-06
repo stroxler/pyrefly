@@ -427,7 +427,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn search_exports_exact(&self, name: &str) -> Vec<Handle> {
-        self.search_exports_helper(|handle, exports| {
+        self.search_exports(|handle, exports| {
             if let Some(export) = exports.get(&Name::new(name)) {
                 match export {
                     ExportLocation::ThisModule(_) => vec![handle.dupe()],
@@ -445,7 +445,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
-        let mut res = self.search_exports_helper(|handle, exports| {
+        let mut res = self.search_exports(|handle, exports| {
             let matcher = SkimMatcherV2::default().smart_case();
             let mut results = Vec::new();
             for (name, location) in exports.iter() {
@@ -501,7 +501,10 @@ impl<'a> Transaction<'a> {
         results.into_map(|(_, module_name)| module_name)
     }
 
-    fn search_exports_helper<V: Send + Sync>(
+    /// Search through the export table of every module we know about.
+    /// Searches will be performed in parallel on chunks of modules, to speed things up.
+    /// The order of the resulting `Vec` is unspecified.
+    pub fn search_exports<V: Send + Sync>(
         &self,
         searcher: impl Fn(&Handle, &SmallMap<Name, ExportLocation>) -> Vec<V> + Sync,
     ) -> Vec<V> {
