@@ -11,7 +11,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::state::state::FileContents;
+use crate::state::load::FileContents;
 
 #[derive(Debug, Clone, Default)]
 pub struct MemoryFiles(HashMap<PathBuf, Arc<FileContents>>);

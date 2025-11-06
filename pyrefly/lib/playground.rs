@@ -43,9 +43,9 @@ use crate::config::config::ConfigFile;
 use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
 use crate::lsp::wasm::hover::get_hover;
+use crate::state::load::FileContents;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
-use crate::state::state::FileContents;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 

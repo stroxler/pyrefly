@@ -417,8 +417,8 @@ mod tests {
     use crate::config::config::ConfigFile;
     use crate::config::finder::ConfigFinder;
     use crate::error::suppress;
+    use crate::state::load::FileContents;
     use crate::state::require::Require;
-    use crate::state::state::FileContents;
     use crate::state::state::State;
 
     fn get_path(tdir: &TempDir) -> PathBuf {

@@ -28,8 +28,8 @@ use crate::config::config::ConfigFile;
 use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::module::finder::find_import;
+use crate::state::load::FileContents;
 use crate::state::require::Require;
-use crate::state::state::FileContents;
 use crate::state::state::State;
 use crate::test::util::TestEnv;
 

@@ -28,7 +28,53 @@ use crate::module::bundled::BundledStub;
 use crate::module::typeshed::typeshed;
 use crate::module::typeshed_third_party::typeshed_third_party;
 use crate::state::memory::MemoryFilesLookup;
-use crate::state::state::FileContents;
+use crate::state::notebook::LspNotebook;
+
+#[derive(Clone, Dupe, Debug, Eq, PartialEq)]
+pub enum FileContents {
+    Source(Arc<String>),
+    Notebook(Arc<Notebook>),
+}
+
+impl FileContents {
+    pub fn from_source(source: String) -> Self {
+        Self::Source(Arc::new(source))
+    }
+}
+
+/// This is the representation of files in the language server
+/// It can be converted to `FileContents`
+#[derive(Clone, Dupe, Debug, Eq, PartialEq)]
+pub enum LspFile {
+    Source(Arc<String>),
+    Notebook(Arc<LspNotebook>),
+}
+
+impl LspFile {
+    pub fn get_string(&self) -> &str {
+        match self {
+            Self::Source(contents) => contents.as_str(),
+            Self::Notebook(notebook) => notebook.ruff_notebook().source_code(),
+        }
+    }
+
+    pub fn from_source(source: String) -> Self {
+        Self::Source(Arc::new(source))
+    }
+
+    pub fn to_file_contents(&self) -> FileContents {
+        match self {
+            Self::Source(contents) => FileContents::Source(Arc::clone(contents)),
+            Self::Notebook(notebook) => {
+                FileContents::Notebook(Arc::clone(notebook.ruff_notebook()))
+            }
+        }
+    }
+
+    pub fn is_notebook(&self) -> bool {
+        matches!(self, Self::Notebook(_))
+    }
+}
 
 /// The result of loading a module, including its `Module` and `ErrorCollector`.
 #[derive(Debug)]

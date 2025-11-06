@@ -213,6 +213,7 @@ use crate::lsp::wasm::notebook::NotebookDocumentSyncRegistrationOptions;
 use crate::lsp::wasm::provide_type::ProvideType;
 use crate::lsp::wasm::provide_type::ProvideTypeResponse;
 use crate::lsp::wasm::provide_type::provide_type;
+use crate::state::load::LspFile;
 use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -221,7 +222,6 @@ use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::semantic_tokens::disabled_ranges_for_module;
 use crate::state::state::CommittingTransaction;
-use crate::state::state::LspFile;
 use crate::state::state::State;
 use crate::state::state::Transaction;
 

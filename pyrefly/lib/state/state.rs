@@ -54,7 +54,6 @@ use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::upgrade_lock::UpgradeLock;
 use pyrefly_util::upgrade_lock::UpgradeLockExclusiveGuard;
 use pyrefly_util::upgrade_lock::UpgradeLockWriteGuard;
-use ruff_notebook::Notebook;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
@@ -100,13 +99,13 @@ use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
+use crate::state::load::FileContents;
 use crate::state::load::Load;
 use crate::state::loader::FindingOrError;
 use crate::state::loader::LoaderFindCache;
 use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
 use crate::state::memory::MemoryFilesOverlay;
-use crate::state::notebook::LspNotebook;
 use crate::state::require::Require;
 use crate::state::steps::Context;
 use crate::state::steps::Step;
@@ -157,20 +156,6 @@ struct ModuleDataInner {
     steps: Steps,
 }
 
-#[derive(Clone, Dupe, Debug, Eq, PartialEq)]
-pub enum FileContents {
-    Source(Arc<String>),
-    Notebook(Arc<Notebook>),
-}
-
-/// This is the representation of files in the language server
-/// It can be converted to `FileContents`
-#[derive(Clone, Dupe, Debug, Eq, PartialEq)]
-pub enum LspFile {
-    Source(Arc<String>),
-    Notebook(Arc<LspNotebook>),
-}
-
 impl ModuleDataInner {
     fn new(require: Require, now: Epoch) -> Self {
         Self {
@@ -179,38 +164,6 @@ impl ModuleDataInner {
             dirty: Dirty::default(),
             steps: Steps::default(),
         }
-    }
-}
-
-impl FileContents {
-    pub fn from_source(source: String) -> Self {
-        Self::Source(Arc::new(source))
-    }
-}
-
-impl LspFile {
-    pub fn get_string(&self) -> &str {
-        match self {
-            Self::Source(contents) => contents.as_str(),
-            Self::Notebook(notebook) => notebook.ruff_notebook().source_code(),
-        }
-    }
-
-    pub fn from_source(source: String) -> Self {
-        Self::Source(Arc::new(source))
-    }
-
-    pub fn to_file_contents(&self) -> FileContents {
-        match self {
-            Self::Source(contents) => FileContents::Source(Arc::clone(contents)),
-            Self::Notebook(notebook) => {
-                FileContents::Notebook(Arc::clone(notebook.ruff_notebook()))
-            }
-        }
-    }
-
-    pub fn is_notebook(&self) -> bool {
-        matches!(self, Self::Notebook(_))
     }
 }
 
