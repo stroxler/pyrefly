@@ -10,6 +10,7 @@
 // Plus it's not actually mutable in practice, just for caching.
 #![allow(clippy::mutable_key_type)]
 
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
@@ -49,6 +50,7 @@ use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::locked_map::LockedMap;
 use pyrefly_util::no_hash::BuildNoHash;
+use pyrefly_util::prelude::VecExt;
 use pyrefly_util::small_set1::SmallSet1;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
@@ -443,7 +445,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
-        self.search_exports_helper(|handle, exports| {
+        let mut res = self.search_exports_helper(|handle, exports| {
             let matcher = SkimMatcherV2::default().smart_case();
             let mut results = Vec::new();
             for (name, location) in exports.iter() {
@@ -458,12 +460,9 @@ impl<'a> Transaction<'a> {
                 }
             }
             results
-        })
-        .into_iter()
-        .sorted_by_key(|(score, _, _, _)| *score)
-        .rev()
-        .map(|(_, handle, name, export)| (handle, name, export))
-        .collect()
+        });
+        res.sort_by_key(|(score, _, _, _)| Reverse(*score));
+        res.into_map(|(_, handle, name, export)| (handle, name, export))
     }
 
     pub fn search_modules_fuzzy(&self, pattern: &str) -> Vec<ModuleName> {
