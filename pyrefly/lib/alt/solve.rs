@@ -3322,7 +3322,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::any_implicit()
                         })
                     }
-                    FunctionParameter::Unannotated(var, function_idx) => {
+                    FunctionParameter::Unannotated(var, function_idx, _) => {
                         // It's important that we force the undecorated function binding before reading
                         // from this var. Solving the undecorated function binding pins the type of the var,
                         // either to a concrete type or to any. Without this we can have non-determinism

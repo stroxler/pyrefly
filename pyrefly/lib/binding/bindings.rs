@@ -968,6 +968,7 @@ impl<'a> BindingsBuilder<'a> {
                 None => FunctionParameter::Unannotated(
                     self.solver.fresh_parameter(self.uniques),
                     undecorated_idx,
+                    target,
                 ),
             }),
         );
