@@ -419,27 +419,14 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn search_modules_fuzzy(&self, pattern: &str) -> Vec<ModuleName> {
-        // Make sure all the modules are in updated_modules.
-        for x in self.readable.modules.keys() {
-            self.get_module(x);
-        }
-
         let matcher = SkimMatcherV2::default().smart_case();
         let mut results = Vec::new();
 
-        // Collect unique module names from all known modules
-        let mut seen_modules = SmallSet::new();
-        for module_handle in self.data.updated_modules.keys() {
-            let module_name = module_handle.module();
+        for module_name in self.modules() {
             let module_name_str = module_name.as_str();
 
             // Skip builtins module
             if module_name_str == "builtins" {
-                continue;
-            }
-
-            // Skip if we've already seen this module name
-            if !seen_modules.insert(module_name) {
                 continue;
             }
 
@@ -543,6 +530,21 @@ impl<'a> Transaction<'a> {
             }
             res
         }
+    }
+
+    /// Return all modules for which there is data, in a non-deterministic order.
+    pub fn modules(&self) -> SmallSet<ModuleName> {
+        self.readable
+            .modules
+            .keys()
+            .map(|x| x.module())
+            .chain(
+                self.data
+                    .updated_modules
+                    .iter_unordered()
+                    .map(|x| x.0.module()),
+            )
+            .collect()
     }
 
     pub fn module_count(&self) -> usize {
