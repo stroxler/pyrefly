@@ -66,7 +66,6 @@ use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::Visitor;
 use ruff_python_ast::visitor::walk_body;
-use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
@@ -516,10 +515,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<Vec<(TextRange, Option<FoldingRangeKind>)>> {
         let ast = self.get_ast(handle)?;
         let module_info = self.get_module_info(handle)?;
-        let mut ranges = collect_folding_ranges(&ast.body, &module_info);
-        ranges.sort_by_key(|(range, _)| range.start());
-        ranges.dedup();
-        Some(ranges)
+        Some(collect_folding_ranges(&ast.body, &module_info))
     }
 
     pub fn docstring_ranges(&self, handle: &Handle) -> Option<Vec<TextRange>> {
@@ -1766,6 +1762,8 @@ fn collect_folding_ranges(
         Visitor::visit_stmt(&mut collector, stmt);
     }
 
+    collector.ranges.sort_by_key(|(range, _)| range.start());
+    collector.ranges.dedup();
     collector.ranges
 }
 
