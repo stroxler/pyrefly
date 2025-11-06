@@ -506,7 +506,7 @@ impl<'a> Transaction<'a> {
 
     fn search_exports_helper<V: Send + Sync>(
         &self,
-        searcher: impl Fn(&Handle, Arc<SmallMap<Name, ExportLocation>>) -> Vec<V> + Sync,
+        searcher: impl Fn(&Handle, &SmallMap<Name, ExportLocation>) -> Vec<V> + Sync,
     ) -> Vec<V> {
         // Make sure all the modules are in updated_modules.
         // We have to get a mutable module data to do the lookup we need anyway.
@@ -531,7 +531,7 @@ impl<'a> Transaction<'a> {
                     let exports = self
                         .lookup_export(module_data)
                         .exports(&self.lookup(module_data.dupe()));
-                    thread_local_results.extend(searcher(handle, exports));
+                    thread_local_results.extend(searcher(handle, &exports));
                 }
                 if !thread_local_results.is_empty() {
                     all_results.lock().push(thread_local_results);
