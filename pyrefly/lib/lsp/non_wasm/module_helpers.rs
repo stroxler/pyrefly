@@ -46,7 +46,7 @@ pub fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
             let typeshed_path = match typeshed_third_party.materialized_path_on_disk() {
                 Ok(typeshed_path) => Some(typeshed_path),
                 Err(err) => {
-                    warn!("Builtins unable to be loaded on disk, {}", err);
+                    warn!("Third Party Stubs unable to be loaded on disk, {}", err);
                     None
                 }
             }?;
