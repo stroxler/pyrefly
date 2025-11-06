@@ -515,7 +515,7 @@ impl<'a> Transaction<'a> {
     ) -> Option<Vec<(TextRange, Option<FoldingRangeKind>)>> {
         let ast = self.get_ast(handle)?;
         let module_info = self.get_module_info(handle)?;
-        Some(collect_folding_ranges(&ast.body, &module_info))
+        Some(folding_ranges(&module_info, &ast.body))
     }
 
     pub fn docstring_ranges(&self, handle: &Handle) -> Option<Vec<TextRange>> {
@@ -1631,10 +1631,8 @@ impl<'a> Transaction<'a> {
     }
 }
 
-fn collect_folding_ranges(
-    body: &[Stmt],
-    module: &Module,
-) -> Vec<(TextRange, Option<FoldingRangeKind>)> {
+/// Find the folding ranges (where you can collapse the code) in a module, given the AST.
+fn folding_ranges(module: &Module, body: &[Stmt]) -> Vec<(TextRange, Option<FoldingRangeKind>)> {
     use ruff_python_ast::ExceptHandler;
     use ruff_text_size::Ranged;
 
