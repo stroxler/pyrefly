@@ -158,7 +158,6 @@ fn replace_ignore_comment(line: &str, merged_comment: &str) -> String {
 /// The list of failures includes the error that occurred, which may be a read or write error.
 fn add_suppressions(
     path_errors: &SmallMap<PathBuf, Vec<Error>>,
-    same_line: bool,
 ) -> (Vec<(&PathBuf, anyhow::Error)>, Vec<&PathBuf>) {
     let mut failures = vec![];
     let mut successes = vec![];
@@ -215,60 +214,41 @@ fn add_suppressions(
                 continue;
             }
 
-            if same_line {
-                // Same line mode: append or replace comment on the same line
-                if let Some(error_comment) = deduped_errors.get(&idx) {
-                    if parse_ignore_comment(line).is_some() {
-                        // Replace existing comment with merged version
-                        let updated_line = replace_ignore_comment(line, error_comment);
-                        buf.push_str(&updated_line);
-                    } else {
-                        // Append new comment
-                        let new_line = format!("{} {}", line, error_comment);
-                        buf.push_str(&new_line);
-                    }
+            // Separate line mode
+            if let Some(error_comment) = deduped_errors.get(&idx) {
+                // Check if this line had an inline suppression that was merged
+                if has_inline_suppression.contains(&idx) {
+                    // Replace the inline suppression with the merged version
+                    let updated_line = replace_ignore_comment(line, error_comment);
+                    buf.push_str(&updated_line);
                     buf.push('\n');
                 } else {
+                    // Calculate once whether suppression goes below this line
+                    let suppression_below =
+                        idx + 1 < lines.len() && lines_to_skip.contains(&(idx + 1));
+
+                    if !suppression_below {
+                        // Add suppression line above (normal case)
+                        buf.push_str(get_indentation(line));
+                        buf.push_str(error_comment);
+                        buf.push('\n');
+                    }
+
+                    // Write the current line as-is
                     buf.push_str(line);
                     buf.push('\n');
+
+                    if suppression_below {
+                        // Add suppression line below
+                        buf.push_str(get_indentation(lines[idx + 1]));
+                        buf.push_str(error_comment);
+                        buf.push('\n');
+                    }
                 }
             } else {
-                // Separate line mode
-                if let Some(error_comment) = deduped_errors.get(&idx) {
-                    // Check if this line had an inline suppression that was merged
-                    if has_inline_suppression.contains(&idx) {
-                        // Replace the inline suppression with the merged version
-                        let updated_line = replace_ignore_comment(line, error_comment);
-                        buf.push_str(&updated_line);
-                        buf.push('\n');
-                    } else {
-                        // Calculate once whether suppression goes below this line
-                        let suppression_below =
-                            idx + 1 < lines.len() && lines_to_skip.contains(&(idx + 1));
-
-                        if !suppression_below {
-                            // Add suppression line above (normal case)
-                            buf.push_str(get_indentation(line));
-                            buf.push_str(error_comment);
-                            buf.push('\n');
-                        }
-
-                        // Write the current line as-is
-                        buf.push_str(line);
-                        buf.push('\n');
-
-                        if suppression_below {
-                            // Add suppression line below
-                            buf.push_str(get_indentation(lines[idx + 1]));
-                            buf.push_str(error_comment);
-                            buf.push('\n');
-                        }
-                    }
-                } else {
-                    // No error on this line, write as-is
-                    buf.push_str(line);
-                    buf.push('\n');
-                }
+                // No error on this line, write as-is
+                buf.push_str(line);
+                buf.push('\n');
             }
         }
         if let Err(e) = fs_anyhow::write(path, buf) {
@@ -285,7 +265,7 @@ fn extract_error_codes(comment: &str) -> Vec<String> {
     parse_ignore_comment(comment).unwrap_or_default()
 }
 
-pub fn suppress_errors(errors: Vec<Error>, same_line: bool) {
+pub fn suppress_errors(errors: Vec<Error>) {
     let mut path_errors: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
     for e in errors {
         if e.severity() >= Severity::Warn
@@ -299,7 +279,7 @@ pub fn suppress_errors(errors: Vec<Error>, same_line: bool) {
         return;
     }
     info!("Inserting error suppressions...");
-    let (failures, successes) = add_suppressions(&path_errors, same_line);
+    let (failures, successes) = add_suppressions(&path_errors);
     info!(
         "Finished suppressing errors in {}/{} files",
         successes.len(),
@@ -447,14 +427,7 @@ mod tests {
 
     fn assert_suppress_errors(before: &str, after: &str) {
         let (errors, tdir) = get_errors(before);
-        suppress::suppress_errors(errors.collect_errors().shown, false);
-        let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
-        assert_eq!(after, got_file);
-    }
-
-    fn assert_suppress_same_line(before: &str, after: &str) {
-        let (errors, tdir) = get_errors(before);
-        suppress::suppress_errors(errors.collect_errors().shown, true);
+        suppress::suppress_errors(errors.collect_errors().shown);
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
     }
@@ -789,20 +762,6 @@ def g() -> str:
 "#;
         assert_remove_ignores(before, after, true, 1);
     }
-    #[test]
-    fn test_add_suppressions_same_line() {
-        assert_suppress_same_line(
-            r#"
-x: str = 1
-
-"#,
-            r#"
-x: str = 1 # pyrefly: ignore [bad-assignment]
-
-"#,
-        );
-    }
-
     #[test]
     fn test_parse_ignore_comment() {
         let line = "    # pyrefly: ignore [unsupported-operation]";
