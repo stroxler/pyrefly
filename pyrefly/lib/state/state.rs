@@ -497,11 +497,8 @@ impl<'a> Transaction<'a> {
             }
         }
 
-        results.sort_by_key(|(score, _)| -score);
-        results
-            .into_iter()
-            .map(|(_, module_name)| module_name)
-            .collect()
+        results.sort_by_key(|(score, _)| Reverse(*score));
+        results.into_map(|(_, module_name)| module_name)
     }
 
     fn search_exports_helper<V: Send + Sync>(
