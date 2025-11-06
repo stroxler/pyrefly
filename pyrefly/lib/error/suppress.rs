@@ -27,7 +27,7 @@ use crate::error::error::Error;
 use crate::state::errors::Errors;
 
 /// Combines all errors that affect one line into a single entry.
-// The current format is: `# pyrefly: ignore  # error1, error2, ...`
+/// The current format is: `# pyrefly: ignore [error1, error2, ...]`
 fn dedup_errors(errors: &[Error]) -> SmallMap<usize, String> {
     let mut deduped_errors: SmallMap<usize, HashSet<String>> = SmallMap::new();
     for error in errors {
@@ -74,6 +74,85 @@ fn read_and_validate_file(path: &Path) -> anyhow::Result<String> {
     }
 }
 
+/// Extracts error codes from an existing pyrefly ignore comment.
+/// Returns Some(Vec<String>) if the line contains a valid ignore comment, None otherwise.
+fn parse_ignore_comment(line: &str) -> Option<Vec<String>> {
+    let regex = Regex::new(r"#\s*pyrefly:\s*ignore\s*\[([^\]]*)\]").unwrap();
+    regex.captures(line).map(|caps| {
+        caps.get(1)
+            .map(|m| {
+                m.as_str()
+                    .split(',')
+                    .map(|s| s.trim().to_owned())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
+}
+
+/// Location where a suppression comment exists relative to an error line.
+enum SuppressionLocation {
+    Inline,
+    Above,
+}
+
+/// Finds an existing suppression comment near the error line.
+/// Checks inline first, then above.
+fn find_existing_suppression(
+    error_line: usize,
+    lines: &[&str],
+    existing_suppressions: &SmallMap<usize, Vec<String>>,
+) -> Option<(SuppressionLocation, Vec<String>)> {
+    // Check inline
+    if let Some(codes) = existing_suppressions.get(&error_line) {
+        return Some((SuppressionLocation::Inline, codes.clone()));
+    }
+
+    // Check above
+    if error_line > 0
+        && let Some(codes) = existing_suppressions.get(&(error_line - 1))
+    {
+        let above_line = lines[error_line - 1];
+        if above_line.trim_start().starts_with("#") {
+            return Some((SuppressionLocation::Above, codes.clone()));
+        }
+    }
+
+    None
+}
+
+/// Extracts the leading whitespace from a line for indentation matching.
+fn get_indentation(line: &str) -> &str {
+    if let Some(first_char) = line.find(|c: char| !c.is_whitespace()) {
+        &line[..first_char]
+    } else {
+        ""
+    }
+}
+
+/// Merges new error codes with existing ones in a suppression comment.
+/// Returns the updated comment string with merged and sorted error codes.
+fn merge_error_codes(existing_codes: Vec<String>, new_codes: &[String]) -> String {
+    let mut all_codes: SmallSet<String> = SmallSet::new();
+    for code in existing_codes {
+        all_codes.insert(code);
+    }
+    for code in new_codes {
+        all_codes.insert(code.clone());
+    }
+    let mut sorted_codes: Vec<_> = all_codes.into_iter().collect();
+    sorted_codes.sort();
+    format!("# pyrefly: ignore [{}]", sorted_codes.join(", "))
+}
+
+/// Replaces the ignore comment in a line with the merged version.
+/// Preserves the rest of the line content.
+fn replace_ignore_comment(line: &str, merged_comment: &str) -> String {
+    let regex = Regex::new(r"#\s*pyrefly:\s*ignore\s*\[[^\]]*\]").unwrap();
+    regex.replace(line, merged_comment).to_string()
+}
+
 /// Adds error suppressions for the given errors in the given files.
 /// Returns a list of files that failed to be patched, and a list of files that were patched.
 /// The list of failures includes the error that occurred, which may be a read or write error.
@@ -91,24 +170,105 @@ fn add_suppressions(
                 continue;
             }
         };
-        let deduped_errors = dedup_errors(errors);
-        let mut buf = String::new();
-        for (idx, line) in file.lines().enumerate() {
-            if same_line && let Some(error_comment) = deduped_errors.get(&idx) {
-                let new_line = format!("{} {}", line, error_comment);
-                buf.push_str(&new_line);
-                buf.push('\n');
-            } else {
-                if let Some(error_comment) = deduped_errors.get(&idx) {
-                    // As a simple formatting step, indent the error comment to match the line below it.
-                    if let Some(first_char) = line.find(|c: char| !c.is_whitespace()) {
-                        buf.push_str(&line[..first_char]);
+        let mut deduped_errors = dedup_errors(errors);
+
+        // Pre-scan to find existing suppressions and merge with new error codes
+        let lines: Vec<&str> = file.lines().collect();
+
+        // Build a map of lines that have existing suppressions
+        let mut existing_suppressions: SmallMap<usize, Vec<String>> = SmallMap::new();
+        for (idx, line) in lines.iter().enumerate() {
+            if let Some(codes) = parse_ignore_comment(line) {
+                existing_suppressions.insert(idx, codes);
+            }
+        }
+
+        // Track which suppression lines should be skipped because they're being merged
+        let mut lines_to_skip: SmallSet<usize> = SmallSet::new();
+        // Track which error lines have inline suppressions that were merged (so we replace inline)
+        let mut has_inline_suppression: SmallSet<usize> = SmallSet::new();
+
+        // Merge existing suppressions with new ones
+        for (&error_line, new_comment) in deduped_errors.iter_mut() {
+            let new_codes = extract_error_codes(new_comment);
+
+            if let Some((location, existing_codes)) =
+                find_existing_suppression(error_line, &lines, &existing_suppressions)
+            {
+                *new_comment = merge_error_codes(existing_codes, &new_codes);
+
+                match location {
+                    SuppressionLocation::Above => {
+                        lines_to_skip.insert(error_line - 1);
                     }
-                    buf.push_str(error_comment);
+                    SuppressionLocation::Inline => {
+                        has_inline_suppression.insert(error_line);
+                    }
+                }
+            }
+        }
+
+        let mut buf = String::new();
+        for (idx, line) in lines.iter().enumerate() {
+            // Skip old standalone suppression lines that are being replaced
+            if lines_to_skip.contains(&idx) {
+                continue;
+            }
+
+            if same_line {
+                // Same line mode: append or replace comment on the same line
+                if let Some(error_comment) = deduped_errors.get(&idx) {
+                    if parse_ignore_comment(line).is_some() {
+                        // Replace existing comment with merged version
+                        let updated_line = replace_ignore_comment(line, error_comment);
+                        buf.push_str(&updated_line);
+                    } else {
+                        // Append new comment
+                        let new_line = format!("{} {}", line, error_comment);
+                        buf.push_str(&new_line);
+                    }
+                    buf.push('\n');
+                } else {
+                    buf.push_str(line);
                     buf.push('\n');
                 }
-                buf.push_str(line);
-                buf.push('\n');
+            } else {
+                // Separate line mode
+                if let Some(error_comment) = deduped_errors.get(&idx) {
+                    // Check if this line had an inline suppression that was merged
+                    if has_inline_suppression.contains(&idx) {
+                        // Replace the inline suppression with the merged version
+                        let updated_line = replace_ignore_comment(line, error_comment);
+                        buf.push_str(&updated_line);
+                        buf.push('\n');
+                    } else {
+                        // Calculate once whether suppression goes below this line
+                        let suppression_below =
+                            idx + 1 < lines.len() && lines_to_skip.contains(&(idx + 1));
+
+                        if !suppression_below {
+                            // Add suppression line above (normal case)
+                            buf.push_str(get_indentation(line));
+                            buf.push_str(error_comment);
+                            buf.push('\n');
+                        }
+
+                        // Write the current line as-is
+                        buf.push_str(line);
+                        buf.push('\n');
+
+                        if suppression_below {
+                            // Add suppression line below
+                            buf.push_str(get_indentation(lines[idx + 1]));
+                            buf.push_str(error_comment);
+                            buf.push('\n');
+                        }
+                    }
+                } else {
+                    // No error on this line, write as-is
+                    buf.push_str(line);
+                    buf.push('\n');
+                }
             }
         }
         if let Err(e) = fs_anyhow::write(path, buf) {
@@ -120,6 +280,11 @@ fn add_suppressions(
     (failures, successes)
 }
 
+/// Extracts error codes from a comment string like "# pyrefly: ignore [code1, code2]".
+fn extract_error_codes(comment: &str) -> Vec<String> {
+    parse_ignore_comment(comment).unwrap_or_default()
+}
+
 pub fn suppress_errors(errors: Vec<Error>, same_line: bool) {
     let mut path_errors: SmallMap<PathBuf, Vec<Error>> = SmallMap::new();
     for e in errors {
@@ -129,11 +294,11 @@ pub fn suppress_errors(errors: Vec<Error>, same_line: bool) {
             path_errors.entry((**path).clone()).or_default().push(e);
         }
     }
-    info!("Inserting error suppressions...");
     if path_errors.is_empty() {
         info!("No errors to suppress!");
         return;
     }
+    info!("Inserting error suppressions...");
     let (failures, successes) = add_suppressions(&path_errors, same_line);
     info!(
         "Finished suppressing errors in {}/{} files",
@@ -396,6 +561,22 @@ def foo() -> int: pass
     }
 
     #[test]
+    fn test_add_suppressions_multiple_errors_update_ignore() {
+        assert_suppress_errors(
+            r#"
+def foo() -> str:
+    # pyrefly: ignore [unsupported-operation]
+    return 1 + []
+"#,
+            r#"
+def foo() -> str:
+    # pyrefly: ignore [bad-return, unsupported-operation]
+    return 1 + []
+"#,
+        );
+    }
+
+    #[test]
     fn test_add_suppressions_multiple_errors_one_line() {
         assert_suppress_errors(
             r#"
@@ -619,6 +800,38 @@ x: str = 1
 x: str = 1 # pyrefly: ignore [bad-assignment]
 
 "#,
+        );
+    }
+
+    #[test]
+    fn test_parse_ignore_comment() {
+        let line = "    # pyrefly: ignore [unsupported-operation]";
+        let codes = parse_ignore_comment(line);
+        assert_eq!(codes, Some(vec!["unsupported-operation".to_owned()]));
+
+        let line2 = "    # pyrefly: ignore [bad-return, unsupported-operation]";
+        let codes2 = parse_ignore_comment(line2);
+        assert_eq!(
+            codes2,
+            Some(vec![
+                "bad-return".to_owned(),
+                "unsupported-operation".to_owned()
+            ])
+        );
+
+        let line3 = "    return 1 + []";
+        let codes3 = parse_ignore_comment(line3);
+        assert_eq!(codes3, None);
+    }
+
+    #[test]
+    fn test_merge_error_codes() {
+        let existing = vec!["unsupported-operation".to_owned()];
+        let new = vec!["bad-return".to_owned()];
+        let merged = merge_error_codes(existing, &new);
+        assert_eq!(
+            merged,
+            "# pyrefly: ignore [bad-return, unsupported-operation]"
         );
     }
 }
