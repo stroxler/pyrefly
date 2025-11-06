@@ -2458,7 +2458,13 @@ impl<'a> Transaction<'a> {
             }
         }
         for item in &mut result {
-            let sort_text = if item.additional_text_edits.is_some() {
+            let sort_text = if item
+                .tags
+                .as_ref()
+                .is_some_and(|tags| tags.contains(&CompletionItemTag::DEPRECATED))
+            {
+                "9"
+            } else if item.additional_text_edits.is_some() {
                 "4"
             } else if item.label.starts_with("__") {
                 "3"
