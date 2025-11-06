@@ -240,7 +240,7 @@ impl StateData {
 /// `TransactionData` contains most of the information in `Transaction`, but it doesn't lock
 /// the read of `State`.
 /// It is used to store uncommitted transaction state in between transaction runs.
-pub struct TransactionData<'a> {
+pub(crate) struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<SysInfo, Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
@@ -262,7 +262,7 @@ pub struct TransactionData<'a> {
 }
 
 impl<'a> TransactionData<'a> {
-    pub fn into_transaction(self) -> Transaction<'a> {
+    pub(crate) fn into_transaction(self) -> Transaction<'a> {
         let readable = self.state.state.read();
         Transaction {
             data: self,
@@ -283,7 +283,7 @@ pub struct Transaction<'a> {
 
 impl<'a> Transaction<'a> {
     /// Drops the lock and retains just the underlying data.
-    pub fn into_data(self) -> TransactionData<'a> {
+    pub(crate) fn into_data(self) -> TransactionData<'a> {
         let Transaction { data, readable } = self;
         drop(readable);
         data
@@ -1301,7 +1301,7 @@ impl<'a> Transaction<'a> {
 
     /// Called if the `find` portion of loading might have changed.
     /// E.g. you have include paths, and a new file appeared earlier on the path.
-    pub fn invalidate_find(&mut self) {
+    fn invalidate_find(&mut self) {
         let new_loaders = LockedMap::new();
         for loader in self.data.updated_loaders.keys() {
             new_loaders.insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
@@ -1528,7 +1528,7 @@ impl<'a> Transaction<'a> {
     }
 }
 
-pub struct TransactionHandle<'a> {
+pub(crate) struct TransactionHandle<'a> {
     transaction: &'a Transaction<'a>,
     module_data: ArcId<ModuleDataMut>,
 }
