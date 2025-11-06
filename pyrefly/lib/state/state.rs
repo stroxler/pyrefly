@@ -10,7 +10,6 @@
 // Plus it's not actually mutable in practice, just for caching.
 #![allow(clippy::mutable_key_type)]
 
-use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
@@ -32,8 +31,6 @@ use std::time::Instant;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use enum_iterator::Sequence;
-use fuzzy_matcher::FuzzyMatcher;
-use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::module::Module;
@@ -48,7 +45,6 @@ use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::locked_map::LockedMap;
 use pyrefly_util::no_hash::BuildNoHash;
-use pyrefly_util::prelude::VecExt;
 use pyrefly_util::small_set1::SmallSet1;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
@@ -416,29 +412,6 @@ impl<'a> Transaction<'a> {
 
     pub fn config_finder(&self) -> &ConfigFinder {
         &self.data.state.config_finder
-    }
-
-    pub fn search_modules_fuzzy(&self, pattern: &str) -> Vec<ModuleName> {
-        let matcher = SkimMatcherV2::default().smart_case();
-        let mut results = Vec::new();
-
-        for module_name in self.modules() {
-            let module_name_str = module_name.as_str();
-
-            // Skip builtins module
-            if module_name_str == "builtins" {
-                continue;
-            }
-
-            let components = module_name.components();
-            let last_component = components.last().map(|name| name.as_str()).unwrap_or("");
-            if let Some(score) = matcher.fuzzy_match(last_component, pattern) {
-                results.push((score, module_name));
-            }
-        }
-
-        results.sort_by_key(|(score, _)| Reverse(*score));
-        results.into_map(|(_, module_name)| module_name)
     }
 
     /// Search through the export table of every module we know about.

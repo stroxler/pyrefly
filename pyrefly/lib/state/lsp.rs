@@ -1632,6 +1632,29 @@ impl<'a> Transaction<'a> {
         .map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
+    fn search_modules_fuzzy(&self, pattern: &str) -> Vec<ModuleName> {
+        let matcher = SkimMatcherV2::default().smart_case();
+        let mut results = Vec::new();
+
+        for module_name in self.modules() {
+            let module_name_str = module_name.as_str();
+
+            // Skip builtins module
+            if module_name_str == "builtins" {
+                continue;
+            }
+
+            let components = module_name.components();
+            let last_component = components.last().map(|name| name.as_str()).unwrap_or("");
+            if let Some(score) = matcher.fuzzy_match(last_component, pattern) {
+                results.push((score, module_name));
+            }
+        }
+
+        results.sort_by_key(|(score, _)| Reverse(*score));
+        results.into_map(|(_, module_name)| module_name)
+    }
+
     /// Produce code actions that makes edits local to the file.
     pub fn local_quickfix_code_actions(
         &self,
