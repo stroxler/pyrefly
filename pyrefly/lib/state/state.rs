@@ -100,7 +100,6 @@ use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
-use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
@@ -424,45 +423,6 @@ impl<'a> Transaction<'a> {
 
     pub fn config_finder(&self) -> &ConfigFinder {
         &self.data.state.config_finder
-    }
-
-    pub fn search_exports_exact(&self, name: &str) -> Vec<Handle> {
-        self.search_exports(|handle, exports| {
-            if let Some(export) = exports.get(&Name::new(name)) {
-                match export {
-                    ExportLocation::ThisModule(_) => vec![handle.dupe()],
-                    // Re-exported modules like `foo` in `from from_module import foo`
-                    // should likely be ignored in autoimport suggestions
-                    // because the original export in from_module will show it.
-                    // The current strategy will prevent intended re-exports from showing up in
-                    // result list, but it's better than showing thousands of likely bad results.
-                    ExportLocation::OtherModule(..) => Vec::new(),
-                }
-            } else {
-                Vec::new()
-            }
-        })
-    }
-
-    pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
-        let mut res = self.search_exports(|handle, exports| {
-            let matcher = SkimMatcherV2::default().smart_case();
-            let mut results = Vec::new();
-            for (name, location) in exports.iter() {
-                let name = name.as_str();
-                if let Some(score) = matcher.fuzzy_match(name, pattern) {
-                    match location {
-                        ExportLocation::OtherModule(..) => {}
-                        ExportLocation::ThisModule(export) => {
-                            results.push((score, handle.dupe(), name.to_owned(), export.clone()));
-                        }
-                    }
-                }
-            }
-            results
-        });
-        res.sort_by_key(|(score, _, _, _)| Reverse(*score));
-        res.into_map(|(_, handle, name, export)| (handle, name, export))
     }
 
     pub fn search_modules_fuzzy(&self, pattern: &str) -> Vec<ModuleName> {
