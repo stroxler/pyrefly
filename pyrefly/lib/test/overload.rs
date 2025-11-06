@@ -1191,9 +1191,9 @@ def f2(*args) -> int | str: ...
 
 def g(*args):
     # ambiguous whether this matches `f1`'s first or second overload, so fall back to return type Any
-    assert_type(f1(*args), Any) # E: assert_type(int, Any) # E: `Materialization` is not iterable
+    assert_type(f1(*args), Any)
     # this matches `f2`'s first overload via https://typing.python.org/en/latest/spec/overload.html#step-5
-    assert_type(f2(*args), int) # E: `Materialization` is not iterable
+    assert_type(f2(*args), int)
 
 def h(args: Any):
     # make sure the entire iterable being `Any` works
@@ -1224,7 +1224,7 @@ def g(**kwargs):
     # ambiguous whether this matches `f1`'s first or second overload, so fall back to return type Any
     assert_type(f1(**kwargs), Any)
     # this matches `f2`'s first overload via https://typing.python.org/en/latest/spec/overload.html#step-5
-    assert_type(f2(**kwargs), int) # E: assert_type(Any, int)
+    assert_type(f2(**kwargs), int)
 
 def h(kwargs: Any):
     # make sure the entire mapping being `Any` works

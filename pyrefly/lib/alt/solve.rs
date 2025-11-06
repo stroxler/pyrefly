@@ -3313,23 +3313,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Decorator(expr) => self.expr_infer(expr, errors),
             Binding::LambdaParameter(var) => var.to_type(),
             Binding::FunctionParameter(param) => {
+                let finalize = |target: &AnnotationTarget, ty| match target {
+                    AnnotationTarget::ArgsParam(_) => Type::Tuple(Tuple::Unbounded(Box::new(ty))),
+                    AnnotationTarget::KwargsParam(_) => self
+                        .stdlib
+                        .dict(self.stdlib.str().clone().to_type(), ty)
+                        .to_type(),
+                    _ => ty,
+                };
                 match param {
                     FunctionParameter::Annotated(key) => {
                         let annotation = self.get_idx(*key);
                         annotation.ty(self.stdlib).clone().unwrap_or_else(|| {
                             // This annotation isn't valid. It's something like `: Final` that doesn't
                             // have enough information to create a real type.
-                            Type::any_implicit()
+                            finalize(&annotation.target, Type::any_implicit())
                         })
                     }
-                    FunctionParameter::Unannotated(var, function_idx, _) => {
+                    FunctionParameter::Unannotated(var, function_idx, target) => {
                         // It's important that we force the undecorated function binding before reading
                         // from this var. Solving the undecorated function binding pins the type of the var,
                         // either to a concrete type or to any. Without this we can have non-determinism
                         // where the reader can observe an unresolved var or a resolved type, depending on
                         // the order of solved bindings.
                         self.get_idx(*function_idx);
-                        self.solver().force_var(*var)
+                        let ty = self.solver().force_var(*var);
+                        finalize(target, ty)
                     }
                 }
             }
