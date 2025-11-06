@@ -1906,7 +1906,6 @@ t2: ExtraItemsTarget = {**open}  # E: open TypedDict with unknown extra items
 );
 
 testcase!(
-    bug = "Pyrefly does not yet handle subscript assignment with keys that are unions of literals that are valid keys",
     test_union_as_key,
     r#"
 from typing import TypedDict, Literal
@@ -1915,6 +1914,6 @@ class Foo(TypedDict):
     baz: int
 def f(foo: Foo, k: Literal["bar", "baz"]):
     print(foo[k])
-    foo[k] = 2  # E: Cannot set item in `TypedDict[Foo]`
+    foo[k] = 2
     "#,
 );
