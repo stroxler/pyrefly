@@ -1172,7 +1172,6 @@ g(x=1, y="hello")  # E: No matching overload found for function `g` called with 
 );
 
 testcase!(
-    bug = "There should be no errors",
     test_varargs_materialization,
     r#"
 from typing import Any, assert_type, overload
@@ -1197,13 +1196,12 @@ def g(*args):
 
 def h(args: Any):
     # make sure the entire iterable being `Any` works
-    assert_type(f1(*args), Any) # E: assert_type(int, Any) # E: `Materialization` is not iterable
-    assert_type(f2(*args), int) # E: `Materialization` is not iterable
+    assert_type(f1(*args), Any)
+    assert_type(f2(*args), int)
     "#,
 );
 
 testcase!(
-    bug = "There should be no errors",
     test_kwargs_materialization,
     r#"
 from typing import Any, assert_type, overload
@@ -1229,6 +1227,6 @@ def g(**kwargs):
 def h(kwargs: Any):
     # make sure the entire mapping being `Any` works
     assert_type(f1(**kwargs), Any)
-    assert_type(f2(**kwargs), int) # E: assert_type(Any, int)
+    assert_type(f2(**kwargs), int)
     "#,
 );
