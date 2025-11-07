@@ -614,3 +614,24 @@ def test(x: int | None, i: int):
         assert_type(x, int)  # E: assert_type(int | None, int)
 "#,
 );
+
+testcase!(
+    test_expand_loop_recursive_and_match_generic,
+    r#"
+from typing import assert_type
+def f[T](x: list[T]) -> T: ...
+def condition() -> bool: ...
+
+good = [1]
+while condition():
+    good = [f(good)]
+assert_type(good, list[int])
+
+bad = [1]
+while condition():  # E: `list[int] | list[str]` is not assignable to `list[int]` (caused by inconsistent types when breaking cycles)
+    if condition():
+        bad = [f(bad)]  # E:  Argument `list[int] | list[str]` is not assignable to parameter `x` with type `list[int]` in function `f`
+    else:
+        bad = [""]
+"#,
+);
