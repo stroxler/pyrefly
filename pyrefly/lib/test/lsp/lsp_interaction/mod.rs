@@ -17,6 +17,7 @@ mod file_watcher;
 mod hover;
 mod inlay_hint;
 mod io;
+mod notebook_completion;
 mod notebook_definition;
 mod notebook_hover;
 mod notebook_inlay_hint;

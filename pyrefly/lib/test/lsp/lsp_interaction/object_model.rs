@@ -1095,6 +1095,24 @@ impl LspInteraction {
         }));
     }
 
+    pub fn completion_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
+        let cell_uri = self.cell_uri(file_name, cell_name);
+        let id = self.server.next_request_id();
+        self.server.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/completion".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": cell_uri,
+                },
+                "position": {
+                    "line": line,
+                    "character": col
+                }
+            }),
+        }));
+    }
+
     /// Sends an inlay hint request for a notebook cell in the specified range
     pub fn inlay_hint_cell(
         &mut self,

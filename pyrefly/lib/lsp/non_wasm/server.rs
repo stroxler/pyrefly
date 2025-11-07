@@ -2052,13 +2052,6 @@ impl Server {
         params: CompletionParams,
     ) -> anyhow::Result<CompletionResponse> {
         let uri = &params.text_document_position.text_document.uri;
-        if self.open_notebook_cells.read().contains_key(uri) {
-            // TODO(yangdanny) handle notebooks
-            return Ok(CompletionResponse::List(CompletionList {
-                is_incomplete: false,
-                items: Vec::new(),
-            }));
-        }
         let (handle, import_format) = match self
             .make_handle_with_lsp_analysis_config_if_enabled(uri, Some(Completion::METHOD))
         {
