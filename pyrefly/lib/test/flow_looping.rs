@@ -603,7 +603,6 @@ for x in ['home', 'other']:
 
 // Test for https://github.com/facebook/pyrefly/issues/747
 testcase!(
-    bug = "Pyrefly currently fails to narrow a `Var` that is `LoopRecursive`",
     test_benign_reassign_and_narrow_in_loop,
     r#"
 from typing import assert_type
@@ -611,7 +610,7 @@ from typing import assert_type
 def test(x: int | None, i: int):
     for _ in []:
         x = x or i
-        assert_type(x, int)  # E: assert_type(int | None, int)
+        assert_type(x, int)
 "#,
 );
 
