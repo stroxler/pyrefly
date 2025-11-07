@@ -2234,6 +2234,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorInfo::Kind(ErrorKind::InconsistentInheritance),
                         error_msg,
                     );
+                } else {
+                    for info in inherited_field_infos_by_ancestor {
+                        // Read-write fields should check that parent field's type
+                        // is assignable to the intersection.
+                        // Skip function types for this check for now.
+                        if !info.field.is_read_only()
+                            && !info.ty.is_function_type()
+                            && !self.is_subset_eq(&info.ty, &intersect)
+                        {
+                            self.error(
+                                errors,
+                                cls.range(),
+                                ErrorInfo::Kind(ErrorKind::InconsistentInheritance),
+                                format!(
+                                    "Field `{field_name}` is declared `{}` in ancestor `{}`, which is not assignable to the type `{}` implied by multiple inheritance",
+                                    info.ty,
+                                    info.class,
+                                    intersect,
+                                ),
+                            );
+                        }
+                    }
                 }
 
                 if let Some(child_member) = self.get_class_member(cls, field_name) {

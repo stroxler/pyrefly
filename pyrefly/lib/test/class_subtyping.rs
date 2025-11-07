@@ -349,3 +349,23 @@ class Both(Foo, Bar): # No error here, because __init__ is special
     ...
 "#,
 );
+
+testcase!(
+    test_multiple_inheritance_read_write,
+    r#"
+class Foo:
+    x: int
+    @property
+    def y(self) -> int:
+        return 1
+class Bar:
+    x: float
+    @property
+    def y(self) -> float:
+        return 1
+
+# For read-write fields, the inherited type from each parent should be assignable to the intersection
+class Both(Foo, Bar):  # E: Field `x` is declared `float`
+    ...
+"#,
+);
