@@ -634,3 +634,14 @@ while condition():  # E: `list[int] | list[str]` is not assignable to `list[int]
         bad = [""]
 "#,
 );
+
+// Test for https://github.com/facebook/pyrefly/issues/1505
+testcase!(
+    test_dict_get_self_assignment,
+    r#"
+d: dict[str, str] = {}
+a: str | None = None
+for i in range(10):
+    a = d.get('x', a)
+    "#,
+);
