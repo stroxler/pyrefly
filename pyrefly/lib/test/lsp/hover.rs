@@ -191,3 +191,38 @@ a: int = "test"  # pyrefly: ignore
         "Should not show suppressed error when hovering over code"
     );
 }
+
+#[test]
+fn builtin_types_do_not_have_definition_links() {
+    let code = r#"
+x: str = "hello"
+#^
+y: int = 42
+#^
+z: list[int] = []
+#^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    // The hover should show the types but should NOT contain "Go to" links
+    // because format_symbol_def_locations fails for builtins.pyi types
+    assert!(
+        report.contains("str"),
+        "Expected str type in hover, got: {}",
+        report
+    );
+    assert!(
+        report.contains("int"),
+        "Expected int type in hover, got: {}",
+        report
+    );
+    assert!(
+        report.contains("list"),
+        "Expected list type in hover, got: {}",
+        report
+    );
+    assert!(
+        !report.contains("Go to"),
+        "Should not contain 'Go to' links for builtin types, got: {}",
+        report
+    );
+}
