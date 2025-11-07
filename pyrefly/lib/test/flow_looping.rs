@@ -591,13 +591,12 @@ else:
 
 // Test for https://github.com/facebook/pyrefly/issues/726
 testcase!(
-    bug = "Pyrefly currently pins the type too aggressively, resulting in a spurious error",
     test_reassign_literal_str_to_str_in_loop,
     r#"
 import os
 
 path = '/'
-for x in ['home', 'other']:  # E: `str` is not assignable to `LiteralString` (caused by inconsistent types when breaking cycles)
+for x in ['home', 'other']:
     path = os.path.join(path, x)
     "#,
 );
@@ -612,6 +611,6 @@ from typing import assert_type
 def test(x: int | None, i: int):
     for _ in []:
         x = x or i
-        assert_type(x, int)   # E: assert_type(int | None, int)
+        assert_type(x, int)  # E: assert_type(int | None, int)
 "#,
 );
