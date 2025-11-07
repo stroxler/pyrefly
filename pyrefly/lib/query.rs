@@ -62,11 +62,14 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use serde::Serialize;
+use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::Answers;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
@@ -147,6 +150,7 @@ pub struct Attribute {
     pub name: String,
     pub kind: Option<String>,
     pub annotation: String,
+    pub is_final: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -964,6 +968,7 @@ impl Query {
         let transaction = self.state.transaction();
         let handle = self.make_handle(name, path);
         let ast = transaction.get_ast(&handle)?;
+
         // find last declaration of class with specified name in file
         let cls = ast
             .body
@@ -995,17 +1000,37 @@ impl Query {
                 _ => (None, ty),
             }
         }
+        let bindings = transaction.get_bindings(&handle)?;
+        let answers = transaction.get_answers(&handle)?;
+
         if let Some(Type::ClassDef(cd)) = &class_ty {
             let res = cd
                 .fields()
                 .filter_map(|n| {
                     let range = cd.field_decl_range(n)?;
+                    let class_field_index = KeyClassField(cd.index(), n.clone());
+                    let class_field_idx =
+                        bindings.key_to_idx_hashed_opt(Hashed::new(&class_field_index))?;
+                    let class_field = bindings.get(class_field_idx);
+                    let is_final = match &class_field.definition {
+                        ClassFieldDefinition::DeclaredByAnnotation { annotation } => {
+                            Some(*annotation)
+                        }
+                        ClassFieldDefinition::AssignedInBody { annotation, .. } => *annotation,
+                        ClassFieldDefinition::DefinedInMethod { annotation, .. } => *annotation,
+                        _ => None,
+                    }
+                    .and_then(|idx| answers.get_idx(idx))
+                    .map(|f| f.annotation.is_final())
+                    .unwrap_or(false);
+
                     let field_ty = transaction.get_type_at(&handle, range.start())?;
                     let (kind, field_ty) = get_kind_and_field_type(&field_ty);
                     Some(Attribute {
                         name: n.to_string(),
                         kind,
                         annotation: type_to_string(field_ty),
+                        is_final,
                     })
                 })
                 .collect_vec();
