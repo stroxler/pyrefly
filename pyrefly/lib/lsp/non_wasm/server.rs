@@ -868,8 +868,12 @@ impl Server {
                             .read()
                             .contains_key(&params.text_document_position.text_document.uri)
                     {
-                        // TODO(yangdanny) handle notebooks
                         self.references(x.id, ide_transaction_manager, params);
+                    } else {
+                        // TODO(yangdanny) handle notebooks
+                        let locations: Vec<Location> = Vec::new();
+                        self.connection
+                            .send(Message::Response(new_response(x.id, Ok(Some(locations)))));
                     }
                 } else if let Some(params) = as_request::<PrepareRenameRequest>(&x) {
                     if let Some(params) = self
