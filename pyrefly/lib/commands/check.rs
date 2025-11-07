@@ -754,8 +754,8 @@ impl CheckArgs {
         if let Some(limit) = self.output.count_errors {
             print_error_counts(&errors.shown, limit);
         }
-        if let Some(path_index) = self.output.summarize_errors {
-            print_error_summary(&errors.shown, path_index, self.output.only);
+        if self.output.summarize_errors.is_some() {
+            print_error_summary(&errors.shown, self.output.only);
         }
         let mut shown_errors_count = config_errors_count;
         for error in &errors.shown {

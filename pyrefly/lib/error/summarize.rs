@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::path::PathBuf;
-
 use dupe::Dupe;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::display;
@@ -55,11 +53,7 @@ fn get_errors_per_file(errors: &[Error]) -> SmallMap<ModulePath, SmallMap<ErrorK
 /// and path_index = 2 groups by alpha/beta/gamma.
 /// If the path_index is larger than the number of components in the path, then the entire path is used.
 /// If filter_error_kind is provided, only shows files/directories that contain that specific error kind.
-pub fn print_error_summary(
-    errors: &[Error],
-    path_index: usize,
-    filter_error_kind: Option<ErrorKind>,
-) {
+pub fn print_error_summary(errors: &[Error], filter_error_kind: Option<ErrorKind>) {
     // TODO: Sort errors by count and then name. More consistent and human-readable.
     // TODO: Consider output formatting.
     let mut path_errors = get_errors_per_file(errors);
