@@ -9,6 +9,9 @@ use std::path::PathBuf;
 
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
+use pyrefly_python::qname::QName;
+use pyrefly_types::types::Type;
+use starlark_map::small_set::SmallSet;
 use tracing::warn;
 
 use crate::module::bundled::BundledStub;
@@ -45,4 +48,23 @@ pub fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
             Some(typeshed_path.join(&**path))
         }
     }
+}
+
+pub fn collect_symbol_def_paths(t: &Type) -> Vec<(QName, PathBuf)> {
+    let mut tracked_def_locs = SmallSet::new();
+    t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
+    tracked_def_locs
+        .into_iter()
+        .map(|qname| {
+            let module_path = qname.module_path();
+            let file_path = match module_path.details() {
+                ModulePathDetails::BundledTypeshed(_)
+                | ModulePathDetails::BundledTypeshedThirdParty(_) => {
+                    to_real_path(module_path).unwrap_or_else(|| module_path.as_path().to_path_buf())
+                }
+                _ => module_path.as_path().to_path_buf(),
+            };
+            (qname.clone(), file_path)
+        })
+        .collect()
 }

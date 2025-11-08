@@ -14,16 +14,13 @@ use pyrefly_build::handle::Handle;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::ignore::Ignore;
 use pyrefly_python::ignore::find_comment_start_in_line;
-use pyrefly_python::module_path::ModulePathDetails;
-use pyrefly_python::qname::QName;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::types::Type;
 use pyrefly_util::lined_buffer::LineNumber;
 use ruff_text_size::TextSize;
-use starlark_map::small_set::SmallSet;
 
 use crate::error::error::Error;
-use crate::lsp::module_helpers::to_real_path;
+use crate::lsp::module_helpers::collect_symbol_def_paths;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
@@ -101,30 +98,9 @@ pub struct HoverValue {
 }
 
 impl HoverValue {
-    /// Collects all definition locations from a type by traversing its universe
-    /// and resolving module paths to file paths.
-    #[cfg(not(target_arch = "wasm32"))]
-    fn collect_symbol_def_paths(t: &Type) -> Vec<(QName, std::path::PathBuf)> {
-        let mut tracked_def_locs = SmallSet::new();
-        t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
-        tracked_def_locs
-            .into_iter()
-            .map(|qname| {
-                let module_path = qname.module_path();
-                let file_path = match module_path.details() {
-                    ModulePathDetails::BundledTypeshed(_)
-                    | ModulePathDetails::BundledTypeshedThirdParty(_) => to_real_path(module_path)
-                        .unwrap_or_else(|| module_path.as_path().to_path_buf()),
-                    _ => module_path.as_path().to_path_buf(),
-                };
-                (qname.clone(), file_path)
-            })
-            .collect()
-    }
-
     #[cfg(not(target_arch = "wasm32"))]
     fn format_symbol_def_locations(t: &Type) -> Option<String> {
-        let symbol_paths = Self::collect_symbol_def_paths(t);
+        let symbol_paths = collect_symbol_def_paths(t);
         let linked_names = symbol_paths
             .into_iter()
             .filter_map(|(qname, file_path)| {
