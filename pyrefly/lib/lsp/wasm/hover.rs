@@ -15,6 +15,7 @@ use pyrefly_python::docstring::Docstring;
 use pyrefly_python::ignore::Ignore;
 use pyrefly_python::ignore::find_comment_start_in_line;
 use pyrefly_python::module_path::ModulePathDetails;
+use pyrefly_python::qname::QName;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::types::Type;
 use pyrefly_util::lined_buffer::LineNumber;
@@ -100,13 +101,15 @@ pub struct HoverValue {
 }
 
 impl HoverValue {
+    /// Collects all definition locations from a type by traversing its universe
+    /// and resolving module paths to file paths.
     #[cfg(not(target_arch = "wasm32"))]
-    fn format_symbol_def_locations(t: &Type) -> Option<String> {
+    fn collect_symbol_def_paths(t: &Type) -> Vec<(QName, std::path::PathBuf)> {
         let mut tracked_def_locs = SmallSet::new();
         t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
-        let linked_names = tracked_def_locs
+        tracked_def_locs
             .into_iter()
-            .filter_map(|qname| {
+            .map(|qname| {
                 let module_path = qname.module_path();
                 let file_path = match module_path.details() {
                     ModulePathDetails::BundledTypeshed(_)
@@ -114,7 +117,17 @@ impl HoverValue {
                         .unwrap_or_else(|| module_path.as_path().to_path_buf()),
                     _ => module_path.as_path().to_path_buf(),
                 };
+                (qname.clone(), file_path)
+            })
+            .collect()
+    }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn format_symbol_def_locations(t: &Type) -> Option<String> {
+        let symbol_paths = Self::collect_symbol_def_paths(t);
+        let linked_names = symbol_paths
+            .into_iter()
+            .filter_map(|(qname, file_path)| {
                 if let Ok(mut url) = Url::from_file_path(&file_path) {
                     let start_pos = qname.module().display_range(qname.range()).start;
                     if let Some(cell) = start_pos.cell() {
