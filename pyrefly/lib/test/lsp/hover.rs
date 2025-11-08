@@ -39,23 +39,17 @@ xyz = [foo.meth]
 #^
 "#;
     let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
-    assert_eq!(
-        r#"
-# main.py
-7 | foo.meth()
-        ^
-```python
-(attribute) meth: def meth(self: Foo) -> None: ...
-```
-
-9 | xyz = [foo.meth]
-     ^
-```python
-(variable) xyz: list[(self: Foo) -> None]
-```
-"#
-        .trim(),
-        report.trim(),
+    assert!(report.contains("(attribute) meth: def meth(self: Foo) -> None: ..."));
+    assert!(report.contains("(variable) xyz: list[(self: Foo) -> None]"));
+    assert!(
+        report.contains("Go to [list]"),
+        "Expected 'Go to [list]' link, got: {}",
+        report
+    );
+    assert!(
+        report.contains("builtins.pyi"),
+        "Expected link to builtins.pyi, got: {}",
+        report
     );
 }
 
@@ -193,7 +187,7 @@ a: int = "test"  # pyrefly: ignore
 }
 
 #[test]
-fn builtin_types_do_not_have_definition_links() {
+fn builtin_types_have_definition_links() {
     let code = r#"
 x: str = "hello"
 #^
@@ -203,26 +197,25 @@ z: list[int] = []
 #^
 "#;
     let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
-    // The hover should show the types but should NOT contain "Go to" links
-    // because format_symbol_def_locations fails for builtins.pyi types
     assert!(
-        report.contains("str"),
-        "Expected str type in hover, got: {}",
+        report.contains("Go to [str]"),
+        "Expected 'Go to [str]' link for str type, got: {}",
         report
     );
     assert!(
-        report.contains("int"),
-        "Expected int type in hover, got: {}",
+        report.contains("Go to [int]"),
+        "Expected 'Go to [int]' link for int type, got: {}",
         report
     );
     assert!(
-        report.contains("list"),
-        "Expected list type in hover, got: {}",
+        report.contains("Go to") && report.contains("[list]"),
+        "Expected 'Go to' link with [list] for list type, got: {}",
         report
     );
+
     assert!(
-        !report.contains("Go to"),
-        "Should not contain 'Go to' links for builtin types, got: {}",
+        report.contains("builtins.pyi"),
+        "Expected links to builtins.pyi, got: {}",
         report
     );
 }

@@ -14,6 +14,7 @@ use pyrefly_build::handle::Handle;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::ignore::Ignore;
 use pyrefly_python::ignore::find_comment_start_in_line;
+use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_types::types::Type;
 use pyrefly_util::lined_buffer::LineNumber;
@@ -21,6 +22,7 @@ use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
 
 use crate::error::error::Error;
+use crate::lsp::module_helpers::to_real_path;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
@@ -105,7 +107,15 @@ impl HoverValue {
         let linked_names = tracked_def_locs
             .into_iter()
             .filter_map(|qname| {
-                if let Ok(mut url) = Url::from_file_path(qname.module_path().as_path()) {
+                let module_path = qname.module_path();
+                let file_path = match module_path.details() {
+                    ModulePathDetails::BundledTypeshed(_)
+                    | ModulePathDetails::BundledTypeshedThirdParty(_) => to_real_path(module_path)
+                        .unwrap_or_else(|| module_path.as_path().to_path_buf()),
+                    _ => module_path.as_path().to_path_buf(),
+                };
+
+                if let Ok(mut url) = Url::from_file_path(&file_path) {
                     let start_pos = qname.module().display_range(qname.range()).start;
                     if let Some(cell) = start_pos.cell() {
                         url.set_fragment(Some(&format!(
