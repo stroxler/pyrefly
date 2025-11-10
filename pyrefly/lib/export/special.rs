@@ -61,6 +61,13 @@ pub enum SpecialExport {
     BuiltinsTuple,
     TypingTuple,
     PytestNoReturn,
+    BuiltinsInt,
+    BuiltinsStr,
+    BuiltinsBytes,
+    BuiltinsBytearray,
+    BuiltinsSet,
+    BuiltinsFrozenset,
+    BuiltinsFloat,
 }
 
 impl SpecialExport {
@@ -113,6 +120,13 @@ impl SpecialExport {
             "tuple" => Some(Self::BuiltinsTuple),
             "Tuple" => Some(Self::TypingTuple),
             "fail" | "xfail" | "skip" => Some(Self::PytestNoReturn),
+            "int" => Some(Self::BuiltinsInt),
+            "str" => Some(Self::BuiltinsStr),
+            "bytes" => Some(Self::BuiltinsBytes),
+            "bytearray" => Some(Self::BuiltinsBytearray),
+            "set" => Some(Self::BuiltinsSet),
+            "frozenset" => Some(Self::BuiltinsFrozenset),
+            "float" => Some(Self::BuiltinsFloat),
             _ => None,
         }
     }
@@ -158,6 +172,13 @@ impl SpecialExport {
             | Self::BuiltinsList
             | Self::NotImplemented
             | Self::NotImplementedError
+            | Self::BuiltinsInt
+            | Self::BuiltinsStr
+            | Self::BuiltinsBytes
+            | Self::BuiltinsBytearray
+            | Self::BuiltinsSet
+            | Self::BuiltinsFrozenset
+            | Self::BuiltinsFloat
             | Self::BuiltinsTuple => {
                 matches!(m.as_str(), "builtins")
             }
@@ -171,5 +192,25 @@ impl SpecialExport {
             ),
             Self::PytestNoReturn => matches!(m.as_str(), "pytest"),
         }
+    }
+
+    /// Returns true if this is a builtin type that has a single positional
+    /// slot in pattern matching that binds the entire narrowed value.
+    /// These types are: bool, bytearray, bytes, dict, float, frozenset, int, list, set, str, and tuple
+    pub fn is_single_positional_slot_builtin(self) -> bool {
+        matches!(
+            self,
+            Self::Bool
+                | Self::BuiltinsBytearray
+                | Self::BuiltinsBytes
+                | Self::BuiltinsDict
+                | Self::BuiltinsFloat
+                | Self::BuiltinsFrozenset
+                | Self::BuiltinsInt
+                | Self::BuiltinsList
+                | Self::BuiltinsSet
+                | Self::BuiltinsStr
+                | Self::BuiltinsTuple
+        )
     }
 }
