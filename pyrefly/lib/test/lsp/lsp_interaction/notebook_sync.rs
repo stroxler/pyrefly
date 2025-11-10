@@ -90,6 +90,91 @@ fn test_notebook_did_open() {
 }
 
 #[test]
+fn test_notebook_completion_parse_error() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(Some(
+            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+        )),
+        ..Default::default()
+    });
+
+    interaction.open_notebook("notebook.ipynb", vec!["x: int = 1\nx.", "x: int = 1\nx."]);
+
+    interaction.diagnostic_for_cell("notebook.ipynb", "cell1");
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({"items": [
+            {
+                "code": "missing-attribute",
+                "codeDescription": {
+                    "href": "https://pyrefly.org/en/docs/error-kinds/#missing-attribute"
+                },
+                "message": "Object of class `int` has no attribute ``",
+                "range": {
+                    "end": {"character": 2, "line": 1},
+                    "start": {"character": 0, "line": 1}
+                },
+                "severity": 1,
+                "source": "Pyrefly"
+            },
+            {
+                "code": "parse-error",
+                "codeDescription": {
+                    "href": "https://pyrefly.org/en/docs/error-kinds/#parse-error"
+                },
+                "message": "Parse error: Expected an identifier",
+                "range": {
+                    "end": {"character": 0, "line": 2}, // This is actually 0:0 in the "next" cell
+                    "start": {"character": 2, "line": 1}
+                },
+                "severity": 1,
+                "source": "Pyrefly"
+            }
+        ], "kind": "full"})),
+        error: None,
+    });
+
+    interaction.diagnostic_for_cell("notebook.ipynb", "cell2");
+    interaction.client.expect_response(Response {
+        id: RequestId::from(3),
+        result: Some(serde_json::json!({"items": [
+    {
+        "code": "missing-attribute",
+        "codeDescription": {
+            "href": "https://pyrefly.org/en/docs/error-kinds/#missing-attribute"
+        },
+        "message": "Object of class `int` has no attribute ``",
+        "range": {
+            "end": {"character": 2, "line": 1},
+            "start": {"character": 0, "line": 1}
+        },
+        "severity": 1,
+        "source": "Pyrefly"
+    },
+    {
+        "code": "parse-error",
+        "codeDescription": {
+            "href": "https://pyrefly.org/en/docs/error-kinds/#parse-error"
+        },
+        "message": "Parse error: Expected an identifier",
+        "range": {
+            "end": {"character": 0, "line": 4},
+            "start": {"character": 2, "line": 1}
+        },
+        "severity": 1,
+        "source": "Pyrefly"
+    }
+        ], "kind": "full"})),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_notebook_did_change_cell_contents() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
