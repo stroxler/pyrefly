@@ -369,6 +369,7 @@ impl<'a> BindingsBuilder<'a> {
                         expr: x.value,
                         is_generator,
                         is_async,
+                        range: x.range,
                     }),
                 )
             })

@@ -2908,8 +2908,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let annot = x.annot.map(|k| self.get_idx(k));
                 let hint = annot.as_ref().and_then(|ann| ann.ty(self.stdlib));
 
-                if let Some(expr) = &x.expr {
-                    if x.is_async && x.is_generator {
+                if x.is_async && x.is_generator {
+                    if let Some(box expr) = &x.expr {
                         self.expr_infer(expr, errors);
                         self.error(
                             errors,
@@ -2918,24 +2918,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             "Return statement with value is not allowed in async generator"
                                 .to_owned(),
                         )
-                    } else if x.is_generator {
-                        let hint =
-                            hint.and_then(|ty| self.decompose_generator(&ty).map(|(_, _, r)| r));
-                        let tcc: &dyn Fn() -> TypeCheckContext =
-                            &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
-                        self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
-                    } else if matches!(hint, Some(Type::TypeGuard(_) | Type::TypeIs(_))) {
-                        let hint = Some(Type::ClassType(self.stdlib.bool().clone()));
-                        let tcc: &dyn Fn() -> TypeCheckContext =
-                            &|| TypeCheckContext::of_kind(TypeCheckKind::TypeGuardReturn);
-                        self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
                     } else {
-                        let tcc: &dyn Fn() -> TypeCheckContext =
-                            &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
+                        Type::None
+                    }
+                } else if x.is_generator {
+                    let hint = hint.and_then(|ty| self.decompose_generator(&ty).map(|(_, _, r)| r));
+                    let tcc: &dyn Fn() -> TypeCheckContext =
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
+                    if let Some(box expr) = &x.expr {
                         self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
+                    } else if let Some(hint) = hint {
+                        self.check_type(&Type::None, &hint, x.range, errors, tcc);
+                        Type::None
+                    } else {
+                        Type::None
+                    }
+                } else if matches!(hint, Some(Type::TypeGuard(_) | Type::TypeIs(_))) {
+                    let hint = Some(Type::ClassType(self.stdlib.bool().clone()));
+                    let tcc: &dyn Fn() -> TypeCheckContext =
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::TypeGuardReturn);
+                    if let Some(box expr) = &x.expr {
+                        self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
+                    } else if let Some(hint) = hint {
+                        self.check_type(&Type::None, &hint, x.range, errors, tcc);
+                        Type::None
+                    } else {
+                        Type::None
                     }
                 } else {
-                    Type::None
+                    let tcc: &dyn Fn() -> TypeCheckContext =
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
+                    if let Some(box expr) = &x.expr {
+                        self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
+                    } else if let Some(hint) = hint {
+                        self.check_type(&Type::None, &hint, x.range, errors, tcc);
+                        Type::None
+                    } else {
+                        Type::None
+                    }
                 }
             }
             Binding::ReturnImplicit(x) => {
