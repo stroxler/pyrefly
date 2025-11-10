@@ -1229,7 +1229,7 @@ def test(xs: list[int], ys: list[int], zs: list[int]) -> None:
 testcase!(
     test_pattern_match_single_slot_builtins,
     r#"
-from typing import assert_type, Any
+from typing import assert_type
 
 def test_float(x: object) -> None:
     match x:
@@ -1269,8 +1269,7 @@ def test_list(x: list[int]) -> None:
 def test_tuple(x: tuple[int, str]) -> None:
     match x:
         case tuple(value):
-            # TODO: this could be narrower
-            assert_type(value, tuple[Any, ...])
+            assert_type(value, tuple[int, str])
 
 def test_set(x: set[int]) -> None:
     match x:
