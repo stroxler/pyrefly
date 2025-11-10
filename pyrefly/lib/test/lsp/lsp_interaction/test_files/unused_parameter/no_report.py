@@ -5,7 +5,7 @@
 
 
 from abc import abstractmethod
-from typing import overload, override
+from typing import overload
 
 
 def noop(unused_param: int) -> None:
@@ -22,18 +22,17 @@ def not_implemented_return(unused_param: int) -> int:
 
 class A:
     @abstractmethod
-    def method1(x: int) -> None:
-        1
+    def method1(self, x: int) -> None:
+        pass
 
     @overload
-    def method2(x: int): ...
+    def method2(self, x: int): ...
     @overload
-    def method2(x: str): ...
-    def method2(x: object):
+    def method2(self, x: str): ...
+    def method2(self, x: object):
         return x
 
 
 class B(A):
-    @override
-    def method1(x: int) -> None:
-        1
+    def method1(self, x: int) -> None:
+        pass
