@@ -22,6 +22,7 @@ use serde_json::Value;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::error;
+use tracing::info;
 
 use crate::commands::config_finder::ConfigConfigurer;
 use crate::commands::config_finder::standard_config_finder;
@@ -149,7 +150,7 @@ impl WeakConfigCache {
         let mut configs = self.0.lock();
         let purged_config_count = configs.extract_if(|c| c.vacant()).count();
         if purged_config_count != 0 {
-            eprintln!("Cleared {purged_config_count} dropped configs from config cache");
+            info!("Cleared {purged_config_count} dropped configs from config cache");
         }
         SmallSet::from_iter(configs.iter().filter_map(|c| c.upgrade()))
     }
@@ -247,7 +248,7 @@ where
     match Option::<LspAnalysisConfig>::deserialize(deserializer) {
         Ok(value) => Ok(value),
         Err(e) => {
-            eprintln!("Could not decode analysis config: {e}");
+            info!("Could not decode analysis config: {e}");
             Ok(None)
         }
     }
@@ -331,7 +332,7 @@ impl Workspaces {
     ) {
         let config = match serde_json::from_value::<LspConfig>(config.clone()) {
             Err(e) => {
-                eprintln!(
+                info!(
                     "Could not decode `LspConfig` from {config:?}, skipping client configuration request: {e}."
                 );
                 return;

@@ -175,6 +175,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::info;
 
 use crate::ModuleInfo;
 use crate::commands::lsp::IndexingMode;
@@ -292,7 +293,7 @@ impl ServerConnection {
         if self.0.sender.send(msg).is_err() {
             // On error, we know the channel is closed.
             // https://docs.rs/crossbeam/latest/crossbeam/channel/struct.Sender.html#method.send
-            eprintln!("Connection closed.");
+            info!("Connection closed.");
         };
     }
 
@@ -424,7 +425,7 @@ pub fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                 } else if as_notification::<Exit>(&x).is_some() {
                     lsp_queue.send(LspEvent::Exit)
                 } else {
-                    eprintln!("Unhandled notification: {x:?}");
+                    info!("Unhandled notification: {x:?}");
                     Ok(())
                 };
                 if send_result.is_err() {
@@ -556,7 +557,7 @@ pub fn lsp_loop(
     indexing_mode: IndexingMode,
     workspace_indexing_limit: usize,
 ) -> anyhow::Result<()> {
-    eprintln!("Reading messages");
+    info!("Reading messages");
     let connection_for_dispatcher = connection.dupe();
     let lsp_queue = LspQueue::new();
     let server = Server::new(
@@ -595,7 +596,7 @@ pub fn lsp_loop(
             ProcessEvent::Exit => break,
         }
     }
-    eprintln!("waiting for connection to close");
+    info!("waiting for connection to close");
     server.recheck_queue.stop();
     server.find_reference_queue.stop();
     server.sourcedb_queue.stop();
@@ -646,7 +647,7 @@ impl Server {
                 self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
             }
             LspEvent::CancelRequest(id) => {
-                eprintln!("We should cancel request {id:?}");
+                info!("We should cancel request {id:?}");
                 if let Some(cancellation_handle) = self.cancellation_handles.lock().remove(&id) {
                     cancellation_handle.cancel();
                 }
@@ -743,7 +744,7 @@ impl Server {
                         self.workspace_configuration_response(&request, &response);
                     }
                 } else {
-                    eprintln!("Response for unknown request: {x:?}");
+                    info!("Response for unknown request: {x:?}");
                 }
             }
             LspEvent::LspRequest(x) => {
@@ -765,7 +766,7 @@ impl Server {
                             "subsequent mutation"
                         }
                     );
-                    eprintln!("{message}");
+                    info!("{message}");
                     self.send_response(Response::new_err(
                         x.id,
                         ErrorCode::RequestCanceled as i32,
@@ -778,14 +779,14 @@ impl Server {
                     // We probably didn't bother completing a previous check, but we are now answering a query that
                     // really needs a previous check to be correct.
                     // Validating sends out notifications, which isn't required, but this is the safest way.
-                    eprintln!(
+                    info!(
                         "Request {} ({}) has subsequent mutation, prepare to validate open files.",
                         x.method, x.id,
                     );
                     self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
                 }
 
-                eprintln!("Handling non-canceled request {} ({})", x.method, &x.id);
+                info!("Handling non-canceled request {} ({})", x.method, &x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
                     if let Some(params) = self
                         .extract_request_params_or_send_err_response::<GotoDefinition>(
@@ -1023,7 +1024,7 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        eprintln!(
+                        info!(
                             "Received document diagnostic request {} ({}), prepare to validate open files.",
                             x.method, x.id,
                         );
@@ -1118,7 +1119,7 @@ impl Server {
                         ErrorCode::MethodNotFound as i32,
                         format!("Unknown request: {}", x.method),
                     ));
-                    eprintln!("Unhandled request: {x:?}");
+                    info!("Unhandled request: {x:?}");
                 }
             }
         }
@@ -1397,7 +1398,7 @@ impl Server {
                 // Therefore, we can compute errors from transactions freshly created from `State``.
                 let transaction = self.state.transaction();
                 publish(&transaction);
-                eprintln!("Validated open files and committed transaction.");
+                info!("Validated open files and committed transaction.");
             }
             Err(transaction) => {
                 // In the case where transaction cannot be committed because there is an ongoing
@@ -1407,7 +1408,7 @@ impl Server {
                 // Note: if this changes, update this function's docstring.
                 publish(&transaction);
                 ide_transaction_manager.save(transaction);
-                eprintln!("Validated open files and saved non-committable transaction.");
+                info!("Validated open files and saved non-committable transaction.");
             }
         }
         queue_source_db_rebuild_and_recheck(
@@ -1520,7 +1521,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
-            eprintln!("Invalidated state, prepare to recheck open files.");
+            info!("Invalidated state, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
         }));
     }
@@ -1536,7 +1537,7 @@ impl Server {
     ) {
         let unknown = ModuleName::unknown();
 
-        eprintln!("Populating all files in the config ({:?}).", config.source);
+        info!("Populating all files in the config ({:?}).", config.source);
         let mut transaction = state.new_committable_transaction(Require::indexing(), None);
 
         let project_path_blobs = config.get_filtered_globs(None);
@@ -1551,13 +1552,13 @@ impl Server {
             handles.push(handle_from_module_path(&state, module_path));
         }
 
-        eprintln!("Prepare to check {} files.", handles.len());
+        info!("Prepare to check {} files.", handles.len());
         transaction.as_mut().run(&handles, Require::indexing());
         state.commit_transaction(transaction);
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
-        eprintln!("Populated all files in the project path, prepare to recheck open files.");
+        info!("Populated all files in the project path, prepare to recheck open files.");
         let _ = lsp_queue.send(LspEvent::RecheckFinished);
     }
 
@@ -1568,7 +1569,7 @@ impl Server {
         lsp_queue: LspQueue,
     ) {
         for workspace_root in workspace_roots {
-            eprintln!(
+            info!(
                 "Populating up to {workspace_indexing_limit} files in the workspace ({workspace_root:?}).",
             );
             let mut transaction = state.new_committable_transaction(Require::indexing(), None);
@@ -1587,13 +1588,13 @@ impl Server {
                 ));
             }
 
-            eprintln!("Prepare to check {} files.", handles.len());
+            info!("Prepare to check {} files.", handles.len());
             transaction.as_mut().run(&handles, Require::indexing());
             state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
-            eprintln!("Populated all files in the workspace, prepare to recheck open files.");
+            info!("Populated all files in the workspace, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
         }
     }
@@ -1634,7 +1635,7 @@ impl Server {
             //
             // Note that this trick works only when a pyrefly config file is present. In the absence
             // of a config file, all features become available when background indexing completes.
-            eprintln!(
+            info!(
                 "File {} opened, prepare to validate open files.",
                 uri.display()
             );
@@ -1672,7 +1673,7 @@ impl Server {
         )));
         drop(lock);
         if !subsequent_mutation {
-            eprintln!(
+            info!(
                 "File {} changed, prepare to validate open files.",
                 file_path.display()
             );
@@ -1797,7 +1798,7 @@ impl Server {
         drop(lock);
 
         if !subsequent_mutation {
-            eprintln!(
+            info!(
                 "Notebook {} changed, prepare to validate open files.",
                 file_path.display()
             );
@@ -1834,7 +1835,7 @@ impl Server {
 
         // Rewatch files if necessary (config changed, files added/removed, etc.)
         if Self::should_rewatch(&events) {
-            eprintln!("[Pyrefly] Re-registering file watchers");
+            info!("[Pyrefly] Re-registering file watchers");
             self.setup_file_watcher_if_necessary();
         }
 
@@ -1930,7 +1931,7 @@ impl Server {
                     &id.scope_uri,
                     value.clone(),
                 );
-                eprintln!(
+                info!(
                     "Client configuration applied to workspace: {:?}",
                     id.scope_uri
                 );
@@ -1960,7 +1961,7 @@ impl Server {
         self.workspaces.get_with(path.clone(), |(_, workspace)| {
             // Check if all language services are disabled
             if workspace.disable_language_services {
-                eprintln!("Skipping request - language services disabled");
+                info!("Skipping request - language services disabled");
                 return None;
             }
 
@@ -1970,7 +1971,7 @@ impl Server {
                 && let Some(method) = method
                 && disabled_services.is_disabled(method)
             {
-                eprintln!("Skipping request - {} service disabled", method);
+                info!("Skipping request - {} service disabled", method);
                 return None;
             }
 
@@ -2217,7 +2218,7 @@ impl Server {
                 }
                 Err(Cancelled) => {
                     let message = format!("Find reference request {request_id} is canceled");
-                    eprintln!("{message}");
+                    info!("{message}");
                     connection.send(Message::Response(Response::new_err(
                         request_id,
                         ErrorCode::RequestCanceled as i32,
@@ -2764,7 +2765,7 @@ impl Server {
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
-            eprintln!("Invalidated config, prepare to recheck open files.");
+            info!("Invalidated config, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
         }));
     }
