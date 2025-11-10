@@ -22,6 +22,7 @@ mod notebook_definition;
 mod notebook_hover;
 mod notebook_inlay_hint;
 mod notebook_references;
+mod notebook_signature_help;
 mod notebook_sync;
 mod notebook_tokens;
 mod object_model;
