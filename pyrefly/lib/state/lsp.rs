@@ -2780,7 +2780,7 @@ impl<'a> Transaction<'a> {
         inlay_hint_config: InlayHintConfig,
     ) -> Option<Vec<(TextSize, String)>> {
         let is_interesting = |e: &Expr, ty: &Type, class_name: Option<&Name>| {
-            !ty.is_error()
+            !ty.is_any()
                 && match e {
                     Expr::Tuple(tuple) => {
                         !tuple.elts.is_empty() && tuple.elts.iter().all(|x| !Ast::is_literal(x))
