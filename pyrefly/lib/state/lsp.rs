@@ -1798,7 +1798,6 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         definition_metadata: DefinitionMetadata,
         definition_range: TextRange,
-        module: Module,
     ) -> Option<Vec<TextRange>> {
         let mut references = match definition_metadata {
             DefinitionMetadata::Attribute(expected_name) => self
@@ -1809,7 +1808,7 @@ impl<'a> Transaction<'a> {
                 ),
             DefinitionMetadata::Module => Vec::new(),
             DefinitionMetadata::Variable(_) => self
-                .local_variable_references_from_local_definition(handle, definition_range, &module)
+                .local_variable_references_from_local_definition(handle, definition_range)
                 .unwrap_or_default(),
             DefinitionMetadata::VariableOrAttribute(expected_name, _) => [
                 self.local_attribute_references_from_local_definition(
@@ -1817,18 +1816,12 @@ impl<'a> Transaction<'a> {
                     definition_range,
                     &expected_name,
                 ),
-                self.local_variable_references_from_local_definition(
-                    handle,
-                    definition_range,
-                    &module,
-                )
-                .unwrap_or_default(),
+                self.local_variable_references_from_local_definition(handle, definition_range)
+                    .unwrap_or_default(),
             ]
             .concat(),
         };
-        if module.path() == handle.path() {
-            references.push(definition_range);
-        }
+        references.push(definition_range);
         Some(references)
     }
 
@@ -1846,7 +1839,6 @@ impl<'a> Transaction<'a> {
                 handle,
                 definition_metadata,
                 definition_range,
-                module,
             )?
         };
         references.sort_by_key(|range| range.start());
@@ -1921,19 +1913,16 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         definition_range: TextRange,
-        module: &Module,
     ) -> Option<Vec<TextRange>> {
         let bindings = self.get_bindings(handle)?;
         let mut references = Vec::new();
         for NamedBinding {
-            definition_handle,
+            definition_handle: _,
             definition_export,
             key,
         } in self.named_bindings(handle, &bindings)
         {
-            if definition_handle.path() == module.path()
-                && definition_range == definition_export.location
-            {
+            if definition_range == definition_export.location {
                 references.push(key.range());
             }
         }
