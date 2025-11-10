@@ -1754,6 +1754,84 @@ impl<'a> Transaction<'a> {
         .concat()
     }
 
+    fn local_references_from_external_definition(
+        &self,
+        handle: &Handle,
+        definition_range: TextRange,
+        module: Module,
+    ) -> Option<Vec<TextRange>> {
+        let index = self.get_solutions(handle)?.get_index()?;
+        let index = index.lock();
+        let mut references = Vec::new();
+        for ((imported_module_name, imported_name), ranges) in index
+            .externally_defined_variable_references
+            .iter()
+            .chain(&index.renamed_imports)
+        {
+            if let Some((imported_handle, export)) = self.resolve_named_import(
+                handle,
+                *imported_module_name,
+                imported_name.clone(),
+                &FindPreference::default(),
+            ) && imported_handle.path().as_path() == module.path().as_path()
+                && export.location == definition_range
+            {
+                references.extend(ranges.iter().copied());
+            }
+        }
+        for (attribute_module_path, def_and_ref_ranges) in
+            &index.externally_defined_attribute_references
+        {
+            if attribute_module_path == module.path() {
+                for (def_range, ref_range) in def_and_ref_ranges {
+                    if def_range == &definition_range {
+                        references.push(*ref_range);
+                    }
+                }
+            }
+        }
+        Some(references)
+    }
+
+    fn local_references_from_local_definition(
+        &self,
+        handle: &Handle,
+        definition_metadata: DefinitionMetadata,
+        definition_range: TextRange,
+        module: Module,
+    ) -> Option<Vec<TextRange>> {
+        let mut references = match definition_metadata {
+            DefinitionMetadata::Attribute(expected_name) => self
+                .local_attribute_references_from_local_definition(
+                    handle,
+                    definition_range,
+                    &expected_name,
+                ),
+            DefinitionMetadata::Module => Vec::new(),
+            DefinitionMetadata::Variable(_) => self
+                .local_variable_references_from_local_definition(handle, definition_range, &module)
+                .unwrap_or_default(),
+            DefinitionMetadata::VariableOrAttribute(expected_name, _) => [
+                self.local_attribute_references_from_local_definition(
+                    handle,
+                    definition_range,
+                    &expected_name,
+                ),
+                self.local_variable_references_from_local_definition(
+                    handle,
+                    definition_range,
+                    &module,
+                )
+                .unwrap_or_default(),
+            ]
+            .concat(),
+        };
+        if module.path() == handle.path() {
+            references.push(definition_range);
+        }
+        Some(references)
+    }
+
     fn local_references_from_definition(
         &self,
         handle: &Handle,
@@ -1761,72 +1839,22 @@ impl<'a> Transaction<'a> {
         definition_range: TextRange,
         module: Module,
     ) -> Option<Vec<TextRange>> {
-        if handle.path() != module.path() {
-            let index = self.get_solutions(handle)?.get_index()?;
-            let index = index.lock();
-            let mut references = Vec::new();
-            for ((imported_module_name, imported_name), ranges) in index
-                .externally_defined_variable_references
-                .iter()
-                .chain(&index.renamed_imports)
-            {
-                if let Some((imported_handle, export)) = self.resolve_named_import(
-                    handle,
-                    *imported_module_name,
-                    imported_name.clone(),
-                    &FindPreference::default(),
-                ) && imported_handle.path().as_path() == module.path().as_path()
-                    && export.location == definition_range
-                {
-                    references.extend(ranges.iter().copied());
-                }
-            }
-            for (attribute_module_path, def_and_ref_ranges) in
-                &index.externally_defined_attribute_references
-            {
-                if attribute_module_path == module.path() {
-                    for (def_range, ref_range) in def_and_ref_ranges {
-                        if def_range == &definition_range {
-                            references.push(*ref_range);
-                        }
-                    }
-                }
-            }
-            references.sort_by_key(|range| range.start());
-            references.dedup();
-            return Some(references);
-        }
-        let mut references = match definition_metadata {
-            DefinitionMetadata::Attribute(expected_name) => self
-                .local_attribute_references_from_definition(
-                    handle,
-                    definition_range,
-                    &expected_name,
-                ),
-            DefinitionMetadata::Module => Vec::new(),
-            DefinitionMetadata::Variable(_) => self
-                .local_variable_references_from_definition(handle, definition_range, &module)
-                .unwrap_or_default(),
-            DefinitionMetadata::VariableOrAttribute(expected_name, _) => [
-                self.local_attribute_references_from_definition(
-                    handle,
-                    definition_range,
-                    &expected_name,
-                ),
-                self.local_variable_references_from_definition(handle, definition_range, &module)
-                    .unwrap_or_default(),
-            ]
-            .concat(),
+        let mut references = if handle.path() != module.path() {
+            self.local_references_from_external_definition(handle, definition_range, module)?
+        } else {
+            self.local_references_from_local_definition(
+                handle,
+                definition_metadata,
+                definition_range,
+                module,
+            )?
         };
-        if module.path() == handle.path() {
-            references.push(definition_range);
-        }
         references.sort_by_key(|range| range.start());
         references.dedup();
         Some(references)
     }
 
-    fn local_attribute_references_from_definition(
+    fn local_attribute_references_from_local_definition(
         &self,
         handle: &Handle,
         definition_range: TextRange,
@@ -1889,7 +1917,7 @@ impl<'a> Transaction<'a> {
         .unwrap_or_default()
     }
 
-    fn local_variable_references_from_definition(
+    fn local_variable_references_from_local_definition(
         &self,
         handle: &Handle,
         definition_range: TextRange,
