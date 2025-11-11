@@ -8,7 +8,8 @@
 use crate::django_testcase;
 
 django_testcase!(
-    bug = "Add basic support for ManyToMany - need to detect ManyToManyField and return ManyRelatedManager",
+    bug = "Add basic support for ManyToMany - need to detect ManyToManyField and return ManyRelatedManager;
+    Add basic QuerySet type inference and Manager method support",
     test_basic,
     r#"
 from django.db.models.query import QuerySet
@@ -27,5 +28,10 @@ class Book(models.Model):
 book = Book()
 assert_type(book.authors, ManyRelatedManager[Author, models.Model]) # E: assert_type(Any, ManyRelatedManager[Author, Model])
 assert_type(book.authors.all(), QuerySet[Author, Author]) # E: assert_type(Any, QuerySet[Author, Author]) 
+
+assert_type(book.authors.filter(name="Bob"), QuerySet[Author, Author]) # E: assert_type(Any, QuerySet[Author, Author])
+assert_type(book.authors.create(name="Alice"), Author) # E: assert_type(Any, Author)
+
+book.authors.add("wrong type")  
 "#,
 );
