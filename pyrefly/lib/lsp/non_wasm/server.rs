@@ -24,6 +24,7 @@ use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_server::ResponseError;
 use lsp_types::CodeAction;
 use lsp_types::CodeActionKind;
 use lsp_types::CodeActionOptions;
@@ -901,7 +902,27 @@ impl Server {
                             .contains_key(&params.text_document_position.text_document.uri)
                     {
                         // TODO(yangdanny) handle notebooks
-                        self.rename(x.id, ide_transaction_manager, params);
+                        // First check if rename is allowed via prepare_rename. If a rename is not allowed we
+                        // send back an error. Otherwise we continue with the rename operation.
+                        let transaction =
+                            ide_transaction_manager.non_committable_transaction(&self.state);
+                        if let Some(_range) =
+                            self.prepare_rename(&transaction, params.text_document_position.clone())
+                        {
+                            ide_transaction_manager.save(transaction);
+                            self.rename(x.id, ide_transaction_manager, params);
+                        } else {
+                            ide_transaction_manager.save(transaction);
+                            self.send_response(Response {
+                                id: x.id,
+                                result: None,
+                                error: Some(ResponseError {
+                                    code: ErrorCode::InvalidRequest as i32,
+                                    message: "Third-party symbols cannot be renamed".to_owned(),
+                                    data: None,
+                                }),
+                            });
+                        }
                     }
                 } else if let Some(params) = as_request::<SignatureHelpRequest>(&x) {
                     if let Some(params) = self

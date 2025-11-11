@@ -1822,7 +1822,6 @@ impl<'a> Transaction<'a> {
         Some(code_actions)
     }
 
-    #[allow(dead_code)]
     fn is_third_party_module(&self, module: &Module, handle: &Handle) -> bool {
         let config = self.get_config(handle);
         let module_path = module.path();
@@ -1839,12 +1838,24 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn prepare_rename(&self, handle: &Handle, position: TextSize) -> Option<TextRange> {
-        self.identifier_at(handle, position).map(
-            |IdentifierWithContext {
-                 identifier,
-                 context: _,
-             }| identifier.range,
-        )
+        let identifier_context = self.identifier_at(handle, position);
+
+        let definitions = self.find_definition(
+            handle,
+            position,
+            &FindPreference {
+                jump_through_renamed_import: true,
+                ..Default::default()
+            },
+        );
+
+        for FindDefinitionItemWithDocstring { module, .. } in definitions {
+            if self.is_third_party_module(&module, handle) {
+                return None;
+            }
+        }
+
+        Some(identifier_context?.identifier.range)
     }
 
     pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {

@@ -9,6 +9,7 @@ use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_server::ResponseError;
 use lsp_types::Url;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -52,7 +53,7 @@ fn test_prepare_rename() {
 }
 
 #[test]
-fn test_rename_third_party_symbols_in_venv_is_allowed() {
+fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
     let root = get_test_files_root();
     let root_path = root.path().join("rename_third_party");
     let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
@@ -71,7 +72,7 @@ fn test_rename_third_party_symbols_in_venv_is_allowed() {
 
     interaction.server.did_open("user_code.py");
 
-    // First, verify that prepareRename returns the range indicating the symbol can be renamed
+    // Verify that prepareRename returns null, indicating that renaming third party symbols is not allowed
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/prepareRename".to_owned(),
@@ -88,14 +89,11 @@ fn test_rename_third_party_symbols_in_venv_is_allowed() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
-            "start": {"line": 14, "character": 22},
-            "end": {"line": 14, "character": 39},
-        })),
+        result: Some(serde_json::Value::Null),
         error: None,
     });
 
-    // Now, verify that the actual rename operation works
+    // Verify that attempting to rename a third party symbol returns an error
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(3),
         method: "textDocument/rename".to_owned(),
@@ -107,38 +105,18 @@ fn test_rename_third_party_symbols_in_venv_is_allowed() {
                 "line": 14,  // Line with "external_result = external_function()"
                 "character": 25  // Position on "external_function"
             },
-            "newName": "renamed_external_function"
+            "newName": "new_external_function"
         }),
     }));
 
-    // Todo(jvansch): Update this assertion to check that renaming third party symbols
-    // in a venv is not allowed.
-    let third_party_lib =
-        root_path.join("venv_third_party/lib/python3.12/site-packages/third_party_lib.py");
-
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({
-            "changes": {
-                Url::from_file_path(&user_code).unwrap().to_string(): [
-                    {
-                        "newText":"renamed_external_function",
-                        "range":{"start":{"line":5,"character":28},"end":{"line":5,"character":45}}
-                    },
-                    {
-                        "newText":"renamed_external_function",
-                        "range":{"start":{"line":14,"character":22},"end":{"line":14,"character":39}}
-                    },
-                ],
-                Url::from_file_path(&third_party_lib).unwrap().to_string(): [
-                    {
-                        "newText":"renamed_external_function",
-                        "range":{"start":{"line":6,"character":4},"end":{"line":6,"character":21}}
-                    },
-                ]
-            }
-        })),
-        error: None,
+        result: None,
+        error: Some(ResponseError {
+            code: -32600,
+            message: "Third-party symbols cannot be renamed".to_owned(),
+            data: None,
+        }),
     });
 
     interaction.shutdown();
