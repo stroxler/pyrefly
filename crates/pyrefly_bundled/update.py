@@ -213,7 +213,7 @@ def main() -> None:
     args = parser.parse_args()
     # @lint-ignore FIXIT1: OSS scripts cannot take on fb-internal dependency
     logging.basicConfig(
-        format="%(levelname)s %(asctime)s: %(message)s",
+        format="[%(levelname)-7s] [%(asctime)s] [%(name)s]: %(message)s",
         level=logging.INFO,
     )
     run(get_typeshed_url(args.url), get_output_dir(args.output))
