@@ -335,3 +335,14 @@ ERROR * Missing type stubs for `django` * (glob)
  INFO * revealed type: Module[django.forms] * (glob)
 [1]
 ```
+
+## We can still find hard-coded `project-excludes` when overridden
+
+```scrut {output_stream: stdout}
+$ mkdir -p $TMPDIR/disable_excludes_heuristics/.src && \
+> echo "x: str = 1" > $TMPDIR/disable_excludes_heuristics/.src/main.py && \
+> touch $TMPDIR/disable_excludes_heuristics/pyrefly.toml && \
+> $PYREFLY check -c $TMPDIR/disable_excludes_heuristics/pyrefly.toml --disable-project-excludes-heuristics --output-format=min-text
+ERROR *main.py* ?bad-assignment? (glob)
+[1]
+```

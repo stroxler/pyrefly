@@ -152,7 +152,6 @@ fn get_globs_and_config_for_project(
         ));
     }
 
-    // We want our config_finder to never actually
     let config_finder = ConfigFinder::new_constant(config.dupe());
 
     debug!("Config is: {}", config);
@@ -178,7 +177,9 @@ fn get_globs_and_config_for_files(
     args: ConfigOverrideArgs,
 ) -> anyhow::Result<(Box<dyn Includes>, ConfigFinder)> {
     let mut project_excludes = project_excludes.unwrap_or_default();
-    project_excludes.append(ConfigFile::required_project_excludes().globs());
+    if !args.excludes_heuristics_disabled() {
+        project_excludes.append(ConfigFile::required_project_excludes().globs());
+    }
     let files_to_check = absolutize(files_to_check);
     let (config_finder, errors) = match config {
         Some(explicit) => {
