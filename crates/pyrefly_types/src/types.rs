@@ -1162,6 +1162,44 @@ impl Type {
         }
     }
 
+    /// Apply `f` to this type if it is a callable. Note that we do *not* recurse into the type to
+    /// find nested callable types.
+    pub fn visit_toplevel_callable_mut<'a>(&'a mut self, mut f: impl FnMut(&'a mut Callable)) {
+        match self {
+            Type::Callable(callable) => f(callable),
+            Type::Forall(box Forall {
+                body: Forallable::Callable(callable),
+                ..
+            }) => f(callable),
+            Type::Function(box func)
+            | Type::Forall(box Forall {
+                body: Forallable::Function(func),
+                ..
+            })
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Function(func),
+                ..
+            })
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Forall(Forall { body: func, .. }),
+                ..
+            }) => f(&mut func.signature),
+            Type::Overload(overload)
+            | Type::BoundMethod(box BoundMethod {
+                func: BoundMethodType::Overload(overload),
+                ..
+            }) => {
+                for x in overload.signatures.iter_mut() {
+                    match x {
+                        OverloadType::Function(function) => f(&mut function.signature),
+                        OverloadType::Forall(forall) => f(&mut forall.body.signature),
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn is_toplevel_callable(&self) -> bool {
         let mut is_callable = false;
         self.visit_toplevel_callable(&mut |_| is_callable = true);
