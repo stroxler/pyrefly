@@ -1822,6 +1822,22 @@ impl<'a> Transaction<'a> {
         Some(code_actions)
     }
 
+    #[allow(dead_code)]
+    fn is_third_party_module(&self, module: &Module, handle: &Handle) -> bool {
+        let config = self.get_config(handle);
+        let module_path = module.path();
+
+        if let Some(config) = config {
+            for site_package_path in config.site_package_path() {
+                if module_path.as_path().starts_with(site_package_path) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn prepare_rename(&self, handle: &Handle, position: TextSize) -> Option<TextRange> {
         self.identifier_at(handle, position).map(
             |IdentifierWithContext {
