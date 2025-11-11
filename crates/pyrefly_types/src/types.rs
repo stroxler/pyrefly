@@ -1066,6 +1066,10 @@ impl Type {
         }
     }
 
+    pub fn is_abstract_method(&self) -> bool {
+        self.check_toplevel_func_metadata(&|meta| meta.flags.is_abstract_method)
+    }
+
     pub fn is_override(&self) -> bool {
         self.check_toplevel_func_metadata(&|meta| meta.flags.is_override)
     }

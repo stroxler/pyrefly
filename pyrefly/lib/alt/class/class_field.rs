@@ -1378,20 +1378,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // first-use based inference we use with assignments, to get more useful types here.
         let ty = self.solver().deep_force(ty);
 
-        // Check if this field is an abstract method
-        let is_abstract = match &ty {
-            Type::Function(f) => f.metadata.flags.is_abstract_method,
-            Type::Overload(o) => {
-                // Check if any signature in the overload is abstract
-                o.signatures.iter().any(|sig| match sig {
-                    OverloadType::Function(f) => f.metadata.flags.is_abstract_method,
-                    OverloadType::Forall(forall) => forall.body.metadata.flags.is_abstract_method,
-                })
-            }
-            _ => false,
-        };
-
         // Create the resulting field and check for override inconsistencies before returning
+        let is_abstract = ty.is_abstract_method();
         let class_field = ClassField::new(
             ty,
             direct_annotation,
