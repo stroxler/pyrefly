@@ -98,19 +98,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
 
-        // Check if this is a ForeignKey field
-        if self.is_foreign_key_field(field)
-            && field_name.is_some()
+        if field_name.is_some()
             && let Some(e) = initial_value_expr
             && let Some(call_expr) = e.as_call_expr()
             && let Some(to_expr) = call_expr.arguments.args.first()
-            && let Some(related_model_type) = self.resolve_foreign_key_target(to_expr)
+            && let Some(model_type) = self.resolve_target(to_expr)
         {
-            // If nullable, union with None
-            if self.is_django_field_nullable(call_expr) {
-                return Some(self.union(related_model_type, Type::None));
-            } else {
-                return Some(related_model_type);
+            if self.is_foreign_key_field(field) {
+                // If nullable, union with None
+                if self.is_django_field_nullable(call_expr) {
+                    return Some(self.union(model_type, Type::None));
+                } else {
+                    return Some(model_type);
+                }
+            }
+
+            if self.is_many_to_many_field(field) {
+                // TODO: We will populate this in the next diffs
+                return Some(Type::any_implicit());
             }
         }
 
@@ -128,15 +133,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    fn resolve_foreign_key_target(&self, to_expr: &Expr) -> Option<Type> {
+    fn resolve_target(&self, to_expr: &Expr) -> Option<Type> {
         match to_expr {
-            // Direct name reference. Ex: ForeignKey(Reporter, ...)
             // Use expr_infer to resolve the name in the current scope
             Expr::Name(_) => {
-                let related_model_type = self.expr_infer(to_expr, &self.error_swallower());
-                Some(self.class_def_to_instance_type(&related_model_type))
+                let model_type = self.expr_infer(to_expr, &self.error_swallower());
+                Some(self.class_def_to_instance_type(&model_type))
             }
-            // TODO: handle self references and forward references (string literals case)
+            // TODO: handle self references and forward references (string literals case) for foreign keys specifically
+            // we may have to extend this function to handle different kinds of fields in the future
             _ => None,
         }
     }
