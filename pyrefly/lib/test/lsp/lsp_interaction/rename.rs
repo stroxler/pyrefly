@@ -52,6 +52,99 @@ fn test_prepare_rename() {
 }
 
 #[test]
+fn test_rename_third_party_symbols_in_venv_is_allowed() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("rename_third_party");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(Some(
+            serde_json::json!([{ "indexing_mode": "lazy_blocking" }]),
+        )),
+        ..Default::default()
+    });
+
+    let user_code = root_path.join("user_code.py");
+
+    interaction.server.did_open("user_code.py");
+
+    // First, verify that prepareRename returns the range indicating the symbol can be renamed
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(2),
+        method: "textDocument/prepareRename".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&user_code).unwrap().to_string()
+            },
+            "position": {
+                "line": 14,  // Line with "external_result = external_function()"
+                "character": 25  // Position on "external_function"
+            }
+        }),
+    }));
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "start": {"line": 14, "character": 22},
+            "end": {"line": 14, "character": 39},
+        })),
+        error: None,
+    });
+
+    // Now, verify that the actual rename operation works
+    interaction.server.send_message(Message::Request(Request {
+        id: RequestId::from(3),
+        method: "textDocument/rename".to_owned(),
+        params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&user_code).unwrap().to_string()
+            },
+            "position": {
+                "line": 14,  // Line with "external_result = external_function()"
+                "character": 25  // Position on "external_function"
+            },
+            "newName": "renamed_external_function"
+        }),
+    }));
+
+    // Todo(jvansch): Update this assertion to check that renaming third party symbols
+    // in a venv is not allowed.
+    let third_party_lib =
+        root_path.join("venv_third_party/lib/python3.12/site-packages/third_party_lib.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(3),
+        result: Some(serde_json::json!({
+            "changes": {
+                Url::from_file_path(&user_code).unwrap().to_string(): [
+                    {
+                        "newText":"renamed_external_function",
+                        "range":{"start":{"line":5,"character":28},"end":{"line":5,"character":45}}
+                    },
+                    {
+                        "newText":"renamed_external_function",
+                        "range":{"start":{"line":14,"character":22},"end":{"line":14,"character":39}}
+                    },
+                ],
+                Url::from_file_path(&third_party_lib).unwrap().to_string(): [
+                    {
+                        "newText":"renamed_external_function",
+                        "range":{"start":{"line":6,"character":4},"end":{"line":6,"character":21}}
+                    },
+                ]
+            }
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_rename() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
