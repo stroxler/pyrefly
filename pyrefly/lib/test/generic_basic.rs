@@ -399,6 +399,17 @@ testcase!(
 from typing import assert_type
 def f[T1, T2](x: T1, y: T2 | None = None) -> T1 | T2: ...
 assert_type(f(1), int)
+assert_type(f(1, "2"), int | str)
+assert_type(f(1, None), int)
+    "#,
+);
+
+testcase!(
+    test_typevar_solved_in_one_path,
+    r#"
+from typing import assert_type
+def f[T1, T2](x: T1, y: T2 | None, z: T2) -> T1 | T2: ...
+assert_type(f(1, None, ""), int | str)
     "#,
 );
 

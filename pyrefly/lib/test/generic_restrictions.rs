@@ -622,3 +622,13 @@ def f[T1, T2 = str](x: T1, y: T2 | None = None) -> T1 | T2: ...
 assert_type(f(1), int | str)
     "#,
 );
+
+testcase!(
+    test_unsolved_typevar_with_constraints,
+    r#"
+from typing import TypeVar
+T = TypeVar("T", int, str)
+def f(t: T | None) -> None:...
+f(None)
+    "#,
+);
