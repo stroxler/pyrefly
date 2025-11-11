@@ -1231,12 +1231,19 @@ impl Server {
                 .config_finder()
                 .python_file(ModuleName::unknown(), e.path());
 
+            let type_error_status = self.type_error_display_status(e.path().as_path());
+
+            let should_show_stdlib_error =
+                should_show_stdlib_error(&config, type_error_status, &path);
+
+            if is_python_stdlib_file(&path) && !should_show_stdlib_error {
+                return None;
+            }
+
             if let Some(lsp_file) = open_files.get(&path)
                 && config.project_includes.covers(&path)
                 && !config.project_excludes.covers(&path)
-                && self
-                    .type_error_display_status(e.path().as_path())
-                    .is_enabled()
+                && type_error_status.is_enabled()
             {
                 return match &**lsp_file {
                     LspFile::Notebook(notebook) => {

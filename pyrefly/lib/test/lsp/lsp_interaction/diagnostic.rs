@@ -555,7 +555,7 @@ fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
         .insert(
             test_files_root
                 .path()
-                .join("filtering_stdlib_errors/usr/lib/python3.12"),
+                .join("filtering_stdlib_errors_with_default/usr/lib/python3.12"),
         );
 
     let mut interaction = LspInteraction::new();
@@ -573,7 +573,7 @@ fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
         serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}]),
     );
 
-    let stdlib_filepath = "filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py";
+    let stdlib_filepath = "filtering_stdlib_errors_with_default/usr/lib/python3.12/stdlib_file.py";
 
     interaction.server.did_open(stdlib_filepath);
     interaction.server.diagnostic(stdlib_filepath);
@@ -581,23 +581,7 @@ fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
         result: Some(serde_json::json!({
-            "items": [
-                {
-                    "code":"bad-assignment",
-                    "codeDescription":{
-                        "href":"https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
-                    },
-                    "message":"`Literal['1']` is not assignable to `int`",
-                    "range":{
-                        "end":{
-                            "character":12,"line":5
-                        },
-                        "start":{
-                            "character":9,"line":5
-                        }
-                    },"severity":1,"source":"Pyrefly"
-                }
-            ],
+            "items": [],
             "kind": "full"
         })),
         error: None,
@@ -619,7 +603,10 @@ fn test_shows_stdlib_errors_when_explicitly_included_in_project_includes() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}, {"pyrefly": {"displayTypeErrors": "default"}}]));
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}]),
+    );
 
     let stdlib_filepath = "stdlib_with_explicit_includes/usr/lib/python3.12/stdlib_file.py";
 

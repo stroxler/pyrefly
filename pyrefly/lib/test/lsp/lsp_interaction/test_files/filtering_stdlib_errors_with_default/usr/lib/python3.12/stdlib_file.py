@@ -3,5 +3,4 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# Explicitly exclude stdlib paths from project-includes
-# By not including usr/lib or usr/local/lib, we ensure stdlib files are not checked
+x: int = "1"

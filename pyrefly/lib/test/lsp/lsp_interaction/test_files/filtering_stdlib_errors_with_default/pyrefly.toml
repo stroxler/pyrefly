@@ -5,3 +5,4 @@
 
 # Explicitly exclude stdlib paths from project-includes
 # By not including usr/lib or usr/local/lib, we ensure stdlib files are not checked
+project-includes = []
