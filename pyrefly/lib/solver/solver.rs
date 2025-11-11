@@ -61,12 +61,16 @@ const INITIAL_GAS: Gas = Gas::new(1000);
 #[derive(Debug)]
 enum Variable {
     /// A placeholder representing an unknown type parameter in a "partial
-    /// type". Used when a type variable is not determined by solving a function
-    /// call (most often a constructor) and for empty containers.
+    /// type". Used for empty containers.
     ///
     /// Pyrefly only creates these for assignments, and will attempt to
     /// determine the type ("pin" it) using the first use of the name assigned.
     Partial,
+    /// A placeholder representing a type parameter in a function call that is
+    /// not solved by the call. Pins on first use like Partial above but falls
+    /// back to the type parameter's default when forced and stores the type
+    /// parameter so we can check its restrictions.
+    Unsolved(Box<Quantified>),
     /// A variable due to generic instantiation, `def f[T](x: T): T` with `f(1)`
     Quantified(Box<Quantified>),
     /// A variable caused by general recursion, e.g. `x = f(); def f(): return x`.
@@ -84,6 +88,20 @@ enum Variable {
     Parameter,
     /// A variable whose answer has been determined
     Answer(Type),
+}
+
+impl Variable {
+    fn unsolved(q: &Quantified) -> Self {
+        if let Some(d) = q.default() {
+            Variable::Answer(d.clone())
+        } else {
+            Variable::Unsolved(Box::new(q.clone()))
+        }
+    }
+}
+
+fn default(q: &Quantified) -> Type {
+    q.default().cloned().unwrap_or_else(Type::any_implicit)
 }
 
 /// The restrictions placed on a `LoopRecursive` Var during recursive solve of
@@ -104,12 +122,17 @@ impl Display for Variable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Variable::Partial => write!(f, "Partial"),
-            Variable::Quantified(q) => {
+            Variable::Unsolved(q) | Variable::Quantified(q) => {
+                let label = if matches!(self, Variable::Unsolved(_)) {
+                    "Unsolved"
+                } else {
+                    "Quantified"
+                };
                 let k = q.kind;
                 if let Some(t) = &q.default {
-                    write!(f, "Quantified({k}, default={t})")
+                    write!(f, "{label}({k}, default={t})")
                 } else {
-                    write!(f, "Quantified({k})")
+                    write!(f, "{label}({k})")
                 }
             }
             Variable::LoopRecursive(t, _) => write!(f, "LoopRecursive(prior={t}, _)"),
@@ -315,6 +338,9 @@ impl Solver {
             Variable::Quantified(q) => {
                 *variable = Variable::Answer(q.as_gradual_type());
             }
+            Variable::Unsolved(q) => {
+                *variable = Variable::Answer(default(q));
+            }
             Variable::Partial | Variable::Unwrap => {
                 *variable = Variable::Answer(Type::any_implicit());
             }
@@ -384,6 +410,7 @@ impl Solver {
             _ => {
                 let ty = match &mut *e {
                     Variable::Quantified(q) => q.as_gradual_type(),
+                    Variable::Unsolved(q) => default(q),
                     _ => Type::any_implicit(),
                 };
                 *e = Variable::Answer(ty.clone());
@@ -641,11 +668,11 @@ impl Solver {
                         err.push(e.clone());
                     }
                 }
-                Variable::Quantified(_) => {
+                Variable::Quantified(q) => {
                     if self.infer_with_first_use {
-                        *e = Variable::Partial;
+                        *e = Variable::unsolved(q);
                     } else {
-                        *e = Variable::Answer(Type::any_implicit())
+                        *e = Variable::Answer(default(q))
                     }
                 }
                 _ => {}
@@ -733,10 +760,10 @@ impl Solver {
                     Some(t)
                 } else if self.infer_with_first_use {
                     let v = Var::new(uniques);
-                    self.variables.lock().insert_fresh(v, Variable::Partial);
+                    self.variables.lock().insert_fresh(v, Variable::unsolved(q));
                     Some(v.to_type())
                 } else {
-                    Some(Type::any_implicit())
+                    Some(default(q))
                 }
             } else {
                 None
@@ -1296,7 +1323,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(&t1, t2)
                     }
-                    Variable::Quantified(q) => {
+                    Variable::Quantified(q) | Variable::Unsolved(q) => {
                         let name = q.name.clone();
                         let bound = q.restriction().as_type(self.type_order.stdlib());
                         drop(v1_ref);
@@ -1377,7 +1404,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                         drop(variables);
                         self.is_subset_eq(t1, &t2)
                     }
-                    Variable::Quantified(q) => {
+                    Variable::Quantified(q) | Variable::Unsolved(q) => {
                         let t1_p = t1.clone().promote_literals(self.type_order.stdlib());
                         let name = q.name.clone();
                         let bound = q.restriction().as_type(self.type_order.stdlib());
