@@ -7,6 +7,7 @@
 
 use lsp_server::RequestId;
 use lsp_server::Response;
+use pyrefly_config::environment::environment::PythonEnvironment;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -325,6 +326,328 @@ fn test_publish_diagnostics_preserves_symlink_uri() {
         Url::from_file_path(&symlink_path).unwrap().as_str(),
         1,
     );
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_shows_stdlib_type_errors_with_force_on() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    PythonEnvironment::get_interpreter_stdlib_path()
+        .write()
+        .insert(
+            test_files_root
+                .path()
+                .join("filtering_stdlib_errors/usr/lib/python3.12"),
+        );
+
+    interaction.server.did_change_configuration();
+
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}, {"pyrefly": {"displayTypeErrors": "force-on"}}]));
+
+    let stdlib_filepath = "filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py";
+
+    interaction.server.did_open(stdlib_filepath);
+    interaction.server.diagnostic(stdlib_filepath);
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-assignment",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message": "`Literal['1']` is not assignable to `int`",
+                    "range": {
+                        "end": {"character": 12, "line": 5},
+                        "start": {"character": 9, "line": 5}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    PythonEnvironment::get_interpreter_stdlib_path()
+        .write()
+        .insert(
+            test_files_root
+                .path()
+                .join("filtering_stdlib_errors/usr/lib/python3.12"),
+        );
+
+    interaction.server.did_change_configuration();
+
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}, {"pyrefly": {"displayTypeErrors": "force-on"}}]));
+
+    interaction
+        .server
+        .did_open("filtering_stdlib_errors/usr/local/lib/python3.12/stdlib_file.py");
+    interaction
+        .server
+        .diagnostic("filtering_stdlib_errors/usr/local/lib/python3.12/stdlib_file.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-assignment",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message": "`Literal['1']` is not assignable to `int`",
+                    "range": {
+                        "end": {"character": 12, "line": 5},
+                        "start": {"character": 9, "line": 5}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    PythonEnvironment::get_interpreter_stdlib_path()
+        .write()
+        .insert(
+            test_files_root
+                .path()
+                .join("filtering_stdlib_errors/usr/lib/python3.8"),
+        );
+
+    interaction
+        .server
+        .did_open("filtering_stdlib_errors/usr/local/lib/python3.8/stdlib_file.py");
+    interaction
+        .server
+        .diagnostic("filtering_stdlib_errors/usr/local/lib/python3.8/stdlib_file.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(3),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-assignment",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message": "`Literal['1']` is not assignable to `int`",
+                    "range": {
+                        "end": {"character": 12, "line": 5},
+                        "start": {"character": 9, "line": 5}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    interaction
+        .server
+        .did_open("filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py");
+    interaction
+        .server
+        .diagnostic("filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(4),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-assignment",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message": "`Literal['1']` is not assignable to `int`",
+                    "range": {
+                        "end": {"character": 12, "line": 5},
+                        "start": {"character": 9, "line": 5}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    PythonEnvironment::get_interpreter_stdlib_path()
+        .write()
+        .insert(
+            test_files_root
+                .path()
+                .join("filtering_stdlib_errors/usr/lib64/python3.12"),
+        );
+
+    interaction
+        .server
+        .did_open("filtering_stdlib_errors/usr/lib64/python3.12/stdlib_file.py");
+    interaction
+        .server
+        .diagnostic("filtering_stdlib_errors/usr/lib64/python3.12/stdlib_file.py");
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(5),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-assignment",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message": "`Literal['1']` is not assignable to `int`",
+                    "range": {
+                        "end": {"character": 12, "line": 5},
+                        "start": {"character": 9, "line": 5}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
+    let test_files_root = get_test_files_root();
+
+    PythonEnvironment::get_interpreter_stdlib_path()
+        .write()
+        .insert(
+            test_files_root
+                .path()
+                .join("filtering_stdlib_errors/usr/lib/python3.12"),
+        );
+
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    interaction.server.did_change_configuration();
+
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}]),
+    );
+
+    let stdlib_filepath = "filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py";
+
+    interaction.server.did_open(stdlib_filepath);
+    interaction.server.diagnostic(stdlib_filepath);
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code":"bad-assignment",
+                    "codeDescription":{
+                        "href":"https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message":"`Literal['1']` is not assignable to `int`",
+                    "range":{
+                        "end":{
+                            "character":12,"line":5
+                        },
+                        "start":{
+                            "character":9,"line":5
+                        }
+                    },"severity":1,"source":"Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_shows_stdlib_errors_when_explicitly_included_in_project_includes() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(None),
+        ..Default::default()
+    });
+
+    interaction.server.did_change_configuration();
+
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}, {"pyrefly": {"displayTypeErrors": "default"}}]));
+
+    let stdlib_filepath = "stdlib_with_explicit_includes/usr/lib/python3.12/stdlib_file.py";
+
+    interaction.server.did_open(stdlib_filepath);
+    interaction.server.diagnostic(stdlib_filepath);
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "bad-assignment",
+                    "codeDescription": {
+                        "href": "https://pyrefly.org/en/docs/error-kinds/#bad-assignment"
+                    },
+                    "message": "`Literal['1']` is not assignable to `int`",
+                    "range": {
+                        "end": {"character": 12, "line": 5},
+                        "start": {"character": 9, "line": 5}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
+        error: None,
+    });
 
     interaction.shutdown();
 }
