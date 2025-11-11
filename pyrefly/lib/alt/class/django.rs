@@ -41,6 +41,7 @@ const PK: Name = Name::new_static("pk");
 const AUTO_FIELD: Name = Name::new_static("AutoField");
 const FOREIGN_KEY: Name = Name::new_static("ForeignKey");
 const NULL: Name = Name::new_static("null");
+const MANY_TO_MANY_FIELD: Name = Name::new_static("ManyToManyField");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(
@@ -152,6 +153,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         field.has_toplevel_qname(
             ModuleName::django_models_fields_related().as_str(),
             FOREIGN_KEY.as_str(),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub fn is_many_to_many_field(&self, field: &Class) -> bool {
+        field.has_toplevel_qname(
+            ModuleName::django_models_fields_related().as_str(),
+            MANY_TO_MANY_FIELD.as_str(),
         )
     }
 
