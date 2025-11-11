@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Not;
 
+use dupe::Dupe;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
@@ -42,6 +43,8 @@ use starlark_map::Hashed;
 use crate::alt::call::CallTargetLookup;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::KeyDecoratedFunction;
+use crate::error::collector::ErrorCollector;
+use crate::error::style::ErrorStyle;
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
 use crate::report::pysa::ast_visitor::ScopeExportedFunctionFlags;
 use crate::report::pysa::ast_visitor::Scopes;
@@ -1456,13 +1459,61 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    // Resolve the attribute access via `__getattr__`
+    fn resolve_magic_dunder_attr(
+        &self,
+        attribute: &ExprAttribute,
+        receiver_type: Option<&Type>,
+        callee_expr: AnyNodeRef,
+        callee_type: Option<&Type>,
+        callee_expr_suffix: Option<&str>,
+        return_type: Option<ScalarTypeProperties>,
+    ) -> Option<AttributeAccessCallees<FunctionRef>> {
+        let pyrefly_target = self
+            .module_context
+            .transaction
+            .ad_hoc_solve(&self.module_context.handle, |solver| {
+                receiver_type.and_then(|type_| {
+                    let error_collector = ErrorCollector::new(
+                        self.module_context.module_info.dupe(),
+                        ErrorStyle::Never,
+                    );
+                    solver
+                        .type_of_magic_dunder_attr(
+                            type_,
+                            attribute.attr.id(),
+                            attribute.range(),
+                            &error_collector,
+                            None,
+                            "resolve_attribute_access",
+                            /* allow_getattr_fallback */ true,
+                        )
+                        .map(|attribute_access_type| solver.as_call_target(attribute_access_type))
+                })
+            })
+            .flatten();
+        let callees = self.resolve_pyrefly_target(
+            pyrefly_target,
+            callee_expr,
+            callee_type,
+            return_type,
+            callee_expr_suffix,
+        )?;
+        Some(AttributeAccessCallees {
+            if_called: callees,
+            // Property getters and setters are always found via the normal attribute lookup
+            property_setters: vec![],
+            property_getters: vec![],
+        })
+    }
+
     fn resolve_attribute_access(
         &self,
         attribute: &ExprAttribute,
         return_type: Option<ScalarTypeProperties>,
         assignment_targets: Option<&Vec<&Expr>>,
     ) -> Option<AttributeAccessCallees<FunctionRef>> {
-        let (property_callees, non_property_callees): (Vec<FunctionRef>, Vec<FunctionRef>) = self
+        let go_to_definitions = self
             .module_context
             .transaction
             .find_definition_for_attribute(
@@ -1470,21 +1521,46 @@ impl<'a> CallGraphVisitor<'a> {
                 attribute.value.range(),
                 &attribute.attr,
                 &FindPreference::default(),
-            )
-            .iter()
-            .flat_map(|definition| {
-                FunctionRef::from_find_definition_item_with_docstring(
-                    definition,
-                    self.function_base_definitions,
-                    self.module_context,
-                )
-            })
-            .partition(|function_ref| {
-                self.get_base_definition(function_ref)
-                    .is_some_and(|definition| {
-                        definition.is_property_getter || definition.is_property_setter
-                    })
-            });
+            );
+
+        let callee_expr = AnyNodeRef::from(attribute);
+        let callee_expr_suffix = Some(attribute.attr.id.as_str());
+        let callee_type = self
+            .module_context
+            .answers
+            .get_type_trace(attribute.range());
+        let receiver_type = self
+            .module_context
+            .answers
+            .get_type_trace(attribute.value.range());
+
+        if go_to_definitions.is_empty() {
+            return self.resolve_magic_dunder_attr(
+                attribute,
+                receiver_type.as_ref(),
+                callee_expr,
+                callee_type.as_ref(),
+                callee_expr_suffix,
+                return_type,
+            );
+        }
+
+        let (property_callees, non_property_callees): (Vec<FunctionRef>, Vec<FunctionRef>) =
+            go_to_definitions
+                .iter()
+                .flat_map(|definition| {
+                    FunctionRef::from_find_definition_item_with_docstring(
+                        definition,
+                        self.function_base_definitions,
+                        self.module_context,
+                    )
+                })
+                .partition(|function_ref| {
+                    self.get_base_definition(function_ref)
+                        .is_some_and(|definition| {
+                            definition.is_property_getter || definition.is_property_setter
+                        })
+                });
 
         let in_assignment_lhs = assignment_targets.is_some_and(|assignment_targets| {
             assignment_targets
@@ -1504,16 +1580,6 @@ impl<'a> CallGraphVisitor<'a> {
             (vec![], property_callees)
         };
 
-        let callee_expr_suffix = Some(attribute.attr.id.as_str());
-        let receiver_type = self
-            .module_context
-            .answers
-            .get_type_trace(attribute.value.range());
-        let callee_type = self
-            .module_context
-            .answers
-            .get_type_trace(attribute.range());
-        let callee_expr = AnyNodeRef::from(attribute);
         Some(AttributeAccessCallees {
             if_called: CallCallees {
                 call_targets: non_property_callees

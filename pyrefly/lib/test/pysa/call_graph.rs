@@ -2212,3 +2212,57 @@ def caller() -> None:
         )]
     }
 );
+
+call_graph_testcase!(
+    test_call_via_getattr_return_self_type,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Union
+class CallViaGetattr:
+  def __getattr__(self, name: str) -> Union[None, CallViaGetattr]:
+    return None
+def baz(x: CallViaGetattr) -> None:
+  y = x.attribute
+"#,
+    &|_context: &ModuleContext| { vec![("test.baz", vec![])] }
+);
+
+call_graph_testcase!(
+    test_call_via_getattr_return_callable_class,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Union
+class CallableClass:
+  def __call__(self) -> None:
+    return None
+class CallViaGetattr:
+  def __getattr__(self, name: str) -> Union[None, CallableClass]:
+    return CallableClass()
+def baz(x: CallViaGetattr) -> None:
+  y = x.attribute
+"#,
+    &|context: &ModuleContext| {
+        // TODO(T244609756): Add the implicit calls to `__getattr__`
+        let call_targets = vec![
+            create_call_target("test.CallableClass.__call__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_implicit_dunder_call(true)
+                .with_receiver_class_for_test("test.CallableClass", context),
+        ];
+        vec![(
+            "test.baz",
+            vec![(
+                "10:7-10:18",
+                attribute_access_callees(
+                    /* call_targets */ call_targets,
+                    /* init_targets */ vec![],
+                    /* new_targets */ vec![],
+                    /* property_setters */ vec![],
+                    /* property_getters */ vec![],
+                    /* higher_order_parameters */ vec![],
+                    /* unresolved */ Unresolved::False,
+                ),
+            )],
+        )]
+    }
+);
