@@ -645,3 +645,31 @@ for i in range(10):
     a = d.get('x', a)
     "#,
 );
+
+// Test for https://github.com/facebook/pyrefly/issues/1453
+testcase!(
+    test_against_regression_on_1453,
+    r#"
+from math import gcd
+from typing import assert_type
+def remove_common(x: int, g: int) -> int:
+    while g > 1:
+        assert_type(g, int)
+        assert_type(x, int)
+        x //= g
+        g = gcd(g, x)
+        assert_type(g, int)
+    return x
+    "#,
+);
+
+// Test for https://github.com/facebook/pyrefly/issues/1453
+testcase!(
+    test_against_regression_on_1454,
+    r#"
+d: dict[str, str] = {}
+a: str | None = None
+for i in range(10):
+    a = d.get('x', a)
+    "#,
+);
