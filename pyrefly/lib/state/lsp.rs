@@ -1217,6 +1217,18 @@ impl<'a> Transaction<'a> {
         })
     }
 
+    fn find_export_for_key(
+        &self,
+        handle: &Handle,
+        key: &Key,
+        preference: &FindPreference,
+    ) -> Option<(Handle, Export)> {
+        if !self.get_bindings(handle)?.is_valid_key(key) {
+            return None;
+        }
+        self.key_to_export(handle, key, preference)
+    }
+
     fn find_definition_for_name_def(
         &self,
         handle: &Handle,
@@ -1224,9 +1236,6 @@ impl<'a> Transaction<'a> {
         preference: &FindPreference,
     ) -> Option<FindDefinitionItemWithDocstring> {
         let def_key = Key::Definition(ShortIdentifier::new(name));
-        if !self.get_bindings(handle)?.is_valid_key(&def_key) {
-            return None;
-        }
         let (
             handle,
             Export {
@@ -1235,7 +1244,7 @@ impl<'a> Transaction<'a> {
                 docstring_range,
                 ..
             },
-        ) = self.key_to_export(handle, &def_key, preference)?;
+        ) = self.find_export_for_key(handle, &def_key, preference)?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
         Some(FindDefinitionItemWithDocstring {
@@ -1253,9 +1262,6 @@ impl<'a> Transaction<'a> {
         preference: &FindPreference,
     ) -> Option<FindDefinitionItemWithDocstring> {
         let use_key = Key::BoundName(ShortIdentifier::new(name));
-        if !self.get_bindings(handle)?.is_valid_key(&use_key) {
-            return None;
-        }
         let (
             handle,
             Export {
@@ -1264,7 +1270,7 @@ impl<'a> Transaction<'a> {
                 docstring_range,
                 ..
             },
-        ) = self.key_to_export(handle, &use_key, preference)?;
+        ) = self.find_export_for_key(handle, &use_key, preference)?;
         Some(FindDefinitionItemWithDocstring {
             metadata: DefinitionMetadata::Variable(symbol_kind),
             definition_range: location,
@@ -2011,17 +2017,35 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         definition_range: TextRange,
     ) -> Option<Vec<TextRange>> {
-        let bindings = self.get_bindings(handle)?;
         let mut references = Vec::new();
-        for NamedBinding {
-            definition_handle: _,
-            definition_export,
-            key,
-        } in self.named_bindings(handle, &bindings)
-        {
-            if definition_range == definition_export.location {
-                references.push(key.range());
+        if let Some(mod_module) = self.get_ast(handle) {
+            let is_valid_use = |x: &ExprName| {
+                // NOTE(grievejia): If we have the actual identifier name corresponding to `definition_range`,
+                // we could use that to optimize the walk further by filtering out uses whose names don't match the definition.
+                if let Some((def_handle, Export { location, .. })) = self.find_export_for_key(
+                    handle,
+                    &Key::BoundName(ShortIdentifier::expr_name(x)),
+                    &FindPreference {
+                        jump_through_renamed_import: false,
+                        prefer_pyi: false,
+                    },
+                ) && def_handle.path() == handle.path()
+                    && location == definition_range
+                {
+                    true
+                } else {
+                    false
+                }
+            };
+            fn f(x: &Expr, is_valid_use: &impl Fn(&ExprName) -> bool, res: &mut Vec<TextRange>) {
+                if let Expr::Name(x) = x
+                    && is_valid_use(x)
+                {
+                    res.push(x.range());
+                }
+                x.recurse(&mut |x| f(x, is_valid_use, res));
             }
+            mod_module.visit(&mut |x| f(x, &is_valid_use, &mut references));
         }
         Some(references)
     }
