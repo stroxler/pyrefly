@@ -368,6 +368,7 @@ fn constructor_call_callees(
     })
 }
 
+#[allow(dead_code)]
 fn attribute_access_callees(
     call_targets: Vec<CallTarget<FunctionRefForTest>>,
     init_targets: Vec<CallTarget<FunctionRefForTest>>,
@@ -387,6 +388,54 @@ fn attribute_access_callees(
         },
         property_setters,
         property_getters,
+    })
+}
+
+fn property_getter_callees(
+    property_getters: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+        if_called: CallCallees {
+            call_targets: vec![],
+            init_targets: vec![],
+            new_targets: vec![],
+            higher_order_parameters: HashMap::new(),
+            unresolved: Unresolved::False,
+        },
+        property_setters: vec![],
+        property_getters,
+    })
+}
+
+fn property_setter_callees(
+    property_setters: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+        if_called: CallCallees {
+            call_targets: vec![],
+            init_targets: vec![],
+            new_targets: vec![],
+            higher_order_parameters: HashMap::new(),
+            unresolved: Unresolved::False,
+        },
+        property_setters,
+        property_getters: vec![],
+    })
+}
+
+fn regular_attribute_access_callees(
+    call_targets: Vec<CallTarget<FunctionRefForTest>>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+        if_called: CallCallees {
+            call_targets,
+            init_targets: vec![],
+            new_targets: vec![],
+            higher_order_parameters: HashMap::new(),
+            unresolved: Unresolved::False,
+        },
+        property_setters: vec![],
+        property_getters: vec![],
     })
 }
 
@@ -955,30 +1004,8 @@ def foo(c: C):
         vec![(
             "test.foo",
             vec![
-                (
-                    "8:3-8:6",
-                    attribute_access_callees(
-                        /* call_targets */ vec![],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* property_setters */ property_setters,
-                        /* property_getters */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
-                (
-                    "8:9-8:12",
-                    attribute_access_callees(
-                        /* call_targets */ vec![],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* property_setters */ vec![],
-                        /* property_getters */ property_getters,
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
-                ),
+                ("8:3-8:6", property_setter_callees(property_setters)),
+                ("8:9-8:12", property_getter_callees(property_getters)),
             ],
         )]
     }
@@ -1006,18 +1033,7 @@ def foo(c: C):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "10:3-10:8",
-                attribute_access_callees(
-                    /* call_targets */ vec![],
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* property_setters */ property_setters,
-                    /* property_getters */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("10:3-10:8", property_setter_callees(property_setters))],
         )]
     }
 );
@@ -1058,27 +1074,11 @@ def foo(c_or_d: C | D, c_or_e: C | E):
             vec![
                 (
                     "13:7-13:17",
-                    attribute_access_callees(
-                        /* call_targets */ vec![],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* property_setters */ vec![],
-                        /* property_getters */ property_getters_c_or_d,
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    property_getter_callees(/* property_getters */ property_getters_c_or_d),
                 ),
                 (
                     "14:7-14:17",
-                    attribute_access_callees(
-                        /* call_targets */ vec![],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* property_setters */ vec![],
-                        /* property_getters */ property_getters_c_or_e,
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    property_getter_callees(/* property_getters */ property_getters_c_or_e),
                 ),
             ],
         )]
@@ -1112,15 +1112,7 @@ def foo(c_or_d: TCOrD):
             "test.foo",
             vec![(
                 "13:9-13:19",
-                attribute_access_callees(
-                    /* call_targets */ vec![],
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* property_setters */ vec![],
-                    /* property_getters */ property_getters,
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
+                property_getter_callees(/* property_getters */ property_getters),
             )],
         )]
     }
@@ -1580,15 +1572,7 @@ class Permission(Enum):
                 ),
                 (
                     "10:12-10:22",
-                    attribute_access_callees(
-                        /* call_targets */ vec![],
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* property_setters */ vec![],
-                        /* property_getters */ enum_value,
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    property_getter_callees(/* property_getters */ enum_value),
                 ),
             ],
         )]
@@ -1851,15 +1835,7 @@ def f(foo: Foo):
             vec![
                 (
                     "8:13-8:20",
-                    attribute_access_callees(
-                        /* call_targets */ foo_bar.clone(),
-                        /* init_targets */ vec![],
-                        /* new_targets */ vec![],
-                        /* property_setters */ vec![],
-                        /* property_getters */ vec![],
-                        /* higher_order_parameters */ vec![],
-                        /* unresolved */ Unresolved::False,
-                    ),
+                    regular_attribute_access_callees(foo_bar.clone()),
                 ),
                 ("8:22-8:25", regular_identifier_callees(baz)),
                 ("9:5-9:8", regular_call_callees(foo_bar)),
@@ -2251,18 +2227,94 @@ def baz(x: CallViaGetattr) -> None:
         ];
         vec![(
             "test.baz",
-            vec![(
-                "10:7-10:18",
-                attribute_access_callees(
-                    /* call_targets */ call_targets,
-                    /* init_targets */ vec![],
-                    /* new_targets */ vec![],
-                    /* property_setters */ vec![],
-                    /* property_getters */ vec![],
-                    /* higher_order_parameters */ vec![],
-                    /* unresolved */ Unresolved::False,
-                ),
-            )],
+            vec![("10:7-10:18", regular_attribute_access_callees(call_targets))],
         )]
+    }
+);
+
+call_graph_testcase!(
+    test_attribute_access_on_typed_class_attributes,
+    TEST_MODULE_NAME,
+    r#"
+class Token:
+  token: str = ""
+class Token2:
+  token2: str = ""
+def foo(obj: Token, obj2: Token2):
+  x = (obj.token, obj2.token2)
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_attribute_access_on_union_type,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Union
+class A:
+  attribute: str = ""
+class B:
+  attribute: str = ""
+class C:
+  attribute: str = ""
+def foo(obj: Union[A, B, C]):
+  x = obj.attribute
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_chained_attribute_access_on_optional_type,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Optional
+class Token:
+  token: str = ""
+class Request:
+  access_token: Optional[Token]
+def foo(request: Request):
+  if request.access_token:
+    x = request.access_token.token
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_getattr_on_typed_class_attribute,
+    TEST_MODULE_NAME,
+    r#"
+class Token:
+  token: str = ""
+def foo(obj: Token):
+  x = getattr(obj, "token", None)
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_explicit_dunder_setattr_call,
+    TEST_MODULE_NAME,
+    r#"
+class Token:
+  token: str = ""
+def foo(obj: Token, x: str):
+  obj.__setattr__("token", x)
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_attribute_assignment_with_custom_setattr,
+    TEST_MODULE_NAME,
+    r#"
+class Test:
+  def __setattr__(self, name: str, value):
+    return
+def foo(obj: Test):
+  obj.attribute = "value"
+"#,
+    &|_context: &ModuleContext| {
+        // TODO(T137969662): We should see a call to `Test.__setattr__`
+        vec![("test.foo", vec![])]
     }
 );

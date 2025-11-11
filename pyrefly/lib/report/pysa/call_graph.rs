@@ -1776,7 +1776,6 @@ impl<'a> CallGraphVisitor<'a> {
         parent_expression: Option<&Expr>,
         assignment_targets: Option<&Vec<&Expr>>,
     ) -> Option<ExpressionCallees<FunctionRef>> {
-        debug_println!(self.debug, "Resolving callees for expression `{:#?}`", expr);
         let is_nested_callee_or_base =
             parent_expression.is_some_and(|parent_expression| match parent_expression {
                 // For example, avoid visiting `x.__call__` in `x.__call__(1)`
@@ -1794,11 +1793,14 @@ impl<'a> CallGraphVisitor<'a> {
             )
         };
         match expr {
-            Expr::Call(call) => self
-                .resolve_call(call, assignment_targets)
-                .map(ExpressionCallees::Call),
-            Expr::Name(name) if !is_nested_callee_or_base => self
-                .resolve_name(
+            Expr::Call(call) => {
+                debug_println!(self.debug, "Resolving callees for call `{:#?}`", expr);
+                self.resolve_call(call, assignment_targets)
+                    .map(ExpressionCallees::Call)
+            }
+            Expr::Name(name) if !is_nested_callee_or_base => {
+                debug_println!(self.debug, "Resolving callees for name `{:#?}`", expr);
+                self.resolve_name(
                     name,
                     /* call_arguments */ None,
                     Some(return_type_when_called()),
@@ -1807,18 +1809,20 @@ impl<'a> CallGraphVisitor<'a> {
                     ExpressionCallees::Identifier(IdentifierCallees {
                         if_called: call_callees,
                     })
-                }),
-            Expr::Attribute(attribute) if !is_nested_callee_or_base => self
-                .resolve_attribute_access(
+                })
+            }
+            Expr::Attribute(attribute) if !is_nested_callee_or_base => {
+                debug_println!(self.debug, "Resolving callees for attribute `{:#?}`", expr);
+                self.resolve_attribute_access(
                     attribute,
                     Some(return_type_when_called()),
                     assignment_targets,
                 )
-                .map(ExpressionCallees::AttributeAccess),
+                .map(ExpressionCallees::AttributeAccess)
+            }
             _ => None,
         }
     }
-
     fn resolve_function_def(
         &self,
         function_def: &StmtFunctionDef,
