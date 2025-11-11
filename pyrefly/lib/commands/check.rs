@@ -235,7 +235,12 @@ struct OutputArgs {
 
     /// Filter the error summary to show only a specific error kind (e.g., bad-assignment, missing-return, etc.).
     /// Must be used in conjunction with --summarize-errors.
-    #[arg(long, value_enum, value_name = "ERROR_KIND")]
+    #[arg(
+        long,
+        value_enum,
+        value_name = "ERROR_KIND",
+        hide_possible_values = true
+    )]
     only: Option<crate::config::error_kind::ErrorKind>,
 
     /// By default show the number of errors. Pass `--summary` to show information about lines checked and time/memory,
