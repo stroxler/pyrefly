@@ -116,8 +116,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
 
             if self.is_many_to_many_field(field) {
-                // TODO: We will populate this in the next diffs
-                return Some(Type::any_implicit());
+                // TODO: check if nullability applies to this case as well
+                return self.get_manager_type(model_type);
             }
         }
 
@@ -136,7 +136,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     // Get ManyRelatedManager class from django stubs
-    #[allow(dead_code)]
     fn get_manager_type(&self, target_model_type: Type) -> Option<Type> {
         let manager_class_type = self.get_from_export(
             ModuleName::django_models_fields_related_descriptors(),
