@@ -42,6 +42,8 @@ const AUTO_FIELD: Name = Name::new_static("AutoField");
 const FOREIGN_KEY: Name = Name::new_static("ForeignKey");
 const NULL: Name = Name::new_static("null");
 const MANY_TO_MANY_FIELD: Name = Name::new_static("ManyToManyField");
+const MODEL: Name = Name::new_static("Model");
+const MANYRELATEDMANAGER: Name = Name::new_static("ManyRelatedManager");
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_django_field_type(
@@ -133,6 +135,41 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    // Get ManyRelatedManager class from django stubs
+    #[allow(dead_code)]
+    fn get_manager_type(&self, target_model_type: Type) -> Option<Type> {
+        let manager_class_type = self.get_from_export(
+            ModuleName::django_models_fields_related_descriptors(),
+            None,
+            &KeyExport(MANYRELATEDMANAGER),
+        );
+
+        // Extract the Class from ClassDef
+        let manager_class = match manager_class_type.as_ref() {
+            Type::ClassDef(cls) => cls,
+            _ => return None,
+        };
+
+        // Get Model class for the through parameter
+        let model_class =
+            self.get_from_export(ModuleName::django_models(), None, &KeyExport(MODEL));
+
+        let model_instance_type = self.class_def_to_instance_type(&model_class);
+
+        // Create type arguments vector: [TargetModel, Model]
+        let targs_vec = vec![target_model_type, model_instance_type];
+
+        // Use specialize to create ManyRelatedManager for the specific classes we defined
+        let manager_type = self.specialize(
+            manager_class,
+            targs_vec,
+            TextRange::default(),
+            &self.error_swallower(),
+        );
+
+        Some(manager_type)
+    }
+
     fn resolve_target(&self, to_expr: &Expr) -> Option<Type> {
         match to_expr {
             // Use expr_infer to resolve the name in the current scope
@@ -161,7 +198,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    #[allow(dead_code)]
     pub fn is_many_to_many_field(&self, field: &Class) -> bool {
         field.has_toplevel_qname(
             ModuleName::django_models_fields_related().as_str(),

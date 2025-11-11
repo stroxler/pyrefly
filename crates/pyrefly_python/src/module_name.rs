@@ -176,7 +176,6 @@ impl ModuleName {
         Self::from_str("django.db.models.fields.related")
     }
 
-    #[allow(dead_code)]
     pub fn django_models_fields_related_descriptors() -> Self {
         Self::from_str("django.db.models.fields.related_descriptors")
     }
