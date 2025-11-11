@@ -103,10 +103,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && let Some(e) = initial_value_expr
             && let Some(call_expr) = e.as_call_expr()
             && let Some(to_expr) = call_expr.arguments.args.first()
+            && let Some(related_model_type) = self.resolve_foreign_key_target(to_expr)
         {
-            // Resolve the expression to a type and convert to instance type
-            let related_model_type = self.resolve_foreign_key_target(to_expr, class)?;
-
             // If nullable, union with None
             if self.is_django_field_nullable(call_expr) {
                 return Some(self.union(related_model_type, Type::None));
@@ -129,20 +127,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    fn resolve_foreign_key_target(&self, to_expr: &Expr, class: &Class) -> Option<Type> {
-        // Extract the model name from the expression
-        let model_name = match to_expr {
+    fn resolve_foreign_key_target(&self, to_expr: &Expr) -> Option<Type> {
+        match to_expr {
             // Direct name reference. Ex: ForeignKey(Reporter, ...)
-            Expr::Name(name_expr) => name_expr.id.clone(),
-            // TODO: handle self references and forward references
-            _ => return None,
-        };
-
-        // Look up the model in the current module and convert to instance type
-        let export_key = KeyExport(model_name);
-        let related_model_type =
-            self.get_from_export(class.module_name(), Some(class.module_path()), &export_key);
-        Some(self.class_def_to_instance_type(&related_model_type))
+            // Use expr_infer to resolve the name in the current scope
+            Expr::Name(_) => {
+                let related_model_type = self.expr_infer(to_expr, &self.error_swallower());
+                Some(self.class_def_to_instance_type(&related_model_type))
+            }
+            // TODO: handle self references and forward references (string literals case)
+            _ => None,
+        }
     }
 
     fn class_def_to_instance_type(&self, ty: &Type) -> Type {
