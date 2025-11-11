@@ -32,6 +32,19 @@ def foo(x: A | B) -> None:
 );
 
 testcase!(
+    test_union_not_callable,
+    r#"
+from typing import assert_type
+class A:
+    def foo(self) -> int: ...
+class B:
+    foo: str
+def foo(x: A | B) -> None:
+    x.foo()  # E: Expected a callable, got `str`
+"#,
+);
+
+testcase!(
     test_distribute_type_over_union,
     r#"
 from typing import assert_type

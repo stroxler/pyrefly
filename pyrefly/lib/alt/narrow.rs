@@ -23,6 +23,7 @@ use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::call::CallTargetLookup;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::binding::narrow::AtomicNarrowOp;
@@ -600,7 +601,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AtomicNarrowOp::GetAttr(_, _) => ty.clone(),
             AtomicNarrowOp::NotGetAttr(_, _) => ty.clone(),
             AtomicNarrowOp::TypeGuard(t, arguments) => {
-                if let Some(call_target) = self.as_call_target(t.clone()) {
+                if let CallTargetLookup::Ok(call_target) = self.as_call_target(t.clone()) {
                     let args = arguments.args.map(CallArg::expr_maybe_starred);
                     let kws = arguments.keywords.map(CallKeyword::new);
                     let ret =
@@ -613,7 +614,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AtomicNarrowOp::NotTypeGuard(_, _) => ty.clone(),
             AtomicNarrowOp::TypeIs(t, arguments) => {
-                if let Some(call_target) = self.as_call_target(t.clone()) {
+                if let CallTargetLookup::Ok(call_target) = self.as_call_target(t.clone()) {
                     let args = arguments.args.map(CallArg::expr_maybe_starred);
                     let kws = arguments.keywords.map(CallKeyword::new);
                     let ret =
@@ -625,7 +626,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ty.clone()
             }
             AtomicNarrowOp::NotTypeIs(t, arguments) => {
-                if let Some(call_target) = self.as_call_target(t.clone()) {
+                if let CallTargetLookup::Ok(call_target) = self.as_call_target(t.clone()) {
                     let args = arguments.args.map(CallArg::expr_maybe_starred);
                     let kws = arguments.keywords.map(CallKeyword::new);
                     let ret =

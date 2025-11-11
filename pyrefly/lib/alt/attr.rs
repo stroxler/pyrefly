@@ -1880,7 +1880,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
             if let Some(dunder_bool_ty) = dunder_bool_ty
                 && !dunder_bool_ty.is_never()
-                && self.as_call_target(dunder_bool_ty.clone()).is_none()
+                && self.as_call_target(dunder_bool_ty.clone()).is_error()
             {
                 self.error(
                     errors,

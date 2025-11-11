@@ -39,6 +39,7 @@ use ruff_text_size::TextRange;
 use serde::Serialize;
 use starlark_map::Hashed;
 
+use crate::alt::call::CallTargetLookup;
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::report::pysa::ast_visitor::AstScopedVisitor;
@@ -1220,19 +1221,22 @@ impl<'a> CallGraphVisitor<'a> {
 
     fn resolve_pyrefly_target(
         &self,
-        pyrefly_target: Option<&crate::alt::call::CallTarget>,
+        pyrefly_target: Option<crate::alt::call::CallTargetLookup>,
         callee_expr: AnyNodeRef,
         callee_type: Option<&Type>,
         return_type: Option<ScalarTypeProperties>,
         callee_expr_suffix: Option<&str>,
     ) -> Option<CallCallees<FunctionRef>> {
         match pyrefly_target {
-            Some(crate::alt::call::CallTarget::BoundMethod(type_, target)) => {
+            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::BoundMethod(
+                type_,
+                target,
+            ))) => {
                 // Calling a method on a class instance.
                 let call_targets = self
                     .call_targets_from_method_name(
                         &method_name_from_function(&target.1),
-                        Some(type_),
+                        Some(&type_),
                         callee_expr,
                         callee_type,
                         return_type,
@@ -1251,7 +1255,7 @@ impl<'a> CallGraphVisitor<'a> {
                     unresolved: Unresolved::False,
                 })
             }
-            Some(crate::alt::call::CallTarget::Function(function)) => {
+            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::Function(function))) => {
                 // Sometimes this means calling a function (e.g., static method) on a class instance. Sometimes
                 // this could be simply calling a module top-level function, which can be handled when the stack
                 // of D85441657 enables uniquely identifying a definition from a type.
@@ -1277,15 +1281,17 @@ impl<'a> CallGraphVisitor<'a> {
                     unresolved: Unresolved::False,
                 })
             }
-            Some(crate::alt::call::CallTarget::Class(class_type, _)) => {
+            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::Class(class_type, _))) => {
                 // Constructing a class instance.
                 self.module_context
                     .transaction
                     .ad_hoc_solve(&self.module_context.handle, |solver| {
-                        let new_method = solver.get_dunder_new(class_type);
+                        let new_method = solver.get_dunder_new(&class_type);
                         let overrides_new = new_method.is_some();
-                        let init_method = solver
-                            .get_dunder_init(class_type, /* get_object_init */ !overrides_new);
+                        let init_method = solver.get_dunder_init(
+                            &class_type,
+                            /* get_object_init */ !overrides_new,
+                        );
                         (init_method, new_method)
                     })
                     .map(|(init_method, new_method)| {
@@ -1299,11 +1305,12 @@ impl<'a> CallGraphVisitor<'a> {
                         )
                     })
             }
-            Some(crate::alt::call::CallTarget::Union(targets)) => targets
-                .iter()
+            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::Union(targets)))
+            | Some(CallTargetLookup::Error(targets)) => targets
+                .into_iter()
                 .flat_map(|target| {
                     self.resolve_pyrefly_target(
-                        Some(target),
+                        Some(CallTargetLookup::Ok(target)),
                         callee_expr,
                         callee_type,
                         return_type,
@@ -1436,11 +1443,11 @@ impl<'a> CallGraphVisitor<'a> {
                 .ad_hoc_solve(&self.module_context.handle, |solver| {
                     callee_type
                         .as_ref()
-                        .and_then(|type_| solver.as_call_target(type_.clone()))
+                        .map(|type_| solver.as_call_target(type_.clone()))
                 })
                 .flatten();
             self.resolve_pyrefly_target(
-                pyrefly_target.as_ref(),
+                pyrefly_target,
                 AnyNodeRef::from(name),
                 callee_type.as_ref(),
                 return_type,
