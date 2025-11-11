@@ -350,6 +350,15 @@ impl Solver {
         }
     }
 
+    /// Finish the type returned from a function call. This entails expanding solved variables and
+    /// erasing unsolved variables without defaults from unions.
+    pub fn finish_function_return(&self, mut t: Type) -> Type {
+        self.expand_with_limit(&mut t, TYPE_LIMIT, &VarRecurser::new());
+        self.erase_unsolved_variables(&mut t);
+        self.simplify_mut(&mut t);
+        t
+    }
+
     /// Expand a type. All variables that have been bound will be replaced with non-Var types,
     /// even if they are recursive (using `Any` for self-referential occurrences).
     /// Variables that have not yet been bound will remain as Var.
@@ -506,6 +515,53 @@ impl Solver {
                 }
             }
         });
+    }
+
+    /// In unions, convert any Variable::Unsolved without a default into Never.
+    /// See test::generic_basic::test_typevar_or_none for why we need to do this.
+    fn erase_unsolved_variables(&self, t: &mut Type) {
+        t.transform_mut(&mut |x| match x {
+            Type::Union(xs) => {
+                let erase_type = |x: &Type| match x {
+                    Type::Var(v) => {
+                        let lock = self.variables.lock();
+                        let variable = lock.get(*v);
+                        match &*variable {
+                            Variable::Unsolved(q) => {
+                                let erase = q.default.is_none();
+                                drop(variable);
+                                drop(lock);
+                                erase
+                            }
+                            _ => false,
+                        }
+                    }
+                    _ => false,
+                };
+                let mut erase_xs = Vec::new();
+                // We only want to erase variables from the union if
+                // (1) there is at least one variable to erase, and
+                // (2) we don't erase the entire union.
+                let mut should_erase = false;
+                for x in xs.iter() {
+                    let erase = erase_type(x);
+                    if let Some(prev) = erase_xs.last()
+                        && *prev != erase
+                    {
+                        should_erase = true;
+                    }
+                    erase_xs.push(erase);
+                }
+                if should_erase {
+                    for (x, erase) in xs.iter_mut().zip(erase_xs) {
+                        if erase {
+                            *x = Type::never();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        })
     }
 
     /// Like [`expand`], but also forces variables that haven't yet been bound

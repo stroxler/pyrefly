@@ -613,3 +613,12 @@ x = f()
 x.append("oops")  # E: `Literal['oops']` is not assignable to parameter `object` with type `int`
     "#,
 );
+
+testcase!(
+    test_typevar_with_default_or_none,
+    r#"
+from typing import assert_type
+def f[T1, T2 = str](x: T1, y: T2 | None = None) -> T1 | T2: ...
+assert_type(f(1), int | str)
+    "#,
+);
