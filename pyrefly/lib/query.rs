@@ -723,7 +723,7 @@ impl<'a> CalleesWithLocation<'a> {
             )
             .into_iter()
             // filter out attributes since we don't know how to handle them
-            .filter(|d| !matches!(d.metadata, DefinitionMetadata::Attribute(_)))
+            .filter(|d| !matches!(d.metadata, DefinitionMetadata::Attribute))
             .collect_vec();
         if defs.is_empty() {
             vec![]

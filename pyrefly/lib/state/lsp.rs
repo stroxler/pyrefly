@@ -167,21 +167,19 @@ impl Default for FindPreference {
 
 #[derive(Clone, Debug)]
 pub enum DefinitionMetadata {
-    Attribute(Name),
+    Attribute,
     Module,
     Variable(Option<SymbolKind>),
-    VariableOrAttribute(Name, Option<SymbolKind>),
+    VariableOrAttribute(Option<SymbolKind>),
 }
 
 impl DefinitionMetadata {
     pub fn symbol_kind(&self) -> Option<SymbolKind> {
         match self {
-            DefinitionMetadata::Attribute(_) => Some(SymbolKind::Attribute),
+            DefinitionMetadata::Attribute => Some(SymbolKind::Attribute),
             DefinitionMetadata::Module => Some(SymbolKind::Module),
             DefinitionMetadata::Variable(symbol_kind) => symbol_kind.as_ref().copied(),
-            DefinitionMetadata::VariableOrAttribute(_, symbol_kind) => {
-                symbol_kind.as_ref().copied()
-            }
+            DefinitionMetadata::VariableOrAttribute(symbol_kind) => symbol_kind.as_ref().copied(),
         }
     }
 }
@@ -1246,9 +1244,8 @@ impl<'a> Transaction<'a> {
             },
         ) = self.find_export_for_key(handle, &def_key, preference)?;
         let module_info = self.get_module_info(&handle)?;
-        let name = Name::new(module_info.code_at(location));
         Some(FindDefinitionItemWithDocstring {
-            metadata: DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
+            metadata: DefinitionMetadata::VariableOrAttribute(symbol_kind),
             definition_range: location,
             module: module_info,
             docstring_range,
@@ -1296,7 +1293,7 @@ impl<'a> Transaction<'a> {
                     preference,
                 )?;
                 Some(FindDefinitionItemWithDocstring {
-                    metadata: DefinitionMetadata::Attribute(x.name),
+                    metadata: DefinitionMetadata::Attribute,
                     definition_range: definition.range,
                     module: definition.module,
                     docstring_range,
@@ -1570,7 +1567,7 @@ impl<'a> Transaction<'a> {
                 context: IdentifierContext::MethodDef { docstring_range },
             }) => self.get_module_info(handle).map_or(vec![], |module| {
                 vec![FindDefinitionItemWithDocstring {
-                    metadata: DefinitionMetadata::Attribute(identifier.id().clone()),
+                    metadata: DefinitionMetadata::Attribute,
                     module,
                     definition_range: identifier.range,
                     docstring_range,
@@ -1900,27 +1897,35 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         definition_metadata: DefinitionMetadata,
+        definition_name: &Name,
         definition_range: TextRange,
     ) -> Option<Vec<TextRange>> {
         let mut references = match definition_metadata {
-            DefinitionMetadata::Attribute(expected_name) => self
-                .local_attribute_references_from_local_definition(
-                    handle,
-                    definition_range,
-                    &expected_name,
-                ),
+            DefinitionMetadata::Attribute => self.local_attribute_references_from_local_definition(
+                handle,
+                definition_range,
+                definition_name,
+            ),
             DefinitionMetadata::Module => Vec::new(),
             DefinitionMetadata::Variable(_) => self
-                .local_variable_references_from_local_definition(handle, definition_range)
+                .local_variable_references_from_local_definition(
+                    handle,
+                    definition_range,
+                    definition_name,
+                )
                 .unwrap_or_default(),
-            DefinitionMetadata::VariableOrAttribute(expected_name, _) => [
+            DefinitionMetadata::VariableOrAttribute(_) => [
                 self.local_attribute_references_from_local_definition(
                     handle,
                     definition_range,
-                    &expected_name,
+                    definition_name,
                 ),
-                self.local_variable_references_from_local_definition(handle, definition_range)
-                    .unwrap_or_default(),
+                self.local_variable_references_from_local_definition(
+                    handle,
+                    definition_range,
+                    definition_name,
+                )
+                .unwrap_or_default(),
             ]
             .concat(),
         };
@@ -1938,9 +1943,11 @@ impl<'a> Transaction<'a> {
         let mut references = if handle.path() != module.path() {
             self.local_references_from_external_definition(handle, definition_range, module)?
         } else {
+            let definition_name = Name::new(module.code_at(definition_range));
             self.local_references_from_local_definition(
                 handle,
                 definition_metadata,
+                &definition_name,
                 definition_range,
             )?
         };
@@ -2016,20 +2023,21 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         definition_range: TextRange,
+        expected_name: &Name,
     ) -> Option<Vec<TextRange>> {
         let mut references = Vec::new();
         if let Some(mod_module) = self.get_ast(handle) {
             let is_valid_use = |x: &ExprName| {
-                // NOTE(grievejia): If we have the actual identifier name corresponding to `definition_range`,
-                // we could use that to optimize the walk further by filtering out uses whose names don't match the definition.
-                if let Some((def_handle, Export { location, .. })) = self.find_export_for_key(
-                    handle,
-                    &Key::BoundName(ShortIdentifier::expr_name(x)),
-                    &FindPreference {
-                        jump_through_renamed_import: false,
-                        prefer_pyi: false,
-                    },
-                ) && def_handle.path() == handle.path()
+                if x.id() == expected_name
+                    && let Some((def_handle, Export { location, .. })) = self.find_export_for_key(
+                        handle,
+                        &Key::BoundName(ShortIdentifier::expr_name(x)),
+                        &FindPreference {
+                            jump_through_renamed_import: false,
+                            prefer_pyi: false,
+                        },
+                    )
+                    && def_handle.path() == handle.path()
                     && location == definition_range
                 {
                     true
@@ -2681,10 +2689,7 @@ impl<'a> Transaction<'a> {
         if let Key::Definition(id) = bindings.idx_to_key(idx)
             && let Some(module_info) = self.get_module_info(handle)
         {
-            let definition_kind = DefinitionMetadata::VariableOrAttribute(
-                Name::from(module_info.code_at(id.range())),
-                None,
-            );
+            let definition_kind = DefinitionMetadata::VariableOrAttribute(None);
             if let Ok(references) = transaction.find_global_references_from_definition(
                 handle.sys_info(),
                 definition_kind,
