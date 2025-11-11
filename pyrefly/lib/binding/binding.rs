@@ -15,6 +15,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
@@ -1009,6 +1010,7 @@ pub struct BindingUndecoratedFunction {
     pub class_key: Option<Idx<KeyClass>>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
+    pub module_style: ModuleStyle,
 }
 
 impl DisplayWith<Bindings> for BindingUndecoratedFunction {

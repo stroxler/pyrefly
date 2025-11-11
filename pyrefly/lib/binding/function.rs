@@ -665,7 +665,6 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.pop();
         self.scopes
             .record_self_assignments_if_applicable(self_assignments);
-
         let undecorated_idx = self.insert_binding_idx(
             undecorated_idx,
             BindingUndecoratedFunction {
@@ -674,6 +673,7 @@ impl<'a> BindingsBuilder<'a> {
                 class_key,
                 decorators: decorators.decorators,
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
+                module_style: self.module_info.path().style(),
             },
         );
 

@@ -1106,6 +1106,13 @@ impl Type {
         self.check_toplevel_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
     }
 
+    /// If a Protocol method lacks an implementation and does not come from a `.pyi` file, then it cannot be called
+    pub fn is_non_callable_protocol_method(&self) -> bool {
+        self.check_toplevel_func_metadata(&|meta| {
+            meta.flags.lacks_implementation && !meta.flags.defined_in_stub_file
+        })
+    }
+
     /// Transforms this type's function metadata, if it is a function. Note that we do *not*
     /// recurse into the type to find nested function types.
     pub fn transform_toplevel_func_metadata(&mut self, mut f: impl FnMut(&mut FuncMetadata)) {

@@ -564,6 +564,12 @@ impl ClassField {
         }
     }
 
+    fn is_non_callable_protocol_method(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Simple { ty, .. } => ty.is_non_callable_protocol_method(),
+        }
+    }
+
     pub fn is_foreign_key(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { is_foreign_key, .. } => *is_foreign_key,
@@ -2557,13 +2563,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             SuperObj::Instance(obj) => self
                 .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
                 .map(|member| {
-                    self.as_instance_attribute(&member.value, &Instance::of_self_type(obj))
+                    if let Some(reason) = self.super_method_needs_impl_reason(&member) {
+                        ClassAttribute::no_access(reason)
+                    } else {
+                        self.as_instance_attribute(&member.value, &Instance::of_self_type(obj))
+                    }
                 }),
             SuperObj::Class(obj) => self
                 .get_super_class_member(obj.class_object(), Some(start_lookup_cls), name)
                 .map(|member| {
-                    self.as_class_attribute(&member.value, &ClassBase::SelfType(obj.clone()))
+                    if let Some(reason) = self.super_method_needs_impl_reason(&member) {
+                        ClassAttribute::no_access(reason)
+                    } else {
+                        self.as_class_attribute(&member.value, &ClassBase::SelfType(obj.clone()))
+                    }
                 }),
+        }
+    }
+
+    fn super_method_needs_impl_reason(
+        &self,
+        member: &WithDefiningClass<Arc<ClassField>>,
+    ) -> Option<NoAccessReason> {
+        if member.value.is_abstract() {
+            return Some(NoAccessReason::SuperMethodNeedsImplementation(
+                member.defining_class.dupe(),
+            ));
+        }
+        let metadata = self.get_metadata_for_class(&member.defining_class);
+        if metadata.is_protocol() && member.value.is_non_callable_protocol_method() {
+            Some(NoAccessReason::SuperMethodNeedsImplementation(
+                member.defining_class.dupe(),
+            ))
+        } else {
+            None
         }
     }
 
