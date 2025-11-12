@@ -724,10 +724,10 @@ impl FunctionKind {
             ("typing", None, "assert_type") => Self::AssertType,
             ("typing", None, "reveal_type") => Self::RevealType,
             ("typing", None, "final") => Self::Final,
-            ("typing", None, "runtime_checkable") => Self::RuntimeCheckable,
-            ("typing", None, "dataclass_transform") => Self::DataclassTransform,
-            ("typing_extensions", None, "dataclass_transform") => Self::DataclassTransform,
-            ("typing_extensions", None, "runtime_checkable") => Self::RuntimeCheckable,
+            ("typing" | "typing_extensions", None, "runtime_checkable") => Self::RuntimeCheckable,
+            ("typing" | "typing_extensions", None, "dataclass_transform") => {
+                Self::DataclassTransform
+            }
             ("abc", None, "abstractmethod") => Self::AbstractMethod,
             ("functools", None, "total_ordering") => Self::TotalOrdering,
             _ => Self::Def(Box::new(FuncId {
