@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -588,14 +589,23 @@ pub fn lsp_loop(
     });
     let mut ide_transaction_manager = TransactionManager::default();
     let mut canceled_requests = HashSet::new();
-    while let Ok((subsequent_mutation, event)) = lsp_queue.recv() {
+    while let Ok((subsequent_mutation, event, queue_time)) = lsp_queue.recv() {
+        let queue_duration = queue_time.elapsed().as_secs_f32();
+        let process_start = Instant::now();
+        let event_description = event.describe();
         match server.process_event(
             &mut ide_transaction_manager,
             &mut canceled_requests,
             subsequent_mutation,
             event,
         )? {
-            ProcessEvent::Continue => {}
+            ProcessEvent::Continue => {
+                let process_duration = process_start.elapsed().as_secs_f32();
+                info!(
+                    "Language server processed event `{}` in {:.2}s ({:.2}s waiting)",
+                    event_description, process_duration, queue_duration
+                );
+            }
             ProcessEvent::Exit => break,
         }
     }

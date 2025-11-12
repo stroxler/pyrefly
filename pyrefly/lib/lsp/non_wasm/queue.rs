@@ -63,6 +63,30 @@ pub enum LspEvent {
     Exit,
 }
 
+impl LspEvent {
+    pub fn describe(&self) -> String {
+        match self {
+            Self::RecheckFinished => "RecheckFinished".to_owned(),
+            Self::CancelRequest(_) => "CancelRequest".to_owned(),
+            Self::InvalidateConfigFind => "InvalidateConfigFind".to_owned(),
+            Self::DidOpenTextDocument(_) => "DidOpenTextDocument".to_owned(),
+            Self::DidChangeTextDocument(_) => "DidChangeTextDocument".to_owned(),
+            Self::DidCloseTextDocument(_) => "DidCloseTextDocument".to_owned(),
+            Self::DidSaveTextDocument(_) => "DidSaveTextDocument".to_owned(),
+            Self::DidChangeWatchedFiles(_) => "DidChangeWatchedFiles".to_owned(),
+            Self::DidChangeWorkspaceFolders(_) => "DidChangeWorkspaceFolders".to_owned(),
+            Self::DidChangeConfiguration(_) => "DidChangeConfiguration".to_owned(),
+            Self::DidOpenNotebookDocument(_) => "DidOpenNotebookDocument".to_owned(),
+            Self::DidCloseNotebookDocument(_) => "DidCloseNotebookDocument".to_owned(),
+            Self::DidChangeNotebookDocument(_) => "DidChangeNotebookDocument".to_owned(),
+            Self::DidSaveNotebookDocument(_) => "DidSaveNotebookDocument".to_owned(),
+            Self::LspResponse(_) => "LspResponse".to_owned(),
+            Self::LspRequest(request) => format!("LspRequest({})", request.method,),
+            Self::Exit => "Exit".to_owned(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LspEventKind {
     Priority,
@@ -102,8 +126,14 @@ struct LspQueueInner {
     id: AtomicUsize,
     /// The index of the last event we are aware of that is a mutation. 0 = unknown.
     last_mutation: AtomicUsize,
-    normal: (Sender<(usize, LspEvent)>, Receiver<(usize, LspEvent)>),
-    priority: (Sender<(usize, LspEvent)>, Receiver<(usize, LspEvent)>),
+    normal: (
+        Sender<(usize, LspEvent, Instant)>,
+        Receiver<(usize, LspEvent, Instant)>,
+    ),
+    priority: (
+        Sender<(usize, LspEvent, Instant)>,
+        Receiver<(usize, LspEvent, Instant)>,
+    ),
 }
 
 impl LspQueue {
@@ -129,10 +159,14 @@ impl LspQueue {
             self.0
                 .priority
                 .0
-                .send((id, x))
+                .send((id, x, Instant::now()))
                 .map_err(|x| SendError(x.0.1))
         } else {
-            self.0.normal.0.send((id, x)).map_err(|x| SendError(x.0.1))
+            self.0
+                .normal
+                .0
+                .send((id, x, Instant::now()))
+                .map_err(|x| SendError(x.0.1))
         }
     }
 
@@ -141,7 +175,7 @@ impl LspQueue {
     ///
     /// Due to race conditions, we might say false when there is a subsequent mutation,
     /// but we will never say true when there is not.
-    pub fn recv(&self) -> Result<(bool, LspEvent), RecvError> {
+    pub fn recv(&self) -> Result<(bool, LspEvent, Instant), RecvError> {
         let mut event_receiver_selector = Select::new_biased();
         // Biased selector will pick the receiver with lower index over higher ones,
         // so we register priority_events_receiver first.
@@ -149,7 +183,7 @@ impl LspQueue {
         let queued_events_receiver_index = event_receiver_selector.recv(&self.0.normal.1);
 
         let selected = event_receiver_selector.select();
-        let (id, x) = match selected.index() {
+        let (id, x, queue_time) = match selected.index() {
             i if i == priority_receiver_index => selected.recv(&self.0.priority.1)?,
             i if i == queued_events_receiver_index => selected.recv(&self.0.normal.1)?,
             _ => unreachable!(),
@@ -159,7 +193,7 @@ impl LspQueue {
             self.0.last_mutation.store(0, Ordering::Relaxed);
             last_mutation = 0;
         }
-        Ok((last_mutation != 0, x))
+        Ok((last_mutation != 0, x, queue_time))
     }
 }
 
