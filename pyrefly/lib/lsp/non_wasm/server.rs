@@ -1862,11 +1862,10 @@ impl Server {
     }
 
     fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        if params.changes.is_empty() {
+        let events = CategorizedEvents::new_lsp(params.changes);
+        if events.is_empty() {
             return;
         }
-
-        let events = CategorizedEvents::new_lsp(params.changes);
         let should_requery_build_system = should_requery_build_system(&events);
 
         // Rewatch files if necessary (config changed, files added/removed, etc.)
