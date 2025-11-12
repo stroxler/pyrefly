@@ -17,6 +17,7 @@ use pyrefly_python::module_path::ModulePathBuf;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
+use pyrefly_util::watch_pattern::WatchPattern;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
@@ -298,16 +299,17 @@ impl SourceDatabase for QuerySourceDatabase {
         Ok(self.update_with_target_manifest(raw_db))
     }
 
-    fn get_critical_files(&self) -> SmallSet<PathBuf> {
+    fn get_paths_to_watch(&self) -> SmallSet<WatchPattern<'_>> {
         let read = self.inner.read();
         read.db
             .values()
-            .map(|m| m.buildfile_path.to_path_buf())
-            .chain(
-                read.db
+            .map(|m| WatchPattern::file(m.buildfile_path.to_path_buf()))
+            .chain(read.db.values().flat_map(|m| {
+                m.srcs
                     .values()
-                    .flat_map(|m| m.srcs.values().flatten().map(|p| p.to_path_buf())),
-            )
+                    .flatten()
+                    .map(|p| WatchPattern::file(p.to_path_buf()))
+            }))
             .collect()
     }
 

@@ -33,6 +33,7 @@ use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::watch_pattern::WatchPattern;
 use ruff_text_size::TextSize;
 use serde::Deserialize;
 use serde::Serialize;
@@ -94,10 +95,10 @@ impl SourceDatabase for PlaygroundSourceDatabase {
         Ok(false)
     }
 
-    fn get_critical_files(&self) -> SmallSet<PathBuf> {
+    fn get_paths_to_watch(&self) -> SmallSet<WatchPattern<'_>> {
         self.module_mappings
             .values()
-            .map(|p| p.as_path().to_path_buf())
+            .map(|p| WatchPattern::file(p.as_path().to_path_buf()))
             .collect()
     }
 

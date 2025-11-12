@@ -865,9 +865,7 @@ impl ConfigFile {
     pub fn get_paths_to_watch(&self) -> Vec<WatchPattern<'_>> {
         let mut result = Vec::new();
         if let Some(source_db) = &self.source_db {
-            for buildfile in source_db.get_critical_files() {
-                result.push(WatchPattern::file(buildfile));
-            }
+            result.extend(source_db.get_paths_to_watch())
         }
         let config_root = self.source.root();
         if let Some(config_root) = config_root {
