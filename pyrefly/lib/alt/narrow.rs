@@ -93,10 +93,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn intersect_impl(&self, left: &Type, right: &Type, fallback: &dyn Fn() -> Type) -> Type {
+        let is_literal =
+            |t: &Type| matches!(t, Type::Literal(_) | Type::LiteralString | Type::None);
         if self.is_subset_eq(right, left) {
             right.clone()
         } else if self.is_subset_eq(left, right) {
             left.clone()
+        } else if is_literal(left) || is_literal(right) {
+            // The only inhabited intersections of literals are things like
+            // `Literal[0] & Literal[0]` or `Literal[0] & int` that would have already been
+            // intercepted by the is_subset_eq checks above. type(None) cannot be subclassed.
+            Type::never()
         } else {
             let left_base = self.disjoint_base(left);
             let right_base = self.disjoint_base(right);

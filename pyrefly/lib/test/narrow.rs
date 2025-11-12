@@ -1815,3 +1815,20 @@ def f(x: int):
         assert_never(x)
     "#,
 );
+
+testcase!(
+    test_literals_are_disjoint,
+    r#"
+from typing import Literal, LiteralString, assert_never
+class A: ...
+def f1(a: None):
+    if isinstance(a, A):
+        assert_never(a)
+def f2(a: Literal[1]):
+    if isinstance(a, A):
+        assert_never(a)
+def f3(a: LiteralString):
+    if isinstance(a, A):
+        assert_never(a)
+    "#,
+);
