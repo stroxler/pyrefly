@@ -91,6 +91,8 @@ fn hover_attribute_prefers_py_docstring_over_pyi() {
                 .and_then(|value| value.as_str())
                 .is_some_and(|value| {
                     value.contains("Docstring coming from the .py implementation.")
+                    // a link to the .pyi file proves that the type is coming from the .pyi
+                        && value.contains("lib.pyi")
                 })
         },
         "hover result should surface the implementation docstring for attributes defined in .py files",
