@@ -1333,10 +1333,10 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         preference: &FindPreference,
         completions: Vec<AttrInfo>,
-        name: &Identifier,
+        name: &Name,
     ) -> Option<FindDefinitionItemWithDocstring> {
         completions.into_iter().find_map(|x| {
-            if &x.name == name.id() {
+            if &x.name == name {
                 let (definition, docstring_range) = self.resolve_attribute_definition(
                     handle,
                     &x.name,
@@ -1361,10 +1361,10 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         preference: &FindPreference,
         base_type: Type,
-        name: &Identifier,
+        name: &Name,
     ) -> Vec<FindDefinitionItemWithDocstring> {
         self.ad_hoc_solve(handle, |solver| {
-            let completions = |ty| solver.completions(ty, Some(name.id()), false);
+            let completions = |ty| solver.completions(ty, Some(name), false);
 
             match base_type {
                 Type::Union(tys) | Type::Intersect(tys) => tys
@@ -1435,22 +1435,20 @@ impl<'a> Transaction<'a> {
             return vec![];
         };
 
-        // Create a fake identifier for the dunder method name
-        let identifier = Identifier {
-            node_index: Default::default(),
-            id: dunder_method_name,
-            range: TextRange::default(),
-        };
-
         // Find the attribute definition for the dunder method on the base type
-        self.find_attribute_definition_for_base_type(handle, preference, base_type, &identifier)
+        self.find_attribute_definition_for_base_type(
+            handle,
+            preference,
+            base_type,
+            &dunder_method_name,
+        )
     }
 
     pub fn find_definition_for_attribute(
         &self,
         handle: &Handle,
         base_range: TextRange,
-        name: &Identifier,
+        name: &Name,
         preference: &FindPreference,
     ) -> Vec<FindDefinitionItemWithDocstring> {
         if let Some(answers) = self.get_answers(handle)
@@ -1554,7 +1552,7 @@ impl<'a> Transaction<'a> {
                 .find_definition_for_name_use(handle, name, preference)
                 .map_or(vec![], |item| vec![item]),
             CalleeKind::Method(base_range, name) => {
-                self.find_definition_for_attribute(handle, *base_range, name, preference)
+                self.find_definition_for_attribute(handle, *base_range, name.id(), preference)
             }
             CalleeKind::Unknown => vec![],
         };
@@ -1704,7 +1702,9 @@ impl<'a> Transaction<'a> {
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
-            }) => self.find_definition_for_attribute(handle, base_range, &identifier, preference),
+            }) => {
+                self.find_definition_for_attribute(handle, base_range, identifier.id(), preference)
+            }
             None => self.find_definition_for_operator(handle, &covering_nodes, preference),
         }
     }

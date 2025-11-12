@@ -2292,6 +2292,28 @@ def foo(obj: Token):
 );
 
 call_graph_testcase!(
+    test_getattr_on_methods,
+    TEST_MODULE_NAME,
+    r#"
+class Token:
+  def token(self) -> None: ...
+def foo(obj: Token):
+  getattr(obj, "token", None)()
+"#,
+    &|context: &ModuleContext| {
+        let token = vec![
+            create_call_target("test.Token.token", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Token", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![("5:3-5:30", regular_attribute_access_callees(token))],
+        )]
+    }
+);
+
+call_graph_testcase!(
     test_explicit_dunder_setattr_call,
     TEST_MODULE_NAME,
     r#"
