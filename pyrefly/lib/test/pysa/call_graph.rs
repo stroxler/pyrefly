@@ -1561,8 +1561,7 @@ class Permission(Enum):
                         len,
                         /* init_targets */ vec![],
                         /* new_targets */ vec![],
-                        /* higher_order_parameters */
-                        vec![(0, enum_value.clone(), Unresolved::False)],
+                        /* higher_order_parameters */ vec![],
                         /* unresolved */ Unresolved::False,
                     ),
                 ),

@@ -24,7 +24,6 @@ use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::ArgOrKeyword;
-use ruff_python_ast::Arguments;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -1799,10 +1798,14 @@ impl<'a> CallGraphVisitor<'a> {
 
     fn resolve_higher_order_parameters(
         &self,
-        call_arguments: &Arguments,
+        call_arguments: Option<&ruff_python_ast::Arguments>,
     ) -> HashMap<u32, HigherOrderParameter<FunctionRef>> {
+        if call_arguments.is_none() {
+            return HashMap::new();
+        }
         // TODO: Filter the results with `filter_implicit_dunder_calls`
         call_arguments
+            .unwrap()
             .arguments_source_order()
             .enumerate()
             .filter_map(|(index, argument)| {
@@ -1821,11 +1824,21 @@ impl<'a> CallGraphVisitor<'a> {
                         },
                     )),
                     _ => {
-                        self.resolve_expression(
-                            argument, /* parent_expression */ None,
+                        self.resolve_call(
+                            /* callee */ argument,
+                            /* return_type */
+                            Some(
+                                self.get_return_type_for_callee(
+                                    self.module_context
+                                        .answers
+                                        .get_type_trace(argument.range())
+                                        .as_ref(),
+                                ),
+                            ),
+                            /* arguments */ None,
                             /* assignment_targets */ None,
                         )
-                        .map(|callees| {
+                        .and_then(|callees| {
                             let (call_targets, unresolved) = match callees {
                                 ExpressionCallees::Call(callees) => {
                                     (callees.call_targets, callees.unresolved)
@@ -1844,14 +1857,18 @@ impl<'a> CallGraphVisitor<'a> {
                                 }
                                 ExpressionCallees::Define(_) => unreachable!(),
                             };
-                            (
-                                index,
-                                HigherOrderParameter {
+                            if call_targets.is_empty() {
+                                None
+                            } else {
+                                Some((
                                     index,
-                                    call_targets,
-                                    unresolved,
-                                },
-                            )
+                                    HigherOrderParameter {
+                                        index,
+                                        call_targets,
+                                        unresolved,
+                                    },
+                                ))
+                            }
                         })
                     }
                 }
@@ -1862,22 +1879,18 @@ impl<'a> CallGraphVisitor<'a> {
 
     fn resolve_call(
         &self,
-        call: &ExprCall,
+        callee: &Expr,
+        return_type: Option<ScalarTypeProperties>,
+        arguments: Option<&ruff_python_ast::Arguments>,
         assignment_targets: Option<&Vec<&Expr>>,
     ) -> Option<ExpressionCallees<FunctionRef>> {
-        let return_type = self
-            .module_context
-            .answers
-            .get_type_trace(call.range())
-            .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+        let higher_order_parameters = self.resolve_higher_order_parameters(arguments);
 
-        let higher_order_parameters = self.resolve_higher_order_parameters(&call.arguments);
-
-        let mut callees = match &*call.func {
+        let mut callees = match callee {
             Expr::Name(name) => {
                 if name.id == "getattr" {
-                    let base = call.arguments.find_positional(0);
-                    let attribute = call.arguments.find_positional(1);
+                    let base = arguments.and_then(|arguments| arguments.find_positional(0));
+                    let attribute = arguments.and_then(|arguments| arguments.find_positional(1));
                     match (base, attribute) {
                         (Some(base), Some(Expr::StringLiteral(attribute))) => {
                             return self
@@ -1896,11 +1909,12 @@ impl<'a> CallGraphVisitor<'a> {
                     };
                 }
 
-                let callees = self.resolve_name(name, Some(&call.arguments), return_type);
+                let callees = self.resolve_name(name, arguments, return_type);
                 debug_println!(
                     self.debug,
-                    "Resolved call `{:#?}` into `{:#?}`",
-                    call,
+                    "Resolved call `{:#?}` with arguments `{:#?}` into `{:#?}`",
+                    callee,
+                    arguments,
                     callees
                 );
                 callees.map(|callees| ExpressionCallees::Call(callees.if_called))
@@ -1923,7 +1937,7 @@ impl<'a> CallGraphVisitor<'a> {
                 debug_println!(
                     self.debug,
                     "Resolved call `{:#?}` into `{:#?}`",
-                    call,
+                    callee,
                     callees
                 );
                 callees.map(|callees| ExpressionCallees::Call(callees.if_called))
@@ -1974,7 +1988,16 @@ impl<'a> CallGraphVisitor<'a> {
         match expr {
             Expr::Call(call) => {
                 debug_println!(self.debug, "Resolving callees for call `{:#?}`", expr);
-                self.resolve_call(call, assignment_targets)
+                self.resolve_call(
+                    /* callee */ &call.func,
+                    /* return_type */
+                    self.module_context
+                        .answers
+                        .get_type_trace(call.range())
+                        .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context)),
+                    /* arguments */ Some(&call.arguments),
+                    assignment_targets,
+                )
             }
             Expr::Name(name) if !is_nested_callee_or_base => {
                 debug_println!(self.debug, "Resolving callees for name `{:#?}`", expr);
@@ -2183,7 +2206,16 @@ fn resolve_call(
         override_graph,
     };
     visitor
-        .resolve_call(call, /* assignment_targets */ None)
+        .resolve_call(
+            /* callee */ &call.func,
+            /* return_type */
+            module_context
+                .answers
+                .get_type_trace(call.range())
+                .map(|type_| ScalarTypeProperties::from_type(&type_, module_context)),
+            /* arguments */ Some(&call.arguments),
+            /* assignment_targets */ None,
+        )
         .map(|callees| callees.all_targets().cloned().collect())
         .unwrap_or_default()
 }
