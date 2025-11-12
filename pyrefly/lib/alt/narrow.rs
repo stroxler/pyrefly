@@ -7,6 +7,7 @@
 
 use num_traits::ToPrimitive;
 use pyrefly_python::ast::Ast;
+use pyrefly_types::class::Class;
 use pyrefly_types::type_info::JoinStyle;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
@@ -77,13 +78,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
+    fn disjoint_base<'b>(&'b self, t: &'b Type) -> &'b Class {
+        // TODO: Implement the full disjoint base spec: https://peps.python.org/pep-0800/#specification.
+        match t {
+            Type::ClassType(cls)
+                if let cls = cls.class_object()
+                    && self.get_metadata_for_class(cls).is_disjoint_base() =>
+            {
+                cls
+            }
+            Type::Tuple(_) => self.stdlib.tuple_object(),
+            _ => self.stdlib.object().class_object(),
+        }
+    }
+
     fn intersect_impl(&self, left: &Type, right: &Type, fallback: &dyn Fn() -> Type) -> Type {
         if self.is_subset_eq(right, left) {
             right.clone()
         } else if self.is_subset_eq(left, right) {
             left.clone()
         } else {
-            fallback()
+            let left_base = self.disjoint_base(left);
+            let right_base = self.disjoint_base(right);
+            if self.has_superclass(left_base, right_base)
+                || self.has_superclass(right_base, left_base)
+            {
+                fallback()
+            } else {
+                // A common subclass of these two classes cannot exist.
+                Type::never()
+            }
         }
     }
 

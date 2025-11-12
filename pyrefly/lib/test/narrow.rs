@@ -1804,3 +1804,14 @@ assert issubclass(list, object)
 x: list[int] = [1]
     "#,
 );
+
+testcase!(
+    test_disjoint_bases,
+    r#"
+from typing import assert_never
+def f(x: int):
+    if isinstance(x, str):
+        # `int` and `str` are disjoint bases that cannot be multiply inherited from by the same class.
+        assert_never(x)
+    "#,
+);
