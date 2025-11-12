@@ -2672,7 +2672,18 @@ impl Server {
                     pattern,
                 })
             }
+            WatchPattern::OwnedRoot(root, pattern)
+                if relative_pattern_support && let Ok(url) = Url::from_directory_path(&root) =>
+            {
+                GlobPattern::Relative(RelativePattern {
+                    base_uri: OneOf::Right(url),
+                    pattern,
+                })
+            }
             WatchPattern::Root(root, pattern) => {
+                GlobPattern::String(root.join(pattern).to_string_lossy().into_owned())
+            }
+            WatchPattern::OwnedRoot(root, pattern) => {
                 GlobPattern::String(root.join(pattern).to_string_lossy().into_owned())
             }
         }
