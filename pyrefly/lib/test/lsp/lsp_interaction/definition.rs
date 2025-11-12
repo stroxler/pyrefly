@@ -170,9 +170,8 @@ fn definition_in_builtins() {
     );
 }
 
-// todo(kylei): definition of an attribute of a pyi should still point to py
 #[test]
-fn definition_on_attr_of_pyi() {
+fn definition_on_attr_of_pyi_goes_to_py() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
@@ -184,7 +183,7 @@ fn definition_on_attr_of_pyi() {
     interaction.server.definition(file, 7, 4);
     interaction
         .client
-        .expect_definition_response_from_root("attributes_of_py/lib.pyi", 6, 8, 6, 9);
+        .expect_definition_response_from_root("attributes_of_py/lib.py", 7, 8, 7, 9);
     interaction.shutdown();
 }
 

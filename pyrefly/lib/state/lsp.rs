@@ -34,6 +34,7 @@ use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
+use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
@@ -79,6 +80,7 @@ use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::import_regular_import_edit;
 use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
+use crate::state::lsp_attributes::AttributeContext;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokenBuilder;
 use crate::state::semantic_tokens::SemanticTokensLegends;
@@ -1154,6 +1156,19 @@ impl<'a> Transaction<'a> {
     ) -> Option<(TextRangeWithModule, Option<TextRange>)> {
         match definition {
             AttrDefinition::FullyResolved(text_range_with_module_info) => {
+                // If prefer_pyi is false and the current module is a .pyi file,
+                // try to find the corresponding .py file
+                if !preference.prefer_pyi
+                    && text_range_with_module_info.module.path().is_interface()
+                    && let Some((exec_module, exec_range)) = self
+                        .search_corresponding_py_module_for_attribute(
+                            handle,
+                            attr_name,
+                            &text_range_with_module_info,
+                        )
+                {
+                    return Some((TextRangeWithModule::new(exec_module, exec_range), None));
+                }
                 Some((text_range_with_module_info, docstring_range))
             }
             AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {
@@ -1166,6 +1181,39 @@ impl<'a> Transaction<'a> {
                 ))
             }
         }
+    }
+
+    /// Find the .py definition for a corresponding .pyi definition by importing
+    /// and parsing the AST, looking for classes/functions.
+    fn search_corresponding_py_module_for_attribute(
+        &self,
+        request_handle: &Handle,
+        attr_name: &Name,
+        pyi_definition: &TextRangeWithModule,
+    ) -> Option<(Module, TextRange)> {
+        let context = AttributeContext::from_module(&pyi_definition.module, pyi_definition.range)?;
+        let executable_handle = self
+            .import_handle_prefer_executable(request_handle, pyi_definition.module.name(), None)
+            .finding()?;
+        if executable_handle.path().style() != ModuleStyle::Executable {
+            return None;
+        }
+        let _ = self.get_exports(&executable_handle);
+        let executable_module = self.get_module_info(&executable_handle)?;
+        let ast = self.get_ast(&executable_handle).unwrap_or_else(|| {
+            Ast::parse(
+                executable_module.contents(),
+                executable_module.source_type(),
+            )
+            .0
+            .into()
+        });
+        let def_range = crate::state::lsp_attributes::definition_from_executable_ast(
+            ast.as_ref(),
+            &context,
+            attr_name,
+        )?;
+        Some((executable_module, def_range))
     }
 
     fn key_to_export(
