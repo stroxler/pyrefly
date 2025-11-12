@@ -59,6 +59,37 @@ fn test_go_to_def(
     }
 }
 
+#[test]
+fn definition_on_attr_of_pyi_assignment_goes_to_py() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        ..Default::default()
+    });
+    let file = "attributes_of_py/src_with_assignments.py";
+    interaction.server.did_open(file);
+    // Test annotated assignment (x: int = 100)
+    interaction.server.definition(file, 7, 8);
+    interaction.client.expect_definition_response_from_root(
+        "attributes_of_py/lib_with_assignments.py",
+        7,
+        4,
+        7,
+        5,
+    );
+    // Test regular assignment (y = "world")
+    interaction.server.definition(file, 8, 8);
+    interaction.client.expect_definition_response_from_root(
+        "attributes_of_py/lib_with_assignments.py",
+        8,
+        4,
+        8,
+        5,
+    );
+    interaction.shutdown();
+}
+
 fn test_go_to_def_basic(root: &TempDir, workspace_folders: Option<Vec<(String, Url)>>) {
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().join("basic"));

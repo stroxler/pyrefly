@@ -7,6 +7,7 @@
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module::Module;
+use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_text_size::Ranged;
@@ -16,6 +17,7 @@ use ruff_text_size::TextRange;
 pub(crate) enum AttributeKind {
     Function,
     Class,
+    Assignment,
 }
 
 #[derive(Debug, Clone)]
@@ -60,10 +62,25 @@ impl AttributeContext {
                         kind: AttributeKind::Function,
                     });
                 }
+                Stmt::Assign(_) | Stmt::AnnAssign(_)
+                    if stmt.range().contains_range(target_range) =>
+                {
+                    return Some(AttributeContext {
+                        parent_classes: parents.clone(),
+                        kind: AttributeKind::Assignment,
+                    });
+                }
                 _ => {}
             }
         }
         None
+    }
+}
+
+pub(crate) fn expr_matches_name(expr: &Expr, attr_name: &ruff_python_ast::name::Name) -> bool {
+    match expr {
+        Expr::Name(name) => &name.id == attr_name,
+        _ => false,
     }
 }
 
@@ -83,6 +100,7 @@ pub(crate) fn definition_from_executable_ast(
     match context.kind {
         AttributeKind::Function => definition_from_function(body, attr_name),
         AttributeKind::Class => definition_from_class(body, attr_name),
+        AttributeKind::Assignment => definition_from_assignment(body, attr_name),
     }
 }
 
@@ -109,6 +127,29 @@ fn definition_from_class(
             && &class_def.name.id == attr_name
         {
             return Some(class_def.name.range);
+        }
+    }
+    None
+}
+
+fn definition_from_assignment(
+    body: &[Stmt],
+    attr_name: &ruff_python_ast::name::Name,
+) -> Option<TextRange> {
+    for stmt in body {
+        let def_range = match stmt {
+            Stmt::Assign(assign) => assign
+                .targets
+                .iter()
+                .find(|target| expr_matches_name(target, attr_name))
+                .map(|t| t.range()),
+            Stmt::AnnAssign(assign) if expr_matches_name(assign.target.as_ref(), attr_name) => {
+                Some(assign.target.range())
+            }
+            _ => None,
+        };
+        if let Some(range) = def_range {
+            return Some(range);
         }
     }
     None

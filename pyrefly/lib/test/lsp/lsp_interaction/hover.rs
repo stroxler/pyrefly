@@ -40,6 +40,35 @@ fn test_hover_basic() {
 }
 
 #[test]
+fn hover_on_attr_of_pyi_assignment_shows_pyi_type() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        ..Default::default()
+    });
+    let file = "attributes_of_py/src_with_assignments.py";
+    interaction.server.did_open(file);
+
+    interaction.server.hover(file, 8, 8);
+    interaction.client.expect_response_with(
+        |response| {
+            if let Some(result) = &response.result
+                && let Some(contents) = result.get("contents")
+                && let Some(value) = contents.get("value")
+                && let Some(value_str) = value.as_str()
+            {
+                return value_str.contains("y: int");
+            }
+            false
+        },
+        "Expected hover response containing 'y: int'",
+    );
+
+    interaction.shutdown();
+}
+
+#[test]
 fn test_hover_import() {
     let root = get_test_files_root();
     let mut interaction = LspInteraction::new();
