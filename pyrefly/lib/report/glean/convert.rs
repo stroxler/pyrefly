@@ -469,13 +469,6 @@ impl GleanState<'_> {
         self.record_name_with_position(join_names(&scope, name), name.range.start())
     }
 
-    fn make_fq_names_for_expr(&self, expr: &Expr) -> Vec<python::Name> {
-        self.fq_names_for_name_or_attr(expr)
-            .into_iter()
-            .map(python::Name::new)
-            .collect()
-    }
-
     fn fq_name_for_xref_definition(
         &self,
         def_range: TextRange,
@@ -500,8 +493,9 @@ impl GleanState<'_> {
         }
     }
 
-    fn fq_names_for_name_or_attr(&self, expr: &Expr) -> Vec<String> {
+    fn fq_names_for_expr(&self, expr: &Expr) -> Vec<String> {
         match expr {
+            Expr::Subscript(expr_subscript) => self.fq_names_for_expr(&expr_subscript.value),
             Expr::Attribute(attr) => self.fq_names_for_attribute(attr),
             Expr::Name(name) => self.fq_name_for_expr_name(name).map_or(vec![], |x| vec![x]),
             _ => vec![],
@@ -598,7 +592,7 @@ impl GleanState<'_> {
         };
 
         if base_types.is_empty() {
-            let base_fq_names = self.fq_names_for_name_or_attr(base_expr);
+            let base_fq_names = self.fq_names_for_expr(base_expr);
             base_fq_names
                 .into_iter()
                 .map(|base| join_names(&base, name))
@@ -638,8 +632,11 @@ impl GleanState<'_> {
             arguments
                 .args
                 .iter()
-                .flat_map(|expr| self.fq_names_for_name_or_attr(expr))
-                .map(|name| python::ClassDeclaration::new(python::Name::new(name), None))
+                .flat_map(|expr| {
+                    self.fq_names_for_expr(expr)
+                        .into_iter()
+                        .map(|name| python::ClassDeclaration::new(python::Name::new(name), None))
+                })
                 .collect()
         } else {
             vec![]
@@ -1207,12 +1204,12 @@ impl GleanState<'_> {
 
     fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &python::FunctionDeclaration) {
         let caller_fact = &caller.key.name;
-        let callee_names = self.make_fq_names_for_expr(call.func.as_ref());
-        for callee_fact in callee_names {
+        let callee_names = self.fq_names_for_expr(call.func.as_ref());
+        for callee_name in callee_names {
             self.facts
                 .callee_to_callers
                 .push(python::CalleeToCaller::new(
-                    callee_fact,
+                    python::Name::new(callee_name),
                     caller_fact.clone(),
                 ));
         }

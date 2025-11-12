@@ -889,47 +889,6 @@
             "cls": {
               "id": 0,
               "key": {
-                "bases": [],
-                "container": {
-                  "module": {
-                    "id": 0,
-                    "key": {
-                      "name": {
-                        "id": 0,
-                        "key": "classes"
-                      }
-                    }
-                  }
-                },
-                "declaration": {
-                  "id": 0,
-                  "key": {
-                    "name": {
-                      "id": 0,
-                      "key": "classes.Animal"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "file": {
-            "id": 0,
-            "key": "classes.py"
-          },
-          "span": {
-            "length": 165,
-            "start": 41
-          }
-        }
-      },
-      {
-        "id": 0,
-        "key": {
-          "definition": {
-            "cls": {
-              "id": 0,
-              "key": {
                 "bases": [
                   {
                     "id": 0,
@@ -971,6 +930,57 @@
           "span": {
             "length": 82,
             "start": 208
+          }
+        }
+      },
+      {
+        "id": 0,
+        "key": {
+          "definition": {
+            "cls": {
+              "id": 0,
+              "key": {
+                "bases": [
+                  {
+                    "id": 0,
+                    "key": {
+                      "name": {
+                        "id": 0,
+                        "key": "typing.Generic"
+                      }
+                    }
+                  }
+                ],
+                "container": {
+                  "module": {
+                    "id": 0,
+                    "key": {
+                      "name": {
+                        "id": 0,
+                        "key": "classes"
+                      }
+                    }
+                  }
+                },
+                "declaration": {
+                  "id": 0,
+                  "key": {
+                    "name": {
+                      "id": 0,
+                      "key": "classes.Animal"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "file": {
+            "id": 0,
+            "key": "classes.py"
+          },
+          "span": {
+            "length": 165,
+            "start": 41
           }
         }
       },
