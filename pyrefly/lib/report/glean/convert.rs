@@ -599,7 +599,10 @@ impl GleanState<'_> {
 
         if base_types.is_empty() {
             let base_fq_names = self.fq_names_for_name_or_attr(base_expr);
-            base_fq_names.into_iter().map(|base| base + name).collect()
+            base_fq_names
+                .into_iter()
+                .map(|base| join_names(&base, name))
+                .collect()
         } else {
             base_types
                 .into_iter()
