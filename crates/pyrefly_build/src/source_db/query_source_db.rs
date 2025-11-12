@@ -415,6 +415,10 @@ mod tests {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             ModulePathBuf::new(root.join("implicit_package/test/deeply/nested/package/file.py")) =>
                 Target::from_string("//implicit_package/test:lib".to_owned()),
+            ModulePathBuf::new(PathBuf::from("/path/to/another/repository/package/external_package/main.py")) =>
+                Target::from_string("//external:package".to_owned()),
+            ModulePathBuf::new(PathBuf::from("/path/to/another/repository/package/external_package/non_python_file.thrift")) =>
+                Target::from_string("//external:package".to_owned()),
         };
 
         assert_eq!(expected, path_lookup);
@@ -457,6 +461,9 @@ mod tests {
             ModulePathBuf::new(root.join("implicit_package/test/deeply")) => smallset! {
                 Target::from_string("//implicit_package/test:lib".to_owned()),
             },
+            ModulePathBuf::new(PathBuf::from("/path/to/another/repository/package/external_package")) => smallset! {
+                Target::from_string("//external:package".to_owned()),
+            }
         };
         assert_eq!(path_lookup, expected);
     }
@@ -745,5 +752,33 @@ mod tests {
             },
         };
         assert_eq!(inner.package_lookup, expected_package_lookup);
+    }
+
+    #[test]
+    fn test_get_paths_to_watch() {
+        let (db, root) = get_db();
+
+        let expected = smallset! {
+            WatchPattern::file(root.join("pyre/client/log/__init__.py")),
+            WatchPattern::file(root.join("pyre/client/log/log.py")),
+            WatchPattern::file(root.join("pyre/client/log/log.pyi")),
+            WatchPattern::file(root.join("pyre/client/log/format.py")),
+            WatchPattern::file(root.join("pyre/client/log/BUCK")),
+            WatchPattern::file(root.join("implicit_package/test/main.py")),
+            WatchPattern::file(root.join("implicit_package/test/lib/utils.py")),
+            WatchPattern::file(root.join("implicit_package/test/deeply/nested/package/file.py")),
+            WatchPattern::file(root.join("implicit_package/package_boundary_violation.py")),
+            WatchPattern::file(root.join("implicit_package/test/BUCK")),
+            WatchPattern::file(PathBuf::from("/path/to/another/repository/package/external_package/main.py")),
+            WatchPattern::file(PathBuf::from("/path/to/another/repository/package/external_package/non_python_file.thrift")),
+            WatchPattern::file(PathBuf::from("/path/to/another/repository/package/BUCK")),
+            WatchPattern::file(root.join("click/__init__.pyi")),
+            WatchPattern::file(root.join("click/__init__.py")),
+            WatchPattern::file(root.join("click/BUCK")),
+            WatchPattern::file(root.join("colorama/__init__.py")),
+            WatchPattern::file(root.join("colorama/__init__.pyi")),
+            WatchPattern::file(root.join("colorama/BUCK")),
+        };
+        assert_eq!(db.get_paths_to_watch(), expected,);
     }
 }
