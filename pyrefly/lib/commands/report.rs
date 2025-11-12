@@ -12,6 +12,7 @@ use dupe::Dupe;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::includes::Includes;
+use regex::Regex;
 use ruff_python_ast::Parameters;
 use ruff_text_size::Ranged;
 use serde::Serialize;
@@ -47,6 +48,14 @@ struct Parameter {
     location: Location,
 }
 
+/// Suppression information
+#[derive(Debug, Serialize)]
+struct Suppression {
+    kind: String,
+    codes: Vec<String>,
+    location: Location,
+}
+
 /// Function information
 #[derive(Debug, Serialize)]
 struct Function {
@@ -61,6 +70,7 @@ struct Function {
 struct FileReport {
     line_count: usize,
     functions: Vec<Function>,
+    suppressions: Vec<Suppression>,
 }
 
 /// Generate reports from pyrefly type checking results.
@@ -98,17 +108,6 @@ impl ReportArgs {
         all_params
     }
 
-    /// Helper to convert a text range to a Location
-    fn range_to_location(
-        module: &pyrefly_python::module::Module,
-        range: ruff_text_size::TextRange,
-    ) -> Location {
-        Location {
-            start: Self::offset_to_position(module, range.start()),
-            end: Self::offset_to_position(module, range.end()),
-        }
-    }
-
     /// Helper to convert byte offset to line and column position
     fn offset_to_position(
         module: &pyrefly_python::module::Module,
@@ -123,6 +122,64 @@ impl ReportArgs {
             line: location.line.get(),
             column: location.character_offset.get(),
         }
+    }
+
+    /// Helper to convert a text range to a Location
+    fn range_to_location(
+        module: &pyrefly_python::module::Module,
+        range: ruff_text_size::TextRange,
+    ) -> Location {
+        Location {
+            start: Self::offset_to_position(module, range.start()),
+            end: Self::offset_to_position(module, range.end()),
+        }
+    }
+
+    /// Helper to parse suppression comments from source code
+    fn parse_suppressions(module: &pyrefly_python::module::Module) -> Vec<Suppression> {
+        let regex = Regex::new(r"#\s*pyrefly:\s*ignore\s*\[([^\]]*)\]").unwrap();
+        let source = module.lined_buffer().contents();
+        let lines: Vec<&str> = source.lines().collect();
+        let mut suppressions = Vec::new();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            if let Some(caps) = regex.captures(line) {
+                let codes: Vec<String> = caps
+                    .get(1)
+                    .map(|m| {
+                        m.as_str()
+                            .split(',')
+                            .map(|s| s.trim().to_owned())
+                            .filter(|s| !s.is_empty())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                // Find the position of the comment in the line
+                if let Some(comment_start) = line.find('#') {
+                    let line_number = line_idx + 1; // 1-indexed
+                    let start_col = comment_start + 1; // 1-indexed column
+                    let end_col = line.len();
+
+                    suppressions.push(Suppression {
+                        kind: "ignore".to_owned(),
+                        codes,
+                        location: Location {
+                            start: Position {
+                                line: line_number,
+                                column: start_col,
+                            },
+                            end: Position {
+                                line: line_number,
+                                column: end_col,
+                            },
+                        },
+                    });
+                }
+            }
+        }
+
+        suppressions
     }
 
     fn run_inner(
@@ -158,6 +215,9 @@ impl ReportArgs {
             {
                 let line_count = module.lined_buffer().line_index().line_count();
                 let mut functions = Vec::new();
+
+                // Parse suppressions from the source code
+                let suppressions = Self::parse_suppressions(&module);
 
                 // Iterate through all definitions to find functions
                 for idx in bindings.keys::<Key>() {
@@ -223,6 +283,7 @@ impl ReportArgs {
                     FileReport {
                         line_count,
                         functions,
+                        suppressions,
                     },
                 );
             }
