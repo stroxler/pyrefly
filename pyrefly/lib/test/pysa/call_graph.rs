@@ -18,6 +18,7 @@ use crate::report::pysa::call_graph::CallGraphs;
 use crate::report::pysa::call_graph::CallTarget;
 use crate::report::pysa::call_graph::DefineCallees;
 use crate::report::pysa::call_graph::ExpressionCallees;
+use crate::report::pysa::call_graph::ExpressionIdentifier;
 use crate::report::pysa::call_graph::FunctionTrait;
 use crate::report::pysa::call_graph::HigherOrderParameter;
 use crate::report::pysa::call_graph::IdentifierCallees;
@@ -34,7 +35,6 @@ use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::collect_function_base_definitions;
-use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::override_graph::build_reversed_override_graph;
@@ -184,9 +184,9 @@ fn create_call_target(target: &str, target_type: TargetType) -> CallTarget<Funct
 }
 
 fn call_graph_for_test_from_actual(
-    call_graphs: CallGraphs<FunctionRef>,
+    call_graphs: CallGraphs<ExpressionIdentifier, FunctionRef>,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
-) -> CallGraphs<FunctionRefForTest> {
+) -> CallGraphs<String, FunctionRefForTest> {
     let create_function_ref_for_test = |function_ref| {
         FunctionRefForTest::from_definition_ref(function_ref, function_base_definitions)
     };
@@ -198,9 +198,9 @@ fn call_graph_for_test_from_actual(
                 let callees_for_test = CallGraph::from_map(
                     callees
                         .into_iter()
-                        .map(|(location, expression_callees)| {
+                        .map(|(expression_identifier, expression_callees)| {
                             (
-                                location.clone(),
+                                expression_identifier.as_key(),
                                 expression_callees.map_function(&create_function_ref_for_test),
                             )
                         })
@@ -216,7 +216,7 @@ fn call_graph_for_test_from_actual(
 
 fn call_graph_for_test_from_expected(
     call_graph: Vec<(&str, Vec<(&str, ExpressionCallees<FunctionRefForTest>)>)>,
-) -> CallGraphs<FunctionRefForTest> {
+) -> CallGraphs<String, FunctionRefForTest> {
     CallGraphs::from_map(
         call_graph
             .into_iter()
@@ -224,9 +224,9 @@ fn call_graph_for_test_from_expected(
                 let callees_for_test = CallGraph::from_map(
                     callees
                         .into_iter()
-                        .map(|(location, expression_callees_for_test)| {
+                        .map(|(expression_identifier, expression_callees_for_test)| {
                             (
-                                PysaLocation::from_key(location).unwrap(),
+                                expression_identifier.to_owned(),
                                 expression_callees_for_test,
                             )
                         })
@@ -241,20 +241,16 @@ fn call_graph_for_test_from_expected(
 }
 
 fn sort_call_graphs(
-    call_graphs: &CallGraphs<FunctionRefForTest>,
+    call_graphs: CallGraphs<String, FunctionRefForTest>,
 ) -> BTreeMap<FunctionRefForTest, BTreeMap<String, ExpressionCallees<FunctionRefForTest>>> {
     call_graphs
-        .iter()
+        .into_iter()
         .map(|(caller, callees)| {
-            let sorted_callees = callees
-                .iter()
-                .map(|(location, expression_callees)| {
-                    (location.as_key(), expression_callees.clone())
-                })
-                .collect::<BTreeMap<_, _>>();
-            (caller.clone(), sorted_callees)
+            let sorted_callees: BTreeMap<String, ExpressionCallees<FunctionRefForTest>> =
+                callees.into_iter().collect();
+            (caller, sorted_callees)
         })
-        .collect::<BTreeMap<_, _>>()
+        .collect()
 }
 
 fn test_building_call_graph_for_module(
@@ -296,8 +292,8 @@ fn test_building_call_graph_for_module(
     actual_call_graph.intersect(&expected_call_graph);
 
     assert_eq!(
-        sort_call_graphs(&expected_call_graph),
-        sort_call_graphs(&actual_call_graph)
+        sort_call_graphs(expected_call_graph),
+        sort_call_graphs(actual_call_graph)
     );
 }
 

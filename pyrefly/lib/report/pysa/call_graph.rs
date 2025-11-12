@@ -66,6 +66,77 @@ use crate::report::pysa::types::ScalarTypeProperties;
 use crate::report::pysa::types::has_superclass;
 use crate::state::lsp::FindPreference;
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Hash, PartialOrd, Ord)]
+pub enum OriginKind {
+    #[allow(dead_code)]
+    GetAttrConstantLiteral,
+}
+
+impl std::fmt::Display for OriginKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::GetAttrConstantLiteral => write!(f, "get-attr-constant-literal"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Hash, PartialOrd, Ord)]
+pub struct Origin {
+    kind: OriginKind,
+    location: PysaLocation,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord)]
+pub enum ExpressionIdentifier {
+    Regular(PysaLocation),
+    #[allow(dead_code)]
+    ArtificialAttributeAccess(Origin),
+}
+
+impl std::fmt::Display for ExpressionIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Regular(location) => write!(f, "{}", location.as_key()),
+            Self::ArtificialAttributeAccess(Origin { kind, location }) => {
+                write!(
+                    f,
+                    "{}|artificial-attribute-access|{}",
+                    location.as_key(),
+                    kind,
+                )
+            }
+        }
+    }
+}
+
+impl ExpressionIdentifier {
+    pub fn as_key(&self) -> String {
+        format!("{}", self)
+    }
+
+    pub fn regular(location: TextRange, module: &pyrefly_python::module::Module) -> Self {
+        ExpressionIdentifier::Regular(PysaLocation::new(module.display_range(location)))
+    }
+}
+
+pub trait ExpressionIdTrait:
+    std::fmt::Debug + PartialEq + Eq + Clone + Hash + Serialize + PartialOrd + Ord
+{
+}
+
+impl ExpressionIdTrait for ExpressionIdentifier {}
+
+impl ExpressionIdTrait for String {}
+
+impl Serialize for ExpressionIdentifier {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.as_key())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy, Hash, PartialOrd, Ord)]
 pub enum ImplicitReceiver {
     TrueWithClassReceiver,
@@ -556,22 +627,19 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CallGraph<Function: FunctionTrait>(HashMap<PysaLocation, ExpressionCallees<Function>>);
+pub struct CallGraph<ExpressionId: ExpressionIdTrait, Function: FunctionTrait>(
+    HashMap<ExpressionId, ExpressionCallees<Function>>,
+);
 
-impl<Function: FunctionTrait> CallGraph<Function> {
+impl<ExpressionId: ExpressionIdTrait, Function: FunctionTrait> CallGraph<ExpressionId, Function> {
     #[cfg(test)]
-    pub fn from_map(map: HashMap<PysaLocation, ExpressionCallees<Function>>) -> Self {
+    pub fn from_map(map: HashMap<ExpressionId, ExpressionCallees<Function>>) -> Self {
         Self(map)
     }
 
     #[cfg(test)]
-    pub fn into_iter(self) -> impl Iterator<Item = (PysaLocation, ExpressionCallees<Function>)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (ExpressionId, ExpressionCallees<Function>)> {
         self.0.into_iter()
-    }
-
-    #[cfg(test)]
-    pub fn iter(&self) -> impl Iterator<Item = (&PysaLocation, &ExpressionCallees<Function>)> {
-        self.0.iter()
     }
 
     fn dedup_and_sort(&mut self) {
@@ -581,32 +649,31 @@ impl<Function: FunctionTrait> CallGraph<Function> {
     }
 }
 
-impl<Function: FunctionTrait> Default for CallGraph<Function> {
+impl<ExpressionId: ExpressionIdTrait, Function: FunctionTrait> Default
+    for CallGraph<ExpressionId, Function>
+{
     fn default() -> Self {
         Self(HashMap::new())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CallGraphs<Function: FunctionTrait>(HashMap<Function, CallGraph<Function>>);
+pub struct CallGraphs<ExpressionId: ExpressionIdTrait, Function: FunctionTrait>(
+    HashMap<Function, CallGraph<ExpressionId, Function>>,
+);
 
-impl<Function: FunctionTrait> CallGraphs<Function> {
+impl<ExpressionId: ExpressionIdTrait, Function: FunctionTrait> CallGraphs<ExpressionId, Function> {
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
     #[cfg(test)]
-    pub fn from_map(map: HashMap<Function, CallGraph<Function>>) -> Self {
+    pub fn from_map(map: HashMap<Function, CallGraph<ExpressionId, Function>>) -> Self {
         Self(map)
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = (Function, CallGraph<Function>)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (Function, CallGraph<ExpressionId, Function>)> {
         self.0.into_iter()
-    }
-
-    #[cfg(test)]
-    pub fn iter(&self) -> impl Iterator<Item = (&Function, &CallGraph<Function>)> {
-        self.0.iter()
     }
 
     #[cfg(test)]
@@ -811,7 +878,7 @@ impl DirectCall {
 }
 
 struct CallGraphVisitor<'a> {
-    call_graphs: &'a mut CallGraphs<FunctionRef>,
+    call_graphs: &'a mut CallGraphs<ExpressionIdentifier, FunctionRef>,
     module_context: &'a ModuleContext<'a>,
     module_id: ModuleId,
     module_name: ModuleName,
@@ -823,20 +890,25 @@ struct CallGraphVisitor<'a> {
 }
 
 impl<'a> CallGraphVisitor<'a> {
-    fn add_callees(&mut self, location: TextRange, callees: ExpressionCallees<FunctionRef>) {
-        assert!(
-            self.call_graphs
-                .0
-                .entry(self.current_function.clone().unwrap())
-                .or_default()
-                .0
-                .insert(
-                    PysaLocation::new(self.module_context.module_info.display_range(location)),
-                    callees,
-                )
-                .is_none(),
-            "Adding callees to the same location"
-        );
+    fn add_callees(
+        &mut self,
+        expression_identifier: ExpressionIdentifier,
+        callees: Option<ExpressionCallees<FunctionRef>>,
+    ) {
+        if let Some(callees) = callees
+            && !callees.is_empty()
+        {
+            assert!(
+                self.call_graphs
+                    .0
+                    .entry(self.current_function.clone().unwrap())
+                    .or_default()
+                    .0
+                    .insert(expression_identifier, callees,)
+                    .is_none(),
+                "Adding callees to the same location"
+            );
+        }
     }
 
     fn receiver_class_from_type(
@@ -1192,7 +1264,7 @@ impl<'a> CallGraphVisitor<'a> {
                 /* override_implicit_receiver*/
                 Some(ImplicitReceiver::TrueWithObjectReceiver),
                 /* override_is_direct_call */
-                Some(true), // Too expensive to merge models for overrides on `__init__`
+                Some(true), // Too expensive to merge models for overrides on `object.__init__`
                 /* unknown_callee_as_direct_call */ true,
             )
         };
@@ -1207,7 +1279,7 @@ impl<'a> CallGraphVisitor<'a> {
                 callee_expr_suffix,
                 /* override_implicit_receiver*/ None,
                 /* override_is_direct_call */
-                Some(true), // Too expensive to merge models for overrides on `__new__`
+                Some(true), // Too expensive to merge models for overrides on `object.__new__`
                 /* unknown_callee_as_direct_call */ true,
             )
         };
@@ -2069,22 +2141,23 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         }
 
         let callees = self.resolve_expression(expr, parent_expression, assignment_targets);
-        if let Some(callees) = callees
-            && !callees.is_empty()
-        {
-            self.add_callees(expr.range(), callees);
-        }
+        self.add_callees(
+            ExpressionIdentifier::regular(expr.range(), &self.module_context.module_info),
+            callees,
+        );
     }
 
     fn visit_statement(&mut self, stmt: &Stmt, _scopes: &Scopes) {
         match stmt {
             Stmt::FunctionDef(function_def) => {
                 let callees = self.resolve_function_def(function_def);
-                if let Some(callees) = callees
-                    && !callees.is_empty()
-                {
-                    self.add_callees(function_def.range(), callees);
-                }
+                self.add_callees(
+                    ExpressionIdentifier::regular(
+                        function_def.range(),
+                        &self.module_context.module_info,
+                    ),
+                    callees,
+                );
             }
             _ => {}
         }
@@ -2214,7 +2287,7 @@ pub fn export_call_graphs(
     context: &ModuleContext,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     override_graph: &OverrideGraph,
-) -> CallGraphs<FunctionRef> {
+) -> CallGraphs<ExpressionIdentifier, FunctionRef> {
     let mut call_graphs = CallGraphs::new();
 
     let mut visitor = CallGraphVisitor {

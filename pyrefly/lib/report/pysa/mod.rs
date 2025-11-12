@@ -46,6 +46,7 @@ use serde::Serialize;
 use crate::module::bundled::BundledStub;
 use crate::module::typeshed::typeshed;
 use crate::report::pysa::call_graph::CallGraph;
+use crate::report::pysa::call_graph::ExpressionIdentifier;
 use crate::report::pysa::call_graph::export_call_graphs;
 use crate::report::pysa::captured_variable::export_captured_variables;
 use crate::report::pysa::class::ClassDefinition;
@@ -129,7 +130,7 @@ pub struct PysaModuleCallGraphs {
     module_id: ModuleId,
     module_name: ModuleName,
     source_path: ModulePathDetails,
-    call_graphs: HashMap<FunctionId, CallGraph<FunctionRef>>,
+    call_graphs: HashMap<FunctionId, CallGraph<ExpressionIdentifier, FunctionRef>>,
 }
 
 pub fn export_module_definitions(
