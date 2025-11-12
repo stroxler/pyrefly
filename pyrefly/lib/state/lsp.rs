@@ -1160,14 +1160,17 @@ impl<'a> Transaction<'a> {
                 // try to find the corresponding .py file
                 if !preference.prefer_pyi
                     && text_range_with_module_info.module.path().is_interface()
-                    && let Some((exec_module, exec_range)) = self
+                    && let Some((exec_module, exec_range, exec_docstring)) = self
                         .search_corresponding_py_module_for_attribute(
                             handle,
                             attr_name,
                             &text_range_with_module_info,
                         )
                 {
-                    return Some((TextRangeWithModule::new(exec_module, exec_range), None));
+                    return Some((
+                        TextRangeWithModule::new(exec_module, exec_range),
+                        exec_docstring,
+                    ));
                 }
                 Some((text_range_with_module_info, docstring_range))
             }
@@ -1190,7 +1193,7 @@ impl<'a> Transaction<'a> {
         request_handle: &Handle,
         attr_name: &Name,
         pyi_definition: &TextRangeWithModule,
-    ) -> Option<(Module, TextRange)> {
+    ) -> Option<(Module, TextRange, Option<TextRange>)> {
         let context = AttributeContext::from_module(&pyi_definition.module, pyi_definition.range)?;
         let executable_handle = self
             .import_handle_prefer_executable(request_handle, pyi_definition.module.name(), None)
@@ -1208,12 +1211,13 @@ impl<'a> Transaction<'a> {
             .0
             .into()
         });
-        let def_range = crate::state::lsp_attributes::definition_from_executable_ast(
-            ast.as_ref(),
-            &context,
-            attr_name,
-        )?;
-        Some((executable_module, def_range))
+        let (def_range, docstring_range) =
+            crate::state::lsp_attributes::definition_from_executable_ast(
+                ast.as_ref(),
+                &context,
+                attr_name,
+            )?;
+        Some((executable_module, def_range, docstring_range))
     }
 
     fn key_to_export(

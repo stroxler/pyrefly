@@ -6,6 +6,7 @@
  */
 
 use pyrefly_python::ast::Ast;
+use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module::Module;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
@@ -88,7 +89,7 @@ pub(crate) fn definition_from_executable_ast(
     ast: &ModModule,
     context: &AttributeContext,
     attr_name: &ruff_python_ast::name::Name,
-) -> Option<TextRange> {
+) -> Option<(TextRange, Option<TextRange>)> {
     let mut body = ast.body.as_slice();
     for class_name in &context.parent_classes {
         let class_def = body.iter().find_map(|stmt| match stmt {
@@ -107,12 +108,13 @@ pub(crate) fn definition_from_executable_ast(
 fn definition_from_function(
     body: &[Stmt],
     attr_name: &ruff_python_ast::name::Name,
-) -> Option<TextRange> {
+) -> Option<(TextRange, Option<TextRange>)> {
     for stmt in body {
         if let Stmt::FunctionDef(func_def) = stmt
             && &func_def.name.id == attr_name
         {
-            return Some(func_def.name.range);
+            let docstring_range = Docstring::range_from_stmts(&func_def.body);
+            return Some((func_def.name.range, docstring_range));
         }
     }
     None
@@ -121,12 +123,13 @@ fn definition_from_function(
 fn definition_from_class(
     body: &[Stmt],
     attr_name: &ruff_python_ast::name::Name,
-) -> Option<TextRange> {
+) -> Option<(TextRange, Option<TextRange>)> {
     for stmt in body {
         if let Stmt::ClassDef(class_def) = stmt
             && &class_def.name.id == attr_name
         {
-            return Some(class_def.name.range);
+            let docstring_range = Docstring::range_from_stmts(&class_def.body);
+            return Some((class_def.name.range, docstring_range));
         }
     }
     None
@@ -135,21 +138,31 @@ fn definition_from_class(
 fn definition_from_assignment(
     body: &[Stmt],
     attr_name: &ruff_python_ast::name::Name,
-) -> Option<TextRange> {
-    for stmt in body {
-        let def_range = match stmt {
-            Stmt::Assign(assign) => assign
-                .targets
-                .iter()
-                .find(|target| expr_matches_name(target, attr_name))
-                .map(|t| t.range()),
-            Stmt::AnnAssign(assign) if expr_matches_name(assign.target.as_ref(), attr_name) => {
-                Some(assign.target.range())
+) -> Option<(TextRange, Option<TextRange>)> {
+    for (idx, stmt) in body.iter().enumerate() {
+        let (matches, def_range) = match stmt {
+            Stmt::Assign(assign) => {
+                let target_opt = assign
+                    .targets
+                    .iter()
+                    .find(|target| expr_matches_name(target, attr_name));
+                (target_opt.is_some(), target_opt.map(|t| t.range()))
             }
-            _ => None,
+            Stmt::AnnAssign(assign) => {
+                let matches = expr_matches_name(assign.target.as_ref(), attr_name);
+                (matches, Some(assign.target.range()))
+            }
+            _ => (false, None),
         };
-        if let Some(range) = def_range {
-            return Some(range);
+        if matches {
+            let docstring_range = if let Some(Stmt::Expr(expr_stmt)) = body.get(idx + 1)
+                && matches!(expr_stmt.value.as_ref(), Expr::StringLiteral(_))
+            {
+                Some(expr_stmt.range())
+            } else {
+                None
+            };
+            return Some((def_range?, docstring_range));
         }
     }
     None
