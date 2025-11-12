@@ -135,7 +135,7 @@ Definition Result:
 4 | def f(x: list[int], y: str, z: Literal[42]):
                                     ^
 Definition Result:
-249 | Literal: _SpecialForm
+253 | Literal: _SpecialForm
       ^^^^^^^
 
 8 | yyy = f([1, 2, 3], "test", 42)
@@ -590,7 +590,7 @@ Definition Result:
 6 | foo: Literal[1] = 1
              ^
 Definition Result:
-249 | Literal: _SpecialForm
+253 | Literal: _SpecialForm
       ^^^^^^^
 
 8 | bar = f([1], "", 42)
@@ -939,7 +939,7 @@ Definition Result:
 10 | def f(x: A[B, Path]) -> None:
                    ^
 Definition Result:
-142 | class Path(PurePath):
+173 | class Path(PurePath):
             ^^^^
 "#
         .trim(),

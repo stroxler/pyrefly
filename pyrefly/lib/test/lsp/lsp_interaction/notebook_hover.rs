@@ -70,7 +70,7 @@ fn test_notebook_hover_import() {
         result: Some(serde_json::json!({
             "contents": {
                 "kind": "markdown",
-                "value": format!("```python\n(class) List: type[list]\n```\n\nGo to [list]({}#L1104,7)", expected_url.as_str()),
+                "value": format!("```python\n(class) List: type[list]\n```\n\nGo to [list]({}#L3349,7)", expected_url.as_str()),
             }
         })),
         error: None,

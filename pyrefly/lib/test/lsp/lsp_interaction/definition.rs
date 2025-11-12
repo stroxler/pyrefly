@@ -207,9 +207,9 @@ fn definition_in_builtins_without_interpreter_goes_to_stub() {
         .definition("imports_builtins_no_config.py", 7, 7);
     interaction.client.expect_definition_response_absolute(
         result_file.to_string_lossy().to_string(),
-        426,
+        444,
         0,
-        426,
+        444,
         4,
     );
 }
@@ -278,9 +278,9 @@ fn goto_type_def_on_str_primitive_goes_to_builtins_stub() {
 
     interaction.client.expect_definition_response_absolute(
         result_file.to_string_lossy().to_string(),
-        477,
+        1023,
         6,
-        477,
+        1023,
         9,
     );
 
@@ -310,9 +310,9 @@ fn goto_type_def_on_int_primitive_goes_to_builtins_stub() {
     // Line 252 is 0-indexed (253 - 1), where "class int:" is defined
     interaction.client.expect_definition_response_absolute(
         result_file.to_string_lossy().to_string(),
-        252,
+        417,
         6,
-        252,
+        417,
         9,
     );
 
@@ -341,9 +341,9 @@ fn goto_type_def_on_bool_primitive_goes_to_builtins_stub() {
     // Line 953 is 0-indexed (954 - 1), where "class bool:" is defined
     interaction.client.expect_definition_response_absolute(
         result_file.to_string_lossy().to_string(),
-        953,
+        3098,
         6,
-        953,
+        3098,
         10,
     );
 
@@ -373,9 +373,9 @@ fn goto_type_def_on_bytes_primitive_goes_to_builtins_stub() {
     // Line 662 is 0-indexed (663 - 1), where "class bytes:" is defined
     interaction.client.expect_definition_response_absolute(
         result_file.to_string_lossy().to_string(),
-        662,
+        1835,
         6,
-        662,
+        1835,
         11,
     );
 
@@ -443,7 +443,7 @@ fn goto_type_def_on_list_of_primitives_shows_selector() {
                             .and_then(|r| r.get("start"))
                             .and_then(|s| s.get("line"))
                             .and_then(|l| l.as_u64())
-                            == Some(252)
+                            == Some(417)
                 });
 
                 let has_list = locations_array.iter().any(|loc| {
@@ -455,14 +455,14 @@ fn goto_type_def_on_list_of_primitives_shows_selector() {
                             .and_then(|r| r.get("start"))
                             .and_then(|s| s.get("line"))
                             .and_then(|l| l.as_u64())
-                            == Some(1103)
+                            == Some(3348)
                 });
 
                 return has_int && has_list;
             }
             false
         },
-        "response should contain two locations: one for int (line 252) and one for list (line 1103) in builtins.pyi",
+        "response should contain two locations: one for int (line 417) and one for list (line 3348) in builtins.pyi",
     );
 
     assert!(
