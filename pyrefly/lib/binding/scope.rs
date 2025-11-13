@@ -53,6 +53,7 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
+use crate::binding::binding::MethodSelfKind;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::BindingsBuilder;
@@ -725,6 +726,7 @@ impl ScopeClass {
                         MethodThatSetsAttr {
                             method_name: method_name.clone(),
                             recognized_attribute_defining_method,
+                            instance_or_class: attr.3,
                         },
                         attr,
                     )
@@ -768,6 +770,7 @@ pub struct InstanceAttribute(
     pub ExprOrBinding,
     pub Option<Idx<KeyAnnotation>>,
     pub TextRange,
+    pub MethodSelfKind,
 );
 
 #[derive(Clone, Debug)]
@@ -778,6 +781,7 @@ struct ScopeMethod {
     parameters: SmallMap<Name, ParameterUsage>,
     yields_and_returns: YieldsAndReturns,
     is_async: bool,
+    receiver_kind: MethodSelfKind,
 }
 
 #[derive(Clone, Debug)]
@@ -825,6 +829,7 @@ impl ScopeMethod {
             parameters: SmallMap::new(),
             yields_and_returns: Default::default(),
             is_async,
+            receiver_kind: MethodSelfKind::Instance,
         }
     }
 }
@@ -1286,7 +1291,12 @@ impl Scopes {
                 if !method_scope.instance_attributes.contains_key(&x.attr.id) {
                     method_scope.instance_attributes.insert(
                         x.attr.id.clone(),
-                        InstanceAttribute(value, annotation, x.attr.range()),
+                        InstanceAttribute(
+                            value,
+                            annotation,
+                            x.attr.range(),
+                            method_scope.receiver_kind,
+                        ),
                     );
                 }
                 return true;
@@ -1547,13 +1557,18 @@ impl Scopes {
     /// Whenever we enter the scope of a method *and* we see a matching
     /// parameter, we record the name of it so that we can detect `self` assignments
     /// that might define class fields.
-    pub fn set_self_name_if_applicable(&mut self, self_name: Option<Identifier>) {
+    pub fn set_self_name_if_applicable(
+        &mut self,
+        self_name: Option<Identifier>,
+        receiver_kind: MethodSelfKind,
+    ) {
         if let Scope {
             kind: ScopeKind::Method(method_scope),
             ..
         } = self.current_mut()
         {
             method_scope.self_name = self_name;
+            method_scope.receiver_kind = receiver_kind;
         }
     }
 
@@ -1688,7 +1703,7 @@ impl Scopes {
             }
         });
         class_scope.method_defined_attributes().for_each(
-            |(name, method, InstanceAttribute(value, annotation, range))| {
+            |(name, method, InstanceAttribute(value, annotation, range, _))| {
                 if !field_definitions.contains_key_hashed(name.as_ref()) {
                     field_definitions.insert_hashed(
                         name,

@@ -49,6 +49,7 @@ use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::MethodSelfKind;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -1343,10 +1344,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let ty = match initial_value {
             RawClassFieldInitialization::ClassBody(_)
-            | RawClassFieldInitialization::Uninitialized => ty,
-            RawClassFieldInitialization::Method(_) => {
-                self.check_and_sanitize_type_parameters(class, ty, name, range, errors)
-            }
+            | RawClassFieldInitialization::Uninitialized
+            | RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Class,
+                ..
+            }) => ty,
+            RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Instance,
+                ..
+            }) => self.check_and_sanitize_type_parameters(class, ty, name, range, errors),
         };
 
         // Identify whether this is a descriptor
@@ -1421,6 +1427,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
             method_name,
             recognized_attribute_defining_method,
+            instance_or_class: _,
         }) = initial_value
         {
             let mut defined_in_parent = false;
@@ -1614,12 +1621,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ClassFieldInitialization::ClassBody(None)
                 }
             }
-            RawClassFieldInitialization::Method(_) | RawClassFieldInitialization::Uninitialized
+            RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Class,
+                ..
+            }) => ClassFieldInitialization::ClassBody(None),
+            RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Instance,
+                ..
+            })
+            | RawClassFieldInitialization::Uninitialized
                 if magically_initialized =>
             {
                 ClassFieldInitialization::Magic
             }
-            RawClassFieldInitialization::Method(_) => ClassFieldInitialization::Method,
+            RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Instance,
+                ..
+            }) => ClassFieldInitialization::Method,
             RawClassFieldInitialization::Uninitialized => ClassFieldInitialization::Uninitialized,
         }
     }
