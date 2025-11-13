@@ -2119,7 +2119,6 @@ impl<'a> Transaction<'a> {
         .unwrap_or_default()
     }
 
-    #[allow(dead_code)]
     pub(self) fn collect_local_keyword_arguments_by_name(
         &self,
         handle: &Handle,
@@ -2151,6 +2150,47 @@ impl<'a> Transaction<'a> {
         let mut results = Vec::new();
         mod_module.visit(&mut |x| collect_kwargs(x, expected_name, &mut results));
         results
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn local_keyword_argument_references_from_parameter_definition(
+        &self,
+        handle: &Handle,
+        definition_range: TextRange,
+        expected_name: &Name,
+    ) -> Option<Vec<TextRange>> {
+        let ast = self.get_ast(handle)?;
+        let keyword_args = self.collect_local_keyword_arguments_by_name(handle, expected_name);
+        let mut references = Vec::new();
+
+        let definition_module = self.get_module_info(handle)?;
+
+        for (kw_identifier, callee_kind) in keyword_args {
+            let callee_locations =
+                self.get_callee_location(handle, &callee_kind, &FindPreference::default());
+
+            for TextRangeWithModule {
+                module,
+                range: callee_def_range,
+            } in callee_locations
+            {
+                if module.path() == definition_module.path() {
+                    // Refine to get the actual parameter location
+                    if let Some(param_range) = self.refine_param_location_for_callee(
+                        ast.as_ref(),
+                        callee_def_range,
+                        &kw_identifier,
+                    ) {
+                        // If the parameter location matches our definition, this is a valid reference
+                        if param_range == definition_range {
+                            references.push(kw_identifier.range);
+                        }
+                    }
+                }
+            }
+        }
+
+        Some(references)
     }
 
     fn local_variable_references_from_local_definition(
