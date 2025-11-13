@@ -881,6 +881,22 @@ impl<'a> BindingsBuilder<'a> {
     pub fn type_params(&mut self, x: &mut TypeParams) {
         for x in x.type_params.iter_mut() {
             let name = x.name().clone();
+
+            // Check for shadowing of type parameters in enclosing Annotation scopes
+            if self
+                .scopes
+                .name_shadows_enclosing_annotation_scope(&name.id)
+            {
+                self.error(
+                    name.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
+                    format!(
+                        "Type parameter `{}` shadows a type parameter of the same name from an enclosing scope",
+                        name.id
+                    ),
+                );
+            }
+
             let mut default = None;
             let mut bound = None;
             let mut constraints = None;

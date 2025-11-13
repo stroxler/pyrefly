@@ -1123,6 +1123,17 @@ impl Scopes {
         false
     }
 
+    /// Check if a name is defined as a type parameter in any enclosing Annotation scope.
+    pub fn name_shadows_enclosing_annotation_scope(&self, name: &Name) -> bool {
+        // Skip the current scope, which we know isn't relevant to the check.
+        for scope in self.iter_rev().skip(1) {
+            if matches!(scope.kind, ScopeKind::Annotation) && scope.stat.0.get(name).is_some() {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn function_predecessor_indices(
         &self,
         name: &Name,

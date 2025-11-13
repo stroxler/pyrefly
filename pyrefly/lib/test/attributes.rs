@@ -972,7 +972,7 @@ testcase!(
     test_illegal_type_variable_with_name_shadowing,
     r#"
 class C[R]:
-    def __init__[R](self, field: R):
+    def __init__[R](self, field: R):  # E: Type parameter `R` shadows a type parameter of the same name from an enclosing scope
         self.field = field  # E: Attribute `field` cannot depend on type variable `R`, which is not in the scope of class `C`
 "#,
 );
