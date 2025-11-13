@@ -394,6 +394,21 @@ class A[T]:  # E: Cannot use type parameter lists on Python 3.8 (syntax was adde
 );
 
 testcase!(
+    bug = "We are supposed to detect shadowing of scoped type vars and complain",
+    test_shadowing_scoped_type_vars,
+    r#"
+from typing import TypeVar, Generic
+class C0[T]:
+    def foo[T](self, x: T) -> T:
+        return x
+T = TypeVar("T")
+class C1(Generic[T]):
+    def foo[T](self, x: T) -> T:
+        return x
+    "#,
+);
+
+testcase!(
     test_typevar_or_none,
     r#"
 from typing import assert_type
