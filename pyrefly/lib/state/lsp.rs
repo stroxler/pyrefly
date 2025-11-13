@@ -1948,7 +1948,7 @@ impl<'a> Transaction<'a> {
                  module,
                  docstring_range: _,
              }| {
-                self.local_references_from_definition(handle, metadata, definition_range, module)
+                self.local_references_from_definition(handle, metadata, definition_range, &module)
             },
         )
         .concat()
@@ -1958,7 +1958,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         definition_range: TextRange,
-        module: Module,
+        module: &Module,
     ) -> Option<Vec<TextRange>> {
         let index = self.get_solutions(handle)?.get_index()?;
         let index = index.lock();
@@ -2040,7 +2040,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         definition_metadata: DefinitionMetadata,
         definition_range: TextRange,
-        module: Module,
+        module: &Module,
     ) -> Option<Vec<TextRange>> {
         let mut references = if handle.path() != module.path() {
             self.local_references_from_external_definition(handle, definition_range, module)?
@@ -3536,7 +3536,7 @@ impl<'a> CancellableTransaction<'a> {
                     &handle,
                     definition_kind.clone(),
                     definition.range,
-                    definition.module,
+                    &definition.module,
                 )
                 .unwrap_or_default();
             if !references.is_empty()
