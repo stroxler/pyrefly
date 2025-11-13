@@ -40,6 +40,7 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
+use crate::binding::scope::Scope;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::export::definitions::MutableCaptureKind;
@@ -610,10 +611,14 @@ impl<'a> BindingsBuilder<'a> {
                     );
                 }
                 if let Expr::Name(name) = *x.name {
+                    // Create a new scope for the type alias type parameters
+                    self.scopes.push(Scope::type_alias(x.range));
                     if let Some(params) = &mut x.type_params {
                         self.type_params(params);
                     }
                     self.ensure_type(&mut x.value, &mut None);
+                    // Pop the type alias scope before binding the definition
+                    self.scopes.pop();
                     let binding = Binding::ScopedTypeAlias(
                         name.id.clone(),
                         x.type_params.map(|x| *x),

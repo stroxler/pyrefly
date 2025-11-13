@@ -837,6 +837,7 @@ enum ScopeKind {
     Function(ScopeFunction),
     Method(ScopeMethod),
     Module,
+    TypeAlias,
 }
 
 #[derive(Clone, Debug, Display, Copy)]
@@ -926,6 +927,10 @@ impl Scope {
 
     pub fn annotation(range: TextRange) -> Self {
         Self::new(range, false, ScopeKind::Annotation)
+    }
+
+    pub fn type_alias(range: TextRange) -> Self {
+        Self::new(range, false, ScopeKind::TypeAlias)
     }
 
     pub fn class_body(range: TextRange, indices: ClassIndices, name: Identifier) -> Self {

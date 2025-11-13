@@ -638,13 +638,12 @@ def fun(x):
 );
 
 testcase!(
-    bug = "Pyrefly fails to create a scope for type statements",
     test_type_statement_scope,
     r#"
 from typing import assert_type
 class A: pass
 type X[A] = list[A]
-assert_type(A, type[A])  # E: assert_type(TypeVar, type[A])
+assert_type(A, type[A])
     "#,
 );
 
