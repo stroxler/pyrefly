@@ -2007,14 +2007,15 @@ impl<'a> Transaction<'a> {
                 definition_name,
             ),
             DefinitionMetadata::Module => Vec::new(),
-            DefinitionMetadata::Variable(_) => self
+            DefinitionMetadata::Variable(symbol_kind) => self
                 .local_variable_references_from_local_definition(
                     handle,
                     definition_range,
                     definition_name,
+                    symbol_kind,
                 )
                 .unwrap_or_default(),
-            DefinitionMetadata::VariableOrAttribute(_) => [
+            DefinitionMetadata::VariableOrAttribute(symbol_kind) => [
                 self.local_attribute_references_from_local_definition(
                     handle,
                     definition_range,
@@ -2024,6 +2025,7 @@ impl<'a> Transaction<'a> {
                     handle,
                     definition_range,
                     definition_name,
+                    symbol_kind,
                 )
                 .unwrap_or_default(),
             ]
@@ -2152,7 +2154,6 @@ impl<'a> Transaction<'a> {
         results
     }
 
-    #[allow(dead_code)]
     pub(crate) fn local_keyword_argument_references_from_parameter_definition(
         &self,
         handle: &Handle,
@@ -2198,6 +2199,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         definition_range: TextRange,
         expected_name: &Name,
+        symbol_kind: Option<SymbolKind>,
     ) -> Option<Vec<TextRange>> {
         let mut references = Vec::new();
         if let Some(mod_module) = self.get_ast(handle) {
@@ -2228,6 +2230,21 @@ impl<'a> Transaction<'a> {
                 x.recurse(&mut |x| f(x, is_valid_use, res));
             }
             mod_module.visit(&mut |x| f(x, &is_valid_use, &mut references));
+        }
+
+        if let Some(kind) = symbol_kind
+            && (kind == SymbolKind::Parameter || kind == SymbolKind::Variable)
+        {
+            let kwarg_references = self
+                .local_keyword_argument_references_from_parameter_definition(
+                    handle,
+                    definition_range,
+                    expected_name,
+                );
+
+            if let Some(refs) = kwarg_references {
+                references.extend(refs);
+            }
         }
         Some(references)
     }
