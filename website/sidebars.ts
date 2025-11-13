@@ -82,6 +82,11 @@ let docsSidebar = [
     },
     {
         type: 'doc' as const,
+        id: 'django',
+        label: 'Django Support',
+    },
+    {
+        type: 'doc' as const,
         id: 'autotype',
         label: 'Automating Type Annotations',
     },
