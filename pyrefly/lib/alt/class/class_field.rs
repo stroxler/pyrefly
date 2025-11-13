@@ -681,13 +681,20 @@ impl ClassField {
         }
     }
 
-    /// Check if this simple field is read-only for any reason.
-    /// This does not handle properties and descriptors.
+    /// Check if this field is read-only for any reason.
     fn is_read_only(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple {
-                read_only_reason, ..
-            } => read_only_reason.is_some(),
+                read_only_reason: Some(_),
+                ..
+            } => true,
+            ClassFieldInner::Simple {
+                descriptor: Some(Descriptor { setter: false, .. }),
+                ..
+            } => true,
+            ClassFieldInner::Simple { ty, .. } => {
+                ty.is_property_setter_with_getter().is_none() && ty.is_property_getter()
+            }
         }
     }
 
