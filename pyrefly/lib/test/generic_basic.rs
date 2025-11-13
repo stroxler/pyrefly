@@ -434,3 +434,13 @@ def f[T](x: T | None = None) -> tuple[T, T | int]: ...
 assert_type(f(), tuple[Any, int])
     "#,
 );
+
+testcase!(
+    test_pass_tuple_literal_through_identity_function,
+    r#"
+def f[T](x: T) -> T:
+    return x
+def g() -> int:
+    return f((1, "hello world"))[0]
+    "#,
+);

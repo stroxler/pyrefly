@@ -657,7 +657,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if !nontuples.is_empty() {
                 // The non-tuple options may contain a type like Sequence[T] that provides an additional default hint.
-                let nontuple_hint = self.unions(nontuples.into_iter().cloned().collect());
+                // Filter out top-level Vars: they don't provide any hints, and we don't want to pin them.
+                let nontuple_hint = self.unions(
+                    nontuples
+                        .into_iter()
+                        .filter(|t| !matches!(t, Type::Var(_)))
+                        .cloned()
+                        .collect(),
+                );
                 let nontuple_element_hint =
                     self.decompose_tuple(HintRef::new(&nontuple_hint, hint.errors()));
                 if let Some(nontuple_element_hint) = nontuple_element_hint {
