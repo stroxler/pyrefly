@@ -53,6 +53,7 @@ use ruff_python_ast::ExprDict;
 use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
+use ruff_python_ast::Keyword;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::ParameterWithDefault;
 use ruff_python_ast::Stmt;
@@ -202,6 +203,29 @@ enum CalleeKind {
     // Range of the base expr + method name
     Method(TextRange, Identifier),
     Unknown,
+}
+
+fn callee_kind_from_call(call: &ExprCall) -> CalleeKind {
+    match call.func.as_ref() {
+        Expr::Name(name) => CalleeKind::Function(Ast::expr_name_identifier(name.clone())),
+        Expr::Attribute(attr) => CalleeKind::Method(attr.value.range(), attr.attr.clone()),
+        _ => CalleeKind::Unknown,
+    }
+}
+
+/// Generic helper to visit keyword arguments with a custom handler.
+/// The handler receives the keyword index and reference, and returns true to stop iteration.
+/// This function will also take in a generic function which is used a filter
+fn visit_keyword_arguments_until_match<F>(call: &ExprCall, mut filter: F) -> bool
+where
+    F: FnMut(usize, &Keyword) -> bool,
+{
+    for (j, kw) in call.arguments.keywords.iter().enumerate() {
+        if filter(j, kw) {
+            return true;
+        }
+    }
+    false
 }
 
 #[derive(Debug)]
@@ -432,11 +456,7 @@ impl IdentifierWithContext {
 
     fn from_keyword_argument(id: &Identifier, call: &ExprCall) -> Self {
         let identifier = id.clone();
-        let callee_kind = match call.func.as_ref() {
-            Expr::Name(name) => CalleeKind::Function(Ast::expr_name_identifier(name.clone())),
-            Expr::Attribute(attr) => CalleeKind::Method(attr.value.range(), attr.attr.clone()),
-            _ => CalleeKind::Unknown,
-        };
+        let callee_kind = callee_kind_from_call(call);
         Self {
             identifier,
             context: IdentifierContext::KeywordArgument(callee_kind),
@@ -910,7 +930,7 @@ impl<'a> Transaction<'a> {
         res: &mut Option<(TextRange, TextRange, ActiveArgument)>,
     ) -> bool {
         let kwarg_start_idx = call.arguments.args.len();
-        for (j, kw) in call.arguments.keywords.iter().enumerate() {
+        visit_keyword_arguments_until_match(call, |j, kw| {
             if kw.range.contains_inclusive(find) {
                 Self::visit_finding_signature_range(&kw.value, find, res);
                 if res.is_some() {
@@ -921,10 +941,11 @@ impl<'a> Transaction<'a> {
                     None => ActiveArgument::Positional(kwarg_start_idx + j),
                 };
                 *res = Some((call.func.range(), call.arguments.range, active_argument));
-                return true;
+                true
+            } else {
+                false
             }
-        }
-        false
+        })
     }
 
     /// Finds the callable(s) (multiple if overloads exist) at position in document, returning them, chosen overload index, and arg index
@@ -2096,6 +2117,40 @@ impl<'a> Transaction<'a> {
             references
         })
         .unwrap_or_default()
+    }
+
+    #[allow(dead_code)]
+    pub(self) fn collect_local_keyword_arguments_by_name(
+        &self,
+        handle: &Handle,
+        expected_name: &Name,
+    ) -> Vec<(Identifier, CalleeKind)> {
+        let Some(mod_module) = self.get_ast(handle) else {
+            return Vec::new();
+        };
+
+        fn collect_kwargs(
+            x: &Expr,
+            expected_name: &Name,
+            results: &mut Vec<(Identifier, CalleeKind)>,
+        ) {
+            if let Expr::Call(call) = x {
+                visit_keyword_arguments_until_match(call, |_j, kw| {
+                    if let Some(arg_identifier) = &kw.arg
+                        && arg_identifier.id() == expected_name
+                    {
+                        let callee_kind = callee_kind_from_call(call);
+                        results.push((arg_identifier.clone(), callee_kind));
+                    }
+                    false
+                });
+            }
+            x.recurse(&mut |x| collect_kwargs(x, expected_name, results));
+        }
+
+        let mut results = Vec::new();
+        mod_module.visit(&mut |x| collect_kwargs(x, expected_name, &mut results));
+        results
     }
 
     fn local_variable_references_from_local_definition(
