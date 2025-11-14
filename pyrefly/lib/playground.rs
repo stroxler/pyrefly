@@ -521,7 +521,7 @@ impl Playground {
             .get_module_info(handle)
             .zip(transaction.inlay_hints(handle, Default::default()))
             .map(|(info, hints)| {
-                hints.into_map(|(position, label)| {
+                hints.into_map(|(position, label, _locations)| {
                     let position = Position::from_display_pos(info.display_pos(position));
                     InlayHint { label, position }
                 })

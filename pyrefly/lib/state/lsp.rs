@@ -3196,7 +3196,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         inlay_hint_config: InlayHintConfig,
-    ) -> Option<Vec<(TextSize, String)>> {
+    ) -> Option<Vec<(TextSize, String, Option<Vec<TextRangeWithModule>>)>> {
         let is_interesting = |e: &Expr, ty: &Type, class_name: Option<&Name>| {
             !ty.is_any()
                 && match e {
@@ -3240,7 +3240,11 @@ impl<'a> Transaction<'a> {
                                     {
                                         ty = return_ty;
                                     }
-                                    res.push((fun.def.parameters.range.end(), format!(" -> {ty}")));
+                                    res.push((
+                                        fun.def.parameters.range.end(),
+                                        format!(" -> {ty}"),
+                                        None, // Location info will be added in a later diff
+                                    ));
                                 }
                             }
                             _ => {}
@@ -3270,7 +3274,7 @@ impl<'a> Transaction<'a> {
                         && is_interesting(e, &ty, class_name)
                     {
                         let ty = format!(": {ty}");
-                        res.push((key.range().end(), ty));
+                        res.push((key.range().end(), ty, None)); // Location info will be added in a later diff
                     }
                 }
                 _ => {}
@@ -3278,7 +3282,11 @@ impl<'a> Transaction<'a> {
         }
 
         if inlay_hint_config.call_argument_names != AllOffPartial::Off {
-            res.extend(self.add_inlay_hints_for_positional_function_args(handle));
+            res.extend(
+                self.add_inlay_hints_for_positional_function_args(handle)
+                    .into_iter()
+                    .map(|(pos, text)| (pos, text, None)),
+            );
         }
 
         Some(res)

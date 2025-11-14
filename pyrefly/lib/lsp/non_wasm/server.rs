@@ -2435,21 +2435,21 @@ impl Server {
         )?;
         let res = t
             .into_iter()
-            .filter_map(|x| {
+            .filter_map(|(text_size, label_text, _locations)| {
                 // If the url is a notebook cell, filter out inlay hints for other cells
-                if info.to_cell_for_lsp(x.0) != maybe_cell_idx {
+                if info.to_cell_for_lsp(text_size) != maybe_cell_idx {
                     return None;
                 }
-                let position = info.to_lsp_position(x.0);
+                let position = info.to_lsp_position(text_size);
                 // The range is half-open, so the end position is exclusive according to the spec.
                 if position >= range.start && position < range.end {
                     Some(InlayHint {
                         position,
-                        label: InlayHintLabel::String(x.1.clone()),
+                        label: InlayHintLabel::String(label_text.clone()),
                         kind: None,
                         text_edits: Some(vec![TextEdit {
                             range: Range::new(position, position),
-                            new_text: x.1,
+                            new_text: label_text,
                         }]),
                         tooltip: None,
                         padding_left: None,
