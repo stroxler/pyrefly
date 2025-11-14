@@ -22,6 +22,7 @@ use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::StmtReturn;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::small_set::SmallSet;
 
 use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationTarget;
@@ -645,12 +646,16 @@ impl<'a> BindingsBuilder<'a> {
                         "`async for` can only be used inside an async function".to_owned(),
                     );
                 }
+                let mut loop_header_targets = SmallSet::new();
+                Ast::expr_lvalue(&x.target, &mut |name| {
+                    loop_header_targets.insert(name.id.clone());
+                });
                 self.bind_target_with_expr(&mut x.target, &mut x.iter, &|expr, ann| {
                     Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
                 });
                 // Note that we set up the loop *after* the header is fully bound, because the
                 // loop iterator is only evaluated once before the loop begins.
-                self.setup_loop(x.range, &NarrowOps::new());
+                self.setup_loop(x.range, &NarrowOps::new(), &loop_header_targets);
                 self.stmts(x.body, parent);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent, false);
             }
@@ -658,7 +663,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.test, &mut Usage::Narrowing(None));
                 let is_while_true = self.sys_info.evaluate_bool(&x.test) == Some(true);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.setup_loop(x.range, &narrow_ops);
+                self.setup_loop(x.range, &narrow_ops, &SmallSet::new());
                 // Note that it is important we ensure *after* we set up the loop, so that both the
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).

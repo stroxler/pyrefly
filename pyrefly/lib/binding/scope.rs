@@ -2288,8 +2288,16 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Helper for loops, inserts a phi key for every name in the given flow.
-    fn insert_phi_keys(&mut self, mut flow: Flow, range: TextRange) -> Flow {
+    fn insert_phi_keys(
+        &mut self,
+        mut flow: Flow,
+        range: TextRange,
+        exclude_names: &SmallSet<Name>,
+    ) -> Flow {
         for (name, info) in flow.info.iter_mut() {
+            if exclude_names.contains(name) {
+                continue;
+            }
             // We are promising to insert a bidning for this key when we merge the flow
             let phi_idx = self.idx_for_promise(Key::Phi(name.clone(), range));
             match &mut info.value {
@@ -2310,11 +2318,23 @@ impl<'a> BindingsBuilder<'a> {
         flow
     }
 
-    pub fn setup_loop(&mut self, range: TextRange, narrow_ops: &NarrowOps) {
+    /// Set up a loop: preserve the base flow and push the loop to the current
+    /// scope's `loops`, set up loop phi keys, and bind any narrow ops from the
+    /// loop header.
+    ///
+    /// Names in `loop_header_targets` will not get phi keys - this is used for loop
+    /// variables that are unconditionally reassigned in `for` loop headers
+    pub fn setup_loop(
+        &mut self,
+        range: TextRange,
+        narrow_ops: &NarrowOps,
+        loop_header_targets: &SmallSet<Name>,
+    ) {
         let base = mem::take(&mut self.scopes.current_mut().flow);
         // To account for possible assignments to existing names in a loop, we
         // speculatively insert phi keys upfront.
-        self.scopes.current_mut().flow = self.insert_phi_keys(base.clone(), range);
+        self.scopes.current_mut().flow =
+            self.insert_phi_keys(base.clone(), range, loop_header_targets);
         self.scopes.current_mut().loops.push(Loop::new(base));
         self.bind_narrow_ops(narrow_ops, range, &Usage::Narrowing(None));
     }
