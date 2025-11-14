@@ -623,7 +623,6 @@ pub enum Type {
     Union(Vec<Type>),
     /// Our intersection support is partial, so we store a fallback type that we use for operations
     /// that are not yet supported on intersections.
-    #[allow(dead_code)]
     Intersect(Box<(Vec<Type>, Type)>),
     /// A class definition has type `Type::ClassDef(cls)`. This type
     /// has special value semantics, and can also be implicitly promoted

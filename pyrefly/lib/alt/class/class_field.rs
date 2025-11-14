@@ -2298,7 +2298,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .map(|info| info.ty.clone())
                     .collect();
                 let intersect = self.intersects(&types);
-                if matches!(intersect, Type::Never(_)) {
+                // Before intersecting `types`, `intersects` attempts to simplify to a single
+                // element of `types` that is a common base type for all elements. If an
+                // intersection is produced (or `Never` if the types are disjoint), then there was
+                // no common base type, so the inheritance is inconsistent.
+                if matches!(intersect, Type::Intersect(_) | Type::Never(_)) {
                     let mut error_msg = vec1![
                         format!(
                             "Field `{field_name}` has inconsistent types inherited from multiple base classes"
