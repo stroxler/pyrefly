@@ -3518,6 +3518,36 @@ impl<'a> Transaction<'a> {
 }
 
 impl<'a> CancellableTransaction<'a> {
+    /// Finds child class implementations of a method definition.
+    /// Returns the ranges of child methods that reimplement the given parent method.
+    fn find_child_implementations(
+        &self,
+        handle: &Handle,
+        definition: &TextRangeWithModule,
+    ) -> Vec<TextRange> {
+        let mut child_implementations = Vec::new();
+
+        if let Some(solutions) = self.as_ref().get_solutions(handle)
+            && let Some(index) = solutions.get_index()
+        {
+            let index_lock = index.lock();
+            // Search for child methods that have this definition as a parent
+            for (child_range, parent_methods) in &index_lock.parent_methods_map {
+                for (parent_module_path, parent_range) in parent_methods {
+                    // Check if the parent method matches our definition
+                    if parent_module_path == definition.module.path()
+                        && *parent_range == definition.range
+                    {
+                        // This child method is a reimplementation of our definition
+                        child_implementations.push(*child_range);
+                    }
+                }
+            }
+        }
+
+        child_implementations
+    }
+
     /// Returns Err if the request is canceled in the middle of a run.
     pub fn find_global_references_from_definition(
         &mut self,
@@ -3640,32 +3670,18 @@ impl<'a> CancellableTransaction<'a> {
             }
             // Step 3: Search for child class reimplementations using the parent_methods_map
             // If this is a method definition, find all child classes that reimplement it
-            if let Some(solutions) = self.as_ref().get_solutions(&handle)
-                && let Some(index) = solutions.get_index()
+            let child_implementations = self.find_child_implementations(&handle, &definition);
+            if !child_implementations.is_empty()
+                && let Some(module_info) = self.as_ref().get_module_info(&handle)
             {
-                let index_lock = index.lock();
-                // Search for child methods that have this definition as a parent
-                for (child_range, parent_methods) in &index_lock.parent_methods_map {
-                    for (parent_module_path, parent_range) in parent_methods {
-                        // Check if the parent method matches our definition
-                        if parent_module_path == definition.module.path()
-                            && *parent_range == definition.range
-                        {
-                            // This child method is a reimplementation of our definition
-                            if let Some(module_info) = self.as_ref().get_module_info(&handle) {
-                                // Check if we already have this module in our results
-                                if let Some((_, ranges)) = global_references
-                                    .iter_mut()
-                                    .find(|(m, _)| m.path() == module_info.path())
-                                {
-                                    ranges.push(*child_range);
-                                } else {
-                                    global_references
-                                        .push((module_info.dupe(), vec![*child_range]));
-                                }
-                            }
-                        }
-                    }
+                // Check if we already have this module in our results
+                if let Some((_, ranges)) = global_references
+                    .iter_mut()
+                    .find(|(m, _)| m.path() == module_info.path())
+                {
+                    ranges.extend(child_implementations);
+                } else {
+                    global_references.push((module_info, child_implementations));
                 }
             }
         }
