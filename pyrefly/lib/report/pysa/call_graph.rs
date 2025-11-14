@@ -27,6 +27,7 @@ use ruff_python_ast::ArgOrKeyword;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -68,12 +69,14 @@ use crate::state::lsp::FindPreference;
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Hash, PartialOrd, Ord)]
 pub enum OriginKind {
     GetAttrConstantLiteral,
+    ComparisonOperator,
 }
 
 impl std::fmt::Display for OriginKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::GetAttrConstantLiteral => write!(f, "get-attr-constant-literal"),
+            Self::ComparisonOperator => write!(f, "comparison"),
         }
     }
 }
@@ -88,6 +91,7 @@ pub struct Origin {
 pub enum ExpressionIdentifier {
     Regular(PysaLocation),
     ArtificialAttributeAccess(Origin),
+    ArtificialCall(Origin),
 }
 
 impl std::fmt::Display for ExpressionIdentifier {
@@ -101,6 +105,9 @@ impl std::fmt::Display for ExpressionIdentifier {
                     location.as_key(),
                     kind,
                 )
+            }
+            Self::ArtificialCall(Origin { kind, location }) => {
+                write!(f, "{}|artificial-call|{}", location.as_key(), kind,)
             }
         }
     }
@@ -132,6 +139,11 @@ impl Serialize for ExpressionIdentifier {
     {
         serializer.serialize_str(&self.as_key())
     }
+}
+
+struct ResolvedDunderAttr {
+    target: CallTargetLookup,
+    attr_type: Type,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy, Hash, PartialOrd, Ord)]
@@ -1612,6 +1624,36 @@ impl<'a> CallGraphVisitor<'a> {
         .map(|callees| IdentifierCallees { if_called: callees })
     }
 
+    fn pyrefly_target_from_magic_dunder_attr(
+        &self,
+        base: &Type,
+        attribute_name: &Name,
+        range: TextRange,
+        todo_ctx: &str,
+    ) -> Option<ResolvedDunderAttr> {
+        self.module_context
+            .transaction
+            .ad_hoc_solve(&self.module_context.handle, |solver| {
+                let error_collector =
+                    ErrorCollector::new(self.module_context.module_info.dupe(), ErrorStyle::Never);
+                solver
+                    .type_of_magic_dunder_attr(
+                        base,
+                        attribute_name,
+                        range,
+                        &error_collector,
+                        None,
+                        todo_ctx,
+                        /* allow_getattr_fallback */ true,
+                    )
+                    .map(|type_| ResolvedDunderAttr {
+                        target: solver.as_call_target(type_.clone()),
+                        attr_type: type_,
+                    })
+            })
+            .flatten()
+    }
+
     // Resolve the attribute access via `__getattr__`
     fn resolve_magic_dunder_attr(
         &self,
@@ -1623,29 +1665,16 @@ impl<'a> CallGraphVisitor<'a> {
         callee_expr_suffix: Option<&str>,
         return_type: Option<ScalarTypeProperties>,
     ) -> Option<AttributeAccessCallees<FunctionRef>> {
-        let pyrefly_target = self
-            .module_context
-            .transaction
-            .ad_hoc_solve(&self.module_context.handle, |solver| {
-                receiver_type.and_then(|type_| {
-                    let error_collector = ErrorCollector::new(
-                        self.module_context.module_info.dupe(),
-                        ErrorStyle::Never,
-                    );
-                    solver
-                        .type_of_magic_dunder_attr(
-                            type_,
-                            attribute,
-                            callee_range,
-                            &error_collector,
-                            None,
-                            "resolve_attribute_access",
-                            /* allow_getattr_fallback */ true,
-                        )
-                        .map(|attribute_access_type| solver.as_call_target(attribute_access_type))
-                })
+        let pyrefly_target = receiver_type
+            .and_then(|base| {
+                self.pyrefly_target_from_magic_dunder_attr(
+                    base,
+                    attribute,
+                    callee_range,
+                    "resolve_attribute_access",
+                )
             })
-            .flatten();
+            .map(|ResolvedDunderAttr { target, .. }| target);
         let callees = self.resolve_pyrefly_target(
             pyrefly_target,
             callee_expr,
@@ -1938,13 +1967,11 @@ impl<'a> CallGraphVisitor<'a> {
     fn resolve_and_register_call(
         &mut self,
         call: &ExprCall,
-        expr_type: Option<Type>,
+        return_type: Option<ScalarTypeProperties>,
         expression_identifier: ExpressionIdentifier,
         assignment_targets: Option<&Vec<&Expr>>,
     ) {
         let callee = &call.func;
-        let return_type =
-            expr_type.map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
         let callees = self
             .resolve_call(
                 callee,
@@ -1988,6 +2015,57 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_and_register_compare(&mut self, compare: &ExprCompare) {
+        let Some(left_comparator_type) = &compare
+            .comparators
+            .first()
+            .and_then(|left| self.module_context.answers.get_type_trace(left.range()))
+        else {
+            return;
+        };
+
+        for (operator, right_comparator) in compare.ops.iter().zip(compare.comparators.iter()) {
+            let callee_name = dunder::rich_comparison_dunder(*operator);
+            let callees = callee_name
+                .as_ref()
+                .and_then(|name| {
+                    self.pyrefly_target_from_magic_dunder_attr(
+                        left_comparator_type,
+                        name,
+                        compare.range(),
+                        "resolve_expression_for_exprcompare",
+                    )
+                })
+                .and_then(
+                    |ResolvedDunderAttr {
+                         target,
+                         attr_type: callee_type,
+                     }| {
+                        self.resolve_pyrefly_target(
+                            Some(target),
+                            /* callee_expr */ None,
+                            Some(&callee_type),
+                            /* return_type */
+                            Some(ScalarTypeProperties::bool()), // Comparison always returns bool
+                            /* callee_expr_suffix */
+                            callee_name.as_ref().map(|name| name.as_str()),
+                            /* unknown_callee_as_direct_call */ true,
+                        )
+                    },
+                );
+
+            let expression_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+                kind: OriginKind::ComparisonOperator,
+                location: PysaLocation::new(
+                    self.module_context
+                        .module_info
+                        .display_range(right_comparator.range()),
+                ),
+            });
+            self.add_callees(expression_identifier, callees.map(ExpressionCallees::Call));
+        }
+    }
+
     fn resolve_and_register_expression(
         &mut self,
         expr: &Expr,
@@ -2008,9 +2086,12 @@ impl<'a> CallGraphVisitor<'a> {
         match expr {
             Expr::Call(call) => {
                 debug_println!(self.debug, "Resolving callees for call `{:#?}`", expr);
+                let return_type_from_expr = expr_type()
+                    .as_ref()
+                    .map(|type_| ScalarTypeProperties::from_type(type_, self.module_context));
                 self.resolve_and_register_call(
                     call,
-                    expr_type(),
+                    return_type_from_expr,
                     regular_expression_identifier,
                     assignment_targets,
                 );
@@ -2029,19 +2110,23 @@ impl<'a> CallGraphVisitor<'a> {
             Expr::Attribute(attribute) if !is_nested_callee_or_base => {
                 debug_println!(self.debug, "Resolving callees for attribute `{:#?}`", expr);
                 let callee_expr = Some(AnyNodeRef::from(attribute));
-                let callee_type = expr_type();
                 let callees = self
                     .resolve_attribute_access(
                         &attribute.value,
                         attribute.attr.id(),
                         callee_expr,
-                        callee_type.as_ref(),
+                        /* callee_type */ expr_type().as_ref(),
                         attribute.range(),
-                        Some(self.get_return_type_for_callee(callee_type.as_ref())), // This is the return type when `expr` is called
+                        /* return_type */
+                        Some(self.get_return_type_for_callee(expr_type().as_ref())), // This is the return type when `expr` is called
                         assignment_targets,
                     )
                     .map(ExpressionCallees::AttributeAccess);
                 self.add_callees(regular_expression_identifier, callees);
+            }
+            Expr::Compare(compare) => {
+                debug_println!(self.debug, "Resolving callees for compare `{:#?}`", expr);
+                self.resolve_and_register_compare(compare);
             }
             _ => {}
         };
