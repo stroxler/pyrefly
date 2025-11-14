@@ -14,6 +14,7 @@ use dupe::Dupe;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::args::clap_env;
 use pyrefly_util::globs::FilteredGlobs;
 use pyrefly_util::globs::Globs;
 use pyrefly_util::includes::Includes;
@@ -51,7 +52,7 @@ pub struct FilesArgs {
     /// When not set, Pyrefly will perform an upward-filesystem-walk approach to find the nearest
     /// pyrefly.toml or pyproject.toml with `tool.pyrefly` section'. If no config is found, Pyrefly exits with error.
     /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
-    #[arg(long, short, value_name = "FILE")]
+    #[arg(long, short, value_name = "FILE", env = clap_env("CONFIG"))]
     config: Option<PathBuf>,
 }
 

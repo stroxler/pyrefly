@@ -353,7 +353,7 @@ ERROR *main.py* ?bad-assignment? (glob)
 
 ```scrut {output_stream: stdout}
 $ echo "disable-project-excludes-heuristics = true" > $TMPDIR/disable_excludes_heuristics/pyrefly.toml && \
-> $PYREFLY check $TMPDIR/disable_excludes_heuristics/.src/main.py -c $TMPDIR/disable_excludes_heuristics/pyrefly.toml --output-format=min-text
+> PYREFLY_CONFIG="$TMPDIR/disable_excludes_heuristics/pyrefly.toml" $PYREFLY check $TMPDIR/disable_excludes_heuristics/.src/main.py --output-format=min-text
 ERROR *main.py* ?bad-assignment? (glob)
 [1]
 ```
