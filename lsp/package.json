@@ -171,6 +171,10 @@
                         "signatureHelp": {
                             "type": "boolean",
                             "default": false
+                        },
+                        "implementation": {
+                            "type": "boolean",
+                            "default": false
                         }
                     }
                 }

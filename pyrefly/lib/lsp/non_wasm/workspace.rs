@@ -208,6 +208,8 @@ pub struct DisabledLanguageServices {
     pub document_symbol: bool,
     #[serde(default)]
     pub semantic_tokens: bool,
+    #[serde(default)]
+    pub implementation: bool,
 }
 
 impl DisabledLanguageServices {
@@ -230,6 +232,7 @@ impl DisabledLanguageServices {
             "textDocument/semanticTokens/full" | "textDocument/semanticTokens/range" => {
                 self.semantic_tokens
             }
+            "textDocument/implementation" => self.implementation,
             _ => false, // Unknown methods are not disabled
         }
     }

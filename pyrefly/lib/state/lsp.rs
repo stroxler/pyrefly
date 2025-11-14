@@ -3678,4 +3678,18 @@ impl<'a> CancellableTransaction<'a> {
 
         Ok(global_references)
     }
+
+    /// Finds all implementations (child class methods) of the definition at the given position.
+    /// This searches through transitive reverse dependencies to find all child classes that
+    /// implement the method.
+    /// Returns Err if the request is canceled in the middle of a run.
+    #[allow(dead_code)]
+    pub fn find_global_implementations_from_definition(
+        &mut self,
+        _sys_info: &SysInfo,
+        _definition: TextRangeWithModule,
+    ) -> Result<Vec<TextRangeWithModule>, Cancelled> {
+        // TODO: Implement actual implementation finding logic
+        Ok(Vec::new())
+    }
 }

@@ -48,6 +48,7 @@ fn test_initialize_basic() {
                     "triggerCharacters": ["(", ","]
                 },
                 "hoverProvider": true,
+                "implementationProvider": true,
                 "inlayHintProvider": true,
                 "notebookDocumentSync":{"notebookSelector":[{"cells":[{"language":"python"}]}]},
                 "documentSymbolProvider": true,

@@ -68,6 +68,7 @@ use lsp_types::Hover;
 use lsp_types::HoverContents;
 use lsp_types::HoverParams;
 use lsp_types::HoverProviderCapability;
+use lsp_types::ImplementationProviderCapability;
 use lsp_types::InitializeParams;
 use lsp_types::InlayHint;
 use lsp_types::InlayHintLabel;
@@ -136,6 +137,8 @@ use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::FoldingRangeRequest;
 use lsp_types::request::GotoDeclaration;
 use lsp_types::request::GotoDefinition;
+use lsp_types::request::GotoImplementation;
+use lsp_types::request::GotoImplementationResponse;
 use lsp_types::request::GotoTypeDefinition;
 use lsp_types::request::GotoTypeDefinitionParams;
 use lsp_types::request::GotoTypeDefinitionResponse;
@@ -465,6 +468,7 @@ pub fn capabilities(
             definition_provider: Some(OneOf::Left(true)),
             declaration_provider: Some(DeclarationCapability::Simple(true)),
             type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
+            implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
             code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
                 code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
                 ..Default::default()
@@ -854,6 +858,17 @@ impl Server {
                                 .unwrap_or(default_response)),
                         ));
                         ide_transaction_manager.save(transaction);
+                    }
+                } else if let Some(params) = as_request::<GotoImplementation>(&x) {
+                    if let Some(_params) = self
+                        .extract_request_params_or_send_err_response::<GotoImplementation>(
+                            params, &x.id,
+                        )
+                    {
+                        self.send_response(new_response::<Option<GotoImplementationResponse>>(
+                            x.id,
+                            Ok(None),
+                        ));
                     }
                 } else if let Some(params) = as_request::<CodeActionRequest>(&x) {
                     if let Some(params) = self
