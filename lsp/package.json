@@ -140,6 +140,10 @@
                             "type": "boolean",
                             "default": false
                         },
+                        "declaration": {
+                            "type": "boolean",
+                            "default": false
+                        },
                         "typeDefinition": {
                             "type": "boolean",
                             "default": false

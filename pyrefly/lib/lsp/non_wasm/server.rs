@@ -39,6 +39,7 @@ use lsp_types::CompletionParams;
 use lsp_types::CompletionResponse;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
+use lsp_types::DeclarationCapability;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
 use lsp_types::DiagnosticTag;
@@ -133,6 +134,7 @@ use lsp_types::request::DocumentDiagnosticRequest;
 use lsp_types::request::DocumentHighlightRequest;
 use lsp_types::request::DocumentSymbolRequest;
 use lsp_types::request::FoldingRangeRequest;
+use lsp_types::request::GotoDeclaration;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::GotoTypeDefinition;
 use lsp_types::request::GotoTypeDefinitionParams;
@@ -461,6 +463,7 @@ pub fn capabilities(
                 TextDocumentSyncKind::INCREMENTAL,
             )),
             definition_provider: Some(OneOf::Left(true)),
+            declaration_provider: Some(DeclarationCapability::Simple(true)),
             type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
             code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
                 code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
@@ -814,6 +817,23 @@ impl Server {
                             x.id,
                             Ok(self
                                 .goto_definition(&transaction, params)
+                                .unwrap_or(default_response)),
+                        ));
+                        ide_transaction_manager.save(transaction);
+                    }
+                } else if let Some(params) = as_request::<GotoDeclaration>(&x) {
+                    if let Some(params) = self
+                        .extract_request_params_or_send_err_response::<GotoDeclaration>(
+                            params, &x.id,
+                        )
+                    {
+                        let default_response = GotoDefinitionResponse::Array(Vec::new());
+                        let transaction =
+                            ide_transaction_manager.non_committable_transaction(&self.state);
+                        self.send_response(new_response(
+                            x.id,
+                            Ok(self
+                                .goto_declaration(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
                         ide_transaction_manager.save(transaction);
@@ -2052,6 +2072,30 @@ impl Server {
         let range =
             self.from_lsp_position(uri, &info, params.text_document_position_params.position);
         let targets = transaction.goto_definition(&handle, range);
+        let mut lsp_targets = targets
+            .iter()
+            .filter_map(|x| self.to_lsp_location(x))
+            .collect::<Vec<_>>();
+        if lsp_targets.is_empty() {
+            None
+        } else if lsp_targets.len() == 1 {
+            Some(GotoDefinitionResponse::Scalar(lsp_targets.pop().unwrap()))
+        } else {
+            Some(GotoDefinitionResponse::Array(lsp_targets))
+        }
+    }
+
+    fn goto_declaration(
+        &self,
+        transaction: &Transaction<'_>,
+        params: GotoDefinitionParams,
+    ) -> Option<GotoDefinitionResponse> {
+        let uri = &params.text_document_position_params.text_document.uri;
+        let handle = self.make_handle_if_enabled(uri, Some(GotoDeclaration::METHOD))?;
+        let info = transaction.get_module_info(&handle)?;
+        let range =
+            self.from_lsp_position(uri, &info, params.text_document_position_params.position);
+        let targets = transaction.goto_declaration(&handle, range);
         let mut lsp_targets = targets
             .iter()
             .filter_map(|x| self.to_lsp_location(x))

@@ -155,6 +155,8 @@ const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 /// Determines what to do when finding definitions. Do we continue searching, or stop somewhere intermediate?
 #[derive(Clone, Copy, Debug)]
 pub enum ImportBehavior {
+    /// Stop at all imports (both renamed and non-renamed)
+    StopAtEverything,
     /// Stop at renamed imports (e.g., `from foo import bar as baz`), but jump through non-renamed imports
     StopAtRenamedImports,
     /// Jump through all imports
@@ -1146,6 +1148,10 @@ impl<'a> Transaction<'a> {
                     self.resolve_named_import(handle, module_name, name, preference)?;
                 // Determine whether to stop at the import or follow through
                 let should_stop_at_import = match preference.import_behavior {
+                    ImportBehavior::StopAtEverything => {
+                        // Stop at ALL imports
+                        true
+                    }
                     ImportBehavior::StopAtRenamedImports => {
                         // Stop only at renamed imports
                         original_name_range.is_some()
@@ -1770,6 +1776,25 @@ impl<'a> Transaction<'a> {
                 FindPreference::default(),
             ));
         }
+
+        definitions.into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
+    }
+
+    pub fn goto_declaration(
+        &self,
+        handle: &Handle,
+        position: TextSize,
+    ) -> Vec<TextRangeWithModule> {
+        // Go-to declaration stops at intermediate definitions (imports, type stubs)
+        // rather than jumping through to the final implementation
+        let definitions = self.find_definition(
+            handle,
+            position,
+            FindPreference {
+                import_behavior: ImportBehavior::StopAtEverything,
+                prefer_pyi: true,
+            },
+        );
 
         definitions.into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }

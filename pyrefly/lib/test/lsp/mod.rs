@@ -9,6 +9,7 @@
 
 mod code_actions;
 mod completion;
+mod declaration;
 mod definition;
 mod document_symbols;
 mod folding_ranges;

@@ -185,6 +185,8 @@ pub struct DisabledLanguageServices {
     #[serde(default)]
     pub definition: bool,
     #[serde(default)]
+    pub declaration: bool,
+    #[serde(default)]
     pub type_definition: bool,
     #[serde(default)]
     pub code_action: bool,
@@ -214,6 +216,7 @@ impl DisabledLanguageServices {
     pub fn is_disabled(&self, method: &str) -> bool {
         match method {
             "textDocument/definition" => self.definition,
+            "textDocument/declaration" => self.declaration,
             "textDocument/typeDefinition" => self.type_definition,
             "textDocument/codeAction" => self.code_action,
             "textDocument/completion" => self.completion,

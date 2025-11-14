@@ -42,6 +42,7 @@ fn test_initialize_basic() {
                 "completionProvider": {
                     "triggerCharacters": ["."]
                 },
+                "declarationProvider": true,
                 "documentHighlightProvider": true,
                 "signatureHelpProvider": {
                     "triggerCharacters": ["(", ","]
