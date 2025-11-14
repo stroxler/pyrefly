@@ -321,6 +321,17 @@ impl<Function: FunctionTrait> HigherOrderParameter<Function> {
             unresolved: self.unresolved,
         }
     }
+
+    fn dedup_and_sort(&mut self) {
+        self.call_targets.sort();
+        self.call_targets.dedup();
+    }
+
+    fn join_in_place(&mut self, other: Self) {
+        assert_eq!(self.index, other.index);
+        self.call_targets.extend(other.call_targets);
+        self.unresolved = self.unresolved.clone().join(other.unresolved);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -366,7 +377,10 @@ impl<Function: FunctionTrait> CallCallees<Function> {
     }
 
     fn is_empty(&self) -> bool {
-        self.call_targets.is_empty() && self.init_targets.is_empty() && self.new_targets.is_empty()
+        self.call_targets.is_empty()
+            && self.init_targets.is_empty()
+            && self.new_targets.is_empty()
+            && self.higher_order_parameters.is_empty()
     }
 
     pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
@@ -374,6 +388,11 @@ impl<Function: FunctionTrait> CallCallees<Function> {
             .iter()
             .chain(self.init_targets.iter())
             .chain(self.new_targets.iter())
+            .chain(
+                self.higher_order_parameters
+                    .values()
+                    .flat_map(|higher_order_parameter| higher_order_parameter.call_targets.iter()),
+            )
     }
 
     fn dedup_and_sort(&mut self) {
@@ -383,6 +402,9 @@ impl<Function: FunctionTrait> CallCallees<Function> {
         self.init_targets.dedup();
         self.new_targets.sort();
         self.new_targets.dedup();
+        self.higher_order_parameters
+            .values_mut()
+            .for_each(|higher_order_parameter| higher_order_parameter.dedup_and_sort());
     }
 
     fn with_higher_order_parameters(
@@ -396,8 +418,12 @@ impl<Function: FunctionTrait> CallCallees<Function> {
         self.call_targets.extend(other.call_targets);
         self.init_targets.extend(other.init_targets);
         self.new_targets.extend(other.new_targets);
-        self.higher_order_parameters
-            .extend(other.higher_order_parameters);
+        for (index, higher_order_parameter) in other.higher_order_parameters.into_iter() {
+            self.higher_order_parameters
+                .entry(index)
+                .and_modify(|existing| existing.join_in_place(higher_order_parameter.clone()))
+                .or_insert(higher_order_parameter);
+        }
         self.unresolved = self.unresolved.clone().join(other.unresolved);
     }
 }
