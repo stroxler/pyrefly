@@ -3194,16 +3194,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::Import(m, name, _aliased) => self
                 .get_from_export(*m, None, &KeyExport(name.clone()))
                 .arc_clone(),
-            Binding::ClassDef(x, decorators) => match &self.get_idx(*x).0 {
+            Binding::ClassDef(x, _decorators) => match &self.get_idx(*x).0 {
                 None => Type::any_implicit(),
                 Some(cls) => {
-                    let mut ty = Type::ClassDef(cls.dupe());
-                    for x in decorators.iter().rev() {
-                        let decorator = self.get_idx(*x).arc_clone_ty();
-                        let range = self.bindings().idx_to_key(*x).range();
-                        ty = self.apply_decorator(decorator, ty, range, errors)
-                    }
-                    ty
+                    // TODO: analyze the class decorators. At the moment, we don't actually support any type-level
+                    // analysis of class decorators (the decorators we do support like dataclass-related ones are
+                    // handled via custom bindings).
+                    //
+                    // Note that all decorators have their own binding so they are still type checked for errors
+                    // *inside* the decorator, we just don't analyze the application.
+                    Type::ClassDef(cls.dupe())
                 }
             },
             Binding::AnnotatedType(ann, val) => match &self.get_idx(*ann).ty(self.stdlib) {

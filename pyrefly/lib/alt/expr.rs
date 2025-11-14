@@ -48,7 +48,6 @@ use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::Hint;
@@ -1765,35 +1764,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             None
         }
-    }
-
-    /// Apply a decorator. This effectively synthesizes a function call.
-    pub fn apply_decorator(
-        &self,
-        decorator: Type,
-        decoratee: Type,
-        range: TextRange,
-        errors: &ErrorCollector,
-    ) -> Type {
-        if matches!(&decoratee, Type::ClassDef(cls) if cls.has_toplevel_qname("typing", "TypeVar"))
-        {
-            // Avoid recursion in TypeVar, which is decorated with `@final`, whose type signature
-            // itself depends on a TypeVar.
-            return decoratee;
-        }
-        if matches!(&decoratee, Type::ClassDef(_)) {
-            // TODO: don't blanket ignore class decorators.
-            return decoratee;
-        }
-        let call_target = self.as_call_target_or_error(
-            decorator.clone(),
-            CallStyle::FreeForm,
-            range,
-            errors,
-            None,
-        );
-        let arg = CallArg::ty(&decoratee, range);
-        self.call_infer(call_target, &[arg], &[], range, errors, None, None, None)
     }
 
     /// Helper to infer element types for a list or set.
