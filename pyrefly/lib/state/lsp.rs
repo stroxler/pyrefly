@@ -3528,6 +3528,7 @@ impl<'a> CancellableTransaction<'a> {
         // General strategy:
         // 1: Compute the set of transitive rdeps.
         // 2. Find references in each one of them using the index computed during earlier checking
+        // 3. If this is a method definition, also search for reimplementations in child classes
         let mut transitive_rdeps = match definition.module.path().details() {
             ModulePathDetails::Memory(path_buf) => {
                 let handle_of_filesystem_counterpart = Handle::new(
@@ -3582,6 +3583,7 @@ impl<'a> CancellableTransaction<'a> {
             .into_iter()
             .sorted_by_key(|h| h.path().dupe())
             .collect::<Vec<_>>();
+
         let mut global_references = Vec::new();
         for handle in candidate_handles_for_references {
             let definition = match definition.module.path().details() {
@@ -3621,6 +3623,7 @@ impl<'a> CancellableTransaction<'a> {
                 }
                 _ => definition.clone(),
             };
+
             let references = self
                 .as_ref()
                 .local_references_from_definition(
@@ -3635,7 +3638,44 @@ impl<'a> CancellableTransaction<'a> {
             {
                 global_references.push((module_info, references));
             }
+            // Step 3: Search for child class reimplementations using the parent_methods_map
+            // If this is a method definition, find all child classes that reimplement it
+            if let Some(solutions) = self.as_ref().get_solutions(&handle)
+                && let Some(index) = solutions.get_index()
+            {
+                let index_lock = index.lock();
+                // Search for child methods that have this definition as a parent
+                for (child_range, parent_methods) in &index_lock.parent_methods_map {
+                    for (parent_module_path, parent_range) in parent_methods {
+                        // Check if the parent method matches our definition
+                        if parent_module_path == definition.module.path()
+                            && *parent_range == definition.range
+                        {
+                            // This child method is a reimplementation of our definition
+                            if let Some(module_info) = self.as_ref().get_module_info(&handle) {
+                                // Check if we already have this module in our results
+                                if let Some((_, ranges)) = global_references
+                                    .iter_mut()
+                                    .find(|(m, _)| m.path() == module_info.path())
+                                {
+                                    ranges.push(*child_range);
+                                } else {
+                                    global_references
+                                        .push((module_info.dupe(), vec![*child_range]));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
+
+        // Sort and deduplicate references in each module
+        for (_, references) in &mut global_references {
+            references.sort_by_key(|range| range.start());
+            references.dedup();
+        }
+
         Ok(global_references)
     }
 }

@@ -668,7 +668,6 @@ fn test_references_after_file_modification_with_line_offset_with_config() {
     interaction.shutdown();
 }
 
-// todo(kylei): find implementations in addition to just calls
 #[test]
 fn test_references_cross_file_method_inheritance() {
     let root = get_test_files_root();
@@ -691,13 +690,20 @@ fn test_references_cross_file_method_inheritance() {
     // Find references for Base.method (line 7, character 8 in base.py)
     interaction.server.references("base.py", 7, 8, true);
 
-    // finds only calls
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
         result: Some(serde_json::json!([
             {
+                "range": {"start":{"line":9,"character":8},"end":{"line":9,"character":14}},
+                "uri": Url::from_file_path(child_py.clone()).unwrap().to_string()
+            },
+            {
                 "range": {"start":{"line":14,"character":6},"end":{"line":14,"character":12}},
                 "uri": Url::from_file_path(child_py.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":9,"character":8},"end":{"line":9,"character":14}},
+                "uri": Url::from_file_path(child_of_child_py.clone()).unwrap().to_string()
             },
             {
                 "range": {"start":{"line":14,"character":6},"end":{"line":14,"character":12}},
