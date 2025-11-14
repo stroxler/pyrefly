@@ -222,6 +222,7 @@ use crate::state::load::LspFile;
 use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
+use crate::state::lsp::ImportBehavior;
 use crate::state::notebook::LspNotebook;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
@@ -2219,8 +2220,8 @@ impl Server {
             .find_definition(
                 &handle,
                 position,
-                &FindPreference {
-                    jump_through_renamed_import: false,
+                FindPreference {
+                    import_behavior: ImportBehavior::StopAtRenamedImports,
                     ..Default::default()
                 },
             )

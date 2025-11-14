@@ -1549,7 +1549,7 @@ impl<'a> CallGraphVisitor<'a> {
             .find_definition_for_name_use(
                 &self.module_context.handle,
                 &identifier,
-                &FindPreference::default(),
+                FindPreference::default(),
             )
             .map_or(vec![], |d| vec![d])
             .iter()
@@ -1679,7 +1679,7 @@ impl<'a> CallGraphVisitor<'a> {
                 &self.module_context.handle,
                 base.range(),
                 attribute,
-                &FindPreference::default(),
+                FindPreference::default(),
             );
 
         let callee_expr_suffix = Some(attribute.as_str());

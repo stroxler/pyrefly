@@ -511,7 +511,7 @@ impl GleanState<'_> {
         let definition = self.transaction.find_definition_for_name_use(
             self.handle,
             &identifier,
-            &FindPreference::default(),
+            FindPreference::default(),
         );
 
         definition
@@ -973,7 +973,7 @@ impl GleanState<'_> {
     fn find_fqname_definition_at_position(&self, position: TextSize) -> Vec<String> {
         let definitions =
             self.transaction
-                .find_definition(self.handle, position, &FindPreference::default());
+                .find_definition(self.handle, position, FindPreference::default());
 
         definitions
             .into_iter()

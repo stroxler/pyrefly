@@ -152,9 +152,18 @@ pub enum DisplayTypeErrors {
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
-#[derive(Clone, Debug)]
+/// Determines what to do when finding definitions. Do we continue searching, or stop somewhere intermediate?
+#[derive(Clone, Copy, Debug)]
+pub enum ImportBehavior {
+    /// Stop at renamed imports (e.g., `from foo import bar as baz`), but jump through non-renamed imports
+    StopAtRenamedImports,
+    /// Jump through all imports
+    JumpThroughEverything,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct FindPreference {
-    pub jump_through_renamed_import: bool,
+    pub import_behavior: ImportBehavior,
     /// controls whether to prioritize finding pyi or py files. if false, we will search all search paths until a .py file is found before
     /// falling back to a .pyi.
     pub prefer_pyi: bool,
@@ -163,7 +172,7 @@ pub struct FindPreference {
 impl Default for FindPreference {
     fn default() -> Self {
         Self {
-            jump_through_renamed_import: true,
+            import_behavior: ImportBehavior::JumpThroughEverything,
             prefer_pyi: true,
         }
     }
@@ -848,7 +857,7 @@ impl<'a> Transaction<'a> {
                     handle,
                     &identifier,
                     &callee_kind,
-                    &FindPreference::default(),
+                    FindPreference::default(),
                 )
                 .first()
                 .and_then(|item| {
@@ -1087,7 +1096,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module_name: ModuleName,
         name: Name,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
         let mut gas = RESOLVE_EXPORT_INITIAL_GAS;
@@ -1115,14 +1124,15 @@ impl<'a> Transaction<'a> {
         None
     }
 
-    /// When `preference.jump_through_renamed_import` is true, we will jump through renamed import like
-    /// `from foo import bar as baz`, when we try to compute definition of baz.
-    /// Otherwise, we will stop at `baz``.
+    /// The behavior of import resolution depends on `preference.import_behavior`:
+    /// - `JumpThroughNothing`: Stop at all imports (both renamed and non-renamed)
+    /// - `JumpThroughRenamedImports`: Stop at renamed imports like `from foo import bar as baz`, but jump through non-renamed imports
+    /// - `JumpThroughEverything`: Jump through all imports
     fn resolve_intermediate_definition(
         &self,
         handle: &Handle,
         intermediate_definition: IntermediateDefinition,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<(Handle, Export)> {
         match intermediate_definition {
             IntermediateDefinition::Local(export) => Some((handle.dupe(), export)),
@@ -1134,7 +1144,19 @@ impl<'a> Transaction<'a> {
             ) => {
                 let (def_handle, export) =
                     self.resolve_named_import(handle, module_name, name, preference)?;
-                if !preference.jump_through_renamed_import && original_name_range.is_some() {
+                // Determine whether to stop at the import or follow through
+                let should_stop_at_import = match preference.import_behavior {
+                    ImportBehavior::StopAtRenamedImports => {
+                        // Stop only at renamed imports
+                        original_name_range.is_some()
+                    }
+                    ImportBehavior::JumpThroughEverything => {
+                        // Follow through all imports
+                        false
+                    }
+                };
+
+                if should_stop_at_import {
                     Some((
                         handle.dupe(),
                         Export {
@@ -1174,7 +1196,7 @@ impl<'a> Transaction<'a> {
         attr_name: &Name,
         definition: AttrDefinition,
         docstring_range: Option<TextRange>,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<(TextRangeWithModule, Option<TextRange>)> {
         match definition {
             AttrDefinition::FullyResolved(text_range_with_module_info) => {
@@ -1246,7 +1268,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         key: &Key,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
         let intermediate_definition = key_to_intermediate_definition(&bindings, key)?;
@@ -1293,7 +1315,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         key: &Key,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<(Handle, Export)> {
         if !self.get_bindings(handle)?.is_valid_key(key) {
             return None;
@@ -1305,7 +1327,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         name: &Identifier,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<FindDefinitionItemWithDocstring> {
         let def_key = Key::Definition(ShortIdentifier::new(name));
         let (
@@ -1330,7 +1352,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         name: &Identifier,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<FindDefinitionItemWithDocstring> {
         let use_key = Key::BoundName(ShortIdentifier::new(name));
         let (
@@ -1353,7 +1375,7 @@ impl<'a> Transaction<'a> {
     fn find_definition_for_base_type(
         &self,
         handle: &Handle,
-        preference: &FindPreference,
+        preference: FindPreference,
         completions: Vec<AttrInfo>,
         name: &Name,
     ) -> Option<FindDefinitionItemWithDocstring> {
@@ -1381,7 +1403,7 @@ impl<'a> Transaction<'a> {
     fn find_attribute_definition_for_base_type(
         &self,
         handle: &Handle,
-        preference: &FindPreference,
+        preference: FindPreference,
         base_type: Type,
         name: &Name,
     ) -> Vec<FindDefinitionItemWithDocstring> {
@@ -1412,7 +1434,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         covering_nodes: &[AnyNodeRef],
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Vec<FindDefinitionItemWithDocstring> {
         let Some((base_type, dunder_method_name)) =
             covering_nodes.iter().find_map(|node| match node {
@@ -1471,7 +1493,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         base_range: TextRange,
         name: &Name,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Vec<FindDefinitionItemWithDocstring> {
         if let Some(answers) = self.get_answers(handle)
             && let Some(base_type) = answers.get_type_trace(base_range)
@@ -1486,7 +1508,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         module_name: ModuleName,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Option<FindDefinitionItemWithDocstring> {
         // TODO: Handle relative import (via ModuleName::new_maybe_relative)
         let handle = match preference.prefer_pyi {
@@ -1514,7 +1536,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         identifier: &Identifier,
         callee_kind: &CalleeKind,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Vec<FindDefinitionItem> {
         // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
         // traversal, once we gain access to the callee function def from callee_kind directly.
@@ -1567,7 +1589,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         callee_kind: &CalleeKind,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Vec<TextRangeWithModule> {
         let defs = match callee_kind {
             CalleeKind::Function(name) => self
@@ -1588,7 +1610,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         position: TextSize,
-        preference: &FindPreference,
+        preference: FindPreference,
     ) -> Vec<FindDefinitionItemWithDocstring> {
         let Some(mod_module) = self.get_ast(handle) else {
             return vec![];
@@ -1735,7 +1757,7 @@ impl<'a> Transaction<'a> {
         let mut definitions = self.find_definition(
             handle,
             position,
-            &FindPreference {
+            FindPreference {
                 prefer_pyi: false,
                 ..Default::default()
             },
@@ -1745,7 +1767,7 @@ impl<'a> Transaction<'a> {
             definitions.append(&mut self.find_definition(
                 handle,
                 position,
-                &FindPreference::default(),
+                FindPreference::default(),
             ));
         }
 
@@ -1794,7 +1816,7 @@ impl<'a> Transaction<'a> {
             }
         }
 
-        self.find_definition(handle, position, &FindPreference::default())
+        self.find_definition(handle, position, FindPreference::default())
             .into_map(|item| TextRangeWithModule::new(item.module, item.definition_range))
     }
 
@@ -1809,8 +1831,8 @@ impl<'a> Transaction<'a> {
         self.find_definition(
             handle,
             position,
-            &FindPreference {
-                jump_through_renamed_import: false,
+            FindPreference {
+                import_behavior: ImportBehavior::StopAtRenamedImports,
                 ..Default::default()
             },
         )
@@ -1914,14 +1936,7 @@ impl<'a> Transaction<'a> {
     pub fn prepare_rename(&self, handle: &Handle, position: TextSize) -> Option<TextRange> {
         let identifier_context = self.identifier_at(handle, position);
 
-        let definitions = self.find_definition(
-            handle,
-            position,
-            &FindPreference {
-                jump_through_renamed_import: true,
-                ..Default::default()
-            },
-        );
+        let definitions = self.find_definition(handle, position, FindPreference::default());
 
         for FindDefinitionItemWithDocstring { module, .. } in definitions {
             if self.is_third_party_module(&module, handle) {
@@ -1936,8 +1951,8 @@ impl<'a> Transaction<'a> {
         self.find_definition(
             handle,
             position,
-            &FindPreference {
-                jump_through_renamed_import: false,
+            FindPreference {
+                import_behavior: ImportBehavior::StopAtRenamedImports,
                 ..Default::default()
             },
         )
@@ -1973,7 +1988,7 @@ impl<'a> Transaction<'a> {
                 handle,
                 *imported_module_name,
                 imported_name.clone(),
-                &FindPreference::default(),
+                FindPreference::default(),
             ) && imported_handle.path().as_path() == module.path().as_path()
                 && export.location == definition_range
             {
@@ -2106,7 +2121,7 @@ impl<'a> Transaction<'a> {
                                     &name,
                                     definition,
                                     docstring_range,
-                                    &FindPreference::default(),
+                                    FindPreference::default(),
                                 )
                             })
                             && module.path() == module.path()
@@ -2169,7 +2184,7 @@ impl<'a> Transaction<'a> {
 
         for (kw_identifier, callee_kind) in keyword_args {
             let callee_locations =
-                self.get_callee_location(handle, &callee_kind, &FindPreference::default());
+                self.get_callee_location(handle, &callee_kind, FindPreference::default());
 
             for TextRangeWithModule {
                 module,
@@ -2209,8 +2224,8 @@ impl<'a> Transaction<'a> {
                     && let Some((def_handle, Export { location, .. })) = self.find_export_for_key(
                         handle,
                         &Key::BoundName(ShortIdentifier::expr_name(x)),
-                        &FindPreference {
-                            jump_through_renamed_import: false,
+                        FindPreference {
+                            import_behavior: ImportBehavior::StopAtRenamedImports,
                             prefer_pyi: false,
                         },
                     )
@@ -2264,8 +2279,8 @@ impl<'a> Transaction<'a> {
             if let Some((definition_handle, definition_export)) = self.key_to_export(
                 handle,
                 key,
-                &FindPreference {
-                    jump_through_renamed_import: false,
+                FindPreference {
+                    import_behavior: ImportBehavior::StopAtRenamedImports,
                     ..Default::default()
                 },
             ) {
@@ -2527,7 +2542,7 @@ impl<'a> Transaction<'a> {
                 }
                 let binding = bindings.get(idx);
                 let ty = self.get_type(handle, key);
-                let export_info = self.key_to_export(handle, key, &FindPreference::default());
+                let export_info = self.key_to_export(handle, key, FindPreference::default());
 
                 let kind = if let Some((_, ref export)) = export_info {
                     export
@@ -2597,7 +2612,7 @@ impl<'a> Transaction<'a> {
             &attr_info.name,
             definition,
             attr_info.docstring_range,
-            &FindPreference::default(),
+            FindPreference::default(),
         );
 
         let (definition, Some(docstring_range)) = attribute_definition? else {
