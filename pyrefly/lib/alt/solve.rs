@@ -1666,6 +1666,71 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Arc::new(EmptyAnswer)
     }
 
+    /// Check if a module path should be skipped for indexing purposes.
+    /// Skips typeshed (bundled stdlib and third-party stubs) and site-packages (external libraries).
+    fn should_skip_module_for_indexing(
+        module_path: &pyrefly_python::module_path::ModulePath,
+    ) -> bool {
+        use pyrefly_python::module_path::ModulePathDetails;
+        match module_path.details() {
+            ModulePathDetails::BundledTypeshed(_)
+            | ModulePathDetails::BundledTypeshedThirdParty(_) => true,
+            ModulePathDetails::FileSystem(path)
+            | ModulePathDetails::Memory(path)
+            | ModulePathDetails::Namespace(path) => {
+                // Skip site-packages
+                path.to_string_lossy().contains("site-packages")
+            }
+        }
+    }
+
+    /// Populate parent methods map for find-references on reimplementations.
+    /// This is done once per class before checking individual fields.
+    /// Uses MRO to walk ALL ancestors (not just direct bases).
+    /// Only adds if the ancestor directly declares the field.
+    /// Skips library code to keep the index focused on user source code.
+    fn populate_parent_methods_map(&self, cls: &Class) {
+        if Self::should_skip_module_for_indexing(cls.module().path()) {
+            return;
+        }
+
+        let mro = self.get_mro_for_class(cls);
+        for (field_name, _field) in self.get_class_field_map(cls).iter() {
+            // Apply the same filters as check_consistent_override_for_field.
+            // Skip special methods that don't participate in override checks:
+            // - Object construction: __new__, __init__, __init_subclass__
+            // - __hash__ (often overridden to None)
+            // - __call__ (too many typeshed issues)
+            // - Private/mangled attributes (start with __ but don't end with __)
+            if field_name == &dunder::NEW
+                || field_name == &dunder::INIT
+                || field_name == &dunder::INIT_SUBCLASS
+                || field_name == &dunder::HASH
+                || field_name == &dunder::CALL
+                || Self::is_mangled_attr(field_name)
+            {
+                continue;
+            }
+
+            if let Some(child_range) = cls.field_decl_range(field_name) {
+                for ancestor in mro.ancestors(self.stdlib) {
+                    if let Some(ancestor_range) =
+                        ancestor.class_object().field_decl_range(field_name)
+                    {
+                        let ancestor_module_path = ancestor.class_object().module().path();
+                        if !Self::should_skip_module_for_indexing(ancestor_module_path) {
+                            self.current().add_parent_method_mapping(
+                                child_range,
+                                ancestor_module_path.dupe(),
+                                ancestor_range,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn solve_consistent_override_check(
         &self,
         binding: &BindingConsistentOverrideCheck,
@@ -1673,6 +1738,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<EmptyAnswer> {
         if let Some(cls) = &self.get_idx(binding.class_key).0 {
             let class_bases = self.get_base_types_for_class(cls);
+
+            self.populate_parent_methods_map(cls);
+
             for (name, field) in self.get_class_field_map(cls).iter() {
                 self.check_consistent_override_for_field(
                     cls,
