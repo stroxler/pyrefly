@@ -926,7 +926,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     cls.to_type()
                 }
             }
-            t => t,
+            Type::ClassType(cls) if cls.has_qname("functools", "_Wrapped") => decoratee,
+            returned_ty => returned_ty,
         }
     }
 

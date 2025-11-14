@@ -1765,8 +1765,10 @@ assert_type(f().wut, Never)
     "#,
 );
 
+// See https://github.com/facebook/pyrefly/issues/1448 for what this tests
+// and discussion of approaches to handling `@functools.wraps` with return
+// type inference.
 testcase!(
-    bug = "functools.wraps and descriptors play badly together",
     test_inferred_returns_from_functools_wraps,
     r#"
 from typing import assert_type, Any
@@ -1779,6 +1781,6 @@ def decorator(func):
 class C:
     @decorator
     def f(self) -> int: ...
-assert_type(C().f(), Any)  # E: Missing argument `self` in function `functools._Wrapped.__call__`
+assert_type(C().f(), Any)
     "#,
 );
