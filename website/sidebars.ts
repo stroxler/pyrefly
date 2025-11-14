@@ -61,21 +61,6 @@ let docsSidebar = [
         items: ['IDE', 'IDE-features'],
     },
     {
-        type: 'doc' as const,
-        id: 'error-suppressions',
-        label: 'Error Suppressions',
-    },
-    {
-        type: 'doc' as const,
-        id: 'error-kinds',
-        label: 'Error Kinds',
-    },
-    {
-        type: 'doc' as const,
-        id: 'import-resolution',
-        label: 'Import Resolution',
-    },
-    {
         type: 'category' as const,
         label: 'Third-Party Extensions',
         items: [
@@ -90,6 +75,21 @@ let docsSidebar = [
                 label: 'Django Support',
             },
         ],
+    },
+    {
+        type: 'doc' as const,
+        id: 'error-suppressions',
+        label: 'Error Suppressions',
+    },
+    {
+        type: 'doc' as const,
+        id: 'error-kinds',
+        label: 'Error Kinds',
+    },
+    {
+        type: 'doc' as const,
+        id: 'import-resolution',
+        label: 'Import Resolution',
     },
     {
         type: 'doc' as const,
