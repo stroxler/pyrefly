@@ -76,14 +76,20 @@ let docsSidebar = [
         label: 'Import Resolution',
     },
     {
-        type: 'doc' as const,
-        id: 'pydantic',
-        label: 'Pydantic Support',
-    },
-    {
-        type: 'doc' as const,
-        id: 'django',
-        label: 'Django Support',
+        type: 'category' as const,
+        label: 'Third-Party Extensions',
+        items: [
+            {
+                type: 'doc' as const,
+                id: 'pydantic',
+                label: 'Pydantic Support',
+            },
+            {
+                type: 'doc' as const,
+                id: 'django',
+                label: 'Django Support',
+            },
+        ],
     },
     {
         type: 'doc' as const,
