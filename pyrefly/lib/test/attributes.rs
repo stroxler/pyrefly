@@ -1764,3 +1764,21 @@ reveal_type(f().mro) # E: BoundMethod[type, (self: type) -> list[type]]
 assert_type(f().wut, Never)
     "#,
 );
+
+testcase!(
+    bug = "functools.wraps and descriptors play badly together",
+    test_inferred_returns_from_functools_wraps,
+    r#"
+from typing import assert_type, Any
+from functools import wraps
+def decorator(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        return func(self, *args, **kwargs)
+    return wrapper
+class C:
+    @decorator
+    def f(self) -> int: ...
+assert_type(C().f(), Any)  # E: Missing argument `self` in function `functools._Wrapped.__call__`
+    "#,
+);
