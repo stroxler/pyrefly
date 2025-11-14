@@ -442,16 +442,16 @@ impl<'a> TypeDisplayContext<'a> {
                     .collect::<Vec<_>>();
                 write!(f, "{}", display_types_deduped.join(" | "))
             }
-            Type::Intersect(types) => {
-                let display_types = types
-                    .iter()
-                    .map(|t| match t {
-                        Type::Callable(_) | Type::Function(_) => {
-                            format!("({})", self.display_internal(t))
-                        }
-                        _ => format!("{}", self.display_internal(t)),
-                    })
-                    .collect::<Vec<_>>();
+            Type::Intersect(x) => {
+                let display_types =
+                    x.0.iter()
+                        .map(|t| match t {
+                            Type::Callable(_) | Type::Function(_) => {
+                                format!("({})", self.display_internal(t))
+                            }
+                            _ => format!("{}", self.display_internal(t)),
+                        })
+                        .collect::<Vec<_>>();
                 write!(f, "{}", display_types.join(" & "))
             }
             Type::Tuple(t) => t.fmt_with_type(f, |t| self.display_internal(t)),
@@ -1407,7 +1407,10 @@ def overloaded_func[T](
 
     #[test]
     fn test_intersection() {
-        let x = Type::Intersect(vec![Type::LiteralString, Type::None]);
+        let x = Type::Intersect(Box::new((
+            vec![Type::LiteralString, Type::None],
+            Type::any_implicit(),
+        )));
         let ctx = TypeDisplayContext::new(&[&x]);
         assert_eq!(ctx.display(&x).to_string(), "LiteralString & None");
     }
@@ -1415,7 +1418,10 @@ def overloaded_func[T](
     #[test]
     fn test_union_of_intersection() {
         let x = Type::Union(vec![
-            Type::Intersect(vec![Type::any_explicit(), Type::LiteralString]),
+            Type::Intersect(Box::new((
+                vec![Type::any_explicit(), Type::LiteralString],
+                Type::any_implicit(),
+            ))),
             Type::None,
         ]);
         let ctx = TypeDisplayContext::new(&[&x]);
@@ -1424,13 +1430,16 @@ def overloaded_func[T](
 
     #[test]
     fn test_callable_in_intersection() {
-        let x = Type::Intersect(vec![
-            Type::Callable(Box::new(Callable {
-                params: Params::Ellipsis,
-                ret: Type::None,
-            })),
-            Type::any_explicit(),
-        ]);
+        let x = Type::Intersect(Box::new((
+            vec![
+                Type::Callable(Box::new(Callable {
+                    params: Params::Ellipsis,
+                    ret: Type::None,
+                })),
+                Type::any_explicit(),
+            ],
+            Type::any_implicit(),
+        )));
         let ctx = TypeDisplayContext::new(&[&x]);
         assert_eq!(ctx.display(&x).to_string(), "((...) -> None) & Any");
     }
