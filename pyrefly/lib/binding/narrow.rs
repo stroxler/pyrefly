@@ -432,6 +432,14 @@ impl NarrowOps {
     }
 
     pub fn from_expr(builder: &BindingsBuilder, test: Option<&Expr>) -> Self {
+        Self::from_expr_helper(builder, test, SmallSet::new())
+    }
+
+    fn from_expr_helper<'a>(
+        builder: &BindingsBuilder,
+        test: Option<&'a Expr>,
+        mut seen: SmallSet<&'a Name>,
+    ) -> Self {
         let Some(test) = test else {
             return Self::new();
         };
@@ -552,9 +560,12 @@ impl NarrowOps {
                     BoolOp::Or => NarrowOps::or_all,
                 };
                 let mut exprs = values.iter();
-                let mut narrow_ops = Self::from_expr(builder, exprs.next());
+                let mut narrow_ops = Self::from_expr_helper(builder, exprs.next(), seen.clone());
                 for next_val in exprs {
-                    extend(&mut narrow_ops, Self::from_expr(builder, Some(next_val)))
+                    extend(
+                        &mut narrow_ops,
+                        Self::from_expr_helper(builder, Some(next_val), seen.clone()),
+                    )
                 }
                 narrow_ops
             }
@@ -563,7 +574,7 @@ impl NarrowOps {
                 range: _,
                 op: UnaryOp::Not,
                 operand: e,
-            }) => Self::from_expr(builder, Some(e)).negate(),
+            }) => Self::from_expr_helper(builder, Some(e), seen).negate(),
             Expr::Call(ExprCall {
                 node_index: _,
                 range,
@@ -642,7 +653,8 @@ impl NarrowOps {
                     AtomicNarrowOp::IsTruthy,
                     named.target.range(),
                 );
-                let value_narrow = Self::from_expr(builder, Some(*named.value.clone()).as_ref());
+                let value_narrow =
+                    Self::from_expr_helper(builder, Some(*named.value.clone()).as_ref(), seen);
                 // Merge the entries from the two `NarrowOps`
                 // We don't use `and_all` because it always generates placeholders when the entry is not present.
                 // This causes `Or` ops to be generated when the narrowing is negated, which is correct for
@@ -659,6 +671,13 @@ impl NarrowOps {
                     };
                 }
                 target_narrow
+            }
+            e @ Expr::Name(name) => {
+                if !seen.insert(name.id()) {
+                    Self::new()
+                } else {
+                    Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range())
+                }
             }
             e => Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range()),
         }
