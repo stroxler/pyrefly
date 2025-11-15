@@ -550,6 +550,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 let has_errors = !dunder_new_errors.is_empty();
                 errors.extend(dunder_new_errors);
+                if let Some(callee_range) = callee_range {
+                    self.record_external_attribute_definition_index(
+                        &cls.clone().to_type(),
+                        &dunder::NEW,
+                        callee_range,
+                    );
+                }
                 self.record_resolved_trace(arguments_range, new_method);
                 if self.is_compatible_constructor_return(&ret, cls.class_object()) {
                     dunder_new_ret = Some(ret);
