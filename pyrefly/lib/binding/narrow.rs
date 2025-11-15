@@ -757,7 +757,7 @@ impl NarrowOps {
                 // (True vs. False, empty vs. non-empty tuple, etc.) are immutable.
                 | AtomicNarrowOp::IsTruthy
                 | AtomicNarrowOp::IsFalsy
-                | AtomicNarrowOp::Placeholder => match Self::get_original_binding(builder, name) {
+                | AtomicNarrowOp::Placeholder => match builder.scopes.binding_idx_for_name(name) {
                     // Make sure the last definition of `name` is before the narrowing operation,
                     // so we know that `name` hasn't been redefined post-narrowing.
                     Some((idx, _)) => builder.idx_to_key(idx).range().end() <= op_range.start(),
