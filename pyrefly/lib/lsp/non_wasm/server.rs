@@ -232,6 +232,7 @@ use crate::state::notebook::LspNotebook;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::semantic_tokens::disabled_ranges_for_module;
+use crate::state::state::CancellableTransaction;
 use crate::state::state::CommittingTransaction;
 use crate::state::state::State;
 use crate::state::state::Transaction;
@@ -2250,32 +2251,36 @@ impl Server {
         )
     }
 
-    /// Compute references of a symbol at a given position. This is a non-blocking function, the
-    /// it will send a response to the LSP client once the results are found and transformed by
-    /// `map_result`.
-    fn async_find_references_helper<'a, V: serde::Serialize>(
+    /// Compute references or implementations of a symbol at a given position. This is a non-blocking
+    /// function that will send a response to the LSP client once the results are found and
+    /// transformed by `map_result`.
+    ///
+    /// The `find_fn` closure is called with the cancellable transaction, handle, and definition
+    /// information, and should return the results to be transformed into LSP locations.
+    fn async_find_from_definition_helper<'a, V: serde::Serialize>(
         &'a self,
         request_id: RequestId,
         ide_transaction_manager: &mut TransactionManager<'a>,
+        handle: Handle,
         uri: &Url,
         position: Position,
+        find_fn: impl FnOnce(
+            &mut CancellableTransaction,
+            &Handle,
+            FindDefinitionItemWithDocstring,
+        ) -> Result<Vec<(ModuleInfo, Vec<TextRange>)>, Cancelled>
+        + Send
+        + Sync
+        + 'static,
         map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + Sync + 'static,
     ) {
-        let Some(handle) = self.make_handle_if_enabled(uri, Some(References::METHOD)) else {
-            return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
-        };
         let transaction = ide_transaction_manager.non_committable_transaction(&self.state);
         let Some(info) = transaction.get_module_info(&handle) else {
             ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
         let position = self.from_lsp_position(uri, &info, position);
-        let Some(FindDefinitionItemWithDocstring {
-            metadata,
-            definition_range,
-            module,
-            docstring_range: _,
-        }) = transaction
+        let Some(definition) = transaction
             .find_definition(
                 &handle,
                 position,
@@ -2303,14 +2308,10 @@ impl Server {
                 .lock()
                 .insert(request_id.clone(), transaction.get_cancellation_handle());
             Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
-            match transaction.find_global_references_from_definition(
-                handle.sys_info(),
-                metadata,
-                TextRangeWithModule::new(module, definition_range),
-            ) {
-                Ok(global_references) => {
+            match find_fn(&mut transaction, &handle, definition) {
+                Ok(results) => {
                     let mut locations = Vec::new();
-                    for (info, ranges) in global_references {
+                    for (info, ranges) in results {
                         if let Some(uri) = module_info_to_uri(&info) {
                             locations
                                 .push((uri, ranges.into_map(|range| info.to_lsp_range(range))));
@@ -2323,7 +2324,7 @@ impl Server {
                     )));
                 }
                 Err(Cancelled) => {
-                    let message = format!("Find reference request {request_id} is canceled");
+                    let message = format!("Request {request_id} is canceled");
                     info!("{message}");
                     connection.send(Message::Response(Response::new_err(
                         request_id,
@@ -2335,16 +2336,56 @@ impl Server {
         }));
     }
 
+    /// Compute references of a symbol at a given position using the standard find_global_references_from_definition
+    /// strategy. This is a convenience wrapper around async_find_from_definition_helper that handles
+    /// the common case of finding references.
+    fn async_find_references_helper<'a, V: serde::Serialize>(
+        &'a self,
+        request_id: RequestId,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+        handle: Handle,
+        uri: &Url,
+        position: Position,
+        map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + Sync + 'static,
+    ) {
+        self.async_find_from_definition_helper(
+            request_id,
+            ide_transaction_manager,
+            handle,
+            uri,
+            position,
+            move |transaction, handle, definition| {
+                let FindDefinitionItemWithDocstring {
+                    metadata,
+                    definition_range,
+                    module,
+                    docstring_range: _,
+                } = definition;
+                transaction.find_global_references_from_definition(
+                    handle.sys_info(),
+                    metadata,
+                    TextRangeWithModule::new(module, definition_range),
+                )
+            },
+            map_result,
+        )
+    }
+
     fn references<'a>(
         &'a self,
         request_id: RequestId,
         ide_transaction_manager: &mut TransactionManager<'a>,
         params: ReferenceParams,
     ) {
+        let uri = &params.text_document_position.text_document.uri;
+        let Some(handle) = self.make_handle_if_enabled(uri, Some(References::METHOD)) else {
+            return self.send_response(new_response::<Option<Vec<Location>>>(request_id, Ok(None)));
+        };
         self.async_find_references_helper(
             request_id,
             ide_transaction_manager,
-            &params.text_document_position.text_document.uri,
+            handle,
+            uri,
             params.text_document_position.position,
             move |results| {
                 let mut locations = Vec::new();
@@ -2367,10 +2408,15 @@ impl Server {
         ide_transaction_manager: &mut TransactionManager<'a>,
         params: RenameParams,
     ) {
+        let uri = &params.text_document_position.text_document.uri;
+        let Some(handle) = self.make_handle_if_enabled(uri, Some(Rename::METHOD)) else {
+            return self.send_response(new_response::<Option<WorkspaceEdit>>(request_id, Ok(None)));
+        };
         self.async_find_references_helper(
             request_id,
             ide_transaction_manager,
-            &params.text_document_position.text_document.uri,
+            handle,
+            uri,
             params.text_document_position.position,
             move |results| {
                 let mut changes = HashMap::new();

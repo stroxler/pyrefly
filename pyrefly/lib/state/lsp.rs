@@ -3548,17 +3548,14 @@ impl<'a> CancellableTransaction<'a> {
         child_implementations
     }
 
+    /// Computes the set of transitive reverse dependencies for a definition, handling
+    /// in-memory files and their filesystem counterparts.
     /// Returns Err if the request is canceled in the middle of a run.
-    pub fn find_global_references_from_definition(
+    fn compute_transitive_rdeps_for_definition(
         &mut self,
         sys_info: &SysInfo,
-        definition_kind: DefinitionMetadata,
-        definition: TextRangeWithModule,
-    ) -> Result<Vec<(Module, Vec<TextRange>)>, Cancelled> {
-        // General strategy:
-        // 1: Compute the set of transitive rdeps.
-        // 2. Find references in each one of them using the index computed during earlier checking
-        // 3. If this is a method definition, also search for reimplementations in child classes
+        definition: &TextRangeWithModule,
+    ) -> Result<Vec<Handle>, Cancelled> {
         let mut transitive_rdeps = match definition.module.path().details() {
             ModulePathDetails::Memory(path_buf) => {
                 let handle_of_filesystem_counterpart = Handle::new(
@@ -3609,50 +3606,78 @@ impl<'a> CancellableTransaction<'a> {
         {
             transitive_rdeps.remove(&fs_counterpart_of_in_memory_handles);
         }
-        let candidate_handles_for_references = transitive_rdeps
+        let candidate_handles = transitive_rdeps
             .into_iter()
             .sorted_by_key(|h| h.path().dupe())
             .collect::<Vec<_>>();
 
+        Ok(candidate_handles)
+    }
+
+    /// Patches a definition location to handle in-memory files when searching from another module.
+    /// For in-memory files, tries to find the corresponding filesystem location to enable
+    /// reference finding across modules.
+    fn patch_definition_for_handle(
+        &self,
+        handle: &Handle,
+        definition: &TextRangeWithModule,
+    ) -> TextRangeWithModule {
+        match definition.module.path().details() {
+            // Special-case for definition inside in-memory file
+            // Calling methods with in-memory definitions naively
+            // will find no references outside of the in-memory file because
+            // file systems don't contain in-memory files.
+            ModulePathDetails::Memory(path_buf)
+                // Why do we exclude the case of finding references within the same in-memory file?
+                // If we are finding references within the same in-memory file,
+                // then there is no problem for us to use the in-memory definition location.
+                if handle.path() != definition.module.path() =>
+            {
+                // Below, we try to patch the definition location to be at the same offset, but
+                // making the path to be filesystem path instead. In this way, in the happy case
+                // where the in-memory content is exactly the same as the filesystem content,
+                // we can successfully find all the references. However, if the content diverges,
+                // then we will miss definitions from other files.
+                //
+                // In general, other than checking the reverse dependency against the in-memory
+                // content, there is not much we can do: the in-memory content can diverge from
+                // the filesystem content in arbitrary ways.
+                let TextRangeWithModule { module, range } = definition;
+                let module = if let Some(info) = self.as_ref().get_module_info(&Handle::new(
+                    module.name(),
+                    ModulePath::filesystem((**path_buf).clone()),
+                    handle.sys_info().dupe(),
+                )) {
+                    info
+                } else {
+                    module.dupe()
+                };
+                TextRangeWithModule {
+                    module,
+                    range: *range,
+                }
+            }
+            _ => definition.clone(),
+        }
+    }
+
+    /// Returns Err if the request is canceled in the middle of a run.
+    pub fn find_global_references_from_definition(
+        &mut self,
+        sys_info: &SysInfo,
+        definition_kind: DefinitionMetadata,
+        definition: TextRangeWithModule,
+    ) -> Result<Vec<(Module, Vec<TextRange>)>, Cancelled> {
+        // General strategy:
+        // 1: Compute the set of transitive rdeps.
+        // 2. Find references in each one of them using the index computed during earlier checking
+        // 3. If this is a method definition, also search for reimplementations in child classes
+        let candidate_handles_for_references =
+            self.compute_transitive_rdeps_for_definition(sys_info, &definition)?;
+
         let mut global_references = Vec::new();
         for handle in candidate_handles_for_references {
-            let definition = match definition.module.path().details() {
-                // Special-case for definition inside in-memory file
-                // Calling `local_references_from_definition` naively
-                // will find no references outside of the in-memory file because
-                // file systems don't contain in-memory files.
-                ModulePathDetails::Memory(path_buf)
-                    // Why do exclude the case of finding references within the same in-memory file?
-                    // If we are finding references within the same in-memory file,
-                    // then there is no problem for us to use the in-memory definition location.
-                    if handle.path() != definition.module.path() =>
-                {
-                    // Below, we try to patch the definition location to be at the same offset, but
-                    // making the path to be filesystem path instead. In this way, in the happy case
-                    // where the in-memory content is exactly the same as the filesystem content,
-                    // we can successfully find all the references. However, if the content diverge,
-                    // then we will miss definitions from other files.
-                    //
-                    // In general, other than checking the reverse dependency against the in-memory
-                    // content, there is not much we can do: the in-memory content can diverge from
-                    // the filesystem content in arbitrary ways.
-                    let TextRangeWithModule { module, range } = &definition;
-                    let module = if let Some(info) = self.as_ref().get_module_info(&Handle::new(
-                        module.name(),
-                        ModulePath::filesystem((**path_buf).clone()),
-                        handle.sys_info().dupe(),
-                    )) {
-                        info
-                    } else {
-                        module.dupe()
-                    };
-                    TextRangeWithModule {
-                        module,
-                        range: *range,
-                    }
-                }
-                _ => definition.clone(),
-            };
+            let definition = self.patch_definition_for_handle(&handle, &definition);
 
             let references = self
                 .as_ref()
