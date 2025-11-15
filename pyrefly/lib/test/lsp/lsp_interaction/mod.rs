@@ -15,6 +15,7 @@ mod diagnostic;
 mod did_change;
 mod file_watcher;
 mod hover;
+mod implementation;
 mod inlay_hint;
 mod io;
 mod notebook_completion;
