@@ -31,13 +31,18 @@ use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::Hashed;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::binding::binding::Binding;
+use crate::binding::binding::Key;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::scope::NameReadInfo;
 use crate::export::special::SpecialExport;
+use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::facet::FacetChain;
 use crate::types::facet::FacetKind;
@@ -676,10 +681,90 @@ impl NarrowOps {
                 if !seen.insert(name.id()) {
                     Self::new()
                 } else {
-                    Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range())
+                    // Look up the definition of `name`.
+                    let original_expr = match Self::get_original_binding(builder, &name.id) {
+                        Some((_, Some(Binding::NameAssign(_, _, original_expr, _)))) => {
+                            Some(&**original_expr)
+                        }
+                        _ => None,
+                    };
+                    let mut ops = Self::from_expr_helper(builder, original_expr, seen);
+                    ops.0.retain(|name, (op, op_range)| {
+                        Self::op_is_still_valid(builder, name, op, *op_range)
+                    });
+                    // Merge the narrow ops from the original definition with IsTruthy(name).
+                    ops.0.insert(
+                        name.id.clone(),
+                        (NarrowOp::Atomic(None, AtomicNarrowOp::IsTruthy), e.range()),
+                    );
+                    ops
                 }
             }
             e => Self::from_single_narrow_op(e, AtomicNarrowOp::IsTruthy, e.range()),
+        }
+    }
+
+    fn get_original_binding<'a>(
+        builder: &'a BindingsBuilder,
+        name: &Name,
+    ) -> Option<(Idx<Key>, Option<&'a Binding>)> {
+        let name_read_info = builder.scopes.look_up_name_for_read(Hashed::new(name));
+        match name_read_info {
+            NameReadInfo::Flow { idx, .. } => builder.get_original_binding(idx),
+            _ => None,
+        }
+    }
+
+    fn op_is_still_valid(
+        builder: &BindingsBuilder,
+        name: &Name,
+        op: &NarrowOp,
+        op_range: TextRange,
+    ) -> bool {
+        // Check (1) if `op` checks a property of `name` that can't be invalidated without
+        // reassigning `name` and (2) whether `name` is reassigned after `op` is computed.
+        match op {
+            NarrowOp::And(ops) | NarrowOp::Or(ops) => ops
+                .iter()
+                .all(|op| Self::op_is_still_valid(builder, name, op, op_range)),
+            // A non-None facet subject means we're narrowing something like an attribute or a dict item.
+            NarrowOp::Atomic(Some(_), _) => false,
+            NarrowOp::Atomic(None, op) => match op {
+                AtomicNarrowOp::Is(..)
+                | AtomicNarrowOp::IsNot(..)
+                | AtomicNarrowOp::Eq(..)
+                | AtomicNarrowOp::NotEq(..)
+                // Technically the `__class__` attribute can be mutated, but code that does that
+                // probably isn't statically analyzable anyway.
+                | AtomicNarrowOp::IsInstance(..)
+                | AtomicNarrowOp::IsNotInstance(..)
+                | AtomicNarrowOp::IsSubclass(..)
+                | AtomicNarrowOp::IsNotSubclass(..)
+                | AtomicNarrowOp::TypeEq(..)
+                | AtomicNarrowOp::TypeNotEq(..)
+                // The len ops are only applied to tuples, which are immutable.
+                | AtomicNarrowOp::LenEq(..)
+                | AtomicNarrowOp::LenNotEq(..)
+                | AtomicNarrowOp::LenGt(..)
+                | AtomicNarrowOp::LenGte(..)
+                | AtomicNarrowOp::LenLt(..)
+                | AtomicNarrowOp::LenLte(..)
+                // This is technically unsafe, because it marks arbitrary TypeGuard/TypeIs results
+                // as still valid, but we need to allow this for `isinstance` and friends to work.
+                | AtomicNarrowOp::Call(..)
+                | AtomicNarrowOp::NotCall(..)
+                // The only objects that have different truthy and falsy types
+                // (True vs. False, empty vs. non-empty tuple, etc.) are immutable.
+                | AtomicNarrowOp::IsTruthy
+                | AtomicNarrowOp::IsFalsy
+                | AtomicNarrowOp::Placeholder => match Self::get_original_binding(builder, name) {
+                    // Make sure the last definition of `name` is before the narrowing operation,
+                    // so we know that `name` hasn't been redefined post-narrowing.
+                    Some((idx, _)) => builder.idx_to_key(idx).range().end() <= op_range.start(),
+                    None => true,
+                },
+                _ => false,
+            },
         }
     }
 }

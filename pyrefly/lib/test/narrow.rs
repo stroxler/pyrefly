@@ -1897,3 +1897,159 @@ def f(x: int | Callable[[], int]) -> int:
         return x
     "#,
 );
+
+testcase!(
+    test_isinstance_local_var,
+    r#"
+from typing import assert_type, Literal
+def f(x: int | str):
+    isint = isinstance(x, int)
+    if isint:
+        assert_type(x, int)
+        assert_type(isint, Literal[True])
+    else:
+        assert_type(x, str)
+        assert_type(isint, Literal[False])
+    "#,
+);
+
+testcase!(
+    test_truthy_local_var,
+    r#"
+from typing import assert_type
+def f(x: int | None):
+    y = x
+    if y:
+        assert_type(x, int)
+        assert_type(y, int)
+    "#,
+);
+
+testcase!(
+    test_reuse_local_var,
+    r#"
+from typing import assert_type
+def f(x: int | str):
+    isint = isinstance(x, int)
+    if isint:
+        assert_type(x, int)
+    if isint:
+        assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_local_var_in_complex_expression,
+    r#"
+from typing import assert_type, Literal
+def f(x: int | str, y: int | str, z: int | str):
+    x_or_y_is_int = isinstance(x, int) or isinstance(y, int)
+    if not x_or_y_is_int and isinstance(z, str):
+        assert_type(x, str)
+        assert_type(y, str)
+        assert_type(z, str)
+        assert_type(x_or_y_is_int, Literal[False])
+    "#,
+);
+
+testcase!(
+    test_circular_reference_to_name,
+    r#"
+from typing import assert_type, Literal
+def f(x, y: bool, force: bool = True):
+    force = force or y
+    if not force and x:
+        assert_type(force, Literal[False])
+    "#,
+);
+
+testcase!(
+    test_local_var_redefinition,
+    r#"
+from typing import assert_type
+def f1(x: int | str):
+    check = isinstance(x, int)
+    check = isinstance(x, str)
+    if check:
+        assert_type(x, str)
+def f2(x: int | str, y: int):
+    check = isinstance(x, int)
+    check += y  # truthiness is unknown now
+    if check:
+        assert_type(x, int | str)
+    "#,
+);
+
+testcase!(
+    test_change_expression_after_test,
+    r#"
+from typing import assert_type, Literal
+def f1(x: int | str, y: int | str):
+    isint = isinstance(x, int)
+    x = y
+    if isint:
+        assert_type(x, int | str)
+        assert_type(isint, Literal[True])
+def f2(x: dict[str, int]):
+    val = x.get("k")
+    del x["k"]
+    if val:
+        assert_type(x.get("k"), int | None)
+    "#,
+);
+
+// Regression test for a case that used to crash pyrefly due to duplicate narrow ranges
+testcase!(
+    test_redundant_elif,
+    r#"
+class A:
+    x: int | None
+def f(a: A, common: list[int]) -> None:
+    prefer_device_type = a.x
+    if prefer_device_type is not None:
+        common_has_preferred = prefer_device_type in common
+        if not common_has_preferred:
+            return
+        elif common_has_preferred:
+            return
+    "#,
+);
+
+// Regression test for a case that used to crash pyrefly due to duplicate narrow ranges
+testcase!(
+    test_nested_if,
+    r#"
+def f(other):
+    f_other = isinstance(other, (float, str))
+    if f_other:
+        if not f_other:
+            other = 3.14
+    return other
+    "#,
+);
+
+testcase!(
+    test_property,
+    r#"
+class A:
+    x: int
+class B:
+    @property
+    def a(self) -> A | None: ...
+def f(b: B) -> int:
+    a = b.a
+    return a.x if a else 0
+    "#,
+);
+
+testcase!(
+    test_dict_get,
+    r#"
+def f(x: dict[str, int]) -> int:
+    v = x.get("k")
+    if v:
+        return v
+    else:
+        return 0
+    "#,
+);

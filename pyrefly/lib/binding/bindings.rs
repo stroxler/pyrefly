@@ -520,6 +520,14 @@ impl<'a> BindingsBuilder<'a> {
         self.table.get_mut::<K>().0.insert(key)
     }
 
+    pub fn idx_to_key<K>(&self, idx: Idx<K>) -> &K
+    where
+        K: Keyed,
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        self.table.get::<K>().0.idx_to_key(idx)
+    }
+
     /// Declare a `Key` as a usage, which can be used for name lookups. Like `idx_for_promise`,
     /// this is a promise to later provide a `Binding` corresponding this key.
     pub fn declare_current_idx(&mut self, key: Key) -> CurrentIdx {
@@ -1253,7 +1261,7 @@ impl<'a> BindingsBuilder<'a> {
             })
     }
 
-    fn get_original_binding(
+    pub fn get_original_binding(
         &'a self,
         mut original_idx: Idx<Key>,
     ) -> Option<(Idx<Key>, Option<&'a Binding>)> {
@@ -1261,7 +1269,12 @@ impl<'a> BindingsBuilder<'a> {
         // Short circuit if there are too many forwards - it may mean there's a cycle.
         let mut original_binding = self.table.types.1.get(original_idx);
         let mut gas = Gas::new(100);
-        while let Some(Binding::Forward(fwd_idx)) = original_binding {
+        while let Some(
+            Binding::Forward(fwd_idx)
+            | Binding::CompletedPartialType(fwd_idx, _)
+            | Binding::Phi(JoinStyle::NarrowOf(fwd_idx), _),
+        ) = original_binding
+        {
             if gas.stop() {
                 return None;
             } else {
