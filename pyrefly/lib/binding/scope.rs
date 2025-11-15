@@ -2482,9 +2482,8 @@ impl<'a> BindingsBuilder<'a> {
             self.scopes.current_mut().flow = fork.base.clone();
             self.bind_narrow_ops(
                 negated_prev_ops,
-                // Note: the range only has to be distinct from other use_ranges of the same narrow, so
-                // default works okay here.
-                TextRange::default(),
+                // Generate a range that is distinct from other use_ranges of the same narrow.
+                fork.range.add_start(TextSize::from(1)),
                 &Usage::Narrowing(None),
             );
             self.merge_flow(fork.base, branches, fork.range, MergeStyle::Inclusive);

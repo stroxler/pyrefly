@@ -26,6 +26,7 @@ use ruff_python_ast::ExprYieldFrom;
 use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use ruff_text_size::TextSize;
 use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
@@ -532,7 +533,12 @@ impl<'a> BindingsBuilder<'a> {
                     // TODO(stroxler): We eventually want to drop all narrows but merge values.
                     // Once we have a way to do that, the negation will be unnecessary.
                     self.next_branch();
-                    self.bind_narrow_ops(&narrow_ops.negate(), *range, usage);
+                    self.bind_narrow_ops(
+                        &narrow_ops.negate(),
+                        // Make up a unique range.
+                        range.add_start(TextSize::from(1)),
+                        usage,
+                    );
                     self.finish_branch();
                     self.finish_bool_op_fork();
                 }

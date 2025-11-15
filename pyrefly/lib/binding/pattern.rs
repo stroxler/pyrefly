@@ -17,6 +17,7 @@ use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
@@ -358,14 +359,19 @@ impl<'a> BindingsBuilder<'a> {
             if case.pattern.is_wildcard() || case.pattern.is_irrefutable() {
                 exhaustive = true;
             }
-            self.bind_narrow_ops(&negated_prev_ops, case.range, &Usage::Narrowing(None));
+            self.bind_narrow_ops(
+                &negated_prev_ops,
+                // Make up a unique range.
+                TextRange::new(case.range.start(), case.range.start()),
+                &Usage::Narrowing(None),
+            );
             let mut new_narrow_ops =
                 self.bind_pattern(match_narrowing_subject.clone(), case.pattern, subject_idx);
             self.bind_narrow_ops(&new_narrow_ops, case.range, &Usage::Narrowing(None));
             if let Some(mut guard) = case.guard {
                 self.ensure_expr(&mut guard, &mut Usage::Narrowing(None));
                 let guard_narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
-                self.bind_narrow_ops(&guard_narrow_ops, case.range, &Usage::Narrowing(None));
+                self.bind_narrow_ops(&guard_narrow_ops, guard.range(), &Usage::Narrowing(None));
                 self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
                 new_narrow_ops.and_all(guard_narrow_ops)
             }

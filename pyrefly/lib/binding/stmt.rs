@@ -685,7 +685,12 @@ impl<'a> BindingsBuilder<'a> {
                 let mut negated_prev_ops = NarrowOps::new();
                 for (range, mut test, body) in Ast::if_branches_owned(x) {
                     self.start_branch();
-                    self.bind_narrow_ops(&negated_prev_ops, range, &Usage::Narrowing(None));
+                    self.bind_narrow_ops(
+                        &negated_prev_ops,
+                        // Make up a unique range.
+                        TextRange::new(range.start(), range.start()),
+                        &Usage::Narrowing(None),
+                    );
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
                     let this_branch_chosen = match &test {
                         None => Some(true),

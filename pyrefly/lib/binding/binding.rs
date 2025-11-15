@@ -376,6 +376,8 @@ pub enum Key {
     ///       pass
     /// The `x is None` operation is defined once in the `if` test but generates two key/binding
     /// pairs, when it is used to narrow `x` in the `if` and the `else`, respectively.
+    /// TODO: change the use range to some kind of location-keyed custom datatype; we've been
+    /// creating pretty strange ranges in our attempts to keep them unique.
     Narrow(Name, TextRange, TextRange),
     /// The binding definition site, anywhere it occurs
     Anywhere(Name, TextRange),
