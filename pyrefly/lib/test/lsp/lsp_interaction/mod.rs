@@ -31,6 +31,7 @@ mod provide_type;
 mod references;
 mod rename;
 mod type_definition;
+mod unsaved_file;
 mod util;
 mod will_rename_files;
 mod workspace_symbol;

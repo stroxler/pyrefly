@@ -202,6 +202,20 @@ impl TestServer {
         }));
     }
 
+    pub fn did_open_uri(&self, uri: &Url, language_id: &str, text: impl Into<String>) {
+        self.send_message(Message::Notification(Notification {
+            method: "textDocument/didOpen".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": uri.to_string(),
+                    "languageId": language_id,
+                    "version": 1,
+                    "text": text.into(),
+                },
+            }),
+        }));
+    }
+
     pub fn did_change(&self, file: &str, contents: &str) {
         let path = self.get_root_or_panic().join(file);
         self.send_message(Message::Notification(Notification {
