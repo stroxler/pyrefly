@@ -3724,13 +3724,36 @@ impl<'a> CancellableTransaction<'a> {
     /// This searches through transitive reverse dependencies to find all child classes that
     /// implement the method.
     /// Returns Err if the request is canceled in the middle of a run.
-    #[allow(dead_code)]
     pub fn find_global_implementations_from_definition(
         &mut self,
-        _sys_info: &SysInfo,
-        _definition: TextRangeWithModule,
+        sys_info: &SysInfo,
+        definition: TextRangeWithModule,
     ) -> Result<Vec<TextRangeWithModule>, Cancelled> {
-        // TODO: Implement actual implementation finding logic
-        Ok(Vec::new())
+        // General strategy (similar to find_global_references_from_definition):
+        // 1: Compute the set of transitive rdeps.
+        // 2: Find child implementations in each rdep using the parent_methods_map index
+        let candidate_handles_for_implementations =
+            self.compute_transitive_rdeps_for_definition(sys_info, &definition)?;
+
+        let mut all_implementations = Vec::new();
+        for handle in candidate_handles_for_implementations {
+            let definition = self.patch_definition_for_handle(&handle, &definition);
+
+            // Search for child class reimplementations using the parent_methods_map
+            let child_implementations = self.find_child_implementations(&handle, &definition);
+            if !child_implementations.is_empty()
+                && let Some(module_info) = self.as_ref().get_module_info(&handle)
+            {
+                for range in child_implementations {
+                    all_implementations.push(TextRangeWithModule::new(module_info.dupe(), range));
+                }
+            }
+        }
+
+        // Sort and deduplicate implementations
+        all_implementations.sort_by_key(|impl_| (impl_.module.path().dupe(), impl_.range.start()));
+        all_implementations.dedup_by_key(|impl_| (impl_.module.path().dupe(), impl_.range.start()));
+
+        Ok(all_implementations)
     }
 }

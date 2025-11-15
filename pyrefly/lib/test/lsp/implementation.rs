@@ -85,7 +85,15 @@ class GrandChild(Child1):
 # main.py
 3 |     def foo(self) -> int:
             ^
-Implementation Result: None
+Implementation Result:
+8 |     def foo(self) -> int:
+            ^^^
+Implementation Result:
+12 |     def foo(self) -> int:
+             ^^^
+Implementation Result:
+16 |     def foo(self) -> int:
+             ^^^
 "#
         .trim(),
         report.trim(),
@@ -117,7 +125,12 @@ def test(p: Parent) -> None:
 # main.py
 15 |     p.foo()
            ^
-Implementation Result: None
+Implementation Result:
+7 |     def foo(self) -> int:
+            ^^^
+Implementation Result:
+11 |     def foo(self) -> int:
+             ^^^
 "#
         .trim(),
         report.trim(),

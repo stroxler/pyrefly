@@ -138,6 +138,7 @@ use lsp_types::request::FoldingRangeRequest;
 use lsp_types::request::GotoDeclaration;
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::GotoImplementation;
+use lsp_types::request::GotoImplementationParams;
 use lsp_types::request::GotoImplementationResponse;
 use lsp_types::request::GotoTypeDefinition;
 use lsp_types::request::GotoTypeDefinitionParams;
@@ -861,15 +862,12 @@ impl Server {
                         ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<GotoImplementation>(&x) {
-                    if let Some(_params) = self
+                    if let Some(params) = self
                         .extract_request_params_or_send_err_response::<GotoImplementation>(
                             params, &x.id,
                         )
                     {
-                        self.send_response(new_response::<Option<GotoImplementationResponse>>(
-                            x.id,
-                            Ok(None),
-                        ));
+                        self.async_go_to_implementations(x.id, ide_transaction_manager, params);
                     }
                 } else if let Some(params) = as_request::<CodeActionRequest>(&x) {
                     if let Some(params) = self
@@ -2154,6 +2152,85 @@ impl Server {
             Some(GotoTypeDefinitionResponse::Array(lsp_targets))
         }
     }
+
+    fn async_go_to_implementations<'a>(
+        &'a self,
+        request_id: RequestId,
+        ide_transaction_manager: &mut TransactionManager<'a>,
+        params: GotoImplementationParams,
+    ) {
+        let uri = &params.text_document_position_params.text_document.uri;
+        if self.open_notebook_cells.read().contains_key(uri) {
+            // TODO(yangdanny) handle notebooks
+            return self.send_response(new_response::<Option<GotoImplementationResponse>>(
+                request_id,
+                Ok(None),
+            ));
+        }
+        let Some(handle) = self.make_handle_if_enabled(uri, Some(GotoImplementation::METHOD))
+        else {
+            return self.send_response(new_response::<Option<GotoImplementationResponse>>(
+                request_id,
+                Ok(None),
+            ));
+        };
+        self.async_find_from_definition_helper(
+            request_id,
+            ide_transaction_manager,
+            handle,
+            uri,
+            params.text_document_position_params.position,
+            move |transaction, handle, definition| {
+                let FindDefinitionItemWithDocstring {
+                    metadata: _,
+                    definition_range,
+                    module,
+                    docstring_range: _,
+                } = definition;
+                // find_global_implementations_from_definition returns Vec<TextRangeWithModule>
+                // but we need to return Vec<(ModuleInfo, Vec<TextRange>)> to match the helper's
+                // expected format. Group implementations by module while preserving order.
+                let implementations = transaction.find_global_implementations_from_definition(
+                    handle.sys_info(),
+                    TextRangeWithModule::new(module, definition_range),
+                )?;
+
+                // Group consecutive implementations by module, preserving the sorted order
+                let mut grouped: Vec<(ModuleInfo, Vec<TextRange>)> = Vec::new();
+                for impl_with_module in implementations {
+                    if let Some((last_module, ranges)) = grouped.last_mut() {
+                        if last_module.path() == impl_with_module.module.path() {
+                            ranges.push(impl_with_module.range);
+                            continue;
+                        }
+                    }
+                    grouped.push((impl_with_module.module, vec![impl_with_module.range]));
+                }
+                Ok(grouped)
+            },
+            move |results| {
+                let mut lsp_targets = Vec::new();
+                for (uri, ranges) in results {
+                    for range in ranges {
+                        lsp_targets.push(Location {
+                            uri: uri.clone(),
+                            range,
+                        });
+                    }
+                }
+                if lsp_targets.is_empty() {
+                    None
+                } else if lsp_targets.len() == 1 {
+                    Some(GotoImplementationResponse::Scalar(
+                        lsp_targets.pop().unwrap(),
+                    ))
+                } else {
+                    Some(GotoImplementationResponse::Array(lsp_targets))
+                }
+            },
+        );
+    }
+
     fn completion(
         &self,
         transaction: &Transaction<'_>,
