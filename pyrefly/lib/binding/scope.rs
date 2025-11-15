@@ -55,6 +55,7 @@ use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodSelfKind;
 use crate::binding::binding::MethodThatSetsAttr;
+use crate::binding::binding::NarrowUseLocation;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
@@ -2344,7 +2345,11 @@ impl<'a> BindingsBuilder<'a> {
         self.scopes.current_mut().flow =
             self.insert_phi_keys(base.clone(), range, loop_header_targets);
         self.scopes.current_mut().loops.push(Loop::new(base));
-        self.bind_narrow_ops(narrow_ops, range, &Usage::Narrowing(None));
+        self.bind_narrow_ops(
+            narrow_ops,
+            NarrowUseLocation::Span(range),
+            &Usage::Narrowing(None),
+        );
     }
 
     pub fn teardown_loop(
@@ -2375,7 +2380,11 @@ impl<'a> BindingsBuilder<'a> {
         self.merge_flow(finished_loop.base, other_exits, range, MergeStyle::Loop);
         // When control falls off the end of a loop (either the `while` test fails or the loop
         // finishes), we're at the loopback flow but the test (if there is one) is negated.
-        self.bind_narrow_ops(&narrow_ops.negate(), other_range, &Usage::Narrowing(None));
+        self.bind_narrow_ops(
+            &narrow_ops.negate(),
+            NarrowUseLocation::Span(other_range),
+            &Usage::Narrowing(None),
+        );
         self.stmts(orelse, parent);
         // Exiting from a break skips past any `else`, so we merge them after, and the
         // test is not negated in flows coming from breaks.
@@ -2483,7 +2492,7 @@ impl<'a> BindingsBuilder<'a> {
             self.bind_narrow_ops(
                 negated_prev_ops,
                 // Generate a range that is distinct from other use_ranges of the same narrow.
-                fork.range.add_start(TextSize::from(1)),
+                NarrowUseLocation::End(fork.range),
                 &Usage::Narrowing(None),
             );
             self.merge_flow(fork.base, branches, fork.range, MergeStyle::Inclusive);

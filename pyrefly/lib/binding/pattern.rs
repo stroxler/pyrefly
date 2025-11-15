@@ -17,12 +17,12 @@ use ruff_python_ast::Pattern;
 use ruff_python_ast::PatternKeyword;
 use ruff_python_ast::StmtMatch;
 use ruff_text_size::Ranged;
-use ruff_text_size::TextRange;
 
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyExpect;
+use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
@@ -115,7 +115,7 @@ impl<'a> BindingsBuilder<'a> {
                         Binding::Narrow(
                             subject_idx,
                             Box::new(NarrowOp::Atomic(None, narrow_op.clone())),
-                            x.range(),
+                            NarrowUseLocation::Span(x.range()),
                         ),
                     );
                     narrow_ops.and_all(NarrowOps::from_single_narrow_op_for_subject(
@@ -222,7 +222,7 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::Narrow(
                         subject_idx,
                         Box::new(NarrowOp::Atomic(None, narrow_op.clone())),
-                        x.cls.range(),
+                        NarrowUseLocation::Span(x.cls.range()),
                     ),
                 );
                 let mut narrow_ops = if let Some(ref subject) = match_subject {
@@ -361,17 +361,24 @@ impl<'a> BindingsBuilder<'a> {
             }
             self.bind_narrow_ops(
                 &negated_prev_ops,
-                // Make up a unique range.
-                TextRange::new(case.range.start(), case.range.start()),
+                NarrowUseLocation::Start(case.range),
                 &Usage::Narrowing(None),
             );
             let mut new_narrow_ops =
                 self.bind_pattern(match_narrowing_subject.clone(), case.pattern, subject_idx);
-            self.bind_narrow_ops(&new_narrow_ops, case.range, &Usage::Narrowing(None));
+            self.bind_narrow_ops(
+                &new_narrow_ops,
+                NarrowUseLocation::Span(case.range),
+                &Usage::Narrowing(None),
+            );
             if let Some(mut guard) = case.guard {
                 self.ensure_expr(&mut guard, &mut Usage::Narrowing(None));
                 let guard_narrow_ops = NarrowOps::from_expr(self, Some(guard.as_ref()));
-                self.bind_narrow_ops(&guard_narrow_ops, guard.range(), &Usage::Narrowing(None));
+                self.bind_narrow_ops(
+                    &guard_narrow_ops,
+                    NarrowUseLocation::Span(guard.range()),
+                    &Usage::Narrowing(None),
+                );
                 self.insert_binding(Key::Anon(guard.range()), Binding::Expr(None, *guard));
                 new_narrow_ops.and_all(guard_narrow_ops)
             }

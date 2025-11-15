@@ -35,6 +35,7 @@ use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::LinkedKey;
+use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::expr::Usage;
@@ -70,7 +71,7 @@ impl<'a> BindingsBuilder<'a> {
             let negated_narrow_ops = narrow_ops.negate();
             self.bind_narrow_ops(
                 &negated_narrow_ops,
-                msg_expr.range(),
+                NarrowUseLocation::Span(msg_expr.range()),
                 &Usage::Narrowing(None),
             );
             let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
@@ -82,7 +83,11 @@ impl<'a> BindingsBuilder<'a> {
             self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
             self.scopes.swap_current_flow_with(&mut base);
         };
-        self.bind_narrow_ops(&narrow_ops, assert_range, &Usage::Narrowing(None));
+        self.bind_narrow_ops(
+            &narrow_ops,
+            NarrowUseLocation::Span(assert_range),
+            &Usage::Narrowing(None),
+        );
         if let Some(false) = static_test {
             self.scopes.mark_flow_termination();
         }
@@ -687,8 +692,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.start_branch();
                     self.bind_narrow_ops(
                         &negated_prev_ops,
-                        // Make up a unique range.
-                        TextRange::new(range.start(), range.start()),
+                        NarrowUseLocation::Start(range),
                         &Usage::Narrowing(None),
                     );
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
@@ -712,7 +716,11 @@ impl<'a> BindingsBuilder<'a> {
                             BindingExpect::Bool(test_expr),
                         );
                     }
-                    self.bind_narrow_ops(&new_narrow_ops, range, &Usage::Narrowing(None));
+                    self.bind_narrow_ops(
+                        &new_narrow_ops,
+                        NarrowUseLocation::Span(range),
+                        &Usage::Narrowing(None),
+                    );
                     negated_prev_ops.and_all(new_narrow_ops.negate());
                     self.stmts(body, parent);
                     self.finish_branch();

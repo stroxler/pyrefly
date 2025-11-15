@@ -55,6 +55,7 @@ use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::LastStmt;
+use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::TypeParameter;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
@@ -1029,15 +1030,20 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange, usage: &Usage) {
+    pub fn bind_narrow_ops(
+        &mut self,
+        narrow_ops: &NarrowOps,
+        use_location: NarrowUseLocation,
+        usage: &Usage,
+    ) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
             if let Some(initial_idx) = self
                 .lookup_name(name, &mut Usage::narrowing_from(usage))
                 .found()
             {
                 let narrowed_idx = self.insert_binding(
-                    Key::Narrow(name.into_key().clone(), *op_range, use_range),
-                    Binding::Narrow(initial_idx, Box::new(op.clone()), use_range),
+                    Key::Narrow(name.into_key().clone(), *op_range, use_location),
+                    Binding::Narrow(initial_idx, Box::new(op.clone()), use_location),
                 );
                 self.scopes.narrow_in_current_flow(name, narrowed_idx);
             }

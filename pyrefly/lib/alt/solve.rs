@@ -2101,7 +2101,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match binding {
             Binding::Forward(k) => self.get_idx(*k).arc_clone(),
             Binding::Narrow(k, op, range) => {
-                self.narrow(self.get_idx(*k).as_ref(), op, *range, errors)
+                self.narrow(self.get_idx(*k).as_ref(), op, range.range(), errors)
             }
             Binding::Phi(join_style, ks) => {
                 if ks.len() == 1 {
