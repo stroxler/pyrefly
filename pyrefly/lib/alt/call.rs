@@ -500,7 +500,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         args: &[CallArg],
         keywords: &[CallKeyword],
         arguments_range: TextRange,
-        _callee_range: Option<TextRange>,
+        callee_range: Option<TextRange>,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
@@ -591,6 +591,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Report `__init__` errors only when there are no `__new__` errors, to avoid redundant errors.
             if !dunder_new_has_errors {
                 errors.extend(dunder_init_errors);
+            }
+            if let Some(callee_range) = callee_range {
+                self.record_external_attribute_definition_index(
+                    &cls.clone().to_type(),
+                    &dunder::INIT,
+                    callee_range,
+                );
             }
             self.record_resolved_trace(arguments_range, init_method);
         }
