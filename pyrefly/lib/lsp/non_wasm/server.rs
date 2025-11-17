@@ -1786,7 +1786,12 @@ impl Server {
         }
         version_info.insert(file_path.clone(), version);
         let mut lock = self.open_files.write();
-        let original = lock.get_mut(&file_path).unwrap();
+        let Some(original) = lock.get_mut(&file_path) else {
+            return Err(anyhow::anyhow!(
+                "File not found in open_files: {}",
+                file_path.display()
+            ));
+        };
         *original = Arc::new(LspFile::from_source(apply_change_events(
             original.get_string(),
             params.content_changes,
@@ -1825,7 +1830,12 @@ impl Server {
         }
 
         let mut lock = self.open_files.write();
-        let original = lock.get_mut(&file_path).unwrap();
+        let Some(original) = lock.get_mut(&file_path) else {
+            return Err(anyhow::anyhow!(
+                "File not found in open_files: {}",
+                file_path.display()
+            ));
+        };
 
         let original_notebook = match original.as_ref() {
             LspFile::Notebook(notebook) => notebook.clone(),
