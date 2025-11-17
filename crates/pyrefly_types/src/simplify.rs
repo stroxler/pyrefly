@@ -94,22 +94,26 @@ pub fn unions_with_literals(
     unions_internal(xs, Some(stdlib), Some(enum_members))
 }
 
-pub fn intersect(mut ts: Vec<Type>, fallback: Type) -> Type {
-    if ts
-        .iter()
-        .any(|t| matches!(t, Type::Intersect(_) | Type::Union(_)))
-    {
-        // TODO: Flatten these instead of giving up.
-        return fallback;
+pub fn intersect(ts: Vec<Type>, fallback: Type) -> Type {
+    let mut flattened = Vec::new();
+    for t in ts {
+        match t {
+            Type::Union(_) => {
+                // TODO: Flatten these instead of giving up.
+                return fallback;
+            }
+            Type::Intersect(x) => flattened.extend(x.0),
+            t => flattened.push(t),
+        }
     }
-    ts.sort();
-    ts.dedup();
-    if ts.is_empty() || ts.iter().any(|t| t.is_never()) {
+    flattened.sort();
+    flattened.dedup();
+    if flattened.is_empty() || flattened.iter().any(|t| t.is_never()) {
         Type::never()
-    } else if ts.len() == 1 {
-        ts.into_iter().next().unwrap()
+    } else if flattened.len() == 1 {
+        flattened.into_iter().next().unwrap()
     } else {
-        Type::Intersect(Box::new((ts, fallback)))
+        Type::Intersect(Box::new((flattened, fallback)))
     }
 }
 

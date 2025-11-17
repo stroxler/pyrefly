@@ -2053,3 +2053,16 @@ def f(x: dict[str, int]) -> int:
         return 0
     "#,
 );
+
+testcase!(
+    test_chained_isinstance,
+    r#"
+from typing import reveal_type
+class A: ...
+class B: ...
+class C: ...
+def f(x: A):
+    if isinstance(x, B) and isinstance(x, C):
+        reveal_type(x) # E: A & B & C
+    "#,
+);
