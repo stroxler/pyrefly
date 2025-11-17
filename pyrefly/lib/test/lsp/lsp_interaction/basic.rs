@@ -222,3 +222,17 @@ fn test_unknown_request() {
             }),
         }));
 }
+
+#[test]
+fn test_connection_closed_server_stops() {
+    let mut interaction = LspInteraction::new();
+    interaction.initialize(InitializeSettings::default());
+
+    // Close the connection by dropping both the receiver and sender
+    // This simulates the client disconnecting unexpectedly
+    interaction.client.drop_connection();
+    interaction.server.drop_connection();
+
+    // The server should stop when the connection is closed
+    interaction.server.expect_stop();
+}

@@ -81,6 +81,12 @@ impl TestServer {
         }
     }
 
+    pub fn drop_connection(&mut self) {
+        // Replace the sender with a dummy closed channel
+        let (dummy_sender, _) = bounded(0);
+        drop(std::mem::replace(&mut self.sender, dummy_sender));
+    }
+
     pub fn expect_stop(&self) {
         let start = std::time::Instant::now();
         while let Some(thread) = &self.server_thread
@@ -528,6 +534,10 @@ impl TestClient {
             root: None,
             request_idx,
         }
+    }
+
+    pub fn drop_connection(self) {
+        drop(self.receiver);
     }
 
     pub fn expect_message_helper<F>(&self, validator: F, description: &str)
