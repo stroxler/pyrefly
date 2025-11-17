@@ -134,10 +134,9 @@ fn test_initialize_with_python_path() {
     interaction
         .client
         .expect_configuration_request(1, Some(vec![&scope_uri]));
-    interaction.server.send_configuration_response(
-        1,
-        serde_json::json!([{"pythonPath": python_path}, {"pythonPath": python_path}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(1, serde_json::json!([{"pythonPath": python_path}]));
 
     interaction.shutdown();
 }

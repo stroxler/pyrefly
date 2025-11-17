@@ -51,7 +51,10 @@ fn test_unexpected_keyword_range() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}, {"pyrefly": {"displayTypeErrors": "force-on"}}]));
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+    );
 
     interaction.server.did_open("unexpected_keyword.py");
     interaction.server.diagnostic("unexpected_keyword.py");
@@ -95,7 +98,10 @@ fn test_error_documentation_links() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}, {"pyrefly": {"displayTypeErrors": "force-on"}}]));
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+    );
 
     interaction.server.did_open("error_docs_test.py");
     interaction.server.diagnostic("error_docs_test.py");
@@ -181,7 +187,6 @@ fn test_unreachable_branch_diagnostic() {
     interaction.server.send_configuration_response(
         2,
         serde_json::json!([
-            {"pyrefly": {"displayTypeErrors": "force-on"}},
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]),
     );
@@ -351,7 +356,10 @@ fn test_shows_stdlib_type_errors_with_force_on() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}, {"pyrefly": {"displayTypeErrors": "force-on"}}]));
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+    );
 
     let stdlib_filepath = "filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py";
 
@@ -405,7 +413,10 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(2, serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}, {"pyrefly": {"displayTypeErrors": "force-on"}}]));
+    interaction.server.send_configuration_response(
+        2,
+        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+    );
 
     interaction
         .server
