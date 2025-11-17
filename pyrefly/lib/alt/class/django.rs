@@ -137,11 +137,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     // Get ManyRelatedManager class from django stubs
     fn get_manager_type(&self, target_model_type: Type) -> Option<Type> {
-        let manager_class_type = self.get_from_export(
-            ModuleName::django_models_fields_related_descriptors(),
-            None,
-            &KeyExport(MANYRELATEDMANAGER),
-        );
+        let django_related_module = ModuleName::django_models_fields_related_descriptors();
+        let django_related_module_exports = self.exports.get(django_related_module).finding()?;
+        let manager_class_type = if django_related_module_exports
+            .exports(self.exports)
+            .contains_key(&MANYRELATEDMANAGER)
+        {
+            self.get_from_export(django_related_module, None, &KeyExport(MANYRELATEDMANAGER))
+        } else {
+            return None;
+        };
 
         // Extract the Class from ClassDef
         let manager_class = match manager_class_type.as_ref() {
