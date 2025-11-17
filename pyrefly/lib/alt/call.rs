@@ -519,6 +519,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && !self.is_compatible_constructor_return(&ret, cls.class_object())
         {
             if let Some(metaclass_dunder_call) = self.get_metaclass_dunder_call(&cls) {
+                if let Some(callee_range) = callee_range
+                    && let Some(metaclass) = self
+                        .get_metadata_for_class(cls.class_object())
+                        .custom_metaclass()
+                {
+                    self.record_external_attribute_definition_index(
+                        &metaclass.clone().to_type(),
+                        &dunder::CALL,
+                        callee_range,
+                    );
+                }
                 self.record_resolved_trace(arguments_range, metaclass_dunder_call);
             }
             // Got something other than an instance of the class under construction.

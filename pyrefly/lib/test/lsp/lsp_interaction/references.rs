@@ -816,3 +816,52 @@ fn test_references_for_new_priority() {
 
     interaction.shutdown();
 }
+
+// Test for metaclass __call__ priority
+// When a metaclass defines __call__, it takes priority over __new__ and __init__
+#[test]
+fn test_references_for_metaclass_call_priority() {
+    let root = get_test_files_root();
+    let root_path = root
+        .path()
+        .join("constructor_priority_references/metaclass_priority");
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new_with_indexing_mode(IndexingMode::LazyBlocking);
+    interaction.set_root(root_path.clone());
+    interaction.initialize(InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        ..Default::default()
+    });
+
+    let singleton_meta_py = root_path.join("singleton_meta.py");
+    let usage_py = root_path.join("usage.py");
+
+    interaction.server.did_open("singleton_meta.py");
+    interaction.server.did_open("usage.py");
+
+    // Find references for SingletonMeta.__call__
+    interaction
+        .server
+        .references("singleton_meta.py", 7, 12, true);
+
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(serde_json::json!([
+            {
+                "range": {"start":{"line":7,"character":8},"end":{"line":7,"character":16}},
+                "uri": Url::from_file_path(singleton_meta_py.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":7,"character":5},"end":{"line":7,"character":14}},
+                "uri": Url::from_file_path(usage_py.clone()).unwrap().to_string()
+            },
+            {
+                "range": {"start":{"line":8,"character":5},"end":{"line":8,"character":14}},
+                "uri": Url::from_file_path(usage_py.clone()).unwrap().to_string()
+            },
+        ])),
+        error: None,
+    });
+
+    interaction.shutdown();
+}
