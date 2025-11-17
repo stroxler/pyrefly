@@ -1407,6 +1407,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         acc: &mut LookupResult,
     ) {
         match &base {
+            AttributeBase1::TypeQuantified(q, cls) => self.lookup_magic_dunder_attr1(
+                AttributeBase1::ClassObject(ClassBase::Quantified(q.clone(), cls.clone())),
+                dunder_name,
+                acc,
+            ),
             AttributeBase1::ClassObject(class) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let metaclass = metadata.metaclass(self.stdlib);
