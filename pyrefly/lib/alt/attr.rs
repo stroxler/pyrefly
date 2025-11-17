@@ -419,10 +419,6 @@ enum AttributeBase1 {
     /// bound, which may be the original bound on `T` or a decomposition of
     /// it (e.g. if the original bound is a union).
     Quantified(Quantified, ClassType),
-    /// Attribute access on a value explicitly typed as `type[T]` where `T` is
-    /// an in-scope type variable. We will resolve it as class object attribute
-    /// access against the bounds of `T`.
-    TypeQuantified(Quantified, ClassType),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
@@ -1233,14 +1229,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AttributeBase1::ProtocolSubset(protocol_base) => {
-                // When checking protocols, we need special handling for TypeQuantified to prioritize
-                // metaclass methods (like __iter__ on EnumMeta) over regular class methods.
-                if let AttributeBase1::TypeQuantified(_quantified, class) = &**protocol_base
-                    && let Some(attr) = self
-                        .try_get_magic_dunder_attr(&ClassBase::ClassType(class.clone()), attr_name)
-                {
-                    acc.found_class_attribute(attr, base);
-                } else if let AttributeBase1::ClassObject(class) = &**protocol_base
+                if let AttributeBase1::ClassObject(class) = &**protocol_base
                     && let Some(attr) = self.try_get_magic_dunder_attr(class, attr_name)
                 {
                     // When looking up a magic dunder method as part of checking a class object
@@ -1251,19 +1240,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
                 }
             }
-            AttributeBase1::TypeQuantified(quantified, class) => {
-                if let Some(attr) = self.get_bounded_quantified_class_attribute(
-                    quantified.clone(),
-                    class,
-                    attr_name,
-                ) {
-                    acc.found_class_attribute(attr, base);
-                } else {
-                    acc.not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base));
-                }
-            }
             AttributeBase1::ClassObject(class) => {
-                match self.get_class_attribute(class, attr_name) {
+                let attr = match class {
+                    ClassBase::Quantified(quantified, class) => self
+                        .get_bounded_quantified_class_attribute(
+                            quantified.clone(),
+                            class,
+                            attr_name,
+                        ),
+                    _ => self.get_class_attribute(class, attr_name),
+                };
+                match attr {
                     Some(attr) => acc.found_class_attribute(attr, base),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
@@ -1407,11 +1394,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         acc: &mut LookupResult,
     ) {
         match &base {
-            AttributeBase1::TypeQuantified(q, cls) => self.lookup_magic_dunder_attr1(
-                AttributeBase1::ClassObject(ClassBase::Quantified(q.clone(), cls.clone())),
-                dunder_name,
-                acc,
-            ),
             AttributeBase1::ClassObject(class) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let metaclass = metadata.metaclass(self.stdlib);
@@ -1645,20 +1627,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some(base) = self.as_attribute_base(ty.clone()) {
                         for base1 in base.0 {
                             if let AttributeBase1::ClassInstance(cls) = base1 {
-                                acc.push(AttributeBase1::TypeQuantified(
+                                acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                                     (*quantified).clone(),
                                     cls,
-                                ));
+                                )));
                             } else {
                                 use_fallback = true;
                             }
                         }
                     }
                     if use_fallback {
-                        acc.push(AttributeBase1::TypeQuantified(
+                        acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                             (*quantified).clone(),
                             self.stdlib.object().clone(),
-                        ));
+                        )));
                     }
                 }
                 Restriction::Constraints(constraints) => {
@@ -1667,10 +1649,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         if let Some(base) = self.as_attribute_base(ty.clone()) {
                             for base1 in base.0 {
                                 if let AttributeBase1::ClassInstance(cls) = base1 {
-                                    acc.push(AttributeBase1::TypeQuantified(
+                                    acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                                         (*quantified).clone(),
                                         cls,
-                                    ));
+                                    )));
                                 } else {
                                     use_fallback = true;
                                 }
@@ -1678,15 +1660,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     if use_fallback {
-                        acc.push(AttributeBase1::TypeQuantified(
+                        acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                             (*quantified).clone(),
                             self.stdlib.object().clone(),
-                        ));
+                        )));
                     }
                 }
-                Restriction::Unrestricted => acc.push(AttributeBase1::TypeQuantified(
-                    (*quantified).clone(),
-                    self.stdlib.object().clone(),
+                Restriction::Unrestricted => acc.push(AttributeBase1::ClassObject(
+                    ClassBase::Quantified((*quantified).clone(), self.stdlib.object().clone()),
                 )),
             },
             Type::Type(box Type::Any(style)) => acc.push(AttributeBase1::TypeAny(style)),
@@ -2208,9 +2189,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.completions_class_type(q.class_type(self.stdlib), expected_attribute_name, res)
             }
             AttributeBase1::ClassObject(class) => {
-                self.completions_class(class.class_object(), expected_attribute_name, res)
-            }
-            AttributeBase1::TypeQuantified(_, class) => {
                 self.completions_class(class.class_object(), expected_attribute_name, res)
             }
             AttributeBase1::TypeAny(_) | AttributeBase1::TypeNever => self.completions_class_type(

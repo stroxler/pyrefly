@@ -458,3 +458,15 @@ def g() -> int:
     return f((1, "hello world"))[0]
     "#,
 );
+
+testcase!(
+    test_type_attr,
+    r#"
+from typing import assert_type
+def f[T](
+    config_type: type[T],
+) -> T:
+    assert_type(config_type.__name__, str)
+    return config_type()
+    "#,
+);
