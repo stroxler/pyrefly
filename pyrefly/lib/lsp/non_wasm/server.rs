@@ -183,6 +183,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use tracing::error;
 use tracing::info;
 
 use crate::ModuleInfo;
@@ -612,15 +613,19 @@ pub fn lsp_loop(
             &mut canceled_requests,
             subsequent_mutation,
             event,
-        )? {
-            ProcessEvent::Continue => {
+        ) {
+            Ok(ProcessEvent::Continue) => {
                 let process_duration = process_start.elapsed().as_secs_f32();
                 info!(
                     "Language server processed event `{}` in {:.2}s ({:.2}s waiting)",
                     event_description, process_duration, queue_duration
                 );
             }
-            ProcessEvent::Exit => break,
+            Ok(ProcessEvent::Exit) => break,
+            Err(e) => {
+                // Log the error and continue processing the next event
+                error!("Error processing event `{}`: {:?}", event_description, e);
+            }
         }
     }
     info!("waiting for connection to close");
