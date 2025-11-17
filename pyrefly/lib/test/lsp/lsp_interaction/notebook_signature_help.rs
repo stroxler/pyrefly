@@ -7,6 +7,7 @@
 
 use lsp_server::RequestId;
 use lsp_server::Response;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -31,7 +32,7 @@ fn test_notebook_signature_help_basic() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "signatures": [{
                 "label": "def f(\n    a: str,\n    b: int\n) -> None: ...",
                 "parameters": [
@@ -51,7 +52,7 @@ fn test_notebook_signature_help_basic() {
     interaction.change_notebook(
         "notebook.ipynb",
         2,
-        serde_json::json!({
+        json!({
             "cells": {
                 "textContent": [{
                     "document": {
@@ -70,7 +71,7 @@ fn test_notebook_signature_help_basic() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "signatures": [{
                 "label": "def f(\n    a: str,\n    b: int\n) -> None: ...",
                 "parameters": [

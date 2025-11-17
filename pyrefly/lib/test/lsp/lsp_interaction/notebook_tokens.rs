@@ -7,6 +7,7 @@
 
 use lsp_server::RequestId;
 use lsp_server::Response;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -26,14 +27,14 @@ fn test_semantic_tokens_full() {
     interaction.semantic_tokens_cell("notebook.ipynb", "cell1");
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"data":[0,0,1,8,0]})),
+        result: Some(json!({"data":[0,0,1,8,0]})),
         error: None,
     });
 
     interaction.semantic_tokens_cell("notebook.ipynb", "cell2");
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({"data":[0,0,2,8,0]})),
+        result: Some(json!({"data":[0,0,2,8,0]})),
         error: None,
     });
     interaction.shutdown();
@@ -55,7 +56,7 @@ fn test_semantic_tokens_ranged() {
     interaction.semantic_tokens_ranged_cell("notebook.ipynb", "cell1", 0, 0, 1, 0);
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"data":[0,0,1,8,0]})),
+        result: Some(json!({"data":[0,0,1,8,0]})),
         error: None,
     });
     interaction.shutdown();

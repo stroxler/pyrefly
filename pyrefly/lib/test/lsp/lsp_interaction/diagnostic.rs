@@ -8,6 +8,7 @@
 use lsp_server::RequestId;
 use lsp_server::Response;
 use pyrefly_config::environment::environment::PythonEnvironment;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -28,7 +29,7 @@ fn test_cycle_class() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [],
             "kind": "full"
         })),
@@ -51,17 +52,16 @@ fn test_unexpected_keyword_range() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(
-        2,
-        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(2, json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     interaction.server.did_open("unexpected_keyword.py");
     interaction.server.diagnostic("unexpected_keyword.py");
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "unexpected-keyword",
@@ -98,17 +98,16 @@ fn test_error_documentation_links() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(
-        2,
-        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(2, json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     interaction.server.did_open("error_docs_test.py");
     interaction.server.diagnostic("error_docs_test.py");
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",
@@ -186,7 +185,7 @@ fn test_unreachable_branch_diagnostic() {
     interaction.client.expect_configuration_request(2, None);
     interaction.server.send_configuration_response(
         2,
-        serde_json::json!([
+        json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]),
     );
@@ -196,7 +195,7 @@ fn test_unreachable_branch_diagnostic() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "unreachable-code",
@@ -224,7 +223,7 @@ fn test_unused_parameter_diagnostic() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(Some(serde_json::json!([
+        configuration: Some(Some(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]))),
         ..Default::default()
@@ -234,7 +233,7 @@ fn test_unused_parameter_diagnostic() {
     interaction.client.expect_configuration_request(2, None);
     interaction.server.send_configuration_response(
         2,
-        serde_json::json!([
+        json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]),
     );
@@ -244,7 +243,7 @@ fn test_unused_parameter_diagnostic() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "unused-parameter",
@@ -272,7 +271,7 @@ fn test_unused_parameter_no_report() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(Some(serde_json::json!([
+        configuration: Some(Some(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]))),
         ..Default::default()
@@ -282,7 +281,7 @@ fn test_unused_parameter_no_report() {
     interaction.client.expect_configuration_request(2, None);
     interaction.server.send_configuration_response(
         2,
-        serde_json::json!([
+        json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]),
     );
@@ -294,7 +293,7 @@ fn test_unused_parameter_no_report() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [],
             "kind": "full"
         })),
@@ -321,7 +320,7 @@ fn test_publish_diagnostics_preserves_symlink_uri() {
     interaction.set_root(test_files_root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -356,10 +355,9 @@ fn test_shows_stdlib_type_errors_with_force_on() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(
-        2,
-        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(2, json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     let stdlib_filepath = "filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py";
 
@@ -368,7 +366,7 @@ fn test_shows_stdlib_type_errors_with_force_on() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",
@@ -413,10 +411,9 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(
-        2,
-        serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(2, json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     interaction
         .server
@@ -427,7 +424,7 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",
@@ -465,7 +462,7 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",
@@ -495,7 +492,7 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(4),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",
@@ -533,7 +530,7 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(5),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",
@@ -579,10 +576,9 @@ fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(
-        2,
-        serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(2, json!([{"pyrefly": {"displayTypeErrors": "default"}}]));
 
     let stdlib_filepath = "filtering_stdlib_errors_with_default/usr/lib/python3.12/stdlib_file.py";
 
@@ -591,7 +587,7 @@ fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [],
             "kind": "full"
         })),
@@ -614,10 +610,9 @@ fn test_shows_stdlib_errors_when_explicitly_included_in_project_includes() {
     interaction.server.did_change_configuration();
 
     interaction.client.expect_configuration_request(2, None);
-    interaction.server.send_configuration_response(
-        2,
-        serde_json::json!([{"pyrefly": {"displayTypeErrors": "default"}}]),
-    );
+    interaction
+        .server
+        .send_configuration_response(2, json!([{"pyrefly": {"displayTypeErrors": "default"}}]));
 
     let stdlib_filepath = "stdlib_with_explicit_includes/usr/lib/python3.12/stdlib_file.py";
 
@@ -626,7 +621,7 @@ fn test_shows_stdlib_errors_when_explicitly_included_in_project_includes() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [
                 {
                     "code": "bad-assignment",

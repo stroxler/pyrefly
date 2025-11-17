@@ -11,6 +11,7 @@ use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
 use lsp_types::Url;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -29,7 +30,7 @@ fn test_prepare_rename() {
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/prepareRename".to_owned(),
-        params: serde_json::json!({
+        params: json!({
             "textDocument": {
                 "uri": Url::from_file_path(&path).unwrap().to_string()
             },
@@ -42,7 +43,7 @@ fn test_prepare_rename() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "start": {"line": 6, "character": 16},
             "end": {"line": 6, "character": 19},
         })),
@@ -62,9 +63,7 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
     interaction.set_root(root_path.clone());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(Some(
-            serde_json::json!([{ "indexing_mode": "lazy_blocking" }]),
-        )),
+        configuration: Some(Some(json!([{ "indexing_mode": "lazy_blocking" }]))),
         ..Default::default()
     });
 
@@ -76,7 +75,7 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/prepareRename".to_owned(),
-        params: serde_json::json!({
+        params: json!({
             "textDocument": {
                 "uri": Url::from_file_path(&user_code).unwrap().to_string()
             },
@@ -97,7 +96,7 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(3),
         method: "textDocument/rename".to_owned(),
-        params: serde_json::json!({
+        params: json!({
             "textDocument": {
                 "uri": Url::from_file_path(&user_code).unwrap().to_string()
             },
@@ -132,9 +131,7 @@ fn test_rename() {
     interaction.set_root(root_path.clone());
     interaction.initialize(InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(Some(
-            serde_json::json!([{ "indexing_mode": "lazy_blocking" }]),
-        )),
+        configuration: Some(Some(json!([{ "indexing_mode": "lazy_blocking" }]))),
         ..Default::default()
     });
 
@@ -151,7 +148,7 @@ fn test_rename() {
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/rename".to_owned(),
-        params: serde_json::json!({
+        params: json!({
             "textDocument": {
                 "uri": Url::from_file_path(&bar).unwrap().to_string()
             },
@@ -165,7 +162,7 @@ fn test_rename() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "changes": {
                 Url::from_file_path(&foo).unwrap().to_string(): [
                     {

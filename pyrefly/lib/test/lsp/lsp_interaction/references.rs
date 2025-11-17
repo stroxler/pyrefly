@@ -8,6 +8,7 @@
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
+use serde_json::json;
 
 use crate::commands::lsp::IndexingMode;
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -41,7 +42,7 @@ fn test_references_for_usage_with_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -111,7 +112,7 @@ fn test_finds_references_outside_config_when_workspace_larger_than_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":12,"line":6}},
                 "uri": Url::from_file_path(core.clone()).unwrap().to_string()
@@ -159,7 +160,7 @@ fn test_references_workspace_smaller_than_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":5,"character":17},"end":{"character":22,"line":5}},
                 "uri": Url::from_file_path(usage_outside_workspace.clone()).unwrap().to_string()
@@ -217,7 +218,7 @@ fn test_references_cross_file_no_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":16},"end":{"character":19,"line":6}},
                 "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
@@ -279,7 +280,7 @@ fn test_references_cross_file_no_config_nested() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":23},"end":{"character":26,"line":6}},
                 "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
@@ -339,7 +340,7 @@ fn test_references_cross_file_with_marker_file() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":16},"end":{"character":19,"line":6}},
                 "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
@@ -394,7 +395,7 @@ fn test_references_for_definition_with_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -465,7 +466,7 @@ fn test_references_for_import_with_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -535,7 +536,7 @@ fn test_references_for_aliased_import_with_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":5,"character":23},"end":{"line":5,"character":24}},
                 "uri": Url::from_file_path(various_imports.clone()).unwrap().to_string()
@@ -581,7 +582,7 @@ fn test_references_after_file_modification_with_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -652,7 +653,7 @@ fn test_references_after_file_modification_with_line_offset_with_config() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":8,"character":6},"end":{"character":9,"line":8}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -692,7 +693,7 @@ fn test_references_cross_file_method_inheritance() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":9,"character":8},"end":{"line":9,"character":14}},
                 "uri": Url::from_file_path(child_py.clone()).unwrap().to_string()
@@ -751,7 +752,7 @@ fn test_references_for_init_priority() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":9,"character":8},"end":{"line":9,"character":16}},
                 "uri": Url::from_file_path(person_py.clone()).unwrap().to_string()
@@ -797,7 +798,7 @@ fn test_references_for_new_priority() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":7,"character":5},"end":{"line":7,"character":14}},
                 "uri": Url::from_file_path(usage_py.clone()).unwrap().to_string()
@@ -846,7 +847,7 @@ fn test_references_for_metaclass_call_priority() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!([
+        result: Some(json!([
             {
                 "range": {"start":{"line":7,"character":8},"end":{"line":7,"character":16}},
                 "uri": Url::from_file_path(singleton_meta_py.clone()).unwrap().to_string()

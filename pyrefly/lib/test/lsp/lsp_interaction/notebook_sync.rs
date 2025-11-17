@@ -7,6 +7,7 @@
 
 use lsp_server::RequestId;
 use lsp_server::Response;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -19,7 +20,7 @@ fn test_notebook_publish_diagnostics() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -45,7 +46,7 @@ fn test_notebook_did_open() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -60,14 +61,14 @@ fn test_notebook_did_open() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell1");
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"items": [], "kind": "full"})),
+        result: Some(json!({"items": [], "kind": "full"})),
         error: None,
     });
     // Cell 3 has an error
     interaction.diagnostic_for_cell("notebook.ipynb", "cell3");
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [{
                 "code": "bad-assignment",
                 "codeDescription": {
@@ -96,7 +97,7 @@ fn test_notebook_completion_parse_error() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -106,7 +107,7 @@ fn test_notebook_completion_parse_error() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell1");
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"items": [
+        result: Some(json!({"items": [
             {
                 "code": "missing-attribute",
                 "codeDescription": {
@@ -140,7 +141,7 @@ fn test_notebook_completion_parse_error() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell2");
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({"items": [
+        result: Some(json!({"items": [
     {
         "code": "missing-attribute",
         "codeDescription": {
@@ -181,7 +182,7 @@ fn test_notebook_did_change_cell_contents() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -196,7 +197,7 @@ fn test_notebook_did_change_cell_contents() {
     interaction.change_notebook(
         "notebook.ipynb",
         2,
-        serde_json::json!({
+        json!({
             "cells": {
                 "textContent": [{
                     "document": {
@@ -215,7 +216,7 @@ fn test_notebook_did_change_cell_contents() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell3");
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"items": [], "kind": "full"})),
+        result: Some(json!({"items": [], "kind": "full"})),
         error: None,
     });
 
@@ -229,7 +230,7 @@ fn test_notebook_did_change_swap_cells() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -243,7 +244,7 @@ fn test_notebook_did_change_swap_cells() {
     interaction.change_notebook(
         "notebook.ipynb",
         2,
-        serde_json::json!({
+        json!({
             "cells": {
                 "structure": {
                     "array": {
@@ -263,7 +264,7 @@ fn test_notebook_did_change_swap_cells() {
     interaction.change_notebook(
         "notebook.ipynb",
         3,
-        serde_json::json!({
+        json!({
             "cells": {
                 "structure": {
                     "array": {
@@ -289,7 +290,7 @@ fn test_notebook_did_change_swap_cells() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell1");
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"items": [], "kind": "full"})),
+        result: Some(json!({"items": [], "kind": "full"})),
         error: None,
     });
 
@@ -297,7 +298,7 @@ fn test_notebook_did_change_swap_cells() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell2");
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [{
                 "code": "unbound-name",
                 "codeDescription": {
@@ -326,7 +327,7 @@ fn test_notebook_did_change_delete_cell() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
         configuration: Some(Some(
-            serde_json::json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
+            json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]),
         )),
         ..Default::default()
     });
@@ -343,7 +344,7 @@ fn test_notebook_did_change_delete_cell() {
     interaction.change_notebook(
         "notebook.ipynb",
         2,
-        serde_json::json!({
+        json!({
             "cells": {
                 "structure": {
                     "array": {
@@ -363,7 +364,7 @@ fn test_notebook_did_change_delete_cell() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell1");
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({"items": [], "kind": "full"})),
+        result: Some(json!({"items": [], "kind": "full"})),
         error: None,
     });
 
@@ -371,7 +372,7 @@ fn test_notebook_did_change_delete_cell() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell2");
     interaction.client.expect_response(Response {
         id: RequestId::from(3),
-        result: Some(serde_json::json!({"items": [], "kind": "full"})),
+        result: Some(json!({"items": [], "kind": "full"})),
         error: None,
     });
 
@@ -379,7 +380,7 @@ fn test_notebook_did_change_delete_cell() {
     interaction.diagnostic_for_cell("notebook.ipynb", "cell3");
     interaction.client.expect_response(Response {
         id: RequestId::from(4),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "items": [{
                 "code": "unknown-name",
                 "codeDescription": {

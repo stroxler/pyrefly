@@ -7,6 +7,7 @@
 
 use lsp_server::RequestId;
 use lsp_server::Response;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -54,7 +55,7 @@ fn test_notebook_definition_cross_cell() {
     interaction.definition_cell("notebook.ipynb", "cell2", 0, 4);
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "uri": interaction.cell_uri("notebook.ipynb", "cell1"),
             "range": {
                 "start": {
@@ -87,7 +88,7 @@ fn test_notebook_definition_same_cell() {
     interaction.definition_cell("notebook.ipynb", "cell1", 1, 4);
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "uri": interaction.cell_uri("notebook.ipynb", "cell1"),
             "range": {
                 "start": {

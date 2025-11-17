@@ -7,6 +7,7 @@
 
 use lsp_server::Response;
 use lsp_types::Url;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -27,7 +28,7 @@ fn test_hover_basic() {
 
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "```python\n(variable) foo: Literal[3]\n```",
@@ -116,7 +117,7 @@ fn test_hover_import() {
 
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "```python\n(class) Bar: type[Bar]\n```\n\nGo to [Bar](".to_owned()
@@ -146,7 +147,7 @@ fn test_hover_suppressed_error() {
     interaction.server.hover("suppression.py", 5, 10);
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "**Suppressed Error**\n\n`unsupported-operation`: `+` is not supported between `Literal[1]` and `Literal['']`\n  Argument `Literal['']` is not assignable to parameter `value` with type `int` in function `int.__add__`",
@@ -159,7 +160,7 @@ fn test_hover_suppressed_error() {
     interaction.server.hover("suppression.py", 8, 15);
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "**Suppressed Error**\n\n`unsupported-operation`: `+` is not supported between `Literal[2]` and `Literal['']`\n  Argument `Literal['']` is not assignable to parameter `value` with type `int` in function `int.__add__`",
@@ -172,7 +173,7 @@ fn test_hover_suppressed_error() {
     interaction.server.hover("suppression.py", 10, 15);
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "**No errors suppressed by this ignore**\n\n_The ignore comment may have an incorrect error code or there may be no errors on this line._",
@@ -185,7 +186,7 @@ fn test_hover_suppressed_error() {
     interaction.server.hover("suppression.py", 12, 15);
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "**No errors suppressed by this ignore**\n\n_The ignore comment may have an incorrect error code or there may be no errors on this line._",
@@ -198,7 +199,7 @@ fn test_hover_suppressed_error() {
     interaction.server.hover("suppression.py", 15, 10);
     interaction.client.expect_response(Response {
         id: interaction.server.current_request_id(),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "**No errors suppressed by this ignore**\n\n_The ignore comment may have an incorrect error code or there may be no errors on this line._",

@@ -9,6 +9,7 @@ use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_types::Url;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -29,7 +30,7 @@ foo()
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/semanticTokens/full".to_owned(),
-        params: serde_json::json!({
+        params: json!({
             "textDocument": { "uri": uri.to_string() }
         }),
     }));
@@ -67,7 +68,7 @@ math.
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/completion".to_owned(),
-        params: serde_json::json!({
+        params: json!({
             "textDocument": {"uri": uri.to_string()},
             "position": {"line": 1, "character": 5}
         }),

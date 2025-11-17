@@ -10,6 +10,7 @@ use std::env;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
+use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
@@ -33,7 +34,7 @@ fn test_notebook_hover_basic() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "```python\n(variable) x: Literal[3]\n```",
@@ -67,7 +68,7 @@ fn test_notebook_hover_import() {
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),
-        result: Some(serde_json::json!({
+        result: Some(json!({
             "contents": {
                 "kind": "markdown",
                 "value": format!("```python\n(class) List: type[list]\n```\n\nGo to [list]({}#L3349,7)", expected_url.as_str()),

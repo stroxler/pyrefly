@@ -14,6 +14,7 @@ use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
 use lsp_types::Url;
+use serde_json::json;
 use tempfile::TempDir;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -226,9 +227,7 @@ fn definition_in_builtins_without_interpreter_goes_to_stub() {
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings {
-        configuration: Some(Some(
-            serde_json::json!([{"pythonPath": "/fake/python/path"}]),
-        )),
+        configuration: Some(Some(json!([{"pythonPath": "/fake/python/path"}]))),
         ..Default::default()
     });
     interaction.server.did_open("imports_builtins_no_config.py");
@@ -257,7 +256,7 @@ fn malformed_missing_position() {
         id: RequestId::from(2),
         method: "textDocument/definition".to_owned(),
         // Missing position
-        params: serde_json::json!({
+        params: json!({
             "textDocument": {
                 "uri": Url::from_file_path(root.path().join("basic/foo.py")).unwrap().to_string()
             },
