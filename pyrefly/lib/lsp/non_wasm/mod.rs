@@ -6,6 +6,7 @@
  */
 
 mod build_system;
+pub mod document_symbols;
 pub mod folding_ranges;
 pub mod lsp;
 pub mod module_helpers;
