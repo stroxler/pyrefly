@@ -2605,3 +2605,97 @@ def foo() -> None:
         )]
     }
 );
+
+call_graph_testcase!(
+    test_various_comprehensions,
+    TEST_MODULE_NAME,
+    r#"
+import typing
+class A:
+  def f(self) -> typing.List[int]:
+    return [1, 2]
+def g() -> A:
+  return A()
+def id(arg):
+  return arg
+def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIterable[int]):
+  x = [x async for x in l0]
+  x = [x for x in l1]  # List comprehension
+  x = [x async for x in l2]  # List comprehension
+  x = [x for x in g().f()]  # Iterator as a compound AST node
+  x = {x for x in l1}  # Set comprehension
+  x = {x async for x in l2}  # Set comprehension
+  x = {x:0 for x in l1}  # Dictionary comprehension
+  x = {x:0 async for x in l2}  # Dictionary comprehension
+  x = (x for x in l1) # Generator comprehension
+  x = (x async for x in l2)  # Generator comprehension
+"#,
+    &|context: &ModuleContext| {
+        let list_iter_targets = vec![{
+            let mut target = create_call_target("builtins.list.__iter__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context);
+            target.return_type = None;
+            target
+        }];
+        let list_next_targets = vec![
+            create_call_target("typing.Iterator.__next__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.Iterator", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        let g_target = vec![create_call_target("test.g", TargetType::Function)];
+        let a_f_target = vec![
+            create_call_target("test.A.f", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.A", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "12:19-12:21|artificial-call|generator-iter",
+                    regular_call_callees(list_iter_targets.clone()),
+                ),
+                (
+                    "12:19-12:21|artificial-call|generator-next",
+                    regular_call_callees(list_next_targets.clone()),
+                ),
+                ("14:19-14:22", regular_call_callees(g_target)),
+                ("14:19-14:26", regular_call_callees(a_f_target)),
+                (
+                    "14:19-14:26|artificial-call|generator-iter",
+                    regular_call_callees(list_iter_targets.clone()),
+                ),
+                (
+                    "14:19-14:26|artificial-call|generator-next",
+                    regular_call_callees(list_next_targets.clone()),
+                ),
+                (
+                    "15:19-15:21|artificial-call|generator-iter",
+                    regular_call_callees(list_iter_targets.clone()),
+                ),
+                (
+                    "15:19-15:21|artificial-call|generator-next",
+                    regular_call_callees(list_next_targets.clone()),
+                ),
+                (
+                    "17:21-17:23|artificial-call|generator-iter",
+                    regular_call_callees(list_iter_targets.clone()),
+                ),
+                (
+                    "17:21-17:23|artificial-call|generator-next",
+                    regular_call_callees(list_next_targets.clone()),
+                ),
+                (
+                    "19:19-19:21|artificial-call|generator-iter",
+                    regular_call_callees(list_iter_targets),
+                ),
+                (
+                    "19:19-19:21|artificial-call|generator-next",
+                    regular_call_callees(list_next_targets),
+                ),
+            ],
+        )]
+    }
+);

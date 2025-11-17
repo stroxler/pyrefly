@@ -24,11 +24,11 @@ use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::ArgOrKeyword;
+use ruff_python_ast::Comprehension;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
-use ruff_python_ast::ExprListComp;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -2181,7 +2181,7 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn resolve_and_register_list_comp(&mut self, list_comp: &ExprListComp) {
+    fn resolve_and_register_comprehension(&mut self, element: &Expr, generators: &[Comprehension]) {
         struct IterCallees {
             target: CallCallees<FunctionRef>,
             callee_type: Type,
@@ -2189,9 +2189,9 @@ impl<'a> CallGraphVisitor<'a> {
         let element_type = self
             .module_context
             .answers
-            .get_type_trace(list_comp.elt.range())
+            .get_type_trace(element.range())
             .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
-        for generator in list_comp.generators.iter() {
+        for generator in generators.iter() {
             let iter_range = generator.iter.range();
             let iter_callees = self
                 .module_context
@@ -2342,9 +2342,21 @@ impl<'a> CallGraphVisitor<'a> {
                 debug_println!(self.debug, "Resolving callees for compare `{:#?}`", expr);
                 self.resolve_and_register_compare(compare);
             }
-            Expr::ListComp(list_comp) => {
+            Expr::ListComp(comp) => {
                 debug_println!(self.debug, "Resolving callees for list comp `{:#?}`", expr);
-                self.resolve_and_register_list_comp(list_comp);
+                self.resolve_and_register_comprehension(&comp.elt, &comp.generators);
+            }
+            Expr::SetComp(comp) => {
+                debug_println!(self.debug, "Resolving callees for set comp `{:#?}`", expr);
+                self.resolve_and_register_comprehension(&comp.elt, &comp.generators);
+            }
+            Expr::Generator(generator) => {
+                debug_println!(self.debug, "Resolving callees for generator `{:#?}`", expr);
+                self.resolve_and_register_comprehension(&generator.elt, &generator.generators);
+            }
+            Expr::DictComp(comp) => {
+                debug_println!(self.debug, "Resolving callees for dict comp `{:#?}`", expr);
+                self.resolve_and_register_comprehension(&comp.key, &comp.generators);
             }
             _ => {}
         };
