@@ -28,6 +28,7 @@ use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
+use ruff_python_ast::ExprListComp;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
@@ -71,6 +72,8 @@ use crate::state::lsp::FindPreference;
 pub enum OriginKind {
     GetAttrConstantLiteral,
     ComparisonOperator,
+    GeneratorIter,
+    GeneratorNext,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -78,6 +81,8 @@ impl std::fmt::Display for OriginKind {
         match self {
             Self::GetAttrConstantLiteral => write!(f, "get-attr-constant-literal"),
             Self::ComparisonOperator => write!(f, "comparison"),
+            Self::GeneratorIter => write!(f, "generator-iter"),
+            Self::GeneratorNext => write!(f, "generator-next"),
         }
     }
 }
@@ -142,6 +147,7 @@ impl Serialize for ExpressionIdentifier {
     }
 }
 
+#[derive(Debug)]
 struct ResolvedDunderAttr {
     target: CallTargetLookup,
     attr_type: Type,
@@ -1038,9 +1044,14 @@ struct CallGraphVisitor<'a> {
     current_function: Option<FunctionRef>, // The current function, if it is exported.
     debug: bool,                           // Enable logging for the current function or class body.
     debug_scopes: Vec<bool>,               // The value of the debug flag for each scope.
+    error_collector: ErrorCollector,
 }
 
 impl<'a> CallGraphVisitor<'a> {
+    fn pysa_location(&self, location: TextRange) -> PysaLocation {
+        PysaLocation::new(self.module_context.module_info.display_range(location))
+    }
+
     fn add_callees(
         &mut self,
         expression_identifier: ExpressionIdentifier,
@@ -1761,14 +1772,12 @@ impl<'a> CallGraphVisitor<'a> {
         self.module_context
             .transaction
             .ad_hoc_solve(&self.module_context.handle, |solver| {
-                let error_collector =
-                    ErrorCollector::new(self.module_context.module_info.dupe(), ErrorStyle::Never);
                 solver
                     .type_of_magic_dunder_attr(
                         base,
                         attribute_name,
                         range,
-                        &error_collector,
+                        &self.error_collector,
                         None,
                         todo_ctx,
                         /* allow_getattr_fallback */ true,
@@ -2070,21 +2079,10 @@ impl<'a> CallGraphVisitor<'a> {
     // Use this only when we are not analyzing a call expression (e.g., `foo` in `x = foo`), because
     // for a call expression, we could simply query its type (e.g., query the type of `c(1)`).
     fn get_return_type_for_callee(&self, callee_type: Option<&Type>) -> ScalarTypeProperties {
-        let return_type_from_function = |function: &pyrefly_types::callable::Function| {
-            ScalarTypeProperties::from_type(&function.signature.ret, self.module_context)
-        };
-        callee_type.map_or(ScalarTypeProperties::none(), |type_| match type_ {
-            Type::Function(function) => return_type_from_function(function),
-            Type::BoundMethod(bound_method) => extract_function_from_bound_method(bound_method)
-                .into_iter()
-                .map(return_type_from_function)
-                .reduce(|so_far, property| so_far.join(property))
-                .unwrap_or(ScalarTypeProperties::none()),
-            Type::Callable(callable) => {
-                ScalarTypeProperties::from_type(&callable.ret, self.module_context)
-            }
-            _ => ScalarTypeProperties::none(),
-        })
+        callee_type
+            .and_then(|ty| ty.callable_return_type())
+            .map(|return_type| ScalarTypeProperties::from_type(&return_type, self.module_context))
+            .unwrap_or(ScalarTypeProperties::none())
     }
 
     fn resolve_and_register_call(
@@ -2122,9 +2120,7 @@ impl<'a> CallGraphVisitor<'a> {
                         let expression_identifier =
                             ExpressionIdentifier::ArtificialAttributeAccess(Origin {
                                 kind: OriginKind::GetAttrConstantLiteral,
-                                location: PysaLocation::new(
-                                    self.module_context.module_info.display_range(call.range()),
-                                ),
+                                location: self.pysa_location(call.range()),
                             });
                         self.add_callees(expression_identifier, callees);
                     }
@@ -2179,13 +2175,102 @@ impl<'a> CallGraphVisitor<'a> {
 
             let expression_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::ComparisonOperator,
-                location: PysaLocation::new(
-                    self.module_context
-                        .module_info
-                        .display_range(right_comparator.range()),
-                ),
+                location: self.pysa_location(right_comparator.range()),
             });
             self.add_callees(expression_identifier, ExpressionCallees::Call(callees));
+        }
+    }
+
+    fn resolve_and_register_list_comp(&mut self, list_comp: &ExprListComp) {
+        struct IterCallees {
+            target: CallCallees<FunctionRef>,
+            callee_type: Type,
+        }
+        let element_type = self
+            .module_context
+            .answers
+            .get_type_trace(list_comp.elt.range())
+            .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+        for generator in list_comp.generators.iter() {
+            let iter_range = generator.iter.range();
+            let iter_callees = self
+                .module_context
+                .answers
+                .get_type_trace(iter_range)
+                .and_then(|iter_type| {
+                    self.pyrefly_target_from_magic_dunder_attr(
+                        &iter_type,
+                        &dunder::ITER,
+                        iter_range,
+                        "resolve_expression_for_listcomp_iter",
+                    )
+                })
+                .map(
+                    |ResolvedDunderAttr {
+                         target,
+                         attr_type: callee_type,
+                     }| {
+                        IterCallees {
+                            target: self.resolve_pyrefly_target(
+                                Some(target),
+                                /* callee_expr */ None,
+                                Some(&callee_type),
+                                /* return_type */ None,
+                                /* callee_expr_suffix */
+                                Some(&dunder::ITER),
+                                /* unknown_callee_as_direct_call */ true,
+                            ),
+                            callee_type,
+                        }
+                    },
+                );
+            let Some(IterCallees {
+                target: iter_callees,
+                callee_type: iter_callee_type,
+            }) = iter_callees
+            else {
+                continue;
+            };
+
+            let iter_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+                kind: OriginKind::GeneratorIter,
+                location: self.pysa_location(iter_range),
+            });
+            self.add_callees(iter_identifier, ExpressionCallees::Call(iter_callees));
+
+            let next_callees = iter_callee_type
+                .callable_return_type()
+                .and_then(|return_type| {
+                    self.pyrefly_target_from_magic_dunder_attr(
+                        &return_type,
+                        &dunder::NEXT,
+                        iter_range,
+                        "resolve_expression_for_listcomp_iter_next",
+                    )
+                })
+                .map(
+                    |ResolvedDunderAttr {
+                         target,
+                         attr_type: callee_type,
+                     }| {
+                        self.resolve_pyrefly_target(
+                            Some(target),
+                            /* callee_expr */ None,
+                            Some(&callee_type),
+                            /* return_type */ element_type,
+                            /* callee_expr_suffix */
+                            Some(&dunder::NEXT),
+                            /* unknown_callee_as_direct_call */ true,
+                        )
+                    },
+                );
+            if let Some(next_callees) = next_callees {
+                let next_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+                    kind: OriginKind::GeneratorNext,
+                    location: self.pysa_location(iter_range),
+                });
+                self.add_callees(next_identifier, ExpressionCallees::Call(next_callees))
+            };
         }
     }
 
@@ -2256,6 +2341,10 @@ impl<'a> CallGraphVisitor<'a> {
             Expr::Compare(compare) => {
                 debug_println!(self.debug, "Resolving callees for compare `{:#?}`", expr);
                 self.resolve_and_register_compare(compare);
+            }
+            Expr::ListComp(list_comp) => {
+                debug_println!(self.debug, "Resolving callees for list comp `{:#?}`", expr);
+                self.resolve_and_register_list_comp(list_comp);
             }
             _ => {}
         };
@@ -2434,6 +2523,7 @@ fn resolve_call(
         debug: false,
         debug_scopes: Vec::new(),
         override_graph,
+        error_collector: ErrorCollector::new(module_context.module_info.dupe(), ErrorStyle::Never),
     };
     let callees = visitor.resolve_call(
         /* callee */ &call.func,
@@ -2473,6 +2563,7 @@ fn resolve_expression(
         debug: false,
         debug_scopes: Vec::new(),
         override_graph,
+        error_collector: ErrorCollector::new(module_context.module_info.dupe(), ErrorStyle::Never),
     };
     visitor.resolve_and_register_expression(
         expression,
@@ -2573,6 +2664,7 @@ pub fn export_call_graphs(
         debug: false,
         debug_scopes: Vec::new(),
         override_graph,
+        error_collector: ErrorCollector::new(context.module_info.dupe(), ErrorStyle::Never),
     };
 
     visit_module_ast(&mut visitor, context);

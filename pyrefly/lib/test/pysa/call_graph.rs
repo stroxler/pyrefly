@@ -2486,3 +2486,122 @@ def foo():
         )]
     }
 );
+
+call_graph_testcase!(
+    test_list_comprehension_with_method_call,
+    TEST_MODULE_NAME,
+    r#"
+from typing import List
+class C:
+  def run(self) -> str:
+    return ""
+def foo() -> None:
+  cs: List[C] = [C()]
+  result = [c.run() for c in cs]
+"#,
+    &|context: &ModuleContext| {
+        let c_init_targets = vec![
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        let c_new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        let c_run = vec![
+            create_call_target("test.C.run", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", context),
+        ];
+        let iter_targets = vec![{
+            let mut target = create_call_target("builtins.list.__iter__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context);
+            target.return_type = None;
+            target
+        }];
+        let next_targets = vec![
+            create_call_target("typing.Iterator.__next__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.Iterator", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "7:18-7:21",
+                    constructor_call_callees(c_init_targets, c_new_targets),
+                ),
+                ("8:13-8:20", regular_call_callees(c_run)),
+                (
+                    "8:30-8:32|artificial-call|generator-iter",
+                    regular_call_callees(iter_targets),
+                ),
+                (
+                    "8:30-8:32|artificial-call|generator-next",
+                    regular_call_callees(next_targets),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_nested_list_comprehension_with_multiple_iterators,
+    TEST_MODULE_NAME,
+    r#"
+def foo() -> None:
+  container = range(3)
+  result = [x + y for x in container for y in container]
+"#,
+    &|context: &ModuleContext| {
+        let range_init_targets = vec![
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_return_type(Some(ScalarTypeProperties::none())),
+        ];
+        let range_new_targets = vec![
+            create_call_target("builtins.range.__new__", TargetType::Function)
+                .with_is_static_method(true)
+                .with_return_type(Some(ScalarTypeProperties::none())),
+        ];
+        let iter_targets = vec![{
+            let mut target = create_call_target("builtins.range.__iter__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.range", context);
+            target.return_type = None;
+            target
+        }];
+        let next_targets = vec![
+            create_call_target("typing.Iterator.__next__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.Iterator", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "3:15-3:23",
+                    constructor_call_callees(range_init_targets, range_new_targets),
+                ),
+                (
+                    "4:28-4:37|artificial-call|generator-iter",
+                    regular_call_callees(iter_targets.clone()),
+                ),
+                (
+                    "4:28-4:37|artificial-call|generator-next",
+                    regular_call_callees(next_targets.clone()),
+                ),
+                (
+                    "4:47-4:56|artificial-call|generator-iter",
+                    regular_call_callees(iter_targets),
+                ),
+                (
+                    "4:47-4:56|artificial-call|generator-next",
+                    regular_call_callees(next_targets),
+                ),
+            ],
+        )]
+    }
+);
