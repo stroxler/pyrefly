@@ -558,6 +558,12 @@ def foo(b: bool):
                             .with_return_type(Some(ScalarTypeProperties::int())),
                     ]),
                 ),
+                (
+                    "9:3-9:6",
+                    ExpressionCallees::Call(CallCallees::new_unresolved(
+                        UnresolvedReason::UnsupportedFunctionTarget,
+                    )),
+                ),
             ],
         )]
     }
@@ -583,7 +589,15 @@ def foo(c: Optional[C]):
         ];
         vec![(
             "test.foo",
-            vec![("8:5-8:10", regular_call_callees(call_target))],
+            vec![
+                (
+                    "7:14-7:18|artificial-call|comparison",
+                    ExpressionCallees::Call(CallCallees::new_unresolved(
+                        UnresolvedReason::UnresolvedMagicDunderAttr,
+                    )),
+                ),
+                ("8:5-8:10", regular_call_callees(call_target)),
+            ],
         )]
     }
 );
@@ -1737,7 +1751,21 @@ class C:
 def foo(c: C) -> int:
   return c.attribute()
 "#,
-    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "8:10-8:23",
+                ExpressionCallees::Call(CallCallees {
+                    call_targets: vec![],
+                    init_targets: vec![],
+                    new_targets: vec![],
+                    higher_order_parameters: HashMap::new(),
+                    unresolved: Unresolved::False,
+                }),
+            )],
+        )]
+    }
 );
 
 call_graph_testcase!(
@@ -1833,7 +1861,17 @@ def f(foo: Foo):
                     regular_attribute_access_callees(foo_bar.clone()),
                 ),
                 ("8:22-8:25", regular_identifier_callees(baz)),
-                ("9:5-9:8", regular_call_callees(foo_bar)),
+                (
+                    "9:5-9:8",
+                    call_callees(
+                        /* call_targets */ foo_bar,
+                        /* init_targets */ vec![],
+                        /* new_targets */ vec![],
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */
+                        Unresolved::True(UnresolvedReason::Mixed),
+                    ),
+                ),
             ],
         )]
     }
@@ -1879,7 +1917,13 @@ def f():
                 ("7:18-7:21", regular_identifier_callees(bar)),
                 (
                     "8:5-8:8",
-                    constructor_call_callees(init_targets, new_targets),
+                    ExpressionCallees::Call(CallCallees {
+                        call_targets: vec![],
+                        init_targets,
+                        new_targets,
+                        higher_order_parameters: HashMap::new(),
+                        unresolved: Unresolved::True(UnresolvedReason::Mixed),
+                    }),
                 ),
             ],
         )]
@@ -2283,7 +2327,33 @@ class Token:
 def foo(obj: Token):
   x = getattr(obj, "token", None)
 "#,
-    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "5:7-5:34",
+                    ExpressionCallees::Call(CallCallees::new_unresolved(
+                        UnresolvedReason::UnexpectedPyreflyTarget,
+                    )),
+                ),
+                (
+                    "5:7-5:34|artificial-attribute-access|get-attr-constant-literal",
+                    ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+                        if_called: CallCallees {
+                            call_targets: vec![],
+                            init_targets: vec![],
+                            new_targets: vec![],
+                            higher_order_parameters: HashMap::new(),
+                            unresolved: Unresolved::False,
+                        },
+                        property_setters: vec![],
+                        property_getters: vec![],
+                    }),
+                ),
+            ],
+        )]
+    }
 );
 
 call_graph_testcase!(
@@ -2303,10 +2373,24 @@ def foo(obj: Token):
         ];
         vec![(
             "test.foo",
-            vec![(
-                "5:3-5:30|artificial-attribute-access|get-attr-constant-literal",
-                regular_attribute_access_callees(token),
-            )],
+            vec![
+                (
+                    "5:3-5:30",
+                    ExpressionCallees::Call(CallCallees::new_unresolved(
+                        UnresolvedReason::UnexpectedPyreflyTarget,
+                    )),
+                ),
+                (
+                    "5:3-5:30|artificial-attribute-access|get-attr-constant-literal",
+                    regular_attribute_access_callees(token),
+                ),
+                (
+                    "5:3-5:32",
+                    ExpressionCallees::Call(CallCallees::new_unresolved(
+                        UnresolvedReason::UnexpectedCalleeExpression,
+                    )),
+                ),
+            ],
         )]
     }
 );
@@ -2320,7 +2404,17 @@ class Token:
 def foo(obj: Token, x: str):
   obj.__setattr__("token", x)
 "#,
-    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "5:3-5:30",
+                ExpressionCallees::Call(CallCallees::new_unresolved(
+                    UnresolvedReason::UnexpectedPyreflyTarget,
+                )),
+            )],
+        )]
+    }
 );
 
 call_graph_testcase!(
