@@ -2193,6 +2193,11 @@ impl<'a> CallGraphVisitor<'a> {
             .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
         for generator in generators.iter() {
             let iter_range = generator.iter.range();
+            let (iter_callee_name, next_callee_name) = if generator.is_async {
+                (dunder::AITER, dunder::ANEXT)
+            } else {
+                (dunder::ITER, dunder::NEXT)
+            };
             let iter_callees = self
                 .module_context
                 .answers
@@ -2200,7 +2205,7 @@ impl<'a> CallGraphVisitor<'a> {
                 .and_then(|iter_type| {
                     self.pyrefly_target_from_magic_dunder_attr(
                         &iter_type,
-                        &dunder::ITER,
+                        &iter_callee_name,
                         iter_range,
                         "resolve_expression_for_listcomp_iter",
                     )
@@ -2217,7 +2222,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 Some(&callee_type),
                                 /* return_type */ None,
                                 /* callee_expr_suffix */
-                                Some(&dunder::ITER),
+                                Some(&iter_callee_name),
                                 /* unknown_callee_as_direct_call */ true,
                             ),
                             callee_type,
@@ -2243,7 +2248,7 @@ impl<'a> CallGraphVisitor<'a> {
                 .and_then(|return_type| {
                     self.pyrefly_target_from_magic_dunder_attr(
                         &return_type,
-                        &dunder::NEXT,
+                        &next_callee_name,
                         iter_range,
                         "resolve_expression_for_listcomp_iter_next",
                     )
@@ -2259,7 +2264,7 @@ impl<'a> CallGraphVisitor<'a> {
                             Some(&callee_type),
                             /* return_type */ element_type,
                             /* callee_expr_suffix */
-                            Some(&dunder::NEXT),
+                            Some(&next_callee_name),
                             /* unknown_callee_as_direct_call */ true,
                         )
                     },

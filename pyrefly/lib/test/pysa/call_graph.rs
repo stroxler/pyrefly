@@ -2644,6 +2644,28 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
                 .with_receiver_class_for_test("typing.Iterator", context)
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
+        let async_iterator_aiter_targets = vec![{
+            let mut target =
+                create_call_target("typing.AsyncIterator.__aiter__", TargetType::Override)
+                    .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                    .with_receiver_class_for_test("typing.AsyncIterator", context);
+            target.return_type = None;
+            target
+        }];
+        let async_iterator_anext_targets = vec![
+            create_call_target("typing.AsyncIterator.__anext__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterator", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        let async_iterable_aiter_targets = vec![{
+            let mut target =
+                create_call_target("typing.AsyncIterable.__aiter__", TargetType::Override)
+                    .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                    .with_receiver_class_for_test("typing.AsyncIterable", context);
+            target.return_type = None;
+            target
+        }];
         let g_target = vec![create_call_target("test.g", TargetType::Function)];
         let a_f_target = vec![
             create_call_target("test.A.f", TargetType::Function)
@@ -2654,12 +2676,28 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
             "test.foo",
             vec![
                 (
+                    "11:25-11:27|artificial-call|generator-iter",
+                    regular_call_callees(async_iterator_aiter_targets.clone()),
+                ),
+                (
+                    "11:25-11:27|artificial-call|generator-next",
+                    regular_call_callees(async_iterator_anext_targets.clone()),
+                ),
+                (
                     "12:19-12:21|artificial-call|generator-iter",
                     regular_call_callees(list_iter_targets.clone()),
                 ),
                 (
                     "12:19-12:21|artificial-call|generator-next",
                     regular_call_callees(list_next_targets.clone()),
+                ),
+                (
+                    "13:25-13:27|artificial-call|generator-iter",
+                    regular_call_callees(async_iterable_aiter_targets.clone()),
+                ),
+                (
+                    "13:25-13:27|artificial-call|generator-next",
+                    regular_call_callees(async_iterator_anext_targets.clone()),
                 ),
                 ("14:19-14:22", regular_call_callees(g_target)),
                 ("14:19-14:26", regular_call_callees(a_f_target)),
@@ -2680,6 +2718,14 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
                     regular_call_callees(list_next_targets.clone()),
                 ),
                 (
+                    "16:25-16:27|artificial-call|generator-iter",
+                    regular_call_callees(async_iterable_aiter_targets.clone()),
+                ),
+                (
+                    "16:25-16:27|artificial-call|generator-next",
+                    regular_call_callees(async_iterator_anext_targets.clone()),
+                ),
+                (
                     "17:21-17:23|artificial-call|generator-iter",
                     regular_call_callees(list_iter_targets.clone()),
                 ),
@@ -2688,12 +2734,28 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
                     regular_call_callees(list_next_targets.clone()),
                 ),
                 (
+                    "18:27-18:29|artificial-call|generator-iter",
+                    regular_call_callees(async_iterable_aiter_targets.clone()),
+                ),
+                (
+                    "18:27-18:29|artificial-call|generator-next",
+                    regular_call_callees(async_iterator_anext_targets.clone()),
+                ),
+                (
                     "19:19-19:21|artificial-call|generator-iter",
                     regular_call_callees(list_iter_targets),
                 ),
                 (
                     "19:19-19:21|artificial-call|generator-next",
                     regular_call_callees(list_next_targets),
+                ),
+                (
+                    "20:25-20:27|artificial-call|generator-iter",
+                    regular_call_callees(async_iterable_aiter_targets),
+                ),
+                (
+                    "20:25-20:27|artificial-call|generator-next",
+                    regular_call_callees(async_iterator_anext_targets),
                 ),
             ],
         )]
