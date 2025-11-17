@@ -2260,11 +2260,11 @@ impl Server {
                 // Group consecutive implementations by module, preserving the sorted order
                 let mut grouped: Vec<(ModuleInfo, Vec<TextRange>)> = Vec::new();
                 for impl_with_module in implementations {
-                    if let Some((last_module, ranges)) = grouped.last_mut() {
-                        if last_module.path() == impl_with_module.module.path() {
-                            ranges.push(impl_with_module.range);
-                            continue;
-                        }
+                    if let Some((last_module, ranges)) = grouped.last_mut()
+                        && last_module.path() == impl_with_module.module.path()
+                    {
+                        ranges.push(impl_with_module.range);
+                        continue;
                     }
                     grouped.push((impl_with_module.module, vec![impl_with_module.range]));
                 }
