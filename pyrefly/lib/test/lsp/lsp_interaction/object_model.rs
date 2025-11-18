@@ -85,7 +85,7 @@ pub struct InitializeSettings {
 }
 
 pub struct TestServer {
-    sender: crossbeam_channel::Sender<Message>,
+    sender: Option<crossbeam_channel::Sender<Message>>,
     timeout: Duration,
     /// Handle to the spawned server thread
     server_thread: Option<JoinHandle<Result<(), io::Error>>>,
@@ -97,7 +97,7 @@ pub struct TestServer {
 impl TestServer {
     pub fn new(sender: crossbeam_channel::Sender<Message>, request_idx: Arc<Mutex<i32>>) -> Self {
         Self {
-            sender,
+            sender: Some(sender),
             timeout: Duration::from_secs(25),
             server_thread: None,
             root: None,
@@ -106,9 +106,8 @@ impl TestServer {
     }
 
     pub fn drop_connection(&mut self) {
-        // Replace the sender with a dummy closed channel
-        let (dummy_sender, _) = bounded(0);
-        drop(std::mem::replace(&mut self.sender, dummy_sender));
+        // Take and drop the sender to close the connection
+        drop(std::mem::take(&mut self.sender))
     }
 
     pub fn expect_stop(&self) {
@@ -123,14 +122,25 @@ impl TestServer {
         }
     }
 
+    #[allow(clippy::result_large_err)]
+    fn send_timeout(
+        &self,
+        message: Message,
+    ) -> Result<(), crossbeam_channel::SendTimeoutError<Message>> {
+        self.sender
+            .as_ref()
+            .unwrap()
+            .send_timeout(message, self.timeout)
+    }
+
     /// Send a message to this server
     pub fn send_message(&self, message: Message) {
         eprintln!(
             "client--->server {}",
             serde_json::to_string(&message).unwrap()
         );
-        if let Err(err) = self.sender.send_timeout(message.clone(), self.timeout) {
-            panic!("Failed to send message to language server: {err:?}");
+        if let Err(err) = self.send_timeout(message.clone()) {
+            panic!("Failed to send message to language server: {err}");
         }
     }
 
