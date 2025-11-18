@@ -49,6 +49,7 @@ use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::Shutdown;
 use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::WillRenameFiles;
+use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
 use pyrefly_util::fs_anyhow::read_to_string;
 use serde_json::Value;
@@ -143,6 +144,16 @@ impl TestServer {
             id,
             method: R::METHOD.to_owned(),
             params: serde_json::to_value(params).unwrap(),
+        }));
+    }
+
+    pub fn send_response<R: lsp_types::request::Request>(&self, id: RequestId, result: Value) {
+        // Ensure the passed value can be parsed as the desired response result
+        let result = serde_json::from_value::<R::Result>(result).unwrap();
+        self.send_message(Message::Response(Response {
+            id,
+            result: Some(serde_json::to_value(result).unwrap()),
+            error: None,
         }));
     }
 
@@ -381,11 +392,7 @@ impl TestServer {
     }
 
     pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
-        self.send_message(Message::Response(Response {
-            id: RequestId::from(id),
-            result: Some(result),
-            error: None,
-        }));
+        self.send_response::<WorkspaceConfiguration>(RequestId::from(id), result);
     }
 
     pub fn will_rename_files(&mut self, old_file: &'static str, new_file: &'static str) {
@@ -962,11 +969,10 @@ impl LspInteraction {
         self.server.send_initialized();
         if let Some(settings) = settings.configuration {
             self.client.expect_any_message();
-            self.server.send_message(Message::Response(Response {
-                id: RequestId::from(1),
-                result: settings,
-                error: None,
-            }));
+            self.server.send_response::<WorkspaceConfiguration>(
+                RequestId::from(1),
+                settings.unwrap_or(json!([])),
+            );
         }
     }
 

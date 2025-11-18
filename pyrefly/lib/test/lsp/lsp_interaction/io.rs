@@ -5,13 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
-use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidSaveTextDocument;
+use lsp_types::request::RegisterCapability;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -95,11 +94,9 @@ fn test_file_watcher() {
         }),
     });
 
-    interaction.server.send_message(Message::Response(Response {
-        id: RequestId::from(1),
-        result: None,
-        error: None,
-    }));
+    interaction
+        .server
+        .send_response::<RegisterCapability>(RequestId::from(1), json!(null));
 
     interaction.shutdown();
 }
