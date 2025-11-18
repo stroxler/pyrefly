@@ -33,7 +33,7 @@ from typing import TypedDict, ClassVar, reveal_type
 # work at runtime, type checkers seem to agree that these are not
 # permissible in typed dicts.
 class D(TypedDict):
-    cv: ClassVar[int]  # E: `ClassVar` may not be used for TypedDict or NamedTuple members
+    cv: ClassVar[int]  # E: `ClassVar` may not be used for TypedDict members
     x: str = "x"  # E: TypedDict item `x` may not be initialized
     z = "z"  # E: TypedDict item `z` may not be initialized
     def f(self) -> None:  # E: TypedDict item `f` may not be initialized
@@ -78,8 +78,8 @@ testcase!(
     r#"
 from typing import TypedDict, Required, NotRequired, ReadOnly, ClassVar, Final
 class MyDict(TypedDict):
-    v: ClassVar[int]  # E: `ClassVar` may not be used for TypedDict or NamedTuple members
-    w: Final[int]  # E: `Final` may not be used for TypedDict or NamedTuple members
+    v: ClassVar[int]  # E: `ClassVar` may not be used for TypedDict members
+    w: Final[int]  # E: `Final` may not be used for TypedDict members
     x: NotRequired  # E: Expected a type argument for `NotRequired`
     y: Required  # E: Expected a type argument for `Required`
     z: ReadOnly  # E: Expected a type argument for `ReadOnly`

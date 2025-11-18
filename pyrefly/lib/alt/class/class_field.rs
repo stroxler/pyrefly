@@ -1019,6 +1019,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> ClassField {
         let metadata = self.get_metadata_for_class(class);
+        if metadata.is_typed_dict() {
+            return self.calculate_typed_dict_field(
+                class,
+                &metadata,
+                name,
+                range,
+                field_definition,
+                errors,
+            );
+        }
 
         // TODO(stroxler): Clean this up, as we convert more of the class field logic to using enums.
         //
@@ -1187,23 +1197,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
-        // Ban typed dict from containing values; fields should be annotation-only.
-        // TODO(stroxler): we ought to look into this more: class-level attributes make sense on a `TypedDict` class;
-        // the typing spec does not explicitly define whether this is permitted.
-        if metadata.is_typed_dict()
-            && matches!(initialization, ClassFieldInitialization::ClassBody(_))
-        {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
-                format!("TypedDict item `{name}` may not be initialized"),
-            );
-        }
-        if metadata.is_typed_dict()
-            || metadata
-                .named_tuple_metadata()
-                .is_some_and(|m| m.elements.contains(name))
+        // Check for qualifiers that are used in improper contexts.
+        if metadata
+            .named_tuple_metadata()
+            .is_some_and(|m| m.elements.contains(name))
         {
             for q in &[Qualifier::Final, Qualifier::ClassVar] {
                 if direct_annotation
@@ -1214,90 +1211,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                         range,
                         ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                        format!("`{q}` may not be used for TypedDict or NamedTuple members",),
+                        format!("`{q}` may not be used for NamedTuple members",),
                     );
                 }
             }
         }
-        if !metadata.is_typed_dict() {
-            for q in &[
-                Qualifier::Required,
-                Qualifier::NotRequired,
-                Qualifier::ReadOnly,
-            ] {
-                if direct_annotation
-                    .as_ref()
-                    .is_some_and(|ann| ann.has_qualifier(q))
-                {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                        format!("`{q}` may only be used for TypedDict members"),
-                    );
-                }
-            }
-        }
-        if let Some(td) = metadata.typed_dict_metadata()
-            && let Some(is_total) = td.fields.get(name)
-        {
-            // If this is a TypedDict field, make sure it is compatible with any inherited metadata
-            // restricting extra items.
-            let inherited_extra = metadata.base_class_objects().iter().find_map(|base| {
-                self.get_metadata_for_class(base)
-                    .typed_dict_metadata()
-                    .map(|m| (base, m.extra_items.clone()))
-            });
-            match inherited_extra {
-                Some((base, ExtraItems::Closed)) => {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
-                        format!(
-                            "Cannot extend closed TypedDict `{}` with extra item `{}`",
-                            base.name(),
-                            name
-                        ),
-                    );
-                }
-                Some((base, ExtraItems::Extra(ExtraItem { ty, read_only })))
-                    if let Some(annot) = &direct_annotation =>
-                {
-                    let field_ty = annot.get_type();
-                    if read_only {
-                        // The field type needs to be assignable to the extra_items type.
-                        if !self.is_subset_eq(field_ty, &ty) {
-                            self.error(
-                                errors, range, ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
-                            format!(
-                                "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
-                                self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
-                        }
-                    } else {
-                        // The field needs to be non-required and its type consistent with the extra_items type.
-                        let required = annot.has_qualifier(&Qualifier::Required)
-                            || (*is_total && !annot.has_qualifier(&Qualifier::NotRequired));
-                        if required {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
-                                format!("TypedDict `{}` with non-read-only `extra_items` cannot be extended with required extra item `{}`", base.name(), name),
-                            );
-                        } else if !self.is_equal(field_ty, &ty) {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
-                                format!(
-                                    "`{}` is not consistent with `extra_items` type `{}` of TypedDict `{}`",
-                                    self.for_display(field_ty.clone()), self.for_display(ty), base.name()),
-                            );
-                        }
-                    }
-                }
-                _ => {}
+        for q in &[
+            Qualifier::Required,
+            Qualifier::NotRequired,
+            Qualifier::ReadOnly,
+        ] {
+            if direct_annotation
+                .as_ref()
+                .is_some_and(|ann| ann.has_qualifier(q))
+            {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                    format!("`{q}` may only be used for TypedDict members"),
+                );
             }
         }
 
@@ -1474,6 +1407,302 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         class_field
+    }
+
+    pub fn calculate_typed_dict_field(
+        &self,
+        class: &Class,
+        metadata: &ClassMetadata,
+        name: &Name,
+        range: TextRange,
+        field_definition: &ClassFieldDefinition,
+        errors: &ErrorCollector,
+    ) -> ClassField {
+        // TODO(stroxler): Clean this up, as we convert more of the class field logic to using enums.
+        //
+        // It's a mess because we are relying on refs to fields that don't make sense for some cases,
+        // which requires us having a place to store synthesized dummy values until we've refactored more.
+        let value_storage = Owner::new();
+        let initial_value_storage = Owner::new();
+        let (value, direct_annotation, initial_value, is_function_without_return_annotation) =
+            match field_definition {
+                ClassFieldDefinition::DeclaredByAnnotation { annotation } => {
+                    let annotation = self.get_idx(*annotation).as_ref().annotation.clone();
+                    (
+                        value_storage
+                            .push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
+                        Some(annotation),
+                        initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
+                        false,
+                    )
+                }
+                ClassFieldDefinition::DeclaredWithoutAnnotation => (
+                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
+                    None,
+                    initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
+                    false,
+                ),
+                ClassFieldDefinition::AssignedInBody { value, annotation } => {
+                    let annotation = annotation
+                        .map(|a| self.get_idx(a))
+                        .as_deref()
+                        .map(|annot| annot.annotation.clone());
+                    (
+                        value,
+                        annotation,
+                        initial_value_storage.push(RawClassFieldInitialization::ClassBody(
+                            match value {
+                                ExprOrBinding::Expr(e) => Some(e.clone()),
+                                ExprOrBinding::Binding(_) => None,
+                            },
+                        )),
+                        false,
+                    )
+                }
+                ClassFieldDefinition::MethodLike {
+                    definition,
+                    has_return_annotation,
+                } => (
+                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                    None,
+                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                    !has_return_annotation,
+                ),
+                ClassFieldDefinition::DefinedWithoutAssign { definition } => (
+                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                    None,
+                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                    false,
+                ),
+                ClassFieldDefinition::DefinedInMethod {
+                    value,
+                    annotation,
+                    method,
+                } => {
+                    let annotation = annotation
+                        .map(|a| self.get_idx(a))
+                        .as_deref()
+                        .map(|annot| annot.annotation.clone());
+                    (
+                        value,
+                        annotation,
+                        initial_value_storage
+                            .push(RawClassFieldInitialization::Method(method.clone())),
+                        false,
+                    )
+                }
+            };
+
+        // Get the inferred value type if the value is an expression
+        //
+        // In some cases (non-private method-defined attributes with no direct annotation) we will look for an
+        // inherited type and annotation because that type is used instead of the inferred type.
+        //
+        // We also track `is_inherited`, which is an optimization to skip inheritence checks later when we
+        // know the attribute isn't inherited.
+        let (value_ty, inherited_annotation, is_inherited) = match value {
+            ExprOrBinding::Expr(e) => {
+                let (inherited_ty, inherited_annot, is_inherited) = if direct_annotation.is_some() {
+                    (None, None, IsInherited::Maybe)
+                } else if Self::is_mangled_attr(name) {
+                    // Private (double-underscore) attributes are name-mangled at runtime and should not
+                    // inherit types or annotations from parent classes.
+                    (None, None, IsInherited::No)
+                } else {
+                    let (inherited_ty, annotation) =
+                        self.get_inherited_type_and_annotation(class, name);
+                    let is_inherited = if inherited_ty.is_none() {
+                        IsInherited::No
+                    } else {
+                        IsInherited::Maybe
+                    };
+                    (inherited_ty, annotation, is_inherited)
+                };
+                let mut ty = if let Some(inherited_ty) = inherited_ty
+                    && matches!(initial_value, RawClassFieldInitialization::Method(_))
+                {
+                    // Inherit the previous type of the attribute if the only declaration-like
+                    // thing the current class does is assign to the attribute in a method.
+                    inherited_ty
+                } else if let Some(annot) = &inherited_annot {
+                    let ctx: &dyn Fn() -> TypeCheckContext =
+                        &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
+                    let hint = Some((annot.get_type(), ctx));
+                    self.expr(e, hint, errors)
+                } else {
+                    self.expr_infer(e, errors)
+                };
+                self.expand_vars_mut(&mut ty);
+                (ty, inherited_annot, is_inherited)
+            }
+            ExprOrBinding::Binding(b) => (
+                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
+                None,
+                IsInherited::Maybe,
+            ),
+        };
+
+        let magically_initialized = {
+            // We consider fields to be always-initialized if it's defined within stub files.
+            // See https://github.com/python/typeshed/pull/13875 for reasoning.
+            class.module_path().is_interface()
+            // We consider fields to be always-initialized if it's annotated explicitly with `ClassVar`.
+            || direct_annotation
+                .as_ref()
+                .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar))
+        };
+        let initialization =
+            self.get_class_field_initialization(metadata, initial_value, magically_initialized);
+
+        // Ban typed dict from containing values; fields should be annotation-only.
+        // TODO(stroxler): we ought to look into this more: class-level attributes make sense on a `TypedDict` class;
+        // the typing spec does not explicitly define whether this is permitted.
+        if matches!(initialization, ClassFieldInitialization::ClassBody(_)) {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
+                format!("TypedDict item `{name}` may not be initialized"),
+            );
+        }
+        for q in &[Qualifier::Final, Qualifier::ClassVar] {
+            if direct_annotation
+                .as_ref()
+                .is_some_and(|ann| ann.has_qualifier(q))
+            {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                    format!("`{q}` may not be used for TypedDict members",),
+                );
+            }
+        }
+        if let Some(td) = metadata.typed_dict_metadata()
+            && let Some(is_total) = td.fields.get(name)
+        {
+            // If this is a TypedDict field, make sure it is compatible with any inherited metadata
+            // restricting extra items.
+            let inherited_extra = metadata.base_class_objects().iter().find_map(|base| {
+                self.get_metadata_for_class(base)
+                    .typed_dict_metadata()
+                    .map(|m| (base, m.extra_items.clone()))
+            });
+            match inherited_extra {
+                Some((base, ExtraItems::Closed)) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                        format!(
+                            "Cannot extend closed TypedDict `{}` with extra item `{}`",
+                            base.name(),
+                            name
+                        ),
+                    );
+                }
+                Some((base, ExtraItems::Extra(ExtraItem { ty, read_only })))
+                    if let Some(annot) = &direct_annotation =>
+                {
+                    let field_ty = annot.get_type();
+                    if read_only {
+                        // The field type needs to be assignable to the extra_items type.
+                        if !self.is_subset_eq(field_ty, &ty) {
+                            self.error(
+                                errors, range, ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                            format!(
+                                "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
+                                self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
+                        }
+                    } else {
+                        // The field needs to be non-required and its type consistent with the extra_items type.
+                        let required = annot.has_qualifier(&Qualifier::Required)
+                            || (*is_total && !annot.has_qualifier(&Qualifier::NotRequired));
+                        if required {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                format!("TypedDict `{}` with non-read-only `extra_items` cannot be extended with required extra item `{}`", base.name(), name),
+                            );
+                        } else if !self.is_equal(field_ty, &ty) {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                format!(
+                                    "`{}` is not consistent with `extra_items` type `{}` of TypedDict `{}`",
+                                    self.for_display(field_ty.clone()), self.for_display(ty), base.name()),
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
+        let read_only_reason = self.determine_read_only_reason(
+            class,
+            name,
+            annotation,
+            &value_ty,
+            &initialization,
+            range,
+        );
+
+        // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
+        // TODO(stroxler): Values are not legal in typed dicts anyway, this can all go away when we simplify.
+        let value_ty = if read_only_reason.is_none()
+            && annotation.is_none_or(|a| a.ty.is_none())
+            && value_ty.is_literal()
+        {
+            value_ty.promote_literals(self.stdlib)
+        } else {
+            value_ty
+        };
+
+        // Types provided in annotations shadow inferred types
+        let ty = if let Some(ann) = annotation {
+            match &ann.ty {
+                Some(ty) => ty.clone(),
+                None => value_ty,
+            }
+        } else {
+            value_ty
+        };
+
+        let ty = match initial_value {
+            RawClassFieldInitialization::ClassBody(_)
+            | RawClassFieldInitialization::Uninitialized
+            | RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Class,
+                ..
+            }) => ty,
+            RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Instance,
+                ..
+            }) => self.check_and_sanitize_type_parameters(class, ty, name, range, errors),
+        };
+
+        // Pin any vars in the type: leaking a var in a class field is particularly
+        // likely to lead to data races where downstream uses can pin inconsistently.
+        //
+        // TODO(stroxler): Ideally we would implement some simple heuristics, similar to
+        // first-use based inference we use with assignments, to get more useful types here.
+        let ty = self.solver().deep_force(ty);
+
+        ClassField::new(
+            ty,
+            direct_annotation,
+            initialization,
+            read_only_reason,
+            None,
+            is_function_without_return_annotation,
+            false,
+            false,
+            is_inherited,
+        )
     }
 
     /// Apply any class-specific logic for postprocessing the type of a class field. Hook into this
