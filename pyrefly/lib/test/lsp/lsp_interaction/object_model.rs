@@ -6,13 +6,11 @@
  */
 
 /// This file contains a new implementation of the lsp_interaction test suite. Soon it will replace the old one.
-use std::io;
 use std::iter::once;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
-use std::thread::JoinHandle;
 use std::thread::{self};
 use std::time::Duration;
 
@@ -54,6 +52,8 @@ use lsp_types::request::WillRenameFiles;
 use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
 use pyrefly_util::fs_anyhow::read_to_string;
+use pyrefly_util::lock::Condvar;
+use pyrefly_util::lock::Mutex;
 use serde_json::Value;
 use serde_json::json;
 
@@ -85,22 +85,50 @@ pub struct InitializeSettings {
     pub capabilities: Option<serde_json::Value>,
 }
 
+pub struct FinishHandle {
+    finished: Mutex<bool>,
+    cvar: Condvar,
+}
+
+impl FinishHandle {
+    pub fn new() -> Self {
+        Self {
+            finished: Mutex::new(false),
+            cvar: Condvar::new(),
+        }
+    }
+
+    pub fn notify_finished(&self) {
+        let mut finished = self.finished.lock();
+        *finished = true;
+        self.cvar.notify_one();
+    }
+
+    pub fn wait_for_finish(&self, timeout: Duration) -> bool {
+        let finished = self.finished.lock();
+        *self.cvar.wait_timeout(finished, timeout).0
+    }
+}
+
 pub struct TestServer {
     sender: Option<crossbeam_channel::Sender<Message>>,
     timeout: Duration,
-    /// Handle to the spawned server thread
-    server_thread: Option<JoinHandle<Result<(), io::Error>>>,
+    finish_handle: Arc<FinishHandle>,
     root: Option<PathBuf>,
     /// Request ID for requests sent to the server
     request_idx: Arc<AtomicI32>,
 }
 
 impl TestServer {
-    pub fn new(sender: crossbeam_channel::Sender<Message>, request_idx: Arc<AtomicI32>) -> Self {
+    pub fn new(
+        sender: crossbeam_channel::Sender<Message>,
+        finish_handle: Arc<FinishHandle>,
+        request_idx: Arc<AtomicI32>,
+    ) -> Self {
         Self {
             sender: Some(sender),
             timeout: Duration::from_secs(25),
-            server_thread: None,
+            finish_handle,
             root: None,
             request_idx,
         }
@@ -112,14 +140,8 @@ impl TestServer {
     }
 
     pub fn expect_stop(&self) {
-        let start = std::time::Instant::now();
-        while let Some(thread) = &self.server_thread
-            && !thread.is_finished()
-        {
-            if start.elapsed() > Duration::from_secs(10) {
-                panic!("Server did not shutdown in time");
-            }
-            thread::sleep(Duration::from_millis(100));
+        if !self.finish_handle.wait_for_finish(Duration::from_secs(10)) {
+            panic!("Server did not shutdown in time");
         }
     }
 
@@ -981,19 +1003,17 @@ impl LspInteraction {
         let connection = Arc::new(connection);
         let args = args.clone();
 
-        let request_idx = Arc::new(AtomicI32::new(0));
+        let finish_handle = Arc::new(FinishHandle::new());
+        let finish_server = finish_handle.clone();
 
-        let mut server = TestServer::new(language_server_sender, request_idx.clone());
-
-        // Spawn the server thread and store its handle
-        let thread_handle = thread::spawn(move || {
-            run_lsp(connection, args, "pyrefly-lsp-test-version")
-                .map(|_| ())
-                .map_err(|e| std::io::Error::other(e.to_string()))
+        // Spawn the server thread notify when finished
+        thread::spawn(move || {
+            let _ = run_lsp(connection, args, "pyrefly-lsp-test-version");
+            finish_server.notify_finished();
         });
 
-        server.server_thread = Some(thread_handle);
-
+        let request_idx = Arc::new(AtomicI32::new(0));
+        let server = TestServer::new(language_server_sender, finish_handle, request_idx.clone());
         let client = TestClient::new(language_client_receiver, request_idx);
 
         Self { server, client }
