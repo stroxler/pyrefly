@@ -10,7 +10,8 @@ use std::io;
 use std::iter::once;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::Ordering;
 use std::thread::JoinHandle;
 use std::thread::{self};
 use std::time::Duration;
@@ -91,11 +92,11 @@ pub struct TestServer {
     server_thread: Option<JoinHandle<Result<(), io::Error>>>,
     root: Option<PathBuf>,
     /// Request ID for requests sent to the server
-    request_idx: Arc<Mutex<i32>>,
+    request_idx: Arc<AtomicI32>,
 }
 
 impl TestServer {
-    pub fn new(sender: crossbeam_channel::Sender<Message>, request_idx: Arc<Mutex<i32>>) -> Self {
+    pub fn new(sender: crossbeam_channel::Sender<Message>, request_idx: Arc<AtomicI32>) -> Self {
         Self {
             sender: Some(sender),
             timeout: Duration::from_secs(25),
@@ -522,13 +523,13 @@ impl TestServer {
     }
 
     fn next_request_id(&mut self) -> RequestId {
-        let mut idx = self.request_idx.lock().unwrap();
-        *idx += 1;
-        RequestId::from(*idx)
+        let idx = self.request_idx.fetch_add(1, Ordering::SeqCst);
+        RequestId::from(idx + 1)
     }
 
     pub fn current_request_id(&self) -> RequestId {
-        RequestId::from(*self.request_idx.lock().unwrap())
+        let idx = self.request_idx.load(Ordering::Acquire);
+        RequestId::from(idx)
     }
 
     fn get_root_or_panic(&self) -> PathBuf {
@@ -542,13 +543,13 @@ pub struct TestClient {
     receiver: crossbeam_channel::Receiver<Message>,
     timeout: Duration,
     root: Option<PathBuf>,
-    request_idx: Arc<Mutex<i32>>,
+    request_idx: Arc<AtomicI32>,
 }
 
 impl TestClient {
     pub fn new(
         receiver: crossbeam_channel::Receiver<Message>,
-        request_idx: Arc<Mutex<i32>>,
+        request_idx: Arc<AtomicI32>,
     ) -> Self {
         Self {
             receiver,
@@ -556,6 +557,11 @@ impl TestClient {
             root: None,
             request_idx,
         }
+    }
+
+    fn current_request_id(&self) -> RequestId {
+        let idx = self.request_idx.load(Ordering::Acquire);
+        RequestId::from(idx)
     }
 
     pub fn drop_connection(self) {
@@ -740,7 +746,7 @@ impl TestClient {
         char_end: u32,
     ) {
         self.expect_response::<GotoDefinition>(
-            RequestId::from(*self.request_idx.lock().unwrap()),
+            self.current_request_id(),
             json!(
             {
                 "uri": Url::from_file_path(file).unwrap().to_string(),
@@ -761,7 +767,7 @@ impl TestClient {
         char_end: u32,
     ) {
         self.expect_response::<GotoDefinition>(
-            RequestId::from(*self.request_idx.lock().unwrap()),
+            self.current_request_id(),
             json!(
             {
                 "uri": Url::from_file_path(self.get_root_or_panic().join(file)).unwrap().to_string(),
@@ -790,10 +796,7 @@ impl TestClient {
             })
             .collect();
 
-        self.expect_response::<GotoImplementation>(
-            RequestId::from(*self.request_idx.lock().unwrap()),
-            json!(locations),
-        )
+        self.expect_response::<GotoImplementation>(self.current_request_id(), json!(locations))
     }
 
     pub fn expect_response_with<F>(&self, validator: F, description: &str)
@@ -978,7 +981,7 @@ impl LspInteraction {
         let connection = Arc::new(connection);
         let args = args.clone();
 
-        let request_idx = Arc::new(Mutex::new(0));
+        let request_idx = Arc::new(AtomicI32::new(0));
 
         let mut server = TestServer::new(language_server_sender, request_idx.clone());
 
@@ -991,7 +994,7 @@ impl LspInteraction {
 
         server.server_thread = Some(thread_handle);
 
-        let client = TestClient::new(language_client_receiver, request_idx.clone());
+        let client = TestClient::new(language_client_receiver, request_idx);
 
         Self { server, client }
     }
@@ -1147,11 +1150,7 @@ impl LspInteraction {
     /// Sends a signature help request for a notebook cell at the specified position
     pub fn signature_help_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = {
-            let mut idx = self.server.request_idx.lock().unwrap();
-            *idx += 1;
-            RequestId::from(*idx)
-        };
+        let id = self.server.next_request_id();
         self.server.send_request::<SignatureHelpRequest>(
             id,
             json!({
@@ -1240,11 +1239,7 @@ impl LspInteraction {
         end_char: u32,
     ) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = {
-            let mut idx = self.server.request_idx.lock().unwrap();
-            *idx += 1;
-            RequestId::from(*idx)
-        };
+        let id = self.server.next_request_id();
         self.server.send_request::<InlayHintRequest>(
             id,
             json!({
@@ -1268,11 +1263,7 @@ impl LspInteraction {
     /// Sends a full semantic tokens request for a notebook cell
     pub fn semantic_tokens_cell(&mut self, file_name: &str, cell_name: &str) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = {
-            let mut idx = self.server.request_idx.lock().unwrap();
-            *idx += 1;
-            RequestId::from(*idx)
-        };
+        let id = self.server.next_request_id();
         self.server.send_request::<SemanticTokensFullRequest>(
             id,
             json!({
@@ -1294,11 +1285,7 @@ impl LspInteraction {
         end_char: u32,
     ) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = {
-            let mut idx = self.server.request_idx.lock().unwrap();
-            *idx += 1;
-            RequestId::from(*idx)
-        };
+        let id = self.server.next_request_id();
         self.server.send_request::<SemanticTokensRangeRequest>(
             id,
             json!({
