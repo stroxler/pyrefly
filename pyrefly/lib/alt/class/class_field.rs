@@ -1018,6 +1018,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         functional_class_def: bool,
         errors: &ErrorCollector,
     ) -> ClassField {
+        let metadata = self.get_metadata_for_class(class);
+
         // TODO(stroxler): Clean this up, as we convert more of the class field logic to using enums.
         //
         // It's a mess because we are relying on refs to fields that don't make sense for some cases,
@@ -1141,7 +1143,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 IsInherited::Maybe,
             ),
         };
-        let metadata = self.get_metadata_for_class(class);
 
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.
