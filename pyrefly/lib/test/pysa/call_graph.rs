@@ -2761,3 +2761,77 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
         )]
     }
 );
+
+call_graph_testcase!(
+    test_context_manager,
+    TEST_MODULE_NAME,
+    r#"
+from typing import ContextManager
+def to_cm() -> ContextManager[int]: ...
+def foo():
+  with to_cm() as my_int:
+    pass
+"#,
+    &|context: &ModuleContext| {
+        let enter_target = create_call_target(
+            "contextlib.AbstractContextManager.__enter__",
+            TargetType::Override,
+        )
+        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+        .with_receiver_class_for_test("contextlib.AbstractContextManager", context)
+        .with_return_type(Some(ScalarTypeProperties::int()));
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "5:8-5:15",
+                    regular_call_callees(vec![create_call_target(
+                        "test.to_cm",
+                        TargetType::Function,
+                    )]),
+                ),
+                (
+                    "5:8-5:15|artificial-call|with-enter",
+                    regular_call_callees(vec![enter_target]),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_async_context_manager,
+    TEST_MODULE_NAME,
+    r#"
+from typing import AsyncContextManager
+def to_cm() -> AsyncContextManager[int]: ...
+async def foo():
+  async with to_cm() as my_int:
+    pass
+"#,
+    &|context: &ModuleContext| {
+        let aenter_target = create_call_target(
+            "contextlib.AbstractAsyncContextManager.__aenter__",
+            TargetType::Override,
+        )
+        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+        .with_receiver_class_for_test("contextlib.AbstractAsyncContextManager", context)
+        .with_return_type(Some(ScalarTypeProperties::int()));
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "5:14-5:21",
+                    regular_call_callees(vec![create_call_target(
+                        "test.to_cm",
+                        TargetType::Function,
+                    )]),
+                ),
+                (
+                    "5:14-5:21|artificial-call|with-enter",
+                    regular_call_callees(vec![aenter_target]),
+                ),
+            ],
+        )]
+    }
+);

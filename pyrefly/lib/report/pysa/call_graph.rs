@@ -34,6 +34,7 @@ use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::StmtWith;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -74,6 +75,7 @@ pub enum OriginKind {
     ComparisonOperator,
     GeneratorIter,
     GeneratorNext,
+    WithEnter,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -83,6 +85,7 @@ impl std::fmt::Display for OriginKind {
             Self::ComparisonOperator => write!(f, "comparison"),
             Self::GeneratorIter => write!(f, "generator-iter"),
             Self::GeneratorNext => write!(f, "generator-next"),
+            Self::WithEnter => write!(f, "with-enter"),
         }
     }
 }
@@ -2207,7 +2210,7 @@ impl<'a> CallGraphVisitor<'a> {
                         &iter_type,
                         &iter_callee_name,
                         iter_range,
-                        "resolve_expression_for_listcomp_iter",
+                        "resolve_expression_for_comprehension_iter",
                     )
                 })
                 .map(
@@ -2229,14 +2232,16 @@ impl<'a> CallGraphVisitor<'a> {
                         }
                     },
                 );
-            let Some(IterCallees {
-                target: iter_callees,
-                callee_type: iter_callee_type,
-            }) = iter_callees
-            else {
-                continue;
+            let (iter_callees, iter_callee_type) = match iter_callees {
+                Some(IterCallees {
+                    target,
+                    callee_type,
+                }) => (target, Some(callee_type)),
+                None => (
+                    CallCallees::new_unresolved(UnresolvedReason::UnresolvedMagicDunderAttr),
+                    None,
+                ),
             };
-
             let iter_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::GeneratorIter,
                 location: self.pysa_location(iter_range),
@@ -2244,13 +2249,13 @@ impl<'a> CallGraphVisitor<'a> {
             self.add_callees(iter_identifier, ExpressionCallees::Call(iter_callees));
 
             let next_callees = iter_callee_type
-                .callable_return_type()
+                .and_then(|iter_callee_type| iter_callee_type.callable_return_type())
                 .and_then(|return_type| {
                     self.pyrefly_target_from_magic_dunder_attr(
                         &return_type,
                         &next_callee_name,
                         iter_range,
-                        "resolve_expression_for_listcomp_iter_next",
+                        "resolve_expression_for_comprehension_iter_next",
                     )
                 })
                 .map(
@@ -2268,14 +2273,15 @@ impl<'a> CallGraphVisitor<'a> {
                             /* unknown_callee_as_direct_call */ true,
                         )
                     },
-                );
-            if let Some(next_callees) = next_callees {
-                let next_identifier = ExpressionIdentifier::ArtificialCall(Origin {
-                    kind: OriginKind::GeneratorNext,
-                    location: self.pysa_location(iter_range),
-                });
-                self.add_callees(next_identifier, ExpressionCallees::Call(next_callees))
-            };
+                )
+                .unwrap_or(CallCallees::new_unresolved(
+                    UnresolvedReason::UnresolvedMagicDunderAttr,
+                ));
+            let next_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+                kind: OriginKind::GeneratorNext,
+                location: self.pysa_location(iter_range),
+            });
+            self.add_callees(next_identifier, ExpressionCallees::Call(next_callees))
         }
     }
 
@@ -2363,14 +2369,13 @@ impl<'a> CallGraphVisitor<'a> {
                 debug_println!(self.debug, "Resolving callees for dict comp `{:#?}`", expr);
                 self.resolve_and_register_comprehension(&comp.key, &comp.generators);
             }
-            _ => {}
+            _ => {
+                debug_println!(self.debug, "Nothing to resolve in expression `{:#?}`", expr);
+            }
         };
     }
 
-    fn resolve_function_def(
-        &self,
-        function_def: &StmtFunctionDef,
-    ) -> Option<ExpressionCallees<FunctionRef>> {
+    fn resolve_and_register_function_def(&mut self, function_def: &StmtFunctionDef) {
         let is_inner_function = match self.current_function {
             Some(FunctionRef {
                 module_id: _,
@@ -2393,10 +2398,11 @@ impl<'a> CallGraphVisitor<'a> {
             _ => true,
         };
         if !is_inner_function {
-            return None;
+            return;
         }
         let key = KeyDecoratedFunction(ShortIdentifier::new(&function_def.name));
-        self.module_context
+        let callees = self
+            .module_context
             .bindings
             .key_to_idx_hashed_opt(Hashed::new(&key))
             .and_then(|idx| {
@@ -2427,7 +2433,66 @@ impl<'a> CallGraphVisitor<'a> {
                 } else {
                     None
                 }
-            })
+            });
+        if let Some(callees) = callees {
+            self.add_callees(
+                ExpressionIdentifier::regular(
+                    function_def.range(),
+                    &self.module_context.module_info,
+                ),
+                callees,
+            );
+        }
+    }
+
+    fn resolve_and_register_with_statement(&mut self, stmt_with: &StmtWith) {
+        for item in stmt_with.items.iter() {
+            let context_expr_range = item.context_expr.range();
+            let callee_name = if stmt_with.is_async {
+                dunder::AENTER
+            } else {
+                dunder::ENTER
+            };
+            let callees = self
+                .module_context
+                .answers
+                .get_type_trace(context_expr_range)
+                .and_then(|item_type| {
+                    self.pyrefly_target_from_magic_dunder_attr(
+                        &item_type,
+                        &callee_name,
+                        context_expr_range,
+                        "resolve_and_register_with_statement",
+                    )
+                })
+                .map(
+                    |ResolvedDunderAttr {
+                         target,
+                         attr_type: callee_type,
+                     }| {
+                        let return_type = callee_type.callable_return_type().map(|type_| {
+                            ScalarTypeProperties::from_type(&type_, self.module_context)
+                        });
+                        self.resolve_pyrefly_target(
+                            Some(target),
+                            /* callee_expr */ None,
+                            Some(&callee_type),
+                            return_type,
+                            /* callee_expr_suffix */
+                            Some(&callee_name),
+                            /* unknown_callee_as_direct_call */ true,
+                        )
+                    },
+                )
+                .unwrap_or(CallCallees::new_unresolved(
+                    UnresolvedReason::UnresolvedMagicDunderAttr,
+                ));
+            let expression_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+                kind: OriginKind::WithEnter,
+                location: self.pysa_location(context_expr_range),
+            });
+            self.add_callees(expression_identifier, ExpressionCallees::Call(callees));
+        }
     }
 
     // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
@@ -2507,17 +2572,8 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
 
     fn visit_statement(&mut self, stmt: &Stmt, _scopes: &Scopes) {
         match stmt {
-            Stmt::FunctionDef(function_def) => {
-                if let Some(callees) = self.resolve_function_def(function_def) {
-                    self.add_callees(
-                        ExpressionIdentifier::regular(
-                            function_def.range(),
-                            &self.module_context.module_info,
-                        ),
-                        callees,
-                    );
-                }
-            }
+            Stmt::FunctionDef(function_def) => self.resolve_and_register_function_def(function_def),
+            Stmt::With(stmt_with) => self.resolve_and_register_with_statement(stmt_with),
             _ => {}
         }
     }
