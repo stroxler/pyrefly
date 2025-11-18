@@ -991,7 +991,7 @@ pub struct WithDefiningClass<T> {
 }
 
 impl<T> WithDefiningClass<T> {
-    pub(in crate::alt::class) fn defined_on(&self, module: &str, cls: &str) -> bool {
+    fn is_defined_on(&self, module: &str, cls: &str) -> bool {
         self.defining_class.has_toplevel_qname(module, cls)
     }
 }
@@ -2741,7 +2741,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> bool {
         let member = self.get_class_member_with_defining_class(cls, field);
         match member {
-            Some(member) => member.defined_on(ancestor.0, ancestor.1),
+            Some(member) => member.is_defined_on(ancestor.0, ancestor.1),
             None => false,
         }
     }
@@ -2754,7 +2754,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_dunder_new(&self, cls: &ClassType) -> Option<Type> {
         let new_member =
             self.get_class_member_with_defining_class(cls.class_object(), &dunder::NEW)?;
-        if new_member.defined_on("builtins", "object") {
+        if new_member.is_defined_on("builtins", "object") {
             // The default behavior of `object.__new__` is already baked into our implementation of
             // class construction; we only care about `__new__` if it is overridden.
             None
@@ -2767,7 +2767,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn get_dunder_init_helper(&self, instance: &Instance, get_object_init: bool) -> Option<Type> {
         let init_method =
             self.get_class_member_with_defining_class(instance.class, &dunder::INIT)?;
-        if get_object_init || !init_method.defined_on("builtins", "object") {
+        if get_object_init || !init_method.is_defined_on("builtins", "object") {
             Arc::unwrap_or_clone(init_method.value).as_special_method_type(instance)
         } else {
             None
@@ -2789,7 +2789,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metaclass = metadata.custom_metaclass()?;
         let attr =
             self.get_class_member_with_defining_class(metaclass.class_object(), &dunder::CALL)?;
-        if attr.defined_on("builtins", "type") {
+        if attr.is_defined_on("builtins", "type") {
             // The behavior of `type.__call__` is already baked into our implementation of constructors,
             // so we can skip analyzing it at the type level.
             None
