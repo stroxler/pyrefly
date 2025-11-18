@@ -1428,6 +1428,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_foreign_key,
             is_inherited,
         );
+
+        // *** Everything below here is for validation only and has no impact on downstream analysis ***
+
         if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
             method_name,
             recognized_attribute_defining_method,
@@ -1467,6 +1470,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.validate_post_init(class, dm, post_init, range, errors);
         }
+
         class_field
     }
 
