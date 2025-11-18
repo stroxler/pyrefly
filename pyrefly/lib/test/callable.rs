@@ -1048,3 +1048,26 @@ def f(*args: Annotated, **kwargs: Annotated): # E: # E:
     assert_type(kwargs, dict[str, Any])
     "#,
 );
+
+testcase!(
+    bug = "There should not be errors on the `isinstance` calls, the asserted and revealed types are wrong",
+    test_isinstance_narrow,
+    r#"
+from typing import assert_type, reveal_type, Any, Callable
+def f(x: object):
+    if isinstance(x, Callable):  # E: Expected class object
+        assert_type(x, Callable[..., Any])  # E: assert_type(object, (...) -> Any)
+def g(x: int):
+    if isinstance(x, Callable):  # E: Expected class object
+        reveal_type(x)  # E: int
+    "#,
+);
+
+testcase!(
+    test_isinstance_error,
+    r#"
+from typing import Any, Callable
+def f(x: object):
+    isinstance(x, Callable[..., Any])  # E: Expected class object, got `type[(...) -> Any]`
+    "#,
+);
