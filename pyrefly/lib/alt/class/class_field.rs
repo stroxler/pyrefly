@@ -1143,19 +1143,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let metadata = self.get_metadata_for_class(class);
 
-        if let Some(named_tuple_metadata) = metadata.named_tuple_metadata()
-            && !functional_class_def
-            && named_tuple_metadata.elements.contains(name)
-            && name.as_str().starts_with('_')
-        {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
-                format!("NamedTuple field name may not start with an underscore: `{name}`"),
-            );
-        }
-
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.
             // See https://github.com/python/typeshed/pull/13875 for reasoning.
@@ -1463,12 +1450,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+
         if let Some(dm) = metadata.dataclass_metadata()
             && name == &dunder::POST_INIT
             && let Some(post_init) = class_field
                 .as_special_method_type(&Instance::of_class(&self.as_class_type_unchecked(class)))
         {
             self.validate_post_init(class, dm, post_init, range, errors);
+        }
+
+        if let Some(named_tuple_metadata) = metadata.named_tuple_metadata()
+            && !functional_class_def
+            && named_tuple_metadata.elements.contains(name)
+            && name.as_str().starts_with('_')
+        {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
+                format!("NamedTuple field name may not start with an underscore: `{name}`"),
+            );
         }
 
         class_field
