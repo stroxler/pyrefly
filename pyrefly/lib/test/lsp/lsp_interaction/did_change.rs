@@ -6,9 +6,9 @@
  */
 
 use lsp_server::RequestId;
-use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::request::DocumentDiagnosticRequest;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -60,11 +60,12 @@ fn test_text_document_did_change() {
         }));
 
     interaction.server.diagnostic("text_document.py");
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({"items": [], "kind": "full"})),
-        error: None,
-    });
+    interaction
+        .client
+        .expect_response::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({"items": [], "kind": "full"}),
+        );
 
     interaction.shutdown();
 }
@@ -116,11 +117,12 @@ fn test_text_document_did_change_unicode() {
         }));
 
     interaction.server.diagnostic("utf.py");
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({"items": [], "kind": "full"})),
-        error: None,
-    });
+    interaction
+        .client
+        .expect_response::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({"items": [], "kind": "full"}),
+        );
 
     interaction.shutdown();
 }

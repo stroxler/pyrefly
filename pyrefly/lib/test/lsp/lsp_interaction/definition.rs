@@ -11,8 +11,6 @@ use std::path::PathBuf;
 use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
-use lsp_server::Response;
-use lsp_server::ResponseError;
 use lsp_types::Url;
 use serde_json::json;
 use tempfile::TempDir;
@@ -262,15 +260,14 @@ fn malformed_missing_position() {
             },
         }),
     }));
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: None,
-        error: Some(ResponseError {
-            code: -32602,
-            message: "missing field `position`".to_owned(),
-            data: None,
+    interaction.client.expect_response_error(
+        RequestId::from(2),
+        json!({
+            "code": -32602,
+            "message": "missing field `position`",
+            "data": null,
         }),
-    });
+    );
 }
 
 // we generally want to prefer py. but if it's missing in the py, we should prefer the pyi

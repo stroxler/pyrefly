@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
@@ -74,10 +73,9 @@ fn test_file_watcher() {
         ..Default::default()
     });
 
-    interaction.client.expect_request(Request {
-        id: RequestId::from(1),
-        method: "client/registerCapability".to_owned(),
-        params: json!({
+    interaction.client.expect_request::<RegisterCapability>(
+        RequestId::from(1),
+        json!({
             "registrations": [{
                 "id": "FILEWATCHER",
                 "method": "workspace/didChangeWatchedFiles",
@@ -92,7 +90,7 @@ fn test_file_watcher() {
                 }
             }]
         }),
-    });
+    );
 
     interaction
         .server

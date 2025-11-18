@@ -6,7 +6,6 @@
  */
 
 use lsp_server::RequestId;
-use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::request::Completion;
@@ -494,9 +493,9 @@ fn test_module_completion() {
 
     interaction.server.completion("foo.py", 5, 10);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({
+    interaction.client.expect_response::<Completion>(
+        RequestId::from(2),
+        json!({
             "isIncomplete": false,
             "items": [{
                 "label": "bar",
@@ -504,9 +503,8 @@ fn test_module_completion() {
                 "kind": 9,
                 "sortText": "0"
             }],
-        })),
-        error: None,
-    });
+        }),
+    );
 
     interaction.shutdown();
 }
@@ -600,14 +598,13 @@ fn test_relative_module_completion() {
         .server
         .completion("relative_test/relative_import.py", 5, 10);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({
+    interaction.client.expect_response::<Completion>(
+        RequestId::from(2),
+        json!({
             "isIncomplete": false,
             "items": [],
-        })),
-        error: None,
-    });
+        }),
+    );
 
     interaction.shutdown();
 }

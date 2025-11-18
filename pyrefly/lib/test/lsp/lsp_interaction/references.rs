@@ -6,8 +6,8 @@
  */
 
 use lsp_server::RequestId;
-use lsp_server::Response;
 use lsp_types::Url;
+use lsp_types::request::References;
 use serde_json::json;
 
 use crate::commands::lsp::IndexingMode;
@@ -40,9 +40,9 @@ fn test_references_for_usage_with_config() {
 
     interaction.server.references("bar.py", 10, 1, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -79,9 +79,8 @@ fn test_references_for_usage_with_config() {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -110,9 +109,9 @@ fn test_finds_references_outside_config_when_workspace_larger_than_config() {
         .server
         .references("module_dir/core.py", 6, 7, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":12,"line":6}},
                 "uri": Url::from_file_path(core.clone()).unwrap().to_string()
@@ -129,9 +128,8 @@ fn test_finds_references_outside_config_when_workspace_larger_than_config() {
                 "range": {"start":{"line":8,"character":0},"end":{"character":6,"line":8}},
                 "uri": Url::from_file_path(usage.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -158,9 +156,9 @@ fn test_references_workspace_smaller_than_config() {
 
     interaction.server.references("core.py", 6, 7, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":5,"character":17},"end":{"character":22,"line":5}},
                 "uri": Url::from_file_path(usage_outside_workspace.clone()).unwrap().to_string()
@@ -189,9 +187,8 @@ fn test_references_workspace_smaller_than_config() {
                 "range": {"start":{"line":8,"character":0},"end":{"character":5,"line":8}},
                 "uri": Url::from_file_path(usage_in_config.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -216,9 +213,9 @@ fn test_references_cross_file_no_config() {
 
     interaction.server.references("bar.py", 10, 1, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":16},"end":{"character":19,"line":6}},
                 "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
@@ -251,9 +248,8 @@ fn test_references_cross_file_no_config() {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -278,9 +274,9 @@ fn test_references_cross_file_no_config_nested() {
 
     interaction.server.references("models/bar.py", 10, 1, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":23},"end":{"character":26,"line":6}},
                 "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
@@ -312,9 +308,8 @@ fn test_references_cross_file_no_config_nested() {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -338,9 +333,9 @@ fn test_references_cross_file_with_marker_file() {
 
     interaction.server.references("bar.py", 10, 1, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":16},"end":{"character":19,"line":6}},
                 "uri": Url::from_file_path(foo.clone()).unwrap().to_string()
@@ -361,9 +356,8 @@ fn test_references_cross_file_with_marker_file() {
                 "range": {"start":{"line":10,"character":0},"end":{"character":3,"line":10}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -393,9 +387,9 @@ fn test_references_for_definition_with_config() {
 
     interaction.server.references("bar.py", 6, 7, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -432,9 +426,8 @@ fn test_references_for_definition_with_config() {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -464,9 +457,9 @@ fn test_references_for_import_with_config() {
 
     interaction.server.references("foo.py", 6, 17, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -503,9 +496,8 @@ fn test_references_for_import_with_config() {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -534,9 +526,9 @@ fn test_references_for_aliased_import_with_config() {
         .server
         .references("various_imports.py", 7, 0, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":5,"character":23},"end":{"line":5,"character":24}},
                 "uri": Url::from_file_path(various_imports.clone()).unwrap().to_string()
@@ -545,9 +537,8 @@ fn test_references_for_aliased_import_with_config() {
                 "range": {"start":{"line":7,"character":0},"end":{"line":7,"character":1}},
                 "uri": Url::from_file_path(various_imports.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -580,9 +571,9 @@ fn test_references_after_file_modification_with_config() {
 
     interaction.server.references("foo.py", 6, 17, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":6,"character":6},"end":{"character":9,"line":6}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -619,9 +610,8 @@ fn test_references_after_file_modification_with_config() {
                 "range": {"start":{"line":10,"character":4},"end":{"character":7,"line":10}},
                 "uri": Url::from_file_path(with_synthetic_bindings.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -651,9 +641,9 @@ fn test_references_after_file_modification_with_line_offset_with_config() {
 
     interaction.server.references("bar.py", 8, 7, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":8,"character":6},"end":{"character":9,"line":8}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
@@ -662,9 +652,8 @@ fn test_references_after_file_modification_with_line_offset_with_config() {
                 "range": {"start":{"line":12,"character":0},"end":{"character":3,"line":12}},
                 "uri": Url::from_file_path(bar.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -691,9 +680,9 @@ fn test_references_cross_file_method_inheritance() {
     // Find references for Base.method (line 7, character 8 in base.py)
     interaction.server.references("base.py", 7, 8, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":9,"character":8},"end":{"line":9,"character":14}},
                 "uri": Url::from_file_path(child_py.clone()).unwrap().to_string()
@@ -718,9 +707,8 @@ fn test_references_cross_file_method_inheritance() {
                 "range": {"start":{"line":7,"character":8},"end":{"line":7,"character":14}},
                 "uri": Url::from_file_path(base_py.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -750,9 +738,9 @@ fn test_references_for_init_priority() {
     // Find references for Person.__init__
     interaction.server.references("person.py", 9, 12, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":9,"character":8},"end":{"line":9,"character":16}},
                 "uri": Url::from_file_path(person_py.clone()).unwrap().to_string()
@@ -765,9 +753,8 @@ fn test_references_for_init_priority() {
                 "range": {"start":{"line":8,"character":5},"end":{"line":8,"character":11}},
                 "uri": Url::from_file_path(usage_py.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -796,9 +783,9 @@ fn test_references_for_new_priority() {
     // Find references for Singleton.__new__ (line 8, character 12 in singleton.py)
     interaction.server.references("singleton.py", 7, 12, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":7,"character":5},"end":{"line":7,"character":14}},
                 "uri": Url::from_file_path(usage_py.clone()).unwrap().to_string()
@@ -811,9 +798,8 @@ fn test_references_for_new_priority() {
                 "range": {"start":{"line":7,"character":8},"end":{"line":7,"character":15}},
                 "uri": Url::from_file_path(singleton_py.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }
@@ -845,9 +831,9 @@ fn test_references_for_metaclass_call_priority() {
         .server
         .references("singleton_meta.py", 7, 12, true);
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<References>(
+        RequestId::from(2),
+        json!([
             {
                 "range": {"start":{"line":7,"character":8},"end":{"line":7,"character":16}},
                 "uri": Url::from_file_path(singleton_meta_py.clone()).unwrap().to_string()
@@ -860,9 +846,8 @@ fn test_references_for_metaclass_call_priority() {
                 "range": {"start":{"line":8,"character":5},"end":{"line":8,"character":14}},
                 "uri": Url::from_file_path(usage_py.clone()).unwrap().to_string()
             },
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }

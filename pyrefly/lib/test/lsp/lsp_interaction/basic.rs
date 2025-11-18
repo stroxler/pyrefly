@@ -8,12 +8,12 @@
 use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
-use lsp_server::Response;
-use lsp_server::ResponseError;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::request::DocumentDiagnosticRequest;
+use lsp_types::request::Initialize;
+use lsp_types::request::Shutdown;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -30,9 +30,9 @@ fn test_initialize_basic() {
             .server
             .get_initialize_params(&InitializeSettings::default()),
     );
-    interaction.client.expect_response(Response {
-        id: RequestId::from(1),
-        result: Some(json!({"capabilities": {
+    interaction.client.expect_response::<Initialize>(
+        RequestId::from(1),
+        json!({"capabilities": {
             "positionEncoding": "utf-16",
             "textDocumentSync": 2,
             "definitionProvider": true,
@@ -77,9 +77,8 @@ fn test_initialize_basic() {
         }, "serverInfo": {
             "name":"pyrefly-lsp",
             "version":"pyrefly-lsp-test-version"
-        }})),
-        error: None,
-    });
+        }}),
+    );
     interaction.server.send_initialized();
     interaction.shutdown();
 }
@@ -91,11 +90,9 @@ fn test_shutdown() {
 
     interaction.server.send_shutdown(RequestId::from(2));
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!(null)),
-        error: None,
-    });
+    interaction
+        .client
+        .expect_response::<Shutdown>(RequestId::from(2), json!(null));
 
     interaction.server.send_exit();
     interaction.server.expect_stop();
@@ -171,11 +168,12 @@ fn test_nonexistent_file() {
             }),
         );
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({"items":[],"kind":"full"})),
-        error: None,
-    });
+    interaction
+        .client
+        .expect_response::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({"items":[],"kind":"full"}),
+        );
 
     let notebook_content = std::fs::read_to_string(root.path().join("notebook.py")).unwrap();
     interaction
@@ -203,15 +201,14 @@ fn test_unknown_request() {
         method: "fake-method".to_owned(),
         params: json!(null),
     }));
-    interaction.client.expect_response(Response {
-        id: RequestId::from(1),
-        result: None,
-        error: Some(ResponseError {
-            code: -32601,
-            message: "Unknown request: fake-method".to_owned(),
-            data: None,
+    interaction.client.expect_response_error(
+        RequestId::from(1),
+        json!({
+            "code": -32601,
+            "message": "Unknown request: fake-method",
+            "data": null,
         }),
-    });
+    );
 }
 
 #[test]

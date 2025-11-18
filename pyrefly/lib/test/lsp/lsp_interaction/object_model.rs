@@ -24,6 +24,7 @@ use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
+use lsp_server::ResponseError;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeNotebookDocument;
@@ -577,36 +578,74 @@ impl TestClient {
         }
     }
 
-    pub fn expect_request(&self, expected_request: Request) {
-        let expected_str =
-            serde_json::to_string(&Message::Request(expected_request.clone())).unwrap();
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Notification(_) | Message::Response(_) => ValidationResult::Skip,
-                Message::Request(_) => {
-                    let actual_str = serde_json::to_string(msg).unwrap();
-                    assert_eq!(&expected_str, &actual_str, "Request mismatch");
-                    ValidationResult::Pass
+    pub fn expect_message<T>(
+        &self,
+        description: &str,
+        matcher: impl Fn(Message) -> Option<T>,
+    ) -> T {
+        loop {
+            match self.receiver.recv_timeout(self.timeout) {
+                Ok(msg) => {
+                    eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
+                    if let Some(actual) = matcher(msg) {
+                        return actual;
+                    }
                 }
-            },
-            &format!("Expected Request: {expected_request:?}"),
-        );
+                Err(RecvTimeoutError::Timeout) => {
+                    panic!("Timeout waiting for message: {description}");
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    panic!("Channel disconnected while waiting for message: {description}");
+                }
+            }
+        }
     }
 
-    pub fn expect_response(&self, expected_response: Response) {
-        let expected_str =
-            serde_json::to_string(&Message::Response(expected_response.clone())).unwrap();
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Notification(_) | Message::Request(_) => ValidationResult::Skip,
-                Message::Response(_) => {
-                    let actual_str = serde_json::to_string(msg).unwrap();
-                    assert_eq!(&expected_str, &actual_str, "Response mismatch");
-                    ValidationResult::Pass
+    pub fn expect_request<R: lsp_types::request::Request>(&self, id: RequestId, expected: Value) {
+        // Validate that expected can be parsed as R::Params
+        let expected: R::Params = serde_json::from_value(expected.clone()).unwrap();
+        let actual: R::Params =
+            self.expect_message(&format!("Request {} with id={}", R::METHOD, id), |msg| {
+                if let Message::Request(x) = msg
+                    && x.id == id
+                {
+                    assert_eq!(x.method, R::METHOD);
+                    Some(serde_json::from_value(x.params.clone()).unwrap())
+                } else {
+                    None
                 }
-            },
-            &format!("Expected response: {expected_response:?}"),
-        );
+            });
+        assert_eq!(json!(expected), json!(actual));
+    }
+
+    pub fn expect_response<R: lsp_types::request::Request>(&self, id: RequestId, expected: Value) {
+        // Validate that expected can be parsed as R::Result
+        let expected: R::Result = serde_json::from_value(expected.clone()).unwrap();
+        let actual: R::Result =
+            self.expect_message(&format!("Response {} id={}", R::METHOD, id), |msg| {
+                if let Message::Response(x) = msg
+                    && x.id == id
+                {
+                    Some(serde_json::from_value(x.result.unwrap()).unwrap())
+                } else {
+                    None
+                }
+            });
+        assert_eq!(json!(expected), json!(actual));
+    }
+
+    pub fn expect_response_error(&self, id: RequestId, expected: Value) {
+        let expected: ResponseError = serde_json::from_value(expected).unwrap();
+        let actual = self.expect_message(&format!("Response error id={}", id), |msg| {
+            if let Message::Response(x) = msg
+                && x.id == id
+            {
+                Some(x.error.unwrap())
+            } else {
+                None
+            }
+        });
+        assert_eq!(json!(expected), json!(actual));
     }
 
     /// Wait until we get a publishDiagnostics notification with the correct number of errors
@@ -690,18 +729,17 @@ impl TestClient {
         line_end: u32,
         char_end: u32,
     ) {
-        self.expect_response(Response {
-            id: RequestId::from(*self.request_idx.lock().unwrap()),
-            result: Some(json!(
+        self.expect_response::<GotoDefinition>(
+            RequestId::from(*self.request_idx.lock().unwrap()),
+            json!(
             {
                 "uri": Url::from_file_path(file).unwrap().to_string(),
                 "range": {
                     "start": {"line": line_start, "character": char_start},
                     "end": {"line": line_end, "character": char_end}
                 },
-                })),
-            error: None,
-        })
+                }),
+        )
     }
 
     pub fn expect_definition_response_from_root(
@@ -712,18 +750,17 @@ impl TestClient {
         line_end: u32,
         char_end: u32,
     ) {
-        self.expect_response(Response {
-            id: RequestId::from(*self.request_idx.lock().unwrap()),
-            result: Some(json!(
+        self.expect_response::<GotoDefinition>(
+            RequestId::from(*self.request_idx.lock().unwrap()),
+            json!(
             {
                 "uri": Url::from_file_path(self.get_root_or_panic().join(file)).unwrap().to_string(),
                 "range": {
                     "start": {"line": line_start, "character": char_start},
                     "end": {"line": line_end, "character": char_end}
                 },
-                })),
-            error: None,
-        })
+                }),
+        )
     }
 
     pub fn expect_implementation_response_from_root(
@@ -743,11 +780,10 @@ impl TestClient {
             })
             .collect();
 
-        self.expect_response(Response {
-            id: RequestId::from(*self.request_idx.lock().unwrap()),
-            result: Some(json!(locations)),
-            error: None,
-        })
+        self.expect_response::<GotoImplementation>(
+            RequestId::from(*self.request_idx.lock().unwrap()),
+            json!(locations),
+        )
     }
 
     pub fn expect_response_with<F>(&self, validator: F, description: &str)
@@ -968,11 +1004,8 @@ impl LspInteraction {
         let shutdown_id = RequestId::from(999);
         self.server.send_shutdown(shutdown_id.clone());
 
-        self.client.expect_response(Response {
-            id: shutdown_id,
-            result: Some(json!(null)),
-            error: None,
-        });
+        self.client
+            .expect_response::<Shutdown>(shutdown_id, json!(null));
 
         self.server.send_exit();
     }

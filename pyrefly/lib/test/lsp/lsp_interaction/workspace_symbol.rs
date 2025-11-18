@@ -6,7 +6,6 @@
  */
 
 use lsp_server::RequestId;
-use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::request::WorkspaceSymbolRequest;
 use serde_json::json;
@@ -37,9 +36,9 @@ fn test_workspace_symbol() {
         }),
     );
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!([
+    interaction.client.expect_response::<WorkspaceSymbolRequest>(
+        RequestId::from(2),
+        json!([
             {
                 "kind": 12,
                 "location": {
@@ -51,9 +50,8 @@ fn test_workspace_symbol() {
                 },
                 "name": "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search"
             }
-        ])),
-        error: None,
-    });
+        ]),
+    );
 
     interaction.shutdown();
 }

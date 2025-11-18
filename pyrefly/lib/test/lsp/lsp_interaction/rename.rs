@@ -6,8 +6,6 @@
  */
 
 use lsp_server::RequestId;
-use lsp_server::Response;
-use lsp_server::ResponseError;
 use lsp_types::Url;
 use lsp_types::request::PrepareRenameRequest;
 use lsp_types::request::Rename;
@@ -40,14 +38,13 @@ fn test_prepare_rename() {
         }),
     );
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({
+    interaction.client.expect_response::<PrepareRenameRequest>(
+        RequestId::from(2),
+        json!({
             "start": {"line": 6, "character": 16},
             "end": {"line": 6, "character": 19},
-        })),
-        error: None,
-    });
+        }),
+    );
 
     interaction.shutdown();
 }
@@ -84,11 +81,9 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
         }),
     );
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(serde_json::Value::Null),
-        error: None,
-    });
+    interaction
+        .client
+        .expect_response::<PrepareRenameRequest>(RequestId::from(2), serde_json::Value::Null);
 
     // Verify that attempting to rename a third party symbol returns an error
     interaction.server.send_request::<Rename>(
@@ -105,15 +100,14 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
         }),
     );
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(3),
-        result: None,
-        error: Some(ResponseError {
-            code: -32600,
-            message: "Third-party symbols cannot be renamed".to_owned(),
-            data: None,
+    interaction.client.expect_response_error(
+        RequestId::from(3),
+        json!({
+            "code": -32600,
+            "message": "Third-party symbols cannot be renamed",
+            "data": null,
         }),
-    });
+    );
 
     interaction.shutdown();
 }
@@ -156,9 +150,9 @@ fn test_rename() {
         }),
     );
 
-    interaction.client.expect_response(Response {
-        id: RequestId::from(2),
-        result: Some(json!({
+    interaction.client.expect_response::<Rename>(
+        RequestId::from(2),
+        json!({
             "changes": {
                 Url::from_file_path(&foo).unwrap().to_string(): [
                     {
@@ -205,9 +199,8 @@ fn test_rename() {
                     },
                 ]
             }
-        })),
-        error: None,
-    });
+        }),
+    );
 
     interaction.shutdown();
 }
