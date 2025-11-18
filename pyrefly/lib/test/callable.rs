@@ -1050,16 +1050,15 @@ def f(*args: Annotated, **kwargs: Annotated): # E: # E:
 );
 
 testcase!(
-    bug = "There should not be errors on the `isinstance` calls, the asserted and revealed types are wrong",
     test_isinstance_narrow,
     r#"
 from typing import assert_type, reveal_type, Any, Callable
 def f(x: object):
-    if isinstance(x, Callable):  # E: Expected class object
-        assert_type(x, Callable[..., Any])  # E: assert_type(object, (...) -> Any)
+    if isinstance(x, Callable):
+        assert_type(x, Callable[..., Any])
 def g(x: int):
-    if isinstance(x, Callable):  # E: Expected class object
-        reveal_type(x)  # E: int
+    if isinstance(x, Callable):
+        reveal_type(x)  # E: ((...) -> Unknown) & int
     "#,
 );
 
