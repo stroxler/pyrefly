@@ -25,6 +25,41 @@ def baz(c: Coord) -> Mapping[str, str]:
 );
 
 testcase!(
+    bug = "Our handling of ClassVar and methods is fishy, and our error messages are not clear",
+    test_typed_dict_with_illegal_members,
+    r#"
+from typing import TypedDict, ClassVar, reveal_type
+# Although classmethods, classvars, and static methods do actually
+# work at runtime, type checkers seem to agree that these are not
+# permissible in typed dicts.
+class D(TypedDict):
+    cv: ClassVar[int]  # E: `ClassVar` may not be used for TypedDict or NamedTuple members
+    x: str = "x"  # E: TypedDict item `x` may not be initialized
+    z = "z"  # E: TypedDict item `z` may not be initialized
+    def f(self) -> None:  # E: TypedDict item `f` may not be initialized
+        self.w = "w"
+    @classmethod
+    def g(cls) -> None:  # E: TypedDict item `g` may not be initialized
+        cls.u = "u"  # E: TypedDict item `u` may not be initialized
+    @staticmethod
+    def h(self) -> None:  # E: TypedDict item `h` may not be initialized
+        ...
+def foo(d: D):
+    reveal_type(d["cv"])  # E: revealed type: int
+    reveal_type(d["x"])  # E: revealed type: str
+    reveal_type(d["z"])  # E: revealed type: Unknown  # E: TypedDict `D` does not have key `z`
+    reveal_type(d["f"])  # E: revealed type: Unknown  # E: TypedDict `D` does not have
+    reveal_type(d["g"])  # E: revealed type: Unknown  # E: TypedDict `D` does not have
+    reveal_type(d["h"])  # E: revealed type: Unknown  # E: TypedDict `D` does not have
+    reveal_type(d["w"])  # E: revealed type: Unknown  # E: TypedDict `D` does not have
+    reveal_type(d["u"])  # E: revealed type: Unknown  # E: TypedDict `D` does not have
+    reveal_type(D.cv)  # E: revealed type: int
+    reveal_type(D.g)  # E: revealed type: BoundMethod[type[D], (cls: type[D]) -> None]
+    reveal_type(D.h)  # E: revealed type: (self: Unknown) -> None
+    "#,
+);
+
+testcase!(
     test_typed_dict_kwargs_type,
     r#"
 from typing import assert_type, TypedDict, Unpack
@@ -250,16 +285,6 @@ class Coord[T](TypedDict):
 def foo(c: Coord[int]):
     x: int = c["x"]
     y: str = c["y"]  # E: `int` is not assignable to `str`
-    "#,
-);
-
-testcase!(
-    test_typed_dict_initialized_field,
-    r#"
-from typing import TypedDict
-class Coord(TypedDict):
-    x: int
-    y: int = 2  # E: TypedDict item `y` may not be initialized
     "#,
 );
 
