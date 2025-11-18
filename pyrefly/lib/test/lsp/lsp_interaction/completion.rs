@@ -5,12 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::Message;
-use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::request::Completion;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -405,10 +404,9 @@ fn test_completion_with_autoimport_in_defined_module() {
                 }],
             }));
 
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "textDocument/completion".to_owned(),
-        params: json!({
+    interaction.server.send_request::<Completion>(
+        RequestId::from(2),
+        json!({
             "textDocument": {
                 "uri": Url::from_file_path(&file).unwrap().to_string()
             },
@@ -417,7 +415,7 @@ fn test_completion_with_autoimport_in_defined_module() {
                 "character": 95
             }
         }),
-    }));
+    );
 
     interaction.client.expect_response_with(
         |response| {

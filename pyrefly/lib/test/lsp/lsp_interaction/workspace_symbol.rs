@@ -5,11 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::Message;
-use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
+use lsp_types::request::WorkspaceSymbolRequest;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -31,13 +30,12 @@ fn test_workspace_symbol() {
 
     interaction.server.did_open("autoimport_provider.py");
 
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "workspace/symbol".to_owned(),
-        params: json!({
+    interaction.server.send_request::<WorkspaceSymbolRequest>(
+        RequestId::from(2),
+        json!({
             "query": "this_is_a_very_long_function_name_so_we_can"
         }),
-    }));
+    );
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),

@@ -13,6 +13,7 @@ use lsp_server::ResponseError;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::request::DocumentDiagnosticRequest;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -163,15 +164,16 @@ fn test_nonexistent_file() {
             }
         }));
 
-    interaction.server.send_message(Message::Request(Request {
-        id: RequestId::from(2),
-        method: "textDocument/diagnostic".to_owned(),
-        params: json!({
-            "textDocument": {
-                "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string()
-            },
-        }),
-    }));
+    interaction
+        .server
+        .send_request::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string()
+                },
+            }),
+        );
 
     interaction.client.expect_response(Response {
         id: RequestId::from(2),

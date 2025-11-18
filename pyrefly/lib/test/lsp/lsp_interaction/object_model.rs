@@ -34,7 +34,21 @@ use lsp_types::notification::DidOpenNotebookDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::Exit;
 use lsp_types::notification::Initialized;
+use lsp_types::request::Completion;
+use lsp_types::request::DocumentDiagnosticRequest;
+use lsp_types::request::GotoDefinition;
+use lsp_types::request::GotoImplementation;
+use lsp_types::request::GotoTypeDefinition;
+use lsp_types::request::HoverRequest;
+use lsp_types::request::Initialize;
+use lsp_types::request::InlayHintRequest;
+use lsp_types::request::References;
 use lsp_types::request::Request as _;
+use lsp_types::request::SemanticTokensFullRequest;
+use lsp_types::request::SemanticTokensRangeRequest;
+use lsp_types::request::Shutdown;
+use lsp_types::request::SignatureHelpRequest;
+use lsp_types::request::WillRenameFiles;
 use pretty_assertions::assert_eq;
 use pyrefly_util::fs_anyhow::read_to_string;
 use serde_json::Value;
@@ -43,6 +57,7 @@ use serde_json::json;
 use crate::commands::lsp::IndexingMode;
 use crate::commands::lsp::LspArgs;
 use crate::commands::lsp::run_lsp;
+use crate::lsp::wasm::provide_type::ProvideType;
 use crate::test::util::init_test;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +132,20 @@ impl TestServer {
         }
     }
 
+    pub fn send_request<R: lsp_types::request::Request>(
+        &self,
+        id: RequestId,
+        params: serde_json::Value,
+    ) {
+        // Ensure the passed value can be parsed as the desired request params
+        let params = serde_json::from_value::<R::Params>(params).unwrap();
+        self.send_message(Message::Request(Request {
+            id,
+            method: R::METHOD.to_owned(),
+            params: serde_json::to_value(params).unwrap(),
+        }));
+    }
+
     pub fn send_notification<N: lsp_types::notification::Notification>(
         &self,
         params: serde_json::Value,
@@ -131,11 +160,7 @@ impl TestServer {
 
     pub fn send_initialize(&mut self, params: Value) {
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
-            id,
-            method: "initialize".to_owned(),
-            params,
-        }))
+        self.send_request::<Initialize>(id, params);
     }
 
     pub fn send_initialized(&self) {
@@ -143,11 +168,7 @@ impl TestServer {
     }
 
     pub fn send_shutdown(&self, id: RequestId) {
-        self.send_message(Message::Request(Request {
-            id,
-            method: lsp_types::request::Shutdown::METHOD.to_owned(),
-            params: json!(null),
-        }));
+        self.send_request::<Shutdown>(id, json!(null));
     }
 
     pub fn send_exit(&self) {
@@ -157,10 +178,9 @@ impl TestServer {
     pub fn type_definition(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<GotoTypeDefinition>(
             id,
-            method: "textDocument/typeDefinition".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string(),
                 },
@@ -169,16 +189,15 @@ impl TestServer {
                     "character": col,
                 },
             }),
-        }));
+        );
     }
 
     pub fn definition(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<GotoDefinition>(
             id,
-            method: "textDocument/definition".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string(),
                 },
@@ -187,16 +206,15 @@ impl TestServer {
                     "character": col,
                 },
             }),
-        }));
+        );
     }
 
     pub fn implementation(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<GotoImplementation>(
             id,
-            method: "textDocument/implementation".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string(),
                 },
@@ -205,7 +223,7 @@ impl TestServer {
                     "character": col,
                 },
             }),
-        }));
+        );
     }
 
     pub fn did_open(&self, file: &'static str) {
@@ -252,10 +270,9 @@ impl TestServer {
     pub fn completion(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<Completion>(
             id,
-            method: "textDocument/completion".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string()
                 },
@@ -264,29 +281,27 @@ impl TestServer {
                     "character": col
                 }
             }),
-        }));
+        );
     }
 
     pub fn diagnostic(&mut self, file: &'static str) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<DocumentDiagnosticRequest>(
             id,
-            method: "textDocument/diagnostic".to_owned(),
-            params: json!({
+            json!({
             "textDocument": {
                 "uri": Url::from_file_path(&path).unwrap().to_string()
             }}),
-        }));
+        );
     }
 
     pub fn hover(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<HoverRequest>(
             id,
-            method: "textDocument/hover".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string()
                 },
@@ -295,16 +310,15 @@ impl TestServer {
                     "character": col
                 }
             }),
-        }));
+        );
     }
 
     pub fn provide_type(&mut self, file: &'static str, line: u32, col: u32) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<ProvideType>(
             id,
-            method: "types/provide-type".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string()
                 },
@@ -313,16 +327,15 @@ impl TestServer {
                     "character": col
                 }]
             }),
-        }));
+        );
     }
 
     pub fn references(&mut self, file: &str, line: u32, col: u32, include_declaration: bool) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<References>(
             id,
-            method: "textDocument/references".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string()
                 },
@@ -334,7 +347,7 @@ impl TestServer {
                     "includeDeclaration": include_declaration
                 },
             }),
-        }));
+        );
     }
 
     pub fn inlay_hint(
@@ -347,10 +360,9 @@ impl TestServer {
     ) {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<InlayHintRequest>(
             id,
-            method: "textDocument/inlayHint".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": Url::from_file_path(&path).unwrap().to_string()
                 },
@@ -365,7 +377,7 @@ impl TestServer {
                     }
                 }
             }),
-        }));
+        );
     }
 
     pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
@@ -381,16 +393,15 @@ impl TestServer {
         let old_path = root.join(old_file);
         let new_path = root.join(new_file);
         let id = self.next_request_id();
-        self.send_message(Message::Request(Request {
+        self.send_request::<WillRenameFiles>(
             id,
-            method: "workspace/willRenameFiles".to_owned(),
-            params: json!({
+            json!({
                 "files": [{
                     "oldUri": Url::from_file_path(&old_path).unwrap().to_string(),
                     "newUri": Url::from_file_path(&new_path).unwrap().to_string()
                 }]
             }),
-        }));
+        );
     }
 
     /// Send a file creation event notification
@@ -1053,14 +1064,13 @@ impl LspInteraction {
 
     pub fn diagnostic_for_cell(&mut self, file: &str, cell: &str) {
         let id = self.server.next_request_id();
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<DocumentDiagnosticRequest>(
             id,
-            method: "textDocument/diagnostic".to_owned(),
-            params: json!({
+            json!({
             "textDocument": {
                 "uri": self.cell_uri(file, cell)
             }}),
-        }));
+        );
     }
 
     /// Returns the URI for a notebook cell
@@ -1083,10 +1093,9 @@ impl LspInteraction {
     pub fn hover_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.server.next_request_id();
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<HoverRequest>(
             id,
-            method: "textDocument/hover".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri
                 },
@@ -1095,7 +1104,7 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        }));
+        );
     }
 
     /// Sends a signature help request for a notebook cell at the specified position
@@ -1106,10 +1115,9 @@ impl LspInteraction {
             *idx += 1;
             RequestId::from(*idx)
         };
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<SignatureHelpRequest>(
             id,
-            method: "textDocument/signatureHelp".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri
                 },
@@ -1118,17 +1126,16 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        }));
+        );
     }
 
     /// Sends a definition request for a notebook cell at the specified position
     pub fn definition_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.server.next_request_id();
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<GotoDefinition>(
             id,
-            method: "textDocument/definition".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri
                 },
@@ -1137,7 +1144,7 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        }));
+        );
     }
 
     /// Sends a references request for a notebook cell at the specified position
@@ -1151,10 +1158,9 @@ impl LspInteraction {
     ) {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.server.next_request_id();
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<References>(
             id,
-            method: "textDocument/references".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri,
                 },
@@ -1166,16 +1172,15 @@ impl LspInteraction {
                     "includeDeclaration": include_declaration,
                 },
             }),
-        }));
+        );
     }
 
     pub fn completion_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.server.next_request_id();
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<Completion>(
             id,
-            method: "textDocument/completion".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri,
                 },
@@ -1184,7 +1189,7 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        }));
+        );
     }
 
     /// Sends an inlay hint request for a notebook cell in the specified range
@@ -1203,10 +1208,9 @@ impl LspInteraction {
             *idx += 1;
             RequestId::from(*idx)
         };
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<InlayHintRequest>(
             id,
-            method: "textDocument/inlayHint".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri
                 },
@@ -1221,7 +1225,7 @@ impl LspInteraction {
                     }
                 }
             }),
-        }));
+        );
     }
 
     /// Sends a full semantic tokens request for a notebook cell
@@ -1232,15 +1236,14 @@ impl LspInteraction {
             *idx += 1;
             RequestId::from(*idx)
         };
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<SemanticTokensFullRequest>(
             id,
-            method: "textDocument/semanticTokens/full".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri
                 }
             }),
-        }));
+        );
     }
 
     /// Sends a ranged semantic tokens request for a notebook cell
@@ -1259,10 +1262,9 @@ impl LspInteraction {
             *idx += 1;
             RequestId::from(*idx)
         };
-        self.server.send_message(Message::Request(Request {
+        self.server.send_request::<SemanticTokensRangeRequest>(
             id,
-            method: "textDocument/semanticTokens/range".to_owned(),
-            params: json!({
+            json!({
                 "textDocument": {
                     "uri": cell_uri
                 },
@@ -1277,6 +1279,6 @@ impl LspInteraction {
                     }
                 }
             }),
-        }));
+        );
     }
 }

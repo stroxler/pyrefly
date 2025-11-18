@@ -255,7 +255,7 @@ fn malformed_missing_position() {
     interaction.server.send_message(Message::Request(Request {
         id: RequestId::from(2),
         method: "textDocument/definition".to_owned(),
-        // Missing position
+        // Missing position - intentionally malformed to test error handling
         params: json!({
             "textDocument": {
                 "uri": Url::from_file_path(root.path().join("basic/foo.py")).unwrap().to_string()
