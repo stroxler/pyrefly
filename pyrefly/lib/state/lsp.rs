@@ -146,7 +146,7 @@ pub enum DisplayTypeErrors {
 }
 
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
-const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
+pub const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
 /// Determines what to do when finding definitions. Do we continue searching, or stop somewhere intermediate?
 #[derive(Clone, Copy, Debug)]
@@ -2964,7 +2964,7 @@ impl<'a> Transaction<'a> {
         })
     }
 
-    fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
+    pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
         let mut res = self.search_exports(|handle, exports| {
             let matcher = SkimMatcherV2::default().smart_case();
             let mut results = Vec::new();
@@ -3364,29 +3364,6 @@ impl<'a> Transaction<'a> {
             module_info,
             limit_cell_idx,
         ))
-    }
-
-    pub fn workspace_symbols(
-        &self,
-        query: &str,
-    ) -> Option<Vec<(String, lsp_types::SymbolKind, TextRangeWithModule)>> {
-        if query.len() < MIN_CHARACTERS_TYPED_AUTOIMPORT {
-            return None;
-        }
-        let mut result = Vec::new();
-        for (handle, name, export) in self.search_exports_fuzzy(query) {
-            if let Some(module) = self.get_module_info(&handle) {
-                let kind = export
-                    .symbol_kind
-                    .map_or(lsp_types::SymbolKind::VARIABLE, |k| k.to_lsp_symbol_kind());
-                let location = TextRangeWithModule {
-                    module,
-                    range: export.location,
-                };
-                result.push((name, kind, location));
-            }
-        }
-        Some(result)
     }
 }
 
