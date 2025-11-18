@@ -6,11 +6,12 @@
  */
 
 use lsp_server::Message;
-use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidSaveTextDocument;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -30,32 +31,26 @@ fn test_edits_while_recheck() {
     // where we have concurrent in-memory recheck and on-disk recheck.
     interaction
         .server
-        .send_message(Message::Notification(Notification {
-            method: "textDocument/didSave".to_owned(),
-            params: json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "languageId": "python",
-                    "version": 1,
-                    "text": std::fs::read_to_string(path.clone()).unwrap()
-                }
-            }),
+        .send_notification::<DidSaveTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 1,
+                "text": std::fs::read_to_string(path.clone()).unwrap()
+            }
         }));
 
     interaction
         .server
-        .send_message(Message::Notification(Notification {
-            method: "textDocument/didChange".to_owned(),
-            params: json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "languageId": "python",
-                    "version": 2
-                },
-                "contentChanges": [
-                    {"text": format!("{}\n\nextra_stuff", std::fs::read_to_string(&path).unwrap())}
-                ],
-            }),
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [
+                {"text": format!("{}\n\nextra_stuff", std::fs::read_to_string(&path).unwrap())}
+            ],
         }));
 
     interaction.server.definition("foo.py", 6, 18);

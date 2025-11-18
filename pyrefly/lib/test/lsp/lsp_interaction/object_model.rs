@@ -25,8 +25,15 @@ use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
+use lsp_types::notification::DidChangeConfiguration;
+use lsp_types::notification::DidChangeNotebookDocument;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidChangeWatchedFiles;
+use lsp_types::notification::DidCloseNotebookDocument;
+use lsp_types::notification::DidOpenNotebookDocument;
+use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::Exit;
-use lsp_types::notification::Notification as _;
+use lsp_types::notification::Initialized;
 use lsp_types::request::Request as _;
 use pretty_assertions::assert_eq;
 use pyrefly_util::fs_anyhow::read_to_string;
@@ -109,6 +116,19 @@ impl TestServer {
             panic!("Failed to send message to language server: {err:?}");
         }
     }
+
+    pub fn send_notification<N: lsp_types::notification::Notification>(
+        &self,
+        params: serde_json::Value,
+    ) {
+        // Ensure the passed value can be parsed as the desired notification params
+        let params = serde_json::from_value::<N::Params>(params).unwrap();
+        self.send_message(Message::Notification(Notification {
+            method: N::METHOD.to_owned(),
+            params: serde_json::to_value(params).unwrap(),
+        }));
+    }
+
     pub fn send_initialize(&mut self, params: Value) {
         let id = self.next_request_id();
         self.send_message(Message::Request(Request {
@@ -119,10 +139,7 @@ impl TestServer {
     }
 
     pub fn send_initialized(&self) {
-        self.send_message(Message::Notification(Notification {
-            method: "initialized".to_owned(),
-            params: json!({}),
-        }));
+        self.send_notification::<Initialized>(json!({}));
     }
 
     pub fn send_shutdown(&self, id: RequestId) {
@@ -134,10 +151,7 @@ impl TestServer {
     }
 
     pub fn send_exit(&self) {
-        self.send_message(Message::Notification(Notification {
-            method: Exit::METHOD.to_owned(),
-            params: json!(null),
-        }));
+        self.send_notification::<Exit>(json!(null));
     }
 
     pub fn type_definition(&mut self, file: &'static str, line: u32, col: u32) {
@@ -196,55 +210,43 @@ impl TestServer {
 
     pub fn did_open(&self, file: &'static str) {
         let path = self.get_root_or_panic().join(file);
-        self.send_message(Message::Notification(Notification {
-            method: "textDocument/didOpen".to_owned(),
-            params: json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "languageId": "python",
-                    "version": 1,
-                    "text": read_to_string(&path).unwrap(),
-                },
-            }),
+        self.send_notification::<DidOpenTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 1,
+                "text": read_to_string(&path).unwrap(),
+            },
         }));
     }
 
     pub fn did_open_uri(&self, uri: &Url, language_id: &str, text: impl Into<String>) {
-        self.send_message(Message::Notification(Notification {
-            method: "textDocument/didOpen".to_owned(),
-            params: json!({
-                "textDocument": {
-                    "uri": uri.to_string(),
-                    "languageId": language_id,
-                    "version": 1,
-                    "text": text.into(),
-                },
-            }),
+        self.send_notification::<DidOpenTextDocument>(json!({
+            "textDocument": {
+                "uri": uri.to_string(),
+                "languageId": language_id,
+                "version": 1,
+                "text": text.into(),
+            },
         }));
     }
 
     pub fn did_change(&self, file: &str, contents: &str) {
         let path = self.get_root_or_panic().join(file);
-        self.send_message(Message::Notification(Notification {
-            method: "textDocument/didChange".to_owned(),
-            params: json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "languageId": "python",
-                    "version": 2
-                },
-                "contentChanges": [{
-                    "text": contents.to_owned()
-                }],
-            }),
+        self.send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": contents.to_owned()
+            }],
         }));
     }
 
     pub fn did_change_configuration(&self) {
-        self.send_message(Message::Notification(Notification {
-            method: lsp_types::notification::DidChangeConfiguration::METHOD.to_owned(),
-            params: json!({"settings": {}}),
-        }));
+        self.send_notification::<DidChangeConfiguration>(json!({"settings": {}}));
     }
 
     pub fn completion(&mut self, file: &'static str, line: u32, col: u32) {
@@ -394,42 +396,33 @@ impl TestServer {
     /// Send a file creation event notification
     pub fn file_created(&self, file: &str) {
         let path = self.get_root_or_panic().join(file);
-        self.send_message(Message::Notification(Notification {
-            method: "workspace/didChangeWatchedFiles".to_owned(),
-            params: json!({
-                "changes": [{
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "type": 1,  // FileChangeType::CREATED
-                }],
-            }),
+        self.send_notification::<DidChangeWatchedFiles>(json!({
+            "changes": [{
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "type": 1,  // FileChangeType::CREATED
+            }],
         }));
     }
 
     /// Send a file modification event notification
     pub fn file_modified(&self, file: &str) {
         let path = self.get_root_or_panic().join(file);
-        self.send_message(Message::Notification(Notification {
-            method: "workspace/didChangeWatchedFiles".to_owned(),
-            params: json!({
-                "changes": [{
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "type": 2,  // FileChangeType::CHANGED
-                }],
-            }),
+        self.send_notification::<DidChangeWatchedFiles>(json!({
+            "changes": [{
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "type": 2,  // FileChangeType::CHANGED
+            }],
         }));
     }
 
     /// Send a file deletion event notification
     pub fn file_deleted(&self, file: &str) {
         let path = self.get_root_or_panic().join(file);
-        self.send_message(Message::Notification(Notification {
-            method: "workspace/didChangeWatchedFiles".to_owned(),
-            params: json!({
-                "changes": [{
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                    "type": 3,  // FileChangeType::DELETED
-                }],
-            }),
+        self.send_notification::<DidChangeWatchedFiles>(json!({
+            "changes": [{
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+                "type": 3,  // FileChangeType::DELETED
+            }],
         }));
     }
 
@@ -1009,22 +1002,19 @@ impl LspInteraction {
         }
 
         self.server
-            .send_message(Message::Notification(Notification {
-                method: "notebookDocument/didOpen".to_owned(),
-                params: json!({
-                    "notebookDocument": {
-                        "uri": notebook_uri,
-                        "notebookType": "jupyter-notebook",
-                        "version": 1,
-                        "metadata": {
-                            "language_info": {
-                                "name": "python"
-                            }
-                        },
-                        "cells": cells
+            .send_notification::<DidOpenNotebookDocument>(json!({
+                "notebookDocument": {
+                    "uri": notebook_uri,
+                    "notebookType": "jupyter-notebook",
+                    "version": 1,
+                    "metadata": {
+                        "language_info": {
+                            "name": "python"
+                        }
                     },
-                    "cellTextDocuments": cell_text_documents
-                }),
+                    "cells": cells
+                },
+                "cellTextDocuments": cell_text_documents
             }));
     }
 
@@ -1033,12 +1023,9 @@ impl LspInteraction {
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
         self.server
-            .send_message(Message::Notification(Notification {
-                method: "notebookDocument/didClose".to_owned(),
-                params: json!({
-                    "notebookDocument": { "uri": notebook_uri },
-                    "cellTextDocuments": [],
-                }),
+            .send_notification::<DidCloseNotebookDocument>(json!({
+                "notebookDocument": { "uri": notebook_uri },
+                "cellTextDocuments": [],
             }));
     }
 
@@ -1055,15 +1042,12 @@ impl LspInteraction {
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
 
         self.server
-            .send_message(Message::Notification(Notification {
-                method: "notebookDocument/didChange".to_owned(),
-                params: json!({
-                    "notebookDocument": {
-                        "version": version,
-                        "uri": notebook_uri,
-                    },
-                    "change": change_event
-                }),
+            .send_notification::<DidChangeNotebookDocument>(json!({
+                "notebookDocument": {
+                    "version": version,
+                    "uri": notebook_uri,
+                },
+                "change": change_event
             }));
     }
 

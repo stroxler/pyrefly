@@ -14,14 +14,11 @@ use std::path::Path;
 #[cfg(unix)]
 use std::path::PathBuf;
 
-use lsp_server::Message;
-use lsp_server::Notification;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeWorkspaceFolders;
-use lsp_types::notification::Notification as _;
 use pyrefly_util::fs_anyhow::write;
 use serde_json::json;
 
@@ -493,14 +490,11 @@ fn test_did_change_workspace_folder() {
 
     interaction
         .server
-        .send_message(Message::Notification(Notification {
-            method: DidChangeWorkspaceFolders::METHOD.to_owned(),
-            params: json!({
-                "event": {
-                "added": [{"uri": Url::from_file_path(&root).unwrap(), "name": "test"}],
-                "removed": [],
-                }
-            }),
+        .send_notification::<DidChangeWorkspaceFolders>(json!({
+            "event": {
+            "added": [{"uri": Url::from_file_path(&root).unwrap(), "name": "test"}],
+            "removed": [],
+            }
         }));
 
     interaction
