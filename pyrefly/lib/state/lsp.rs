@@ -18,7 +18,6 @@ use lsp_types::CompletionItemLabelDetails;
 use lsp_types::CompletionItemTag;
 use lsp_types::ParameterInformation;
 use lsp_types::ParameterLabel;
-use lsp_types::SemanticToken;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureInformation;
 use lsp_types::TextEdit;
@@ -80,9 +79,6 @@ use crate::state::ide::insert_import_edit;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::state::lsp_attributes::AttributeContext;
 use crate::state::require::Require;
-use crate::state::semantic_tokens::SemanticTokenBuilder;
-use crate::state::semantic_tokens::SemanticTokensLegends;
-use crate::state::semantic_tokens::disabled_ranges_for_module;
 use crate::state::state::CancellableTransaction;
 use crate::state::state::Transaction;
 use crate::types::callable::Param;
@@ -193,15 +189,6 @@ impl DefinitionMetadata {
             DefinitionMetadata::VariableOrAttribute(symbol_kind) => symbol_kind.as_ref().copied(),
         }
     }
-}
-
-/// A binding that is verified to be a binding for a name in the source code.
-/// This data structure carries the proof for the verification,
-/// which includes the definition information, and the binding itself.
-struct NamedBinding {
-    definition_handle: Handle,
-    definition_export: Export,
-    key: Key,
 }
 
 #[derive(Debug)]
@@ -524,7 +511,7 @@ impl<'a> Transaction<'a> {
         answers.get_type_at(idx)
     }
 
-    fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
+    pub fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
         let ans = self.get_answers(handle)?;
         ans.get_type_trace(range)
     }
@@ -1266,7 +1253,7 @@ impl<'a> Transaction<'a> {
         Some((executable_module, def_range, docstring_range))
     }
 
-    fn key_to_export(
+    pub fn key_to_export(
         &self,
         handle: &Handle,
         key: &Key,
@@ -2259,35 +2246,6 @@ impl<'a> Transaction<'a> {
             }
         }
         Some(references)
-    }
-
-    /// Bindings can contain synthetic bindings, which are not meaningful to end users.
-    /// This function helps to filter out such bindings and only leave bindings that eventually
-    /// jumps to a name in the source.
-    fn named_bindings(&self, handle: &Handle, bindings: &Bindings) -> Vec<NamedBinding> {
-        let mut named_bindings = Vec::new();
-        for idx in bindings.keys::<Key>() {
-            let key = bindings.idx_to_key(idx);
-            if matches!(key, Key::Phi(..) | Key::Narrow(..)) {
-                // These keys are always synthetic and never serves as a name definition.
-                continue;
-            }
-            if let Some((definition_handle, definition_export)) = self.key_to_export(
-                handle,
-                key,
-                FindPreference {
-                    import_behavior: ImportBehavior::StopAtRenamedImports,
-                    ..Default::default()
-                },
-            ) {
-                named_bindings.push(NamedBinding {
-                    definition_handle,
-                    definition_export,
-                    key: key.clone(),
-                });
-            }
-        }
-        named_bindings
     }
 
     fn add_kwargs_completions(
@@ -3330,40 +3288,6 @@ impl<'a> Transaction<'a> {
 
         param_hints.sort_by_key(|(pos, _)| *pos);
         param_hints
-    }
-
-    pub fn semantic_tokens(
-        &self,
-        handle: &Handle,
-        limit_range: Option<TextRange>,
-        limit_cell_idx: Option<usize>,
-    ) -> Option<Vec<SemanticToken>> {
-        let module_info = self.get_module_info(handle)?;
-        let bindings = self.get_bindings(handle)?;
-        let ast = self.get_ast(handle)?;
-        let legends = SemanticTokensLegends::new();
-        let disabled_ranges = disabled_ranges_for_module(ast.as_ref(), handle.sys_info());
-        let mut builder = SemanticTokenBuilder::new(limit_range, disabled_ranges);
-        for NamedBinding {
-            definition_handle,
-            definition_export,
-            key,
-        } in self.named_bindings(handle, &bindings)
-        {
-            if let Export {
-                symbol_kind: Some(symbol_kind),
-                ..
-            } = definition_export
-            {
-                builder.process_key(&key, definition_handle.module(), symbol_kind)
-            }
-        }
-        builder.process_ast(&ast, &|range| self.get_type_trace(handle, range));
-        Some(legends.convert_tokens_into_lsp_semantic_tokens(
-            &builder.all_tokens_sorted(),
-            module_info,
-            limit_cell_idx,
-        ))
     }
 }
 
