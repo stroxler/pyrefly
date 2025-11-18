@@ -30,58 +30,56 @@ fn test_initialize_basic() {
             .server
             .get_initialize_params(&InitializeSettings::default()),
     );
-    interaction
-        .client
-        .expect_message(Message::Response(Response {
-            id: RequestId::from(1),
-            result: Some(json!({"capabilities": {
-                "positionEncoding": "utf-16",
-                "textDocumentSync": 2,
-                "definitionProvider": true,
-                "typeDefinitionProvider": true,
-                "codeActionProvider": {
-                    "codeActionKinds": ["quickfix"]
+    interaction.client.expect_response(Response {
+        id: RequestId::from(1),
+        result: Some(json!({"capabilities": {
+            "positionEncoding": "utf-16",
+            "textDocumentSync": 2,
+            "definitionProvider": true,
+            "typeDefinitionProvider": true,
+            "codeActionProvider": {
+                "codeActionKinds": ["quickfix"]
+            },
+            "completionProvider": {
+                "triggerCharacters": ["."]
+            },
+            "declarationProvider": true,
+            "documentHighlightProvider": true,
+            "signatureHelpProvider": {
+                "triggerCharacters": ["(", ","]
+            },
+            "hoverProvider": true,
+            "implementationProvider": true,
+            "inlayHintProvider": true,
+            "notebookDocumentSync":{"notebookSelector":[{"cells":[{"language":"python"}]}]},
+            "documentSymbolProvider": true,
+            "foldingRangeProvider":true,
+            "workspaceSymbolProvider": true,
+            "workspace": {
+                "workspaceFolders": {
+                    "supported": true,
+                    "changeNotifications": true
                 },
-                "completionProvider": {
-                    "triggerCharacters": ["."]
-                },
-                "declarationProvider": true,
-                "documentHighlightProvider": true,
-                "signatureHelpProvider": {
-                    "triggerCharacters": ["(", ","]
-                },
-                "hoverProvider": true,
-                "implementationProvider": true,
-                "inlayHintProvider": true,
-                "notebookDocumentSync":{"notebookSelector":[{"cells":[{"language":"python"}]}]},
-                "documentSymbolProvider": true,
-                "foldingRangeProvider":true,
-                "workspaceSymbolProvider": true,
-                "workspace": {
-                    "workspaceFolders": {
-                        "supported": true,
-                        "changeNotifications": true
-                    },
-                    "fileOperations": {
-                        "willRename": {
-                            "filters": [
-                                {
-                                    "pattern": {
-                                        "glob": "**/*.{py,pyi}",
-                                        "matches": "file"
-                                    },
-                                    "scheme": "file"
-                                }
-                            ]
-                        }
+                "fileOperations": {
+                    "willRename": {
+                        "filters": [
+                            {
+                                "pattern": {
+                                    "glob": "**/*.{py,pyi}",
+                                    "matches": "file"
+                                },
+                                "scheme": "file"
+                            }
+                        ]
                     }
                 }
-            }, "serverInfo": {
-                "name":"pyrefly-lsp",
-                "version":"pyrefly-lsp-test-version"
-            }})),
-            error: None,
-        }));
+            }
+        }, "serverInfo": {
+            "name":"pyrefly-lsp",
+            "version":"pyrefly-lsp-test-version"
+        }})),
+        error: None,
+    });
     interaction.server.send_initialized();
     interaction.shutdown();
 }
@@ -93,13 +91,11 @@ fn test_shutdown() {
 
     interaction.server.send_shutdown(RequestId::from(2));
 
-    interaction
-        .client
-        .expect_message(Message::Response(Response {
-            id: RequestId::from(2),
-            result: Some(json!(null)),
-            error: None,
-        }));
+    interaction.client.expect_response(Response {
+        id: RequestId::from(2),
+        result: Some(json!(null)),
+        error: None,
+    });
 
     interaction.server.send_exit();
     interaction.server.expect_stop();
@@ -207,17 +203,15 @@ fn test_unknown_request() {
         method: "fake-method".to_owned(),
         params: json!(null),
     }));
-    interaction
-        .client
-        .expect_message(Message::Response(Response {
-            id: RequestId::from(1),
-            result: None,
-            error: Some(ResponseError {
-                code: -32601,
-                message: "Unknown request: fake-method".to_owned(),
-                data: None,
-            }),
-        }));
+    interaction.client.expect_response(Response {
+        id: RequestId::from(1),
+        result: None,
+        error: Some(ResponseError {
+            code: -32601,
+            message: "Unknown request: fake-method".to_owned(),
+            data: None,
+        }),
+    });
 }
 
 #[test]

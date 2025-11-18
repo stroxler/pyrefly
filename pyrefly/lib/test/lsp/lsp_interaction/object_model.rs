@@ -577,18 +577,6 @@ impl TestClient {
         }
     }
 
-    pub fn expect_message(&self, expected_message: Message) {
-        let expected_str = serde_json::to_string(&expected_message).unwrap();
-        self.expect_message_helper(
-            |msg| {
-                let actual_str = serde_json::to_string(msg).unwrap();
-                assert_eq!(&expected_str, &actual_str, "Response mismatch");
-                ValidationResult::Pass
-            },
-            &format!("Expected message: {expected_message:?}"),
-        );
-    }
-
     pub fn expect_request(&self, expected_request: Request) {
         let expected_str =
             serde_json::to_string(&Message::Request(expected_request.clone())).unwrap();
