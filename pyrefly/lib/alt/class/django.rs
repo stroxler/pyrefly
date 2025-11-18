@@ -23,7 +23,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::class::class_field::WithDefiningClass;
 use crate::alt::class::enums::VALUE_PROP;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -123,7 +122,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Default: use _pyi_private_get_type from the field class
         self.get_class_member(field, &DJANGO_PRIVATE_GET_TYPE)
-            .map(|member| member.value.ty())
+            .map(|field| field.ty())
     }
 
     /// Check if a class inherits from Django's Field class
@@ -246,10 +245,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Also include the type of __empty__ field if it exists, since it contributes to label types
         let empty_name = Name::new_static("__empty__");
-        let has_empty = if let Some(WithDefiningClass { value, .. }) =
-            self.get_class_member(cls, &empty_name)
-        {
-            label_types.push(value.ty());
+        let has_empty = if let Some(field) = self.get_class_member(cls, &empty_name) {
+            label_types.push(field.ty());
             true
         } else {
             false

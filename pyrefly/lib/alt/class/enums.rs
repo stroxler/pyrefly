@@ -292,9 +292,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// an instance attribute annotated in the class body. Should we? It is unclear; this helper
     /// is only used to validate enum members, not to produce errors on invalid `_value_`
     fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
-        let field = self
-            .get_class_member(enum_.cls.class_object(), &VALUE)?
-            .value;
+        let field = self.get_class_member(enum_.cls.class_object(), &VALUE)?;
         if field.is_simple_instance_attribute() {
             Some(field.ty())
         } else {

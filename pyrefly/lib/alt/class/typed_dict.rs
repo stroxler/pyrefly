@@ -204,8 +204,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         is_total: bool,
     ) -> Option<TypedDictField> {
-        self.get_class_member(class, name).and_then(|member| {
-            Arc::unwrap_or_clone(member.value)
+        self.get_class_member(class, name).and_then(|field| {
+            Arc::unwrap_or_clone(field)
                 .as_typed_dict_field_info(is_total)
                 .map(|field| field.substitute_with(substitution))
         })

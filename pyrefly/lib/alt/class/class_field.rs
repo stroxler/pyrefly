@@ -2089,11 +2089,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     format!("Cannot override named tuple element `{field_name}`"),
                 );
             }
-            let Some(want_member) = self.get_class_member(parent_cls, field_name) else {
+            let Some(want_field) = self.get_class_member(parent_cls, field_name) else {
                 continue;
             };
             parent_attr_found = true;
-            let want_class_field = Arc::unwrap_or_clone(want_member.value);
+            let want_class_field = Arc::unwrap_or_clone(want_field);
             if want_class_field.is_final() {
                 self.error(
                     errors,
@@ -2262,10 +2262,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if current_class_fields.contains(parent_field_name) {
                     continue;
                 }
-                if let Some(parent_member) =
+                if let Some(parent_field_arc) =
                     self.get_class_member(parent_class_object, parent_field_name)
                 {
-                    let parent_field = Arc::unwrap_or_clone(parent_member.value.clone());
+                    let parent_field = Arc::unwrap_or_clone(parent_field_arc.clone());
                     let class_attr = self.as_instance_attribute(
                         parent_field_name,
                         &parent_field,
@@ -2354,8 +2354,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
 
-                if let Some(child_member) = self.get_class_member(cls, field_name) {
-                    let child_field = Arc::unwrap_or_clone(child_member.value.clone());
+                if let Some(child_field_arc) = self.get_class_member(cls, field_name) {
+                    let child_field = Arc::unwrap_or_clone(child_field_arc.clone());
                     if self
                         .typed_dict_field_info(
                             current_class_metadata.as_ref(),
@@ -2525,7 +2525,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    pub(in crate::alt::class) fn get_class_member(
+    fn get_class_member_with_defining_class(
         &self,
         cls: &Class,
         name: &Name,
@@ -2539,16 +2539,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    pub(in crate::alt::class) fn get_class_member(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<Arc<ClassField>> {
+        self.get_class_member_with_defining_class(cls, name)
+            .map(|member| member.value)
+    }
+
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| self.as_instance_attribute(name, &member.value, &Instance::of_class(cls)))
+            .map(|field| self.as_instance_attribute(name, &field, &Instance::of_class(cls)))
     }
 
     pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| {
-                self.as_instance_attribute(name, &member.value, &Instance::of_self_type(cls))
-            })
+            .map(|field| self.as_instance_attribute(name, &field, &Instance::of_self_type(cls)))
     }
 
     pub fn get_protocol_attribute(
@@ -2558,12 +2565,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| {
-                self.as_instance_attribute(
-                    name,
-                    &member.value,
-                    &Instance::of_protocol(cls, self_type),
-                )
+            .map(|field| {
+                self.as_instance_attribute(name, &field, &Instance::of_protocol(cls, self_type))
             })
     }
 
@@ -2574,10 +2577,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<ClassAttribute> {
         self.get_class_member(metaclass.class_object(), name)
-            .map(|member| {
+            .map(|field| {
                 self.as_instance_attribute(
                     name,
-                    &member.value,
+                    &field,
                     &Instance::of_metaclass(cls.clone(), metaclass),
                 )
             })
@@ -2588,12 +2591,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // for `LiteralString`-specific overloads defined in `str`.
     pub fn get_literal_string_attribute(&self, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(self.stdlib.str().class_object(), name)
-            .map(|member| {
-                self.as_instance_attribute(
-                    name,
-                    &member.value,
-                    &Instance::literal_string(self.stdlib),
-                )
+            .map(|field| {
+                self.as_instance_attribute(name, &field, &Instance::literal_string(self.stdlib))
             })
     }
 
@@ -2615,10 +2614,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Restriction::Unrestricted => quantified,
         };
         self.get_class_member(upper_bound.class_object(), name)
-            .map(|member| {
+            .map(|field| {
                 self.as_instance_attribute(
                     name,
-                    &member.value,
+                    &field,
                     &Instance::of_type_var(quantified_with_specific_upper_bound, upper_bound),
                 )
             })
@@ -2634,9 +2633,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         self.get_class_member(td.class_object(), name)
-            .map(|member| {
-                self.as_instance_attribute(name, &member.value, &Instance::of_typed_dict(td))
-            })
+            .map(|field| self.as_instance_attribute(name, &field, &Instance::of_typed_dict(td)))
     }
 
     pub fn get_super_class_member(
@@ -2721,7 +2718,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// type contains a class-scoped type parameter - e.g., `class A[T]: x: T`.
     pub fn get_class_attribute(&self, cls: &ClassBase, name: &Name) -> Option<ClassAttribute> {
         self.get_class_member(cls.class_object(), name)
-            .map(|member| self.as_class_attribute(&member.value, cls))
+            .map(|field| self.as_class_attribute(&field, cls))
     }
 
     pub fn get_bounded_quantified_class_attribute(
@@ -2731,11 +2728,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
     ) -> Option<ClassAttribute> {
         self.get_class_member(class.class_object(), name)
-            .map(|member| {
-                self.as_class_attribute(
-                    &member.value,
-                    &ClassBase::Quantified(quantified, class.clone()),
-                )
+            .map(|field| {
+                self.as_class_attribute(&field, &ClassBase::Quantified(quantified, class.clone()))
             })
     }
 
@@ -2745,7 +2739,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         field: &Name,
         ancestor: (&str, &str),
     ) -> bool {
-        let member = self.get_class_member(cls, field);
+        let member = self.get_class_member_with_defining_class(cls, field);
         match member {
             Some(member) => member.defined_on(ancestor.0, ancestor.1),
             None => false,
@@ -2758,7 +2752,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// between a classmethod and a constructor; downstream code handles this
     /// using the raw callable type).
     pub fn get_dunder_new(&self, cls: &ClassType) -> Option<Type> {
-        let new_member = self.get_class_member(cls.class_object(), &dunder::NEW)?;
+        let new_member =
+            self.get_class_member_with_defining_class(cls.class_object(), &dunder::NEW)?;
         if new_member.defined_on("builtins", "object") {
             // The default behavior of `object.__new__` is already baked into our implementation of
             // class construction; we only care about `__new__` if it is overridden.
@@ -2770,7 +2765,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_dunder_init_helper(&self, instance: &Instance, get_object_init: bool) -> Option<Type> {
-        let init_method = self.get_class_member(instance.class, &dunder::INIT)?;
+        let init_method =
+            self.get_class_member_with_defining_class(instance.class, &dunder::INIT)?;
         if get_object_init || !init_method.defined_on("builtins", "object") {
             Arc::unwrap_or_clone(init_method.value).as_special_method_type(instance)
         } else {
@@ -2791,7 +2787,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_metaclass_dunder_call(&self, cls: &ClassType) -> Option<Type> {
         let metadata = self.get_metadata_for_class(cls.class_object());
         let metaclass = metadata.custom_metaclass()?;
-        let attr = self.get_class_member(metaclass.class_object(), &dunder::CALL)?;
+        let attr =
+            self.get_class_member_with_defining_class(metaclass.class_object(), &dunder::CALL)?;
         if attr.defined_on("builtins", "type") {
             // The behavior of `type.__call__` is already baked into our implementation of constructors,
             // so we can skip analyzing it at the type level.
@@ -2813,7 +2810,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
-        let field = self.get_class_member(cls.class_object(), name)?.value;
+        let field = self.get_class_member(cls.class_object(), name)?;
         match field.instantiate_for(&Instance::of_class(&cls)).0 {
             ClassFieldInner::Simple {
                 ty,
@@ -3200,11 +3197,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if x.getter
             && let Some(getter) = self.get_class_member(x.cls.class_object(), &dunder::GET)
         {
-            let attr = self.as_instance_attribute(
-                &dunder::GET,
-                &getter.value,
-                &Instance::of_class(&x.cls),
-            );
+            let attr =
+                self.as_instance_attribute(&dunder::GET, &getter, &Instance::of_class(&x.cls));
             Some(
                 self.resolve_get_class_attr(attr_name, attr, x.range, errors, None)
                     .unwrap_or_else(|e| {
@@ -3230,11 +3224,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if x.setter
             && let Some(setter) = self.get_class_member(x.cls.class_object(), &dunder::SET)
         {
-            let attr = self.as_instance_attribute(
-                &dunder::SET,
-                &setter.value,
-                &Instance::of_class(&x.cls),
-            );
+            let attr =
+                self.as_instance_attribute(&dunder::SET, &setter, &Instance::of_class(&x.cls));
             Some(
                 self.resolve_get_class_attr(attr_name, attr, x.range, errors, None)
                     .unwrap_or_else(|e| {
