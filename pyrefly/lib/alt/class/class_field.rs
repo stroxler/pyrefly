@@ -1093,26 +1093,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             };
 
-        // Optimisation. If we can determine that the name definitely doesn't exist in the inheritance
-        // then we can avoid a bunch of work with checking for override errors.
-        let mut is_inherited = IsInherited::Maybe;
-
-        let (value_ty, inherited_annotation) = match value {
+        // Get the inferred value type if the value is an expression
+        //
+        // In some cases (non-private method-defined attributes with no direct annotation) we will look for an
+        // inherited type and annotation because that type is used instead of the inferred type.
+        //
+        // We also track `is_inherited`, which is an optimization to skip inheritence checks later when we
+        // know the attribute isn't inherited.
+        let (value_ty, inherited_annotation, is_inherited) = match value {
             ExprOrBinding::Expr(e) => {
-                let (inherited_ty, inherited_annot) = if direct_annotation.is_some() {
-                    (None, None)
+                let (inherited_ty, inherited_annot, is_inherited) = if direct_annotation.is_some() {
+                    (None, None, IsInherited::Maybe)
                 } else if Self::is_mangled_attr(name) {
                     // Private (double-underscore) attributes are name-mangled at runtime and should not
                     // inherit types or annotations from parent classes.
-                    is_inherited = IsInherited::No;
-                    (None, None)
+                    (None, None, IsInherited::No)
                 } else {
                     let (inherited_ty, annotation) =
                         self.get_inherited_type_and_annotation(class, name);
-                    if inherited_ty.is_none() {
-                        is_inherited = IsInherited::No;
-                    }
-                    (inherited_ty, annotation)
+                    let is_inherited = if inherited_ty.is_none() {
+                        IsInherited::No
+                    } else {
+                        IsInherited::Maybe
+                    };
+                    (inherited_ty, annotation, is_inherited)
                 };
                 let mut ty = if let Some(inherited_ty) = inherited_ty
                     && matches!(initial_value, RawClassFieldInitialization::Method(_))
@@ -1129,12 +1133,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.expr_infer(e, errors)
                 };
                 self.expand_vars_mut(&mut ty);
-
-                (ty, inherited_annot)
+                (ty, inherited_annot, is_inherited)
             }
             ExprOrBinding::Binding(b) => (
                 Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
                 None,
+                IsInherited::Maybe,
             ),
         };
         let metadata = self.get_metadata_for_class(class);
