@@ -10558,8 +10558,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "TypedDict item `method1` may not be initialized",
-      "description": "TypedDict item `method1` may not be initialized",
+      "concise_description": "TypedDict members must be declared in the form `field: Annotation` with no assignment",
+      "description": "TypedDict members must be declared in the form `field: Annotation` with no assignment",
       "line": 29,
       "name": "bad-class-definition",
       "severity": "error",
@@ -10569,8 +10569,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "TypedDict item `method2` may not be initialized",
-      "description": "TypedDict item `method2` may not be initialized",
+      "concise_description": "TypedDict members must be declared in the form `field: Annotation` with no assignment",
+      "description": "TypedDict members must be declared in the form `field: Annotation` with no assignment",
       "line": 34,
       "name": "bad-class-definition",
       "severity": "error",
@@ -10580,8 +10580,8 @@
     {
       "code": -2,
       "column": 9,
-      "concise_description": "TypedDict item `method3` may not be initialized",
-      "description": "TypedDict item `method3` may not be initialized",
+      "concise_description": "TypedDict members must be declared in the form `field: Annotation` with no assignment",
+      "description": "TypedDict members must be declared in the form `field: Annotation` with no assignment",
       "line": 39,
       "name": "bad-class-definition",
       "severity": "error",
