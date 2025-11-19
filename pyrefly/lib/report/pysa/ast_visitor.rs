@@ -201,24 +201,8 @@ impl Scopes {
                     Self::current_exported_function_impl(iterator, module_id, module_name, flags)
                 }
                 ExportFunctionDecorators::InDecoratedTarget => {
-                    match Self::current_exported_function_impl(
-                        iterator,
-                        module_id,
-                        module_name,
-                        flags,
-                    ) {
-                        Some(FunctionRef {
-                            function_id: FunctionId::Function { location },
-                            function_name,
-                            ..
-                        }) => Some(FunctionRef {
-                            module_id,
-                            module_name,
-                            function_id: FunctionId::FunctionDecoratedTarget { location },
-                            function_name,
-                        }),
-                        _ => None,
-                    }
+                    Self::current_exported_function_impl(iterator, module_id, module_name, flags)
+                        .and_then(|function_ref| function_ref.get_decorated_target())
                 }
                 ExportFunctionDecorators::Ignore => None,
             },
@@ -395,8 +379,8 @@ fn visit_statement<V: AstScopedVisitor>(
                 }
             };
             scopes.stack.push(function_scope);
-            visitor.enter_function_scope(function_def, scopes);
             visitor.on_scope_update(scopes);
+            visitor.enter_function_scope(function_def, scopes);
 
             if !function_def.decorator_list.is_empty() {
                 scopes.stack.push(Scope::FunctionDecorators);
@@ -472,8 +456,8 @@ fn visit_statement<V: AstScopedVisitor>(
                 visit_statement(stmt, visitor, scopes, module_context);
             }
 
-            scopes.stack.pop();
             visitor.exit_function_scope(function_def, scopes);
+            scopes.stack.pop();
             visitor.on_scope_update(scopes);
         }
         Stmt::ClassDef(class_def) => {
@@ -502,8 +486,8 @@ fn visit_statement<V: AstScopedVisitor>(
                 }
             };
             scopes.stack.push(class_scope);
-            visitor.enter_class_scope(class_def, scopes);
             visitor.on_scope_update(scopes);
+            visitor.enter_class_scope(class_def, scopes);
 
             scopes.stack.push(Scope::ClassDecorators);
             visitor.on_scope_update(scopes);
@@ -560,8 +544,8 @@ fn visit_statement<V: AstScopedVisitor>(
                 visit_statement(stmt, visitor, scopes, module_context);
             }
 
-            scopes.stack.pop();
             visitor.exit_class_scope(class_def, scopes);
+            scopes.stack.pop();
             visitor.on_scope_update(scopes);
         }
         Stmt::Assign(assign) => {

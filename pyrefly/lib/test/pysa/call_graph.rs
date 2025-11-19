@@ -1353,7 +1353,42 @@ def foo():
         let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
         vec![(
             "test.foo@decorated",
-            vec![("4:2-4:5", regular_identifier_callees(call_targets))],
+            vec![(
+                "4:2-4:5|artificial-call|for-decorated-target",
+                regular_call_callees(call_targets.clone()),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_decorated_target_decorator_factory,
+    TEST_MODULE_NAME,
+    r#"
+class MyClass:
+  def __init__(self) -> None:
+    return
+  def __call__(self, f):
+    return f
+def bar(x: int) -> MyClass:
+  return MyClass()
+@bar(1)
+def foo():
+  pass
+"#,
+    &|_context: &ModuleContext| {
+        let call_targets = vec![create_call_target("test.bar", TargetType::Function)];
+        vec![(
+            "test.foo@decorated",
+            vec![
+                ("9:2-9:8", regular_call_callees(call_targets.clone())),
+                (
+                    "9:2-9:8|artificial-call|for-decorated-target",
+                    ExpressionCallees::Call(CallCallees::new_unresolved(
+                        UnresolvedReason::UnexpectedCalleeExpression,
+                    )),
+                ),
+            ],
         )]
     }
 );

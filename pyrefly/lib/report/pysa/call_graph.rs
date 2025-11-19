@@ -76,6 +76,7 @@ pub enum OriginKind {
     GeneratorIter,
     GeneratorNext,
     WithEnter,
+    ForDecoratedTarget,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -86,6 +87,7 @@ impl std::fmt::Display for OriginKind {
             Self::GeneratorIter => write!(f, "generator-iter"),
             Self::GeneratorNext => write!(f, "generator-next"),
             Self::WithEnter => write!(f, "with-enter"),
+            Self::ForDecoratedTarget => write!(f, "for-decorated-target"),
         }
     }
 }
@@ -843,6 +845,31 @@ impl<ExpressionId: ExpressionIdTrait, Function: FunctionTrait> CallGraphs<Expres
             callees.dedup_and_sort();
         }
     }
+
+    fn add_callees(
+        &mut self,
+        function: Function,
+        expression_identifier: ExpressionId,
+        callees: ExpressionCallees<Function>,
+    ) {
+        assert!(
+            self.0
+                .entry(function)
+                .or_default()
+                .0
+                .insert(expression_identifier, callees)
+                .is_none(),
+            "Adding callees to the same location"
+        );
+    }
+
+    fn remove_callees(&mut self, function: Function, expression_identifier: ExpressionId) {
+        self.0
+            .entry(function)
+            .or_default()
+            .0
+            .remove(&expression_identifier);
+    }
 }
 
 macro_rules! debug_println {
@@ -1061,16 +1088,8 @@ impl<'a> CallGraphVisitor<'a> {
         callees: ExpressionCallees<FunctionRef>,
     ) {
         if let Some(current_function) = self.current_function.clone() {
-            assert!(
-                self.call_graphs
-                    .0
-                    .entry(current_function)
-                    .or_default()
-                    .0
-                    .insert(expression_identifier, callees)
-                    .is_none(),
-                "Adding callees to the same location"
-            );
+            self.call_graphs
+                .add_callees(current_function, expression_identifier, callees);
         }
     }
 
@@ -2495,6 +2514,48 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_and_register_decorator_callees(
+        &mut self,
+        decorators: &[Decorator],
+        decorated_target: FunctionRef,
+    ) {
+        for decorator in decorators.iter() {
+            debug_println!(
+                self.debug,
+                "Resolving callees for decorator call `{:#?}`",
+                decorator
+            );
+            let callee_type = self
+                .module_context
+                .answers
+                .get_type_trace(decorator.expression.range());
+            let return_type = self.get_return_type_for_callee(callee_type.as_ref());
+            let callees = self.resolve_call(
+                /* callee */ &decorator.expression,
+                /* return_type */ Some(return_type),
+                /* arguments */ None,
+                /* assignment_targets */ None,
+            );
+            self.call_graphs.add_callees(
+                decorated_target.clone(),
+                ExpressionIdentifier::ArtificialCall(Origin {
+                    kind: OriginKind::ForDecoratedTarget,
+                    location: self.pysa_location(decorator.expression.range()),
+                }),
+                ExpressionCallees::Call(callees),
+            );
+            // Remove callees for the underlying expression, to avoid duplicates.
+            if matches!(decorator.expression, Expr::Name(_))
+                || matches!(decorator.expression, Expr::Attribute(_))
+            {
+                self.call_graphs.remove_callees(
+                    decorated_target.clone(),
+                    ExpressionIdentifier::Regular(self.pysa_location(decorator.expression.range())),
+                );
+            }
+        }
+    }
+
     // Enable debug logs by adding `pysa_dump()` to the top level statements of the definition of interest
     const DEBUG_FUNCTION_NAME: &'static str = "pysa_dump";
 
@@ -2541,7 +2602,32 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         self.enter_debug_scope(&class_def.body);
     }
 
-    fn exit_function_scope(&mut self, _function_def: &StmtFunctionDef, _: &Scopes) {
+    fn exit_function_scope(&mut self, function_def: &StmtFunctionDef, scopes: &Scopes) {
+        // Register artificial callees for decorated targets.
+        if !function_def.decorator_list.is_empty() {
+            let current_function = scopes
+                .current_exported_function(
+                    self.module_id,
+                    self.module_name,
+                    ScopeExportedFunctionFlags {
+                        include_top_level: false,
+                        include_class_top_level: false,
+                        include_function_decorators:
+                            super::ast_visitor::ExportFunctionDecorators::Ignore,
+                        include_class_decorators: super::ast_visitor::ExportClassDecorators::Ignore,
+                        include_default_arguments:
+                            super::ast_visitor::ExportDefaultArguments::Ignore,
+                    },
+                )
+                .and_then(|function_ref| function_ref.get_decorated_target());
+            if let Some(decorated_target) = current_function {
+                self.resolve_and_register_decorator_callees(
+                    &function_def.decorator_list,
+                    decorated_target,
+                );
+            }
+        }
+
         self.exit_debug_scope();
     }
 
