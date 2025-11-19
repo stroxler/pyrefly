@@ -1021,7 +1021,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metadata = self.get_metadata_for_class(class);
         if metadata.is_typed_dict() {
             return self.calculate_typed_dict_field(
-                class,
                 &metadata,
                 name,
                 range,
@@ -1411,7 +1410,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn calculate_typed_dict_field(
         &self,
-        class: &Class,
         metadata: &ClassMetadata,
         name: &Name,
         range: TextRange,
@@ -1529,14 +1527,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
-        let read_only_reason = self.determine_read_only_reason(
-            class,
-            name,
-            Some(&annotation),
-            &value_ty,
-            &initialization,
-            range,
-        );
+        let read_only_reason = if annotation.has_qualifier(&Qualifier::ReadOnly) {
+            Some(ReadOnlyReason::ReadOnlyQualifier)
+        } else {
+            None
+        };
 
         // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
         // TODO(stroxler): Values are not legal in typed dicts anyway, this can all go away when we simplify.
