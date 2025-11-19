@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cmp::max;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
@@ -887,6 +888,13 @@ pub struct Fork {
     range: TextRange,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum FlowBarrier {
+    /// Allow flow information from containing scopes, and check for name initialization errors.
+    AllowFlowChecked,
+    BlockFlow,
+}
+
 #[derive(Clone, Debug)]
 pub struct Scope {
     range: TextRange,
@@ -903,7 +911,7 @@ pub struct Scope {
     ///
     /// Set when we enter a scope like a function body with deferred evaluation, where the
     /// values we might see from containing scopes may not match their current values.
-    flow_barrier: bool,
+    flow_barrier: FlowBarrier,
     /// What kind of scope is this? Used for a few purposes, including propagating
     /// information down from scopes (e.g. to figure out when we're in a class) and
     /// storing data from the current AST traversal for later analysis, especially
@@ -919,7 +927,7 @@ pub struct Scope {
 }
 
 impl Scope {
-    fn new(range: TextRange, flow_barrier: bool, kind: ScopeKind) -> Self {
+    fn new(range: TextRange, flow_barrier: FlowBarrier, kind: ScopeKind) -> Self {
         Self {
             range,
             stat: Default::default(),
@@ -932,36 +940,40 @@ impl Scope {
     }
 
     pub fn annotation(range: TextRange) -> Self {
-        Self::new(range, false, ScopeKind::Annotation)
+        Self::new(range, FlowBarrier::AllowFlowChecked, ScopeKind::Annotation)
     }
 
     pub fn type_alias(range: TextRange) -> Self {
-        Self::new(range, false, ScopeKind::TypeAlias)
+        Self::new(range, FlowBarrier::AllowFlowChecked, ScopeKind::TypeAlias)
     }
 
     pub fn class_body(range: TextRange, indices: ClassIndices, name: Identifier) -> Self {
         Self::new(
             range,
-            false,
+            FlowBarrier::AllowFlowChecked,
             ScopeKind::Class(ScopeClass::new(name, indices)),
         )
     }
 
     pub fn comprehension(range: TextRange) -> Self {
-        Self::new(range, false, ScopeKind::Comprehension)
+        Self::new(
+            range,
+            FlowBarrier::AllowFlowChecked,
+            ScopeKind::Comprehension,
+        )
     }
 
     pub fn function(range: TextRange, is_async: bool) -> Self {
         Self::new(
             range,
-            true,
+            FlowBarrier::BlockFlow,
             ScopeKind::Function(ScopeFunction::new(is_async)),
         )
     }
     pub fn lambda(range: TextRange, is_async: bool) -> Self {
         Self::new(
             range,
-            false,
+            FlowBarrier::AllowFlowChecked,
             ScopeKind::Function(ScopeFunction::new(is_async)),
         )
     }
@@ -969,13 +981,13 @@ impl Scope {
     pub fn method(range: TextRange, name: Identifier, is_async: bool) -> Self {
         Self::new(
             range,
-            true,
+            FlowBarrier::BlockFlow,
             ScopeKind::Method(ScopeMethod::new(name, is_async)),
         )
     }
 
     fn module(range: TextRange) -> Self {
-        Self::new(range, false, ScopeKind::Module)
+        Self::new(range, FlowBarrier::AllowFlowChecked, ScopeKind::Module)
     }
 
     fn parameters_mut(&mut self) -> Option<&mut SmallMap<Name, ParameterUsage>> {
@@ -1009,22 +1021,22 @@ fn contains_inclusive(range: TextRange, position: TextSize) -> bool {
 }
 
 impl ScopeTreeNode {
-    /// Return whether we hit a child scope with a flow barrier
+    /// Return any flow barrier we hit in a child scope
     fn visit_available_definitions(
         &self,
         table: &BindingTable,
         position: TextSize,
         visitor: &mut impl FnMut(Idx<Key>),
-    ) -> bool {
+    ) -> FlowBarrier {
         if !contains_inclusive(self.scope.range, position) {
-            return false;
+            return FlowBarrier::AllowFlowChecked;
         }
-        let mut flow_barrier = false;
+        let mut flow_barrier = FlowBarrier::AllowFlowChecked;
         for node in &self.children {
             let hit_barrier = node.visit_available_definitions(table, position, visitor);
-            flow_barrier = flow_barrier || hit_barrier
+            flow_barrier = max(flow_barrier, hit_barrier);
         }
-        if !flow_barrier {
+        if flow_barrier < FlowBarrier::BlockFlow {
             for info in self.scope.flow.info.values() {
                 if let Some(value) = info.value() {
                     visitor(value.idx);
@@ -1036,7 +1048,7 @@ impl ScopeTreeNode {
                 visitor(key);
             }
         }
-        flow_barrier || self.scope.flow_barrier
+        max(flow_barrier, self.scope.flow_barrier)
     }
 
     fn collect_available_definitions(
@@ -1796,7 +1808,7 @@ impl Scopes {
     /// Look up the information needed to create a `Usage` binding for a read of a name
     /// in the current scope stack.
     pub fn look_up_name_for_read(&self, name: Hashed<&Name>) -> NameReadInfo {
-        let mut flow_barrier = false;
+        let mut flow_barrier = FlowBarrier::AllowFlowChecked;
         let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
@@ -1809,12 +1821,12 @@ impl Scopes {
             if is_class
                 && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
             {
-                // Note: class body scopes have `flow_barrier = false`, so skipping the flow_barrier update is okay.
+                // Note: class body scopes have `flow_barrier = AllowFlowChecked`, so skipping the flow_barrier update is okay.
                 continue;
             }
 
             if let Some(flow_info) = scope.flow.get_info_hashed(name)
-                && !flow_barrier
+                && flow_barrier < FlowBarrier::BlockFlow
             {
                 let initialized = flow_info.initialized();
                 // Because class body scopes are dynamic, if we know that the the name is
@@ -1840,7 +1852,7 @@ impl Scopes {
                     // exception because they are synthesized scope entries that don't exist at all
                     // in the runtime; we treat them as always initialized to avoid false positives
                     // for uninitialized local checks in class bodies.
-                    initialized: if flow_barrier
+                    initialized: if flow_barrier == FlowBarrier::BlockFlow
                         || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
                     {
                         InitializedInFlow::Yes
@@ -1849,7 +1861,7 @@ impl Scopes {
                     },
                 };
             }
-            flow_barrier = flow_barrier || scope.flow_barrier;
+            flow_barrier = max(flow_barrier, scope.flow_barrier);
         }
         NameReadInfo::NotFound
     }
