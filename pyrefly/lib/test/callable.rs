@@ -1070,3 +1070,38 @@ def f(x: object):
     isinstance(x, Callable[..., Any])  # E: Expected class object, got `type[(...) -> Any]`
     "#,
 );
+
+testcase!(
+    test_unbound_name_ok_in_lambda,
+    r#"
+x: int
+f1 = lambda: x
+f2 = lambda: [x for _ in range(10)]
+    "#,
+);
+
+testcase!(
+    test_unknown_name_error_in_lambda,
+    r#"
+f = lambda: x  # E: Could not find name `x`
+    "#,
+);
+
+testcase!(
+    test_unbound_module_name_ok_in_def,
+    r#"
+from typing import assert_type
+x: int
+def f():
+    assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_unbound_local_name_error_in_def,
+    r#"
+def f():
+    x: int
+    print(x)  # E: `x` is uninitialized
+    "#,
+);

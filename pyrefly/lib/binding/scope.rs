@@ -892,6 +892,8 @@ pub struct Fork {
 enum FlowBarrier {
     /// Allow flow information from containing scopes, and check for name initialization errors.
     AllowFlowChecked,
+    /// Allow flow information from containing scopes, and skip checks for name initialization errors.
+    AllowFlowUnchecked,
     BlockFlow,
 }
 
@@ -973,7 +975,7 @@ impl Scope {
     pub fn lambda(range: TextRange, is_async: bool) -> Self {
         Self::new(
             range,
-            FlowBarrier::AllowFlowChecked,
+            FlowBarrier::AllowFlowUnchecked,
             ScopeKind::Function(ScopeFunction::new(is_async)),
         )
     }
@@ -1828,7 +1830,12 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.get_info_hashed(name)
                 && flow_barrier < FlowBarrier::BlockFlow
             {
-                let initialized = flow_info.initialized();
+                let initialized = if flow_barrier == FlowBarrier::AllowFlowUnchecked {
+                    // Just assume the name is initialized without checking.
+                    InitializedInFlow::Yes
+                } else {
+                    flow_info.initialized()
+                };
                 // Because class body scopes are dynamic, if we know that the the name is
                 // definitely not initialized in the flow, we should skip it.
                 if is_class && matches!(initialized, InitializedInFlow::No) {
