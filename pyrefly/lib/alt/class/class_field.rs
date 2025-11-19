@@ -3010,9 +3010,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn get_typed_dict_dunder_init(&self, td: &TypedDict) -> Type {
-        // We think we know `__init__` exists because we synthesize it.
+        // We synthesize `__init__`, so the lookup will never entirely fail.
+        //
+        // But if the user defined an `__init__` directly on the typed dict - which is always
+        // a type error in the user code but can still occur - then it's possible the lookup
+        // will fail because we find a class field but cannot resolve it to a special method type.
+        //
+        // TODO(stroxler): We probably should rethink this, for many reasons:
+        // - There's no such thing as `__init__`, typed dicts use `dict.__new__` so we're
+        //   modeling the runtime poorly
+        // - There's no reason to use `get_dunder_init_helper` here if we know
+        //   it's a synthesized field - too many layers of things that can go wrong.
+        // - Even if the user overrides `__new__` in a typed dict (e.g. with a field named
+        //   `__new__`), under at least some circumstances constructor calls *still* work
+        //   because `__new__` is likely only part of `__annotations__`
         self.get_dunder_init_helper(&Instance::of_typed_dict(td), true)
-            .unwrap()
+            .unwrap_or(Type::any_error())
     }
 
     /// Get the metaclass `__call__` method

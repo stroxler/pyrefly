@@ -1953,3 +1953,15 @@ ListNode = TypedDict('ListNode', {
 })
 "#,
 );
+
+testcase!(
+    test_defines_init,
+    r#"
+from typing import TypedDict, Any
+def any() -> Any: ...
+class D(TypedDict):
+    x: int
+    __init__ = any()  # E: may not be initialized
+D(x=5)
+"#,
+);
