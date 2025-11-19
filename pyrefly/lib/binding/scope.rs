@@ -903,7 +903,7 @@ pub struct Scope {
     ///
     /// Set when we enter a scope like a function body with deferred evaluation, where the
     /// values we might see from containing scopes may not match their current values.
-    barrier: bool,
+    flow_barrier: bool,
     /// What kind of scope is this? Used for a few purposes, including propagating
     /// information down from scopes (e.g. to figure out when we're in a class) and
     /// storing data from the current AST traversal for later analysis, especially
@@ -919,12 +919,12 @@ pub struct Scope {
 }
 
 impl Scope {
-    fn new(range: TextRange, barrier: bool, kind: ScopeKind) -> Self {
+    fn new(range: TextRange, flow_barrier: bool, kind: ScopeKind) -> Self {
         Self {
             range,
             stat: Default::default(),
             flow: Default::default(),
-            barrier,
+            flow_barrier,
             kind,
             loops: Default::default(),
             forks: Default::default(),
@@ -1009,7 +1009,7 @@ fn contains_inclusive(range: TextRange, position: TextSize) -> bool {
 }
 
 impl ScopeTreeNode {
-    /// Return whether we hit a child scope with a barrier
+    /// Return whether we hit a child scope with a flow barrier
     fn visit_available_definitions(
         &self,
         table: &BindingTable,
@@ -1019,12 +1019,12 @@ impl ScopeTreeNode {
         if !contains_inclusive(self.scope.range, position) {
             return false;
         }
-        let mut barrier = false;
+        let mut flow_barrier = false;
         for node in &self.children {
             let hit_barrier = node.visit_available_definitions(table, position, visitor);
-            barrier = barrier || hit_barrier
+            flow_barrier = flow_barrier || hit_barrier
         }
-        if !barrier {
+        if !flow_barrier {
             for info in self.scope.flow.info.values() {
                 if let Some(value) = info.value() {
                     visitor(value.idx);
@@ -1036,7 +1036,7 @@ impl ScopeTreeNode {
                 visitor(key);
             }
         }
-        barrier || self.scope.barrier
+        flow_barrier || self.scope.flow_barrier
     }
 
     fn collect_available_definitions(
@@ -1796,7 +1796,7 @@ impl Scopes {
     /// Look up the information needed to create a `Usage` binding for a read of a name
     /// in the current scope stack.
     pub fn look_up_name_for_read(&self, name: Hashed<&Name>) -> NameReadInfo {
-        let mut barrier = false;
+        let mut flow_barrier = false;
         let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
@@ -1809,12 +1809,12 @@ impl Scopes {
             if is_class
                 && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
             {
-                // Note: class body scopes have `barrier = false`, so skipping the barrier update is okay.
+                // Note: class body scopes have `flow_barrier = false`, so skipping the flow_barrier update is okay.
                 continue;
             }
 
             if let Some(flow_info) = scope.flow.get_info_hashed(name)
-                && !barrier
+                && !flow_barrier
             {
                 let initialized = flow_info.initialized();
                 // Because class body scopes are dynamic, if we know that the the name is
@@ -1840,7 +1840,7 @@ impl Scopes {
                     // exception because they are synthesized scope entries that don't exist at all
                     // in the runtime; we treat them as always initialized to avoid false positives
                     // for uninitialized local checks in class bodies.
-                    initialized: if barrier
+                    initialized: if flow_barrier
                         || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
                     {
                         InitializedInFlow::Yes
@@ -1849,7 +1849,7 @@ impl Scopes {
                     },
                 };
             }
-            barrier = barrier || scope.barrier;
+            flow_barrier = flow_barrier || scope.flow_barrier;
         }
         NameReadInfo::NotFound
     }
