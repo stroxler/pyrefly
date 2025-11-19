@@ -139,6 +139,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         CallTarget::Any(AnyStyle::Error)
     }
 
+    /// We only raise here for calls where we know the callee is the
+    /// abstract definition itself. That includes:
+    ///   * direct calls on the defining class object (e.g. Base.build())
+    ///   * super() lookups that surface the abstract method
+    ///
+    /// We skip calls via variables of type[Base] for non-final concrete classes,
+    /// because those values might point at a concrete subclass.
+    fn should_error_for_abstract_call(&self, call_target: &CallTarget) -> bool {
+        match call_target {
+            CallTarget::BoundMethod(obj, _) | CallTarget::BoundMethodOverload(obj, ..) => match obj
+            {
+                Type::ClassDef(_) | Type::SuperInstance(_) => true,
+                Type::ClassType(cls) | Type::SelfType(cls) => {
+                    let metadata = self.get_metadata_for_class(cls.class_object());
+                    metadata.is_final() && !metadata.is_protocol()
+                }
+                Type::Type(inner) => match &**inner {
+                    Type::ClassType(cls) | Type::SelfType(cls) => {
+                        let metadata = self.get_metadata_for_class(cls.class_object());
+                        metadata.is_final() && !metadata.is_protocol()
+                    }
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
     pub fn as_call_target(&self, ty: Type) -> CallTargetLookup {
         self.as_call_target_impl(ty, None, /* dunder_call */ false)
     }
@@ -693,6 +722,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ctor_targs: Option<&mut TArgs>,
     ) -> Type {
         let metadata = call_target.function_metadata();
+        if let Some(meta) = metadata
+            && meta.flags.is_abstract_method
+            && self.should_error_for_abstract_call(&call_target)
+        {
+            let method_name = meta.kind.format(self.module().name());
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(ErrorKind::AbstractMethodCall, context),
+                format!("Cannot call abstract method `{method_name}`"),
+            );
+        }
         // Does this call target correspond to a function whose keyword arguments we should save?
         let kw_metadata = {
             if let Some(m) = metadata
