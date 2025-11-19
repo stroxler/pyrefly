@@ -397,7 +397,8 @@ pub fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                     }
                     Err(e) => {
                         error!("Error handling shutdown: {:?}", e);
-                        return;
+                        // still exit in the case of error
+                        break;
                     }
                 }
                 if lsp_queue.send(LspEvent::LspRequest(x)).is_err() {

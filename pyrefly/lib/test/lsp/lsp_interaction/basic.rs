@@ -99,6 +99,59 @@ fn test_shutdown() {
 }
 
 #[test]
+fn test_shutdown_with_messages_in_between() {
+    // This is a regression test for https://github.com/facebook/pyrefly/issues/1016
+    // nvim sometimes sends messages in between shutdown and exit. The server should
+    // handle this gracefully and not hang.
+    // Per LSP spec, requests after shutdown should be rejected with InvalidRequest.
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    interaction.initialize(InitializeSettings::default());
+
+    let test_file = root.path().join("basic.py");
+    let uri = Url::from_file_path(&test_file).unwrap();
+
+    // Open a file
+    interaction
+        .server
+        .send_notification::<DidOpenTextDocument>(json!({
+            "textDocument": {
+                "uri": uri.to_string(),
+                "languageId": "python",
+                "version": 1,
+                "text": "def foo():\n    pass\n",
+            }
+        }));
+
+    // Expect initial diagnostics
+    interaction.client.expect_any_message();
+
+    // Send shutdown request
+    interaction.server.send_shutdown(RequestId::from(2));
+
+    // Expect shutdown response
+    interaction
+        .client
+        .expect_response::<Shutdown>(RequestId::from(2), json!(null));
+
+    // After shutdown, send a request (simulating what might happen with :wq)
+    // Per LSP spec, this should be rejected with InvalidRequest
+    interaction
+        .server
+        .send_request::<DocumentDiagnosticRequest>(
+            RequestId::from(3),
+            json!({
+                "textDocument": {
+                    "uri": uri.to_string()
+                },
+            }),
+        );
+
+    interaction.server.expect_stop();
+}
+
+#[test]
 fn test_exit_without_shutdown() {
     let mut interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
