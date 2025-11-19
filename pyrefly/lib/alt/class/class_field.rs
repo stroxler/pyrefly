@@ -1452,7 +1452,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // TODO(stroxler): Clean this up more - this is the result of an incomplete
         // refactor simplifying logic extracted from `calculate_class_field`.
-        let value_ty = Type::any_implicit();
         let is_inherited = IsInherited::Maybe;
         let initialization = ClassFieldInitialization::Uninitialized;
 
@@ -1534,16 +1533,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
 
         // Types provided in annotations shadow inferred types
+        //
+        // TODO(stroxler): Should this be an error? An qualifier-only annotation on a typed dict field
+        // is an implicit Any; I think in most cases it's probably illegal anyway so there's already
+        // a type error, but we probably should check.
         let ty = match &annotation.ty {
             Some(ty) => ty.clone(),
-            None => value_ty,
+            None => Type::any_implicit(),
         };
 
         // Pin any vars in the type: leaking a var in a class field is particularly
         // likely to lead to data races where downstream uses can pin inconsistently.
-        //
-        // TODO(stroxler): Ideally we would implement some simple heuristics, similar to
-        // first-use based inference we use with assignments, to get more useful types here.
         let ty = self.solver().deep_force(ty);
 
         ClassField::new(
