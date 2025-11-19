@@ -286,7 +286,7 @@ enum ClassFieldInner {
 /// checks. This information is not needed to understand the class field, it is
 /// only used for efficiency.
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
-pub(in crate::alt::class) enum IsInherited {
+pub enum IsInherited {
     No,
     Maybe,
 }
@@ -302,7 +302,7 @@ impl Display for ClassField {
 }
 
 impl ClassField {
-    pub(in crate::alt::class) fn new(
+    fn new(
         ty: Type,
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
@@ -325,6 +325,38 @@ impl ClassField {
                 is_foreign_key,
             },
             is_inherited,
+        )
+    }
+
+    pub fn invalid_typed_dict_field() -> Self {
+        ClassField::new(
+            Type::any_error(),
+            None,
+            ClassFieldInitialization::Magic,
+            None,
+            None,
+            false,
+            false,
+            false,
+            IsInherited::Maybe,
+        )
+    }
+
+    pub fn typed_dict_field(
+        ty: Type,
+        annotation: Annotation,
+        read_only_reason: Option<ReadOnlyReason>,
+    ) -> Self {
+        Self::new(
+            ty,
+            Some(annotation),
+            ClassFieldInitialization::Uninitialized,
+            read_only_reason,
+            None,
+            false,
+            false,
+            false,
+            IsInherited::Maybe,
         )
     }
 

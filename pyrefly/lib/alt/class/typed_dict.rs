@@ -25,8 +25,6 @@ use vec1::vec1;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
-use crate::alt::class::class_field::ClassFieldInitialization;
-use crate::alt::class::class_field::IsInherited;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -844,25 +842,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let annotation = match annotation {
             None => {
-                return ClassField::new(
-                    Type::any_error(),
-                    None,
-                    ClassFieldInitialization::Magic,
-                    None,
-                    None,
-                    false,
-                    false,
-                    false,
-                    IsInherited::Maybe,
-                );
+                return ClassField::invalid_typed_dict_field();
             }
             Some(idx) => self.get_idx(*idx).annotation.clone(),
         };
-
-        // TODO(stroxler): Clean this up more - this is the result of an incomplete
-        // refactor simplifying logic extracted from `calculate_class_field`.
-        let is_inherited = IsInherited::Maybe;
-        let initialization = ClassFieldInitialization::Uninitialized;
 
         for q in &[Qualifier::Final, Qualifier::ClassVar] {
             if annotation.has_qualifier(q) {
@@ -955,17 +938,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // likely to lead to data races where downstream uses can pin inconsistently.
         let ty = self.solver().deep_force(ty);
 
-        ClassField::new(
-            ty,
-            Some(annotation),
-            initialization,
-            read_only_reason,
-            None,
-            false,
-            false,
-            false,
-            is_inherited,
-        )
+        ClassField::typed_dict_field(ty, annotation, read_only_reason)
     }
 }
 
