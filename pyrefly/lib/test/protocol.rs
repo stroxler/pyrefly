@@ -629,3 +629,20 @@ class C:
 x: P = C() # OK
     "#,
 );
+
+testcase!(
+    test_assign_to_type_protocol,
+    r#"
+from typing import Protocol
+
+class CanFly(Protocol):
+    def fly(self) -> None: ...
+
+class A:
+    def __init__(self, wingspan: float) -> None: ...
+    def fly(self) -> None: ...
+
+cls1: type[CanFly] = CanFly # E: `type[CanFly]` is not assignable to `type[CanFly]`
+cls2: type[CanFly] = A      # OK
+    "#,
+);

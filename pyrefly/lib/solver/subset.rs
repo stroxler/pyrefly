@@ -1158,6 +1158,15 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
             {
                 Err(SubsetError::Other)
             }
+            (Type::ClassDef(got), Type::Type(box Type::ClassType(want)))
+                if self.type_order.is_protocol(want.class_object())
+                    && self.type_order.is_protocol(got) =>
+            {
+                // We only allow concrete class names to be assigned to `type[T]` if `T` is a protocol
+                Err(SubsetError::TypeOfProtocolNeedsConcreteClass(
+                    want.name().clone(),
+                ))
+            }
             (Type::ClassDef(got), Type::Type(want)) => {
                 self.is_subset_eq(&self.type_order.promote_silently(got), want)
             }
