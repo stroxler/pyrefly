@@ -30,6 +30,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
@@ -77,6 +78,8 @@ pub enum OriginKind {
     GeneratorNext,
     WithEnter,
     ForDecoratedTarget,
+    SubscriptGetItem,
+    SubscriptSetItem,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -88,6 +91,8 @@ impl std::fmt::Display for OriginKind {
             Self::GeneratorNext => write!(f, "generator-next"),
             Self::WithEnter => write!(f, "with-enter"),
             Self::ForDecoratedTarget => write!(f, "for-decorated-target"),
+            Self::SubscriptGetItem => write!(f, "subscript-get-item"),
+            Self::SubscriptSetItem => write!(f, "subscript-set-item"),
         }
     }
 }
@@ -2304,6 +2309,66 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_and_register_subscript(
+        &mut self,
+        subscript: &ExprSubscript,
+        assignment_targets: Option<&Vec<&Expr>>,
+    ) {
+        let subscript_range = subscript.range();
+        let is_assignment_target = assignment_targets.is_some_and(|assignment_targets| {
+            assignment_targets
+                .iter()
+                .any(|assignment_target| assignment_target.range() == subscript_range)
+        });
+        let (callee_name, origin_kind) = if is_assignment_target {
+            (dunder::SETITEM, OriginKind::SubscriptSetItem)
+        } else {
+            (dunder::GETITEM, OriginKind::SubscriptGetItem)
+        };
+        let value_range = subscript.value.range();
+        let callees = self
+            .module_context
+            .answers
+            .get_type_trace(value_range)
+            .and_then(|value_type| {
+                self.pyrefly_target_from_magic_dunder_attr(
+                    &value_type,
+                    &callee_name,
+                    value_range,
+                    "resolve_expression_for_subscript",
+                )
+            })
+            .map(
+                |ResolvedDunderAttr {
+                     target,
+                     attr_type: callee_type,
+                 }| {
+                    let return_type = self
+                        .module_context
+                        .answers
+                        .get_type_trace(subscript_range)
+                        .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+                    self.resolve_pyrefly_target(
+                        Some(target),
+                        /* callee_expr */ None,
+                        Some(&callee_type),
+                        /* return_type */ return_type,
+                        /* callee_expr_suffix */
+                        Some(&callee_name),
+                        /* unknown_callee_as_direct_call */ true,
+                    )
+                },
+            )
+            .unwrap_or(CallCallees::new_unresolved(
+                UnresolvedReason::UnresolvedMagicDunderAttr,
+            ));
+        let identifier = ExpressionIdentifier::ArtificialCall(Origin {
+            kind: origin_kind,
+            location: self.pysa_location(subscript_range),
+        });
+        self.add_callees(identifier, ExpressionCallees::Call(callees))
+    }
+
     fn resolve_and_register_expression(
         &mut self,
         expr: &Expr,
@@ -2387,6 +2452,10 @@ impl<'a> CallGraphVisitor<'a> {
             Expr::DictComp(comp) => {
                 debug_println!(self.debug, "Resolving callees for dict comp `{:#?}`", expr);
                 self.resolve_and_register_comprehension(&comp.key, &comp.generators);
+            }
+            Expr::Subscript(subscript) => {
+                debug_println!(self.debug, "Resolving callees for subscript `{:#?}`", expr);
+                self.resolve_and_register_subscript(subscript, assignment_targets);
             }
             _ => {
                 debug_println!(self.debug, "Nothing to resolve in expression `{:#?}`", expr);

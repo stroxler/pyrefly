@@ -2870,3 +2870,112 @@ async def foo():
         )]
     }
 );
+
+call_graph_testcase!(
+    test_dict_subscript_getitem,
+    TEST_MODULE_NAME,
+    r#"
+class C:
+  @classmethod
+  def foo(cls):
+    pass
+d = {
+  "a": C,
+  "b": C,
+}
+def calls_d_method(s: str):
+  d[s].foo()
+"#,
+    &|context: &ModuleContext| {
+        let call_target = vec![
+            create_call_target("test.C.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
+                .with_receiver_class_for_test("test.C", context)
+                .with_is_class_method(true),
+        ];
+        let dict_getitem_target = vec![
+            create_call_target("builtins.dict.__getitem__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.dict", context),
+        ];
+        vec![(
+            "test.calls_d_method",
+            vec![
+                ("11:3-11:13", regular_call_callees(call_target)),
+                (
+                    "11:3-11:7|artificial-call|subscript-get-item",
+                    regular_call_callees(dict_getitem_target),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_dict_subscript_setitem,
+    TEST_MODULE_NAME,
+    r#"
+import typing
+def foo() -> typing.Dict[str, int]:
+  return {"a": 0}
+def bar():
+  return 1
+def baz():
+  return "b"
+def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
+  foo()["a"] = bar()
+  d[baz()] = bar()
+  e["a"]["b"] = 0
+"#,
+    &|context: &ModuleContext| {
+        let foo_target = vec![
+            create_call_target("test.foo", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::none())),
+        ];
+        let bar_target = vec![
+            create_call_target("test.bar", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        let baz_target = vec![
+            create_call_target("test.baz", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::none())),
+        ];
+        let dict_setitem_target = vec![
+            create_call_target("builtins.dict.__setitem__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.dict", context)
+                .with_return_type(None),
+        ];
+        let dict_getitem_target = vec![
+            create_call_target("builtins.dict.__getitem__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.dict", context)
+                .with_return_type(Some(ScalarTypeProperties::none())),
+        ];
+        vec![(
+            "test.fun",
+            vec![
+                ("10:3-10:8", regular_call_callees(foo_target)),
+                (
+                    "10:3-10:13|artificial-call|subscript-set-item",
+                    regular_call_callees(dict_setitem_target.clone()),
+                ),
+                ("10:16-10:21", regular_call_callees(bar_target.clone())),
+                ("11:5-11:10", regular_call_callees(baz_target)),
+                (
+                    "11:3-11:11|artificial-call|subscript-set-item",
+                    regular_call_callees(dict_setitem_target.clone()),
+                ),
+                ("11:14-11:19", regular_call_callees(bar_target)),
+                (
+                    "12:3-12:9|artificial-call|subscript-get-item",
+                    regular_call_callees(dict_getitem_target),
+                ),
+                (
+                    "12:3-12:14|artificial-call|subscript-set-item",
+                    regular_call_callees(dict_setitem_target),
+                ),
+            ],
+        )]
+    }
+);
