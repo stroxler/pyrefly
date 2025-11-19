@@ -237,8 +237,7 @@
     "Line 104: Expected 1 errors",
     "Line 106: Expected 1 errors",
     "Line 107: Expected 1 errors",
-    "Line 108: Expected 1 errors",
-    "Line 26: Unexpected errors ['Cannot instantiate `Proto` because it is a protocol']"
+    "Line 108: Expected 1 errors"
   ],
   "protocols_definition.py": [
     "Line 116: Expected 1 errors",

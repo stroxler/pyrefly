@@ -8546,17 +8546,6 @@
   "protocols_class_objects.py": [
     {
       "code": -2,
-      "column": 15,
-      "concise_description": "Cannot instantiate `Proto` because it is a protocol",
-      "description": "Cannot instantiate `Proto` because it is a protocol",
-      "line": 26,
-      "name": "bad-instantiation",
-      "severity": "error",
-      "stop_column": 17,
-      "stop_line": 26
-    },
-    {
-      "code": -2,
       "column": 5,
       "concise_description": "Argument `type[Proto]` is not assignable to parameter `cls` with type `type[Proto]` in function `fun`",
       "description": "Argument `type[Proto]` is not assignable to parameter `cls` with type `type[Proto]` in function `fun`\n  Only concrete classes may be assigned to `type[Proto]` because `Proto` is a protocol",

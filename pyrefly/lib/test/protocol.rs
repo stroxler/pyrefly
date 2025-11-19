@@ -304,6 +304,11 @@ from typing import Protocol
 class A(Protocol):
     pass
 a: A = A()  # E: Cannot instantiate `A` because it is a protocol
+
+class B(A):
+    pass
+type_a: type[A] = B
+a = type_a()  # This is OK because it's not a bare class name
     "#,
 );
 
