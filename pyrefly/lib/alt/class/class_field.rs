@@ -1533,15 +1533,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             None
         };
 
-        // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
-        // TODO(stroxler): Values are not legal in typed dicts anyway, this can all go away when we simplify.
-        let value_ty =
-            if read_only_reason.is_none() && annotation.ty.is_none() && value_ty.is_literal() {
-                value_ty.promote_literals(self.stdlib)
-            } else {
-                value_ty
-            };
-
         // Types provided in annotations shadow inferred types
         let ty = match &annotation.ty {
             Some(ty) => ty.clone(),
