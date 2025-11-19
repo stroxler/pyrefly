@@ -2313,6 +2313,7 @@ impl<'a> CallGraphVisitor<'a> {
         &mut self,
         subscript: &ExprSubscript,
         assignment_targets: Option<&Vec<&Expr>>,
+        assignment_statement_location: Option<TextRange>,
     ) {
         let subscript_range = subscript.range();
         let is_assignment_target = assignment_targets.is_some_and(|assignment_targets| {
@@ -2320,10 +2321,18 @@ impl<'a> CallGraphVisitor<'a> {
                 .iter()
                 .any(|assignment_target| assignment_target.range() == subscript_range)
         });
-        let (callee_name, origin_kind) = if is_assignment_target {
-            (dunder::SETITEM, OriginKind::SubscriptSetItem)
+        let (callee_name, origin_kind, callee_location) = if is_assignment_target {
+            (
+                dunder::SETITEM,
+                OriginKind::SubscriptSetItem,
+                assignment_statement_location.unwrap(),
+            )
         } else {
-            (dunder::GETITEM, OriginKind::SubscriptGetItem)
+            (
+                dunder::GETITEM,
+                OriginKind::SubscriptGetItem,
+                subscript_range,
+            )
         };
         let value_range = subscript.value.range();
         let callees = self
@@ -2364,7 +2373,7 @@ impl<'a> CallGraphVisitor<'a> {
             ));
         let identifier = ExpressionIdentifier::ArtificialCall(Origin {
             kind: origin_kind,
-            location: self.pysa_location(subscript_range),
+            location: self.pysa_location(callee_location),
         });
         self.add_callees(identifier, ExpressionCallees::Call(callees))
     }
@@ -2374,6 +2383,7 @@ impl<'a> CallGraphVisitor<'a> {
         expr: &Expr,
         parent_expression: Option<&Expr>,
         assignment_targets: Option<&Vec<&Expr>>,
+        assignment_statement_location: Option<TextRange>,
     ) {
         let is_nested_callee_or_base =
             parent_expression.is_some_and(|parent_expression| match parent_expression {
@@ -2455,7 +2465,11 @@ impl<'a> CallGraphVisitor<'a> {
             }
             Expr::Subscript(subscript) => {
                 debug_println!(self.debug, "Resolving callees for subscript `{:#?}`", expr);
-                self.resolve_and_register_subscript(subscript, assignment_targets);
+                self.resolve_and_register_subscript(
+                    subscript,
+                    assignment_targets,
+                    assignment_statement_location,
+                );
             }
             _ => {
                 debug_println!(self.debug, "Nothing to resolve in expression `{:#?}`", expr);
@@ -2718,11 +2732,17 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         _: &Scopes,
         parent_expression: Option<&Expr>,
         assignment_targets: Option<&Vec<&Expr>>,
+        assignment_statement_location: Option<TextRange>,
     ) {
         if self.current_function.is_none() {
             return;
         }
-        self.resolve_and_register_expression(expr, parent_expression, assignment_targets);
+        self.resolve_and_register_expression(
+            expr,
+            parent_expression,
+            assignment_targets,
+            assignment_statement_location,
+        );
     }
 
     fn visit_statement(&mut self, stmt: &Stmt, _scopes: &Scopes) {
@@ -2797,6 +2817,7 @@ fn resolve_expression(
         expression,
         parent_expression,
         /* assignment_targets */ None,
+        /* assignment_statement_location */ None,
     );
     let expression_identifier =
         ExpressionIdentifier::regular(expression.range(), &module_context.module_info);

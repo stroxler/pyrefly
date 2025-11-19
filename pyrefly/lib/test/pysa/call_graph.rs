@@ -2957,13 +2957,13 @@ def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
             vec![
                 ("10:3-10:8", regular_call_callees(foo_target)),
                 (
-                    "10:3-10:13|artificial-call|subscript-set-item",
+                    "10:3-10:21|artificial-call|subscript-set-item",
                     regular_call_callees(dict_setitem_target.clone()),
                 ),
                 ("10:16-10:21", regular_call_callees(bar_target.clone())),
                 ("11:5-11:10", regular_call_callees(baz_target)),
                 (
-                    "11:3-11:11|artificial-call|subscript-set-item",
+                    "11:3-11:19|artificial-call|subscript-set-item",
                     regular_call_callees(dict_setitem_target.clone()),
                 ),
                 ("11:14-11:19", regular_call_callees(bar_target)),
@@ -2972,7 +2972,7 @@ def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
                     regular_call_callees(dict_getitem_target),
                 ),
                 (
-                    "12:3-12:14|artificial-call|subscript-set-item",
+                    "12:3-12:18|artificial-call|subscript-set-item",
                     regular_call_callees(dict_setitem_target),
                 ),
             ],
