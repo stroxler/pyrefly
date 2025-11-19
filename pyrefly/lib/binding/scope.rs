@@ -59,7 +59,7 @@ use crate::binding::binding::NarrowUseLocation;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::CurrentIdx;
-use crate::binding::bindings::UninitializedInFlow;
+use crate::binding::bindings::InitializedInFlow;
 use crate::binding::expr::Usage;
 use crate::binding::function::SelfAssignments;
 use crate::binding::narrow::NarrowOps;
@@ -87,7 +87,7 @@ pub enum NameReadInfo {
     /// flow such that I am not defined in at least one branch.
     Flow {
         idx: Idx<Key>,
-        uninitialized: UninitializedInFlow,
+        initialized: InitializedInFlow,
     },
     /// The name is an anywhere-style lookup. If it came from a non-barrier scope
     /// relative to the current one, this means it is uninitialized; otherwise we
@@ -95,7 +95,7 @@ pub enum NameReadInfo {
     /// below it) and treat the read as initialized.
     Anywhere {
         key: Key,
-        uninitialized: UninitializedInFlow,
+        initialized: InitializedInFlow,
     },
     /// No such name is defined in the current scope stack.
     NotFound,
@@ -546,15 +546,15 @@ impl FlowInfo {
         self.value.as_mut()
     }
 
-    fn uninitialized(&self) -> UninitializedInFlow {
+    fn initialized(&self) -> InitializedInFlow {
         self.value()
-            .map_or(UninitializedInFlow::No, |v| match v.style {
+            .map_or(InitializedInFlow::Yes, |v| match v.style {
                 FlowStyle::Uninitialized
                 | FlowStyle::ClassField {
                     initial_value: None,
-                } => UninitializedInFlow::Yes,
-                FlowStyle::PossiblyUninitialized => UninitializedInFlow::Conditionally,
-                _ => UninitializedInFlow::No,
+                } => InitializedInFlow::No,
+                FlowStyle::PossiblyUninitialized => InitializedInFlow::Conditionally,
+                _ => InitializedInFlow::Yes,
             })
     }
 }
@@ -1816,15 +1816,15 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.get_info_hashed(name)
                 && !barrier
             {
-                let uninitialized = flow_info.uninitialized();
+                let initialized = flow_info.initialized();
                 // Because class body scopes are dynamic, if we know that the the name is
                 // definitely not initialized in the flow, we should skip it.
-                if is_class && matches!(uninitialized, UninitializedInFlow::Yes) {
+                if is_class && matches!(initialized, InitializedInFlow::No) {
                     continue;
                 }
                 return NameReadInfo::Flow {
                     idx: flow_info.idx(),
-                    uninitialized,
+                    initialized,
                 };
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
@@ -1840,12 +1840,12 @@ impl Scopes {
                     // exception because they are synthesized scope entries that don't exist at all
                     // in the runtime; we treat them as always initialized to avoid false positives
                     // for uninitialized local checks in class bodies.
-                    uninitialized: if barrier
+                    initialized: if barrier
                         || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
                     {
-                        UninitializedInFlow::No
+                        InitializedInFlow::Yes
                     } else {
-                        UninitializedInFlow::Yes
+                        InitializedInFlow::No
                     },
                 };
             }

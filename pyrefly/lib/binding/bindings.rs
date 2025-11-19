@@ -105,7 +105,7 @@ pub enum NameLookupResult {
     ///   if I am used after a `del` or is an anywhere-style lookup)
     Found {
         idx: Idx<Key>,
-        uninitialized: UninitializedInFlow,
+        initialized: InitializedInFlow,
     },
     /// This name is not defined in the current scope stack.
     NotFound,
@@ -121,18 +121,18 @@ impl NameLookupResult {
 }
 
 #[derive(Debug)]
-pub enum UninitializedInFlow {
-    No,
-    Conditionally,
+pub enum InitializedInFlow {
     Yes,
+    Conditionally,
+    No,
 }
 
-impl UninitializedInFlow {
+impl InitializedInFlow {
     pub fn as_error_message(&self, name: &Name) -> Option<String> {
         match self {
-            UninitializedInFlow::No => None,
-            UninitializedInFlow::Conditionally => Some(format!("`{name}` may be uninitialized")),
-            UninitializedInFlow::Yes => Some(format!("`{name}` is uninitialized")),
+            InitializedInFlow::Yes => None,
+            InitializedInFlow::Conditionally => Some(format!("`{name}` may be uninitialized")),
+            InitializedInFlow::No => Some(format!("`{name}` is uninitialized")),
         }
     }
 }
@@ -793,7 +793,7 @@ impl<'a> BindingsBuilder<'a> {
         match self.scopes.look_up_name_for_read(name) {
             NameReadInfo::Flow {
                 idx,
-                uninitialized: is_initialized,
+                initialized: is_initialized,
             } => {
                 let (idx, first_use) = self.detect_first_use(idx, usage);
                 if let Some(used_idx) = first_use {
@@ -802,17 +802,17 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.mark_parameter_used(name.key());
                 NameLookupResult::Found {
                     idx,
-                    uninitialized: is_initialized,
+                    initialized: is_initialized,
                 }
             }
             NameReadInfo::Anywhere {
                 key,
-                uninitialized: is_initialized,
+                initialized: is_initialized,
             } => {
                 self.scopes.mark_parameter_used(name.key());
                 NameLookupResult::Found {
                     idx: self.table.types.0.insert(key),
-                    uninitialized: is_initialized,
+                    initialized: is_initialized,
                 }
             }
             NameReadInfo::NotFound => NameLookupResult::NotFound,
@@ -1172,7 +1172,7 @@ impl TParamLookupResult {
         self.idx()
             .map_or(NameLookupResult::NotFound, |idx| NameLookupResult::Found {
                 idx,
-                uninitialized: UninitializedInFlow::No,
+                initialized: InitializedInFlow::Yes,
             })
     }
 }
