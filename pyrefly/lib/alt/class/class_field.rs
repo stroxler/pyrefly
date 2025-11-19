@@ -3009,8 +3009,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_dunder_init_helper(&Instance::of_class(cls), get_object_init)
     }
 
-    pub fn get_typed_dict_dunder_init(&self, td: &TypedDict) -> Option<Type> {
+    pub fn get_typed_dict_dunder_init(&self, td: &TypedDict) -> Type {
+        // We think we know `__init__` exists because we synthesize it.
         self.get_dunder_init_helper(&Instance::of_typed_dict(td), true)
+            .unwrap()
     }
 
     /// Get the metaclass `__call__` method
