@@ -164,9 +164,9 @@ impl Serialize for ExpressionIdentifier {
 }
 
 #[derive(Debug)]
-struct ResolvedDunderAttr {
-    target: CallTargetLookup,
-    attr_type: Type,
+struct DunderAttrCallees {
+    callees: CallCallees<FunctionRef>,
+    attr_type: Option<Type>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy, Hash, PartialOrd, Ord)]
@@ -330,7 +330,9 @@ pub enum UnresolvedReason {
     // Pyrefly failed to resolved a magic dunder attribute.
     UnresolvedMagicDunderAttr,
     // No base type when trying to resolve a magic dunder attribute on this type.
-    UnresolvedBaseTypeUnresolvedMagicDunderAttr,
+    UnresolvedMagicDunderAttrDueToNoBase,
+    // No attribute when trying to resolve a magic dunder attribute on a type.
+    UnresolvedMagicDunderAttrDueToNoAttribute,
     // Set of different reasons.
     Mixed,
 }
@@ -1113,7 +1115,7 @@ impl DirectCall {
     }
 
     // Whether the call is non-dynamically dispatched
-    fn is_direct_call(callee: Option<AnyNodeRef>, callee_type: Option<&Type>) -> Self {
+    fn is_direct_call(callee: Option<AnyNodeRef>, callee_type: Option<&Type>, debug: bool) -> Self {
         Self::is_super_call(callee).or({
             match callee_type {
                 Some(Type::BoundMethod(box BoundMethod {
@@ -1129,9 +1131,11 @@ impl DirectCall {
                     Self::from_bool(false)
                 }
                 Some(Type::BoundMethod(bound_method)) => {
-                    eprintln!(
+                    debug_println!(
+                        debug,
                         "For callee `{:#?}`, unknown object type in bound method `{:#?}`",
-                        callee, bound_method
+                        callee,
+                        bound_method
                     );
                     // `true` would skip overrides, which may lead to false negatives. But we prefer false positives since
                     // we are blind to false negatives.
@@ -1139,7 +1143,7 @@ impl DirectCall {
                 }
                 Some(Type::Function(_)) => Self::from_bool(true),
                 Some(Type::Union(types)) => {
-                    Self::is_direct_call(callee, Some(types.first().unwrap()))
+                    Self::is_direct_call(callee, Some(types.first().unwrap()), debug)
                 }
                 _ => Self::from_bool(false),
             }
@@ -1358,7 +1362,7 @@ impl<'a> CallGraphVisitor<'a> {
     ) -> Vec1<CallTarget<FunctionRef>> {
         let is_direct_call = match override_is_direct_call {
             Some(override_is_direct_call) => DirectCall::from_bool(override_is_direct_call),
-            None => DirectCall::is_direct_call(callee_expr, callee_type),
+            None => DirectCall::is_direct_call(callee_expr, callee_type, self.debug),
         };
         let is_direct_call = match is_direct_call {
             DirectCall::True => true,
@@ -1875,32 +1879,84 @@ impl<'a> CallGraphVisitor<'a> {
         IdentifierCallees { if_called: callees }
     }
 
-    fn pyrefly_target_from_magic_dunder_attr(
+    fn call_targets_from_magic_dunder_attr(
         &self,
-        base: &Type,
-        attribute_name: &Name,
+        base: Option<&Type>,
+        attribute: Option<&Name>,
         range: TextRange,
-        todo_ctx: &str,
-    ) -> Option<ResolvedDunderAttr> {
-        self.module_context
-            .transaction
-            .ad_hoc_solve(&self.module_context.handle, |solver| {
-                solver
-                    .type_of_magic_dunder_attr(
-                        base,
-                        attribute_name,
-                        range,
-                        &self.error_collector,
-                        None,
-                        todo_ctx,
-                        /* allow_getattr_fallback */ true,
-                    )
-                    .map(|type_| ResolvedDunderAttr {
-                        target: solver.as_call_target(type_.clone()),
-                        attr_type: type_,
-                    })
-            })
-            .flatten()
+        callee_expr: Option<AnyNodeRef>,
+        unknown_callee_as_direct_call: bool,
+        resolve_context: &str,
+    ) -> DunderAttrCallees {
+        if let Some(base) = base
+            && let Some(attribute) = attribute
+        {
+            struct ResolvedDunderAttr {
+                target: CallTargetLookup,
+                attr_type: Type,
+            }
+            self.module_context
+                .transaction
+                .ad_hoc_solve(&self.module_context.handle, |solver| {
+                    solver
+                        .type_of_magic_dunder_attr(
+                            base,
+                            attribute,
+                            range,
+                            &self.error_collector,
+                            None,
+                            resolve_context,
+                            /* allow_getattr_fallback */ true,
+                        )
+                        .map(|type_| ResolvedDunderAttr {
+                            target: solver.as_call_target(type_.clone()),
+                            attr_type: type_,
+                        })
+                })
+                .flatten()
+                .map(
+                    |ResolvedDunderAttr {
+                         target,
+                         attr_type: callee_type,
+                     }| {
+                        let return_type =
+                            if let Some(return_type) = callee_type.callable_return_type() {
+                                ScalarTypeProperties::from_type(&return_type, self.module_context)
+                            } else {
+                                ScalarTypeProperties::none()
+                            };
+                        DunderAttrCallees {
+                            callees: self.resolve_pyrefly_target(
+                                Some(target),
+                                callee_expr,
+                                Some(&callee_type),
+                                Some(return_type),
+                                Some(attribute.as_str()),
+                                unknown_callee_as_direct_call,
+                            ),
+                            attr_type: Some(callee_type),
+                        }
+                    },
+                )
+                .unwrap_or(DunderAttrCallees {
+                    callees: CallCallees::new_unresolved(
+                        UnresolvedReason::UnresolvedMagicDunderAttr,
+                    ),
+                    attr_type: None,
+                })
+        } else {
+            let reason = if base.is_none() {
+                UnresolvedReason::UnresolvedMagicDunderAttrDueToNoBase
+            } else if attribute.is_none() {
+                UnresolvedReason::UnresolvedMagicDunderAttrDueToNoAttribute
+            } else {
+                unreachable!();
+            };
+            DunderAttrCallees {
+                callees: CallCallees::new_unresolved(reason),
+                attr_type: None,
+            }
+        }
     }
 
     // Resolve the attribute access via `__getattr__`
@@ -1909,28 +1965,15 @@ impl<'a> CallGraphVisitor<'a> {
         attribute: &Name,
         receiver_type: Option<&Type>,
         callee_expr: Option<AnyNodeRef>, // This is `base.attribute`
-        callee_type: Option<&Type>,
         callee_range: TextRange,
-        callee_expr_suffix: Option<&str>,
-        return_type: Option<ScalarTypeProperties>,
     ) -> AttributeAccessCallees<FunctionRef> {
-        let pyrefly_target = receiver_type
-            .and_then(|base| {
-                self.pyrefly_target_from_magic_dunder_attr(
-                    base,
-                    attribute,
-                    callee_range,
-                    "resolve_attribute_access",
-                )
-            })
-            .map(|ResolvedDunderAttr { target, .. }| target);
-        let callees = self.resolve_pyrefly_target(
-            pyrefly_target,
+        let DunderAttrCallees { callees, .. } = self.call_targets_from_magic_dunder_attr(
+            /* base */ receiver_type,
+            /* attribute */ Some(attribute),
+            callee_range,
             callee_expr,
-            callee_type,
-            return_type,
-            callee_expr_suffix,
             /* unknown_callee_as_direct_call */ true,
+            "resolve_magic_dunder_attr",
         );
         AttributeAccessCallees {
             if_called: callees,
@@ -1968,10 +2011,7 @@ impl<'a> CallGraphVisitor<'a> {
                 attribute,
                 receiver_type.as_ref(),
                 callee_expr,
-                callee_type,
                 callee_range,
-                callee_expr_suffix,
-                return_type,
             );
         }
 
@@ -2255,37 +2295,14 @@ impl<'a> CallGraphVisitor<'a> {
 
         for (operator, right_comparator) in compare.ops.iter().zip(compare.comparators.iter()) {
             let callee_name = dunder::rich_comparison_dunder(*operator);
-            let callees = callee_name
-                .as_ref()
-                .and_then(|name| {
-                    self.pyrefly_target_from_magic_dunder_attr(
-                        left_comparator_type,
-                        name,
-                        compare.range(),
-                        "resolve_expression_for_exprcompare",
-                    )
-                })
-                .map(
-                    |ResolvedDunderAttr {
-                         target,
-                         attr_type: callee_type,
-                     }| {
-                        self.resolve_pyrefly_target(
-                            Some(target),
-                            /* callee_expr */ None,
-                            Some(&callee_type),
-                            /* return_type */
-                            Some(ScalarTypeProperties::bool()), // Comparison always returns bool
-                            /* callee_expr_suffix */
-                            callee_name.as_ref().map(|name| name.as_str()),
-                            /* unknown_callee_as_direct_call */ true,
-                        )
-                    },
-                )
-                .unwrap_or(CallCallees::new_unresolved(
-                    UnresolvedReason::UnresolvedMagicDunderAttr,
-                ));
-
+            let DunderAttrCallees { callees, .. } = self.call_targets_from_magic_dunder_attr(
+                /* base */ Some(left_comparator_type),
+                /* attribute */ callee_name.as_ref(),
+                compare.range(),
+                /* callee_expr */ None,
+                /* unknown_callee_as_direct_call */ true,
+                "resolve_expression_for_exprcompare",
+            );
             let expression_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::ComparisonOperator,
                 location: self.pysa_location(right_comparator.range()),
@@ -2294,16 +2311,7 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
-    fn resolve_and_register_comprehension(&mut self, element: &Expr, generators: &[Comprehension]) {
-        struct IterCallees {
-            target: CallCallees<FunctionRef>,
-            callee_type: Type,
-        }
-        let element_type = self
-            .module_context
-            .answers
-            .get_type_trace(element.range())
-            .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+    fn resolve_and_register_comprehension(&mut self, generators: &[Comprehension]) {
         for generator in generators.iter() {
             let iter_range = generator.iter.range();
             let (iter_callee_name, next_callee_name) = if generator.is_async {
@@ -2311,82 +2319,41 @@ impl<'a> CallGraphVisitor<'a> {
             } else {
                 (dunder::ITER, dunder::NEXT)
             };
-            let iter_callees = self
-                .module_context
-                .answers
-                .get_type_trace(iter_range)
-                .and_then(|iter_type| {
-                    self.pyrefly_target_from_magic_dunder_attr(
-                        &iter_type,
-                        &iter_callee_name,
-                        iter_range,
-                        "resolve_expression_for_comprehension_iter",
-                    )
-                })
-                .map(
-                    |ResolvedDunderAttr {
-                         target,
-                         attr_type: callee_type,
-                     }| {
-                        IterCallees {
-                            target: self.resolve_pyrefly_target(
-                                Some(target),
-                                /* callee_expr */ None,
-                                Some(&callee_type),
-                                /* return_type */ None,
-                                /* callee_expr_suffix */
-                                Some(&iter_callee_name),
-                                /* unknown_callee_as_direct_call */ true,
-                            ),
-                            callee_type,
-                        }
-                    },
-                );
-            let (iter_callees, iter_callee_type) = match iter_callees {
-                Some(IterCallees {
-                    target,
-                    callee_type,
-                }) => (target, Some(callee_type)),
-                None => (
-                    CallCallees::new_unresolved(UnresolvedReason::UnresolvedMagicDunderAttr),
-                    None,
-                ),
-            };
+            let DunderAttrCallees {
+                callees: iter_callees,
+                attr_type: iter_callee_type,
+            } = self.call_targets_from_magic_dunder_attr(
+                /* base */
+                self.module_context
+                    .answers
+                    .get_type_trace(iter_range)
+                    .as_ref(),
+                /* attribute */ Some(&iter_callee_name),
+                iter_range,
+                /* callee_expr */ None,
+                /* unknown_callee_as_direct_call */ true,
+                "resolve_expression_for_comprehension_iter",
+            );
             let iter_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::GeneratorIter,
                 location: self.pysa_location(iter_range),
             });
             self.add_callees(iter_identifier, ExpressionCallees::Call(iter_callees));
 
-            let next_callees = iter_callee_type
-                .and_then(|iter_callee_type| iter_callee_type.callable_return_type())
-                .and_then(|return_type| {
-                    self.pyrefly_target_from_magic_dunder_attr(
-                        &return_type,
-                        &next_callee_name,
-                        iter_range,
-                        "resolve_expression_for_comprehension_iter_next",
-                    )
-                })
-                .map(
-                    |ResolvedDunderAttr {
-                         target,
-                         attr_type: callee_type,
-                     }| {
-                        self.resolve_pyrefly_target(
-                            Some(target),
-                            /* callee_expr */ None,
-                            Some(&callee_type),
-                            /* return_type */ element_type,
-                            /* callee_expr_suffix */
-                            Some(&next_callee_name),
-                            /* unknown_callee_as_direct_call */ true,
-                        )
-                    },
-                )
-                .unwrap_or(CallCallees::new_unresolved(
-                    UnresolvedReason::UnresolvedMagicDunderAttr,
-                ));
+            let DunderAttrCallees {
+                callees: next_callees,
+                ..
+            } = self.call_targets_from_magic_dunder_attr(
+                /* base */
+                iter_callee_type
+                    .and_then(|iter_callee_type| iter_callee_type.callable_return_type())
+                    .as_ref(),
+                /* attribute */ Some(&next_callee_name),
+                iter_range,
+                /* callee_expr */ None,
+                /* unknown_callee_as_direct_call */ true,
+                "resolve_expression_for_comprehension_iter_next",
+            );
             let next_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::GeneratorNext,
                 location: self.pysa_location(iter_range),
@@ -2421,42 +2388,18 @@ impl<'a> CallGraphVisitor<'a> {
             )
         };
         let value_range = subscript.value.range();
-        let callees = self
-            .module_context
-            .answers
-            .get_type_trace(value_range)
-            .and_then(|value_type| {
-                self.pyrefly_target_from_magic_dunder_attr(
-                    &value_type,
-                    &callee_name,
-                    value_range,
-                    "resolve_expression_for_subscript",
-                )
-            })
-            .map(
-                |ResolvedDunderAttr {
-                     target,
-                     attr_type: callee_type,
-                 }| {
-                    let return_type = self
-                        .module_context
-                        .answers
-                        .get_type_trace(subscript_range)
-                        .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
-                    self.resolve_pyrefly_target(
-                        Some(target),
-                        /* callee_expr */ None,
-                        Some(&callee_type),
-                        /* return_type */ return_type,
-                        /* callee_expr_suffix */
-                        Some(&callee_name),
-                        /* unknown_callee_as_direct_call */ true,
-                    )
-                },
-            )
-            .unwrap_or(CallCallees::new_unresolved(
-                UnresolvedReason::UnresolvedMagicDunderAttr,
-            ));
+        let DunderAttrCallees { callees, .. } = self.call_targets_from_magic_dunder_attr(
+            /* base */
+            self.module_context
+                .answers
+                .get_type_trace(value_range)
+                .as_ref(),
+            /* attribute */ Some(&callee_name),
+            value_range,
+            /* callee_expr */ None,
+            /* unknown_callee_as_direct_call */ true,
+            "resolve_expression_for_subscript",
+        );
         let identifier = ExpressionIdentifier::ArtificialCall(Origin {
             kind: origin_kind,
             location: self.pysa_location(callee_location),
@@ -2477,53 +2420,35 @@ impl<'a> CallGraphVisitor<'a> {
 
         for element in fstring.value.elements() {
             if let Some(interpolation) = element.as_interpolation() {
-                let expression_range = interpolation.expression.range();
-                let callees = if let Some(expression_type) =
-                    self.module_context.answers.get_type_trace(expression_range)
                 {
+                    let expression_range = interpolation.expression.range();
                     let callee_name = match interpolation.conversion {
                         ConversionFlag::None => dunder::FORMAT,
                         ConversionFlag::Str => dunder::STR,
                         ConversionFlag::Ascii => dunder::ASCII,
                         ConversionFlag::Repr => dunder::REPR,
                     };
-                    self.pyrefly_target_from_magic_dunder_attr(
-                        &expression_type,
-                        &callee_name,
-                        expression_range,
-                        "resolve_expression_for_fstring",
-                    )
-                    .map(
-                        |ResolvedDunderAttr {
-                             target,
-                             attr_type: callee_type,
-                         }| {
-                            self.resolve_pyrefly_target(
-                                Some(target),
-                                /* callee_expr */ None,
-                                Some(&callee_type),
-                                /* return_type */ Some(ScalarTypeProperties::none()),
-                                /* callee_expr_suffix */
-                                Some(&callee_name),
-                                /* unknown_callee_as_direct_call */ true,
-                            )
-                        },
-                    )
-                    .unwrap_or(CallCallees::new_unresolved(
-                        UnresolvedReason::UnresolvedMagicDunderAttr,
-                    ))
-                } else {
-                    CallCallees::new_unresolved(
-                        UnresolvedReason::UnresolvedBaseTypeUnresolvedMagicDunderAttr,
-                    )
-                };
-                self.add_callees(
-                    ExpressionIdentifier::ArtificialCall(Origin {
-                        kind: OriginKind::FormatStringStringify,
-                        location: self.pysa_location(expression_range),
-                    }),
-                    ExpressionCallees::Call(callees),
-                );
+                    let DunderAttrCallees { callees, .. } = self
+                        .call_targets_from_magic_dunder_attr(
+                            /* base */
+                            self.module_context
+                                .answers
+                                .get_type_trace(expression_range)
+                                .as_ref(),
+                            /* attribute */ Some(&callee_name),
+                            expression_range,
+                            /* callee_expr */ None,
+                            /* unknown_callee_as_direct_call */ true,
+                            "resolve_expression_for_fstring",
+                        );
+                    self.add_callees(
+                        ExpressionIdentifier::ArtificialCall(Origin {
+                            kind: OriginKind::FormatStringStringify,
+                            location: self.pysa_location(expression_range),
+                        }),
+                        ExpressionCallees::Call(callees),
+                    );
+                }
             }
         }
     }
@@ -2598,19 +2523,19 @@ impl<'a> CallGraphVisitor<'a> {
             }
             Expr::ListComp(comp) => {
                 debug_println!(self.debug, "Resolving callees for list comp `{:#?}`", expr);
-                self.resolve_and_register_comprehension(&comp.elt, &comp.generators);
+                self.resolve_and_register_comprehension(&comp.generators);
             }
             Expr::SetComp(comp) => {
                 debug_println!(self.debug, "Resolving callees for set comp `{:#?}`", expr);
-                self.resolve_and_register_comprehension(&comp.elt, &comp.generators);
+                self.resolve_and_register_comprehension(&comp.generators);
             }
             Expr::Generator(generator) => {
                 debug_println!(self.debug, "Resolving callees for generator `{:#?}`", expr);
-                self.resolve_and_register_comprehension(&generator.elt, &generator.generators);
+                self.resolve_and_register_comprehension(&generator.generators);
             }
             Expr::DictComp(comp) => {
                 debug_println!(self.debug, "Resolving callees for dict comp `{:#?}`", expr);
-                self.resolve_and_register_comprehension(&comp.key, &comp.generators);
+                self.resolve_and_register_comprehension(&comp.generators);
             }
             Expr::Subscript(subscript) => {
                 debug_println!(self.debug, "Resolving callees for subscript `{:#?}`", expr);
@@ -2708,40 +2633,18 @@ impl<'a> CallGraphVisitor<'a> {
             } else {
                 dunder::ENTER
             };
-            let callees = self
-                .module_context
-                .answers
-                .get_type_trace(context_expr_range)
-                .and_then(|item_type| {
-                    self.pyrefly_target_from_magic_dunder_attr(
-                        &item_type,
-                        &callee_name,
-                        context_expr_range,
-                        "resolve_and_register_with_statement",
-                    )
-                })
-                .map(
-                    |ResolvedDunderAttr {
-                         target,
-                         attr_type: callee_type,
-                     }| {
-                        let return_type = callee_type.callable_return_type().map(|type_| {
-                            ScalarTypeProperties::from_type(&type_, self.module_context)
-                        });
-                        self.resolve_pyrefly_target(
-                            Some(target),
-                            /* callee_expr */ None,
-                            Some(&callee_type),
-                            return_type,
-                            /* callee_expr_suffix */
-                            Some(&callee_name),
-                            /* unknown_callee_as_direct_call */ true,
-                        )
-                    },
-                )
-                .unwrap_or(CallCallees::new_unresolved(
-                    UnresolvedReason::UnresolvedMagicDunderAttr,
-                ));
+            let DunderAttrCallees { callees, .. } = self.call_targets_from_magic_dunder_attr(
+                /* base */
+                self.module_context
+                    .answers
+                    .get_type_trace(context_expr_range)
+                    .as_ref(),
+                /* attribute */ Some(&callee_name),
+                context_expr_range,
+                /* callee_expr */ None,
+                /* unknown_callee_as_direct_call */ true,
+                "resolve_and_register_with_statement",
+            );
             let expression_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::WithEnter,
                 location: self.pysa_location(context_expr_range),

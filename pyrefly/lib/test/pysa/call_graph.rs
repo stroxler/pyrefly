@@ -632,7 +632,7 @@ def foo(c: Optional[C]):
                 (
                     "7:14-7:18|artificial-call|comparison",
                     ExpressionCallees::Call(CallCallees::new_unresolved(
-                        UnresolvedReason::UnresolvedMagicDunderAttr,
+                        UnresolvedReason::UnresolvedMagicDunderAttrDueToNoAttribute,
                     )),
                 ),
                 ("8:5-8:10", regular_call_callees(call_target)),
@@ -2484,7 +2484,7 @@ def foo(obj: Token, x: str):
             vec![(
                 "5:3-5:30",
                 ExpressionCallees::Call(CallCallees::new_unresolved(
-                    UnresolvedReason::UnexpectedPyreflyTarget,
+                    UnresolvedReason::UnresolvedMagicDunderAttr,
                 )),
             )],
         )]
@@ -2588,11 +2588,9 @@ def foo() -> None:
                 .with_receiver_class_for_test("test.C", context),
         ];
         let iter_targets = vec![{
-            let mut target = create_call_target("builtins.list.__iter__", TargetType::Function)
+            create_call_target("builtins.list.__iter__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("builtins.list", context);
-            target.return_type = None;
-            target
+                .with_receiver_class_for_test("builtins.list", context)
         }];
         let next_targets = vec![
             create_call_target("typing.Iterator.__next__", TargetType::Override)
@@ -2640,11 +2638,9 @@ def foo() -> None:
                 .with_return_type(Some(ScalarTypeProperties::none())),
         ];
         let iter_targets = vec![{
-            let mut target = create_call_target("builtins.range.__iter__", TargetType::Function)
+            create_call_target("builtins.range.__iter__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("builtins.range", context);
-            target.return_type = None;
-            target
+                .with_receiver_class_for_test("builtins.range", context)
         }];
         let next_targets = vec![
             create_call_target("typing.Iterator.__next__", TargetType::Override)
@@ -2706,11 +2702,9 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
 "#,
     &|context: &ModuleContext| {
         let list_iter_targets = vec![{
-            let mut target = create_call_target("builtins.list.__iter__", TargetType::Function)
+            create_call_target("builtins.list.__iter__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("builtins.list", context);
-            target.return_type = None;
-            target
+                .with_receiver_class_for_test("builtins.list", context)
         }];
         let list_next_targets = vec![
             create_call_target("typing.Iterator.__next__", TargetType::Override)
@@ -2719,12 +2713,9 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         let async_iterator_aiter_targets = vec![{
-            let mut target =
-                create_call_target("typing.AsyncIterator.__aiter__", TargetType::Override)
-                    .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                    .with_receiver_class_for_test("typing.AsyncIterator", context);
-            target.return_type = None;
-            target
+            create_call_target("typing.AsyncIterator.__aiter__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterator", context)
         }];
         let async_iterator_anext_targets = vec![
             create_call_target("typing.AsyncIterator.__anext__", TargetType::Override)
@@ -2733,12 +2724,9 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
         let async_iterable_aiter_targets = vec![{
-            let mut target =
-                create_call_target("typing.AsyncIterable.__aiter__", TargetType::Override)
-                    .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                    .with_receiver_class_for_test("typing.AsyncIterable", context);
-            target.return_type = None;
-            target
+            create_call_target("typing.AsyncIterable.__aiter__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterable", context)
         }];
         let g_target = vec![create_call_target("test.g", TargetType::Function)];
         let a_f_target = vec![
@@ -2982,8 +2970,7 @@ def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
         let dict_setitem_target = vec![
             create_call_target("builtins.dict.__setitem__", TargetType::Override)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("builtins.dict", context)
-                .with_return_type(None),
+                .with_receiver_class_for_test("builtins.dict", context),
         ];
         let dict_getitem_target = vec![
             create_call_target("builtins.dict.__getitem__", TargetType::Function)
