@@ -1160,21 +1160,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         };
                         (inherited_ty, inherited_annotation, is_inherited)
                     };
-                let mut ty = if let Some(inherited_ty) = inherited_ty
+                let ty = if let Some(inherited_ty) = inherited_ty
                     && matches!(initial_value, RawClassFieldInitialization::Method(_))
                 {
                     // Inherit the previous type of the attribute if the only declaration-like
                     // thing the current class does is assign to the attribute in a method.
                     inherited_ty
-                } else if let Some(annot) = &inherited_annotation {
-                    let ctx: &dyn Fn() -> TypeCheckContext =
-                        &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
-                    let hint = Some((annot.get_type(), ctx));
-                    self.expr(e, hint, errors)
                 } else {
-                    self.expr_infer(e, errors)
+                    self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
                 };
-                self.expand_vars_mut(&mut ty);
                 (ty, inherited_annotation, is_inherited)
             }
             ExprOrBinding::Binding(b) => (
@@ -1437,6 +1431,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         class_field
+    }
+
+    /// Helper to infer with an optional annotation as a hint and then expand
+    pub fn attribute_expr_infer(
+        &self,
+        x: &Expr,
+        annotation: Option<&Annotation>,
+        name: &Name,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let mut ty = match annotation {
+            Some(annotation) => {
+                let ctx: &dyn Fn() -> TypeCheckContext =
+                    &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
+                let hint = Some((annotation.get_type(), ctx));
+                self.expr(x, hint, errors)
+            }
+            None => self.expr_infer(x, errors),
+        };
+        self.expand_vars_mut(&mut ty);
+        ty
     }
 
     /// Apply any class-specific logic for postprocessing the type of a class field. Hook into this
