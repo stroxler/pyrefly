@@ -13,21 +13,19 @@ pydantic_testcase!(
     r#"
 import os
 
-from pydantic_settings import BaseSettings # E: Could not find import of `pydantic_settings`
-
+from pydantic_settings import BaseSettings 
 
 class AppConfig(BaseSettings):
     database_url: str
     api_key: str
     port: int
 
-
 # Set environment variables
-os.environ["DATABASE_URL"] = "postgres://localhost:5432/mydb"
-os.environ["API_KEY"] = "my-secret-api-key"
+os.environ["DATABASE_URL"] = "postgres://localhost:5432/mydb" 
+os.environ["API_KEY"] = "my-secret-api-key" 
 os.environ["PORT"] = "8080"
 
 # This should work - fields come from environment variables
-config = AppConfig()
+config = AppConfig()  # E: Missing argument `database_url` in function `AppConfig.__init__` # E: Missing argument `api_key` in function `AppConfig.__init__` # E: Missing argument `port` in function `AppConfig.__init__`
 "#,
 );
