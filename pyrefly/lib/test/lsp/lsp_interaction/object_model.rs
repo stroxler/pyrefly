@@ -112,33 +112,48 @@ impl FinishHandle {
     }
 }
 
-pub struct TestServer {
-    sender: Option<crossbeam_channel::Sender<Message>>,
-    timeout: Duration,
-    finish_handle: Arc<FinishHandle>,
+pub struct TestClient {
+    conn: Option<Connection>,
     root: Option<PathBuf>,
+    send_timeout: Duration,
+    recv_timeout: Duration,
     /// Request ID for requests sent to the server
-    request_idx: Arc<AtomicI32>,
+    request_idx: AtomicI32,
+    /// Handle to wait for the server to exit
+    finish_handle: Arc<FinishHandle>,
 }
 
-impl TestServer {
-    pub fn new(
-        sender: crossbeam_channel::Sender<Message>,
-        finish_handle: Arc<FinishHandle>,
-        request_idx: Arc<AtomicI32>,
-    ) -> Self {
+impl TestClient {
+    pub fn new(connection: Connection, finish_handle: Arc<FinishHandle>) -> Self {
         Self {
-            sender: Some(sender),
-            timeout: Duration::from_secs(25),
-            finish_handle,
+            conn: Some(connection),
             root: None,
-            request_idx,
+            send_timeout: Duration::from_secs(25),
+            recv_timeout: Duration::from_secs(50),
+            request_idx: AtomicI32::new(0),
+            finish_handle,
         }
     }
 
+    fn get_root_or_panic(&self) -> PathBuf {
+        self.root
+            .clone()
+            .expect("Root not set, please call set_root")
+    }
+
+    fn next_request_id(&mut self) -> RequestId {
+        let idx = self.request_idx.fetch_add(1, Ordering::SeqCst);
+        RequestId::from(idx + 1)
+    }
+
+    pub fn current_request_id(&self) -> RequestId {
+        let idx = self.request_idx.load(Ordering::Acquire);
+        RequestId::from(idx)
+    }
+
     pub fn drop_connection(&mut self) {
-        // Take and drop the sender to close the connection
-        drop(std::mem::take(&mut self.sender))
+        // Take and drop to close the connection
+        drop(std::mem::take(&mut self.conn))
     }
 
     pub fn expect_stop(&self) {
@@ -152,13 +167,21 @@ impl TestServer {
         &self,
         message: Message,
     ) -> Result<(), crossbeam_channel::SendTimeoutError<Message>> {
-        self.sender
+        self.conn
             .as_ref()
             .unwrap()
-            .send_timeout(message, self.timeout)
+            .sender
+            .send_timeout(message, self.send_timeout)
     }
 
-    /// Send a message to this server
+    fn recv_timeout(&self) -> Result<Message, crossbeam_channel::RecvTimeoutError> {
+        self.conn
+            .as_ref()
+            .unwrap()
+            .receiver
+            .recv_timeout(self.recv_timeout)
+    }
+
     pub fn send_message(&self, message: Message) {
         eprintln!(
             "client--->server {}",
@@ -526,78 +549,12 @@ impl TestServer {
         params
     }
 
-    /// Helper function to merge JSON values, with the source taking precedence
-    fn merge_json(target: &mut Value, source: &Value) {
-        if let (Some(target_obj), Some(source_obj)) = (target.as_object_mut(), source.as_object()) {
-            for (key, value) in source_obj {
-                if let Some(target_value) = target_obj.get_mut(key) {
-                    // If both are objects, merge recursively
-                    if target_value.is_object() && value.is_object() {
-                        Self::merge_json(target_value, value);
-                    } else {
-                        // Otherwise, overwrite with source value
-                        *target_value = value.clone();
-                    }
-                } else {
-                    // Key doesn't exist in target, insert it
-                    target_obj.insert(key.clone(), value.clone());
-                }
-            }
-        }
-    }
-
-    fn next_request_id(&mut self) -> RequestId {
-        let idx = self.request_idx.fetch_add(1, Ordering::SeqCst);
-        RequestId::from(idx + 1)
-    }
-
-    pub fn current_request_id(&self) -> RequestId {
-        let idx = self.request_idx.load(Ordering::Acquire);
-        RequestId::from(idx)
-    }
-
-    fn get_root_or_panic(&self) -> PathBuf {
-        self.root
-            .clone()
-            .expect("Root not set, please call set_root")
-    }
-}
-
-pub struct TestClient {
-    receiver: crossbeam_channel::Receiver<Message>,
-    timeout: Duration,
-    root: Option<PathBuf>,
-    request_idx: Arc<AtomicI32>,
-}
-
-impl TestClient {
-    pub fn new(
-        receiver: crossbeam_channel::Receiver<Message>,
-        request_idx: Arc<AtomicI32>,
-    ) -> Self {
-        Self {
-            receiver,
-            timeout: Duration::from_secs(50),
-            root: None,
-            request_idx,
-        }
-    }
-
-    fn current_request_id(&self) -> RequestId {
-        let idx = self.request_idx.load(Ordering::Acquire);
-        RequestId::from(idx)
-    }
-
-    pub fn drop_connection(self) {
-        drop(self.receiver);
-    }
-
     pub fn expect_message_helper<F>(&self, validator: F, description: &str)
     where
         F: Fn(&Message) -> ValidationResult,
     {
         loop {
-            match self.receiver.recv_timeout(self.timeout) {
+            match self.recv_timeout() {
                 Ok(msg) => {
                     eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
                     match validator(&msg) {
@@ -624,7 +581,7 @@ impl TestClient {
         matcher: impl Fn(Message) -> Option<T>,
     ) -> T {
         loop {
-            match self.receiver.recv_timeout(self.timeout) {
+            match self.recv_timeout() {
                 Ok(msg) => {
                     eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
                     if let Some(actual) = matcher(msg) {
@@ -836,7 +793,7 @@ impl TestClient {
     }
 
     pub fn expect_any_message(&self) {
-        match self.receiver.recv_timeout(self.timeout) {
+        match self.recv_timeout() {
             Ok(msg) => {
                 eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
             }
@@ -945,15 +902,28 @@ impl TestClient {
         );
     }
 
-    fn get_root_or_panic(&self) -> PathBuf {
-        self.root
-            .clone()
-            .expect("Root not set, please call set_root")
+    /// Helper function to merge JSON values, with the source taking precedence
+    fn merge_json(target: &mut Value, source: &Value) {
+        if let (Some(target_obj), Some(source_obj)) = (target.as_object_mut(), source.as_object()) {
+            for (key, value) in source_obj {
+                if let Some(target_value) = target_obj.get_mut(key) {
+                    // If both are objects, merge recursively
+                    if target_value.is_object() && value.is_object() {
+                        Self::merge_json(target_value, value);
+                    } else {
+                        // Otherwise, overwrite with source value
+                        *target_value = value.clone();
+                    }
+                } else {
+                    // Key doesn't exist in target, insert it
+                    target_obj.insert(key.clone(), value.clone());
+                }
+            }
+        }
     }
 }
 
 pub struct LspInteraction {
-    pub server: TestServer,
     pub client: TestClient,
 }
 
@@ -980,21 +950,19 @@ impl LspInteraction {
             finish_server.notify_finished();
         });
 
-        let request_idx = Arc::new(AtomicI32::new(0));
-        let server = TestServer::new(conn_client.sender, finish_handle, request_idx.clone());
-        let client = TestClient::new(conn_client.receiver, request_idx);
+        let client = TestClient::new(conn_client, finish_handle);
 
-        Self { server, client }
+        Self { client }
     }
 
     pub fn initialize(&mut self, settings: InitializeSettings) {
-        self.server
-            .send_initialize(self.server.get_initialize_params(&settings));
+        self.client
+            .send_initialize(self.client.get_initialize_params(&settings));
         self.client.expect_any_message();
-        self.server.send_initialized();
+        self.client.send_initialized();
         if let Some(settings) = settings.configuration {
             self.client.expect_any_message();
-            self.server.send_response::<WorkspaceConfiguration>(
+            self.client.send_response::<WorkspaceConfiguration>(
                 RequestId::from(1),
                 settings.unwrap_or(json!([])),
             );
@@ -1003,23 +971,23 @@ impl LspInteraction {
 
     pub fn shutdown(&self) {
         let shutdown_id = RequestId::from(999);
-        self.server.send_shutdown(shutdown_id.clone());
+        self.client.send_shutdown(shutdown_id.clone());
 
         self.client
             .expect_response::<Shutdown>(shutdown_id, json!(null));
 
-        self.server.send_exit();
+        self.client.send_exit();
     }
 
     pub fn set_root(&mut self, root: PathBuf) {
-        self.server.root = Some(root.clone());
+        self.client.root = Some(root.clone());
         self.client.root = Some(root);
     }
 
     /// Opens a notebook document with the given cell contents.
     /// Each string in `cell_contents` becomes a separate code cell in the notebook.
     pub fn open_notebook(&mut self, file_name: &str, cell_contents: Vec<&str>) {
-        let root = self.server.get_root_or_panic();
+        let root = self.client.get_root_or_panic();
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
 
@@ -1040,7 +1008,7 @@ impl LspInteraction {
             }));
         }
 
-        self.server
+        self.client
             .send_notification::<DidOpenNotebookDocument>(json!({
                 "notebookDocument": {
                     "uri": notebook_uri,
@@ -1058,10 +1026,10 @@ impl LspInteraction {
     }
 
     pub fn close_notebook(&mut self, file_name: &str) {
-        let root = self.server.get_root_or_panic();
+        let root = self.client.get_root_or_panic();
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
-        self.server
+        self.client
             .send_notification::<DidCloseNotebookDocument>(json!({
                 "notebookDocument": { "uri": notebook_uri },
                 "cellTextDocuments": [],
@@ -1076,11 +1044,11 @@ impl LspInteraction {
         version: i32,
         change_event: serde_json::Value,
     ) {
-        let root = self.server.get_root_or_panic();
+        let root = self.client.get_root_or_panic();
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
 
-        self.server
+        self.client
             .send_notification::<DidChangeNotebookDocument>(json!({
                 "notebookDocument": {
                     "version": version,
@@ -1091,8 +1059,8 @@ impl LspInteraction {
     }
 
     pub fn diagnostic_for_cell(&mut self, file: &str, cell: &str) {
-        let id = self.server.next_request_id();
-        self.server.send_request::<DocumentDiagnosticRequest>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<DocumentDiagnosticRequest>(
             id,
             json!({
             "textDocument": {
@@ -1103,7 +1071,7 @@ impl LspInteraction {
 
     /// Returns the URI for a notebook cell
     pub fn cell_uri(&self, file_name: &str, cell_name: &str) -> Url {
-        let root = self.server.get_root_or_panic();
+        let root = self.client.get_root_or_panic();
         // Parse this as a file to preserve the C: prefix for windows
         let file_uri = Url::from_file_path(root.join(file_name)).unwrap();
         // Replace the scheme & add the cell name as a fragment
@@ -1119,8 +1087,8 @@ impl LspInteraction {
     /// Sends a hover request for a notebook cell at the specified position
     pub fn hover_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<HoverRequest>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<HoverRequest>(
             id,
             json!({
                 "textDocument": {
@@ -1137,8 +1105,8 @@ impl LspInteraction {
     /// Sends a signature help request for a notebook cell at the specified position
     pub fn signature_help_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<SignatureHelpRequest>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<SignatureHelpRequest>(
             id,
             json!({
                 "textDocument": {
@@ -1155,8 +1123,8 @@ impl LspInteraction {
     /// Sends a definition request for a notebook cell at the specified position
     pub fn definition_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<GotoDefinition>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<GotoDefinition>(
             id,
             json!({
                 "textDocument": {
@@ -1180,8 +1148,8 @@ impl LspInteraction {
         include_declaration: bool,
     ) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<References>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<References>(
             id,
             json!({
                 "textDocument": {
@@ -1200,8 +1168,8 @@ impl LspInteraction {
 
     pub fn completion_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<Completion>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<Completion>(
             id,
             json!({
                 "textDocument": {
@@ -1226,8 +1194,8 @@ impl LspInteraction {
         end_char: u32,
     ) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<InlayHintRequest>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<InlayHintRequest>(
             id,
             json!({
                 "textDocument": {
@@ -1250,8 +1218,8 @@ impl LspInteraction {
     /// Sends a full semantic tokens request for a notebook cell
     pub fn semantic_tokens_cell(&mut self, file_name: &str, cell_name: &str) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<SemanticTokensFullRequest>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<SemanticTokensFullRequest>(
             id,
             json!({
                 "textDocument": {
@@ -1272,8 +1240,8 @@ impl LspInteraction {
         end_char: u32,
     ) {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.server.next_request_id();
-        self.server.send_request::<SemanticTokensRangeRequest>(
+        let id = self.client.next_request_id();
+        self.client.send_request::<SemanticTokensRangeRequest>(
             id,
             json!({
                 "textDocument": {
