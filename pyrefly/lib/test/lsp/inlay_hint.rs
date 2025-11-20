@@ -209,3 +209,33 @@ obj.method(5, "world")
         .trim()
     );
 }
+
+#[test]
+fn test_parameter_name_hints_with_varargs() {
+    let code = r#"
+def foo(s: str, *args: int, a: int, b: int, t: int) -> None:
+    pass
+
+foo("hello", 1, 2, 3, 5, a=1, b=2, t=4)
+"#;
+    assert_eq!(
+        r#"
+# main.py
+5 | foo("hello", 1, 2, 3, 5, a=1, b=2, t=4)
+        ^ inlay-hint: `s= `
+
+5 | foo("hello", 1, 2, 3, 5, a=1, b=2, t=4)
+                 ^ inlay-hint: `args= `
+"#
+        .trim(),
+        generate_inlay_hint_report(
+            code,
+            InlayHintConfig {
+                call_argument_names: AllOffPartial::All,
+                variable_types: false,
+                ..Default::default()
+            }
+        )
+        .trim()
+    );
+}
