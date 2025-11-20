@@ -184,8 +184,9 @@ class B(A):
     "#,
 );
 
+// Verify that we correctly pick up parant class type as context when there's a
+// qualifier-only annotation.
 testcase!(
-    bug = "There's nothing wrong with this code, but our contextual typing fails for x",
     test_inherited_attribute_with_qualifier_only_annotation,
     r#"
 from typing import ClassVar, assert_type
@@ -195,9 +196,9 @@ class Foo:
     x: ClassVar[list[A]] = []
     y: ClassVar[list[A]] = []
 class Bar(Foo):
-    x: ClassVar = [B()]  # E: Class member `Bar.x` overrides parent class `Foo` in an inconsistent manner
+    x: ClassVar = [B()]
     y = [B()]
-assert_type(Bar.x, list[A])  # E: assert_type(list[B], list[A])
+assert_type(Bar.x, list[A])
 assert_type(Bar.y, list[A])
     "#,
 );
