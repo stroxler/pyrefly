@@ -1113,49 +1113,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         //
         // We also track `is_inherited`, which is an optimization to skip inheritence checks later when we
         // know the attribute isn't inherited.
-        let (value_ty, inherited_annotation, is_inherited) = if let Some(annotated_ty) =
-            direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
-        {
-            // If there's an annotated type, we can ignore the expression entirely.
-            // Note that the assignment will still be type checked by the "normal"
-            // type checking logic, there's no need to duplicate it here.
-            (
-                annotated_ty,
-                None,
-                if Self::is_mangled_attr(name) {
-                    IsInherited::No
-                } else {
-                    IsInherited::Maybe
-                },
-            )
-        } else {
-            match value {
-                ExprOrBinding::Expr(e) => {
-                    let (inherited_ty, inherited_annotation) =
-                        self.get_inherited_type_and_annotation(class, name);
-                    let is_inherited = if inherited_ty.is_none() {
+        let (value_ty, inherited_annotation, is_inherited) =
+            if let Some(annotated_ty) = direct_annotation.as_ref().and_then(|ann| ann.ty.clone()) {
+                // If there's an annotated type, we can ignore the expression entirely.
+                // Note that the assignment will still be type checked by the "normal"
+                // type checking logic, there's no need to duplicate it here.
+                (
+                    annotated_ty,
+                    None,
+                    if Self::is_mangled_attr(name) {
                         IsInherited::No
                     } else {
                         IsInherited::Maybe
-                    };
-                    let ty = if let Some(inherited_ty) = inherited_ty
-                        && matches!(initial_value, RawClassFieldInitialization::Method(_))
-                    {
-                        // Inherit the previous type of the attribute if the only declaration-like
-                        // thing the current class does is assign to the attribute in a method.
-                        inherited_ty
-                    } else {
-                        self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
-                    };
-                    (ty, inherited_annotation, is_inherited)
-                }
-                ExprOrBinding::Binding(b) => (
-                    Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
-                    None,
-                    IsInherited::Maybe,
-                ),
-            }
-        };
+                    },
+                )
+            } else {
+                self.analyze_class_field_value(value, class, name, initial_value, errors)
+            };
 
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.
@@ -1579,6 +1553,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .map(|ann| ann.substitute_with(parent.targs().substitution()))
             });
         (found_field, annotation)
+    }
+
+    /// Compute the type, inherited annotation, and inheritance status for a field
+    /// that has a `value: ExprOrBinding` and no directly annotated type.
+    fn analyze_class_field_value(
+        &self,
+        value: &ExprOrBinding,
+        class: &Class,
+        name: &Name,
+        initial_value: &RawClassFieldInitialization,
+        errors: &ErrorCollector,
+    ) -> (Type, Option<Annotation>, IsInherited) {
+        match value {
+            ExprOrBinding::Expr(e) => {
+                let (inherited_ty, inherited_annotation) =
+                    self.get_inherited_type_and_annotation(class, name);
+                let is_inherited = if inherited_ty.is_none() {
+                    IsInherited::No
+                } else {
+                    IsInherited::Maybe
+                };
+                let ty = if let Some(inherited_ty) = inherited_ty
+                    && matches!(initial_value, RawClassFieldInitialization::Method(_))
+                {
+                    // Inherit the previous type of the attribute if the only declaration-like
+                    // thing the current class does is assign to the attribute in a method.
+                    inherited_ty
+                } else {
+                    self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
+                };
+                (ty, inherited_annotation, is_inherited)
+            }
+            ExprOrBinding::Binding(b) => (
+                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
+                None,
+                IsInherited::Maybe,
+            ),
+        }
     }
 
     fn get_class_field_initialization(
