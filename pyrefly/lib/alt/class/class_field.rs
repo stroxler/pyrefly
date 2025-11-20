@@ -1065,75 +1065,65 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // which requires us having a place to store synthesized dummy values until we've refactored more.
         let value_storage = Owner::new();
         let initial_value_storage = Owner::new();
-        let (value, direct_annotation, initial_value, is_function_without_return_annotation) =
-            match field_definition {
-                ClassFieldDefinition::DeclaredByAnnotation { annotation } => {
-                    let annotation = self.get_idx(*annotation).as_ref().annotation.clone();
-                    (
-                        value_storage
-                            .push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
-                        Some(annotation),
-                        initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
-                        false,
-                    )
-                }
-                ClassFieldDefinition::AssignedInBody { value, annotation } => {
-                    let annotation = annotation
-                        .map(|a| self.get_idx(a))
-                        .as_deref()
-                        .map(|annot| annot.annotation.clone());
-                    (
-                        value,
-                        annotation,
-                        initial_value_storage.push(RawClassFieldInitialization::ClassBody(
-                            match value {
-                                ExprOrBinding::Expr(e) => Some(e.clone()),
-                                ExprOrBinding::Binding(_) => None,
-                            },
-                        )),
-                        false,
-                    )
-                }
-                ClassFieldDefinition::DefinedInMethod {
-                    value,
-                    annotation,
-                    method,
-                } => {
-                    let annotation = annotation
-                        .map(|a| self.get_idx(a))
-                        .as_deref()
-                        .map(|annot| annot.annotation.clone());
-                    (
-                        value,
-                        annotation,
-                        initial_value_storage
-                            .push(RawClassFieldInitialization::Method(method.clone())),
-                        false,
-                    )
-                }
-                ClassFieldDefinition::MethodLike {
-                    definition,
-                    has_return_annotation,
-                } => (
-                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
-                    None,
-                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
-                    !has_return_annotation,
-                ),
-                ClassFieldDefinition::DefinedWithoutAssign { definition } => (
-                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
-                    None,
-                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
-                    false,
-                ),
-                ClassFieldDefinition::DeclaredWithoutAnnotation => (
-                    // This is a field in a synthesized class with no information at all, treat it as Any.
-                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
-                    None,
-                    initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
-                    false,
-                ),
-            };
+        let direct_annotation = match field_definition {
+            ClassFieldDefinition::DeclaredByAnnotation { annotation }
+            | ClassFieldDefinition::AssignedInBody {
+                annotation: Some(annotation),
+                ..
+            }
+            | ClassFieldDefinition::DefinedInMethod {
+                annotation: Some(annotation),
+                ..
+            } => Some(self.get_idx(*annotation).annotation.clone()),
+            ClassFieldDefinition::AssignedInBody {
+                annotation: None, ..
+            }
+            | ClassFieldDefinition::DefinedInMethod {
+                annotation: None, ..
+            }
+            | ClassFieldDefinition::DeclaredWithoutAnnotation
+            | ClassFieldDefinition::MethodLike { .. }
+            | ClassFieldDefinition::DefinedWithoutAssign { .. } => None,
+        };
+        let (value, initial_value, is_function_without_return_annotation) = match field_definition {
+            ClassFieldDefinition::DeclaredByAnnotation { .. } => (
+                value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
+                initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
+                false,
+            ),
+            ClassFieldDefinition::AssignedInBody { value, .. } => (
+                value,
+                initial_value_storage.push(RawClassFieldInitialization::ClassBody(match value {
+                    ExprOrBinding::Expr(e) => Some(e.clone()),
+                    ExprOrBinding::Binding(_) => None,
+                })),
+                false,
+            ),
+            ClassFieldDefinition::DefinedInMethod { value, method, .. } => (
+                value,
+                initial_value_storage.push(RawClassFieldInitialization::Method(method.clone())),
+                false,
+            ),
+            ClassFieldDefinition::MethodLike {
+                definition,
+                has_return_annotation,
+            } => (
+                value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                !has_return_annotation,
+            ),
+            ClassFieldDefinition::DefinedWithoutAssign { definition } => (
+                value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition))),
+                initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
+                false,
+            ),
+            ClassFieldDefinition::DeclaredWithoutAnnotation => (
+                // This is a field in a synthesized class with no information at all, treat it as Any.
+                value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
+                initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
+                false,
+            ),
+        };
 
         // Get the inferred value type if the value is an expression
         //
