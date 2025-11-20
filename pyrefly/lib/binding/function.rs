@@ -44,6 +44,7 @@ use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyDecorator;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::LastStmt;
@@ -73,7 +74,7 @@ struct Decorators {
     is_abstract_method: bool,
     is_override: bool,
     is_classmethod: bool,
-    decorators: Box<[Idx<Key>]>,
+    decorators: Box<[Idx<KeyDecorator>]>,
     deprecated: Option<DeprecatedDecoration>,
 }
 
@@ -363,7 +364,7 @@ impl<'a> BindingsBuilder<'a> {
         implicit_return: Option<Idx<Key>>,
         should_infer_return_type: bool,
         stub_or_impl: FunctionStubOrImpl,
-        decorators: Box<[Idx<Key>]>,
+        decorators: Box<[Idx<KeyDecorator>]>,
     ) {
         let is_generator =
             !(yields_and_returns.yields.is_empty() && yields_and_returns.yield_froms.is_empty());

@@ -13,7 +13,6 @@ use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::annotation::Annotation;
-use pyrefly_types::type_info::TypeInfo;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::display::DisplayWithCtx;
@@ -42,12 +41,14 @@ use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
+use crate::alt::types::decorated_function::Decorator;
 use crate::alt::types::pydantic::PydanticConfig;
 use crate::binding::base_class::BaseClass;
 use crate::binding::base_class::BaseClassExpr;
 use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyDecorator;
 use crate::binding::pydantic::PydanticConfigDict;
 use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
@@ -111,7 +112,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         bases: &[BaseClass],
         keywords: &[(Name, Expr)],
-        decorators: &[Idx<Key>],
+        decorators: &[Idx<KeyDecorator>],
         is_new_type: bool,
         pydantic_config_dict: &PydanticConfigDict,
         django_primary_key_field: Option<&Name>,
@@ -261,20 +262,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let enum_metadata = self.enum_metadata(cls, metaclass, &bases_with_metadata, errors);
 
         let is_final = decorators.iter().any(|(decorator, _)| {
-            decorator.ty().callee_kind() == Some(CalleeKind::Function(FunctionKind::Final))
+            decorator.ty.callee_kind() == Some(CalleeKind::Function(FunctionKind::Final))
         });
         let mut is_deprecated = decorators
             .iter()
-            .any(|(decorator, _)| decorator.ty().is_deprecation_marker());
+            .any(|(decorator, _)| decorator.ty.is_deprecation_marker());
         if deprecated.is_some() {
             is_deprecated = true;
         }
         let is_disjoint_base = decorators.iter().any(|(decorator, _)| {
-            decorator.ty().callee_kind() == Some(CalleeKind::Function(FunctionKind::DisjointBase))
+            decorator.ty.callee_kind() == Some(CalleeKind::Function(FunctionKind::DisjointBase))
         });
 
         let total_ordering_metadata = decorators.iter().find_map(|(decorator, decorator_range)| {
-            decorator.ty().callee_kind().and_then(|kind| {
+            decorator.ty.callee_kind().and_then(|kind| {
                 if kind == CalleeKind::Function(FunctionKind::TotalOrdering) {
                     Some(TotalOrderingMetadata {
                         location: *decorator_range,
@@ -387,7 +388,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn final_protocol_metadata(
         &self,
         mut protocol_metadata: Option<ProtocolMetadata>,
-        decorators: &[(Arc<TypeInfo>, TextRange)],
+        decorators: &[(Arc<Decorator>, TextRange)],
         parsed_results: &[BaseClassParseResult],
         errors: &ErrorCollector,
     ) -> Option<ProtocolMetadata> {
@@ -415,7 +416,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         for (decorator, range) in decorators {
-            match decorator.ty().callee_kind() {
+            match decorator.ty.callee_kind() {
                 Some(CalleeKind::Function(FunctionKind::RuntimeCheckable)) => {
                     if let Some(proto) = &mut protocol_metadata {
                         proto.is_runtime_checkable = true;
@@ -664,7 +665,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn dataclass_transform_metadata(
         &self,
-        decorators: &[(Arc<TypeInfo>, TextRange)],
+        decorators: &[(Arc<Decorator>, TextRange)],
         metaclass: Option<&ClassType>,
         dataclass_defaults_from_base_class: Option<DataclassTransformKeywords>,
     ) -> Option<DataclassTransformKeywords> {
@@ -681,7 +682,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         for (decorator, _) in decorators {
             // `@dataclass_transform(...)`
-            if let Type::KwCall(call) = decorator.ty()
+            if let Type::KwCall(call) = &decorator.ty
                 && call.has_function_kind(FunctionKind::DataclassTransform)
             {
                 dataclass_transform_metadata =
@@ -694,7 +695,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn dataclass_from_dataclass_transform(
         &self,
         keywords: &[(Name, Annotation)],
-        decorators: &[(Arc<TypeInfo>, TextRange)],
+        decorators: &[(Arc<Decorator>, TextRange)],
         dataclass_defaults_from_base_class: Option<DataclassTransformKeywords>,
         pydantic_config: Option<&PydanticConfig>,
     ) -> Option<(DataclassKeywords, Vec<CalleeKind>)> {
@@ -723,16 +724,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             dataclass_from_dataclass_transform = Some((kws, defaults.field_specifiers));
         }
         for (decorator, _) in decorators {
-            let decorator_ty = decorator.ty();
             // `@foo` where `foo` is decorated with `@dataclass_transform(...)`
-            if let Some(defaults) = decorator_ty.dataclass_transform_metadata() {
+            if let Some(defaults) = decorator.ty.dataclass_transform_metadata() {
                 dataclass_from_dataclass_transform = Some((
                     DataclassKeywords::from_type_map(&TypeMap::new(), &defaults),
                     defaults.field_specifiers,
                 ));
             }
             // `@foo(...)` where `foo` is decorated with `@dataclass_transform(...)`
-            else if let Type::KwCall(call) = decorator_ty
+            else if let Type::KwCall(call) = &decorator.ty
                 && let Some(defaults) = &call.func_metadata.flags.dataclass_transform_metadata
             {
                 dataclass_from_dataclass_transform = Some((
@@ -747,7 +747,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn dataclass_metadata(
         &self,
         cls: &Class,
-        decorators: &[(Arc<TypeInfo>, TextRange)],
+        decorators: &[(Arc<Decorator>, TextRange)],
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         dataclass_from_dataclass_transform: Option<(DataclassKeywords, Vec<CalleeKind>)>,
         pydantic_config: Option<&PydanticConfig>,
@@ -774,8 +774,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             alias_keyword = VALIDATION_ALIAS;
         }
         for (decorator, _) in decorators {
-            let decorator_ty = decorator.ty();
-            match decorator_ty.callee_kind() {
+            match decorator.ty.callee_kind() {
                 // `@dataclass`
                 Some(CalleeKind::Function(FunctionKind::Dataclass)) => {
                     let dataclass_fields = self.get_dataclass_fields(cls, bases_with_metadata);
@@ -792,7 +791,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     });
                 }
                 // `@dataclass(...)`
-                _ if let Type::KwCall(call) = decorator_ty
+                _ if let Type::KwCall(call) = &decorator.ty
                     && call.has_function_kind(FunctionKind::Dataclass) =>
                 {
                     let dataclass_fields = self.get_dataclass_fields(cls, bases_with_metadata);

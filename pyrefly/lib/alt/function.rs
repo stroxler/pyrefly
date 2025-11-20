@@ -44,6 +44,7 @@ use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
+use crate::binding::binding::KeyDecorator;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::config::error_kind::ErrorKind;
 use crate::deprecation::DeprecatedDecoration;
@@ -219,7 +220,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         def: &StmtFunctionDef,
         stub_or_impl: FunctionStubOrImpl,
         class_key: Option<&Idx<KeyClass>>,
-        decorators: &[Idx<Key>],
+        decorators: &[Idx<KeyDecorator>],
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         module_style: ModuleStyle,
         deprecated: Option<&DeprecatedDecoration>,
@@ -249,21 +250,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut found_class_property = false;
         let decorators = Box::from_iter(decorators.iter().filter_map(|k| {
             let decorator = self.get_idx(*k);
-            let decorator_ty = decorator.ty();
             let range = self.bindings().idx_to_key(*k).range();
-            let keep = if let Some(special_decorator) = self.get_special_decorator(decorator_ty) {
+            let keep = if let Some(special_decorator) = self.get_special_decorator(&decorator.ty) {
                 if is_top_level_function {
                     self.check_top_level_function_decorator(&special_decorator, range, errors);
                 }
                 !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
             } else {
-                if is_class_property_decorator_type(decorator_ty) {
+                if is_class_property_decorator_type(&decorator.ty) {
                     found_class_property = true;
                 }
                 true
             };
             if keep {
-                Some((decorator_ty.clone(), range))
+                Some((decorator.ty.clone(), range))
             } else {
                 None
             }

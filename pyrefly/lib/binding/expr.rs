@@ -30,10 +30,12 @@ use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
 use crate::binding::binding::Binding;
+use crate::binding::binding::BindingDecorator;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyDecorator;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::LinkedKey;
@@ -877,11 +879,14 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         decorators: Vec<Decorator>,
         usage: &mut Usage,
-    ) -> Vec<Idx<Key>> {
+    ) -> Vec<Idx<KeyDecorator>> {
         let mut decorator_keys = Vec::with_capacity(decorators.len());
         for mut x in decorators {
             self.ensure_expr(&mut x.expression, usage);
-            let k = self.insert_binding(Key::Anon(x.range), Binding::Decorator(x.expression));
+            let k = self.insert_binding(
+                KeyDecorator(x.range),
+                BindingDecorator { expr: x.expression },
+            );
             decorator_keys.push(k);
         }
         decorator_keys

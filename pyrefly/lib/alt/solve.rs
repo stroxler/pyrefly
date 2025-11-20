@@ -2900,7 +2900,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         if *stub_or_impl != FunctionStubOrImpl::Stub
                             && !decorators.iter().any(|k| {
                                 let decorator = self.get_idx(*k);
-                                match decorator.ty().callee_kind() {
+                                match decorator.ty.callee_kind() {
                                     Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
                                         true
                                     }
@@ -3422,7 +3422,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ta
                 }
             }
-            Binding::Decorator(expr) => self.expr_infer(expr, errors),
             Binding::LambdaParameter(var) => var.to_type(),
             Binding::FunctionParameter(param) => {
                 let finalize = |target: &AnnotationTarget, ty| match target {

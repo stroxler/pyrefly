@@ -1081,7 +1081,7 @@ pub struct BindingUndecoratedFunction {
     pub stub_or_impl: FunctionStubOrImpl,
     pub class_key: Option<Idx<KeyClass>>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
-    pub decorators: Box<[Idx<Key>]>,
+    pub decorators: Box<[Idx<KeyDecorator>]>,
     pub module_style: ModuleStyle,
     pub deprecated: Option<DeprecatedDecoration>,
 }
@@ -1135,7 +1135,7 @@ pub enum ReturnTypeKind {
         stub_or_impl: FunctionStubOrImpl,
         /// We keep this just so we can scan for `@abstractmethod` and use the info to decide
         /// whether to skip the validation.
-        decorators: Box<[Idx<Key>]>,
+        decorators: Box<[Idx<KeyDecorator>]>,
         implicit_return: Idx<Key>,
         is_generator: bool,
         has_explicit_return: bool,
@@ -1324,7 +1324,7 @@ pub enum Binding {
     /// e.g. in `from foo import bar as baz`, we should track the range of `bar`.
     Import(ModuleName, Name, Option<TextRange>),
     /// A class definition, points to a BindingClass and any decorators.
-    ClassDef(Idx<KeyClass>, Box<[Idx<Key>]>),
+    ClassDef(Idx<KeyClass>, Box<[Idx<KeyDecorator>]>),
     /// A forward reference to another binding.
     Forward(Idx<Key>),
     /// A phi node, representing the union of several alternative keys.
@@ -1363,8 +1363,6 @@ pub enum Binding {
     PatternMatchClassKeyword(Box<Expr>, Identifier, Idx<Key>),
     /// Binding for an `except` (if the boolean flag is false) or `except*` (if the boolean flag is true) clause
     ExceptionHandler(Box<Expr>, bool),
-    /// Binding for an `@decorator` decoration on a function or class
-    Decorator(Expr),
     /// Binding for a lambda parameter.
     LambdaParameter(Var),
     /// Binding for a function parameter. We either have an annotation, or we will determine the
@@ -1612,7 +1610,6 @@ impl DisplayWith<Bindings> for Binding {
                     ctx.display(*key),
                 )
             }
-            Self::Decorator(e) => write!(f, "Decorator({})", m.display(e)),
             Self::LambdaParameter(x) => write!(f, "LambdaParameter({x})"),
             Self::FunctionParameter(x) => write!(
                 f,
@@ -1750,7 +1747,6 @@ impl Binding {
             | Binding::PatternMatchMapping(_, _)
             | Binding::PatternMatchClassPositional(_, _, _, _)
             | Binding::PatternMatchClassKeyword(_, _, _)
-            | Binding::Decorator(_)
             | Binding::ExceptionHandler(_, _)
             | Binding::SuperInstance(_, _)
             | Binding::AssignToAttribute(_, _)
@@ -2118,7 +2114,7 @@ pub struct BindingClassMetadata {
     /// itself can also potentially be one of these).
     pub keywords: Box<[(Name, Expr)]>,
     /// The class decorators.
-    pub decorators: Box<[Idx<Key>]>,
+    pub decorators: Box<[Idx<KeyDecorator>]>,
     /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
     pub pydantic_config_dict: PydanticConfigDict,
