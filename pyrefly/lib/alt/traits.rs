@@ -206,6 +206,7 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyDecorator {
     fn promote_recursive(_: Var) -> Self::Answer {
         Decorator {
             ty: Type::any_implicit(),
+            deprecation: None,
         }
     }
 }

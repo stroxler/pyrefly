@@ -37,6 +37,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
+use crate::deprecation::DeprecatedDecoration;
 use crate::graph::index::Idx;
 use crate::types::callable::FuncMetadata;
 use crate::types::types::Type;
@@ -69,6 +70,7 @@ pub struct DecoratedFunction {
 #[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
 pub struct Decorator {
     pub ty: Type,
+    pub deprecation: Option<DeprecatedDecoration>,
 }
 
 impl Display for Decorator {

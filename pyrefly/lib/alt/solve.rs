@@ -20,6 +20,8 @@ use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
+use ruff_python_ast::AtomicNodeIndex;
+use ruff_python_ast::Decorator as RuffDecorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprSubscript;
@@ -93,6 +95,7 @@ use crate::binding::binding::UnpackedPosition;
 use crate::binding::narrow::identifier_and_chain_for_expr;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::config::error_kind::ErrorKind;
+use crate::deprecation::parse_deprecated_decorator;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
@@ -3479,7 +3482,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut ty = self.expr_infer(&x.expr, errors);
         self.pin_all_placeholder_types(&mut ty);
         self.expand_vars_mut(&mut ty);
-        Arc::new(Decorator { ty })
+        // TODO: change parse_deprecated_decorator to take an Expr.
+        let deprecation = parse_deprecated_decorator(&RuffDecorator {
+            range: x.expr.range(),
+            node_index: AtomicNodeIndex::dummy(),
+            expression: x.expr.clone(),
+        });
+        Arc::new(Decorator { ty, deprecation })
     }
 
     pub fn solve_decorated_function(
