@@ -192,3 +192,30 @@ m2 = Model(x=123) # E:  Argument `Literal[123]` is not assignable to parameter `
 m3 = Model(x=IntRootModel(123))
     "#,
 );
+
+pydantic_testcase!(
+    bug = "we are emitting false positives on valid types",
+    test_multiple_root_models_in_union,
+    r#"
+from pydantic import BaseModel, RootModel
+
+class IntRootModel(RootModel[int]):
+    pass
+
+class StrRootModel(RootModel[str]):
+    pass
+
+class Model(BaseModel, strict=True):
+    x: IntRootModel | StrRootModel
+
+# valid types
+m1 = Model(x=IntRootModel(5))
+m2 = Model(x=StrRootModel("hello"))
+m3 = Model(x=5)  # E:  Argument `Literal[5]` is not assignable to parameter `x` with type `IntRootModel | StrRootModel` in function `Model.__init__`
+m4 = Model(x="hello") # E:  Argument `Literal['hello']` is not assignable to parameter `x` with type `IntRootModel | StrRootModel` in function `Model.__init__`
+
+# Invalid types 
+Model(x=5.5)  # E: Argument `float` is not assignable to parameter `x` with type `IntRootModel | StrRootModel` in function `Model.__init__`
+Model(x=[])   # E: Argument `list[@_]` is not assignable to parameter `x` with type `IntRootModel | StrRootModel` in function `Model.__init__`
+    "#,
+);
