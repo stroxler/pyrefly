@@ -2285,7 +2285,7 @@ impl<'a> Transaction<'a> {
                         })
                         .unwrap_or(false)
                     } else {
-                        t.is_deprecated_function()
+                        t.function_deprecation().is_some()
                     }
                 });
                 let detail = ty.map(|t| t.to_string());

@@ -46,7 +46,7 @@ pub fn parse_deprecated_decorator(decorator: &Decorator) -> Option<DeprecatedDec
 }
 
 /// Format a base description (`"`foo` is deprecated"`) with an optional detail message.
-pub fn format_deprecated_message(base: impl Into<String>, message: Option<&str>) -> String {
+fn format_deprecated_message(base: impl Into<String>, message: Option<&str>) -> String {
     let base = base.into();
     match message.map(str::trim).filter(|msg| !msg.is_empty()) {
         Some(msg) => format!("{base}: {msg}"),

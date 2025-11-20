@@ -2131,7 +2131,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 | Attribute::ClassAttribute(ClassAttribute::ReadOnly(ty, _))
                                 | Attribute::Simple(ty)
                                 | Attribute::ClassAttribute(ClassAttribute::Property(ty, _, _))
-                                    if ty.is_deprecated_function() =>
+                                    if ty.function_deprecation().is_some() =>
                                 {
                                     is_deprecated = true;
                                 }

@@ -89,7 +89,7 @@ pub enum SpecialDecorator<'a> {
     EnumMember,
     Override,
     Final,
-    Deprecated,
+    Deprecated(&'a DeprecatedDecoration),
     PropertySetter(&'a Type),
     DataclassTransformCall(&'a TypeMap),
     EnumNonmember,

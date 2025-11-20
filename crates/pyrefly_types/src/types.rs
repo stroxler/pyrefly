@@ -29,6 +29,7 @@ use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
 use crate::callable::Callable;
+use crate::callable::DeprecatedDecoration;
 use crate::callable::FuncMetadata;
 use crate::callable::Function;
 use crate::callable::FunctionKind;
@@ -1103,12 +1104,8 @@ impl Type {
         self.check_toplevel_func_metadata(&|meta| meta.flags.is_overload)
     }
 
-    pub fn is_deprecated_function(&self) -> bool {
-        self.check_toplevel_func_metadata(&|meta| meta.flags.is_deprecated)
-    }
-
-    pub fn deprecated_message(&self) -> Option<String> {
-        self.check_toplevel_func_metadata(&|meta| meta.flags.deprecated_message.clone())
+    pub fn function_deprecation(&self) -> Option<DeprecatedDecoration> {
+        self.check_toplevel_func_metadata(&|meta| meta.flags.deprecation.clone())
     }
 
     pub fn has_final_decoration(&self) -> bool {

@@ -3511,7 +3511,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &x.decorators,
             &x.legacy_tparams,
             x.module_style,
-            x.deprecated.as_ref(),
             errors,
         )
     }

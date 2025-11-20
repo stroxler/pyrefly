@@ -325,7 +325,9 @@ impl FuncMetadata {
 }
 
 /// Metadata extracted from a `@deprecated` decorator.
-#[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
+)]
 pub struct DeprecatedDecoration {
     pub message: Option<String>,
 }
@@ -343,9 +345,7 @@ pub struct FuncFlags {
     pub is_staticmethod: bool,
     pub is_classmethod: bool,
     /// A function decorated with `@deprecated`
-    pub is_deprecated: bool,
-    /// Optional explanation attached to `@deprecated`
-    pub deprecated_message: Option<String>,
+    pub deprecation: Option<DeprecatedDecoration>,
     /// A function decorated with `@property`
     pub is_property_getter: bool,
     /// A function decorated with `functools.cached_property` or equivalent.
