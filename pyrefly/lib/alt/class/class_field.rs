@@ -1848,6 +1848,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         kw_only: bool,
         strict: bool,
         converter_param: Option<Type>,
+        param_type_transform: &dyn Fn(Type) -> Type,
         errors: &ErrorCollector,
     ) -> Param {
         let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }, ..) = field;
@@ -1862,6 +1863,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             ty.clone()
         };
+        let param_ty = param_type_transform(param_ty);
         let required = match default {
             true => Required::Optional(None),
             false => Required::Required,
