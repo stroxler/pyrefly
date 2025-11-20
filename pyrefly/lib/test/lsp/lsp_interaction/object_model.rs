@@ -23,7 +23,11 @@ use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
+use lsp_types::ConfigurationItem;
+use lsp_types::ConfigurationParams;
 use lsp_types::PublishDiagnosticsParams;
+use lsp_types::RegistrationParams;
+use lsp_types::UnregistrationParams;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeNotebookDocument;
@@ -45,11 +49,13 @@ use lsp_types::request::HoverRequest;
 use lsp_types::request::Initialize;
 use lsp_types::request::InlayHintRequest;
 use lsp_types::request::References;
+use lsp_types::request::RegisterCapability;
 use lsp_types::request::Request as _;
 use lsp_types::request::SemanticTokensFullRequest;
 use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::Shutdown;
 use lsp_types::request::SignatureHelpRequest;
+use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WillRenameFiles;
 use lsp_types::request::WorkspaceConfiguration;
 use pretty_assertions::assert_eq;
@@ -807,98 +813,76 @@ impl TestClient {
     }
 
     pub fn expect_configuration_request(&self, id: i32, scope_uris: Option<Vec<&Url>>) {
-        use lsp_types::ConfigurationItem;
-        use lsp_types::ConfigurationParams;
-        use lsp_types::request::WorkspaceConfiguration;
-
-        let items = if let Some(uris) = scope_uris {
-            uris.into_iter()
-                .map(|uri| ConfigurationItem {
-                    scope_uri: Some(uri.clone()),
-                    section: Some("python".to_owned()),
-                })
-                .chain(once(ConfigurationItem {
-                    scope_uri: None,
-                    section: Some("python".to_owned()),
-                }))
-                .collect::<Vec<_>>()
-        } else {
-            Vec::from([ConfigurationItem {
-                scope_uri: None,
-                section: Some("python".to_owned()),
-            }])
-        };
-
-        let expected_msg = Message::Request(Request {
-            id: RequestId::from(id),
-            method: WorkspaceConfiguration::METHOD.to_owned(),
-            params: json!(ConfigurationParams { items }),
-        });
-        let expected_str = serde_json::to_string(&expected_msg).unwrap();
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Notification(_) => ValidationResult::Skip,
-                _ => {
-                    let actual_str = serde_json::to_string(msg).unwrap();
-                    assert_eq!(&expected_str, &actual_str, "Configuration request mismatch");
-                    ValidationResult::Pass
+        let params: ConfigurationParams = self.expect_message(
+            &format!("Request {}", WorkspaceConfiguration::METHOD),
+            |msg| {
+                if let Message::Request(x) = msg
+                    && x.method == WorkspaceConfiguration::METHOD
+                {
+                    assert_eq!(x.id, RequestId::from(id));
+                    Some(serde_json::from_value(x.params).unwrap())
+                } else {
+                    None
                 }
             },
-            &format!("Expected configuration request: {expected_msg:?}"),
+        );
+
+        let expected_items = scope_uris
+            .unwrap_or_default()
+            .into_iter()
+            .cloned()
+            .map(Some)
+            .chain(once(None))
+            .map(|scope_uri| ConfigurationItem {
+                scope_uri,
+                section: Some("python".to_owned()),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            ConfigurationParams {
+                items: expected_items
+            },
+            params
         );
     }
 
     /// Expect a file watcher registration request.
     /// Validates that the request is specifically registering the file watcher (ID: "FILEWATCHER").
     pub fn expect_file_watcher_register(&self) {
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Request(req)
-                    if req.method == "client/registerCapability"
-                        && req
-                            .params
-                            .get("registrations")
-                            .and_then(|r| r.as_array())
-                            .map(|arr| {
-                                arr.iter().any(|reg| {
-                                    reg.get("id").and_then(|id| id.as_str()) == Some("FILEWATCHER")
-                                })
-                            })
-                            .unwrap_or(false) =>
+        let params: RegistrationParams =
+            self.expect_message(&format!("Request {}", RegisterCapability::METHOD), |msg| {
+                if let Message::Request(x) = msg
+                    && x.method == RegisterCapability::METHOD
                 {
-                    ValidationResult::Pass
+                    Some(serde_json::from_value(x.params).unwrap())
+                } else {
+                    None
                 }
-                Message::Notification(_) => ValidationResult::Skip,
-                _ => ValidationResult::Fail,
-            },
-            "Expected file watcher registerCapability",
-        );
+            });
+        assert!(params.registrations.iter().any(|x| x.id == "FILEWATCHER"));
     }
 
     /// Expect a file watcher unregistration request.
     /// Validates that the request is specifically unregistering the file watcher (ID: "FILEWATCHER").
     pub fn expect_file_watcher_unregister(&self) {
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Request(req)
-                    if req.method == "client/unregisterCapability"
-                        && req
-                            .params
-                            .get("unregisterations")
-                            .and_then(|r| r.as_array())
-                            .map(|arr| {
-                                arr.iter().any(|reg| {
-                                    reg.get("id").and_then(|id| id.as_str()) == Some("FILEWATCHER")
-                                })
-                            })
-                            .unwrap_or(false) =>
+        let params: UnregistrationParams = self.expect_message(
+            &format!("Request {}", UnregisterCapability::METHOD),
+            |msg| {
+                if let Message::Request(x) = msg
+                    && x.method == UnregisterCapability::METHOD
                 {
-                    ValidationResult::Pass
+                    Some(serde_json::from_value(x.params).unwrap())
+                } else {
+                    None
                 }
-                Message::Notification(_) => ValidationResult::Skip,
-                _ => ValidationResult::Fail,
             },
-            "Expected file watcher unregisterCapability",
+        );
+        assert!(
+            params
+                .unregisterations
+                .iter()
+                .any(|x| x.id == "FILEWATCHER")
         );
     }
 
