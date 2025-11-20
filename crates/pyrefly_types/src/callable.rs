@@ -26,6 +26,8 @@ use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::name::Name;
+use vec1::Vec1;
+use vec1::vec1;
 
 use crate::class::Class;
 use crate::class::ClassType;
@@ -335,6 +337,14 @@ pub struct Deprecation {
 impl Deprecation {
     pub fn new(message: Option<String>) -> Self {
         Self { message }
+    }
+
+    /// Format a base description using deprecation metadata.
+    pub fn as_error_message(&self, base: String) -> Vec1<String> {
+        match self.message.as_ref().map(|s| s.trim()) {
+            Some(msg) if !msg.is_empty() => vec1![base, msg.to_owned()],
+            _ => vec1![base],
+        }
     }
 }
 
