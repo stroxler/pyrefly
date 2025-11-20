@@ -111,7 +111,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         bases: &[BaseClass],
         keywords: &[(Name, Expr)],
-        decorators: &[(Idx<Key>, TextRange)],
+        decorators: &[Idx<Key>],
         is_new_type: bool,
         pydantic_config_dict: &PydanticConfigDict,
         django_primary_key_field: Option<&Name>,
@@ -119,8 +119,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         // Get class decorators.
-        let decorators = decorators.map(|(decorator_key, decorator_range)| {
-            (self.get_idx(*decorator_key), *decorator_range)
+        let decorators = decorators.map(|decorator_key| {
+            (
+                self.get_idx(*decorator_key),
+                self.bindings().idx_to_key(*decorator_key).range(),
+            )
         });
 
         // Compute data that depends on the `BaseClass` representation of base classes.

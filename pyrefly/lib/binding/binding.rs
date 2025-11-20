@@ -1043,7 +1043,7 @@ pub struct BindingUndecoratedFunction {
     pub stub_or_impl: FunctionStubOrImpl,
     pub class_key: Option<Idx<KeyClass>>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
-    pub decorators: Box<[(Idx<Key>, TextRange)]>,
+    pub decorators: Box<[Idx<Key>]>,
     pub module_style: ModuleStyle,
     pub deprecated: Option<DeprecatedDecoration>,
 }
@@ -2080,7 +2080,7 @@ pub struct BindingClassMetadata {
     /// itself can also potentially be one of these).
     pub keywords: Box<[(Name, Expr)]>,
     /// The class decorators.
-    pub decorators: Box<[(Idx<Key>, TextRange)]>,
+    pub decorators: Box<[Idx<Key>]>,
     /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
     pub pydantic_config_dict: PydanticConfigDict,

@@ -219,7 +219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         def: &StmtFunctionDef,
         stub_or_impl: FunctionStubOrImpl,
         class_key: Option<&Idx<KeyClass>>,
-        decorators: &[(Idx<Key>, TextRange)],
+        decorators: &[Idx<Key>],
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         module_style: ModuleStyle,
         deprecated: Option<&DeprecatedDecoration>,
@@ -247,30 +247,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             flags.deprecated_message = decoration.message.clone();
         }
         let mut found_class_property = false;
-        let decorators = Box::from_iter(
-            decorators
-                .iter()
-                .filter(|(k, range)| {
-                    let decorator = self.get_idx(*k);
-                    let decorator_ty = decorator.ty();
-                    if let Some(special_decorator) = self.get_special_decorator(decorator_ty) {
-                        if is_top_level_function {
-                            self.check_top_level_function_decorator(
-                                &special_decorator,
-                                *range,
-                                errors,
-                            );
-                        }
-                        !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
-                    } else {
-                        if is_class_property_decorator_type(decorator_ty) {
-                            found_class_property = true;
-                        }
-                        true
-                    }
-                })
-                .map(|(idx, range)| (self.get_idx(*idx).arc_clone_ty(), *range)),
-        );
+        let decorators = Box::from_iter(decorators.iter().filter_map(|k| {
+            let decorator = self.get_idx(*k);
+            let decorator_ty = decorator.ty();
+            let range = self.bindings().idx_to_key(*k).range();
+            let keep = if let Some(special_decorator) = self.get_special_decorator(decorator_ty) {
+                if is_top_level_function {
+                    self.check_top_level_function_decorator(&special_decorator, range, errors);
+                }
+                !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
+            } else {
+                if is_class_property_decorator_type(decorator_ty) {
+                    found_class_property = true;
+                }
+                true
+            };
+            if keep {
+                Some((decorator_ty.clone(), range))
+            } else {
+                None
+            }
+        }));
 
         if stub_or_impl == FunctionStubOrImpl::Stub {
             flags.lacks_implementation = true;
