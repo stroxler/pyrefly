@@ -9,7 +9,6 @@ use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
-use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprStringLiteral;
 
 /// Metadata extracted from a `@deprecated` decorator.
@@ -24,41 +23,18 @@ impl DeprecatedDecoration {
     }
 }
 
-fn attribute_to_name(expr: &ExprAttribute) -> Option<String> {
-    let mut parts = Vec::new();
-    let mut current = expr;
-    loop {
-        parts.push(current.attr.to_string());
-        match &*current.value {
-            Expr::Name(ExprName { id, .. }) => {
-                parts.push(id.to_string());
-                break;
-            }
-            Expr::Attribute(inner) => {
-                current = inner;
-            }
-            _ => return None,
-        }
-    }
-    parts.reverse();
-    Some(parts.join("."))
-}
-
-fn decorator_name(expr: &Expr) -> Option<String> {
-    if let Some(name) = expr.as_name_expr() {
-        Some(name.id.to_string())
-    } else if let Some(attr) = expr.as_attribute_expr() {
-        attribute_to_name(attr)
-    } else {
-        None
-    }
-}
-
-fn is_deprecated_target(name: &str) -> bool {
-    matches!(
-        name,
-        "deprecated" | "warnings.deprecated" | "typing_extensions.deprecated"
-    )
+fn is_deprecated_target(e: &Expr) -> bool {
+    let (base, value) = match e {
+        Expr::Name(x) => (None, &x.id),
+        Expr::Attribute(ExprAttribute {
+            value: box Expr::Name(base),
+            attr,
+            ..
+        }) => (Some(&base.id), &attr.id),
+        _ => return false,
+    };
+    base.is_none_or(|base| base == "warnings" || base == "typing_extensions")
+        && value == "deprecated"
 }
 
 fn extract_message(call: &ExprCall) -> Option<String> {
@@ -81,8 +57,7 @@ fn extract_message(call: &ExprCall) -> Option<String> {
 /// Parse a decorator and return its deprecation metadata if it represents `@deprecated`.
 pub fn parse_deprecated_decorator(decorator: &Decorator) -> Option<DeprecatedDecoration> {
     let call = decorator.expression.as_call_expr()?;
-    let func_name = decorator_name(&call.func)?;
-    if !is_deprecated_target(&func_name) {
+    if !is_deprecated_target(&call.func) {
         return None;
     }
     Some(DeprecatedDecoration::new(extract_message(call)))
