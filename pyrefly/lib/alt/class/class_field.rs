@@ -1113,24 +1113,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         //
         // We also track `is_inherited`, which is an optimization to skip inheritence checks later when we
         // know the attribute isn't inherited.
-        let (value_ty, inherited_annotation, is_inherited) = match value {
-            ExprOrBinding::Expr(e) => {
-                if let Some(annotated_ty) =
-                    direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
-                {
-                    // If there's an annotated type, we can ignore the expression entirely.
-                    // Note that the assignment will still be type checked by the "normal"
-                    // type checking logic, there's no need to duplicate it here.
-                    (
-                        annotated_ty,
-                        None,
-                        if Self::is_mangled_attr(name) {
-                            IsInherited::No
-                        } else {
-                            IsInherited::Maybe
-                        },
-                    )
+        let (value_ty, inherited_annotation, is_inherited) = if let Some(annotated_ty) =
+            direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
+        {
+            // If there's an annotated type, we can ignore the expression entirely.
+            // Note that the assignment will still be type checked by the "normal"
+            // type checking logic, there's no need to duplicate it here.
+            (
+                annotated_ty,
+                None,
+                if Self::is_mangled_attr(name) {
+                    IsInherited::No
                 } else {
+                    IsInherited::Maybe
+                },
+            )
+        } else {
+            match value {
+                ExprOrBinding::Expr(e) => {
                     let (inherited_ty, inherited_annotation) =
                         self.get_inherited_type_and_annotation(class, name);
                     let is_inherited = if inherited_ty.is_none() {
@@ -1149,12 +1149,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     };
                     (ty, inherited_annotation, is_inherited)
                 }
+                ExprOrBinding::Binding(b) => (
+                    Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
+                    None,
+                    IsInherited::Maybe,
+                ),
             }
-            ExprOrBinding::Binding(b) => (
-                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
-                None,
-                IsInherited::Maybe,
-            ),
         };
 
         let magically_initialized = {
