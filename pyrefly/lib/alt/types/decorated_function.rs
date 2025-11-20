@@ -65,6 +65,18 @@ pub struct DecoratedFunction {
     pub undecorated: Arc<UndecoratedFunction>,
 }
 
+/// Answer for BindingDecorator
+#[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
+pub struct Decorator {
+    pub ty: Type,
+}
+
+impl Display for Decorator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Decorator[{}]", self.ty)
+    }
+}
+
 /// Decorators that need special handling
 pub enum SpecialDecorator<'a> {
     Overload,

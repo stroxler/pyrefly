@@ -52,6 +52,7 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
+use crate::alt::types::decorated_function::Decorator;
 use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
@@ -95,6 +96,7 @@ assert_bytes!(KeyAbstractClassCheck, 4);
 assert_words!(KeyLegacyTypeParam, 1);
 assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
+assert_words!(KeyDecorator, 1);
 assert_words!(KeyDecoratedFunction, 1);
 assert_words!(KeyUndecoratedFunction, 1);
 
@@ -112,6 +114,7 @@ assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 16);
 assert_words!(BindingYield, 4);
 assert_words!(BindingYieldFrom, 4);
+assert_words!(BindingDecorator, 10);
 assert_bytes!(BindingDecoratedFunction, 20);
 assert_words!(BindingUndecoratedFunction, 24);
 
@@ -127,6 +130,7 @@ pub enum AnyIdx {
     KeyVariance(Idx<KeyVariance>),
     KeyClassSynthesizedFields(Idx<KeyClassSynthesizedFields>),
     KeyExport(Idx<KeyExport>),
+    KeyDecorator(Idx<KeyDecorator>),
     KeyDecoratedFunction(Idx<KeyDecoratedFunction>),
     KeyUndecoratedFunction(Idx<KeyUndecoratedFunction>),
     KeyAnnotation(Idx<KeyAnnotation>),
@@ -151,6 +155,7 @@ impl DisplayWith<Bindings> for AnyIdx {
             Self::KeyVariance(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyClassSynthesizedFields(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyExport(idx) => write!(f, "{}", ctx.display(*idx)),
+            Self::KeyDecorator(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyDecoratedFunction(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyUndecoratedFunction(idx) => write!(f, "{}", ctx.display(*idx)),
             Self::KeyAnnotation(idx) => write!(f, "{}", ctx.display(*idx)),
@@ -258,6 +263,13 @@ impl Keyed for KeyExport {
     }
 }
 impl Exported for KeyExport {}
+impl Keyed for KeyDecorator {
+    type Value = BindingDecorator;
+    type Answer = Decorator;
+    fn to_anyidx(idx: Idx<Self>) -> AnyIdx {
+        AnyIdx::KeyDecorator(idx)
+    }
+}
 impl Keyed for KeyDecoratedFunction {
     type Value = BindingDecoratedFunction;
     type Answer = Type;
@@ -666,6 +678,21 @@ impl DisplayWith<ModuleInfo> for KeyExport {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct KeyDecorator(pub TextRange);
+
+impl Ranged for KeyDecorator {
+    fn range(&self) -> TextRange {
+        self.0
+    }
+}
+
+impl DisplayWith<ModuleInfo> for KeyDecorator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &ModuleInfo) -> fmt::Result {
+        write!(f, "KeyDecorator({})", ctx.display(&self.0))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyDecoratedFunction(pub ShortIdentifier);
 
 impl Ranged for KeyDecoratedFunction {
@@ -1020,6 +1047,17 @@ pub enum FunctionStubOrImpl {
     Stub,
     /// The function body is not `...`.
     Impl,
+}
+
+#[derive(Clone, Debug)]
+pub struct BindingDecorator {
+    pub expr: Expr,
+}
+
+impl DisplayWith<Bindings> for BindingDecorator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, ctx: &Bindings) -> fmt::Result {
+        write!(f, "BindingDecorator({})", ctx.module().display(&self.expr))
+    }
 }
 
 #[derive(Clone, Debug)]
