@@ -716,32 +716,24 @@ impl TestClient {
         );
     }
 
-    pub fn expect_publish_diagnostics_uri(&self, expected_uri: &Url, count: usize) {
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Notification(Notification { method, params })
-                    if method == "textDocument/publishDiagnostics" =>
+    pub fn expect_publish_diagnostics_uri(&self, uri: &Url, count: usize) {
+        self.expect_message(
+            &format!("publishDiagnostics notification {count} errors for uri: {uri}"),
+            |msg| {
+                if let Message::Notification(x) = msg
+                    && x.method == PublishDiagnostics::METHOD
                 {
-                    if params.get("uri").and_then(|v| v.as_str()) == Some(expected_uri.as_str()) {
-                        if let Some(diagnostics) = params.get("diagnostics")
-                            && let Some(diagnostics_array) = diagnostics.as_array()
-                        {
-                            if diagnostics_array.len() == count {
-                                return ValidationResult::Pass;
-                            } else {
-                                return ValidationResult::Skip;
-                            }
-                        } else {
-                            panic!("publishDiagnostics notification malformed: missing or invalid 'diagnostics' field");
-                        }
+                    let params: PublishDiagnosticsParams =
+                        serde_json::from_value(x.params).unwrap();
+                    if params.uri == *uri && params.diagnostics.len() == count {
+                        Some(())
+                    } else {
+                        None
                     }
-                    ValidationResult::Skip
+                } else {
+                    None
                 }
-                _ => ValidationResult::Skip,
             },
-            &format!(
-                "publishDiagnostics notification with uri {expected_uri} containing {count} errors"
-            ),
         );
     }
 
