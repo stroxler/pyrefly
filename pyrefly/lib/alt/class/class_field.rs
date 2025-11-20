@@ -1179,22 +1179,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
         );
 
-        // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
-        let value_ty = if matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
-            && annotation.is_none_or(|a| a.ty.is_none())
+        // Determine the final type, promoting literals when appropriate.
+        let ty = if let Some(ty) = annotation.and_then(|ann| ann.ty.as_ref()) {
+            ty.clone()
+        } else if matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
             && value_ty.is_literal()
         {
             value_ty.promote_literals(self.stdlib)
-        } else {
-            value_ty
-        };
-
-        // Types provided in annotations shadow inferred types
-        let ty = if let Some(ann) = annotation {
-            match &ann.ty {
-                Some(ty) => ty.clone(),
-                None => value_ty,
-            }
         } else {
             value_ty
         };
