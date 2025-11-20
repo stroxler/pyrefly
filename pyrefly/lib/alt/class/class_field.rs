@@ -1163,12 +1163,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &initialization,
             range,
         );
-        let is_namedtuple_member = metadata
-            .named_tuple_metadata()
-            .is_some_and(|nt| nt.elements.contains(name));
 
         // Promote literals. The check on `annotation` is an optimization, it does not (currently) affect semantics.
-        let value_ty = if (read_only_reason.is_none() || is_namedtuple_member)
+        let value_ty = if matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
             && annotation.is_none_or(|a| a.ty.is_none())
             && value_ty.is_literal()
         {
