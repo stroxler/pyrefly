@@ -106,6 +106,29 @@ invalid6 = Wrapper.model_validate({"item": {"kind": "b", "name": 123}})
 );
 
 pydantic_testcase!(
+    test_discriminated_unions_annotated,
+    r#"
+from typing import Annotated, Literal
+from pydantic import BaseModel, Field
+
+class A(BaseModel): 
+    input_type: Literal["A"] = "A"
+class B(BaseModel):
+    input_type: Literal["B"] = "B"
+
+T = Annotated[A | B, Field(discriminator="input_type")]
+
+def foo(ts: list[T]) -> list[A]:
+    return [
+        t for t in ts
+        if t.input_type == "A"
+    ]
+
+print(foo([A(), B()]))
+    "#,
+);
+
+pydantic_testcase!(
     test_required_field,
     r#"
 from pydantic import BaseModel
