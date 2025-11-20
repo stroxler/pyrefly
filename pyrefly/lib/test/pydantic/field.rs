@@ -87,7 +87,14 @@ valid1 = Wrapper(item=A(kind="a", val=123))
 valid2 = Wrapper(item=B(kind="b", msg="Bob"))
 
 invalid1 = Wrapper(item=A(kind="a")) # E: Missing argument `val` in function `A.__init__` 
-invalid2 = Wrapper(item=B(kind="b", name=123)) # E: Missing argument `msg` in function `B.__init__` 
+invalid2 = Wrapper(item=B(kind="b", val=123)) # E: Missing argument `msg` in function `B.__init__` 
+
+valid3 = Wrapper.model_validate({"item": A(kind="a", val=123)})
+valid4 = Wrapper.model_validate({"item": B(kind="b", msg="Bob")})
+
+invalid3 = Wrapper.model_validate({"item": A(kind="a")}) # E: Missing argument `val` in function `A.__init__`
+invalid4 =  Wrapper.model_validate({"item": B(kind="b", val=123)}) # E: Missing argument `msg` in function `B.__init__`
+
     "#,
 );
 
