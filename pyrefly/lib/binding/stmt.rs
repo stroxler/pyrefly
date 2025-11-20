@@ -870,6 +870,7 @@ impl<'a> BindingsBuilder<'a> {
                     }
                     match x.asname {
                         Some(asname) => {
+                            self.scopes.register_import(&asname);
                             self.bind_definition(
                                 &asname,
                                 Binding::Module(m, m.components(), None),
@@ -883,6 +884,7 @@ impl<'a> BindingsBuilder<'a> {
                                 Key::Import(first.clone(), x.name.range),
                                 Binding::Module(m, vec![first.clone()], module_key),
                             );
+                            self.scopes.register_import(&x.name);
                             self.bind_name(&first, key, FlowStyle::MergeableImport(m));
                         }
                     }
@@ -1019,6 +1021,12 @@ impl<'a> BindingsBuilder<'a> {
                         Binding::Type(Type::any_error())
                     };
                     let key = self.insert_binding(key, val);
+                    // Register the imported name from wildcard imports
+                    self.scopes.register_import(&Identifier {
+                        node_index: AtomicNodeIndex::dummy(),
+                        id: name.into_key().clone(),
+                        range: x.range,
+                    });
                     self.bind_name(
                         name.key(),
                         key,
@@ -1077,6 +1085,7 @@ impl<'a> BindingsBuilder<'a> {
                         Binding::Type(Type::any_explicit())
                     }
                 };
+                self.scopes.register_import(&asname);
                 self.bind_definition(&asname, val, FlowStyle::Import(m, x.name.id));
             }
         }

@@ -313,6 +313,106 @@ fn test_unused_parameter_no_report() {
     interaction.shutdown();
 }
 
+#[test]
+fn test_unused_import_diagnostic() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(Some(json!([
+            {"pyrefly": {"displayTypeErrors": "force-on"}}
+        ]))),
+        ..Default::default()
+    });
+
+    interaction.server.did_change_configuration();
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(
+        2,
+        json!([
+            {"pyrefly": {"displayTypeErrors": "force-on"}}
+        ]),
+    );
+
+    interaction.server.did_open("unused_import/example.py");
+    interaction.server.diagnostic("unused_import/example.py");
+
+    interaction
+        .client
+        .expect_response::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({
+                "items": [
+                    {
+                        "code": "unused-import",
+                        "message": "Import `os` is unused",
+                        "range": {
+                            "start": {"line": 6, "character": 7},
+                            "end": {"line": 6, "character": 9}
+                        },
+                        "severity": 4,
+                        "source": "Pyrefly",
+                        "tags": [1]
+                    }
+                ],
+                "kind": "full"
+            }),
+        );
+
+    interaction.shutdown();
+}
+
+#[test]
+fn test_unused_from_import_diagnostic() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(Some(json!([
+            {"pyrefly": {"displayTypeErrors": "force-on"}}
+        ]))),
+        ..Default::default()
+    });
+
+    interaction.server.did_change_configuration();
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(
+        2,
+        json!([
+            {"pyrefly": {"displayTypeErrors": "force-on"}}
+        ]),
+    );
+
+    interaction.server.did_open("unused_import/from_import.py");
+    interaction
+        .server
+        .diagnostic("unused_import/from_import.py");
+
+    interaction
+        .client
+        .expect_response::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({
+                "items": [
+                    {
+                        "code": "unused-import",
+                        "message": "Import `Dict` is unused",
+                        "range": {
+                            "start": {"line": 6, "character": 19},
+                            "end": {"line": 6, "character": 23}
+                        },
+                        "severity": 4,
+                        "source": "Pyrefly",
+                        "tags": [1]
+                    }
+                ],
+                "kind": "full"
+            }),
+        );
+
+    interaction.shutdown();
+}
+
 #[cfg(unix)]
 #[test]
 fn test_publish_diagnostics_preserves_symlink_uri() {
