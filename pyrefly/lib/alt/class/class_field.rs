@@ -1077,12 +1077,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         false,
                     )
                 }
-                ClassFieldDefinition::DeclaredWithoutAnnotation => (
-                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
-                    None,
-                    initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
-                    false,
-                ),
                 ClassFieldDefinition::AssignedInBody { value, annotation } => {
                     let annotation = annotation
                         .map(|a| self.get_idx(a))
@@ -1097,6 +1091,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ExprOrBinding::Binding(_) => None,
                             },
                         )),
+                        false,
+                    )
+                }
+                ClassFieldDefinition::DefinedInMethod {
+                    value,
+                    annotation,
+                    method,
+                } => {
+                    let annotation = annotation
+                        .map(|a| self.get_idx(a))
+                        .as_deref()
+                        .map(|annot| annot.annotation.clone());
+                    (
+                        value,
+                        annotation,
+                        initial_value_storage
+                            .push(RawClassFieldInitialization::Method(method.clone())),
                         false,
                     )
                 }
@@ -1115,23 +1126,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     initial_value_storage.push(RawClassFieldInitialization::ClassBody(None)),
                     false,
                 ),
-                ClassFieldDefinition::DefinedInMethod {
-                    value,
-                    annotation,
-                    method,
-                } => {
-                    let annotation = annotation
-                        .map(|a| self.get_idx(a))
-                        .as_deref()
-                        .map(|annot| annot.annotation.clone());
-                    (
-                        value,
-                        annotation,
-                        initial_value_storage
-                            .push(RawClassFieldInitialization::Method(method.clone())),
-                        false,
-                    )
-                }
+                ClassFieldDefinition::DeclaredWithoutAnnotation => (
+                    // This is a field in a synthesized class with no information at all, treat it as Any.
+                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
+                    None,
+                    initial_value_storage.push(RawClassFieldInitialization::Uninitialized),
+                    false,
+                ),
             };
 
         // Get the inferred value type if the value is an expression
