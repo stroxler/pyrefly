@@ -1563,7 +1563,7 @@ impl<'a> CallGraphVisitor<'a> {
         unknown_callee_as_direct_call: bool,
     ) -> CallCallees<FunctionRef> {
         match pyrefly_target {
-            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::BoundMethod(
+            Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::BoundMethod(
                 type_,
                 target,
             ))) => {
@@ -1582,7 +1582,7 @@ impl<'a> CallGraphVisitor<'a> {
                 )
                 .into_call_callees()
             }
-            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::Function(function))) => {
+            Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::Function(function))) => {
                 // Sometimes this means calling a function (e.g., static method) on a class instance. Sometimes
                 // this could be simply calling a module top-level function, which can be handled when the stack
                 // of D85441657 enables uniquely identifying a definition from a type.
@@ -1600,7 +1600,7 @@ impl<'a> CallGraphVisitor<'a> {
                 )
                 .into_call_callees()
             }
-            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::Class(class_type, _))) => {
+            Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::Class(class_type, _))) => {
                 // Constructing a class instance.
                 let (init_method, new_method) = self
                     .module_context
@@ -1624,7 +1624,7 @@ impl<'a> CallGraphVisitor<'a> {
                     callee_expr_suffix,
                 )
             }
-            Some(CallTargetLookup::Ok(crate::alt::call::CallTarget::Union(targets)))
+            Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::Union(targets)))
             | Some(CallTargetLookup::Error(targets)) => {
                 if targets.is_empty() {
                     debug_println!(
@@ -1638,7 +1638,7 @@ impl<'a> CallGraphVisitor<'a> {
                         .into_iter()
                         .map(|target| {
                             self.resolve_pyrefly_target(
-                                Some(CallTargetLookup::Ok(target)),
+                                Some(CallTargetLookup::Ok(Box::new(target))),
                                 callee_expr,
                                 callee_type,
                                 return_type,
