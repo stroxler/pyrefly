@@ -112,6 +112,7 @@ fn test_pythonpath_change() {
         test_files_root.path().join("custom_interpreter/src/foo.py"),
         1,
     );
+
     interaction
         .server
         .definition("custom_interpreter/src/foo.py", 5, 31);
