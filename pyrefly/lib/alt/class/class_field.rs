@@ -1156,9 +1156,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
         let read_only_reason = self.determine_read_only_reason(
-            class,
             name,
             annotation,
+            &metadata,
             &value_ty,
             &initialization,
             range,
@@ -1411,9 +1411,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn determine_read_only_reason(
         &self,
-        cls: &Class,
         name: &Name,
         annotation: Option<&Annotation>,
+        metadata: &ClassMetadata,
         ty: &Type,
         initialization: &ClassFieldInitialization,
         range: TextRange,
@@ -1427,7 +1427,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return Some(ReadOnlyReason::ReadOnlyQualifier);
             }
         }
-        let metadata = self.get_metadata_for_class(cls);
         // NamedTuple members are read-only
         if metadata
             .named_tuple_metadata()
