@@ -184,6 +184,24 @@ class B(A):
     "#,
 );
 
+testcase!(
+    bug = "There's nothing wrong with this code, but our contextual typing fails for x",
+    test_inherited_attribute_with_qualifier_only_annotation,
+    r#"
+from typing import ClassVar, assert_type
+class A: pass
+class B(A): pass
+class Foo:
+    x: ClassVar[list[A]] = []
+    y: ClassVar[list[A]] = []
+class Bar(Foo):
+    x: ClassVar = [B()]  # E: Class member `Bar.x` overrides parent class `Foo` in an inconsistent manner
+    y = [B()]
+assert_type(Bar.x, list[A])  # E: assert_type(list[B], list[A])
+assert_type(Bar.y, list[A])
+    "#,
+);
+
 // Ref https://github.com/facebook/pyrefly/issues/370
 // Ref https://github.com/facebook/pyrefly/issues/522
 testcase!(
