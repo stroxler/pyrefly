@@ -1065,26 +1065,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // which requires us having a place to store synthesized dummy values until we've refactored more.
         let value_storage = Owner::new();
         let initial_value_storage = Owner::new();
-        let direct_annotation = match field_definition {
-            ClassFieldDefinition::DeclaredByAnnotation { annotation }
-            | ClassFieldDefinition::AssignedInBody {
-                annotation: Some(annotation),
-                ..
-            }
-            | ClassFieldDefinition::DefinedInMethod {
-                annotation: Some(annotation),
-                ..
-            } => Some(self.get_idx(*annotation).annotation.clone()),
-            ClassFieldDefinition::AssignedInBody {
-                annotation: None, ..
-            }
-            | ClassFieldDefinition::DefinedInMethod {
-                annotation: None, ..
-            }
-            | ClassFieldDefinition::DeclaredWithoutAnnotation
-            | ClassFieldDefinition::MethodLike { .. }
-            | ClassFieldDefinition::DefinedWithoutAssign { .. } => None,
-        };
+        let direct_annotation = self.annotation_of_field_definition(field_definition);
         let (value, initial_value, is_function_without_return_annotation) = match field_definition {
             ClassFieldDefinition::DeclaredByAnnotation { .. } => (
                 value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit()))),
@@ -1429,6 +1410,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         class_field
+    }
+
+    fn annotation_of_field_definition(
+        &self,
+        field_definition: &ClassFieldDefinition,
+    ) -> Option<Annotation> {
+        match field_definition {
+            ClassFieldDefinition::DeclaredByAnnotation { annotation }
+            | ClassFieldDefinition::AssignedInBody {
+                annotation: Some(annotation),
+                ..
+            }
+            | ClassFieldDefinition::DefinedInMethod {
+                annotation: Some(annotation),
+                ..
+            } => Some(self.get_idx(*annotation).annotation.clone()),
+            ClassFieldDefinition::AssignedInBody {
+                annotation: None, ..
+            }
+            | ClassFieldDefinition::DefinedInMethod {
+                annotation: None, ..
+            }
+            | ClassFieldDefinition::DeclaredWithoutAnnotation
+            | ClassFieldDefinition::MethodLike { .. }
+            | ClassFieldDefinition::DefinedWithoutAssign { .. } => None,
+        }
     }
 
     /// Helper to infer with an optional annotation as a hint and then expand
