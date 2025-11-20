@@ -41,17 +41,10 @@ fn extract_message(call: &ExprCall) -> Option<String> {
     if let Some(arg) = call.arguments.args.first()
         && let Expr::StringLiteral(ExprStringLiteral { value, .. }) = arg
     {
-        return Some(value.to_string());
+        Some(value.to_string())
+    } else {
+        None
     }
-    for kw in &call.arguments.keywords {
-        if let Some(keyword) = &kw.arg
-            && keyword == "msg"
-            && let Expr::StringLiteral(ExprStringLiteral { value, .. }) = &kw.value
-        {
-            return Some(value.to_string());
-        }
-    }
-    None
 }
 
 /// Parse a decorator and return its deprecation metadata if it represents `@deprecated`.
