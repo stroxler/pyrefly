@@ -67,6 +67,31 @@ Example(id="123")  # E: Missing argument `attribute_1`
 );
 
 pydantic_testcase!(
+    test_discriminated_unions,
+    r#"
+from typing import Literal, Union
+from pydantic import BaseModel, Field
+
+class A(BaseModel):
+    kind: Literal["a"]
+    val: int
+
+class B(BaseModel):
+    kind: Literal["b"]
+    msg: str
+
+class Wrapper(BaseModel):
+    item: Union[A, B] = Field(discriminator="kind")
+
+valid1 = Wrapper(item=A(kind="a", val=123))
+valid2 = Wrapper(item=B(kind="b", msg="Bob"))
+
+invalid1 = Wrapper(item=A(kind="a")) # E: Missing argument `val` in function `A.__init__` 
+invalid2 = Wrapper(item=B(kind="b", name=123)) # E: Missing argument `msg` in function `B.__init__` 
+    "#,
+);
+
+pydantic_testcase!(
     test_required_field,
     r#"
 from pydantic import BaseModel
