@@ -1131,6 +1131,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.analyze_class_field_value(value, class, name, initial_value, errors)
             };
 
+        // A type inferred from a method body can potentially "capture" type annotations that
+        // are method-scope. We need to complain if this happens and fall back to gradual types.
+        let value_ty = match initial_value {
+            RawClassFieldInitialization::ClassBody(_)
+            | RawClassFieldInitialization::Uninitialized
+            | RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Class,
+                ..
+            }) => value_ty,
+            RawClassFieldInitialization::Method(MethodThatSetsAttr {
+                instance_or_class: MethodSelfKind::Instance,
+                ..
+            }) => self.check_and_sanitize_type_parameters(class, value_ty, name, range, errors),
+        };
+
         let magically_initialized = {
             // We consider fields to be always-initialized if it's defined within stub files.
             // See https://github.com/python/typeshed/pull/13875 for reasoning.
@@ -1182,19 +1197,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         } else {
             value_ty
-        };
-
-        let ty = match initial_value {
-            RawClassFieldInitialization::ClassBody(_)
-            | RawClassFieldInitialization::Uninitialized
-            | RawClassFieldInitialization::Method(MethodThatSetsAttr {
-                instance_or_class: MethodSelfKind::Class,
-                ..
-            }) => ty,
-            RawClassFieldInitialization::Method(MethodThatSetsAttr {
-                instance_or_class: MethodSelfKind::Instance,
-                ..
-            }) => self.check_and_sanitize_type_parameters(class, ty, name, range, errors),
         };
 
         // Identify whether this is a descriptor
