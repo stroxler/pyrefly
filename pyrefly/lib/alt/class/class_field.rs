@@ -1115,21 +1115,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // know the attribute isn't inherited.
         let (value_ty, inherited_annotation, is_inherited) = match value {
             ExprOrBinding::Expr(e) => {
-                if Self::is_mangled_attr(name) {
-                    // Private (double-underscore) attributes are name-mangled at runtime and should not
-                    // inherit types or annotations from parent classes.
-                    (
-                        self.attribute_expr_infer(e, None, name, errors),
-                        None,
-                        IsInherited::No,
-                    )
-                } else if let Some(annotated_ty) =
+                if let Some(annotated_ty) =
                     direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
                 {
                     // If there's an annotated type, we can ignore the expression entirely.
                     // Note that the assignment will still be type checked by the "normal"
                     // type checking logic, there's no need to duplicate it here.
-                    (annotated_ty, None, IsInherited::Maybe)
+                    (
+                        annotated_ty,
+                        None,
+                        if Self::is_mangled_attr(name) {
+                            IsInherited::No
+                        } else {
+                            IsInherited::Maybe
+                        },
+                    )
                 } else {
                     let (inherited_ty, inherited_annotation) =
                         self.get_inherited_type_and_annotation(class, name);
@@ -1558,6 +1558,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         class: &Class,
         name: &Name,
     ) -> (Option<Type>, Option<Annotation>) {
+        // Private (double-underscore) attributes are name-mangled at runtime and should not
+        // inherit types or annotations from parent classes.
+        if Self::is_mangled_attr(name) {
+            return (None, None);
+        }
         let mut found_field = None;
         let annotation = self
             .get_mro_for_class(class)
