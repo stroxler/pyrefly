@@ -1143,33 +1143,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // know the attribute isn't inherited.
         let (value_ty, inherited_annotation, is_inherited) = match value {
             ExprOrBinding::Expr(e) => {
-                let (inherited_ty, inherited_annotation, is_inherited) =
-                    if direct_annotation.is_some() {
-                        (None, None, IsInherited::Maybe)
-                    } else if Self::is_mangled_attr(name) {
-                        // Private (double-underscore) attributes are name-mangled at runtime and should not
-                        // inherit types or annotations from parent classes.
-                        (None, None, IsInherited::No)
-                    } else {
-                        let (inherited_ty, inherited_annotation) =
-                            self.get_inherited_type_and_annotation(class, name);
-                        let is_inherited = if inherited_ty.is_none() {
-                            IsInherited::No
-                        } else {
-                            IsInherited::Maybe
-                        };
-                        (inherited_ty, inherited_annotation, is_inherited)
-                    };
-                let ty = if let Some(inherited_ty) = inherited_ty
-                    && matches!(initial_value, RawClassFieldInitialization::Method(_))
-                {
-                    // Inherit the previous type of the attribute if the only declaration-like
-                    // thing the current class does is assign to the attribute in a method.
-                    inherited_ty
+                if direct_annotation.is_some() {
+                    (
+                        self.attribute_expr_infer(e, None, name, errors),
+                        None,
+                        IsInherited::Maybe,
+                    )
+                } else if Self::is_mangled_attr(name) {
+                    // Private (double-underscore) attributes are name-mangled at runtime and should not
+                    // inherit types or annotations from parent classes.
+                    (
+                        self.attribute_expr_infer(e, None, name, errors),
+                        None,
+                        IsInherited::No,
+                    )
                 } else {
-                    self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
-                };
-                (ty, inherited_annotation, is_inherited)
+                    let (inherited_ty, inherited_annotation) =
+                        self.get_inherited_type_and_annotation(class, name);
+                    let is_inherited = if inherited_ty.is_none() {
+                        IsInherited::No
+                    } else {
+                        IsInherited::Maybe
+                    };
+                    let ty = if let Some(inherited_ty) = inherited_ty
+                        && matches!(initial_value, RawClassFieldInitialization::Method(_))
+                    {
+                        // Inherit the previous type of the attribute if the only declaration-like
+                        // thing the current class does is assign to the attribute in a method.
+                        inherited_ty
+                    } else {
+                        self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
+                    };
+                    (ty, inherited_annotation, is_inherited)
+                }
             }
             ExprOrBinding::Binding(b) => (
                 Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
