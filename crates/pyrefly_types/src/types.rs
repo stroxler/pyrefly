@@ -1560,14 +1560,6 @@ impl Type {
             })
         })
     }
-
-    /// Is this an instance of `warnings.deprecated` or its backport `typing_extensions.deprecated`?
-    pub fn is_deprecation_marker(&self) -> bool {
-        let Type::ClassType(cls) = self else {
-            return false;
-        };
-        cls.has_qname("warnings", "deprecated") || cls.has_qname("typing_extensions", "deprecated")
-    }
 }
 
 #[cfg(test)]
