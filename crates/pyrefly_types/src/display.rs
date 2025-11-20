@@ -191,7 +191,7 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
-    fn fmt_targs(&self, targs: &TArgs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn fmt_targs(&self, targs: &TArgs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !targs.is_empty() {
             write!(
                 f,
@@ -205,14 +205,14 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
-    fn fmt_qname(&self, qname: &QName, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn fmt_qname(&self, qname: &QName, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.qnames.get(&qname.id()) {
             Some(info) => info.fmt(qname, f),
             None => QNameInfo::qualified().fmt(qname, f), // we should not get here, if we do, be safe
         }
     }
 
-    fn fmt_lit(&self, lit: &Lit, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn fmt_lit(&self, lit: &Lit, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match lit {
             Lit::Enum(e) => {
                 self.fmt_qname(e.class.qname(), f)?;
