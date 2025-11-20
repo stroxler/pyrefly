@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use pyrefly_types::callable::DeprecatedDecoration;
+use pyrefly_types::callable::Deprecation;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -37,12 +37,12 @@ fn extract_message(call: &ExprCall) -> Option<String> {
 }
 
 /// Parse a decorator and return its deprecation metadata if it represents `@deprecated`.
-pub fn parse_deprecated_decorator(decorator: &Decorator) -> Option<DeprecatedDecoration> {
+pub fn parse_deprecation(decorator: &Decorator) -> Option<Deprecation> {
     let call = decorator.expression.as_call_expr()?;
     if !is_deprecated_target(&call.func) {
         return None;
     }
-    Some(DeprecatedDecoration::new(extract_message(call)))
+    Some(Deprecation::new(extract_message(call)))
 }
 
 /// Format a base description (`"`foo` is deprecated"`) with an optional detail message.
@@ -55,9 +55,6 @@ fn format_deprecated_message(base: impl Into<String>, message: Option<&str>) -> 
 }
 
 /// Format a base description using metadata from a parsed decorator.
-pub fn format_deprecated_with_decoration(
-    base: impl Into<String>,
-    decoration: Option<&DeprecatedDecoration>,
-) -> String {
+pub fn format_deprecation(base: impl Into<String>, decoration: Option<&Deprecation>) -> String {
     format_deprecated_message(base, decoration.and_then(|d| d.message.as_deref()))
 }

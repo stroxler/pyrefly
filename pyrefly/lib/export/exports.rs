@@ -15,7 +15,7 @@ use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
-use pyrefly_types::callable::DeprecatedDecoration;
+use pyrefly_types::callable::Deprecation;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -41,7 +41,7 @@ pub struct Export {
     pub location: TextRange,
     pub symbol_kind: Option<SymbolKind>,
     pub docstring_range: Option<TextRange>,
-    pub deprecation: Option<DeprecatedDecoration>,
+    pub deprecation: Option<Deprecation>,
     pub special_export: Option<SpecialExport>,
 }
 

@@ -95,7 +95,7 @@ use crate::binding::binding::UnpackedPosition;
 use crate::binding::narrow::identifier_and_chain_for_expr;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::config::error_kind::ErrorKind;
-use crate::deprecation::parse_deprecated_decorator;
+use crate::deprecation::parse_deprecation;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
@@ -3481,7 +3481,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.pin_all_placeholder_types(&mut ty);
         self.expand_vars_mut(&mut ty);
         // TODO: change parse_deprecated_decorator to take an Expr.
-        let deprecation = parse_deprecated_decorator(&RuffDecorator {
+        let deprecation = parse_deprecation(&RuffDecorator {
             range: x.expr.range(),
             node_index: AtomicNodeIndex::dummy(),
             expression: x.expr.clone(),

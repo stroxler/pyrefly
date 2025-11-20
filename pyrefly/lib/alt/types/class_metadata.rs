@@ -14,7 +14,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
-use pyrefly_types::callable::DeprecatedDecoration;
+use pyrefly_types::callable::Deprecation;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::VisitMut;
@@ -54,7 +54,7 @@ pub struct ClassMetadata {
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
-    deprecation: Option<DeprecatedDecoration>,
+    deprecation: Option<Deprecation>,
     is_disjoint_base: bool,
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
@@ -92,7 +92,7 @@ impl ClassMetadata {
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
-        deprecation: Option<DeprecatedDecoration>,
+        deprecation: Option<Deprecation>,
         is_disjoint_base: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
@@ -207,7 +207,7 @@ impl ClassMetadata {
         false
     }
 
-    pub fn deprecation(&self) -> Option<&DeprecatedDecoration> {
+    pub fn deprecation(&self) -> Option<&Deprecation> {
         self.deprecation.as_ref()
     }
 

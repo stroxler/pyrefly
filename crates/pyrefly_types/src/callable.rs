@@ -328,11 +328,11 @@ impl FuncMetadata {
 #[derive(
     Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq, PartialOrd, Ord, Hash
 )]
-pub struct DeprecatedDecoration {
+pub struct Deprecation {
     pub message: Option<String>,
 }
 
-impl DeprecatedDecoration {
+impl Deprecation {
     pub fn new(message: Option<String>) -> Self {
         Self { message }
     }
@@ -345,7 +345,7 @@ pub struct FuncFlags {
     pub is_staticmethod: bool,
     pub is_classmethod: bool,
     /// A function decorated with `@deprecated`
-    pub deprecation: Option<DeprecatedDecoration>,
+    pub deprecation: Option<Deprecation>,
     /// A function decorated with `@property`
     pub is_property_getter: bool,
     /// A function decorated with `functools.cached_property` or equivalent.

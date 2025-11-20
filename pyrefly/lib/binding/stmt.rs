@@ -44,7 +44,7 @@ use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
 use crate::binding::scope::Scope;
 use crate::config::error_kind::ErrorKind;
-use crate::deprecation::format_deprecated_with_decoration;
+use crate::deprecation::format_deprecation;
 use crate::error::context::ErrorInfo;
 use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::Export;
@@ -1002,7 +1002,7 @@ impl<'a> BindingsBuilder<'a> {
                         ..
                     })) = exported.get_hashed(name)
                     {
-                        let msg = format_deprecated_with_decoration(
+                        let msg = format_deprecation(
                             format!("`{name}` is deprecated"),
                             Some(deprecation),
                         );
@@ -1052,7 +1052,7 @@ impl<'a> BindingsBuilder<'a> {
                         ..
                     })) = exported.get(&x.name.id)
                     {
-                        let msg = format_deprecated_with_decoration(
+                        let msg = format_deprecation(
                             format!("`{}` is deprecated", x.name),
                             Some(deprecation),
                         );

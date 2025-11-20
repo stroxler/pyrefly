@@ -18,7 +18,7 @@ use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_types::callable::DeprecatedDecoration;
+use pyrefly_types::callable::Deprecation;
 use pyrefly_types::callable::FuncFlags;
 use pyrefly_types::callable::FuncId;
 use pyrefly_types::callable::FunctionKind;
@@ -70,7 +70,7 @@ pub struct DecoratedFunction {
 #[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
 pub struct Decorator {
     pub ty: Type,
-    pub deprecation: Option<DeprecatedDecoration>,
+    pub deprecation: Option<Deprecation>,
 }
 
 impl Display for Decorator {
@@ -89,7 +89,7 @@ pub enum SpecialDecorator<'a> {
     EnumMember,
     Override,
     Final,
-    Deprecated(&'a DeprecatedDecoration),
+    Deprecated(&'a Deprecation),
     PropertySetter(&'a Type),
     DataclassTransformCall(&'a TypeMap),
     EnumNonmember,
