@@ -238,3 +238,24 @@ m3 = Model(x=5)
 m4 = Model(x=IntRootModel(5))
     "#,
 );
+
+pydantic_testcase!(
+    bug = "all calls here are valid",
+    test_nested_root_models,
+    r#"
+from pydantic import BaseModel, RootModel
+
+class InnerModel(RootModel[int]):
+    pass
+
+class OuterModel(RootModel[InnerModel]):
+    pass
+
+class Model(BaseModel, strict=True):
+    x: OuterModel
+
+m1 = Model(x=OuterModel(InnerModel(5)))
+m2 = Model(x=InnerModel(5))  # E:  Argument `InnerModel` is not assignable to parameter `x` with type `OuterModel` in function `Model.__init__` 
+m3 = Model(x=5) # E: Argument `Literal[5]` is not assignable to parameter `x` with type `OuterModel` in function `Model.__init__`
+    "#,
+);
