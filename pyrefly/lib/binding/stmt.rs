@@ -1006,7 +1006,7 @@ impl<'a> BindingsBuilder<'a> {
                             format!("`{name}` is deprecated"),
                             Some(deprecation),
                         );
-                        self.error(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
+                        self.error_multiline(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
                     }
                     let val = if exported.contains_key_hashed(name) {
                         Binding::Import(m, name.into_key().clone(), None)
@@ -1056,7 +1056,7 @@ impl<'a> BindingsBuilder<'a> {
                             format!("`{}` is deprecated", x.name),
                             Some(deprecation),
                         );
-                        self.error(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
+                        self.error_multiline(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
                     }
                     Binding::Import(m, x.name.id.clone(), original_name_range)
                 } else {

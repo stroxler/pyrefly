@@ -333,12 +333,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                     Some(deprecation),
                 );
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::new(ErrorKind::Deprecated, context),
-                    msg,
-                );
+                errors.add(range, ErrorInfo::new(ErrorKind::Deprecated, context), msg);
             }
             (closest_overload.res, closest_overload.func.1.signature)
         } else {

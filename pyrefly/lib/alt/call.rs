@@ -24,7 +24,6 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 use vec1::Vec1;
-use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -377,16 +376,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We manually construct an error using the message from the context but a
                     // Deprecated error kind so that the error is shown at the Deprecated severity
                     // (default: WARN) rather than the severity of the context's error kind.
-                    let msg = format_deprecation(
+                    let mut msg = format_deprecation(
                         format!("`{}` is deprecated", m.kind.format(self.module().name())),
                         Some(deprecation),
                     );
-                    let full_msg = if let Some(ctx) = context {
-                        vec1![ctx().format(), msg]
-                    } else {
-                        vec1![msg]
-                    };
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::Deprecated), full_msg);
+                    if let Some(ctx) = context {
+                        msg.insert(0, ctx().format());
+                    }
+                    errors.add(range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
                 }
                 *target
             }

@@ -244,8 +244,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .to_func_kind()
             .map(|func_kind| func_kind.format(self.module().name()));
         if let Some(deprecated_function) = deprecated_function {
-            self.error(
-                errors,
+            errors.add(
                 range,
                 ErrorInfo::Kind(ErrorKind::Deprecated),
                 format_deprecation(
