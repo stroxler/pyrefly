@@ -324,6 +324,18 @@ impl FuncMetadata {
     }
 }
 
+/// Metadata extracted from a `@deprecated` decorator.
+#[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
+pub struct DeprecatedDecoration {
+    pub message: Option<String>,
+}
+
+impl DeprecatedDecoration {
+    pub fn new(message: Option<String>) -> Self {
+        Self { message }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct FuncFlags {

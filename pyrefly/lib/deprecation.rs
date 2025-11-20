@@ -5,26 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use pyrefly_derive::TypeEq;
-use pyrefly_derive::Visit;
-use pyrefly_derive::VisitMut;
+use pyrefly_types::callable::DeprecatedDecoration;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprStringLiteral;
-
-/// Metadata extracted from a `@deprecated` decorator.
-#[derive(Clone, Debug, Visit, VisitMut, TypeEq, PartialEq, Eq)]
-pub struct DeprecatedDecoration {
-    pub message: Option<String>,
-}
-
-impl DeprecatedDecoration {
-    pub fn new(message: Option<String>) -> Self {
-        Self { message }
-    }
-}
 
 fn is_deprecated_target(e: &Expr) -> bool {
     let (base, value) = match e {
