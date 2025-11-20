@@ -67,6 +67,7 @@ Example(id="123")  # E: Missing argument `attribute_1`
 );
 
 pydantic_testcase!(
+    bug = "consider erroring on invalid5 and invalid6",
     test_discriminated_unions,
     r#"
 from typing import Literal, Union
@@ -94,6 +95,12 @@ valid4 = Wrapper.model_validate({"item": B(kind="b", msg="Bob")})
 
 invalid3 = Wrapper.model_validate({"item": A(kind="a")}) # E: Missing argument `val` in function `A.__init__`
 invalid4 =  Wrapper.model_validate({"item": B(kind="b", val=123)}) # E: Missing argument `msg` in function `B.__init__`
+
+valid5 = Wrapper.model_validate({"item": {"kind": "a", "val": 123}})
+valid6 = Wrapper.model_validate({"item": {"kind": "b", "msg": "Bob"}})
+
+invalid5 = Wrapper.model_validate({"item": {"kind": "a"}})  
+invalid6 = Wrapper.model_validate({"item": {"kind": "b", "name": 123}})  
 
     "#,
 );
