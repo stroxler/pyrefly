@@ -15,7 +15,6 @@ use std::thread::{self};
 use std::time::Duration;
 
 use crossbeam_channel::RecvTimeoutError;
-use crossbeam_channel::bounded;
 use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
@@ -966,19 +965,12 @@ impl LspInteraction {
     pub fn new_with_indexing_mode(indexing_mode: IndexingMode) -> Self {
         init_test();
 
-        let (language_client_sender, language_client_receiver) = bounded::<Message>(0);
-        let (language_server_sender, language_server_receiver) = bounded::<Message>(0);
+        let (conn_client, conn_server) = Connection::memory();
 
         let args = LspArgs {
             indexing_mode,
             workspace_indexing_limit: 50,
         };
-        let connection = Connection {
-            sender: language_client_sender,
-            receiver: language_server_receiver,
-        };
-
-        let connection = Arc::new(connection);
         let args = args.clone();
 
         let finish_handle = Arc::new(FinishHandle::new());
@@ -986,13 +978,13 @@ impl LspInteraction {
 
         // Spawn the server thread notify when finished
         thread::spawn(move || {
-            let _ = run_lsp(connection, args, "pyrefly-lsp-test-version");
+            let _ = run_lsp(Arc::new(conn_server), args, "pyrefly-lsp-test-version");
             finish_server.notify_finished();
         });
 
         let request_idx = Arc::new(AtomicI32::new(0));
-        let server = TestServer::new(language_server_sender, finish_handle, request_idx.clone());
-        let client = TestClient::new(language_client_receiver, request_idx);
+        let server = TestServer::new(conn_client.sender, finish_handle, request_idx.clone());
+        let client = TestClient::new(conn_client.receiver, request_idx);
 
         Self { server, client }
     }
