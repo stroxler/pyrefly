@@ -937,7 +937,6 @@ impl<'a> Transaction<'a> {
                         location: TextRange::default(),
                         symbol_kind: Some(SymbolKind::Module),
                         docstring_range,
-                        is_deprecated: false,
                         deprecation: None,
                         special_export: None,
                     },
@@ -2168,7 +2167,7 @@ impl<'a> Transaction<'a> {
                         }),
                     additional_text_edits,
                     label_details,
-                    tags: if export.is_deprecated {
+                    tags: if export.deprecation.is_some() {
                         Some(vec![CompletionItemTag::DEPRECATED])
                     } else {
                         None
@@ -2456,7 +2455,7 @@ impl<'a> Transaction<'a> {
                     let exports = self.get_exports(&handle);
                     for (name, export) in exports.iter() {
                         let is_deprecated = match export {
-                            ExportLocation::ThisModule(export) => export.is_deprecated,
+                            ExportLocation::ThisModule(export) => export.deprecation.is_some(),
                             ExportLocation::OtherModule(_, _) => false,
                         };
                         result.push(CompletionItem {

@@ -998,15 +998,13 @@ impl<'a> BindingsBuilder<'a> {
                 for name in module_exports.wildcard(self.lookup).iter_hashed() {
                     let key = Key::Import(name.into_key().clone(), x.range);
                     if let Some(ExportLocation::ThisModule(Export {
-                        is_deprecated,
-                        deprecation,
+                        deprecation: Some(deprecation),
                         ..
                     })) = exported.get_hashed(name)
-                        && *is_deprecated
                     {
                         let msg = format_deprecated_with_decoration(
                             format!("`{name}` is deprecated"),
-                            deprecation.as_ref(),
+                            Some(deprecation),
                         );
                         self.error(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
                     }
@@ -1050,15 +1048,13 @@ impl<'a> BindingsBuilder<'a> {
                 // `__init__` module of `x`, we always prefer the submodule.
                 let val = if (self.module_info.name() != m) && exported.contains_key(&x.name.id) {
                     if let Some(ExportLocation::ThisModule(Export {
-                        is_deprecated,
-                        deprecation,
+                        deprecation: Some(deprecation),
                         ..
                     })) = exported.get(&x.name.id)
-                        && *is_deprecated
                     {
                         let msg = format_deprecated_with_decoration(
                             format!("`{}` is deprecated", x.name),
-                            deprecation.as_ref(),
+                            Some(deprecation),
                         );
                         self.error(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
                     }

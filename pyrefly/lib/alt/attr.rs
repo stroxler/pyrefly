@@ -2049,7 +2049,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 is_deprecated: matches!(
                                     export_location,
                                     ExportLocation::ThisModule(Export {
-                                        is_deprecated: true,
+                                        deprecation: Some(_),
                                         ..
                                     })
                                 ),
@@ -2081,7 +2081,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             is_deprecated: matches!(
                                 export_location,
                                 ExportLocation::ThisModule(Export {
-                                    is_deprecated: true,
+                                    deprecation: Some(_),
                                     ..
                                 })
                             ),
