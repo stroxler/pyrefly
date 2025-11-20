@@ -432,7 +432,10 @@ impl<'a> DefinitionsBuilder<'a> {
                 decorator_list,
                 ..
             }) => {
-                if let Some(decoration) = decorator_list.iter().find_map(parse_deprecation) {
+                if let Some(decoration) = decorator_list
+                    .iter()
+                    .find_map(|d| parse_deprecation(&d.expression))
+                {
                     self.inner.deprecated.insert(name.id.clone(), decoration);
                 }
                 self.add_identifier_with_body(
@@ -567,7 +570,7 @@ impl<'a> DefinitionsBuilder<'a> {
                 for d in decorator_list {
                     is_overload = is_overload || is_overload_decorator(d);
                     if deprecated_decoration.is_none() {
-                        deprecated_decoration = parse_deprecation(d);
+                        deprecated_decoration = parse_deprecation(&d.expression);
                     }
                 }
                 // If the function is not an overload and decorated with

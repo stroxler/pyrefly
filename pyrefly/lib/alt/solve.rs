@@ -20,8 +20,6 @@ use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
-use ruff_python_ast::AtomicNodeIndex;
-use ruff_python_ast::Decorator as RuffDecorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprSubscript;
@@ -3480,12 +3478,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut ty = self.expr_infer(&x.expr, errors);
         self.pin_all_placeholder_types(&mut ty);
         self.expand_vars_mut(&mut ty);
-        // TODO: change parse_deprecated_decorator to take an Expr.
-        let deprecation = parse_deprecation(&RuffDecorator {
-            range: x.expr.range(),
-            node_index: AtomicNodeIndex::dummy(),
-            expression: x.expr.clone(),
-        });
+        let deprecation = parse_deprecation(&x.expr);
         Arc::new(Decorator { ty, deprecation })
     }
 

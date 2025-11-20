@@ -6,7 +6,6 @@
  */
 
 use pyrefly_types::callable::Deprecation;
-use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
@@ -37,8 +36,8 @@ fn extract_message(call: &ExprCall) -> Option<String> {
 }
 
 /// Parse a decorator and return its deprecation metadata if it represents `@deprecated`.
-pub fn parse_deprecation(decorator: &Decorator) -> Option<Deprecation> {
-    let call = decorator.expression.as_call_expr()?;
+pub fn parse_deprecation(e: &Expr) -> Option<Deprecation> {
+    let call = e.as_call_expr()?;
     if !is_deprecated_target(&call.func) {
         return None;
     }
