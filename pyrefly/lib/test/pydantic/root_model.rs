@@ -174,3 +174,21 @@ m2 = B("1") # E: Argument `Literal['1']` is not assignable to parameter `root` w
 m3 = A("1") # E: Argument `Literal['1']` is not assignable to parameter `root` with type `int` in function `A.__init__
 "#,
 );
+
+pydantic_testcase!(
+    bug = "we should unwrap the rootmodel",
+    test_root_model_strict,
+    r#"
+from pydantic import BaseModel, RootModel
+
+class IntRootModel(RootModel[int]):
+    pass
+
+class Model(BaseModel, strict=True):
+    x: IntRootModel
+
+m1 = Model(x=IntRootModel(123))
+m2 = Model(x=123) # E:  Argument `Literal[123]` is not assignable to parameter `x` with type `IntRootModel` in function `Model.__init__`
+m3 = Model(x=IntRootModel(123))
+    "#,
+);
