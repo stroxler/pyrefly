@@ -25,10 +25,12 @@ use pyrefly_types::types::Type;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::ArgOrKeyword;
 use ruff_python_ast::Comprehension;
+use ruff_python_ast::ConversionFlag;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
+use ruff_python_ast::ExprFString;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::ModModule;
@@ -80,6 +82,8 @@ pub enum OriginKind {
     ForDecoratedTarget,
     SubscriptGetItem,
     SubscriptSetItem,
+    FormatStringArtificial,
+    FormatStringStringify,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -93,6 +97,8 @@ impl std::fmt::Display for OriginKind {
             Self::ForDecoratedTarget => write!(f, "for-decorated-target"),
             Self::SubscriptGetItem => write!(f, "subscript-get-item"),
             Self::SubscriptSetItem => write!(f, "subscript-set-item"),
+            Self::FormatStringArtificial => write!(f, "format-string-artificial"),
+            Self::FormatStringStringify => write!(f, "format-string-stringify"),
         }
     }
 }
@@ -191,6 +197,7 @@ pub enum Target<Function: FunctionTrait> {
     Override(Function),
     #[allow(dead_code)]
     Object(String),
+    FormatString,
 }
 
 impl<Function: FunctionTrait> Target<Function> {
@@ -206,6 +213,7 @@ impl<Function: FunctionTrait> Target<Function> {
             Target::Function(function) => Target::Function(map(function)),
             Target::Override(function) => Target::Override(map(function)),
             Target::Object(object) => Target::Object(object),
+            Target::FormatString => Target::FormatString,
         }
     }
 }
@@ -285,6 +293,18 @@ impl<Function: FunctionTrait> CallTarget<Function> {
         self.return_type = return_type;
         self
     }
+
+    fn format_string_target() -> Self {
+        CallTarget {
+            target: Target::FormatString,
+            return_type: None,
+            implicit_receiver: ImplicitReceiver::False,
+            implicit_dunder_call: false,
+            receiver_class: None,
+            is_class_method: false,
+            is_static_method: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -309,6 +329,8 @@ pub enum UnresolvedReason {
     UnexpectedCalleeExpression,
     // Pyrefly failed to resolved a magic dunder attribute.
     UnresolvedMagicDunderAttr,
+    // No base type when trying to resolve a magic dunder attribute on this type.
+    UnresolvedBaseTypeUnresolvedMagicDunderAttr,
     // Set of different reasons.
     Mixed,
 }
@@ -715,11 +737,50 @@ impl<Function: FunctionTrait> DefineCallees<Function> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FormatStringArtificialCallees<Function: FunctionTrait> {
+    pub(crate) targets: Vec<CallTarget<Function>>,
+}
+
+impl<Function: FunctionTrait> FormatStringArtificialCallees<Function> {
+    #[cfg(test)]
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
+        self,
+        map: &MapFunction,
+    ) -> FormatStringArtificialCallees<OutputFunction>
+    where
+        MapFunction: Fn(Function) -> OutputFunction,
+    {
+        FormatStringArtificialCallees {
+            targets: self
+                .targets
+                .into_iter()
+                .map(|call_target| CallTarget::map_function(call_target, map))
+                .collect(),
+        }
+    }
+
+    #[allow(dead_code)]
+    fn is_empty(&self) -> bool {
+        self.targets.is_empty()
+    }
+
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
+        self.targets.iter()
+    }
+
+    fn dedup_and_sort(&mut self) {
+        self.targets.sort();
+        self.targets.dedup();
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum ExpressionCallees<Function: FunctionTrait> {
     Call(CallCallees<Function>),
     Identifier(IdentifierCallees<Function>),
     AttributeAccess(AttributeAccessCallees<Function>),
     Define(DefineCallees<Function>),
+    FormatStringArtificial(FormatStringArtificialCallees<Function>),
 }
 
 impl<Function: FunctionTrait> ExpressionCallees<Function> {
@@ -744,6 +805,9 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             ExpressionCallees::Define(define_callees) => {
                 ExpressionCallees::Define(define_callees.map_function(map))
             }
+            ExpressionCallees::FormatStringArtificial(callees) => {
+                ExpressionCallees::FormatStringArtificial(callees.map_function(map))
+            }
         }
     }
 
@@ -756,6 +820,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
                 attribute_access_callees.is_empty()
             }
             ExpressionCallees::Define(define_callees) => define_callees.is_empty(),
+            ExpressionCallees::FormatStringArtificial(callees) => callees.is_empty(),
         }
     }
 
@@ -769,6 +834,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
                 Box::new(attribute_access_callees.all_targets())
             }
             ExpressionCallees::Define(define_callees) => Box::new(define_callees.all_targets()),
+            ExpressionCallees::FormatStringArtificial(callees) => Box::new(callees.all_targets()),
         }
     }
 
@@ -785,6 +851,9 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             }
             ExpressionCallees::Define(define_callees) => {
                 define_callees.dedup_and_sort();
+            }
+            ExpressionCallees::FormatStringArtificial(callees) => {
+                callees.dedup_and_sort();
             }
         }
     }
@@ -1330,7 +1399,7 @@ impl<'a> CallGraphVisitor<'a> {
                         /* is_override_target */ true,
                         override_implicit_receiver,
                     ),
-                    Target::Object(_) => CallTarget {
+                    Target::Object(_) | Target::FormatString => CallTarget {
                         target,
                         implicit_receiver: ImplicitReceiver::False,
                         receiver_class: None,
@@ -2387,6 +2456,70 @@ impl<'a> CallGraphVisitor<'a> {
         self.add_callees(identifier, ExpressionCallees::Call(callees))
     }
 
+    fn resolve_and_register_fstring(&mut self, fstring: &ExprFString) {
+        self.add_callees(
+            ExpressionIdentifier::ArtificialCall(Origin {
+                kind: OriginKind::FormatStringArtificial,
+                location: self.pysa_location(fstring.range()),
+            }),
+            ExpressionCallees::FormatStringArtificial(FormatStringArtificialCallees {
+                targets: vec![CallTarget::format_string_target()],
+            }),
+        );
+
+        for element in fstring.value.elements() {
+            if let Some(interpolation) = element.as_interpolation() {
+                let expression_range = interpolation.expression.range();
+                let callees = if let Some(expression_type) =
+                    self.module_context.answers.get_type_trace(expression_range)
+                {
+                    let callee_name = match interpolation.conversion {
+                        ConversionFlag::None => dunder::FORMAT,
+                        ConversionFlag::Str => dunder::STR,
+                        ConversionFlag::Ascii => dunder::ASCII,
+                        ConversionFlag::Repr => dunder::REPR,
+                    };
+                    self.pyrefly_target_from_magic_dunder_attr(
+                        &expression_type,
+                        &callee_name,
+                        expression_range,
+                        "resolve_expression_for_fstring",
+                    )
+                    .map(
+                        |ResolvedDunderAttr {
+                             target,
+                             attr_type: callee_type,
+                         }| {
+                            self.resolve_pyrefly_target(
+                                Some(target),
+                                /* callee_expr */ None,
+                                Some(&callee_type),
+                                /* return_type */ Some(ScalarTypeProperties::none()),
+                                /* callee_expr_suffix */
+                                Some(&callee_name),
+                                /* unknown_callee_as_direct_call */ true,
+                            )
+                        },
+                    )
+                    .unwrap_or(CallCallees::new_unresolved(
+                        UnresolvedReason::UnresolvedMagicDunderAttr,
+                    ))
+                } else {
+                    CallCallees::new_unresolved(
+                        UnresolvedReason::UnresolvedBaseTypeUnresolvedMagicDunderAttr,
+                    )
+                };
+                self.add_callees(
+                    ExpressionIdentifier::ArtificialCall(Origin {
+                        kind: OriginKind::FormatStringStringify,
+                        location: self.pysa_location(expression_range),
+                    }),
+                    ExpressionCallees::Call(callees),
+                );
+            }
+        }
+    }
+
     fn resolve_and_register_expression(
         &mut self,
         expr: &Expr,
@@ -2478,6 +2611,10 @@ impl<'a> CallGraphVisitor<'a> {
                     assignment_targets(current_statement),
                     current_statement.map(|stmt| stmt.range()),
                 );
+            }
+            Expr::FString(fstring) => {
+                debug_println!(self.debug, "Resolving callees for fstring `{:#?}`", expr);
+                self.resolve_and_register_fstring(fstring);
             }
             _ => {
                 debug_println!(self.debug, "Nothing to resolve in expression `{:#?}`", expr);
@@ -2848,7 +2985,7 @@ pub fn resolve_decorator_callees(
                 && (function_ref.function_name == dunder::INIT
                     || function_ref.function_name == dunder::NEW)
         }
-        Target::Object(_) => false,
+        Target::Object(_) | Target::FormatString => false,
     };
 
     for decorator in decorators {
