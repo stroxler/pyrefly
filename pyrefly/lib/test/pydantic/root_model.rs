@@ -219,3 +219,22 @@ Model(x=5.5)  # E: Argument `float` is not assignable to parameter `x` with type
 Model(x=[])   # E: Argument `list[@_]` is not assignable to parameter `x` with type `IntRootModel | StrRootModel` in function `Model.__init__`
     "#,
 );
+
+pydantic_testcase!(
+    test_optional_root_model_fields,
+    r#"
+from typing import Optional
+from pydantic import BaseModel, RootModel
+
+class IntRootModel(RootModel[int]):
+    pass
+
+class Model(BaseModel):
+    x: Optional[IntRootModel] = None
+
+m1 = Model()
+m2 = Model(x=None)
+m3 = Model(x=5)
+m4 = Model(x=IntRootModel(5))
+    "#,
+);
