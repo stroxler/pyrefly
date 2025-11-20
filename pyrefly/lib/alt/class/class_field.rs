@@ -1146,68 +1146,63 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Note: the subset check here is too conservative when it comes to modeling runtime behavior
         // we want to check if the bound_val is coercible to the annotation type at runtime.
         // statically, this could be a challenge, which is why we go with this more conservative approach for now.
-        if metadata.is_pydantic_base_model()
-            && let Some(annot) = &direct_annotation
-            && let ClassFieldInitialization::ClassBody(Some(DataclassFieldKeywords {
-                gt,
-                lt,
-                ge,
-                ..
-            })) = &initialization
-        {
-            let field_ty = annot.get_type();
+        if let Some(annotation) = direct_annotation.as_ref() {
+            if metadata.is_pydantic_base_model()
+                && let ClassFieldInitialization::ClassBody(Some(DataclassFieldKeywords {
+                    gt,
+                    lt,
+                    ge,
+                    ..
+                })) = &initialization
+            {
+                let field_ty = annotation.get_type();
 
-            for (bound_val, label) in [(gt, "gt"), (lt, "lt"), (ge, "ge")] {
-                let Some(val) = bound_val else { continue };
-                if !self.is_subset_eq(val, field_ty) {
-                    self.error(
-                errors,
-                range,
-                ErrorInfo::Kind(ErrorKind::BadArgumentType),
-                format!(
-                    "Pydantic `{label}` value is of type `{}` but the field is annotated with `{}`",
-                    self.for_display(val.clone()),
-                    self.for_display(field_ty.clone())
-                ),
-            );
+                for (bound_val, label) in [(gt, "gt"), (lt, "lt"), (ge, "ge")] {
+                    let Some(val) = bound_val else { continue };
+                    if !self.is_subset_eq(val, field_ty) {
+                        self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::BadArgumentType),
+                    format!(
+                        "Pydantic `{label}` value is of type `{}` but the field is annotated with `{}`",
+                        self.for_display(val.clone()),
+                        self.for_display(field_ty.clone())
+                    ),
+                );
+                    }
                 }
             }
-        }
 
-        // Check for qualifiers that are used in improper contexts.
-        if metadata
-            .named_tuple_metadata()
-            .is_some_and(|m| m.elements.contains(name))
-        {
-            for q in &[Qualifier::Final, Qualifier::ClassVar] {
-                if direct_annotation
-                    .as_ref()
-                    .is_some_and(|ann| ann.has_qualifier(q))
-                {
+            // Check for qualifiers that are used in improper contexts.
+            if metadata
+                .named_tuple_metadata()
+                .is_some_and(|m| m.elements.contains(name))
+            {
+                for q in &[Qualifier::Final, Qualifier::ClassVar] {
+                    if annotation.has_qualifier(q) {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                            format!("`{q}` may not be used for NamedTuple members",),
+                        );
+                    }
+                }
+            }
+            for q in &[
+                Qualifier::Required,
+                Qualifier::NotRequired,
+                Qualifier::ReadOnly,
+            ] {
+                if annotation.has_qualifier(q) {
                     self.error(
                         errors,
                         range,
                         ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                        format!("`{q}` may not be used for NamedTuple members",),
+                        format!("`{q}` may only be used for TypedDict members"),
                     );
                 }
-            }
-        }
-        for q in &[
-            Qualifier::Required,
-            Qualifier::NotRequired,
-            Qualifier::ReadOnly,
-        ] {
-            if direct_annotation
-                .as_ref()
-                .is_some_and(|ann| ann.has_qualifier(q))
-            {
-                self.error(
-                    errors,
-                    range,
-                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                    format!("`{q}` may only be used for TypedDict members"),
-                );
             }
         }
 
