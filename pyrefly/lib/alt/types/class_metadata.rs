@@ -27,6 +27,7 @@ use vec1::vec1;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::types::pydantic::PydanticModelKind;
 use crate::config::error_kind::ErrorKind;
+use crate::deprecation::DeprecatedDecoration;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::types::class::Class;
@@ -53,8 +54,7 @@ pub struct ClassMetadata {
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
-    is_deprecated: bool,
-    deprecated_message: Option<String>,
+    deprecation: Option<DeprecatedDecoration>,
     is_disjoint_base: bool,
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
@@ -92,13 +92,12 @@ impl ClassMetadata {
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
-        is_deprecated: bool,
+        deprecation: Option<DeprecatedDecoration>,
         is_disjoint_base: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
         dataclass_transform_metadata: Option<DataclassTransformKeywords>,
         pydantic_model_kind: Option<PydanticModelKind>,
         django_model_metadata: Option<DjangoModelMetadata>,
-        deprecated_message: Option<String>,
     ) -> ClassMetadata {
         ClassMetadata {
             metaclass,
@@ -114,8 +113,7 @@ impl ClassMetadata {
             has_base_any,
             is_new_type,
             is_final,
-            is_deprecated,
-            deprecated_message,
+            deprecation,
             is_disjoint_base,
             total_ordering_metadata,
             dataclass_transform_metadata,
@@ -139,8 +137,7 @@ impl ClassMetadata {
             has_base_any: false,
             is_new_type: false,
             is_final: false,
-            is_deprecated: false,
-            deprecated_message: None,
+            deprecation: None,
             is_disjoint_base: false,
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
@@ -210,12 +207,8 @@ impl ClassMetadata {
         false
     }
 
-    pub fn is_deprecated(&self) -> bool {
-        self.is_deprecated
-    }
-
-    pub fn deprecated_message(&self) -> Option<&str> {
-        self.deprecated_message.as_deref()
+    pub fn deprecation(&self) -> Option<&DeprecatedDecoration> {
+        self.deprecation.as_ref()
     }
 
     pub fn is_disjoint_base(&self) -> bool {

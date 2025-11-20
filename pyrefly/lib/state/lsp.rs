@@ -2281,7 +2281,7 @@ impl<'a> Transaction<'a> {
                 let is_deprecated = ty.as_ref().is_some_and(|t| {
                     if let Type::ClassDef(cls) = t {
                         self.ad_hoc_solve(handle, |solver| {
-                            solver.get_metadata_for_class(cls).is_deprecated()
+                            solver.get_metadata_for_class(cls).deprecation().is_some()
                         })
                         .unwrap_or(false)
                     } else {

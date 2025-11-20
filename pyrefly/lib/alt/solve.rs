@@ -290,7 +290,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_new_type,
             pydantic_config_dict,
             django_primary_key_field,
-            deprecated,
         } = binding;
         let metadata = match &self.get_idx(*k).0 {
             None => ClassMetadata::recursive(),
@@ -302,7 +301,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 *is_new_type,
                 pydantic_config_dict,
                 django_primary_key_field.as_ref(),
-                deprecated.as_ref(),
                 errors,
             ),
         };
