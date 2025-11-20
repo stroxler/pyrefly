@@ -216,6 +216,16 @@ f()  # E: I am a special super-important message about the extended warranty on 
 );
 
 testcase!(
+    test_deprecated_fqn,
+    r#"
+import warnings
+@warnings.deprecated("Deprecated")
+def f(): ...
+f()  # E: Deprecated
+    "#,
+);
+
+testcase!(
     test_reduce_call,
     r#"
 from functools import reduce

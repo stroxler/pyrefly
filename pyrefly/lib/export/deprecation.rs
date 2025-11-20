@@ -5,11 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Deprecation;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprStringLiteral;
+
+use crate::export::special::SpecialExport;
 
 fn is_deprecated_target(e: &Expr) -> bool {
     let (base, value) = match e {
@@ -21,8 +24,10 @@ fn is_deprecated_target(e: &Expr) -> bool {
         }) => (Some(&base.id), &attr.id),
         _ => return false,
     };
-    base.is_none_or(|base| base == "warnings" || base == "typing_extensions")
-        && value == "deprecated"
+    SpecialExport::new(value).is_some_and(|special| {
+        special == SpecialExport::Deprecated
+            && base.is_none_or(|base| special.defined_in(ModuleName::from_name(base)))
+    })
 }
 
 fn extract_message(call: &ExprCall) -> Option<String> {
