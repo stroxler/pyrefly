@@ -716,13 +716,13 @@ impl TestClient {
         );
     }
 
-    pub fn expect_publish_diagnostics_exact_uri(&self, expected_uri: &str, count: usize) {
+    pub fn expect_publish_diagnostics_uri(&self, expected_uri: &Url, count: usize) {
         self.expect_message_helper(
             |msg| match msg {
                 Message::Notification(Notification { method, params })
                     if method == "textDocument/publishDiagnostics" =>
                 {
-                    if params.get("uri").and_then(|v| v.as_str()) == Some(expected_uri) {
+                    if params.get("uri").and_then(|v| v.as_str()) == Some(expected_uri.as_str()) {
                         if let Some(diagnostics) = params.get("diagnostics")
                             && let Some(diagnostics_array) = diagnostics.as_array()
                         {
@@ -1120,19 +1120,18 @@ impl LspInteraction {
     }
 
     /// Returns the URI for a notebook cell
-    pub fn cell_uri(&self, file_name: &str, cell_name: &str) -> String {
+    pub fn cell_uri(&self, file_name: &str, cell_name: &str) -> Url {
         let root = self.server.get_root_or_panic();
         // Parse this as a file to preserve the C: prefix for windows
-        let cell_uri =
-            Url::from_file_path(format!("{}", root.join(file_name).to_string_lossy())).unwrap();
+        let file_uri = Url::from_file_path(root.join(file_name)).unwrap();
         // Replace the scheme & add the cell name as a fragment
-        format!(
-            "{}#{}",
-            cell_uri
-                .to_string()
-                .replace("file://", "vscode-notebook-cell://"),
+        // This is a bit awkward because the url library does not allow changing the scheme for file:// URLs
+        Url::parse(&format!(
+            "vscode-notebook-cell://{}#{}",
+            file_uri.path(),
             cell_name
-        )
+        ))
+        .unwrap()
     }
 
     /// Sends a hover request for a notebook cell at the specified position

@@ -436,10 +436,9 @@ fn test_publish_diagnostics_preserves_symlink_uri() {
     });
 
     interaction.server.did_open(symlink_name);
-    interaction.client.expect_publish_diagnostics_exact_uri(
-        Url::from_file_path(&symlink_path).unwrap().as_str(),
-        1,
-    );
+    interaction
+        .client
+        .expect_publish_diagnostics_uri(&Url::from_file_path(&symlink_path).unwrap(), 1);
 
     interaction.shutdown();
 }
