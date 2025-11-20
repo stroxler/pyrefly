@@ -1425,33 +1425,37 @@ impl<'a> CallGraphVisitor<'a> {
         override_is_direct_call: Option<bool>,
         unknown_callee_as_direct_call: bool,
     ) -> MaybeResolved<Vec1<CallTarget<FunctionRef>>> {
+        let call_targets_from_method_name_with_class = |class| {
+            self.function_ref_from_class_field(class, method)
+                .map(|function_ref| {
+                    let receiver_type = if is_bound_method {
+                        // For a bound method, its receiver is either `self` or `cls`. For `self`, the receiver
+                        // is the defining class. For `cls`, technically the receiver is the type of the class
+                        // but we need to be consistent with `receiver_class_from_type`.
+                        defining_class
+                    } else {
+                        None
+                    };
+                    MaybeResolved::Resolved(self.call_targets_from_static_or_virtual_call(
+                        function_ref,
+                        callee_expr,
+                        callee_type,
+                        receiver_type,
+                        return_type,
+                        callee_expr_suffix,
+                        override_implicit_receiver,
+                        override_is_direct_call,
+                        unknown_callee_as_direct_call,
+                    ))
+                })
+                .unwrap_or(MaybeResolved::Unresolved(
+                    UnresolvedReason::UnknownClassField,
+                ))
+        };
+
         let call_targets = match defining_class {
             Some(Type::ClassType(class_type)) => {
-                self.function_ref_from_class_field(class_type.class_object(), method)
-                    .map(|function_ref| {
-                        let receiver_type = if is_bound_method {
-                            // For a bound method, its receiver is either `self` or `cls`. For `self`, the receiver
-                            // is the defining class. For `cls`, technically the receiver is the type of the class
-                            // but we need to be consistent with `receiver_class_from_type`.
-                            defining_class
-                        } else {
-                            None
-                        };
-                        MaybeResolved::Resolved(self.call_targets_from_static_or_virtual_call(
-                            function_ref,
-                            callee_expr,
-                            callee_type,
-                            receiver_type,
-                            return_type,
-                            callee_expr_suffix,
-                            override_implicit_receiver,
-                            override_is_direct_call,
-                            unknown_callee_as_direct_call,
-                        ))
-                    })
-                    .unwrap_or(MaybeResolved::Unresolved(
-                        UnresolvedReason::UnknownClassField,
-                    ))
+                call_targets_from_method_name_with_class(class_type.class_object())
             }
             Some(Type::Union(types)) => types
                 .iter()
@@ -1476,6 +1480,10 @@ impl<'a> CallGraphVisitor<'a> {
                 // because it does not provide enough information to uniquely identify
                 // a function.
                 MaybeResolved::Unresolved(UnresolvedReason::UnsupportedFunctionTarget)
+            }
+            Some(Type::LiteralString) => {
+                let str_class = self.module_context.stdlib.str().class_object();
+                call_targets_from_method_name_with_class(str_class)
             }
             _ => MaybeResolved::Unresolved(UnresolvedReason::UnexpectedDefiningClass),
         };

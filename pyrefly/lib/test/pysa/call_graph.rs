@@ -3071,6 +3071,10 @@ def foo(a: int, b: float, c: str, d: typing.List[int], e):
   return f"{a}{b}{c}{d}{w}{x}{y}{z}{e}"
 "#,
     &|context: &ModuleContext| {
+        let literal_string_target = vec![
+            create_call_target("builtins.str.__format__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
         vec![(
             "test.foo",
             vec![
@@ -3128,7 +3132,7 @@ def foo(a: int, b: float, c: str, d: typing.List[int], e):
                 ),
                 (
                     "7:31-7:32|artificial-call|format-string-stringify",
-                    unresolved_expression_callees(UnresolvedReason::UnexpectedDefiningClass),
+                    regular_call_callees(literal_string_target),
                 ),
                 (
                     "7:34-7:35|artificial-call|format-string-stringify",
