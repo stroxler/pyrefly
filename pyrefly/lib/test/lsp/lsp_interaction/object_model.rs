@@ -967,17 +967,15 @@ impl LspInteraction {
 
         let (conn_client, conn_server) = Connection::memory();
 
-        let args = LspArgs {
-            indexing_mode,
-            workspace_indexing_limit: 50,
-        };
-        let args = args.clone();
-
         let finish_handle = Arc::new(FinishHandle::new());
         let finish_server = finish_handle.clone();
 
         // Spawn the server thread notify when finished
         thread::spawn(move || {
+            let args = LspArgs {
+                indexing_mode,
+                workspace_indexing_limit: 50,
+            };
             let _ = run_lsp(Arc::new(conn_server), args, "pyrefly-lsp-test-version");
             finish_server.notify_finished();
         });
