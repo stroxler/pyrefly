@@ -49,6 +49,7 @@ use crate::simplify::unions;
 use crate::special_form::SpecialForm;
 use crate::stdlib::Stdlib;
 use crate::tuple::Tuple;
+use crate::type_output::TypeOutput;
 use crate::type_var::PreInferenceVariance;
 use crate::type_var::Restriction;
 use crate::type_var::TypeVar;
@@ -360,27 +361,30 @@ impl TypeAlias {
         *self.ty.clone()
     }
 
-    pub fn fmt_with_type<'a, D: Display + 'a>(
-        &'a self,
-        f: &mut fmt::Formatter<'_>,
-        wrap: &'a impl Fn(&'a Type) -> D,
+    pub fn fmt_with_type<O: TypeOutput>(
+        &self,
+        output: &mut O,
+        write_type: &impl Fn(&Type, &mut O) -> fmt::Result,
         tparams: Option<&TParams>,
     ) -> fmt::Result {
+        use pyrefly_util::display::commas_iter;
         match (&self.style, tparams) {
-            (TypeAliasStyle::LegacyImplicit, _) => {
-                write!(f, "{}", wrap(&self.ty))
-            }
+            (TypeAliasStyle::LegacyImplicit, _) => write_type(&self.ty, output),
             (_, None) => {
-                write!(f, "TypeAlias[{}, {}]", self.name, wrap(&self.ty))
+                output.write_str("TypeAlias[")?;
+                output.write_str(self.name.as_str())?;
+                output.write_str(", ")?;
+                write_type(&self.ty, output)?;
+                output.write_str("]")
             }
             (_, Some(tparams)) => {
-                write!(
-                    f,
-                    "TypeAlias[{}[{}], {}]",
-                    self.name,
-                    commas_iter(|| tparams.iter()),
-                    wrap(&self.ty)
-                )
+                output.write_str("TypeAlias[")?;
+                output.write_str(self.name.as_str())?;
+                output.write_str("[")?;
+                output.write_str(&format!("{}", commas_iter(|| tparams.iter())))?;
+                output.write_str("], ")?;
+                write_type(&self.ty, output)?;
+                output.write_str("]")
             }
         }
     }
