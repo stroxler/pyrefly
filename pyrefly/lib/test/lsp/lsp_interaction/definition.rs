@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::env::temp_dir;
 use std::path::PathBuf;
 
 use lsp_server::Message;
@@ -17,6 +16,7 @@ use tempfile::TempDir;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
+use crate::test::lsp::lsp_interaction::util::bundled_typeshed_path;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 
 fn test_go_to_def(
@@ -220,7 +220,7 @@ fn definition_on_attr_of_pyi_goes_to_py() {
 #[test]
 fn definition_in_builtins_without_interpreter_goes_to_stub() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let result_file = pyrefly_typeshed_materialized.join("typing.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
@@ -290,7 +290,7 @@ fn prefer_pyi_when_missing_in_py() {
 #[test]
 fn goto_type_def_on_str_primitive_goes_to_builtins_stub() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let result_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
@@ -319,7 +319,7 @@ fn goto_type_def_on_str_primitive_goes_to_builtins_stub() {
 #[test]
 fn goto_type_def_on_int_primitive_goes_to_builtins_stub() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let result_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
@@ -351,7 +351,7 @@ fn goto_type_def_on_int_primitive_goes_to_builtins_stub() {
 #[test]
 fn goto_type_def_on_bool_primitive_goes_to_builtins_stub() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let result_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
@@ -382,7 +382,7 @@ fn goto_type_def_on_bool_primitive_goes_to_builtins_stub() {
 #[test]
 fn goto_type_def_on_bytes_primitive_goes_to_builtins_stub() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let result_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
@@ -438,7 +438,7 @@ fn goto_type_def_on_custom_class_goes_to_class_definition() {
 #[test]
 fn goto_type_def_on_list_of_primitives_shows_selector() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let builtins_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());

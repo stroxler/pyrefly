@@ -5,16 +5,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::env;
-
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
+use crate::test::lsp::lsp_interaction::util::bundled_typeshed_path;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 
 #[test]
 fn builtins_import_goes_to_typeshed() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = env::temp_dir().join("pyrefly_bundled_typeshed");
+    let pyrefly_typeshed_materialized = bundled_typeshed_path();
     let result_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
