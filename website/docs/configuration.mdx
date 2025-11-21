@@ -40,10 +40,6 @@ project-includes = [
 # manually set the `sys.platform` Pyrefly will assume when type checking
 python-platform = "linux"
 
-# return an import error when `<library>-stubs` can be imported, but no
-# non-stubs version of that library can be found
-ignore-missing-source = false
-
 # a table mapping error codes to an `is-enabled` boolean
 [errors]
 # disable `bad-assignment` errors
@@ -507,23 +503,6 @@ the substring '<span>&#64;</span>generated'.
 - Flag equivalent: `--ignore-errors-in-generated-code`
 - Equivalent configs: none
 
-### `ignore-missing-source`
-
-Whether to skip the check for a non-stubs package when a `-stubs` package is found in
-[`site-package-path`](#site-package-path). When this is true, we immediately return
-a `-stubs` package when found.
-
-The check for a non-stubs package exists to ensure you have an importable package to use
-in your project. When this check returns an import error, it means we couldn't find a package,
-and that at runtime you may not actually be able to import the given package, even if its
-type stubs could be found. See
-[Stub Files vs Source Files](./import-resolution.mdx#stub-files-vs-source-files) for more information.
-
-- Type: bool
-- Default: `true`
-- Flag equivalent: `--ignore-missing-source`
-- Equivalent configs: `reportMissingModuleSource` in Pyright
-
 ### `infer-with-first-use`
 
 Whether to infer type variables not determined by a call or constructor based on their first usage.
@@ -835,27 +814,22 @@ replace-imports-with-any = ["pytest.*"]
   - `replace-imports-with-any`: `["unittest.*"]`
   - `errors`: `{assert-type = true}`
   - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
 - `sub/project/tests/another_file.py`
   - `replace-imports-with-any`: `["pytest.*"]`
   - `errors`: `{assert-type = true}`
   - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
 - `sub/project/non_test_file.py`
   - `replace-imports-with-any`: `["sympy.*", "*.series"]`
   - `errors`: `{assert-type = true}`
   - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
 - `sub/sub_file.py`
   - `replace-imports-with-any`: `["sympy.*", "*.series"]`
   - `errors`: `{assert-type = false}`
   - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
 - `top_level_file.py`
   - `replace-imports-with-any`: `["sympy.*", "*.series"]`
   - `errors`: `{assert-type = true, bad-assignment = false, invalid-argument = false}`
   - `ignore-errors-in-generated-code`: `true`
-  - `ignore-missing-source`: `true`
 
 ### Conda and Venv Support
 
@@ -928,8 +902,6 @@ replace-imports-with-any = []
 ignore-missing-imports = []
 # should Pyrefly skip type checking if we find a generated file?
 ignore-errors-in-generated-code = false
-# should Pyrefly do a check to see if a `<library>-stubs` library also has `<library>` installed?
-ignore-missing-source = false
 # what should Pyrefly do when it encounters a function that is untyped?
 untyped-def-behavior = "check-and-infer-return-type"
 # can Pyrefly recognize ignore directives other than `# pyrefly: ignore` and `# type: ignore`
@@ -958,7 +930,6 @@ replace-imports-with-any = [
   "*.series",
 ]
 ignore-errors-in-generated-code = true
-ignore-missing-source = true
 
 # disable `bad-assignment` and `invalid-argument` for the whole project
 [errors]
@@ -1007,7 +978,6 @@ replace-imports-with-any = [
 ]
 
 ignore-errors-in-generated-code = true
-ignore-missing-source = true
 
 [tool.pyrefly.errors]
 bad-assignment = false
