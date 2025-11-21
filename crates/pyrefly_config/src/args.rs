@@ -112,7 +112,7 @@ pub struct ConfigOverrideArgs {
     /// related import errors.
     #[arg(long)]
     ignore_missing_imports: Option<Vec<String>>,
-    /// Ignore missing source packages when only type stubs are available, allowing imports to proceed without source validation.
+    /// [DEPRECATED] Use `--ignore=missing-source` or `--error=missing-source` instead. Ignore missing source packages when only type stubs are available, allowing imports to proceed without source validation.
     #[arg(
         long,
         default_missing_value = "true",
