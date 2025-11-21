@@ -373,6 +373,55 @@ fn test_unused_from_import_diagnostic() {
     interaction.shutdown();
 }
 
+#[test]
+fn test_unused_variable_diagnostic() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction.initialize(InitializeSettings {
+        configuration: Some(Some(json!([
+            {"pyrefly": {"displayTypeErrors": "force-on"}}
+        ]))),
+        ..Default::default()
+    });
+
+    interaction.server.did_change_configuration();
+    interaction.client.expect_configuration_request(2, None);
+    interaction.server.send_configuration_response(
+        2,
+        json!([
+            {"pyrefly": {"displayTypeErrors": "force-on"}}
+        ]),
+    );
+
+    interaction.server.did_open("unused_variable/example.py");
+    interaction.server.diagnostic("unused_variable/example.py");
+
+    interaction
+        .client
+        .expect_response::<DocumentDiagnosticRequest>(
+            RequestId::from(2),
+            json!({
+                        "items": [
+                            {
+                                "code": "unused-variable",
+                                "message": "Variable `unused_var` is unused",
+                                "range": {
+                                    "start": {"line": 7, "character": 4},
+                                    "end": {"line": 7, "character": 14}
+                                },
+                                "severity": 4,
+                                "source": "Pyrefly",
+                                "tags": [1]
+                            }
+                        ],
+                        "kind": "full"
+            }),
+        );
+
+    interaction.shutdown();
+}
+
 #[cfg(unix)]
 #[test]
 fn test_publish_diagnostics_preserves_symlink_uri() {
