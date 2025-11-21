@@ -64,7 +64,14 @@ impl<'de> Deserialize<'de> for ErrorDisplayConfig {
                 while let Some(key) = map.next_key::<ErrorKind>()? {
                     let severity = match map.next_value::<serde_json::Value>()? {
                         serde_json::Value::Bool(false) => Severity::Ignore,
-                        serde_json::Value::Bool(true) => key.default_severity(),
+                        serde_json::Value::Bool(true) => {
+                            let default_severity = key.default_severity();
+                            if default_severity > Severity::Ignore {
+                                default_severity
+                            } else {
+                                Severity::Error
+                            }
+                        }
                         serde_json::Value::String(s) => {
                             serde_json::from_str::<Severity>(&format!("\"{s}\""))
                                 .map_err(serde::de::Error::custom)?

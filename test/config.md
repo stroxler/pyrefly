@@ -317,6 +317,15 @@ $ mkdir $TMPDIR/error_missing_source && \
 [0]
 ```
 
+## We can enable an error that is default-off
+
+```scrut {output_stream.stdout}
+$ echo -e '[errors]\nmissing-source=true' > $TMPDIR/error_missing_source/pyrefly.toml && \
+> $PYREFLY check $TMPDIR/error_missing_source/foo.py --site-package-path $TMPDIR/site_package_missing_source --output-format=min-text
+ERROR * [missing-source] (glob)
+[1]
+```
+
 ## Regression test: we should still be able to find submodules when stubs are missing
 
 <!-- The missing-module-attribute ignore is for compatibility with Python versions that do not have

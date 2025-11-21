@@ -432,8 +432,9 @@ Configure the severity for each kind of error that Pyrefly emits: `error`, `warn
   [`disable_error_code`](https://mypy.readthedocs.io/en/stable/config_file.html#confval-disable_error_code)
   in mypy
 - Notes:
-    - Setting `<error-code> = true` is the same as having no error code configuration present, which means
-      the error will be shown. Setting `<error-code> = false` will disable the error for type checking.
+    - Setting `<error-code> = true` means the error will be shown at default
+      severity (or severity `ERROR` if the error is off by default). Setting
+      `<error-code> = false` will disable the error for type checking.
     - If you want to disable type errors in IDE mode, you can also set
       [`disable-type-errors-in-ide`](#disable-type-errors-in-ide), which will
       automatically disable *all* type errors and Pyrefly diagnostics in the IDE.
