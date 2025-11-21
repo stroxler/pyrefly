@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::Url;
 use lsp_types::request::PrepareRenameRequest;
 use lsp_types::request::Rename;
@@ -28,18 +27,15 @@ fn test_prepare_rename() {
 
     interaction
         .client
-        .send_request::<PrepareRenameRequest>(
-            RequestId::from(2),
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string()
-                },
-                "position": {
-                    "line": 6,
-                    "character": 16
-                }
-            }),
-        )
+        .send_request::<PrepareRenameRequest>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            },
+            "position": {
+                "line": 6,
+                "character": 16
+            }
+        }))
         .expect_response(json!({
             "start": {"line": 6, "character": 16},
             "end": {"line": 6, "character": 19},
@@ -69,36 +65,30 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
     // Verify that prepareRename returns null, indicating that renaming third party symbols is not allowed
     interaction
         .client
-        .send_request::<PrepareRenameRequest>(
-            RequestId::from(2),
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&user_code).unwrap().to_string()
-                },
-                "position": {
-                    "line": 14,  // Line with "external_result = external_function()"
-                    "character": 25  // Position on "external_function"
-                }
-            }),
-        )
+        .send_request::<PrepareRenameRequest>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&user_code).unwrap().to_string()
+            },
+            "position": {
+                "line": 14,  // Line with "external_result = external_function()"
+                "character": 25  // Position on "external_function"
+            }
+        }))
         .expect_response(serde_json::Value::Null);
 
     // Verify that attempting to rename a third party symbol returns an error
     interaction
         .client
-        .send_request::<Rename>(
-            RequestId::from(3),
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&user_code).unwrap().to_string()
-                },
-                "position": {
-                    "line": 14,  // Line with "external_result = external_function()"
-                    "character": 25  // Position on "external_function"
-                },
-                "newName": "new_external_function"
-            }),
-        )
+        .send_request::<Rename>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&user_code).unwrap().to_string()
+            },
+            "position": {
+                "line": 14,  // Line with "external_result = external_function()"
+                "character": 25  // Position on "external_function"
+            },
+            "newName": "new_external_function"
+        }))
         .expect_response_error(json!({
             "code": -32600,
             "message": "Third-party symbols cannot be renamed",
@@ -134,19 +124,16 @@ fn test_rename() {
 
     interaction
         .client
-        .send_request::<Rename>(
-            RequestId::from(2),
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&bar).unwrap().to_string()
-                },
-                "position": {
-                    "line": 10,
-                    "character": 1
-                },
-                "newName": "Baz"
-            }),
-        )
+        .send_request::<Rename>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&bar).unwrap().to_string()
+            },
+            "position": {
+                "line": 10,
+                "character": 1
+            },
+            "newName": "Baz"
+        }))
         .expect_response(json!({
             "changes": {
                 Url::from_file_path(&foo).unwrap().to_string(): [

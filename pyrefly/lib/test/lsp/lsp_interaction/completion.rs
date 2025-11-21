@@ -6,7 +6,6 @@
  */
 
 use itertools::Itertools;
-use lsp_server::RequestId;
 use lsp_types::CompletionItemKind;
 use lsp_types::CompletionResponse;
 use lsp_types::Url;
@@ -289,7 +288,6 @@ fn test_completion_with_autoimport_in_defined_module() {
             }));
 
     interaction.client.send_request::<Completion>(
-        RequestId::from(2),
         json!({
             "textDocument": {
                 "uri": Url::from_file_path(&file).unwrap().to_string()

@@ -87,7 +87,7 @@ fn test_shutdown() {
 
     interaction
         .client
-        .send_shutdown(RequestId::from(2))
+        .send_shutdown()
         .expect_response(json!(null));
 
     interaction.client.send_exit();
@@ -126,21 +126,18 @@ fn test_shutdown_with_messages_in_between() {
     // Send shutdown request & wait for response
     interaction
         .client
-        .send_shutdown(RequestId::from(2))
+        .send_shutdown()
         .expect_response(json!(null));
 
     // After shutdown, send a request (simulating what might happen with :wq)
     // Per LSP spec, this should be rejected with InvalidRequest
     interaction
         .client
-        .send_request::<DocumentDiagnosticRequest>(
-            RequestId::from(3),
-            json!({
-                "textDocument": {
-                    "uri": uri.to_string()
-                },
-            }),
-        );
+        .send_request::<DocumentDiagnosticRequest>(json!({
+            "textDocument": {
+                "uri": uri.to_string()
+            },
+        }));
 
     interaction.client.expect_stop();
 }
@@ -206,14 +203,11 @@ fn test_nonexistent_file() {
 
     interaction
         .client
-        .send_request::<DocumentDiagnosticRequest>(
-            RequestId::from(2),
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string()
-                },
-            }),
-        )
+        .send_request::<DocumentDiagnosticRequest>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string()
+            },
+        }))
         .expect_response(json!({"items":[],"kind":"full"}));
 
     let notebook_content = std::fs::read_to_string(root.path().join("notebook.py")).unwrap();

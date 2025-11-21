@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::SemanticTokensResult;
 use lsp_types::Url;
 use lsp_types::request::Completion;
@@ -30,12 +29,9 @@ foo()
 
     interaction
         .client
-        .send_request::<SemanticTokensFullRequest>(
-            RequestId::from(2),
-            json!({
-                "textDocument": { "uri": uri.to_string() }
-            }),
-        )
+        .send_request::<SemanticTokensFullRequest>(json!({
+            "textDocument": { "uri": uri.to_string() }
+        }))
         .expect_response_with(|response| match response {
             Some(SemanticTokensResult::Tokens(xs)) => !xs.data.is_empty(),
             _ => false,
@@ -57,13 +53,10 @@ math.
 
     interaction
         .client
-        .send_request::<Completion>(
-            RequestId::from(2),
-            json!({
-                "textDocument": {"uri": uri.to_string()},
-                "position": {"line": 1, "character": 5}
-            }),
-        )
+        .send_request::<Completion>(json!({
+            "textDocument": {"uri": uri.to_string()},
+            "position": {"line": 1, "character": 5}
+        }))
         .expect_completion_response_with(|list| !list.items.is_empty());
 
     interaction.shutdown();

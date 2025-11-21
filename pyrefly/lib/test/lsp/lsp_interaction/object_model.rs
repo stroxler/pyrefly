@@ -290,11 +290,11 @@ impl TestClient {
 
     pub fn send_request<R: lsp_types::request::Request>(
         &self,
-        id: RequestId,
         params: serde_json::Value,
     ) -> ClientRequestHandle<R> {
         // Ensure the passed value can be parsed as the desired request params
         let params = serde_json::from_value::<R::Params>(params).unwrap();
+        let id = self.next_request_id();
         self.send_message(Message::Request(Request {
             id: id.clone(),
             method: R::METHOD.to_owned(),
@@ -330,16 +330,15 @@ impl TestClient {
     }
 
     pub fn send_initialize(&self, params: Value) -> ClientRequestHandle<Initialize> {
-        let id = self.next_request_id();
-        self.send_request(id, params)
+        self.send_request(params)
     }
 
     pub fn send_initialized(&self) {
         self.send_notification::<Initialized>(json!({}));
     }
 
-    pub fn send_shutdown(&self, id: RequestId) -> ClientRequestHandle<Shutdown> {
-        self.send_request(id, json!(null))
+    pub fn send_shutdown(&self) -> ClientRequestHandle<Shutdown> {
+        self.send_request(json!(null))
     }
 
     pub fn send_exit(&self) {
@@ -353,19 +352,15 @@ impl TestClient {
         col: u32,
     ) -> ClientRequestHandle<GotoTypeDefinition> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                },
-                "position": {
-                    "line": line,
-                    "character": col,
-                },
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+            },
+            "position": {
+                "line": line,
+                "character": col,
+            },
+        }))
     }
 
     pub fn definition(
@@ -375,19 +370,15 @@ impl TestClient {
         col: u32,
     ) -> ClientRequestHandle<GotoDefinition> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                },
-                "position": {
-                    "line": line,
-                    "character": col,
-                },
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+            },
+            "position": {
+                "line": line,
+                "character": col,
+            },
+        }))
     }
 
     pub fn implementation(
@@ -397,19 +388,15 @@ impl TestClient {
         col: u32,
     ) -> ClientRequestHandle<GotoImplementation> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string(),
-                },
-                "position": {
-                    "line": line,
-                    "character": col,
-                },
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string(),
+            },
+            "position": {
+                "line": line,
+                "character": col,
+            },
+        }))
     }
 
     pub fn did_open(&self, file: &'static str) {
@@ -460,31 +447,23 @@ impl TestClient {
         col: u32,
     ) -> ClientRequestHandle<Completion> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string()
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                }
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            },
+            "position": {
+                "line": line,
+                "character": col
+            }
+        }))
     }
 
     pub fn diagnostic(&self, file: &'static str) -> ClientRequestHandle<DocumentDiagnosticRequest> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-            "textDocument": {
-                "uri": Url::from_file_path(&path).unwrap().to_string()
-            }}),
-        )
+        self.send_request(json!({
+        "textDocument": {
+            "uri": Url::from_file_path(&path).unwrap().to_string()
+        }}))
     }
 
     pub fn hover(
@@ -494,19 +473,15 @@ impl TestClient {
         col: u32,
     ) -> ClientRequestHandle<HoverRequest> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string()
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                }
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            },
+            "position": {
+                "line": line,
+                "character": col
+            }
+        }))
     }
 
     pub fn provide_type(
@@ -516,19 +491,15 @@ impl TestClient {
         col: u32,
     ) -> ClientRequestHandle<ProvideType> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string()
-                },
-                "positions": [{
-                    "line": line,
-                    "character": col
-                }]
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            },
+            "positions": [{
+                "line": line,
+                "character": col
+            }]
+        }))
     }
 
     pub fn references(
@@ -539,22 +510,18 @@ impl TestClient {
         include_declaration: bool,
     ) -> ClientRequestHandle<References> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string()
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                },
-                "context": {
-                    "includeDeclaration": include_declaration
-                },
-            }),
-        )
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            },
+            "position": {
+                "line": line,
+                "character": col
+            },
+            "context": {
+                "includeDeclaration": include_declaration
+            },
+        }))
     }
 
     pub fn inlay_hint(
@@ -566,25 +533,21 @@ impl TestClient {
         end_char: u32,
     ) -> ClientRequestHandle<InlayHintRequest> {
         let path = self.get_root_or_panic().join(file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": Url::from_file_path(&path).unwrap().to_string()
+        self.send_request(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            },
+            "range": {
+                "start": {
+                    "line": start_line,
+                    "character": start_char
                 },
-                "range": {
-                    "start": {
-                        "line": start_line,
-                        "character": start_char
-                    },
-                    "end": {
-                        "line": end_line,
-                        "character": end_char
-                    }
+                "end": {
+                    "line": end_line,
+                    "character": end_char
                 }
-            }),
-        )
+            }
+        }))
     }
 
     pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
@@ -599,16 +562,12 @@ impl TestClient {
         let root = self.get_root_or_panic();
         let old_path = root.join(old_file);
         let new_path = root.join(new_file);
-        let id = self.next_request_id();
-        self.send_request(
-            id,
-            json!({
-                "files": [{
-                    "oldUri": Url::from_file_path(&old_path).unwrap().to_string(),
-                    "newUri": Url::from_file_path(&new_path).unwrap().to_string()
-                }]
-            }),
-        )
+        self.send_request(json!({
+            "files": [{
+                "oldUri": Url::from_file_path(&old_path).unwrap().to_string(),
+                "newUri": Url::from_file_path(&new_path).unwrap().to_string()
+            }]
+        }))
     }
 
     /// Send a file creation event notification
@@ -1076,10 +1035,7 @@ impl LspInteraction {
     }
 
     pub fn shutdown(&self) {
-        let shutdown_id = RequestId::from(999);
-        self.client
-            .send_shutdown(shutdown_id.clone())
-            .expect_response(json!(null));
+        self.client.send_shutdown().expect_response(json!(null));
 
         self.client.send_exit();
     }
@@ -1163,14 +1119,10 @@ impl LspInteraction {
         file: &str,
         cell: &str,
     ) -> ClientRequestHandle<DocumentDiagnosticRequest> {
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-            "textDocument": {
-                "uri": self.cell_uri(file, cell)
-            }}),
-        )
+        self.client.send_request(json!({
+        "textDocument": {
+            "uri": self.cell_uri(file, cell)
+        }}))
     }
 
     /// Returns the URI for a notebook cell
@@ -1197,19 +1149,15 @@ impl LspInteraction {
         col: u32,
     ) -> ClientRequestHandle<HoverRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                }
-            }),
-        )
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri
+            },
+            "position": {
+                "line": line,
+                "character": col
+            }
+        }))
     }
 
     /// Sends a signature help request for a notebook cell at the specified position
@@ -1221,19 +1169,15 @@ impl LspInteraction {
         col: u32,
     ) -> ClientRequestHandle<SignatureHelpRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                }
-            }),
-        )
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri
+            },
+            "position": {
+                "line": line,
+                "character": col
+            }
+        }))
     }
 
     /// Sends a definition request for a notebook cell at the specified position
@@ -1245,19 +1189,15 @@ impl LspInteraction {
         col: u32,
     ) -> ClientRequestHandle<GotoDefinition> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                }
-            }),
-        )
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri
+            },
+            "position": {
+                "line": line,
+                "character": col
+            }
+        }))
     }
 
     /// Sends a references request for a notebook cell at the specified position
@@ -1270,22 +1210,18 @@ impl LspInteraction {
         include_declaration: bool,
     ) -> ClientRequestHandle<References> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri,
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                },
-                "context": {
-                    "includeDeclaration": include_declaration,
-                },
-            }),
-        )
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri,
+            },
+            "position": {
+                "line": line,
+                "character": col
+            },
+            "context": {
+                "includeDeclaration": include_declaration,
+            },
+        }))
     }
 
     pub fn completion_cell(
@@ -1296,19 +1232,15 @@ impl LspInteraction {
         col: u32,
     ) -> ClientRequestHandle<Completion> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri,
-                },
-                "position": {
-                    "line": line,
-                    "character": col
-                }
-            }),
-        )
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri,
+            },
+            "position": {
+                "line": line,
+                "character": col
+            }
+        }))
     }
 
     /// Sends an inlay hint request for a notebook cell in the specified range
@@ -1322,25 +1254,21 @@ impl LspInteraction {
         end_char: u32,
     ) -> ClientRequestHandle<InlayHintRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri
+            },
+            "range": {
+                "start": {
+                    "line": start_line,
+                    "character": start_char
                 },
-                "range": {
-                    "start": {
-                        "line": start_line,
-                        "character": start_char
-                    },
-                    "end": {
-                        "line": end_line,
-                        "character": end_char
-                    }
+                "end": {
+                    "line": end_line,
+                    "character": end_char
                 }
-            }),
-        )
+            }
+        }))
     }
 
     /// Sends a full semantic tokens request for a notebook cell
@@ -1350,15 +1278,11 @@ impl LspInteraction {
         cell_name: &str,
     ) -> ClientRequestHandle<SemanticTokensFullRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri
-                }
-            }),
-        )
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri
+            }
+        }))
     }
 
     /// Sends a ranged semantic tokens request for a notebook cell
@@ -1372,24 +1296,20 @@ impl LspInteraction {
         end_char: u32,
     ) -> ClientRequestHandle<SemanticTokensRangeRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
-        let id = self.client.next_request_id();
-        self.client.send_request(
-            id,
-            json!({
-                "textDocument": {
-                    "uri": cell_uri
+        self.client.send_request(json!({
+            "textDocument": {
+                "uri": cell_uri
+            },
+            "range": {
+                "start": {
+                    "line": start_line,
+                    "character": start_char
                 },
-                "range": {
-                    "start": {
-                        "line": start_line,
-                        "character": start_char
-                    },
-                    "end": {
-                        "line": end_line,
-                        "character": end_char
-                    }
+                "end": {
+                    "line": end_line,
+                    "character": end_char
                 }
-            }),
-        )
+            }
+        }))
     }
 }

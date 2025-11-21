@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::Url;
 use lsp_types::request::WorkspaceSymbolRequest;
 use serde_json::json;
@@ -32,7 +31,6 @@ fn test_workspace_symbol() {
     interaction
         .client
         .send_request::<WorkspaceSymbolRequest>(
-            RequestId::from(2),
             json!({
                 "query": "this_is_a_very_long_function_name_so_we_can"
             }),
