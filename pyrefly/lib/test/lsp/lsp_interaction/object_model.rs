@@ -118,6 +118,12 @@ pub struct ClientRequestHandle<'a, R: lsp_types::request::Request> {
     _type: PhantomData<R>,
 }
 
+pub struct ServerRequestHandle<'a, R: lsp_types::request::Request> {
+    id: RequestId,
+    client: &'a TestClient,
+    _type: PhantomData<R>,
+}
+
 impl<'a, R: lsp_types::request::Request> ClientRequestHandle<'a, R> {
     pub fn expect_response(self, expected: Value) {
         self.client.expect_response::<R>(self.id, expected);
@@ -209,6 +215,18 @@ impl<'a> ClientRequestHandle<'a, GotoImplementation> {
     ) {
         self.client
             .expect_implementation_response_from_root(self.id, implementations);
+    }
+}
+
+impl<'a, R: lsp_types::request::Request> ServerRequestHandle<'a, R> {
+    pub fn send_response(self, result: Value) {
+        self.client.send_response::<R>(self.id, result)
+    }
+}
+
+impl<'a> ServerRequestHandle<'a, WorkspaceConfiguration> {
+    pub fn send_configuration_response(self, result: Value) {
+        self.client.send_configuration_response(self.id, result);
     }
 }
 
@@ -549,8 +567,8 @@ impl TestClient {
         }))
     }
 
-    pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
-        self.send_response::<WorkspaceConfiguration>(RequestId::from(id), result);
+    pub fn send_configuration_response(&self, id: RequestId, result: serde_json::Value) {
+        self.send_response::<WorkspaceConfiguration>(id, result);
     }
 
     pub fn will_rename_files(
@@ -671,21 +689,30 @@ impl TestClient {
         }
     }
 
-    pub fn expect_request<R: lsp_types::request::Request>(&self, id: RequestId, expected: Value) {
+    pub fn expect_request<R: lsp_types::request::Request>(
+        &self,
+        id: RequestId,
+        expected: Value,
+    ) -> ServerRequestHandle<R> {
         // Validate that expected can be parsed as R::Params
         let expected: R::Params = serde_json::from_value(expected.clone()).unwrap();
-        let actual: R::Params =
-            self.expect_message(&format!("Request {} with id={}", R::METHOD, id), |msg| {
-                if let Message::Request(x) = msg
-                    && x.id == id
-                {
-                    assert_eq!(x.method, R::METHOD);
-                    Some(serde_json::from_value(x.params.clone()).unwrap())
-                } else {
-                    None
-                }
-            });
-        assert_eq!(json!(expected), json!(actual));
+        let id = self.expect_message(&format!("Request {} with id={}", R::METHOD, id), |msg| {
+            if let Message::Request(x) = msg
+                && x.id == id
+            {
+                assert_eq!(x.method, R::METHOD);
+                let actual: R::Params = serde_json::from_value(x.params.clone()).unwrap();
+                assert_eq!(json!(expected), json!(actual));
+                Some(x.id)
+            } else {
+                None
+            }
+        });
+        ServerRequestHandle {
+            id,
+            client: self,
+            _type: PhantomData,
+        }
     }
 
     pub fn expect_response<R: lsp_types::request::Request>(&self, id: RequestId, expected: Value) {
@@ -895,22 +922,12 @@ impl TestClient {
         }
     }
 
-    pub fn expect_configuration_request(&self, id: i32, scope_uris: Option<Vec<&Url>>) {
-        let params: ConfigurationParams = self.expect_message(
-            &format!("Request {}", WorkspaceConfiguration::METHOD),
-            |msg| {
-                if let Message::Request(x) = msg
-                    && x.method == WorkspaceConfiguration::METHOD
-                {
-                    assert_eq!(x.id, RequestId::from(id));
-                    Some(serde_json::from_value(x.params).unwrap())
-                } else {
-                    None
-                }
-            },
-        );
-
-        let expected_items = scope_uris
+    pub fn expect_configuration_request(
+        &self,
+        id: RequestId,
+        scope_uris: Option<Vec<&Url>>,
+    ) -> ServerRequestHandle<WorkspaceConfiguration> {
+        let items = scope_uris
             .unwrap_or_default()
             .into_iter()
             .cloned()
@@ -922,12 +939,7 @@ impl TestClient {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(
-            ConfigurationParams {
-                items: expected_items
-            },
-            params
-        );
+        self.expect_request(id, json!(ConfigurationParams { items }))
     }
 
     /// Expect a file watcher registration request.

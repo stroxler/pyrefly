@@ -173,10 +173,8 @@ fn test_initialize_with_python_path() {
 
     interaction
         .client
-        .expect_configuration_request(1, Some(vec![&scope_uri]));
-    interaction
-        .client
-        .send_configuration_response(1, json!([{"pythonPath": python_path}]));
+        .expect_configuration_request(RequestId::from(1), Some(vec![&scope_uri]))
+        .send_configuration_response(json!([{"pythonPath": python_path}]));
 
     interaction.shutdown();
 }

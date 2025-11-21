@@ -89,11 +89,7 @@ fn test_file_watcher() {
                 }
             }]
         }),
-    );
-
-    interaction
-        .client
-        .send_response::<RegisterCapability>(RequestId::from(1), json!(null));
+    ).send_response(json!(null));
 
     interaction.shutdown();
 }
