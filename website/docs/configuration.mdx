@@ -603,10 +603,20 @@ allowlist or denylist). Regular
 
 Should Pyrefly ignore errors based on annotations from other tools, e.g. `# pyre-ignore` or `# mypy: ignore`?
 By default, respects `# pyrefly: ignore` and `# type: ignore`.
+Enabling this option is equivalent to passing the names of all tools to `enabled-ignores`.
 
 - Type: `bool`
 - Default: `false`
 - Flag equivalent: `--permissive-ignores`
+
+### `enabled-ignores`
+
+What set of tools should Pyrefly respect ignore directives from?
+Passing the names of all tools is equivalent to enabling `permissive-ignores`.
+
+- Type: list of tools
+- Default: `["type", "pyrefly"]`
+- Flag equivalent: `--enabled-ignores`
 
 ### `sub-config`
 
