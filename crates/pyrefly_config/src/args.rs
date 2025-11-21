@@ -231,6 +231,15 @@ impl ConfigOverrideArgs {
                 display::commas_iter(|| ignore_info_conflicts.iter().map(|&&s| s))
             ));
         }
+        match self.ignore_missing_source {
+            Some(true) => warn!(
+                "`--ignore-missing-source` is deprecated and will be removed in a future version. Please use `--ignore=missing-source` instead."
+            ),
+            Some(false) => warn!(
+                "`--ignore-missing-source` is deprecated and will be removed in a future version. Please use `--error=missing-source` instead."
+            ),
+            None => {}
+        }
         Ok(())
     }
 
@@ -284,15 +293,6 @@ impl ConfigOverrideArgs {
             config.use_ignore_files = *x;
         }
         if let Some(x) = &self.ignore_missing_source {
-            if *x {
-                warn!(
-                    "`--ignore-missing-source` is deprecated and will be removed in a future version. Please use `--ignore=missing-source` instead."
-                );
-            } else {
-                warn!(
-                    "`--ignore-missing-source` is deprecated and will be removed in a future version. Please use `--error=missing-source` instead."
-                );
-            }
             config.ignore_missing_source = *x;
         }
         if let Some(x) = &self.untyped_def_behavior {
