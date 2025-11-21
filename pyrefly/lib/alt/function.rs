@@ -9,6 +9,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -623,10 +624,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
             // If the parameter begins but does not end with "__", it is a positional-only parameter.
             // See: https://typing.python.org/en/latest/spec/historical.html#positional-only-parameters
-            if is_historical_args_usage
-                && x.parameter.name.starts_with("__")
-                && !x.parameter.name.ends_with("__")
-            {
+            if is_historical_args_usage && Ast::is_mangled_attr(&x.parameter.name.id) {
                 if seen_keyword_args {
                     self.error(
                         errors,

@@ -13,6 +13,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::FuncFlags;
 use pyrefly_types::callable::FuncId;
@@ -27,6 +28,7 @@ use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::helpers::is_dunder;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
@@ -1121,7 +1123,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (
                     annotated_ty,
                     None,
-                    if Self::is_mangled_attr(name) {
+                    if Ast::is_mangled_attr(name) {
                         IsInherited::No
                     } else {
                         IsInherited::Maybe
@@ -1466,7 +1468,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> (Option<Type>, Option<Annotation>) {
         // Private (double-underscore) attributes are name-mangled at runtime and should not
         // inherit types or annotations from parent classes.
-        if Self::is_mangled_attr(name) {
+        if Ast::is_mangled_attr(name) {
             return (None, None);
         }
         let mut found_field = None;
@@ -1757,9 +1759,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // Both of these are heuristics that aren't guaranteed to be correct, but the dunder heuristic has useability benefits
                         // and the ClassVar heuristic aligns us with existing type checkers.
                         let field_name_str = field_name.as_str();
-                        let is_dunder =
-                            field_name_str.starts_with("__") && field_name_str.ends_with("__");
-                        if (is_dunder || field.is_callable_class_var())
+                        if (is_dunder(field_name_str) || field.is_callable_class_var())
                             && let Type::Callable(box callable) = ty
                         {
                             let module = self.module();
@@ -2017,7 +2017,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         // Private attributes should not participate in override checks
-        if Self::is_mangled_attr(field_name) {
+        if Ast::is_mangled_attr(field_name) {
             return false;
         }
 
@@ -2037,10 +2037,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         true
-    }
-
-    pub fn is_mangled_attr(name: &Name) -> bool {
-        name.starts_with("__") && !name.ends_with("__")
     }
 
     pub fn check_consistent_override_for_field(

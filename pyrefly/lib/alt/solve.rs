@@ -1710,7 +1710,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 || field_name == &dunder::INIT_SUBCLASS
                 || field_name == &dunder::HASH
                 || field_name == &dunder::CALL
-                || Self::is_mangled_attr(field_name)
+                || Ast::is_mangled_attr(field_name)
             {
                 continue;
             }
