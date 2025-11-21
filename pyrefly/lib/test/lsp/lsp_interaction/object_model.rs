@@ -155,8 +155,9 @@ impl<'a> ClientRequestHandle<'a, GotoDefinition> {
         line_end: u32,
         char_end: u32,
     ) {
-        self.client
-            .expect_definition_response_absolute(file, line_start, char_start, line_end, char_end);
+        self.client.expect_definition_response_absolute(
+            self.id, file, line_start, char_start, line_end, char_end,
+        );
     }
 
     pub fn expect_definition_response_from_root(
@@ -167,8 +168,9 @@ impl<'a> ClientRequestHandle<'a, GotoDefinition> {
         line_end: u32,
         char_end: u32,
     ) {
-        self.client
-            .expect_definition_response_from_root(file, line_start, char_start, line_end, char_end);
+        self.client.expect_definition_response_from_root(
+            self.id, file, line_start, char_start, line_end, char_end,
+        );
     }
 }
 
@@ -181,8 +183,9 @@ impl<'a> ClientRequestHandle<'a, GotoTypeDefinition> {
         line_end: u32,
         char_end: u32,
     ) {
-        self.client
-            .expect_definition_response_absolute(file, line_start, char_start, line_end, char_end);
+        self.client.expect_definition_response_absolute(
+            self.id, file, line_start, char_start, line_end, char_end,
+        );
     }
 
     pub fn expect_definition_response_from_root(
@@ -193,8 +196,9 @@ impl<'a> ClientRequestHandle<'a, GotoTypeDefinition> {
         line_end: u32,
         char_end: u32,
     ) {
-        self.client
-            .expect_definition_response_from_root(file, line_start, char_start, line_end, char_end);
+        self.client.expect_definition_response_from_root(
+            self.id, file, line_start, char_start, line_end, char_end,
+        );
     }
 }
 
@@ -204,7 +208,7 @@ impl<'a> ClientRequestHandle<'a, GotoImplementation> {
         implementations: Vec<(&'static str, u32, u32, u32, u32)>,
     ) {
         self.client
-            .expect_implementation_response_from_root(implementations);
+            .expect_implementation_response_from_root(self.id, implementations);
     }
 }
 
@@ -240,11 +244,6 @@ impl TestClient {
     fn next_request_id(&self) -> RequestId {
         let idx = self.request_idx.fetch_add(1, Ordering::SeqCst);
         RequestId::from(idx + 1)
-    }
-
-    pub fn current_request_id(&self) -> RequestId {
-        let idx = self.request_idx.load(Ordering::Acquire);
-        RequestId::from(idx)
     }
 
     pub fn drop_connection(&mut self) {
@@ -819,6 +818,7 @@ impl TestClient {
 
     pub fn expect_definition_response_absolute(
         &self,
+        id: RequestId,
         file: String,
         line_start: u32,
         char_start: u32,
@@ -826,7 +826,7 @@ impl TestClient {
         char_end: u32,
     ) {
         self.expect_response::<GotoDefinition>(
-            self.current_request_id(),
+            id,
             json!(
             {
                 "uri": Url::from_file_path(file).unwrap().to_string(),
@@ -840,6 +840,7 @@ impl TestClient {
 
     pub fn expect_definition_response_from_root(
         &self,
+        id: RequestId,
         file: &'static str,
         line_start: u32,
         char_start: u32,
@@ -847,7 +848,7 @@ impl TestClient {
         char_end: u32,
     ) {
         self.expect_response::<GotoDefinition>(
-            self.current_request_id(),
+            id,
             json!(
             {
                 "uri": Url::from_file_path(self.get_root_or_panic().join(file)).unwrap().to_string(),
@@ -861,6 +862,7 @@ impl TestClient {
 
     pub fn expect_implementation_response_from_root(
         &self,
+        id: RequestId,
         implementations: Vec<(&'static str, u32, u32, u32, u32)>,
     ) {
         let locations: Vec<_> = implementations
@@ -876,7 +878,7 @@ impl TestClient {
             })
             .collect();
 
-        self.expect_response::<GotoImplementation>(self.current_request_id(), json!(locations))
+        self.expect_response::<GotoImplementation>(id, json!(locations))
     }
 
     pub fn expect_any_message(&self) {
