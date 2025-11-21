@@ -15,7 +15,6 @@ use std::thread::{self};
 use std::time::Duration;
 
 use crossbeam_channel::RecvTimeoutError;
-use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::Notification;
@@ -23,8 +22,11 @@ use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
+use lsp_types::CompletionList;
+use lsp_types::CompletionResponse;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
+use lsp_types::HoverContents;
 use lsp_types::PublishDiagnosticsParams;
 use lsp_types::RegistrationParams;
 use lsp_types::UnregistrationParams;
@@ -71,15 +73,6 @@ use crate::commands::lsp::run_lsp;
 use crate::lsp::wasm::provide_type::ProvideType;
 use crate::test::util::init_test;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ValidationResult {
-    /// Skip this message and continue waiting
-    Skip,
-    /// Message succeeds validation
-    Pass,
-    /// Message fails validation
-    Fail,
-}
 #[derive(Default)]
 pub struct InitializeSettings {
     pub workspace_folders: Option<Vec<(String, Url)>>,
@@ -555,32 +548,6 @@ impl TestClient {
         params
     }
 
-    pub fn expect_message_helper<F>(&self, validator: F, description: &str)
-    where
-        F: Fn(&Message) -> ValidationResult,
-    {
-        loop {
-            match self.recv_timeout() {
-                Ok(msg) => {
-                    eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
-                    match validator(&msg) {
-                        ValidationResult::Skip => continue,
-                        ValidationResult::Pass => return,
-                        ValidationResult::Fail => {
-                            panic!("Message validation failed: {description}. Message: {msg:?}");
-                        }
-                    }
-                }
-                Err(RecvTimeoutError::Timeout) => {
-                    panic!("Timeout waiting for message: {description}");
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    panic!("Channel disconnected while waiting for message: {description}");
-                }
-            }
-        }
-    }
-
     pub fn expect_message<T>(
         &self,
         description: &str,
@@ -649,6 +616,56 @@ impl TestClient {
             }
         });
         assert_eq!(json!(expected), json!(actual));
+    }
+
+    pub fn expect_response_with<R: lsp_types::request::Request>(
+        &self,
+        id: RequestId,
+        matcher: impl Fn(R::Result) -> bool,
+    ) {
+        self.expect_message(
+            &format!("Response {} matching condition", R::METHOD),
+            |msg| {
+                if let Message::Response(x) = msg
+                    && x.id == id
+                    && matcher(serde_json::from_value::<R::Result>(x.result.unwrap()).unwrap())
+                {
+                    Some(())
+                } else {
+                    None
+                }
+            },
+        )
+    }
+
+    pub fn expect_completion_response_with(
+        &self,
+        id: RequestId,
+        matcher: impl Fn(&CompletionList) -> bool,
+    ) {
+        self.expect_response_with::<Completion>(id, |result| {
+            // Pyrefly always returns a CompletionList
+            match result {
+                Some(CompletionResponse::List(x)) => matcher(&x),
+                _ => panic!("Unexpected completion response: {result:?}"),
+            }
+        })
+    }
+
+    pub fn expect_hover_response_with_markup(
+        &self,
+        id: RequestId,
+        matcher: impl Fn(Option<&str>) -> bool,
+    ) {
+        self.expect_response_with::<HoverRequest>(id, |result| {
+            // Pyrefly always returns either an empty array or markup
+            let hover = result.expect("Unexpected null completion response");
+            match hover.contents {
+                HoverContents::Array(xs) if xs.is_empty() => matcher(None),
+                HoverContents::Markup(content) => matcher(Some(&content.value)),
+                _ => panic!("Unexpected completion response: {hover:?}"),
+            }
+        })
     }
 
     /// Wait for a publishDiagnostics notification, then check if it has the correct path and count
@@ -759,43 +776,6 @@ impl TestClient {
             .collect();
 
         self.expect_response::<GotoImplementation>(self.current_request_id(), json!(locations))
-    }
-
-    pub fn expect_response_with<F>(&self, validator: F, description: &str)
-    where
-        F: Fn(&Response) -> bool,
-    {
-        self.expect_message_helper(
-            |msg| match msg {
-                Message::Notification(_) | Message::Request(_) => ValidationResult::Skip,
-                Message::Response(response) => {
-                    if validator(response) {
-                        ValidationResult::Pass
-                    } else {
-                        ValidationResult::Fail
-                    }
-                }
-            },
-            description,
-        );
-    }
-
-    pub fn expect_response_with_item(&self, item: Value, description: &str) {
-        self.expect_response_with(
-            |response| {
-                if response.id != RequestId::from(2) {
-                    return false;
-                }
-                if let Some(result) = &response.result
-                    && let Some(items) = result.get("items")
-                    && let Some(items_array) = items.as_array()
-                {
-                    return items_array.iter().contains(&item);
-                }
-                false
-            },
-            description,
-        );
     }
 
     pub fn expect_any_message(&self) {

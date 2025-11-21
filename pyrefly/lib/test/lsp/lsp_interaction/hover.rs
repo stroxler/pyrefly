@@ -51,19 +51,11 @@ fn hover_on_attr_of_pyi_assignment_shows_pyi_type() {
     interaction.client.did_open(file);
 
     interaction.client.hover(file, 8, 8);
-    interaction.client.expect_response_with(
-        |response| {
-            if let Some(result) = &response.result
-                && let Some(contents) = result.get("contents")
-                && let Some(value) = contents.get("value")
-                && let Some(value_str) = value.as_str()
-            {
-                return value_str.contains("y: int");
-            }
-            false
-        },
-        "Expected hover response containing 'y: int'",
-    );
+    interaction
+        .client
+        .expect_hover_response_with_markup(interaction.client.current_request_id(), |x| {
+            x.is_some_and(|x| x.contains("y: int"))
+        });
 
     interaction.shutdown();
 }
@@ -81,21 +73,14 @@ fn hover_attribute_prefers_py_docstring_over_pyi() {
     let file = "attributes_of_py_docstrings/src.py";
     interaction.client.did_open(file);
     interaction.client.hover(file, 9, 10);
-    interaction.client.expect_response_with(
-        |response| {
-            response
-                .result
-                .as_ref()
-                .and_then(|value| value.get("contents"))
-                .and_then(|contents| contents.get("value"))
-                .and_then(|value| value.as_str())
-                .is_some_and(|value| {
-                    value.contains("Docstring coming from the .py implementation.")
-                    // a link to the .pyi file proves that the type is coming from the .pyi
-                        && value.contains("lib.pyi")
-                })
+    interaction.client.expect_hover_response_with_markup(
+        interaction.client.current_request_id(),
+        |x| {
+            x.is_some_and(|x| {
+                // a link to the .pyi file proves that the type is coming from the .pyi
+                x.contains("Docstring coming from the .py implementation.") && x.contains("lib.pyi")
+            })
         },
-        "hover result should surface the implementation docstring for attributes defined in .py files",
     );
 
     interaction.shutdown();

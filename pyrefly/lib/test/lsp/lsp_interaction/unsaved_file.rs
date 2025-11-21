@@ -6,6 +6,7 @@
  */
 
 use lsp_server::RequestId;
+use lsp_types::SemanticTokensResult;
 use lsp_types::Url;
 use lsp_types::request::Completion;
 use lsp_types::request::SemanticTokensFullRequest;
@@ -36,21 +37,14 @@ foo()
             }),
         );
 
-    interaction.client.expect_response_with(
-        |response| {
-            if response.id != RequestId::from(2) {
-                return false;
+    interaction
+        .client
+        .expect_response_with::<SemanticTokensFullRequest>(RequestId::from(2), |response| {
+            match response {
+                Some(SemanticTokensResult::Tokens(xs)) => !xs.data.is_empty(),
+                _ => false,
             }
-            if let Some(result) = &response.result
-                && let Some(data) = result.get("data")
-                && let Some(data_array) = data.as_array()
-            {
-                return !data_array.is_empty();
-            }
-            false
-        },
-        "Expected semantic tokens data for unsaved file",
-    );
+        });
 
     interaction.shutdown();
 }
@@ -74,23 +68,9 @@ math.
         }),
     );
 
-    interaction.client.expect_response_with(
-        |response| {
-            if response.id != RequestId::from(2) {
-                return false;
-            }
-            if let Some(result) = &response.result {
-                if let Some(items) = result.get("items").and_then(|items| items.as_array()) {
-                    return !items.is_empty();
-                }
-                if let Some(array) = result.as_array() {
-                    return !array.is_empty();
-                }
-            }
-            false
-        },
-        "Expected completion items for unsaved file",
-    );
+    interaction
+        .client
+        .expect_completion_response_with(RequestId::from(2), |list| !list.items.is_empty());
 
     interaction.shutdown();
 }

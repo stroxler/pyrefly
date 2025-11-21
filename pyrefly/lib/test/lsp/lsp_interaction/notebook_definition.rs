@@ -6,6 +6,7 @@
  */
 
 use lsp_server::RequestId;
+use lsp_types::request::GotoDeclarationResponse;
 use lsp_types::request::GotoDefinition;
 use serde_json::json;
 
@@ -28,15 +29,15 @@ fn test_notebook_definition_import() {
     interaction.definition_cell("notebook.ipynb", "cell1", 0, 20);
 
     // Check that the response uri ends with "typing.py"
-    interaction.client.expect_response_with(
-        |response| {
-            response.result.as_ref().is_some_and(|r| {
-                r.get("uri")
-                    .is_some_and(|uri| uri.as_str().is_some_and(|x| x.ends_with("typing.py")))
-            })
-        },
-        "expected definition in typing.pyi",
-    );
+    interaction
+        .client
+        .expect_response_with::<GotoDefinition>(RequestId::from(2), |response| match response {
+            Some(GotoDeclarationResponse::Scalar(loc)) => {
+                loc.uri.to_file_path().unwrap().ends_with("typing.py")
+            }
+            _ => false,
+        });
+
     interaction.shutdown();
 }
 

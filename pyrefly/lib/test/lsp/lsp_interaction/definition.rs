@@ -10,7 +10,11 @@ use std::path::PathBuf;
 use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
+use lsp_types::GotoDefinitionResponse;
 use lsp_types::Url;
+use lsp_types::request::GotoDeclarationResponse;
+use lsp_types::request::GotoDefinition;
+use lsp_types::request::GotoTypeDefinition;
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -188,16 +192,14 @@ fn definition_in_builtins() {
     interaction
         .client
         .definition("imports_builtins/imports_builtins.py", 7, 7);
-    interaction.client.expect_response_with(
-        |response| {
-            // expect typing.py, NOT typing.pyi
-            response.result.as_ref().is_some_and(|r| {
-                r.get("uri")
-                    .is_some_and(|uri| uri.as_str().is_some_and(|x| x.ends_with("typing.py")))
-            })
-        },
-        "response must return the file `typing.py` from a site package",
-    );
+    interaction
+        .client
+        .expect_response_with::<GotoDefinition>(RequestId::from(2), |response| match response {
+            Some(GotoDeclarationResponse::Scalar(x)) => {
+                x.uri.to_file_path().unwrap().ends_with("typing.py")
+            }
+            _ => false,
+        });
 }
 
 #[test]
@@ -451,50 +453,31 @@ fn goto_type_def_on_list_of_primitives_shows_selector() {
         .client
         .type_definition("primitive_type_test.py", 9, 0);
 
-    interaction.client.expect_response_with(
-        |response| {
-            if let Some(result) = &response.result
-                && let Some(locations_array) = result.as_array()
-            {
-                if locations_array.len() != 2 {
-                    return false;
+    interaction
+        .client
+        .expect_response_with::<GotoTypeDefinition>(
+            RequestId::from(2),
+            |response| match response {
+                Some(GotoDefinitionResponse::Array(xs)) => {
+                    if xs.len() != 2 {
+                        return false;
+                    }
+
+                    let mut has_int = false;
+                    let mut has_list = false;
+
+                    for x in xs {
+                        if x.uri.to_file_path().unwrap() == builtins_file {
+                            has_int = has_int || x.range.start.line == 417;
+                            has_list = has_list || x.range.start.line == 3348;
+                        }
+                    }
+
+                    has_int && has_list
                 }
-
-                let has_int = locations_array.iter().any(|loc| {
-                    loc.get("uri")
-                        .and_then(|uri| uri.as_str())
-                        .is_some_and(|u| u.ends_with("builtins.pyi"))
-                        && loc
-                            .get("range")
-                            .and_then(|r| r.get("start"))
-                            .and_then(|s| s.get("line"))
-                            .and_then(|l| l.as_u64())
-                            == Some(417)
-                });
-
-                let has_list = locations_array.iter().any(|loc| {
-                    loc.get("uri")
-                        .and_then(|uri| uri.as_str())
-                        .is_some_and(|u| u.ends_with("builtins.pyi"))
-                        && loc
-                            .get("range")
-                            .and_then(|r| r.get("start"))
-                            .and_then(|s| s.get("line"))
-                            .and_then(|l| l.as_u64())
-                            == Some(3348)
-                });
-
-                return has_int && has_list;
-            }
-            false
-        },
-        "response should contain two locations: one for int (line 417) and one for list (line 3348) in builtins.pyi",
-    );
-
-    assert!(
-        builtins_file.exists(),
-        "Expected builtins.pyi to exist at {builtins_file:?}",
-    );
+                _ => false,
+            },
+        );
 }
 
 #[test]
