@@ -29,16 +29,15 @@ fn test_workspace_symbol() {
 
     interaction.client.did_open("autoimport_provider.py");
 
-    interaction.client.send_request::<WorkspaceSymbolRequest>(
-        RequestId::from(2),
-        json!({
-            "query": "this_is_a_very_long_function_name_so_we_can"
-        }),
-    );
-
-    interaction.client.expect_response::<WorkspaceSymbolRequest>(
-        RequestId::from(2),
-        json!([
+    interaction
+        .client
+        .send_request::<WorkspaceSymbolRequest>(
+            RequestId::from(2),
+            json!({
+                "query": "this_is_a_very_long_function_name_so_we_can"
+            }),
+        )
+        .expect_response(json!([
             {
                 "kind": 12,
                 "location": {
@@ -50,8 +49,7 @@ fn test_workspace_symbol() {
                 },
                 "name": "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search"
             }
-        ]),
-    );
+        ]));
 
     interaction.shutdown();
 }

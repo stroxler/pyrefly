@@ -5,9 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::Url;
-use lsp_types::request::WillRenameFiles;
 use serde_json::json;
 
 use crate::commands::lsp::IndexingMode;
@@ -30,14 +28,11 @@ fn test_will_rename_files_changes_open_files_when_indexing_disabled() {
     let foo_path = root.path().join(foo);
 
     // Send will_rename_files request to rename bar.py to baz.py
+    // Expect a response with edits to update imports in foo.py using "changes" format
     interaction
         .client
-        .will_rename_files(bar, "tests_requiring_config/baz.py");
-
-    // Expect a response with edits to update imports in foo.py using "changes" format
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+        .will_rename_files(bar, "tests_requiring_config/baz.py")
+        .expect_response(json!({
             "changes": {
                 Url::from_file_path(&foo_path).unwrap().to_string(): [
                     {
@@ -56,8 +51,7 @@ fn test_will_rename_files_changes_open_files_when_indexing_disabled() {
                     }
                 ]
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -83,14 +77,13 @@ fn test_will_rename_files_with_marker_file_no_config() {
     let foo_path = root_path.join(foo);
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.client.will_rename_files(bar, "baz.py");
-
     // Expect a response with edits to update imports in foo.py using "changes" format
     // since  there's a marker file (pyproject.toml), but no pyrefly config,
     // it should still work and provide rename edits
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .client
+        .will_rename_files(bar, "baz.py")
+        .expect_response(json!({
             "changes": {
                 Url::from_file_path(&foo_path).unwrap().to_string(): [
                     {
@@ -109,8 +102,7 @@ fn test_will_rename_files_with_marker_file_no_config() {
                     },
                 ]
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -130,14 +122,11 @@ fn test_will_rename_files_changes_folder() {
     let foo_path = root.path().join(foo);
 
     // Send will_rename_files request to rename bar.py to subfolder/bar.py
+    // Expect a response with edits to update imports in foo.py using "changes" format
     interaction
         .client
-        .will_rename_files(bar, "tests_requiring_config/subfolder/bar.py");
-
-    // Expect a response with edits to update imports in foo.py using "changes" format
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+        .will_rename_files(bar, "tests_requiring_config/subfolder/bar.py")
+        .expect_response(json!({
             "changes": {
                 Url::from_file_path(&foo_path).unwrap().to_string(): [
                     {
@@ -156,8 +145,7 @@ fn test_will_rename_files_changes_folder() {
                     }
                 ]
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -169,15 +157,14 @@ fn test_will_rename_files_changes_nothing_when_no_files_open() {
     interaction.set_root(root.path().to_path_buf());
     interaction.initialize(InitializeSettings::default());
 
-    interaction.client.will_rename_files(
-        "tests_requiring_config/bar.py",
-        "tests_requiring_config/baz.py",
-    );
-
     // Expect a response with no edits since indexing only happens once a file in a config is open
     interaction
         .client
-        .expect_response::<WillRenameFiles>(RequestId::from(2), json!(null));
+        .will_rename_files(
+            "tests_requiring_config/bar.py",
+            "tests_requiring_config/baz.py",
+        )
+        .expect_response(json!(null));
 
     interaction.shutdown();
 }
@@ -201,14 +188,11 @@ fn test_will_rename_files_changes_everything_when_indexed() {
         .join("tests_requiring_config/various_imports.py");
 
     // Send will_rename_files request to rename bar.py to baz.py
+    // Expect a response with edits to update imports in foo.py, with_synthetic_bindings.py, and various_imports.py using "changes" format
     interaction
         .client
-        .will_rename_files(bar, "tests_requiring_config/baz.py");
-
-    // Expect a response with edits to update imports in foo.py, with_synthetic_bindings.py, and various_imports.py using "changes" format
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+        .will_rename_files(bar, "tests_requiring_config/baz.py")
+        .expect_response(json!({
             "changes": {
                 Url::from_file_path(&foo_path).unwrap().to_string(): [
                     {
@@ -245,8 +229,7 @@ fn test_will_rename_files_changes_everything_when_indexed() {
                     }
                 ]
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -264,12 +247,11 @@ fn test_will_rename_files_without_config() {
     interaction.client.did_open(bar);
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.client.will_rename_files(bar, "baz.py");
-
     // Expect a response with edits to update imports in foo.py using "changes" format
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .client
+        .will_rename_files(bar, "baz.py")
+        .expect_response(json!({
             "changes": {
                 Url::from_file_path(root.path().join("basic/foo.py")).unwrap().to_string(): [
                     {
@@ -288,8 +270,7 @@ fn test_will_rename_files_without_config() {
                     }
                 ],
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -311,12 +292,11 @@ fn test_will_rename_files_without_config_with_workspace_folder() {
     interaction.client.did_open(bar);
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction.client.will_rename_files(bar, "baz.py");
-
     // Expect a response with edits to update imports in foo.py and foo_relative.py using "changes" format
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .client
+        .will_rename_files(bar, "baz.py")
+        .expect_response(json!({
             "changes": {
                 Url::from_file_path(root_path.join("foo.py")).unwrap().to_string(): [
                     {
@@ -344,8 +324,7 @@ fn test_will_rename_files_without_config_with_workspace_folder() {
                     },
                 ],
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -380,15 +359,12 @@ fn test_will_rename_files_document_changes() {
         .join("tests_requiring_config/various_imports.py");
 
     // Send will_rename_files request to rename bar.py to baz.py
-    interaction
-        .client
-        .will_rename_files(bar, "tests_requiring_config/baz.py");
-
     // Expect a response with edits to update imports in foo.py, various_imports.py, and with_synthetic_bindings.py using "documentChanges" format
     // Files are returned in alphabetical order by URI
-    interaction.client.expect_response::<WillRenameFiles>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .client
+        .will_rename_files(bar, "tests_requiring_config/baz.py")
+        .expect_response(json!({
             "documentChanges": [
                 {
                     "textDocument": {
@@ -443,8 +419,7 @@ fn test_will_rename_files_document_changes() {
                     ]
                 }
             ]
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }

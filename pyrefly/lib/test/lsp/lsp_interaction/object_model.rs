@@ -7,6 +7,7 @@
 
 /// This file contains a new implementation of the lsp_interaction test suite. Soon it will replace the old one.
 use std::iter::once;
+use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
@@ -111,6 +112,102 @@ impl FinishHandle {
     }
 }
 
+pub struct ClientRequestHandle<'a, R: lsp_types::request::Request> {
+    id: RequestId,
+    client: &'a TestClient,
+    _type: PhantomData<R>,
+}
+
+impl<'a, R: lsp_types::request::Request> ClientRequestHandle<'a, R> {
+    pub fn expect_response(self, expected: Value) {
+        self.client.expect_response::<R>(self.id, expected);
+    }
+
+    pub fn expect_response_error(self, expected: Value) {
+        self.client.expect_response_error(self.id, expected);
+    }
+
+    pub fn expect_response_with(self, matcher: impl Fn(R::Result) -> bool) {
+        self.client.expect_response_with::<R>(self.id, matcher)
+    }
+}
+
+impl<'a> ClientRequestHandle<'a, Completion> {
+    pub fn expect_completion_response_with(self, matcher: impl Fn(&CompletionList) -> bool) {
+        self.client
+            .expect_completion_response_with(self.id, matcher);
+    }
+}
+
+impl<'a> ClientRequestHandle<'a, HoverRequest> {
+    pub fn expect_hover_response_with_markup(self, matcher: impl Fn(Option<&str>) -> bool) {
+        self.client
+            .expect_hover_response_with_markup(self.id, matcher);
+    }
+}
+
+impl<'a> ClientRequestHandle<'a, GotoDefinition> {
+    pub fn expect_definition_response_absolute(
+        self,
+        file: String,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.client
+            .expect_definition_response_absolute(file, line_start, char_start, line_end, char_end);
+    }
+
+    pub fn expect_definition_response_from_root(
+        self,
+        file: &'static str,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.client
+            .expect_definition_response_from_root(file, line_start, char_start, line_end, char_end);
+    }
+}
+
+impl<'a> ClientRequestHandle<'a, GotoTypeDefinition> {
+    pub fn expect_definition_response_absolute(
+        self,
+        file: String,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.client
+            .expect_definition_response_absolute(file, line_start, char_start, line_end, char_end);
+    }
+
+    pub fn expect_definition_response_from_root(
+        self,
+        file: &'static str,
+        line_start: u32,
+        char_start: u32,
+        line_end: u32,
+        char_end: u32,
+    ) {
+        self.client
+            .expect_definition_response_from_root(file, line_start, char_start, line_end, char_end);
+    }
+}
+
+impl<'a> ClientRequestHandle<'a, GotoImplementation> {
+    pub fn expect_implementation_response_from_root(
+        self,
+        implementations: Vec<(&'static str, u32, u32, u32, u32)>,
+    ) {
+        self.client
+            .expect_implementation_response_from_root(implementations);
+    }
+}
+
 pub struct TestClient {
     conn: Option<Connection>,
     root: Option<PathBuf>,
@@ -195,14 +292,19 @@ impl TestClient {
         &self,
         id: RequestId,
         params: serde_json::Value,
-    ) {
+    ) -> ClientRequestHandle<R> {
         // Ensure the passed value can be parsed as the desired request params
         let params = serde_json::from_value::<R::Params>(params).unwrap();
         self.send_message(Message::Request(Request {
-            id,
+            id: id.clone(),
             method: R::METHOD.to_owned(),
             params: serde_json::to_value(params).unwrap(),
         }));
+        ClientRequestHandle {
+            id,
+            client: self,
+            _type: PhantomData,
+        }
     }
 
     pub fn send_response<R: lsp_types::request::Request>(&self, id: RequestId, result: Value) {
@@ -227,27 +329,32 @@ impl TestClient {
         }));
     }
 
-    pub fn send_initialize(&mut self, params: Value) {
+    pub fn send_initialize(&mut self, params: Value) -> ClientRequestHandle<Initialize> {
         let id = self.next_request_id();
-        self.send_request::<Initialize>(id, params);
+        self.send_request(id, params)
     }
 
     pub fn send_initialized(&self) {
         self.send_notification::<Initialized>(json!({}));
     }
 
-    pub fn send_shutdown(&self, id: RequestId) {
-        self.send_request::<Shutdown>(id, json!(null));
+    pub fn send_shutdown(&self, id: RequestId) -> ClientRequestHandle<Shutdown> {
+        self.send_request(id, json!(null))
     }
 
     pub fn send_exit(&self) {
         self.send_notification::<Exit>(json!(null));
     }
 
-    pub fn type_definition(&mut self, file: &'static str, line: u32, col: u32) {
+    pub fn type_definition(
+        &mut self,
+        file: &'static str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<GotoTypeDefinition> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<GotoTypeDefinition>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -258,13 +365,18 @@ impl TestClient {
                     "character": col,
                 },
             }),
-        );
+        )
     }
 
-    pub fn definition(&mut self, file: &'static str, line: u32, col: u32) {
+    pub fn definition(
+        &mut self,
+        file: &'static str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<GotoDefinition> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<GotoDefinition>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -275,13 +387,18 @@ impl TestClient {
                     "character": col,
                 },
             }),
-        );
+        )
     }
 
-    pub fn implementation(&mut self, file: &'static str, line: u32, col: u32) {
+    pub fn implementation(
+        &mut self,
+        file: &'static str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<GotoImplementation> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<GotoImplementation>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -292,7 +409,7 @@ impl TestClient {
                     "character": col,
                 },
             }),
-        );
+        )
     }
 
     pub fn did_open(&self, file: &'static str) {
@@ -336,10 +453,15 @@ impl TestClient {
         self.send_notification::<DidChangeConfiguration>(json!({"settings": {}}));
     }
 
-    pub fn completion(&mut self, file: &'static str, line: u32, col: u32) {
+    pub fn completion(
+        &mut self,
+        file: &'static str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<Completion> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<Completion>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -350,25 +472,33 @@ impl TestClient {
                     "character": col
                 }
             }),
-        );
+        )
     }
 
-    pub fn diagnostic(&mut self, file: &'static str) {
+    pub fn diagnostic(
+        &mut self,
+        file: &'static str,
+    ) -> ClientRequestHandle<DocumentDiagnosticRequest> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<DocumentDiagnosticRequest>(
+        self.send_request(
             id,
             json!({
             "textDocument": {
                 "uri": Url::from_file_path(&path).unwrap().to_string()
             }}),
-        );
+        )
     }
 
-    pub fn hover(&mut self, file: &'static str, line: u32, col: u32) {
+    pub fn hover(
+        &mut self,
+        file: &'static str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<HoverRequest> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<HoverRequest>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -379,13 +509,18 @@ impl TestClient {
                     "character": col
                 }
             }),
-        );
+        )
     }
 
-    pub fn provide_type(&mut self, file: &'static str, line: u32, col: u32) {
+    pub fn provide_type(
+        &mut self,
+        file: &'static str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<ProvideType> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<ProvideType>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -396,13 +531,19 @@ impl TestClient {
                     "character": col
                 }]
             }),
-        );
+        )
     }
 
-    pub fn references(&mut self, file: &str, line: u32, col: u32, include_declaration: bool) {
+    pub fn references(
+        &mut self,
+        file: &str,
+        line: u32,
+        col: u32,
+        include_declaration: bool,
+    ) -> ClientRequestHandle<References> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<References>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -416,7 +557,7 @@ impl TestClient {
                     "includeDeclaration": include_declaration
                 },
             }),
-        );
+        )
     }
 
     pub fn inlay_hint(
@@ -426,10 +567,10 @@ impl TestClient {
         start_char: u32,
         end_line: u32,
         end_char: u32,
-    ) {
+    ) -> ClientRequestHandle<InlayHintRequest> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
-        self.send_request::<InlayHintRequest>(
+        self.send_request(
             id,
             json!({
                 "textDocument": {
@@ -446,19 +587,23 @@ impl TestClient {
                     }
                 }
             }),
-        );
+        )
     }
 
     pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
         self.send_response::<WorkspaceConfiguration>(RequestId::from(id), result);
     }
 
-    pub fn will_rename_files(&mut self, old_file: &'static str, new_file: &'static str) {
+    pub fn will_rename_files(
+        &mut self,
+        old_file: &'static str,
+        new_file: &'static str,
+    ) -> ClientRequestHandle<WillRenameFiles> {
         let root = self.get_root_or_panic();
         let old_path = root.join(old_file);
         let new_path = root.join(new_file);
         let id = self.next_request_id();
-        self.send_request::<WillRenameFiles>(
+        self.send_request(
             id,
             json!({
                 "files": [{
@@ -466,7 +611,7 @@ impl TestClient {
                     "newUri": Url::from_file_path(&new_path).unwrap().to_string()
                 }]
             }),
-        );
+        )
     }
 
     /// Send a file creation event notification
@@ -935,10 +1080,9 @@ impl LspInteraction {
 
     pub fn shutdown(&self) {
         let shutdown_id = RequestId::from(999);
-        self.client.send_shutdown(shutdown_id.clone());
-
         self.client
-            .expect_response::<Shutdown>(shutdown_id, json!(null));
+            .send_shutdown(shutdown_id.clone())
+            .expect_response(json!(null));
 
         self.client.send_exit();
     }
@@ -1022,15 +1166,19 @@ impl LspInteraction {
             }));
     }
 
-    pub fn diagnostic_for_cell(&mut self, file: &str, cell: &str) {
+    pub fn diagnostic_for_cell(
+        &mut self,
+        file: &str,
+        cell: &str,
+    ) -> ClientRequestHandle<DocumentDiagnosticRequest> {
         let id = self.client.next_request_id();
-        self.client.send_request::<DocumentDiagnosticRequest>(
+        self.client.send_request(
             id,
             json!({
             "textDocument": {
                 "uri": self.cell_uri(file, cell)
             }}),
-        );
+        )
     }
 
     /// Returns the URI for a notebook cell
@@ -1049,10 +1197,16 @@ impl LspInteraction {
     }
 
     /// Sends a hover request for a notebook cell at the specified position
-    pub fn hover_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
+    pub fn hover_cell(
+        &mut self,
+        file_name: &str,
+        cell_name: &str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<HoverRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<HoverRequest>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1063,14 +1217,20 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        );
+        )
     }
 
     /// Sends a signature help request for a notebook cell at the specified position
-    pub fn signature_help_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
+    pub fn signature_help_cell(
+        &mut self,
+        file_name: &str,
+        cell_name: &str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<SignatureHelpRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<SignatureHelpRequest>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1081,14 +1241,20 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        );
+        )
     }
 
     /// Sends a definition request for a notebook cell at the specified position
-    pub fn definition_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
+    pub fn definition_cell(
+        &mut self,
+        file_name: &str,
+        cell_name: &str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<GotoDefinition> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<GotoDefinition>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1099,7 +1265,7 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        );
+        )
     }
 
     /// Sends a references request for a notebook cell at the specified position
@@ -1110,10 +1276,10 @@ impl LspInteraction {
         line: u32,
         col: u32,
         include_declaration: bool,
-    ) {
+    ) -> ClientRequestHandle<References> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<References>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1127,13 +1293,19 @@ impl LspInteraction {
                     "includeDeclaration": include_declaration,
                 },
             }),
-        );
+        )
     }
 
-    pub fn completion_cell(&mut self, file_name: &str, cell_name: &str, line: u32, col: u32) {
+    pub fn completion_cell(
+        &mut self,
+        file_name: &str,
+        cell_name: &str,
+        line: u32,
+        col: u32,
+    ) -> ClientRequestHandle<Completion> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<Completion>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1144,7 +1316,7 @@ impl LspInteraction {
                     "character": col
                 }
             }),
-        );
+        )
     }
 
     /// Sends an inlay hint request for a notebook cell in the specified range
@@ -1156,10 +1328,10 @@ impl LspInteraction {
         start_char: u32,
         end_line: u32,
         end_char: u32,
-    ) {
+    ) -> ClientRequestHandle<InlayHintRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<InlayHintRequest>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1176,21 +1348,25 @@ impl LspInteraction {
                     }
                 }
             }),
-        );
+        )
     }
 
     /// Sends a full semantic tokens request for a notebook cell
-    pub fn semantic_tokens_cell(&mut self, file_name: &str, cell_name: &str) {
+    pub fn semantic_tokens_cell(
+        &mut self,
+        file_name: &str,
+        cell_name: &str,
+    ) -> ClientRequestHandle<SemanticTokensFullRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<SemanticTokensFullRequest>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
                     "uri": cell_uri
                 }
             }),
-        );
+        )
     }
 
     /// Sends a ranged semantic tokens request for a notebook cell
@@ -1202,10 +1378,10 @@ impl LspInteraction {
         start_char: u32,
         end_line: u32,
         end_char: u32,
-    ) {
+    ) -> ClientRequestHandle<SemanticTokensRangeRequest> {
         let cell_uri = self.cell_uri(file_name, cell_name);
         let id = self.client.next_request_id();
-        self.client.send_request::<SemanticTokensRangeRequest>(
+        self.client.send_request(
             id,
             json!({
                 "textDocument": {
@@ -1222,6 +1398,6 @@ impl LspInteraction {
                     }
                 }
             }),
-        );
+        )
     }
 }

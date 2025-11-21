@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
-use lsp_types::request::References;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -24,10 +22,9 @@ fn test_notebook_references() {
     });
     interaction.open_notebook("notebook.ipynb", vec!["x = 1\ny = x"]);
 
-    interaction.references_cell("notebook.ipynb", "cell1", 0, 0, true);
     // TODO: references always returns empty for notebooks atm
     interaction
-        .client
-        .expect_response::<References>(RequestId::from(2), json!([]));
+        .references_cell("notebook.ipynb", "cell1", 0, 0, true)
+        .expect_response(json!([]));
     interaction.shutdown();
 }

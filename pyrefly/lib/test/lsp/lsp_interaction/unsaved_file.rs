@@ -35,15 +35,10 @@ foo()
             json!({
                 "textDocument": { "uri": uri.to_string() }
             }),
-        );
-
-    interaction
-        .client
-        .expect_response_with::<SemanticTokensFullRequest>(RequestId::from(2), |response| {
-            match response {
-                Some(SemanticTokensResult::Tokens(xs)) => !xs.data.is_empty(),
-                _ => false,
-            }
+        )
+        .expect_response_with(|response| match response {
+            Some(SemanticTokensResult::Tokens(xs)) => !xs.data.is_empty(),
+            _ => false,
         });
 
     interaction.shutdown();
@@ -60,17 +55,16 @@ math.
 "#;
     interaction.client.did_open_uri(&uri, "python", text);
 
-    interaction.client.send_request::<Completion>(
-        RequestId::from(2),
-        json!({
-            "textDocument": {"uri": uri.to_string()},
-            "position": {"line": 1, "character": 5}
-        }),
-    );
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| !list.items.is_empty());
+        .send_request::<Completion>(
+            RequestId::from(2),
+            json!({
+                "textDocument": {"uri": uri.to_string()},
+                "position": {"line": 1, "character": 5}
+            }),
+        )
+        .expect_completion_response_with(|list| !list.items.is_empty());
 
     interaction.shutdown();
 }

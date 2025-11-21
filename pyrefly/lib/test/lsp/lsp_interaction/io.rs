@@ -51,10 +51,9 @@ fn test_edits_while_recheck() {
             ],
         }));
 
-    interaction.client.definition("foo.py", 6, 18);
-
     interaction
         .client
+        .definition("foo.py", 6, 18)
         .expect_definition_response_from_root("bar.py", 6, 6, 6, 9);
 
     interaction.shutdown();

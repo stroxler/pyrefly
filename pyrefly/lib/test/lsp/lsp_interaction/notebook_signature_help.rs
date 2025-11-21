@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
-use lsp_types::request::SignatureHelpRequest;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -28,11 +26,9 @@ fn test_notebook_signature_help_basic() {
         vec!["def f(a: str, b: int) -> None: ...\nf("],
     );
 
-    interaction.signature_help_cell("notebook.ipynb", "cell1", 1, 2);
-
-    interaction.client.expect_response::<SignatureHelpRequest>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .signature_help_cell("notebook.ipynb", "cell1", 1, 2)
+        .expect_response(json!({
             "signatures": [{
                 "label": "def f(\n    a: str,\n    b: int\n) -> None: ...",
                 "parameters": [
@@ -43,8 +39,7 @@ fn test_notebook_signature_help_basic() {
             }],
             "activeSignature": 0,
             "activeParameter": 0
-        }),
-    );
+        }));
 
     // Provide the first argument & check signature help works for the second one
     let cell_uri = interaction.cell_uri("notebook.ipynb", "cell1");
@@ -66,11 +61,9 @@ fn test_notebook_signature_help_basic() {
         }),
     );
 
-    interaction.signature_help_cell("notebook.ipynb", "cell1", 1, 11);
-
-    interaction.client.expect_response::<SignatureHelpRequest>(
-        RequestId::from(3),
-        json!({
+    interaction
+        .signature_help_cell("notebook.ipynb", "cell1", 1, 11)
+        .expect_response(json!({
             "signatures": [{
                 "label": "def f(\n    a: str,\n    b: int\n) -> None: ...",
                 "parameters": [
@@ -81,8 +74,7 @@ fn test_notebook_signature_help_basic() {
             }],
             "activeSignature": 0,
             "activeParameter": 1
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }

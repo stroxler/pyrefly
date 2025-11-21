@@ -7,7 +7,6 @@
 
 use serde_json::json;
 
-use crate::lsp::wasm::provide_type::ProvideType;
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
 use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
@@ -23,17 +22,16 @@ fn test_provide_type_basic() {
     });
 
     interaction.client.did_open("bar.py");
-    interaction.client.provide_type("bar.py", 7, 5);
 
-    interaction.client.expect_response::<ProvideType>(
-        interaction.client.current_request_id(),
-        json!({
+    interaction
+        .client
+        .provide_type("bar.py", 7, 5)
+        .expect_response(json!({
             "contents": [{
                 "kind": "plaintext",
                 "value": "typing.Literal[3]",
             }]
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -49,17 +47,16 @@ fn test_provide_type() {
     });
 
     interaction.client.did_open("foo.py");
-    interaction.client.provide_type("foo.py", 6, 16);
 
-    interaction.client.expect_response::<ProvideType>(
-        interaction.client.current_request_id(),
-        json!({
+    interaction
+        .client
+        .provide_type("foo.py", 6, 16)
+        .expect_response(json!({
             "contents": [{
                 "kind": "plaintext",
                 "value": "type[bar.Bar]".to_owned()
             }]
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }

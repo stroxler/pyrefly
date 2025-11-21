@@ -12,8 +12,6 @@ use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::request::DocumentDiagnosticRequest;
-use lsp_types::request::Initialize;
-use lsp_types::request::Shutdown;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -25,14 +23,14 @@ use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 fn test_initialize_basic() {
     let mut interaction = LspInteraction::new();
 
-    interaction.client.send_initialize(
-        interaction
-            .client
-            .get_initialize_params(&InitializeSettings::default()),
-    );
-    interaction.client.expect_response::<Initialize>(
-        RequestId::from(1),
-        json!({"capabilities": {
+    interaction
+        .client
+        .send_initialize(
+            interaction
+                .client
+                .get_initialize_params(&InitializeSettings::default()),
+        )
+        .expect_response(json!({"capabilities": {
             "positionEncoding": "utf-16",
             "textDocumentSync": 2,
             "definitionProvider": true,
@@ -77,8 +75,7 @@ fn test_initialize_basic() {
         }, "serverInfo": {
             "name":"pyrefly-lsp",
             "version":"pyrefly-lsp-test-version"
-        }}),
-    );
+        }}));
     interaction.client.send_initialized();
     interaction.shutdown();
 }
@@ -88,11 +85,10 @@ fn test_shutdown() {
     let mut interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
-    interaction.client.send_shutdown(RequestId::from(2));
-
     interaction
         .client
-        .expect_response::<Shutdown>(RequestId::from(2), json!(null));
+        .send_shutdown(RequestId::from(2))
+        .expect_response(json!(null));
 
     interaction.client.send_exit();
     interaction.client.expect_stop();
@@ -127,13 +123,11 @@ fn test_shutdown_with_messages_in_between() {
     // Expect initial diagnostics
     interaction.client.expect_any_message();
 
-    // Send shutdown request
-    interaction.client.send_shutdown(RequestId::from(2));
-
-    // Expect shutdown response
+    // Send shutdown request & wait for response
     interaction
         .client
-        .expect_response::<Shutdown>(RequestId::from(2), json!(null));
+        .send_shutdown(RequestId::from(2))
+        .expect_response(json!(null));
 
     // After shutdown, send a request (simulating what might happen with :wq)
     // Per LSP spec, this should be rejected with InvalidRequest
@@ -219,14 +213,8 @@ fn test_nonexistent_file() {
                     "uri": Url::from_file_path(&nonexistent_filename).unwrap().to_string()
                 },
             }),
-        );
-
-    interaction
-        .client
-        .expect_response::<DocumentDiagnosticRequest>(
-            RequestId::from(2),
-            json!({"items":[],"kind":"full"}),
-        );
+        )
+        .expect_response(json!({"items":[],"kind":"full"}));
 
     let notebook_content = std::fs::read_to_string(root.path().join("notebook.py")).unwrap();
     interaction

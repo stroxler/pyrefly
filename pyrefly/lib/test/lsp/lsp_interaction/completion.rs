@@ -46,13 +46,10 @@ fn test_completion_basic() {
             }],
         }));
 
-    interaction.client.completion("foo.py", 11, 1);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
-            list.items.iter().any(|item| item.label == "Bar")
-        });
+        .completion("foo.py", 11, 1)
+        .expect_completion_response_with(|list| list.items.iter().any(|item| item.label == "Bar"));
 
     interaction.shutdown();
 }
@@ -85,11 +82,10 @@ fn test_completion_sorted_in_sorttext_order() {
             }],
         }));
 
-    interaction.client.completion("foo.py", 11, 1);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion("foo.py", 11, 1)
+        .expect_completion_response_with(|list| {
             list.items
                 .iter()
                 .is_sorted_by_key(|x| (&x.sort_text, &x.label))
@@ -127,11 +123,10 @@ fn test_completion_keywords() {
             }],
         }));
 
-    interaction.client.completion("foo.py", 11, 1);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion("foo.py", 11, 1)
+        .expect_completion_response_with(|list| {
             let mut has_if = false;
             let mut has_import = false;
             let mut has_def = false;
@@ -177,11 +172,10 @@ fn test_import_completion_skips_hidden_directories() {
             }],
         }));
 
-    interaction.client.completion("foo.py", 0, 7);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion("foo.py", 0, 7)
+        .expect_completion_response_with(|list| {
             assert!(list.items.iter().all(|item| item.label != ".hiddenpkg"));
             true
         });
@@ -216,9 +210,7 @@ fn test_completion_with_autoimport() {
             }],
         }));
 
-    interaction.client.completion("foo.py", 0, 43);
-
-    interaction.client.expect_completion_response_with(RequestId::from(2), |list| {
+    interaction.client.completion("foo.py", 0, 43).expect_completion_response_with(|list| {
         list.items.iter().any(|item| {
             item.label == "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search (import autoimport_provider)"
             && item.detail.as_ref().is_some_and(|detail| detail.contains("from autoimport_provider import"))
@@ -258,11 +250,10 @@ fn test_completion_with_autoimport_without_config() {
             }],
         }));
 
-    interaction.client.completion("foo.py", 0, 3);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| !list.items.is_empty());
+        .completion("foo.py", 0, 3)
+        .expect_completion_response_with(|list| !list.items.is_empty());
 
     interaction.shutdown();
 }
@@ -308,9 +299,7 @@ fn test_completion_with_autoimport_in_defined_module() {
                 "character": 95
             }
         }),
-    );
-
-    interaction.client.expect_completion_response_with(RequestId::from(2), |list| {
+    ).expect_completion_response_with(|list| {
         list.items.iter().any(|item| {
             item.label == "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search"
                 && item.detail.as_ref().is_some_and(|detail| detail == "() -> None")
@@ -335,11 +324,10 @@ fn test_completion_with_autoimport_duplicates() {
 
     interaction.client.did_open("foo.py");
 
-    interaction.client.completion("foo.py", 5, 14);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| !list.items.is_empty());
+        .completion("foo.py", 5, 14)
+        .expect_completion_response_with(|list| !list.items.is_empty());
 
     interaction.shutdown();
 }
@@ -353,11 +341,10 @@ fn test_module_completion() {
 
     interaction.client.did_open("foo.py");
 
-    interaction.client.completion("foo.py", 5, 10);
-
-    interaction.client.expect_response::<Completion>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .client
+        .completion("foo.py", 5, 10)
+        .expect_response(json!({
             "isIncomplete": false,
             "items": [{
                 "label": "bar",
@@ -365,8 +352,7 @@ fn test_module_completion() {
                 "kind": 9,
                 "sortText": "0"
             }],
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -394,11 +380,10 @@ fn test_module_completion_reexports_sorted_lower() {
             }],
         }));
 
-    interaction.client.completion("test.py", 2, 23);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion("test.py", 2, 23)
+        .expect_completion_response_with(|list| {
             let mut direct_definitions = vec![];
             let mut reexports = vec![];
             for item in &list.items {
@@ -432,15 +417,11 @@ fn test_relative_module_completion() {
 
     interaction
         .client
-        .completion("relative_test/relative_import.py", 5, 10);
-
-    interaction.client.expect_response::<Completion>(
-        RequestId::from(2),
-        json!({
+        .completion("relative_test/relative_import.py", 5, 10)
+        .expect_response(json!({
             "isIncomplete": false,
             "items": [],
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -458,11 +439,10 @@ fn test_stdlib_submodule_completion() {
 
     interaction.client.did_open("foo.py");
     interaction.client.did_change("foo.py", "import email.");
-    interaction.client.completion("foo.py", 0, 13);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion("foo.py", 0, 13)
+        .expect_completion_response_with(|list| {
             list.items.iter().any(|item| {
                 item.label == "errors"
                     && item.detail.as_deref() == Some("email.errors")
@@ -486,11 +466,10 @@ fn test_stdlib_class_completion() {
 
     interaction.client.did_open("foo.py");
     interaction.client.did_change("foo.py", "FirstHeader");
-    interaction.client.completion("foo.py", 0, 11);
-
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion("foo.py", 0, 11)
+        .expect_completion_response_with(|list| {
             list.items.iter().any(|item| {
                 item.label == "FirstHeaderLineIsContinuationDefect (import email.errors)"
             })
@@ -511,11 +490,10 @@ fn test_completion_incomplete_below_autoimport_threshold() {
     // Type only 2 characters (below MIN_CHARACTERS_TYPED_AUTOIMPORT = 3)
     interaction.client.did_change("foo.py", "xy");
 
-    interaction.client.completion("foo.py", 0, 2);
-
     interaction
         .client
-        .expect_response_with::<Completion>(RequestId::from(2), |response| {
+        .completion("foo.py", 0, 2)
+        .expect_response_with(|response| {
             // Since we typed only 2 characters and there are no local completions,
             // autoimport suggestions are skipped due to MIN_CHARACTERS_TYPED_AUTOIMPORT,
             // so is_incomplete should be true
@@ -540,11 +518,10 @@ fn test_completion_complete_above_autoimport_threshold() {
     // Type 3 characters (meets MIN_CHARACTERS_TYPED_AUTOIMPORT = 3)
     interaction.client.did_change("foo.py", "xyz");
 
-    interaction.client.completion("foo.py", 0, 3);
-
     interaction
         .client
-        .expect_response_with::<Completion>(RequestId::from(2), |response| {
+        .completion("foo.py", 0, 3)
+        .expect_response_with(|response| {
             // Since we typed 3 characters (meets threshold), autoimport suggestions
             // are included, so is_incomplete should be false
             match response {
@@ -568,15 +545,14 @@ fn test_completion_complete_with_local_completions() {
     // Type 2 characters (below threshold) but match local completion "Ba" -> "Bar"
     interaction.client.did_change("foo.py", "Ba");
 
-    interaction.client.completion("foo.py", 0, 2);
-
     // Even though we have local completions (like "Bar"), since we typed only 2 characters
     // (below MIN_CHARACTERS_TYPED_AUTOIMPORT), is_incomplete should be true to ensure
     // the client keeps asking for completions as the user types more characters.
     // This prevents the Zed bug where local completions prevent autoimport checks.
     interaction
         .client
-        .expect_completion_response_with(RequestId::from(2), |list| list.is_incomplete);
+        .completion("foo.py", 0, 2)
+        .expect_completion_response_with(|list| list.is_incomplete);
 
     interaction.shutdown();
 }

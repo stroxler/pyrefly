@@ -5,9 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::Url;
-use lsp_types::request::HoverRequest;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -29,17 +27,14 @@ fn test_notebook_hover_basic() {
     interaction.open_notebook("notebook.ipynb", vec!["x = 3"]);
 
     // Hover over the "x"
-    interaction.hover_cell("notebook.ipynb", "cell1", 0, 0);
-
-    interaction.client.expect_response::<HoverRequest>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .hover_cell("notebook.ipynb", "cell1", 0, 0)
+        .expect_response(json!({
             "contents": {
                 "kind": "markdown",
                 "value": "```python\n(variable) x: Literal[3]\n```",
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }
@@ -58,20 +53,17 @@ fn test_notebook_hover_import() {
     interaction.open_notebook("notebook.ipynb", vec!["from typing import List"]);
 
     // Hover over "List"
-    interaction.hover_cell("notebook.ipynb", "cell1", 0, 20);
-
     let expected_path = bundled_typeshed_path().join("builtins.pyi");
     let expected_url = Url::from_file_path(&expected_path).unwrap();
 
-    interaction.client.expect_response::<HoverRequest>(
-        RequestId::from(2),
-        json!({
+    interaction
+        .hover_cell("notebook.ipynb", "cell1", 0, 20)
+        .expect_response(json!({
             "contents": {
                 "kind": "markdown",
                 "value": format!("```python\n(class) List: type[list]\n```\n\nGo to [list]({}#L3349,7)", expected_url.as_str()),
             }
-        }),
-    );
+        }));
 
     interaction.shutdown();
 }

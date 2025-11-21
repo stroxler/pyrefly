@@ -23,14 +23,14 @@ fn builtins_import_goes_to_typeshed() {
     interaction.client.did_open("imports_builtins_no_config.py");
     interaction
         .client
-        .type_definition("imports_builtins_no_config.py", 7, 7);
-    interaction.client.expect_definition_response_absolute(
-        result_file.to_string_lossy().to_string(),
-        3348,
-        6,
-        3348,
-        10,
-    );
+        .type_definition("imports_builtins_no_config.py", 7, 7)
+        .expect_definition_response_absolute(
+            result_file.to_string_lossy().to_string(),
+            3348,
+            6,
+            3348,
+            10,
+        );
     assert!(
         pyrefly_typeshed_materialized.join("pyrefly.toml").exists(),
         "Expected pyrefly.toml to exist at {:?}",

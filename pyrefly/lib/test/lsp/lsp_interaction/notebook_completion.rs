@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -39,10 +38,9 @@ fn test_notebook_completion() {
             }
         }),
     );
-    interaction.completion_cell("notebook.ipynb", "cell2", 0, 2);
     interaction
-        .client
-        .expect_completion_response_with(RequestId::from(2), |list| {
+        .completion_cell("notebook.ipynb", "cell2", 0, 2)
+        .expect_completion_response_with(|list| {
             list.items.iter().any(|item| item.label == "abcdef")
         });
 

@@ -5,9 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::request::GotoDeclarationResponse;
-use lsp_types::request::GotoDefinition;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -26,12 +24,10 @@ fn test_notebook_definition_import() {
     interaction.open_notebook("notebook.ipynb", vec!["from typing import List"]);
 
     // Jump to definition of "List"
-    interaction.definition_cell("notebook.ipynb", "cell1", 0, 20);
-
     // Check that the response uri ends with "typing.py"
     interaction
-        .client
-        .expect_response_with::<GotoDefinition>(RequestId::from(2), |response| match response {
+        .definition_cell("notebook.ipynb", "cell1", 0, 20)
+        .expect_response_with(|response| match response {
             Some(GotoDeclarationResponse::Scalar(loc)) => {
                 loc.uri.to_file_path().unwrap().ends_with("typing.py")
             }
@@ -53,11 +49,11 @@ fn test_notebook_definition_cross_cell() {
     interaction.open_notebook("notebook.ipynb", vec!["x = 1", "y = x"]);
 
     // Jump to definition of "x" in the second cell
-    interaction.definition_cell("notebook.ipynb", "cell2", 0, 4);
-    interaction.client.expect_response::<GotoDefinition>(
-        RequestId::from(2),
-        json!({
-            "uri": interaction.cell_uri("notebook.ipynb", "cell1"),
+    let cell1_uri = interaction.cell_uri("notebook.ipynb", "cell1");
+    interaction
+        .definition_cell("notebook.ipynb", "cell2", 0, 4)
+        .expect_response(json!({
+            "uri": cell1_uri,
             "range": {
                 "start": {
                     "line": 0,
@@ -68,8 +64,7 @@ fn test_notebook_definition_cross_cell() {
                     "character": 1
                 }
             }
-        }),
-    );
+        }));
     interaction.shutdown();
 }
 
@@ -85,11 +80,11 @@ fn test_notebook_definition_same_cell() {
     interaction.open_notebook("notebook.ipynb", vec!["x = 1\ny = x"]);
 
     // Jump to definition of "x" on the second line
-    interaction.definition_cell("notebook.ipynb", "cell1", 1, 4);
-    interaction.client.expect_response::<GotoDefinition>(
-        RequestId::from(2),
-        json!({
-            "uri": interaction.cell_uri("notebook.ipynb", "cell1"),
+    let cell1_uri = interaction.cell_uri("notebook.ipynb", "cell1");
+    interaction
+        .definition_cell("notebook.ipynb", "cell1", 1, 4)
+        .expect_response(json!({
+            "uri": cell1_uri,
             "range": {
                 "start": {
                     "line": 0,
@@ -100,7 +95,6 @@ fn test_notebook_definition_same_cell() {
                     "character": 1
                 }
             }
-        }),
-    );
+        }));
     interaction.shutdown();
 }

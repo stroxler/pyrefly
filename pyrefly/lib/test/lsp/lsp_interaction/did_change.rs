@@ -5,10 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
-use lsp_types::request::DocumentDiagnosticRequest;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
@@ -59,13 +57,10 @@ fn test_text_document_did_change() {
             }],
         }));
 
-    interaction.client.diagnostic("text_document.py");
     interaction
         .client
-        .expect_response::<DocumentDiagnosticRequest>(
-            RequestId::from(2),
-            json!({"items": [], "kind": "full"}),
-        );
+        .diagnostic("text_document.py")
+        .expect_response(json!({"items": [], "kind": "full"}));
 
     interaction.shutdown();
 }
@@ -116,13 +111,10 @@ fn test_text_document_did_change_unicode() {
             }],
         }));
 
-    interaction.client.diagnostic("utf.py");
     interaction
         .client
-        .expect_response::<DocumentDiagnosticRequest>(
-            RequestId::from(2),
-            json!({"items": [], "kind": "full"}),
-        );
+        .diagnostic("utf.py")
+        .expect_response(json!({"items": [], "kind": "full"}));
 
     interaction.shutdown();
 }
