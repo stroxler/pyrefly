@@ -17,7 +17,7 @@ use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 
 #[test]
 fn test_semantic_tokens_for_unsaved_file() {
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
     let uri = Url::parse("untitled:Untitled-1").unwrap();
@@ -46,7 +46,7 @@ foo()
 
 #[test]
 fn test_completion_for_unsaved_file() {
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
     let uri = Url::parse("untitled:Untitled-2").unwrap();

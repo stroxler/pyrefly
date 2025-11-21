@@ -237,7 +237,7 @@ impl TestClient {
             .expect("Root not set, please call set_root")
     }
 
-    fn next_request_id(&mut self) -> RequestId {
+    fn next_request_id(&self) -> RequestId {
         let idx = self.request_idx.fetch_add(1, Ordering::SeqCst);
         RequestId::from(idx + 1)
     }
@@ -329,7 +329,7 @@ impl TestClient {
         }));
     }
 
-    pub fn send_initialize(&mut self, params: Value) -> ClientRequestHandle<Initialize> {
+    pub fn send_initialize(&self, params: Value) -> ClientRequestHandle<Initialize> {
         let id = self.next_request_id();
         self.send_request(id, params)
     }
@@ -347,7 +347,7 @@ impl TestClient {
     }
 
     pub fn type_definition(
-        &mut self,
+        &self,
         file: &'static str,
         line: u32,
         col: u32,
@@ -369,7 +369,7 @@ impl TestClient {
     }
 
     pub fn definition(
-        &mut self,
+        &self,
         file: &'static str,
         line: u32,
         col: u32,
@@ -391,7 +391,7 @@ impl TestClient {
     }
 
     pub fn implementation(
-        &mut self,
+        &self,
         file: &'static str,
         line: u32,
         col: u32,
@@ -454,7 +454,7 @@ impl TestClient {
     }
 
     pub fn completion(
-        &mut self,
+        &self,
         file: &'static str,
         line: u32,
         col: u32,
@@ -475,10 +475,7 @@ impl TestClient {
         )
     }
 
-    pub fn diagnostic(
-        &mut self,
-        file: &'static str,
-    ) -> ClientRequestHandle<DocumentDiagnosticRequest> {
+    pub fn diagnostic(&self, file: &'static str) -> ClientRequestHandle<DocumentDiagnosticRequest> {
         let path = self.get_root_or_panic().join(file);
         let id = self.next_request_id();
         self.send_request(
@@ -491,7 +488,7 @@ impl TestClient {
     }
 
     pub fn hover(
-        &mut self,
+        &self,
         file: &'static str,
         line: u32,
         col: u32,
@@ -513,7 +510,7 @@ impl TestClient {
     }
 
     pub fn provide_type(
-        &mut self,
+        &self,
         file: &'static str,
         line: u32,
         col: u32,
@@ -535,7 +532,7 @@ impl TestClient {
     }
 
     pub fn references(
-        &mut self,
+        &self,
         file: &str,
         line: u32,
         col: u32,
@@ -561,7 +558,7 @@ impl TestClient {
     }
 
     pub fn inlay_hint(
-        &mut self,
+        &self,
         file: &'static str,
         start_line: u32,
         start_char: u32,
@@ -595,7 +592,7 @@ impl TestClient {
     }
 
     pub fn will_rename_files(
-        &mut self,
+        &self,
         old_file: &'static str,
         new_file: &'static str,
     ) -> ClientRequestHandle<WillRenameFiles> {
@@ -1064,7 +1061,7 @@ impl LspInteraction {
         Self { client }
     }
 
-    pub fn initialize(&mut self, settings: InitializeSettings) {
+    pub fn initialize(&self, settings: InitializeSettings) {
         self.client
             .send_initialize(self.client.get_initialize_params(&settings));
         self.client.expect_any_message();
@@ -1094,7 +1091,7 @@ impl LspInteraction {
 
     /// Opens a notebook document with the given cell contents.
     /// Each string in `cell_contents` becomes a separate code cell in the notebook.
-    pub fn open_notebook(&mut self, file_name: &str, cell_contents: Vec<&str>) {
+    pub fn open_notebook(&self, file_name: &str, cell_contents: Vec<&str>) {
         let root = self.client.get_root_or_panic();
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
@@ -1133,7 +1130,7 @@ impl LspInteraction {
             }));
     }
 
-    pub fn close_notebook(&mut self, file_name: &str) {
+    pub fn close_notebook(&self, file_name: &str) {
         let root = self.client.get_root_or_panic();
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
@@ -1146,12 +1143,7 @@ impl LspInteraction {
 
     /// Updates a notebook document with the specified changes.
     /// This sends a notebookDocument/didChange notification with the change event.
-    pub fn change_notebook(
-        &mut self,
-        file_name: &str,
-        version: i32,
-        change_event: serde_json::Value,
-    ) {
+    pub fn change_notebook(&self, file_name: &str, version: i32, change_event: serde_json::Value) {
         let root = self.client.get_root_or_panic();
         let notebook_path = root.join(file_name);
         let notebook_uri = Url::from_file_path(&notebook_path).unwrap().to_string();
@@ -1167,7 +1159,7 @@ impl LspInteraction {
     }
 
     pub fn diagnostic_for_cell(
-        &mut self,
+        &self,
         file: &str,
         cell: &str,
     ) -> ClientRequestHandle<DocumentDiagnosticRequest> {
@@ -1198,7 +1190,7 @@ impl LspInteraction {
 
     /// Sends a hover request for a notebook cell at the specified position
     pub fn hover_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         line: u32,
@@ -1222,7 +1214,7 @@ impl LspInteraction {
 
     /// Sends a signature help request for a notebook cell at the specified position
     pub fn signature_help_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         line: u32,
@@ -1246,7 +1238,7 @@ impl LspInteraction {
 
     /// Sends a definition request for a notebook cell at the specified position
     pub fn definition_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         line: u32,
@@ -1270,7 +1262,7 @@ impl LspInteraction {
 
     /// Sends a references request for a notebook cell at the specified position
     pub fn references_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         line: u32,
@@ -1297,7 +1289,7 @@ impl LspInteraction {
     }
 
     pub fn completion_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         line: u32,
@@ -1321,7 +1313,7 @@ impl LspInteraction {
 
     /// Sends an inlay hint request for a notebook cell in the specified range
     pub fn inlay_hint_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         start_line: u32,
@@ -1353,7 +1345,7 @@ impl LspInteraction {
 
     /// Sends a full semantic tokens request for a notebook cell
     pub fn semantic_tokens_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
     ) -> ClientRequestHandle<SemanticTokensFullRequest> {
@@ -1371,7 +1363,7 @@ impl LspInteraction {
 
     /// Sends a ranged semantic tokens request for a notebook cell
     pub fn semantic_tokens_ranged_cell(
-        &mut self,
+        &self,
         file_name: &str,
         cell_name: &str,
         start_line: u32,

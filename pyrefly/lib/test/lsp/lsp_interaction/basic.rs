@@ -21,7 +21,7 @@ use crate::test::lsp::lsp_interaction::util::get_test_files_root;
 #[test]
 #[allow(deprecated)]
 fn test_initialize_basic() {
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
 
     interaction
         .client
@@ -82,7 +82,7 @@ fn test_initialize_basic() {
 
 #[test]
 fn test_shutdown() {
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
     interaction
@@ -147,7 +147,7 @@ fn test_shutdown_with_messages_in_between() {
 
 #[test]
 fn test_exit_without_shutdown() {
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
 
     interaction.client.send_exit();
@@ -160,7 +160,7 @@ fn test_initialize_with_python_path() {
     let scope_uri = Url::from_file_path(get_test_files_root()).unwrap();
     let python_path = "/path/to/python/interpreter";
 
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
 
     let settings = InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
@@ -235,7 +235,7 @@ fn test_nonexistent_file() {
 
 #[test]
 fn test_unknown_request() {
-    let mut interaction = LspInteraction::new();
+    let interaction = LspInteraction::new();
     interaction.initialize(InitializeSettings::default());
     interaction.client.send_message(Message::Request(Request {
         id: RequestId::from(1),
