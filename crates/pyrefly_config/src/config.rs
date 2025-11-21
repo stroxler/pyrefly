@@ -1102,7 +1102,10 @@ impl ConfigFile {
             (config, errors)
         }
         let config_path = config_path.absolutize();
-        let (config, errors) = f(&config_path);
+        let (config, mut errors) = f(&config_path);
+        if !config.ignore_missing_source {
+            errors.push(ConfigError::warn(anyhow!("`ignore-missing-source` is deprecated and will be removed in a future version. Please enable the `missing-source` error instead.")))
+        }
         let errors = errors.into_map(|err| err.context(format!("{}", config_path.display())));
         (config, errors)
     }
