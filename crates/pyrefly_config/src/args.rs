@@ -159,17 +159,17 @@ pub struct ConfigOverrideArgs {
         num_args = 0..=1
     )]
     permissive_ignores: Option<bool>,
-    /// Force this rule to emit an error. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Force this rule to emit an error. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     error: Vec<ErrorKind>,
-    /// Force this rule to emit a warning. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Force this rule to emit a warning. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     warn: Vec<ErrorKind>,
-    /// Do not emit diagnostics for this rule. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Do not emit diagnostics for this rule. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     ignore: Vec<ErrorKind>,
-    /// Force this rule to emit an info-level diagnostic. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Force this rule to emit an info-level diagnostic. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     info: Vec<ErrorKind>,
 }
 
