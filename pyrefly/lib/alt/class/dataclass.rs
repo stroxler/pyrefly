@@ -29,6 +29,7 @@ use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::alt::types::class_metadata::DataclassMetadata;
+use crate::alt::types::pydantic::PydanticModelKind;
 use crate::binding::pydantic::GE;
 use crate::binding::pydantic::GT;
 use crate::binding::pydantic::LT;
@@ -98,6 +99,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ty
                     }
                 };
+
+                let _is_pydantic_base_settings = matches!(
+                    metadata.pydantic_model_kind(),
+                    Some(PydanticModelKind::BaseSettings)
+                );
+
                 self.get_dataclass_init(
                     cls,
                     dataclass,
