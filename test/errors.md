@@ -105,3 +105,45 @@ $ mkdir $TMPDIR/compiled && touch $TMPDIR/compiled/a.pyc && \
 * (glob+)
 [1]
 ```
+
+## `permissive-ignores` and `enabled-ignores`
+
+### By default `# type: ignore` and `# pyrefly: ignore` are enabled
+
+```scrut
+$ mkdir $TMPDIR/enabled_ignores && \
+> touch $TMPDIR/enabled_ignores/pyrefly.toml && \
+> echo -e "1 + '1' # type: ignore\n1 + '1' # pyrefly: ignore\n1 + '1' # pyright: ignore" > $TMPDIR/enabled_ignores/foo.py && \
+> $PYREFLY check $TMPDIR/enabled_ignores/foo.py --output-format=min-text
+ERROR */foo.py:3* (glob)
+[1]
+```
+
+### We can enable just `# pyright: ignore`
+
+```scrut
+$ echo "enabled-ignores = ['pyright']" > $TMPDIR/enabled_ignores/pyrefly.toml && \
+> $PYREFLY check $TMPDIR/enabled_ignores/foo.py --output-format=min-text
+ERROR */foo.py:1* (glob)
+ERROR */foo.py:2* (glob)
+[1]
+```
+
+### We can enable `permissive-ignores`
+
+```scrut
+$ echo "permissive-ignores = true" > $TMPDIR/enabled_ignores/pyrefly.toml && \
+> $PYREFLY check $TMPDIR/enabled_ignores/foo.py --output-format=min-text
+[0]
+```
+
+### `enabled-ignores` takes precedence
+
+```scrut {output_stream: combined}
+$ echo -e "enabled-ignores = ['pyright']\npermissive-ignores = true" > $TMPDIR/enabled_ignores/pyrefly.toml && \
+> $PYREFLY check $TMPDIR/enabled_ignores/foo.py --output-format=min-text --summary=none
+ WARN * `permissive-ignores` will be ignored. (glob)
+ERROR */foo.py:1* (glob)
+ERROR */foo.py:2* (glob)
+[1]
+```

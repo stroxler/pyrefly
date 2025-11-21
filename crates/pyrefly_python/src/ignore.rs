@@ -29,6 +29,8 @@
 use dupe::Dupe;
 use enum_iterator::Sequence;
 use pyrefly_util::lined_buffer::LineNumber;
+use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::smallset;
@@ -59,6 +61,8 @@ pub fn find_comment_start_in_line(line: &str) -> Option<usize> {
 
 /// The name of the tool that is being suppressed.
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy, Sequence)]
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Tool {
     /// Enables `# type: ignore`
     Type,
