@@ -44,3 +44,73 @@ def check_exists(path: str) -> bool:
     let report = get_unused_import_diagnostics(&state, handle);
     assert_eq!(report, "No unused imports");
 }
+
+#[test]
+fn test_dotted_import_unused() {
+    let code = r#"
+import os.path
+
+def foo() -> str:
+    return "hello"
+"#;
+    let (handles, state) = mk_multi_file_state(&[("main", code)], Require::indexing(), true);
+    let handle = handles.get("main").unwrap();
+    let report = get_unused_import_diagnostics(&state, handle);
+    assert_eq!(report, "Import `os` is unused");
+}
+
+#[test]
+fn test_simple_import_used() {
+    let code = r#"
+import os
+
+def get_cwd() -> str:
+    return os.getcwd()
+"#;
+    let (handles, state) = mk_multi_file_state(&[("main", code)], Require::indexing(), true);
+    let handle = handles.get("main").unwrap();
+    let report = get_unused_import_diagnostics(&state, handle);
+    assert_eq!(report, "No unused imports");
+}
+
+#[test]
+fn test_simple_import_unused() {
+    let code = r#"
+import os
+
+def foo() -> str:
+    return "hello"
+"#;
+    let (handles, state) = mk_multi_file_state(&[("main", code)], Require::indexing(), true);
+    let handle = handles.get("main").unwrap();
+    let report = get_unused_import_diagnostics(&state, handle);
+    assert_eq!(report, "Import `os` is unused");
+}
+
+#[test]
+fn test_from_import_used() {
+    let code = r#"
+from typing import List
+
+def process(items: List[str]):
+    return [item.upper() for item in items]
+"#;
+    let (handles, state) = mk_multi_file_state(&[("main", code)], Require::indexing(), true);
+    let handle = handles.get("main").unwrap();
+    let report = get_unused_import_diagnostics(&state, handle);
+    assert_eq!(report, "No unused imports");
+}
+
+#[test]
+fn test_from_import_unused() {
+    let code = r#"
+from typing import Dict, List
+
+def process(items: List[str]):
+    return [item.upper() for item in items]
+"#;
+    let (handles, state) = mk_multi_file_state(&[("main", code)], Require::indexing(), true);
+    let handle = handles.get("main").unwrap();
+    let report = get_unused_import_diagnostics(&state, handle);
+    assert_eq!(report, "Import `Dict` is unused");
+}
