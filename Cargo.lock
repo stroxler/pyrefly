@@ -2152,6 +2152,7 @@ version = "0.42.3"
 dependencies = [
  "anyhow",
  "dupe",
+ "enum-iterator",
  "equivalent",
  "itertools 0.14.0",
  "lsp-types",

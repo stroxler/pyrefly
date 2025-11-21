@@ -26,6 +26,7 @@ use pyrefly_build::source_db::SourceDatabase;
 use pyrefly_build::source_db::Target;
 use pyrefly_python::COMPILED_FILE_SUFFIXES;
 use pyrefly_python::PYTHON_EXTENSIONS;
+use pyrefly_python::ignore::Tool;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::sys_info::PythonPlatform;
@@ -809,10 +810,15 @@ impl ConfigFile {
                 self.root.permissive_ignores.unwrap())
     }
     pub fn get_error_config(&self, path: &Path) -> ErrorConfig<'_> {
+        let enabled_ignores = if self.permissive_ignores(path) {
+            Tool::all()
+        } else {
+            Tool::default_enabled()
+        };
         ErrorConfig::new(
             self.errors(path),
             self.ignore_errors_in_generated_code(path),
-            self.permissive_ignores(path),
+            enabled_ignores,
             self.ignore_missing_source,
         )
     }

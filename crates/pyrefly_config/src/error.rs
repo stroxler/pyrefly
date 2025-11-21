@@ -7,11 +7,13 @@
 
 use std::collections::HashMap;
 
+use pyrefly_python::ignore::Tool;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::de::MapAccess;
 use serde::de::Visitor;
+use starlark_map::small_set::SmallSet;
 
 use crate::error_kind::ErrorKind;
 use crate::error_kind::Severity;
@@ -97,7 +99,7 @@ impl<'de> Deserialize<'de> for ErrorDisplayConfig {
 pub struct ErrorConfig<'a> {
     pub display_config: &'a ErrorDisplayConfig,
     pub ignore_errors_in_generated_code: bool,
-    pub permissive_ignores: bool,
+    pub enabled_ignores: SmallSet<Tool>,
     pub ignore_missing_source: bool,
 }
 
@@ -105,13 +107,13 @@ impl<'a> ErrorConfig<'a> {
     pub fn new(
         display_config: &'a ErrorDisplayConfig,
         ignore_errors_in_generated_code: bool,
-        permissive_ignores: bool,
+        enabled_ignores: SmallSet<Tool>,
         ignore_missing_source: bool,
     ) -> Self {
         Self {
             display_config,
             ignore_errors_in_generated_code,
-            permissive_ignores,
+            enabled_ignores,
             ignore_missing_source,
         }
     }

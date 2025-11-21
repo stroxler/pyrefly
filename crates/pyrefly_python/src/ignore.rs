@@ -27,9 +27,11 @@
 //! `#  type:  ignore  [  code  ]`, but do not allow a space after the colon.
 
 use dupe::Dupe;
+use enum_iterator::Sequence;
 use pyrefly_util::lined_buffer::LineNumber;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use starlark_map::smallset;
 
 /// Finds the byte offset of the first '#' character that starts a comment.
 /// Returns None if no comment is found or if all '#' are inside strings.
@@ -56,7 +58,7 @@ pub fn find_comment_start_in_line(line: &str) -> Option<usize> {
 }
 
 /// The name of the tool that is being suppressed.
-#[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy)]
+#[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy, Sequence)]
 pub enum Tool {
     /// Indicates a `type: ignore`.
     Any,
@@ -83,6 +85,14 @@ impl Tool {
             "ty" => Some(Tool::Ty),
             _ => None,
         }
+    }
+
+    pub fn default_enabled() -> SmallSet<Self> {
+        smallset! { Self::Any, Self::Pyrefly }
+    }
+
+    pub fn all() -> SmallSet<Self> {
+        enum_iterator::all::<Self>().collect()
     }
 }
 
@@ -277,11 +287,11 @@ impl Ignore {
         start_line: LineNumber,
         end_line: LineNumber,
         kind: &str,
-        permissive_ignores: bool,
+        enabled_ignores: &SmallSet<Tool>,
     ) -> bool {
-        if self.ignore_all.contains_key(&Tool::Any)
-            || self.ignore_all.contains_key(&Tool::Pyrefly)
-            || (permissive_ignores && !self.ignore_all.is_empty())
+        if enabled_ignores
+            .iter()
+            .any(|tool| self.ignore_all.contains_key(tool))
         {
             return true;
         }
@@ -290,11 +300,15 @@ impl Ignore {
         // We convert to/from zero-indexed because LineNumber does not implement Step.
         for line in start_line.to_zero_indexed()..=end_line.to_zero_indexed() {
             if let Some(suppressions) = self.ignores.get(&LineNumber::from_zero_indexed(line))
-                && suppressions.iter().any(|supp| match supp.tool {
-                    // We only check the subkind if they do `# pyrefly: ignore`
-                    Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
-                    Tool::Any => true,
-                    _ => permissive_ignores,
+                && suppressions.iter().any(|supp| {
+                    enabled_ignores.contains(&supp.tool)
+                        && match supp.tool {
+                            // We only check the subkind if they do `# pyrefly: ignore`
+                            Tool::Pyrefly => {
+                                supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind)
+                            }
+                            _ => true,
+                        }
                 })
             {
                 return true;
@@ -312,7 +326,7 @@ impl Ignore {
         start_line: LineNumber,
         end_line: LineNumber,
         kind: &str,
-        permissive_ignores: bool,
+        enabled_ignores: &SmallSet<Tool>,
     ) -> bool {
         // If the error does not overlap the range, skip the more expensive check
         if start_line > suppression_line || end_line < suppression_line {
@@ -321,11 +335,13 @@ impl Ignore {
         let Some(suppressions) = self.ignores.get(&suppression_line) else {
             return false;
         };
-        if suppressions.iter().any(|supp| match supp.tool {
-            // We only check the subkind if they do `# pyrefly: ignore`
-            Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
-            Tool::Any => true,
-            _ => permissive_ignores,
+        if suppressions.iter().any(|supp| {
+            enabled_ignores.contains(&supp.tool)
+                && match supp.tool {
+                    // We only check the subkind if they do `# pyrefly: ignore`
+                    Tool::Pyrefly => supp.kind.is_empty() || supp.kind.iter().any(|x| x == kind),
+                    _ => true,
+                }
         }) {
             return true;
         }
