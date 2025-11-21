@@ -630,7 +630,7 @@ def foo(c: Optional[C]):
             "test.foo",
             vec![
                 (
-                    "7:14-7:18|artificial-call|comparison",
+                    "7:5-7:18|artificial-call|comparison",
                     ExpressionCallees::Call(CallCallees::new_unresolved(
                         UnresolvedReason::UnresolvedMagicDunderAttrDueToNoAttribute,
                     )),
@@ -2524,7 +2524,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "3:7-3:8|artificial-call|comparison",
+                "3:3-3:8|artificial-call|comparison",
                 regular_call_callees(call_targets),
             )],
         )]
@@ -2549,11 +2549,11 @@ def foo():
             "test.foo",
             vec![
                 (
-                    "3:7-3:8|artificial-call|comparison",
+                    "3:3-3:8|artificial-call|comparison",
                     regular_call_callees(call_targets.clone()),
                 ),
                 (
-                    "3:11-3:12|artificial-call|comparison",
+                    "3:7-3:12|artificial-call|comparison",
                     regular_call_callees(call_targets),
                 ),
             ],

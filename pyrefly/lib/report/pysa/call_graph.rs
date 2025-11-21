@@ -2293,6 +2293,7 @@ impl<'a> CallGraphVisitor<'a> {
             return;
         };
 
+        let mut last_lhs_start = compare.range().start();
         for (operator, right_comparator) in compare.ops.iter().zip(compare.comparators.iter()) {
             let callee_name = dunder::rich_comparison_dunder(*operator);
             let DunderAttrCallees { callees, .. } = self.call_targets_from_magic_dunder_attr(
@@ -2305,9 +2306,14 @@ impl<'a> CallGraphVisitor<'a> {
             );
             let expression_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::ComparisonOperator,
-                location: self.pysa_location(right_comparator.range()),
+                location: self.pysa_location(TextRange::new(
+                    last_lhs_start,
+                    right_comparator.range().end(),
+                )),
             });
             self.add_callees(expression_identifier, ExpressionCallees::Call(callees));
+
+            last_lhs_start = right_comparator.range().start();
         }
     }
 
