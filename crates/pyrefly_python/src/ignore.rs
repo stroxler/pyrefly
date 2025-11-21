@@ -11,7 +11,7 @@
 //! Originally specified in <https://peps.python.org/pep-0484/>.
 //!
 //! You can also use the name of the linter, e.g. `# pyright: ignore`,
-//! `# pyrefly: ignore`, `# mypy: ignore`.
+//! `# pyrefly: ignore`.
 //!
 //! You can specify a specific error code, e.g. `# type: ignore[invalid-type]`.
 //! Note that Pyright will only honor such codes after `# pyright: ignore[code]`.
@@ -21,10 +21,10 @@
 //!
 //! For Pyre compatibility we also allow `# pyre-ignore` and `# pyre-fixme`
 //! as equivalents to `pyre: ignore`, and `# pyre-ignore-all-errors` as
-//! an equivalent to `type: ignore-errors`.
+//! an equivalent to `type: ignore` on its own line.
 //!
 //! We are permissive with whitespace, allowing `#type:ignore[code]` and
-//! `#  type:  ignore  [  code  ]`, but do not allow a space after the colon.
+//! `#  type:  ignore  [  code  ]`, but do not allow a space before the colon.
 
 use dupe::Dupe;
 use enum_iterator::Sequence;
@@ -67,6 +67,7 @@ pub enum Tool {
     /// Includes the `pyre-ignore` and `pyre-fixme` hints, along with `pyre: ignore`.
     Pyre,
     Pyright,
+    /// Indicates a `mypy: ignore-errors`.
     Mypy,
     Ty,
 }
@@ -400,12 +401,12 @@ mod tests {
         f(" pyrefly: ignore", &[]);
         f("normal line", &[]);
         f(
-            "code # mypy: ignore\n# pyre-fixme\nmore code",
-            &[(Tool::Mypy, 1), (Tool::Pyre, 3)],
+            "code # pyright: ignore\n# pyre-fixme\nmore code",
+            &[(Tool::Pyright, 1), (Tool::Pyre, 3)],
         );
         f(
-            "# type: ignore\n# mypy: ignore\n# bad\n\ncode",
-            &[(Tool::Any, 4), (Tool::Mypy, 4)],
+            "# type: ignore\n# pyright: ignore\n# bad\n\ncode",
+            &[(Tool::Any, 4), (Tool::Pyright, 4)],
         );
     }
 
@@ -444,8 +445,12 @@ mod tests {
         f("type: ignore1", None, &[]);
         f("type: ignore?", Some(Tool::Any), &[]);
 
-        f("mypy: ignore", Some(Tool::Mypy), &[]);
-        f("mypy: ignore[something]", Some(Tool::Mypy), &["something"]);
+        f("pyright: ignore", Some(Tool::Pyright), &[]);
+        f(
+            "pyright: ignore[something]",
+            Some(Tool::Pyright),
+            &["something"],
+        );
 
         f("pyre-ignore", Some(Tool::Pyre), &[]);
         f("pyre-ignore[7]", Some(Tool::Pyre), &["7"]);

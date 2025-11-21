@@ -151,7 +151,7 @@ pub struct ConfigOverrideArgs {
     /// Controls how Pyrefly analyzes function definitions that lack type annotations on parameters and return values.
     #[arg(long)]
     untyped_def_behavior: Option<UntypedDefBehavior>,
-    /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
+    /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# pyright: ignore`.
     #[arg(
         long,
         default_missing_value = "true",
