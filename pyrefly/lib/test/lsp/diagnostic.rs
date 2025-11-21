@@ -33,8 +33,6 @@ fn get_unused_import_diagnostics(state: &State, handle: &Handle) -> String {
 
 #[test]
 fn test_dotted_import_used() {
-    // BUG: This incorrectly reports `os.path` as unused
-    // even though we use os.path.exists() in the code
     let code = r#"
 import os.path
 
@@ -44,5 +42,5 @@ def check_exists(path: str) -> bool:
     let (handles, state) = mk_multi_file_state(&[("main", code)], Require::indexing(), true);
     let handle = handles.get("main").unwrap();
     let report = get_unused_import_diagnostics(&state, handle);
-    assert_eq!(report, "Import `os.path` is unused");
+    assert_eq!(report, "No unused imports");
 }
