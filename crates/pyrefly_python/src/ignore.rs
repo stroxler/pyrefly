@@ -60,16 +60,18 @@ pub fn find_comment_start_in_line(line: &str) -> Option<usize> {
 /// The name of the tool that is being suppressed.
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy, Sequence)]
 pub enum Tool {
-    /// Indicates a `type: ignore`.
-    Any,
-    /// Indicates a `pyrefly: ignore`.
+    /// Enables `# type: ignore`
+    Type,
+    /// Enables `# pyrefly: ignore` and `# pyrefly: ignore-errors`
     Pyrefly,
-    /// Includes the `pyre-ignore` and `pyre-fixme` hints, along with `pyre: ignore`.
-    Pyre,
+    /// Enables `# pyright: ignore`
     Pyright,
-    /// Indicates a `mypy: ignore-errors`.
+    /// Enables `# mypy: ignore-errors`
     Mypy,
+    /// Enables `# ty: ignore`
     Ty,
+    /// Enables `# pyre: ignore`, `# pyre-ignore`, `# pyre-fixme`, and `# pyre-ignore-all-errors`
+    Pyre,
 }
 
 impl Tool {
@@ -78,7 +80,7 @@ impl Tool {
 
     fn from_comment(x: &str) -> Option<Self> {
         match x {
-            "type" => Some(Tool::Any),
+            "type" => Some(Tool::Type),
             "pyrefly" => Some(Tool::Pyrefly),
             "pyre" => Some(Tool::Pyre),
             "pyright" => Some(Tool::Pyright),
@@ -89,7 +91,7 @@ impl Tool {
     }
 
     pub fn default_enabled() -> SmallSet<Self> {
-        smallset! { Self::Any, Self::Pyrefly }
+        smallset! { Self::Type, Self::Pyrefly }
     }
 
     pub fn all() -> SmallSet<Self> {
@@ -357,7 +359,7 @@ impl Ignore {
                 ignore
                     .1
                     .iter()
-                    .any(|s| s.tool == Tool::Pyrefly || s.tool == Tool::Any)
+                    .any(|s| s.tool == Tool::Pyrefly || s.tool == Tool::Type)
             }))
         } else {
             Box::new(ignore_iter.filter(|ignore| ignore.1.iter().any(|s| s.tool == Tool::Pyrefly)))
@@ -396,8 +398,8 @@ mod tests {
             );
         }
 
-        f("stuff # type: ignore # and then stuff", &[(Tool::Any, 1)]);
-        f("more # stuff # type: ignore", &[(Tool::Any, 1)]);
+        f("stuff # type: ignore # and then stuff", &[(Tool::Type, 1)]);
+        f("more # stuff # type: ignore", &[(Tool::Type, 1)]);
         f(" pyrefly: ignore", &[]);
         f("normal line", &[]);
         f(
@@ -406,7 +408,7 @@ mod tests {
         );
         f(
             "# type: ignore\n# pyright: ignore\n# bad\n\ncode",
-            &[(Tool::Any, 4), (Tool::Pyright, 4)],
+            &[(Tool::Type, 4), (Tool::Pyright, 4)],
         );
     }
 
@@ -434,16 +436,16 @@ mod tests {
         f("pyrefly: ignore[bad-]", Some(Tool::Pyrefly), &["bad-"]);
 
         // Check spacing
-        f(" type: ignore ", Some(Tool::Any), &[]);
-        f("type:ignore", Some(Tool::Any), &[]);
+        f(" type: ignore ", Some(Tool::Type), &[]);
+        f("type:ignore", Some(Tool::Type), &[]);
         f("type :ignore", None, &[]);
 
         // Check extras
         // Mypy rejects that, Pyright accepts it
-        f("type: ignore because it is wrong", Some(Tool::Any), &[]);
+        f("type: ignore because it is wrong", Some(Tool::Type), &[]);
         f("type: ignore_none", None, &[]);
         f("type: ignore1", None, &[]);
-        f("type: ignore?", Some(Tool::Any), &[]);
+        f("type: ignore?", Some(Tool::Type), &[]);
 
         f("pyright: ignore", Some(Tool::Pyright), &[]);
         f(
@@ -463,7 +465,7 @@ mod tests {
         f("pyre-fixme: core type error", Some(Tool::Pyre), &[]);
 
         // For a malformed comment, at least do something with it (works well incrementally)
-        f("type: ignore[hello", Some(Tool::Any), &["hello"]);
+        f("type: ignore[hello", Some(Tool::Type), &["hello"]);
     }
 
     #[test]
@@ -515,10 +517,10 @@ mod tests {
             &[(Tool::Pyrefly, 3)],
         );
         f("x = 5\n# pyrefly: ignore-errors", &[]);
-        f("# type: ignore\n\nx = 5", &[(Tool::Any, 1)]);
+        f("# type: ignore\n\nx = 5", &[(Tool::Type, 1)]);
         f(
             "# comment\n# type: ignore\n# comment\nx = 5",
-            &[(Tool::Any, 2)],
+            &[(Tool::Type, 2)],
         );
         f("# type: ignore\nx = 5", &[]);
         f("# pyre-ignore-all-errors\nx = 5", &[(Tool::Pyre, 1)]);
