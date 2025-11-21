@@ -964,10 +964,11 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 Ok(())
             }
             (
-                Type::Function(_)
+                Type::Callable(_)
+                | Type::Function(_)
                 | Type::Overload(_)
                 | Type::Forall(box Forall {
-                    body: Forallable::Function(_),
+                    body: Forallable::Function(_) | Forallable::Callable(_),
                     ..
                 }),
                 Type::ClassType(cls),

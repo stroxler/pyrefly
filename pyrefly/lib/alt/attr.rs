@@ -13,6 +13,8 @@ use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::literal::LitEnum;
 use pyrefly_types::special_form::SpecialForm;
+use pyrefly_types::types::Forall;
+use pyrefly_types::types::Forallable;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::Var;
 use ruff_python_ast::helpers::is_dunder;
@@ -1737,6 +1739,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )),
             Type::None => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.none_type().clone(),
+            )),
+            Type::Type(box Type::None) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.none_type().clone()),
+            )),
+            Type::Type(
+                box (Type::Function(_)
+                | Type::Callable(_)
+                | Type::Overload(_)
+                | Type::Forall(box Forall {
+                    tparams: _,
+                    body: Forallable::Function(_) | Forallable::Callable(_),
+                })),
+            ) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassType(
+                self.stdlib.function_type().clone(),
+            ))),
+            Type::Type(box Type::BoundMethod(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.method_type().clone()),
             )),
             Type::Never(_) => acc.push(AttributeBase1::Never),
             _ if ty.is_property_getter() => acc.push(AttributeBase1::Property(ty)),

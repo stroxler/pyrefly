@@ -1217,13 +1217,12 @@ def f[T: Foo | Bar](y: T, z: Foo | Bar) -> T:
 );
 
 testcase!(
-    bug = "type[None] should be types.NoneType",
     test_attribute_access_on_type_none,
     r#"
 # handy hack to get a type[X] for any X
 def ty[T](x: T) -> type[T]: ...
 
-ty(None).__bool__(None) # E: Expr::attr_infer_for_type attribute base undefined
+ty(None).__bool__(None)
 "#,
 );
 
@@ -1251,7 +1250,6 @@ def test(x: LiteralString):
 );
 
 testcase!(
-    bug = "type[<<callable>>] should be... types.FunctionType, probably. type[object] if that's unagreeable",
     test_attribute_access_on_type_callable,
     r#"
 from typing import Callable
@@ -1260,12 +1258,11 @@ from typing import Callable
 def ty[T](x: T) -> type[T]: ...
 
 def test_callable(x: Callable[[], None]):
-    ty(x).__call__(x) # E: Expr::attr_infer_for_type attribute base undefined
+    ty(x).__call__(x)
 "#,
 );
 
 testcase!(
-    bug = "type[<<function>>] should be types.FunctionType",
     test_attribute_access_on_type_function,
     r#"
 # handy hack to get a type[X] for any X
@@ -1273,12 +1270,11 @@ def ty[T](x: T) -> type[T]: ...
 
 def foo(): ...
 
-ty(foo).__call__(foo) # E: Expr::attr_infer_for_type attribute base undefined
+ty(foo).__call__(foo)
 "#,
 );
 
 testcase!(
-    bug = "type[<<boundmethod>>] should be types.FunctionType",
     test_attribute_access_on_type_boundmethod,
     r#"
 # handy hack to get a type[X] for any X
@@ -1287,12 +1283,11 @@ def ty[T](x: T) -> type[T]: ...
 class X:
     def m(self): ...
 
-ty(X().m).__call__(X().m) # E: Expr::attr_infer_for_type attribute base undefined
+ty(X().m).__call__(X().m)
 "#,
 );
 
 testcase!(
-    bug = "type[<<overload>>] should be types.FunctionType",
     test_attribute_access_on_type_overload,
     r#"
 from typing import overload
@@ -1306,7 +1301,7 @@ def bar(x: int) -> int: ...
 def bar(x: str) -> str: ...
 def bar(x: int | str) -> int | str: ...
 
-ty(bar).__call__(bar) # E: Expr::attr_infer_for_type attribute base undefined
+ty(bar).__call__(bar)
 "#,
 );
 
