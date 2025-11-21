@@ -351,6 +351,11 @@ impl<'a> BindingsBuilder<'a> {
                             name
                         ),
                     );
+                    self.insert_binding(key, Binding::Type(Type::any_error()))
+                } else if self.scopes.in_class_body()
+                    && let Some((cls, _)) = self.scopes.current_class_and_metadata_keys()
+                {
+                    self.insert_binding(key, Binding::ClassBodyUnknownName(cls, name.clone()))
                 } else {
                     // Record a type error and fall back to `Any`.
                     self.error(
@@ -358,8 +363,8 @@ impl<'a> BindingsBuilder<'a> {
                         ErrorInfo::Kind(ErrorKind::UnknownName),
                         format!("Could not find name `{name}`"),
                     );
+                    self.insert_binding(key, Binding::Type(Type::any_error()))
                 }
-                self.insert_binding(key, Binding::Type(Type::any_error()))
             }
         }
     }

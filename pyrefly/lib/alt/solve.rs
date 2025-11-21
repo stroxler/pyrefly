@@ -2571,6 +2571,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             }
+            Binding::ClassBodyUnknownName(class_key, name) => {
+                // We're specifically looking for attributes that are inherited from the parent class
+                if let Some(cls) = &self.get_idx(*class_key).as_ref().0
+                    && !self.get_class_field_map(cls).contains_key(&name.id)
+                {
+                    // If the attribute lookup fails here, we'll emit an `unknown-name` error, since this
+                    // is a deferred lookup that can't be calculated at the bindings step
+                    let error_swallower = self.error_swallower();
+                    let attr_ty = self.attr_infer_for_type(
+                        &Type::ClassDef(cls.clone()),
+                        &name.id,
+                        name.range(),
+                        &error_swallower,
+                        None,
+                    );
+                    if attr_ty.is_error() {
+                        self.error(
+                            errors,
+                            name.range,
+                            ErrorInfo::Kind(ErrorKind::UnknownName),
+                            format!("Could not find name `{name}`"),
+                        )
+                    } else {
+                        attr_ty
+                    }
+                } else {
+                    self.error(
+                        errors,
+                        name.range,
+                        ErrorInfo::Kind(ErrorKind::UnknownName),
+                        format!("Could not find name `{name}`"),
+                    )
+                }
+            }
             Binding::CompletedPartialType(unpinned_idx, first_use) => {
                 // Calculate the first use for its side-effects (it might pin `Var`s)
                 match first_use {

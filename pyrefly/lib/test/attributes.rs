@@ -1803,3 +1803,19 @@ class C:
 assert_type(C().f(), Any)
     "#,
 );
+
+testcase!(
+    test_class_toplevel_inherited_attr_name,
+    r#"
+# at the class top level, inherited attribute names should be considered in scope
+from typing import assert_type
+
+class Foo:
+    assert_type(__qualname__, str)
+    assert_type(__module__, str)
+    attr: int
+
+class Bar(Foo):
+    assert_type(attr, int)
+    "#,
+);

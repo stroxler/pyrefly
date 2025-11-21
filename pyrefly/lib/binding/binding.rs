@@ -1429,6 +1429,10 @@ pub enum Binding {
     PartialTypeWithUpstreamsCompleted(Idx<Key>, Box<[Idx<Key>]>),
     /// `del` statement
     Delete(Expr),
+    /// A name in the class body that wasn't found in the static scope
+    /// It could either be an unbound name or a reference to an inherited attribute
+    /// We'll find out which when we solve the class
+    ClassBodyUnknownName(Idx<KeyClass>, Identifier),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -1682,6 +1686,14 @@ impl DisplayWith<Bindings> for Binding {
                 )
             }
             Self::Delete(x) => write!(f, "Delete({})", m.display(x)),
+            Self::ClassBodyUnknownName(class_key, name) => {
+                write!(
+                    f,
+                    "ClassBodyUnknownName({}, {})",
+                    m.display(ctx.idx_to_key(*class_key)),
+                    name,
+                )
+            }
         }
     }
 }
@@ -1753,7 +1765,8 @@ impl Binding {
             | Binding::AssignToSubscript(_, _)
             | Binding::CompletedPartialType(..)
             | Binding::PartialTypeWithUpstreamsCompleted(..)
-            | Binding::Delete(_) => None,
+            | Binding::Delete(_)
+            | Binding::ClassBodyUnknownName(_, _) => None,
         }
     }
 }
