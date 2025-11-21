@@ -29,3 +29,18 @@ os.environ["PORT"] = "8080"
 config = AppConfig()  # E: Missing argument `database_url` in function `AppConfig.__init__` # E: Missing argument `api_key` in function `AppConfig.__init__` # E: Missing argument `port` in function `AppConfig.__init__`
 "#,
 );
+
+pydantic_testcase!(
+    bug = "This is not a correct program to write since a model cannot be both a BaseSettings and a RootModel",
+    test_base_settings_wrong_def,
+    r#"
+from pydantic_settings import BaseSettings
+from pydantic import RootModel
+
+class AppConfig(BaseSettings, RootModel):
+    database_url: str
+    api_key: str
+    port: int
+
+"#,
+);
