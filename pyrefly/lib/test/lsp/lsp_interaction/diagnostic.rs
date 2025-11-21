@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use pyrefly_config::environment::environment::PythonEnvironment;
 use serde_json::json;
 
@@ -50,7 +49,7 @@ fn test_unexpected_keyword_range() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     interaction.client.did_open("unexpected_keyword.py");
@@ -94,7 +93,7 @@ fn test_error_documentation_links() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     interaction.client.did_open("error_docs_test.py");
@@ -177,7 +176,7 @@ fn test_unreachable_branch_diagnostic() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]));
@@ -222,7 +221,7 @@ fn test_unused_parameter_diagnostic() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]));
@@ -267,7 +266,7 @@ fn test_unused_parameter_no_report() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]));
@@ -299,7 +298,7 @@ fn test_unused_import_diagnostic() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]));
@@ -344,7 +343,7 @@ fn test_unused_from_import_diagnostic() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([
             {"pyrefly": {"displayTypeErrors": "force-on"}}
         ]));
@@ -426,7 +425,7 @@ fn test_shows_stdlib_type_errors_with_force_on() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     let stdlib_filepath = "filtering_stdlib_errors/usr/lib/python3.12/stdlib_file.py";
@@ -480,7 +479,7 @@ fn test_shows_stdlib_errors_for_multiple_versions_and_paths_with_force_on() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
 
     interaction
@@ -629,7 +628,7 @@ fn test_does_not_filter_out_stdlib_errors_with_default_displaytypeerrors() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "default"}}]));
 
     let stdlib_filepath = "filtering_stdlib_errors_with_default/usr/lib/python3.12/stdlib_file.py";
@@ -661,7 +660,7 @@ fn test_shows_stdlib_errors_when_explicitly_included_in_project_includes() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "default"}}]));
 
     let stdlib_filepath = "stdlib_with_explicit_includes/usr/lib/python3.12/stdlib_file.py";

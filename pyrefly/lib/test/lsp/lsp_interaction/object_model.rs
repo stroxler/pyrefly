@@ -691,15 +691,12 @@ impl TestClient {
 
     pub fn expect_request<R: lsp_types::request::Request>(
         &self,
-        id: RequestId,
         expected: Value,
     ) -> ServerRequestHandle<R> {
         // Validate that expected can be parsed as R::Params
         let expected: R::Params = serde_json::from_value(expected.clone()).unwrap();
-        let id = self.expect_message(&format!("Request {} with id={}", R::METHOD, id), |msg| {
-            if let Message::Request(x) = msg
-                && x.id == id
-            {
+        let id = self.expect_message(&format!("Request {}", R::METHOD), |msg| {
+            if let Message::Request(x) = msg {
                 assert_eq!(x.method, R::METHOD);
                 let actual: R::Params = serde_json::from_value(x.params.clone()).unwrap();
                 assert_eq!(json!(expected), json!(actual));
@@ -924,7 +921,6 @@ impl TestClient {
 
     pub fn expect_configuration_request(
         &self,
-        id: RequestId,
         scope_uris: Option<Vec<&Url>>,
     ) -> ServerRequestHandle<WorkspaceConfiguration> {
         let items = scope_uris
@@ -939,7 +935,7 @@ impl TestClient {
             })
             .collect::<Vec<_>>();
 
-        self.expect_request(id, json!(ConfigurationParams { items }))
+        self.expect_request(json!(ConfigurationParams { items }))
     }
 
     /// Expect a file watcher registration request.

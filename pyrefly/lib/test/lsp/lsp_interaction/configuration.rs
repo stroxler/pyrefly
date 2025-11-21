@@ -14,7 +14,6 @@ use std::path::Path;
 #[cfg(unix)]
 use std::path::PathBuf;
 
-use lsp_server::RequestId;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeWorkspaceFolders;
 use lsp_types::request::WorkspaceConfiguration;
@@ -41,7 +40,7 @@ fn test_did_change_configuration() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{}]));
 
     interaction.shutdown();
@@ -119,10 +118,7 @@ fn test_pythonpath_change() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_request::<WorkspaceConfiguration>(
-            RequestId::from(2),
-            json!({"items":[{"section":"python"}]}),
-        )
+        .expect_request::<WorkspaceConfiguration>(json!({"items":[{"section":"python"}]}))
         .send_configuration_response(json!([
             {
                 "pythonPath": interpreter_path.to_str().unwrap()
@@ -150,10 +146,7 @@ fn test_pythonpath_change() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_request::<WorkspaceConfiguration>(
-            RequestId::from(3),
-            json!({"items":[{"section":"python"}]}),
-        )
+        .expect_request::<WorkspaceConfiguration>(json!({"items":[{"section":"python"}]}))
         .send_configuration_response(json!([
             {
                 "pythonPath": bad_interpreter_path.to_str().unwrap()
@@ -227,10 +220,7 @@ fn test_workspace_pythonpath_ignored_when_set_in_config_file() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_request::<WorkspaceConfiguration>(
-            RequestId::from(2),
-            json!({"items":[{"section":"python"}]}),
-        )
+        .expect_request::<WorkspaceConfiguration>(json!({"items":[{"section":"python"}]}))
         .send_configuration_response(json!([
             {
                 "pythonPath": bad_interpreter_path.to_str().unwrap()
@@ -293,7 +283,7 @@ fn test_disable_language_services() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{"pyrefly": {"disableLanguageServices": true}}]));
 
     interaction
@@ -337,7 +327,7 @@ fn test_disable_language_services_default_workspace() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"disableLanguageServices": true}}]));
 
     interaction
@@ -398,7 +388,7 @@ fn test_disable_specific_language_services_via_analysis_config() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([
             {
                 "pyrefly": {
@@ -458,7 +448,7 @@ fn test_did_change_workspace_folder() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{}]));
 
     interaction.shutdown();
@@ -526,7 +516,7 @@ fn test_disable_type_errors_workspace_folder() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-off"}}]));
     interaction
         .client
@@ -537,7 +527,7 @@ fn test_disable_type_errors_workspace_folder() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(3), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
     interaction
         .client
@@ -568,7 +558,7 @@ fn test_disable_type_errors_default_workspace() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-off"}}]));
     interaction
         .client
@@ -579,7 +569,7 @@ fn test_disable_type_errors_default_workspace() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(3), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
     interaction
         .client
@@ -613,7 +603,7 @@ fn test_disable_type_errors_config() {
 
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
     interaction
         .client
@@ -640,7 +630,7 @@ fn test_parse_pylance_configs() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([
             {
                 "pyrefly": {"displayTypeErrors": "force-off"},
@@ -684,7 +674,7 @@ fn test_diagnostics_default_workspace() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
     interaction
         .client
@@ -715,7 +705,7 @@ fn test_diagnostics_default_workspace_with_config() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), None)
+        .expect_configuration_request(None)
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-off"}}]));
     interaction
         .client
@@ -747,7 +737,7 @@ fn test_diagnostics_in_workspace() {
     interaction.client.did_change_configuration();
     interaction
         .client
-        .expect_configuration_request(RequestId::from(2), Some(vec![&scope_uri]))
+        .expect_configuration_request(Some(vec![&scope_uri]))
         .send_configuration_response(json!([{"pyrefly": {"displayTypeErrors": "force-on"}}]));
     interaction
         .client

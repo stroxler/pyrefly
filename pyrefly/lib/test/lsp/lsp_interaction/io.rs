@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::RequestId;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeTextDocument;
 use lsp_types::notification::DidSaveTextDocument;
@@ -73,7 +72,6 @@ fn test_file_watcher() {
     });
 
     interaction.client.expect_request::<RegisterCapability>(
-        RequestId::from(1),
         json!({
             "registrations": [{
                 "id": "FILEWATCHER",
