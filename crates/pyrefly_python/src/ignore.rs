@@ -154,26 +154,18 @@ pub struct Suppression {
 /// For now we don't record the content of the ignore, but we could.
 #[derive(Debug, Clone, Default)]
 pub struct Ignore {
-    // The line number here represents the line that the suppression applies to,
-    // not the line of the suppression comment.
+    /// The line number here represents the line that the suppression applies to,
+    /// not the line of the suppression comment.
     ignores: SmallMap<LineNumber, Vec<Suppression>>,
-    /// Do we have a generic or Pyrefly-specific ignore-all directive?
-    ignore_all_strict: bool,
-    /// Do we have any ignore-all directive, regardless of tool?
-    ignore_all_permissive: bool,
+    /// All the tools with an ignore-all directive, with the line number that the directive is on.
+    ignore_all: SmallMap<Tool, LineNumber>,
 }
 
 impl Ignore {
     pub fn new(code: &str) -> Self {
-        let ignores = Self::parse_ignores(code);
-        let ignore_all = Self::parse_ignore_all(code);
-        let ignore_all_strict =
-            ignore_all.contains_key(&Tool::Pyrefly) || ignore_all.contains_key(&Tool::Any);
-        let ignore_all_permissive = !ignore_all.is_empty();
         Self {
-            ignores,
-            ignore_all_strict,
-            ignore_all_permissive,
+            ignores: Self::parse_ignores(code),
+            ignore_all: Self::parse_ignore_all(code),
         }
     }
 
@@ -287,7 +279,10 @@ impl Ignore {
         kind: &str,
         permissive_ignores: bool,
     ) -> bool {
-        if self.ignore_all_strict || (permissive_ignores && self.ignore_all_permissive) {
+        if self.ignore_all.contains_key(&Tool::Any)
+            || self.ignore_all.contains_key(&Tool::Pyrefly)
+            || (permissive_ignores && !self.ignore_all.is_empty())
+        {
             return true;
         }
 
