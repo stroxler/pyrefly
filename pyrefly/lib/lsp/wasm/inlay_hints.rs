@@ -10,8 +10,11 @@ use std::sync::Arc;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module::TextRangeWithModule;
+use pyrefly_types::literal::Lit;
+use pyrefly_types::literal::LitEnum;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprDict;
 use ruff_python_ast::ExprList;
@@ -84,6 +87,7 @@ impl<'a> Transaction<'a> {
                         !tuple.elts.is_empty() && tuple.elts.iter().all(|x| !Ast::is_literal(x))
                     }
                     Expr::Call(ExprCall { func, .. }) => {
+                        // Exclude constructor calls
                         if let Expr::Name(name) = &**func
                             && let Some(class_name) = class_name
                         {
@@ -94,6 +98,20 @@ impl<'a> Transaction<'a> {
                             *attr.attr.id() != *class_name
                         } else {
                             true
+                        }
+                    }
+                    Expr::Attribute(ExprAttribute {
+                        box value, attr, ..
+                    }) if let Type::Literal(Lit::Enum(box LitEnum { class, member, .. })) = ty => {
+                        // Exclude enum literals
+                        match value {
+                            Expr::Name(object) => {
+                                *object.id() != *class.name() || *attr.id() != *member
+                            }
+                            Expr::Attribute(ExprAttribute { attr: object, .. }) => {
+                                *object.id() != *class.name() || *attr.id() != *member
+                            }
+                            _ => true,
                         }
                     }
                     _ => !Ast::is_literal(e),
