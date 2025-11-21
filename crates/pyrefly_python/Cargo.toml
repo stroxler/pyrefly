@@ -10,6 +10,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.98"
+clap = { version = "4.5.42", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 dupe = "0.9.1"
 enum-iterator = "2.1"
 equivalent = "1.0"

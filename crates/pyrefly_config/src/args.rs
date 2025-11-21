@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use pyrefly_python::ignore::Tool;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::absolutize::Absolutize as _;
@@ -152,6 +153,7 @@ pub struct ConfigOverrideArgs {
     #[arg(long)]
     untyped_def_behavior: Option<UntypedDefBehavior>,
     /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# pyright: ignore`.
+    /// Equivalent to passing the names of all tools to `--enabled-ignores`.
     #[arg(
         long,
         default_missing_value = "true",
@@ -159,6 +161,10 @@ pub struct ConfigOverrideArgs {
         num_args = 0..=1
     )]
     permissive_ignores: Option<bool>,
+    /// Respect ignore directives from only these tools. Can be passed multiple times or as a comma-separated list.
+    /// Defaults to type,pyrefly. Passing the names of all tools is equivalent to `--permissive-ignores`.
+    #[arg(long, value_delimiter = ',')]
+    enabled_ignores: Option<Vec<Tool>>,
     /// Force this rule to emit an error. Can be passed multiple times or as a comma-separated list.
     #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     error: Vec<ErrorKind>,
@@ -240,6 +246,11 @@ impl ConfigOverrideArgs {
             ),
             None => {}
         }
+        if self.permissive_ignores.is_some() && self.enabled_ignores.is_some() {
+            return Err(anyhow::anyhow!(
+                "Cannot use both `--permissive-ignores` and `--enabled-ignores`"
+            ));
+        }
         Ok(())
     }
 
@@ -298,8 +309,36 @@ impl ConfigOverrideArgs {
         if let Some(x) = &self.untyped_def_behavior {
             config.root.untyped_def_behavior = Some(*x);
         }
-        if let Some(x) = self.permissive_ignores {
-            config.root.permissive_ignores = Some(x);
+        match (self.permissive_ignores, &self.enabled_ignores) {
+            // Special case: if the underlying config sets enabled-ignores and --permissive-ignores
+            // is passed on the command-line, we overwrite enabled-ignores.
+            (Some(x), None)
+                if config.root.permissive_ignores.is_none()
+                    && config.root.enabled_ignores.is_some() =>
+            {
+                config.root.enabled_ignores = Some(if x {
+                    Tool::all()
+                } else {
+                    Tool::default_enabled()
+                });
+            }
+            // Special case: if the underlying config sets permissive-ignores and --enabled-ignores
+            // is passed on the command-line, we disable permissive-ignores and use the specified tools.
+            (None, Some(x))
+                if config.root.permissive_ignores.is_some()
+                    && config.root.enabled_ignores.is_none() =>
+            {
+                config.root.permissive_ignores = None;
+                config.root.enabled_ignores = Some(x.iter().cloned().collect());
+            }
+            _ => {
+                if let Some(x) = self.permissive_ignores {
+                    config.root.permissive_ignores = Some(x);
+                }
+                if let Some(x) = &self.enabled_ignores {
+                    config.root.enabled_ignores = Some(x.iter().cloned().collect());
+                }
+            }
         }
         if let Some(wildcards) = &self.replace_imports_with_any {
             config.root.replace_imports_with_any = Some(

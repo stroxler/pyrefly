@@ -26,6 +26,7 @@
 //! We are permissive with whitespace, allowing `#type:ignore[code]` and
 //! `#  type:  ignore  [  code  ]`, but do not allow a space before the colon.
 
+use clap::ValueEnum;
 use dupe::Dupe;
 use enum_iterator::Sequence;
 use pyrefly_util::lined_buffer::LineNumber;
@@ -60,8 +61,9 @@ pub fn find_comment_start_in_line(line: &str) -> Option<usize> {
 }
 
 /// The name of the tool that is being suppressed.
+/// Note that the variant names and docstrings are displayed in `pyrefly check --help`.
 #[derive(PartialEq, Debug, Clone, Hash, Eq, Dupe, Copy, Sequence)]
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum Tool {
     /// Enables `# type: ignore`

@@ -2151,6 +2151,7 @@ name = "pyrefly_python"
 version = "0.42.3"
 dependencies = [
  "anyhow",
+ "clap",
  "dupe",
  "enum-iterator",
  "equivalent",
