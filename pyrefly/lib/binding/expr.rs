@@ -829,6 +829,8 @@ impl<'a> BindingsBuilder<'a> {
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
             Expr::Call(_) => self.ensure_expr(x, static_type_usage),
+            // Bind walrus so we don't crash when looking up the assigned name later.
+            Expr::Named(_) => self.ensure_expr(x, static_type_usage),
             Expr::Attribute(ExprAttribute { value, attr, .. })
                 if let Expr::Name(value) = &**value
                 // We assume "args" and "kwargs" are ParamSpec attributes rather than imported TypeVars.
