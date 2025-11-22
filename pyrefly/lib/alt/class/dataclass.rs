@@ -51,7 +51,6 @@ use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
-use crate::types::tuple::Tuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::Type;
 
@@ -587,7 +586,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 })
                 .collect()
         };
-        let ty = Type::Tuple(Tuple::Concrete(ts));
+        let ty = Type::concrete_tuple(ts);
         ClassSynthesizedField::new(ty)
     }
 
@@ -601,7 +600,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .map(|(name, _, _)| Type::Literal(Lit::Str(name.as_str().into())))
             .collect();
-        let ty = Type::Tuple(Tuple::Concrete(ts));
+        let ty = Type::concrete_tuple(ts);
         ClassSynthesizedField::new(ty)
     }
 
