@@ -134,6 +134,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     self.is_subset_eq(&Type::tuple(Vec::new()), l)?;
                     l_arg = l_args.next();
                 }
+                (None, Some(Param::VarArg(_, Type::Unpack(u)))) => {
+                    self.is_subset_eq(&Type::tuple(Vec::new()), u)?;
+                    u_arg = u_args.next();
+                }
                 (
                     Some(
                         Param::PosOnly(_, _, Required::Optional(_))

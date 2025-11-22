@@ -688,6 +688,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                 }
+                Param::VarArg(_, Type::Unpack(box unpacked)) => {
+                    // If we have a TypeVarTuple *args with no matched arguments, resolve it to empty tuple
+                    self.is_subset_eq(unpacked, &Type::tuple(Vec::new()));
+                }
                 Param::VarArg(..) => {}
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
                     kwparams.insert(name, (ty, required == &Required::Required));
