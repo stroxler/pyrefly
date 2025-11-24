@@ -987,7 +987,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Concatenate(prefix, pspec) => {
                 for t in prefix {
                     self.tvars_to_tparams_for_type_alias(
-                        t,
+                        &mut t.0,
                         seen_type_vars,
                         seen_type_var_tuples,
                         seen_param_specs,

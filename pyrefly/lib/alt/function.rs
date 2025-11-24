@@ -444,8 +444,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 def.params
                     .iter()
                     .filter_map(|p| match p {
-                        Param::PosOnly(_, ty, _) => Some(ty.clone()),
-                        Param::Pos(_, ty, _) => Some(ty.clone()),
+                        Param::PosOnly(_, ty, req) => Some((ty.clone(), req.clone())),
+                        Param::Pos(_, ty, req) => Some((ty.clone(), req.clone())),
                         _ => None,
                     })
                     .collect(),

@@ -637,7 +637,10 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Concatenate(args, pspec) => {
                 self.maybe_fmt_with_module("typing", "Concatenate", output)?;
                 output.write_str("[")?;
-                output.write_str(&format!("{}", commas_iter(|| append(args.iter(), [pspec]))))?;
+                output.write_str(&format!(
+                    "{}",
+                    commas_iter(|| append(args.iter().map(|x| x.0.clone()), [pspec]))
+                ))?;
                 output.write_str("]")
             }
             Type::Module(m) => {
