@@ -31,7 +31,6 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprGenerator;
 use ruff_python_ast::ExprNumberLiteral;
-use ruff_python_ast::ExprSlice;
 use ruff_python_ast::ExprStarred;
 use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::ExprTuple;
@@ -2042,19 +2041,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Type::Type(box Type::SpecialForm(special)) => {
                     self.apply_special_form(special, slice, range, errors)
                 }
-                Type::Tuple(Tuple::Concrete(ref elts)) => self.infer_tuple_index(
-                    elts.to_owned(),
+                Type::Tuple(ref tuple) => self.infer_tuple_subscript(
+                    tuple.clone(),
                     slice,
                     range,
-                    errors,
-                    Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
-                ),
-                Type::Tuple(_) => self.call_method_or_error(
-                    &base,
-                    &dunder::GETITEM,
-                    range,
-                    &[CallArg::expr(slice)],
-                    &[],
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
@@ -2083,10 +2073,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
                 Type::ClassType(ref cls) | Type::SelfType(ref cls)
-                    if let Some(Tuple::Concrete(elts)) = self.as_tuple(cls) =>
+                    if let Some(tuple) = self.as_tuple(cls) =>
                 {
-                    self.infer_tuple_index(
-                        elts,
+                    self.infer_tuple_subscript(
+                        tuple,
                         slice,
                         range,
                         errors,
@@ -2156,99 +2146,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             }
         })
-    }
-
-    /// When indexing/slicing concrete tuples with literals, try to infer a more precise type
-    fn infer_tuple_index(
-        &self,
-        elts: Vec<Type>,
-        index: &Expr,
-        range: TextRange,
-        errors: &ErrorCollector,
-        context: Option<&dyn Fn() -> ErrorContext>,
-    ) -> Type {
-        match index {
-            Expr::Slice(ExprSlice {
-                lower: lower_expr,
-                upper: upper_expr,
-                step: None,
-                ..
-            }) => {
-                let lower_literal = match lower_expr {
-                    Some(expr) => {
-                        let lower_type = self.expr_infer(expr, errors);
-                        match &lower_type {
-                            Type::Literal(lit) => lit.as_index_i64(),
-                            _ => None,
-                        }
-                    }
-                    None => Some(0),
-                };
-                let upper_literal = match upper_expr {
-                    Some(expr) => {
-                        let upper_type = self.expr_infer(expr, errors);
-                        match &upper_type {
-                            Type::Literal(lit) => lit.as_index_i64(),
-                            _ => None,
-                        }
-                    }
-                    None => Some(elts.len() as i64),
-                };
-                match (lower_literal, upper_literal) {
-                    (Some(lower), Some(upper))
-                        if lower <= upper
-                            && lower >= 0
-                            && upper >= 0
-                            && upper <= elts.len() as i64 =>
-                    {
-                        Type::concrete_tuple(elts[lower as usize..upper as usize].to_vec())
-                    }
-                    _ => self.call_method_or_error(
-                        &Type::concrete_tuple(elts),
-                        &dunder::GETITEM,
-                        range,
-                        &[CallArg::expr(index)],
-                        &[],
-                        errors,
-                        context,
-                    ),
-                }
-            }
-            _ => {
-                let idx_type = self.expr_infer(index, errors);
-                match &idx_type {
-                    Type::Literal(lit) if let Some(idx) = lit.as_index_i64() => {
-                        let elt_idx = if idx >= 0 {
-                            idx
-                        } else {
-                            elts.len() as i64 + idx
-                        } as usize;
-                        if let Some(elt) = elts.get(elt_idx) {
-                            elt.clone()
-                        } else {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::BadIndex),
-                                format!(
-                                    "Index {idx} out of range for tuple with {} elements",
-                                    elts.len()
-                                ),
-                            )
-                        }
-                    }
-                    _ => self.call_method_or_error(
-                        &Type::concrete_tuple(elts),
-                        &dunder::GETITEM,
-                        range,
-                        &[CallArg::expr(index)],
-                        &[],
-                        errors,
-                        context,
-                    ),
-                }
-            }
-        }
     }
 
     fn subscript_str_literal(
