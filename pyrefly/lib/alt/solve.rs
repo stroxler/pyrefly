@@ -1497,7 +1497,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         type_info.visit_mut(&mut |ty| {
             if !matches!(
                 binding,
-                Binding::NameAssign(..) | Binding::PartialTypeWithUpstreamsCompleted(..)
+                Binding::NameAssign { .. } | Binding::PartialTypeWithUpstreamsCompleted(..)
             ) {
                 self.pin_all_placeholder_types(ty);
             }
@@ -2787,7 +2787,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.attr_infer(&binding, &attr.id, attr.range, errors, None)
                     .into_ty()
             }
-            Binding::NameAssign(name, annot_key, expr, legacy_tparams, is_in_function_scope) => {
+            Binding::NameAssign {
+                name,
+                annotation: annot_key,
+                expr,
+                legacy_tparams,
+                is_in_function_scope,
+            } => {
                 let (has_type_alias_qualifier, ty) = match annot_key.as_ref() {
                     // First infer the type as a normal value
                     Some((style, k)) => {
