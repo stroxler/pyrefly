@@ -639,7 +639,7 @@ def test(x: int, y: str):
 "#,
 );
 
-// If a decorator converts a generic callable into a non-generic, we should
+// If a decorator converts a generic callable into a non-generic, we should drop the callable's tparams
 testcase!(
     test_decorator_strips_tparams_and_forall,
     r#"
