@@ -683,7 +683,7 @@ impl NarrowOps {
                 } else {
                     // Look up the definition of `name`.
                     let original_expr = match Self::get_original_binding(builder, &name.id) {
-                        Some((_, Some(Binding::NameAssign(_, _, original_expr, _)))) => {
+                        Some((_, Some(Binding::NameAssign(_, _, original_expr, _, _)))) => {
                             Some(&**original_expr)
                         }
                         _ => None,

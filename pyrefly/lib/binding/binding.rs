@@ -1356,11 +1356,13 @@ pub enum Binding {
     /// therefore the use of legacy type parameters is invalid.
     PossibleLegacyTParam(Idx<KeyLegacyTypeParam>, Option<TextRange>),
     /// An assignment to a name.
+    /// Fields: name, annotation, expression, legacy type params, is_in_function_scope
     NameAssign(
         Name,
         Option<(AnnotationStyle, Idx<KeyAnnotation>)>,
         Box<Expr>,
         Option<Box<[Idx<KeyLegacyTypeParam>]>>,
+        bool,
     ),
     /// A type alias declared with the `type` soft keyword
     ScopedTypeAlias(Name, Option<TypeParams>, Box<Expr>),
@@ -1575,10 +1577,10 @@ impl DisplayWith<Bindings> for Binding {
                     op.display_with(ctx.module())
                 )
             }
-            Self::NameAssign(name, None, expr, _) => {
+            Self::NameAssign(name, None, expr, _, _) => {
                 write!(f, "NameAssign({name}, None, {})", m.display(expr))
             }
-            Self::NameAssign(name, Some((style, annot)), expr, _) => {
+            Self::NameAssign(name, Some((style, annot)), expr, _, _) => {
                 write!(
                     f,
                     "NameAssign({name}, {style:?}, {}, {})",
@@ -1738,10 +1740,10 @@ impl Binding {
             Binding::ScopedTypeAlias(_, _, _) | Binding::TypeAliasType(_, _, _) => {
                 Some(SymbolKind::TypeAlias)
             }
-            Binding::NameAssign(name, _, _, _) if name.as_str() == name.to_uppercase() => {
+            Binding::NameAssign(name, _, _, _, _) if name.as_str() == name.to_uppercase() => {
                 Some(SymbolKind::Constant)
             }
-            Binding::NameAssign(name, _, _, _) => {
+            Binding::NameAssign(name, _, _, _, _) => {
                 if name.as_str().chars().all(|c| c.is_uppercase() || c == '_') {
                     Some(SymbolKind::Constant)
                 } else {

@@ -2787,7 +2787,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.attr_infer(&binding, &attr.id, attr.range, errors, None)
                     .into_ty()
             }
-            Binding::NameAssign(name, annot_key, expr, legacy_tparams) => {
+            Binding::NameAssign(name, annot_key, expr, legacy_tparams, is_in_function_scope) => {
                 let (has_type_alias_qualifier, ty) = match annot_key.as_ref() {
                     // First infer the type as a normal value
                     Some((style, k)) => {
@@ -2800,7 +2800,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 }
                             })
                         };
-                        if annot.annotation.is_final() && *style == AnnotationStyle::Forwarded {
+                        if annot.annotation.is_final() && style == &AnnotationStyle::Forwarded {
                             self.error(
                                 errors,
                                 expr.range(),
@@ -2811,7 +2811,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let annot_ty = annot.ty(self.stdlib);
                         let hint = annot_ty.as_ref().map(|t| (t, tcc));
                         let expr_ty = self.expr(expr, hint, errors);
-                        let ty = if *style == AnnotationStyle::Direct {
+                        let ty = if style == &AnnotationStyle::Direct {
                             // For direct assignments, user-provided annotation takes
                             // precedence over inferred expr type.
                             annot_ty.unwrap_or(expr_ty)
@@ -2849,6 +2849,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             errors,
                         ),
                         None if Self::may_be_implicit_type_alias(&ty)
+                            && !is_in_function_scope
                             && self.has_valid_annotation_syntax(expr, &self.error_swallower()) =>
                         {
                             self.as_type_alias(
