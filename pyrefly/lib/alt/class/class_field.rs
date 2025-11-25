@@ -752,7 +752,7 @@ impl ClassField {
                 ClassFieldInitialization::ClassBody(Some(field_flags)) => field_flags.clone(),
                 ClassFieldInitialization::ClassBody(None) => {
                     let mut kws = DataclassFieldKeywords::new();
-                    kws.default = true;
+                    kws.default = Some(Type::any_implicit());
                     kws
                 }
                 ClassFieldInitialization::Method
