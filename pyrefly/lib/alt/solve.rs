@@ -1668,7 +1668,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         self.bindings().idx_to_key(*new).range(),
-                        ErrorInfo::Kind(ErrorKind::AnnotationMismatch),
+                        ErrorInfo::Kind(ErrorKind::Redefinition),
                         format!(
                             "`{}` cannot be annotated with `{}`, it is already defined with type `{}`",
                             name,
