@@ -627,3 +627,25 @@ class Bar(Foo):
     x = 1  # OK - explicit Optional annotation allows override
     "#,
 );
+
+// Test for https://github.com/facebook/pyrefly/issues/1372
+testcase!(
+    bug = "Should be no errors",
+    test_property_setter_inheritance,
+    r#"
+from typing import *
+
+class Myclass:
+    @property
+    def hello(self) -> int:
+        return 1
+
+    @hello.setter
+    def hello(self, value: int):
+        pass
+
+class MySubclass(Myclass):
+    def __init__(self):
+        self.hello = 1 # E: overrides parent class # E: not assignable to
+"#,
+);
