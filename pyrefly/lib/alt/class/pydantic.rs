@@ -18,6 +18,8 @@ use pyrefly_types::callable::Function;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::ParamList;
 use pyrefly_types::callable::Required;
+use pyrefly_types::keywords::DataclassFieldKeywords;
+use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::Lit;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -363,5 +365,66 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .find(|(name, _)| name == key)
             .and_then(|(_, ann)| ann.get_type().as_bool())
+    }
+
+    pub fn check_pydantic_range_default(
+        &self,
+        field_name: &Name,
+        default_ty: &Type,
+        keywords: &DataclassFieldKeywords,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        fn int_literal_from_type(ty: &Type) -> Option<&LitInt> {
+            // We only currently enforce range constraints for literal defaults, so carve out
+            // the `Literal[int]` case and ignore everything else.
+            match ty {
+                Type::Literal(Lit::Int(lit)) => Some(lit),
+                _ => None,
+            }
+        }
+        let Some(value_lit) = int_literal_from_type(default_ty) else {
+            return;
+        };
+        let emit_violation = |label: &str, constraint_ty: &Type| {
+            let Some(constraint_lit) = int_literal_from_type(constraint_ty) else {
+                return;
+            };
+            let comparison = value_lit.cmp(constraint_lit);
+            let violates = match label {
+                "gt" => !matches!(comparison, std::cmp::Ordering::Greater),
+                "ge" => matches!(comparison, std::cmp::Ordering::Less),
+                "lt" => !matches!(comparison, std::cmp::Ordering::Less),
+                "le" => matches!(comparison, std::cmp::Ordering::Greater),
+                _ => false,
+            };
+            if violates {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::BadArgumentType),
+                    format!(
+                        "Default value `{}` violates Pydantic `{}` constraint `{}` for field `{}`",
+                        self.for_display(default_ty.clone()),
+                        label,
+                        self.for_display(constraint_ty.clone()),
+                        field_name
+                    ),
+                );
+            }
+        };
+
+        if let Some(gt) = &keywords.gt {
+            emit_violation("gt", gt);
+        }
+        if let Some(ge) = &keywords.ge {
+            emit_violation("ge", ge);
+        }
+        if let Some(lt) = &keywords.lt {
+            emit_violation("lt", lt);
+        }
+        if let Some(le) = &keywords.le {
+            emit_violation("le", le);
+        }
     }
 }
