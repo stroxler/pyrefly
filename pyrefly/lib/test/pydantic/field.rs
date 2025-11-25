@@ -153,3 +153,14 @@ class A(BaseModel, strict=True):
 A(x='')  # E: `Literal['']` is not assignable to parameter `x` with type `int`
     "#,
 );
+
+pydantic_testcase!(
+    test_default_keywords,
+    r#"
+from pydantic import BaseModel, Field
+class A(BaseModel):
+    x: int = Field(default='oops')  # E: `str` is not assignable to `int`
+class B(BaseModel):
+    x: int = Field(default_factory=lambda: 'oops')  # E: `str` is not assignable to `int`
+    "#,
+);
