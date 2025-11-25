@@ -224,7 +224,7 @@ enum RawClassFieldInitialization {
 pub enum ClassFieldInitialization {
     /// If this is a dataclass field, DataclassFieldKeywords stores the field's
     /// dataclass flags (which are options that control how fields behave).
-    ClassBody(Option<DataclassFieldKeywords>),
+    ClassBody(Option<Box<DataclassFieldKeywords>>),
     /// This field is initialized in a method. Note that this applies only if the field is not
     /// declared anywhere else.
     Method,
@@ -749,7 +749,7 @@ impl ClassField {
     fn dataclass_flags_of(&self) -> DataclassFieldKeywords {
         match &self.0 {
             ClassFieldInner::Simple { initialization, .. } => match initialization {
-                ClassFieldInitialization::ClassBody(Some(field_flags)) => field_flags.clone(),
+                ClassFieldInitialization::ClassBody(Some(field_flags)) => (**field_flags).clone(),
                 ClassFieldInitialization::ClassBody(None) => {
                     let mut kws = DataclassFieldKeywords::new();
                     kws.default = Some(Type::any_implicit());
@@ -1235,7 +1235,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && let Expr::Call(call) = e
                 {
                     let flags = self.compute_dataclass_field_initialization(call, dm);
-                    ClassFieldInitialization::ClassBody(flags)
+                    ClassFieldInitialization::ClassBody(flags.map(Box::new))
                 } else {
                     ClassFieldInitialization::ClassBody(None)
                 }
@@ -1671,7 +1671,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // we want to check if the bound_val is coercible to the annotation type at runtime.
         // statically, this could be a challenge, which is why we go with this more conservative approach for now.
         if metadata.is_pydantic_base_model()
-            && let ClassFieldInitialization::ClassBody(Some(DataclassFieldKeywords {
+            && let ClassFieldInitialization::ClassBody(Some(box DataclassFieldKeywords {
                 gt,
                 lt,
                 ge,
