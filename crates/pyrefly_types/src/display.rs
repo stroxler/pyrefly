@@ -720,7 +720,7 @@ impl<'a> TypeDisplayContext<'a> {
         &self,
         t: &'b Type,
         is_toplevel: bool,
-    ) -> OutputWithLocations {
+    ) -> OutputWithLocations<'_> {
         let mut output = OutputWithLocations::new(self);
         self.fmt_helper_generic(t, is_toplevel, &mut output)
             .unwrap();
