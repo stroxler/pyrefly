@@ -1152,6 +1152,8 @@ isins
          ^
 Completion Results:
 - (Function) isinstance
+- (Class) DivisionImpossible: from decimal import DivisionImpossible
+
 - (Class) FirstHeaderLineIsContinuationDefect: from email.errors import FirstHeaderLineIsContinuationDefect
 
 - (Class) MissingHeaderBodySeparatorDefect: from email.errors import MissingHeaderBodySeparatorDefect
