@@ -1667,38 +1667,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        // Note: the subset check here is too conservative when it comes to modeling runtime behavior
-        // we want to check if the bound_val is coercible to the annotation type at runtime.
-        // statically, this could be a challenge, which is why we go with this more conservative approach for now.
         if metadata.is_pydantic_base_model()
             && let ClassFieldInitialization::ClassBody(Some(kws)) = initialization
         {
             let field_ty = annotation.get_type();
-
-            for (bound_val, label) in [
-                (&kws.gt, "gt"),
-                (&kws.lt, "lt"),
-                (&kws.ge, "ge"),
-                (&kws.le, "le"),
-            ] {
-                let Some(val) = bound_val else { continue };
-                if !self.is_subset_eq(val, field_ty) {
-                    self.error(
-                        errors,
-                        range,
-                        ErrorInfo::Kind(ErrorKind::BadArgumentType),
-                        format!(
-                            "Pydantic `{label}` value is of type `{}` but the field is annotated with `{}`",
-                            self.for_display(val.clone()),
-                            self.for_display(field_ty.clone())
-                        ),
-                    );
-                }
-            }
-
-            if let Some(default) = &kws.default {
-                self.check_pydantic_range_default(name, default, kws, range, errors);
-            }
+            self.check_pydantic_range_constraints(name, field_ty, kws, range, errors);
         }
 
         // Check for qualifiers that are used in improper contexts.

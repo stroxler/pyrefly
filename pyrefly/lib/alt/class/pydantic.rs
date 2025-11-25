@@ -367,10 +367,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .and_then(|(_, ann)| ann.get_type().as_bool())
     }
 
-    pub fn check_pydantic_range_default(
+    pub fn check_pydantic_range_constraints(
         &self,
         field_name: &Name,
-        default_ty: &Type,
+        field_ty: &Type,
+        keywords: &DataclassFieldKeywords,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        // Note: the subset check here is too conservative when it comes to modeling runtime behavior
+        // we want to check if the bound_val is coercible to the annotation type at runtime.
+        // statically, this could be a challenge, which is why we go with this more conservative approach for now.
+        for (bound_val, label) in [
+            (&keywords.gt, "gt"),
+            (&keywords.lt, "lt"),
+            (&keywords.ge, "ge"),
+            (&keywords.le, "le"),
+        ] {
+            let Some(val) = bound_val else { continue };
+            if !self.is_subset_eq(val, field_ty) {
+                self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::BadArgumentType),
+                        format!(
+                            "Pydantic `{label}` value is of type `{}` but the field is annotated with `{}`",
+                            self.for_display(val.clone()),
+                            self.for_display(field_ty.clone())
+                        ),
+                    );
+            }
+        }
+        self.check_pydantic_range_default(field_name, keywords, range, errors);
+    }
+
+    fn check_pydantic_range_default(
+        &self,
+        field_name: &Name,
         keywords: &DataclassFieldKeywords,
         range: TextRange,
         errors: &ErrorCollector,
@@ -383,6 +416,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => None,
             }
         }
+        let Some(default_ty) = &keywords.default else {
+            return;
+        };
         let Some(value_lit) = int_literal_from_type(default_ty) else {
             return;
         };
