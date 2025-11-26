@@ -1145,6 +1145,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             ClassFieldDefinition::DefinedInMethod { value, method, .. } => {
+                // Check if there's an inherited property field from a parent class
+                // If so, we should just use the parent's property instead of creating a new field
+                if !Ast::is_mangled_attr(name) {
+                    // Use get_field_from_ancestors to only look at parent classes, not the current class
+                    if let Some(parent_field) = self.get_field_from_ancestors(
+                        class,
+                        self.get_mro_for_class(class).ancestors(self.stdlib),
+                        name,
+                        &|cls, name| self.get_field_from_current_class_only(cls, name),
+                    ) {
+                        let ClassField(ClassFieldInner::Simple { ty, .. }, ..) =
+                            &*parent_field.value;
+                        // Check if the parent field is a property (either getter or setter with getter)
+                        if ty.is_property_getter() || ty.is_property_setter_with_getter().is_some()
+                        {
+                            // If we found a property in the parent, just return the parent's field
+                            // This ensures the property with its setter is properly inherited
+                            return Arc::unwrap_or_clone(parent_field.value);
+                        }
+                    }
+                }
+
                 let initial_value =
                     initial_value_storage.push(RawClassFieldInitialization::Method(method.clone()));
                 if let Some(annotated_ty) =
