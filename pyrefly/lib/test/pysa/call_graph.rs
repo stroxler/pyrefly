@@ -1282,7 +1282,11 @@ def foo(c: C):
   repr(c)
 "#,
     &|_context: &ModuleContext| {
-        let call_targets = vec![create_call_target("builtins.repr", TargetType::Function)];
+        let call_targets = vec![
+            create_call_target("builtins.object.__repr__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", _context),
+        ];
         vec![(
             "test.foo",
             vec![("5:3-5:10", regular_call_callees(call_targets))],
@@ -1869,13 +1873,14 @@ def main(x) -> None:
   finally:
     bar()
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("builtins.object.__init__", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+            create_call_target("builtins.BaseException.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.Exception", context),
         ];
         let new_targets = vec![
-            create_call_target("builtins.object.__new__", TargetType::Function)
+            create_call_target("builtins.BaseException.__new__", TargetType::Function)
                 .with_is_static_method(true),
         ];
         let bar_target = vec![create_call_target("test.bar", TargetType::Function)];
@@ -2558,7 +2563,8 @@ def foo() -> None:
     &|context: &ModuleContext| {
         let c_init_targets = vec![
             create_call_target("builtins.object.__init__", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", context),
         ];
         let c_new_targets = vec![
             create_call_target("builtins.object.__new__", TargetType::Function)
@@ -3045,6 +3051,11 @@ def foo(a: int, b: float, c: str, d: List[int], e):
             create_call_target("builtins.str.__format__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
+        let object_repr = vec![
+            create_call_target("builtins.object.__repr__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.object", context),
+        ];
         vec![(
             "test.foo",
             vec![
@@ -3084,23 +3095,11 @@ def foo(a: int, b: float, c: str, d: List[int], e):
                 ),
                 (
                     "8:22-8:23|artificial-call|format-string-stringify",
-                    format_string_stringify_callees(
-                        "builtins",
-                        "object",
-                        "__repr__",
-                        TargetType::Override,
-                        context,
-                    ),
+                    regular_call_callees(object_repr.clone()),
                 ),
                 (
                     "8:25-8:26|artificial-call|format-string-stringify",
-                    format_string_stringify_callees(
-                        "builtins",
-                        "object",
-                        "__repr__",
-                        TargetType::Override,
-                        context,
-                    ),
+                    regular_call_callees(object_repr.clone()),
                 ),
                 (
                     "8:28-8:29|artificial-call|format-string-stringify",
@@ -3438,13 +3437,11 @@ def foo(e: Exception):
                 ),
                 (
                     "3:6-3:7|artificial-call|format-string-stringify",
-                    format_string_stringify_callees(
-                        "builtins",
-                        "object",
-                        "__repr__",
-                        TargetType::Override,
-                        context,
-                    ),
+                    regular_call_callees(vec![
+                        create_call_target("builtins.BaseException.__str__", TargetType::Function)
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("builtins.Exception", context),
+                    ]),
                 ),
                 (
                     "4:3-4:15|artificial-call|format-string-artificial",
@@ -3502,13 +3499,20 @@ def foo(error_type: Union[str, Type[Exception]]):
                         /* call_targets */ vec![],
                         /* init_targets */
                         vec![
-                            create_call_target("builtins.object.__init__", TargetType::Function)
-                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                            create_call_target(
+                                "builtins.BaseException.__init__",
+                                TargetType::Function,
+                            )
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("builtins.Exception", context),
                         ],
                         /* new_targets */
                         vec![
-                            create_call_target("builtins.object.__new__", TargetType::Function)
-                                .with_is_static_method(true),
+                            create_call_target(
+                                "builtins.BaseException.__new__",
+                                TargetType::Function,
+                            )
+                            .with_is_static_method(true),
                         ],
                         /* higher_order_parameters */ vec![],
                         /* unresolved */ Unresolved::False,
@@ -3543,7 +3547,7 @@ from typing import Type
 def foo(error_type: Type[Exception]):
   return f"{error_type}"
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
         vec![(
             "test.foo",
             vec![
@@ -3557,13 +3561,20 @@ def foo(error_type: Type[Exception]):
                         /* call_targets */ vec![],
                         /* init_targets */
                         vec![
-                            create_call_target("builtins.object.__init__", TargetType::Function)
-                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                            create_call_target(
+                                "builtins.BaseException.__init__",
+                                TargetType::Function,
+                            )
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("builtins.Exception", context),
                         ],
                         /* new_targets */
                         vec![
-                            create_call_target("builtins.object.__new__", TargetType::Function)
-                                .with_is_static_method(true),
+                            create_call_target(
+                                "builtins.BaseException.__new__",
+                                TargetType::Function,
+                            )
+                            .with_is_static_method(true),
                         ],
                         /* higher_order_parameters */ vec![],
                         /* unresolved */ Unresolved::False,
@@ -3583,7 +3594,7 @@ call_graph_testcase!(
     test_format_string_with_class_attribute_on_union,
     TEST_MODULE_NAME,
     r#"
-import typing
+from typing import Union
 class A:
   def __str__(self):
     return "A"
@@ -3592,13 +3603,37 @@ class B:
 def foo(x: Union[A, B]):
   f"{x.__class__}"
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
         vec![(
             "test.foo",
             vec![
                 (
                     "9:3-9:19|artificial-call|format-string-artificial",
                     format_string_artificial_callees(),
+                ),
+                (
+                    "9:6-9:17",
+                    attribute_access_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */
+                        vec![
+                            create_call_target("builtins.object.__init__", TargetType::Function)
+                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                                .with_receiver_class_for_test("test.A", context),
+                            create_call_target("builtins.object.__init__", TargetType::Function)
+                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                                .with_receiver_class_for_test("test.B", context),
+                        ],
+                        /* new_targets */
+                        vec![
+                            create_call_target("builtins.object.__new__", TargetType::Function)
+                                .with_is_static_method(true),
+                        ],
+                        /* property_setters */ vec![],
+                        /* property_getters */ vec![],
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */ Unresolved::False,
+                    ),
                 ),
                 // TODO: Handle union types for string conversion functions. Also handle `object.__class__`
                 (
@@ -3609,7 +3644,7 @@ def foo(x: Union[A, B]):
                         /* new_targets */ vec![],
                         /* higher_order_parameters */ vec![],
                         /* unresolved */
-                        Unresolved::True(UnresolvedReason::UnexpectedPyreflyTarget),
+                        Unresolved::True(UnresolvedReason::UnexpectedDefiningClass),
                     ),
                 ),
             ],
@@ -3627,7 +3662,7 @@ class A:
 def foo(x: A):
   f"{x.__class__}"
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
         vec![(
             "test.foo",
             vec![
@@ -3643,7 +3678,8 @@ def foo(x: A):
                         /* init_targets */
                         vec![
                             create_call_target("builtins.object.__init__", TargetType::Function)
-                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                                .with_receiver_class_for_test("test.A", context),
                         ],
                         /* new_targets */
                         vec![
