@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -38,9 +39,8 @@ impl BundledStub for BundledThirdParty {
         None
     }
 
-    fn load(&self, _path: &std::path::Path) -> Option<Arc<String>> {
-        // todo:(jvansch) This is just a mock, actual logic will be implemented later
-        None
+    fn load(&self, path: &Path) -> Option<Arc<String>> {
+        self.load.get(path).cloned()
     }
 
     fn modules(&self) -> impl Iterator<Item = ModuleName> {
