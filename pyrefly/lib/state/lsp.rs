@@ -2657,7 +2657,7 @@ impl<'a> Transaction<'a> {
     ) -> (Vec<CompletionItem>, bool) {
         // Check if position is in a disabled range (comments)
         if let Some(module) = self.get_module_info(handle) {
-            let disabled_ranges = Self::completion_disabled_ranges_for_module(&module);
+            let disabled_ranges = Self::comment_ranges_for_module(&module);
             if disabled_ranges.iter().any(|range| range.contains(position)) {
                 return (Vec::new(), false);
             }
@@ -2680,7 +2680,7 @@ impl<'a> Transaction<'a> {
         (results, is_incomplete)
     }
 
-    fn completion_disabled_ranges_for_module(module: &ModuleInfo) -> Vec<TextRange> {
+    fn comment_ranges_for_module(module: &ModuleInfo) -> Vec<TextRange> {
         let mut ranges = Vec::new();
         let source = module.lined_buffer().contents();
         let mut offset = TextSize::from(0);
