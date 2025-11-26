@@ -7,7 +7,9 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
+use anyhow::anyhow;
 use pyrefly_config::config::ConfigFile;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -58,5 +60,31 @@ impl BundledStub for BundledThirdParty {
 
     fn load_map(&self) -> impl Iterator<Item = (&PathBuf, &Arc<String>)> {
         self.load.iter()
+    }
+}
+
+#[expect(dead_code)]
+static BUNDLED_THIRD_PARTY: LazyLock<anyhow::Result<BundledThirdParty>> =
+    LazyLock::new(BundledThirdParty::new);
+
+#[expect(dead_code)]
+pub fn bundled_third_party() -> anyhow::Result<&'static BundledThirdParty> {
+    match &*BUNDLED_THIRD_PARTY {
+        Ok(stub) => Ok(stub),
+        Err(error) => Err(anyhow!("{error:#}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_typeshed_materialize() {
+        let stub = bundled_third_party().unwrap();
+        let path = stub.materialized_path_on_disk().unwrap();
+        // Do it twice, to check that works.
+        stub.materialized_path_on_disk().unwrap();
+        stub.write(&path).unwrap();
     }
 }
