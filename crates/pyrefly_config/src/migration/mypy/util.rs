@@ -77,8 +77,20 @@ pub fn string_to_paths(value: &str) -> Vec<PathBuf> {
         .collect()
 }
 
+#[derive(Default)]
+pub struct MypyErrorConfigFlags {
+    pub warn_redundant_casts: bool,
+    pub disallow_untyped_defs: bool,
+    pub disallow_incomplete_defs: bool,
+    pub disallow_any_generics: bool,
+    pub strict: bool,
+    pub report_deprecated_as_note: bool,
+    pub allow_redefinitions: bool,
+}
+
 /// Create an error config from disable and enable error codes
 pub fn make_error_config(
+    mypy_error_config_flags: Option<MypyErrorConfigFlags>,
     disables: Vec<String>,
     enables: Vec<String>,
 ) -> Option<ErrorDisplayConfig> {
@@ -89,6 +101,30 @@ pub fn make_error_config(
     // enable_error_code overrides disable_error_code
     for error_code in enables {
         errors.insert(error_code, Severity::Error);
+    }
+    if let Some(MypyErrorConfigFlags {
+        warn_redundant_casts,
+        disallow_untyped_defs,
+        disallow_incomplete_defs,
+        disallow_any_generics,
+        strict,
+        report_deprecated_as_note,
+        allow_redefinitions,
+    }) = mypy_error_config_flags
+    {
+        // These severities take precedence over enable/disable
+        if warn_redundant_casts || strict {
+            errors.insert(ErrorKind::RedundantCast.to_string(), Severity::Warn);
+        }
+        if disallow_untyped_defs || disallow_any_generics || disallow_incomplete_defs || strict {
+            errors.insert(ErrorKind::ImplicitAny.to_string(), Severity::Error);
+        }
+        if report_deprecated_as_note && errors.contains_key(&ErrorKind::Deprecated.to_string()) {
+            errors.insert(ErrorKind::Deprecated.to_string(), Severity::Info);
+        }
+        if allow_redefinitions {
+            errors.insert(ErrorKind::Redefinition.to_string(), Severity::Ignore);
+        }
     }
     code_to_kind(errors)
 }

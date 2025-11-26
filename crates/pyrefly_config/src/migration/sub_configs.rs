@@ -45,7 +45,7 @@ impl ConfigOptionMigrater for SubConfigs {
                     }
 
                     if let Some(error_config) =
-                        util::make_error_config(disable_error_code, enable_error_code)
+                        util::make_error_config(None, disable_error_code, enable_error_code)
                     {
                         sub_configs.push((stripped.to_owned(), error_config));
                     }

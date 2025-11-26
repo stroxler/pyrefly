@@ -10,6 +10,7 @@ use configparser::ini::Ini;
 use crate::config::ConfigFile;
 use crate::migration::config_option_migrater::ConfigOptionMigrater;
 use crate::migration::mypy::util;
+use crate::migration::mypy::util::MypyErrorConfigFlags;
 use crate::migration::pyright::PyrightConfig;
 
 /// Configuration option for error codes
@@ -21,12 +22,33 @@ impl ConfigOptionMigrater for ErrorCodes {
         mypy_cfg: &Ini,
         pyrefly_cfg: &mut ConfigFile,
     ) -> anyhow::Result<()> {
-        // Get disable_error_code and enable_error_code from the mypy.ini file
+        let warn_redundant_casts =
+            util::get_bool_or_default(mypy_cfg, "mypy", "warn_redundant_casts");
+        let disallow_untyped_defs =
+            util::get_bool_or_default(mypy_cfg, "mypy", "disallow_untyped_defs");
+        let disallow_incomplete_defs =
+            util::get_bool_or_default(mypy_cfg, "mypy", "disallow_incomplete_defs");
+        let disallow_any_generics =
+            util::get_bool_or_default(mypy_cfg, "mypy", "disallow_any_generics");
+        let report_deprecated_as_note =
+            util::get_bool_or_default(mypy_cfg, "mypy", "report_deprecated_as_note");
+        let allow_redefinitions =
+            util::get_bool_or_default(mypy_cfg, "mypy", "allow_redefinitions");
+        let strict = util::get_bool_or_default(mypy_cfg, "mypy", "strict");
+        let mypy_flags = MypyErrorConfigFlags {
+            warn_redundant_casts,
+            disallow_untyped_defs,
+            disallow_incomplete_defs,
+            disallow_any_generics,
+            report_deprecated_as_note,
+            allow_redefinitions,
+            strict,
+        };
         let disable_error_code = util::string_to_array(&mypy_cfg.get("mypy", "disable_error_code"));
         let enable_error_code = util::string_to_array(&mypy_cfg.get("mypy", "enable_error_code"));
-
-        let error_config = util::make_error_config(disable_error_code, enable_error_code)
-            .ok_or_else(|| anyhow::anyhow!("Failed to create error config"))?;
+        let error_config =
+            util::make_error_config(Some(mypy_flags), disable_error_code, enable_error_code)
+                .ok_or_else(|| anyhow::anyhow!("Failed to create error config"))?;
         pyrefly_cfg.root.errors = Some(error_config);
         Ok(())
     }
