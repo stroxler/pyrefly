@@ -453,6 +453,8 @@ mod tests {
                 Target::from_string("//external:package".to_owned()),
             ModulePathBuf::new(PathBuf::from("/path/to/another/repository/package/external_package/non_python_file.thrift")) =>
                 Target::from_string("//external:package".to_owned()),
+            ModulePathBuf::new(root.join("generated/main.py")) => Target::from_string("//generated:main".to_owned()),
+            ModulePathBuf::new(root.join("build-out/materialized/generated/__init__.py")) => Target::from_string("//generated:lib".to_owned()),
         };
 
         assert_eq!(expected, path_lookup);
@@ -497,7 +499,13 @@ mod tests {
             },
             ModulePathBuf::new(PathBuf::from("/path/to/another/repository/package/external_package")) => smallset! {
                 Target::from_string("//external:package".to_owned()),
-            }
+            },
+            ModulePathBuf::new(root.join("generated")) => smallset! {
+                Target::from_string("//generated:main".to_owned()),
+            },
+            ModulePathBuf::new(root.join("build-out/materialized/generated/__init__.py")) => smallset! {
+                Target::from_string("//generated:lib".to_owned()),
+            },
         };
         assert_eq!(path_lookup, expected);
     }
@@ -657,6 +665,8 @@ mod tests {
             None,
             None,
         );
+
+        assert_lookup("generated", "generated/main.py", None, Some("generated"));
     }
 
     #[test]
@@ -710,6 +720,7 @@ mod tests {
                         &[],
                         "colorama/BUCK",
                         &[],
+                        None,
                     ),
                     Target::from_string("//pyre/client/log:log".to_owned()) => TargetManifest::lib(
                         &[
@@ -730,6 +741,7 @@ mod tests {
                         &[],
                         "pyre/client/log/BUCK",
                         &[],
+                        None,
                     ),
                     Target::from_string("//implicit_package/test:lib".to_owned()) => TargetManifest::lib(
                         &[
@@ -745,6 +757,7 @@ mod tests {
                         ("implicit_package", &["implicit_package/test"]),
                         ("implicit_package/lib", &["implicit_package/test/lib"]),
                         ],
+                        None,
                     ),
             },
             root.clone(),
