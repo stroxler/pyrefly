@@ -1933,6 +1933,22 @@ impl<'a> Transaction<'a> {
         results
     }
 
+    /// Finds all local keyword argument references that correspond to a specific parameter definition.
+    ///
+    /// Given a parameter's definition range and name, this function identifies all keyword arguments
+    /// in function calls within the same module that refer to this parameter. This is useful for
+    /// LSP features like "Find All References" for function parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `handle` - Handle to the module containing the parameter definition
+    /// * `definition_range` - The text range where the parameter is defined
+    /// * `expected_name` - The name of the parameter to search for
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(Vec<TextRange>)` containing the text ranges of all keyword argument usages
+    /// that reference this parameter definition, or `None` if the AST cannot be retrieved.
     pub(crate) fn local_keyword_argument_references_from_parameter_definition(
         &self,
         handle: &Handle,
