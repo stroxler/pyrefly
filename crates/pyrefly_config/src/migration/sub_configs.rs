@@ -298,16 +298,16 @@ mod tests {
         let env1 = ExecEnv {
             root: "src".to_owned(),
             errors: RuleOverrides {
-                report_missing_imports: Some(false),
-                report_missing_module_source: None,
+                report_missing_imports: Some(Severity::Ignore),
+                ..Default::default()
             },
         };
 
         let env2 = ExecEnv {
             root: "tests".to_owned(),
             errors: RuleOverrides {
-                report_missing_imports: None,
-                report_missing_module_source: Some(true),
+                report_missing_module_source: Some(Severity::Error),
+                ..Default::default()
             },
         };
 
