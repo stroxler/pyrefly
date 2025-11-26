@@ -750,6 +750,16 @@ impl<'a> TypeDisplayContext<'a> {
         self.fmt_helper_generic(t, is_toplevel, output)
     }
 
+    /// This method wraps `fmt_helper_generic` with `OutputWithLocations` to track
+    /// the source location (module and text range) of each type component in the output
+    /// This is useful for IDE features like goto-type-definition
+    /// where you need to map displayed type names back to their source locations.
+    ///
+    /// # Returns
+    ///
+    /// Unlike fmt_helper and fmt_helper_generic this function will not return a Result.
+    /// Instead it will return an `OutputWithLocations` containing both the formatted string and location
+    /// information for each part that has a source location.
     pub fn get_types_with_location<'b>(
         &self,
         t: &'b Type,
