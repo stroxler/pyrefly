@@ -111,8 +111,35 @@ fn code_to_kind(errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig>
             "assignment" => add(severity, ErrorKind::BadAssignment),
             "call-arg" => add(severity, ErrorKind::BadArgumentCount),
             "call-overload" => add(severity, ErrorKind::NoMatchingOverload),
-            "index" | "operator" => add(severity, ErrorKind::UnsupportedOperation),
+            "index" => {
+                add(severity, ErrorKind::BadIndex);
+                add(severity, ErrorKind::UnsupportedOperation);
+            }
             "dict-item" => add(severity, ErrorKind::BadTypedDict),
+            "operator" => add(severity, ErrorKind::UnsupportedOperation),
+            "typeddict-unknown-key" => add(severity, ErrorKind::BadTypedDictKey),
+            "typeddict-readonly-mutated" => add(severity, ErrorKind::ReadOnly),
+            "name-defined" => add(severity, ErrorKind::UnknownName),
+            "used-before-def" | "possibly-undefined" => add(severity, ErrorKind::UnboundName),
+            "valid-type" => add(severity, ErrorKind::InvalidAnnotation),
+            "type-arg" => add(severity, ErrorKind::ImplicitAny),
+            "metaclass" => add(severity, ErrorKind::InvalidInheritance),
+            "override" => add(severity, ErrorKind::BadOverride),
+            "return" | "return-value" => add(severity, ErrorKind::BadReturn),
+            "type-var" => add(severity, ErrorKind::BadSpecialization),
+            "import" | "import-not-found" => add(severity, ErrorKind::MissingImport),
+            "import-untyped" => add(severity, ErrorKind::UntypedImport),
+            "abstract" => add(severity, ErrorKind::BadInstantiation),
+            "no-overload-impl" => add(severity, ErrorKind::InvalidOverload),
+            "unused-coroutine" | "unused-awaitable" => add(severity, ErrorKind::UnusedCoroutine),
+            "top-level-await" | "await-not-async" => add(severity, ErrorKind::NotAsync),
+            "assert-type" => add(severity, ErrorKind::AssertType),
+            "syntax" => add(severity, ErrorKind::ParseError),
+            "redundant-cast" => add(severity, ErrorKind::RedundantCast),
+            "redundant-expr" | "truthy-function" | "truthy-bool" | "truthy-iterable" => {
+                add(severity, ErrorKind::RedundantCondition)
+            }
+            "deprecated" => add(severity, ErrorKind::Deprecated),
             _ => {}
         }
     }

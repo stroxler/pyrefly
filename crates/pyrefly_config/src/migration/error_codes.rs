@@ -211,9 +211,9 @@ mod tests {
     }
 
     #[test]
-    fn test_migrate_from_mypy_with_dict_item_disabled_error_code() {
+    fn test_migrate_from_mypy_with_bad_return_disabled_error_code() {
         let mut mypy_cfg = Ini::new();
-        mypy_cfg.set("mypy", "disable_error_code", Some("dict-item".to_owned()));
+        mypy_cfg.set("mypy", "disable_error_code", Some("return".to_owned()));
 
         let mut pyrefly_cfg = ConfigFile::default();
 
@@ -222,13 +222,13 @@ mod tests {
 
         assert!(pyrefly_cfg.root.errors.is_some());
         let errors = pyrefly_cfg.root.errors.as_ref().unwrap();
-        assert_eq!(errors.severity(ErrorKind::BadTypedDict), Severity::Ignore);
+        assert_eq!(errors.severity(ErrorKind::BadReturn), Severity::Ignore);
     }
 
     #[test]
-    fn test_migrate_from_mypy_with_dict_item_enabled_error_code() {
+    fn test_migrate_from_mypy_with_type_arg_enabled_error_code() {
         let mut mypy_cfg = Ini::new();
-        mypy_cfg.set("mypy", "enable_error_code", Some("dict-item".to_owned()));
+        mypy_cfg.set("mypy", "enable_error_code", Some("type-arg".to_owned()));
 
         let mut pyrefly_cfg = ConfigFile::default();
 
@@ -237,6 +237,6 @@ mod tests {
 
         assert!(pyrefly_cfg.root.errors.is_some());
         let errors = pyrefly_cfg.root.errors.as_ref().unwrap();
-        assert_eq!(errors.severity(ErrorKind::BadTypedDict), Severity::Error);
+        assert_eq!(errors.severity(ErrorKind::ImplicitAny), Severity::Error);
     }
 }
