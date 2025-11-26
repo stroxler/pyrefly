@@ -122,7 +122,7 @@ fn code_to_kind(errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig>
             "name-defined" => add(severity, ErrorKind::UnknownName),
             "used-before-def" | "possibly-undefined" => add(severity, ErrorKind::UnboundName),
             "valid-type" => add(severity, ErrorKind::InvalidAnnotation),
-            "type-arg" => add(severity, ErrorKind::ImplicitAny),
+            "type-arg" | "no-untyped-def" => add(severity, ErrorKind::ImplicitAny),
             "metaclass" => add(severity, ErrorKind::InvalidInheritance),
             "override" => add(severity, ErrorKind::BadOverride),
             "return" | "return-value" => add(severity, ErrorKind::BadReturn),
