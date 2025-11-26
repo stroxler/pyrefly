@@ -1677,6 +1677,10 @@ impl<'a> Transaction<'a> {
         Some(code_actions)
     }
 
+    /// Determines whether a module is a third-party package.
+    ///
+    /// Checks if the module's path is located within any of the configured
+    /// site-packages directories (e.g., `site-packages/`, `dist-packages/`).
     fn is_third_party_module(&self, module: &Module, handle: &Handle) -> bool {
         let config = self.get_config(handle);
         let module_path = module.path();
