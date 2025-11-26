@@ -93,59 +93,28 @@ pub fn make_error_config(
     code_to_kind(errors)
 }
 
-/// Convert mypy error codes to pyrefly ErrorKinds. This consumes the input map.
-// One or more error codes can map to the same ErrorKind, and this must be taken into consideration when adding a new error code.
-// If the error code is the only one that maps to a specific ErrorKind:
-//     if let Some(value) = errors.remove("error-thing") {
-//       map.insert(ErrorKind::Unknown, value);
-//     }
-// If multiple error codes map to the same ErrorKind:
-//     if let Some(import_error) = [
-//         error.remove("error-thing"),
-//         error.remove("other-thing"),
-//     ]
-//     .into_iter()
-//     .flatten()  // get rid of the ones that are None
-//     .reduce(|acc, x| acc | x)  // OR them together
-//     {
-//         map.insert(ErrorKind::Unknown, import_error);
-//     }
-fn code_to_kind(mut errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
+/// Convert mypy error codes to pyrefly ErrorKinds.
+fn code_to_kind(errors: HashMap<String, Severity>) -> Option<ErrorDisplayConfig> {
     let mut map = HashMap::new();
-    if let Some(value) = [errors.remove("union-attr"), errors.remove("attr-defined")]
-        .into_iter()
-        .flatten()
-        .max()
-    {
-        map.insert(ErrorKind::MissingAttribute, value);
-    }
+    let mut add = |value, kind| {
+        // If multiple Mypy overrides map to the same Pyrefly error
+        // use the maximum severity.
+        if map.get(&kind).is_none_or(|x| *x < value) {
+            map.insert(kind, value);
+        }
+    };
 
-    if let Some(value) = [errors.remove("arg-type")].into_iter().flatten().max() {
-        map.insert(ErrorKind::BadArgumentType, value);
-    }
-
-    if let Some(value) = [errors.remove("assignment")].into_iter().flatten().max() {
-        map.insert(ErrorKind::BadAssignment, value);
-    }
-
-    if let Some(value) = [errors.remove("call-arg")].into_iter().flatten().max() {
-        map.insert(ErrorKind::BadArgumentCount, value);
-    }
-
-    if let Some(value) = [errors.remove("call-overload")].into_iter().flatten().max() {
-        map.insert(ErrorKind::NoMatchingOverload, value);
-    }
-
-    if let Some(value) = [errors.remove("index"), errors.remove("operator")]
-        .into_iter()
-        .flatten()
-        .max()
-    {
-        map.insert(ErrorKind::UnsupportedOperation, value);
-    }
-
-    if let Some(value) = [errors.remove("dict-item")].into_iter().flatten().max() {
-        map.insert(ErrorKind::BadTypedDict, value);
+    for (code, severity) in errors {
+        match code.as_str() {
+            "union-attr" | "attr-defined" => add(severity, ErrorKind::MissingAttribute),
+            "arg-type" => add(severity, ErrorKind::BadArgumentType),
+            "assignment" => add(severity, ErrorKind::BadAssignment),
+            "call-arg" => add(severity, ErrorKind::BadArgumentCount),
+            "call-overload" => add(severity, ErrorKind::NoMatchingOverload),
+            "index" | "operator" => add(severity, ErrorKind::UnsupportedOperation),
+            "dict-item" => add(severity, ErrorKind::BadTypedDict),
+            _ => {}
+        }
     }
 
     if map.is_empty() {
