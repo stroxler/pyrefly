@@ -1900,6 +1900,30 @@ impl<'a> Transaction<'a> {
         .unwrap_or_default()
     }
 
+    /// Collects all keyword arguments with a specific name within a module.
+    ///
+    /// This function traverses the AST of the given module and identifies all function calls
+    /// that use a keyword argument matching the expected name. For each match, it captures
+    /// both the keyword argument identifier and information about the function being called.
+    ///
+    /// # Arguments
+    ///
+    /// * `handle` - Handle to the module to search within
+    /// * `expected_name` - The name of the keyword argument to search for
+    ///
+    /// # Returns
+    ///
+    /// A vector of tuples, where each tuple contains:
+    /// - `Identifier`: The keyword argument identifier that matched the expected name
+    /// - `CalleeKind`: Information about the function being called with this keyword argument
+    ///
+    /// Returns an empty vector if the AST cannot be retrieved.
+    ///
+    /// # Example
+    ///
+    /// For a module containing calls like `foo(bar=1)` and `baz(bar=2)`, searching for
+    /// the name `bar` would return both keyword argument identifiers along with their
+    /// respective callee information (`foo` and `baz`).
     pub(self) fn collect_local_keyword_arguments_by_name(
         &self,
         handle: &Handle,
