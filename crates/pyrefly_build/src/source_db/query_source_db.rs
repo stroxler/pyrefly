@@ -174,6 +174,7 @@ impl QuerySourceDatabase {
     ) -> Option<ModulePath> {
         let mut queue = VecDeque::new();
         let mut visited = SmallSet::new();
+        let mut namespace_candidates: SmallSet<ModulePath> = SmallSet::new();
         queue.push_front(target);
 
         while let Some(current_target) = queue.pop_front() {
@@ -185,18 +186,17 @@ impl QuerySourceDatabase {
             };
 
             match self.find_in_manifest(module, manifest, style_filter) {
-                // Return the value immediately. It's safe to return
-                // a implicit package here instead of continuing to search
-                // because during build system building, an __init__.py file will
-                // be output.
-                Some(Ok(result) | Err(result)) => return Some(result),
+                Some(Ok(result)) => return Some(result),
+                Some(Err(result)) => {
+                    namespace_candidates.insert(result);
+                }
                 _ => (),
             }
 
             manifest.deps.iter().for_each(|t| queue.push_back(t.dupe()));
         }
 
-        None
+        namespace_candidates.into_iter().min()
     }
 }
 
@@ -258,7 +258,8 @@ impl SourceDatabase for QuerySourceDatabase {
                     _ => (),
                 }
             }
-            return package_matches.into_iter().min();
+            // just take the first namespace package we found
+            return package_matches.into_iter().next();
         }
 
         None
@@ -666,7 +667,12 @@ mod tests {
             None,
         );
 
-        assert_lookup("generated", "generated/main.py", None, Some("generated"));
+        assert_lookup(
+            "generated",
+            "generated/main.py",
+            None,
+            Some("build-out/materialized/generated/__init__.py"),
+        );
     }
 
     #[test]
