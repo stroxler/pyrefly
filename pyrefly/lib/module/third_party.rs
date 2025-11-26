@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use anyhow::anyhow;
+use dupe::Dupe;
 use pyrefly_config::config::ConfigFile;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -18,6 +19,7 @@ use pyrefly_util::arc_id::ArcId;
 use starlark_map::small_map::SmallMap;
 
 use crate::module::bundled::BundledStub;
+use crate::module::bundled::create_bundled_stub_config;
 
 #[expect(dead_code)]
 pub struct BundledThirdParty {
@@ -48,8 +50,11 @@ impl BundledStub for BundledThirdParty {
     }
 
     fn config() -> ArcId<ConfigFile> {
-        // todo:(jvansch) This is just a mock, actual logic will be implemented later
-        ArcId::new(ConfigFile::default())
+        static CONFIG: LazyLock<ArcId<ConfigFile>> = LazyLock::new(|| {
+            let config_file = create_bundled_stub_config(None, None);
+            ArcId::new(config_file)
+        });
+        CONFIG.dupe()
     }
 
     fn get_path_name(&self) -> String {
