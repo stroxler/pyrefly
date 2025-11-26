@@ -352,6 +352,24 @@ impl SourceDatabase for QuerySourceDatabase {
         let read = self.inner.read();
         read.path_lookup.get(&origin).copied()
     }
+
+    fn get_generated_files(&self) -> SmallSet<ModulePathBuf> {
+        let read = self.inner.read();
+        read.db
+            .values()
+            .filter_map(|x| {
+                let buck_root = x.buildfile_path.parent()?;
+                Some(
+                    x.srcs
+                        .values()
+                        .flatten()
+                        .filter(move |p| !p.starts_with(buck_root))
+                        .copied(),
+                )
+            })
+            .flatten()
+            .collect()
+    }
 }
 
 #[cfg(test)]

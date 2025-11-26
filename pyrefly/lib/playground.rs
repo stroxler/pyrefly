@@ -105,6 +105,10 @@ impl SourceDatabase for PlaygroundSourceDatabase {
     fn get_target(&self, _: Option<&Path>) -> Option<Target> {
         None
     }
+
+    fn get_generated_files(&self) -> SmallSet<ModulePathBuf> {
+        SmallSet::new()
+    }
 }
 
 #[derive(Serialize)]

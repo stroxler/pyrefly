@@ -120,4 +120,6 @@ pub trait SourceDatabase: Send + Sync + fmt::Debug {
     fn get_paths_to_watch(&self) -> SmallSet<WatchPattern<'_>>;
     /// Get the target for the given [`ModulePath`], if one exists.
     fn get_target(&self, origin: Option<&Path>) -> Option<Target>;
+    /// Get any generated files for which we might have to override the config finder.
+    fn get_generated_files(&self) -> SmallSet<ModulePathBuf>;
 }
