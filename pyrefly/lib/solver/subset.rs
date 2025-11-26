@@ -1375,8 +1375,12 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 match variances.get(param.name()) {
                     Variance::Covariant => self.is_subset_eq(got_arg, want_arg)?,
                     Variance::Contravariant => self.is_subset_eq(want_arg, got_arg)?,
-                    Variance::Invariant => self.is_equal(got_arg, want_arg)?,
-                    Variance::Bivariant => {}
+                    // Technically, the right thing to do for bivariance would be to skip the
+                    // subset check. However, this leads to confusing and unintuitive behavior,
+                    // so we treat bivariant type parameters as invariant instead.
+                    Variance::Invariant | Variance::Bivariant => {
+                        self.is_equal(got_arg, want_arg)?
+                    }
                 }
             }
         }

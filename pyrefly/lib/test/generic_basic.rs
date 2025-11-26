@@ -87,7 +87,7 @@ assert_type(C2[int], type[C2[int, *tuple[Any, ...]]])
 );
 
 testcase!(
-    bug = "same result in pyright, but revisit this once variance is implemented for properties",
+    bug = "T is pinned prematurely due to https://github.com/facebook/pyrefly/issues/105",
     test_generics,
     r#"
 from typing import Literal
@@ -95,7 +95,7 @@ class C[T]: ...
 def append[T](x: C[T], y: T):
     pass
 v: C[int] = C()
-append(v, "test") 
+append(v, "test")  # E: `Literal['test']` is not assignable to parameter `y` with type `int`
 "#,
 );
 testcase!(
