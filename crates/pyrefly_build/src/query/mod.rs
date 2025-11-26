@@ -147,14 +147,26 @@ impl PythonLibraryManifest {
         }
         let relative_to = self.relative_to.as_deref().unwrap_or(root);
         self.srcs.iter_mut().for_each(|(_, paths)| {
-            paths
-                .iter_mut()
-                .for_each(|p| *p = ModulePathBuf::new(relative_to.join(&**p)))
+            paths.iter_mut().for_each(|p| {
+                let resolved = relative_to.join(&**p);
+                // canonicalize it, since VSCode will do it for us anyway and
+                // then path lookups won't work
+                // TODO(connernilsen): do we need to store canonicalized files and
+                // buck-provided files?
+                let file = resolved.canonicalize().unwrap_or(resolved);
+                *p = ModulePathBuf::new(file)
+            })
         });
         self.packages.iter_mut().for_each(|(_, paths)| {
-            paths
-                .iter_mut()
-                .for_each(|p| *p = ModulePathBuf::new(relative_to.join(&**p)))
+            paths.iter_mut().for_each(|p| {
+                let resolved = relative_to.join(&**p);
+                // canonicalize it, since VSCode will do it for us anyway and
+                // then path lookups won't work
+                // TODO(connernilsen): do we need to store canonicalized files and
+                // buck-provided files?
+                let file = resolved.canonicalize().unwrap_or(resolved);
+                *p = ModulePathBuf::new(file)
+            })
         });
         self.buildfile_path = root.join(&self.buildfile_path);
     }

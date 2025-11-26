@@ -357,15 +357,20 @@ impl SourceDatabase for QuerySourceDatabase {
         let read = self.inner.read();
         read.db
             .values()
-            .filter_map(|x| {
-                let buck_root = x.buildfile_path.parent()?;
-                Some(
-                    x.srcs
-                        .values()
-                        .flatten()
-                        .filter(move |p| !p.starts_with(buck_root))
-                        .copied(),
-                )
+            .filter_map(|x| -> Option<Box<dyn Iterator<Item = ModulePathBuf>>> {
+                if x.relative_to.is_some() {
+                    Some(Box::new(x.srcs.values().flatten().copied()))
+                } else if let Some(build_root) = x.buildfile_path.parent() {
+                    Some(Box::new(
+                        x.srcs
+                            .values()
+                            .flatten()
+                            .filter(move |p| !p.starts_with(build_root))
+                            .copied(),
+                    ))
+                } else {
+                    None
+                }
             })
             .flatten()
             .collect()
