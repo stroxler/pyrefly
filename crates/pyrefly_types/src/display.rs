@@ -274,6 +274,27 @@ impl<'a> TypeDisplayContext<'a> {
         Ok(())
     }
 
+    /// Core formatting logic for types that works with any `TypeOutput` implementation.
+    ///
+    /// This is the main workhorse method for type formatting. It handles all type variants
+    /// and applies context-aware disambiguation based on the qnames seen during context
+    /// construction. The method uses the `TypeOutput` trait abstraction to write output,
+    /// allowing it to work with different backends (e.g., `DisplayOutput` for plain text
+    /// or `OutputWithLocations` for tracking source locations).
+    ///
+    /// # Arguments
+    ///
+    /// * `t` - The type to format
+    /// * `is_toplevel` - Whether this type is at the top level of the display.
+    ///   - When `true` and hover mode is enabled:
+    ///     - Callables, functions, and overloads are formatted with newlines for readability
+    ///     - Functions show `def func_name(...)` syntax instead of compact callable syntax
+    ///     - Overloads are displayed with `@overload` decorators
+    ///     - Type aliases are expanded to show their definition
+    ///   - When `false`, these types use compact inline formatting.
+    /// * `output` - The output writer implementing `TypeOutput`. This abstraction allows
+    ///   the same formatting logic to be used for different purposes (plain formatting,
+    ///   location tracking, etc.)
     pub fn fmt_helper_generic(
         &self,
         t: &Type,
