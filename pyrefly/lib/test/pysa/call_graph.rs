@@ -3635,7 +3635,7 @@ def foo(x: Union[A, B]):
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                // TODO: Handle union types for string conversion functions. Also handle `object.__class__`
+                // TODO: Handle `object.__class__`
                 (
                     "9:6-9:17|artificial-call|format-string-stringify",
                     call_callees(
@@ -3646,6 +3646,43 @@ def foo(x: Union[A, B]):
                         /* unresolved */
                         Unresolved::True(UnresolvedReason::UnexpectedDefiningClass),
                     ),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_format_string_on_union,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Union
+class A:
+  def __str__(self):
+    return "A"
+class B:
+  def __str__(self):
+    return "B"
+def foo(x: Union[A, B]):
+  f"{x}"
+"#,
+    &|context: &ModuleContext| {
+        let a_str = create_call_target("test.A.__str__", TargetType::Function)
+            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+            .with_receiver_class_for_test("test.A", context);
+        let b_str = create_call_target("test.B.__str__", TargetType::Function)
+            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+            .with_receiver_class_for_test("test.B", context);
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "10:3-10:9|artificial-call|format-string-artificial",
+                    format_string_artificial_callees(),
+                ),
+                (
+                    "10:6-10:7|artificial-call|format-string-stringify",
+                    regular_call_callees(vec![a_str, b_str]),
                 ),
             ],
         )]

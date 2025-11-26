@@ -1090,7 +1090,7 @@ fn string_conversion_redirection(
         // `object.__format__` is implemented as calling `object.__str__`, which calls `object.__repr__`
         Some((class, dunder::REPR))
     } else if class == *object_type {
-        // No more redirection so that the loop terminates
+        // Ensure the redirection call chain terminates
         None
     } else if method == dunder::STR {
         // Technically this redirects to `object.__str__`, which calls `obj.__repr__`
@@ -2498,14 +2498,13 @@ impl<'a> CallGraphVisitor<'a> {
         self.add_callees(identifier, ExpressionCallees::Call(callees))
     }
 
-    fn resolve_and_register_interpolation(
+    fn resolve_interpolation(
         &mut self,
         interpolation: &InterpolatedElement,
         callee_class: Type,
         expression_range: TextRange,
-        identifier: ExpressionIdentifier,
         object_type: &Type,
-    ) {
+    ) -> CallCallees<FunctionRef> {
         let mut callee_class = callee_class;
         let mut callee_name = match interpolation.conversion {
             ConversionFlag::None => dunder::FORMAT,
@@ -2520,7 +2519,7 @@ impl<'a> CallGraphVisitor<'a> {
                 expression_range,
                 /* callee_expr */ None,
                 /* unknown_callee_as_direct_call */ true,
-                "resolve_and_register_interpolation",
+                "resolve_interpolation",
                 /* exclude_object_methods */ true,
             );
             let should_redirect = callees.unresolved
@@ -2534,8 +2533,7 @@ impl<'a> CallGraphVisitor<'a> {
                 callee_class = new_callee_class;
                 callee_name = new_callee_name;
             } else {
-                self.add_callees(identifier, ExpressionCallees::Call(callees));
-                break;
+                return callees;
             }
         }
     }
@@ -2552,33 +2550,41 @@ impl<'a> CallGraphVisitor<'a> {
         );
 
         let object_type = self.module_context.stdlib.object().clone().to_type();
-        for element in fstring.value.elements() {
-            if let Some(interpolation) = element.as_interpolation() {
-                {
-                    let expression_range = interpolation.expression.range();
-                    let callee_class = self.module_context.answers.get_type_trace(expression_range);
-                    let identifier = ExpressionIdentifier::ArtificialCall(Origin {
-                        kind: OriginKind::FormatStringStringify,
-                        location: self.pysa_location(expression_range),
-                    });
-                    if callee_class.is_none() {
-                        self.add_callees(
-                            identifier,
-                            ExpressionCallees::Call(CallCallees::new_unresolved(
-                                UnresolvedReason::UnresolvedMagicDunderAttrDueToNoBase,
-                            )),
-                        );
-                        continue;
-                    }
-                    self.resolve_and_register_interpolation(
-                        interpolation,
-                        callee_class.unwrap(),
-                        expression_range,
-                        identifier,
-                        &object_type,
-                    );
-                }
-            }
+        for interpolation in fstring
+            .value
+            .elements()
+            .filter_map(|element| element.as_interpolation())
+        {
+            let expression_range = interpolation.expression.range();
+            let callee_class = self.module_context.answers.get_type_trace(expression_range);
+            let callees = if let Some(callee_class) = callee_class {
+                let callee_classes = match callee_class {
+                    Type::Union(types) => types.members,
+                    _ => vec![callee_class],
+                };
+                callee_classes
+                    .into_iter()
+                    .map(|callee_class| {
+                        self.resolve_interpolation(
+                            interpolation,
+                            callee_class,
+                            expression_range,
+                            &object_type,
+                        )
+                    })
+                    .reduce(|mut so_far, call_target| {
+                        so_far.join_in_place(call_target);
+                        so_far
+                    })
+                    .unwrap()
+            } else {
+                CallCallees::new_unresolved(UnresolvedReason::UnresolvedMagicDunderAttrDueToNoBase)
+            };
+            let identifier = ExpressionIdentifier::ArtificialCall(Origin {
+                kind: OriginKind::FormatStringStringify,
+                location: self.pysa_location(expression_range),
+            });
+            self.add_callees(identifier, ExpressionCallees::Call(callees));
         }
     }
 
