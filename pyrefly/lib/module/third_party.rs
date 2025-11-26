@@ -58,8 +58,10 @@ impl BundledStub for BundledThirdParty {
     }
 
     fn get_path_name(&self) -> String {
-        // todo:(jvansch) This is just a mock, actual logic will be implemented later
-        String::from("third_party")
+        format!(
+            "pyrefly_bundled_third_party_{}",
+            faster_hex::hex_string(&pyrefly_bundled::BUNDLED_TYPESHED_DIGEST[0..6])
+        )
     }
 
     fn load_map(&self) -> impl Iterator<Item = (&PathBuf, &Arc<String>)> {
