@@ -276,11 +276,12 @@ impl<'a> TypeDisplayContext<'a> {
 
     /// Core formatting logic for types that works with any `TypeOutput` implementation.
     ///
-    /// This is the main workhorse method for type formatting. It handles all type variants
-    /// and applies context-aware disambiguation based on the qnames seen during context
-    /// construction. The method uses the `TypeOutput` trait abstraction to write output,
-    /// allowing it to work with different backends (e.g., `DisplayOutput` for plain text
+    /// The method uses the `TypeOutput` trait abstraction to write output in various ways.
+    /// This allows it to work for various purposes. (e.g., `DisplayOutput` for plain text
     /// or `OutputWithLocations` for tracking source locations).
+    ///
+    /// Note that the formatted type is not actually returned from this function. The type will
+    /// be collected in whatever `TypeOutput` is provided.
     ///
     /// # Arguments
     ///
@@ -732,6 +733,13 @@ impl<'a> TypeDisplayContext<'a> {
         }
     }
 
+    /// Formats a type to a standard `fmt::Formatter` for display purposes.
+    ///
+    /// This is a convenience wrapper around [`fmt_helper_generic`](Self::fmt_helper_generic)
+    /// that uses `DisplayOutput` to write plain text output. Use this when you need to
+    /// implement the `Display` trait or format types to strings.
+    ///
+    /// See `fmt_helper_generic` for detailed formatting behavior.
     fn fmt_helper<'b>(
         &self,
         t: &'b Type,
