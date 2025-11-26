@@ -83,7 +83,7 @@ pub fn queue_source_db_rebuild_and_recheck(
             .filter(|(c, files)| match ConfigFile::requery_source_db(c, files) {
                 Ok(reloaded) => reloaded,
                 Err(error) => {
-                    info!("Error reloading source database for config: {error}");
+                    info!("Error reloading source database for config: {error:?}");
                     false
                 }
             })

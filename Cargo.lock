@@ -2073,6 +2073,7 @@ version = "0.43.1"
 dependencies = [
  "anyhow",
  "dupe",
+ "itertools 0.14.0",
  "pretty_assertions",
  "pyrefly_python",
  "pyrefly_util",

@@ -15,6 +15,7 @@ use std::process::Command;
 
 use anyhow::Context as _;
 use dupe::Dupe as _;
+use itertools::Itertools as _;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePathBuf;
 use pyrefly_python::sys_info::SysInfo;
@@ -98,12 +99,39 @@ pub trait SourceDbQuerier: Send + Sync + fmt::Debug {
             ));
         }
 
-        serde_json::from_slice(&result.stdout).with_context(|| {
-            format!(
-                "Failed to construct valid `TargetManifestDatabase` from querier result. Command run: `{}`",
-                cmd.get_program().display(),
-            )
-        })
+        match serde_json::from_slice(&result.stdout)
+                .with_context(|| {
+                    format!(
+                        "Failed to construct valid `TargetManifestDatabase` from querier result. Command run: {} {}",
+                        cmd.get_program().display(),
+                        cmd.get_args().map(|a| a.to_string_lossy()).join(" "),
+                    )
+                }) {
+            Err(e) => {
+                let Some(downcast) = e.downcast_ref::<serde_json::error::Error>() else {
+                    return Err(e);
+                };
+                let Ok(content) = String::from_utf8(result.stdout) else {
+                    return Err(e);
+                };
+                let lines = content.lines().collect::<Vec<_>>();
+                let error_line = downcast.line();
+                let start = std::cmp::max(0, error_line - 30);
+                let end = std::cmp::min(lines.len() - 1, error_line + 20);
+                let cont = std::cmp::min(error_line + 1, end);
+
+                let e = e.context(
+                    format!(
+                        "Context: ```\n{} # THIS LINE HAS A PROBLEM\n{}\n```",
+                        lines[start..=error_line].iter().join("\n"),
+                        lines[cont..=end].iter().join("\n"),
+                    )
+                );
+
+                Err(e)
+            },
+            ok => ok,
+        }
     }
 
     fn construct_command(&self) -> Command;
