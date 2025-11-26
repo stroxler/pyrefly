@@ -782,8 +782,7 @@ impl Solver {
         let lock = self.variables.lock();
         targs.iter_paired_mut().for_each(|(param, t)| {
             if let Type::Var(v) = t
-                && let Variable::Quantified(q) = &*lock.get(*v)
-                && **q == param.quantified
+                && !matches!(&*lock.get(*v), Variable::Answer(_))
             {
                 *t = param.quantified.clone().to_type();
             }

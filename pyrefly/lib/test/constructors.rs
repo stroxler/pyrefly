@@ -604,3 +604,27 @@ assert_type(C(True), C[A])
 assert_type(C(False), C[B])
     "#,
 );
+
+testcase!(
+    test_generic_in_generic,
+    r#"
+from typing import Literal, assert_type, overload
+
+class A: ...
+class B: ...
+
+class TypeEngine[T]: ...
+
+class UUID[T: (A, B)](TypeEngine[T]):
+    @overload
+    def __init__(self: UUID[A], as_uuid: Literal[True]) -> None: ...
+    @overload
+    def __init__(self: UUID[B], as_uuid: Literal[False]) -> None: ...
+    def __init__(self, as_uuid): ...
+
+class Column[T]:
+    def __init__(self, ty: TypeEngine[T]) -> None: ...
+
+assert_type(Column(UUID(as_uuid=False)), Column[B])
+    "#,
+);
