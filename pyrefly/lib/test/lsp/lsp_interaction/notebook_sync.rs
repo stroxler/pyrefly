@@ -168,7 +168,7 @@ fn test_notebook_completion_parse_error() {
         },
         "message": "Parse error: Expected an identifier",
         "range": {
-            "end": {"character": 0, "line": 4},
+            "end": {"character": 0, "line": 2}, // This is actually 0:0 in the "next" cell
             "start": {"character": 2, "line": 1}
         },
         "severity": 1,

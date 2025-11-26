@@ -1248,8 +1248,7 @@ foo("
 4 | foo("
          ^
 Completion Results:
-- (Value) 'a\nb': Literal['a\nb']
-- (Variable) x=: Literal['a\nb']"#
+- (Value) 'a\nb': Literal['a\nb']"#
             .trim(),
         report.trim(),
     );
@@ -1298,7 +1297,6 @@ foo('
 Completion Results:
 - (Value) 'bar': Literal['bar']
 - (Value) 'foo': Literal['foo']
-- (Variable) x=: Literal['bar', 'foo']
 "#
         .trim(),
         report.trim(),
@@ -1413,7 +1411,7 @@ Completion Results:
 #[test]
 fn completion_dict() {
     let code = r#"
-x = {"a": 3, "b", 4}
+x = {"a": 3, "b": 4}
 x["
 # ^
 "#;
@@ -1425,7 +1423,6 @@ x["
 3 | x["
       ^
 Completion Results:
-- (Variable) x: dict[int | str, int]
 "#
         .trim(),
         report.trim(),

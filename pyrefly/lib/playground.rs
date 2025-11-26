@@ -668,7 +668,7 @@ mod tests {
 
         let expected_headers = &[
             "Could not find import of `t`",
-            "Parse error: Expected 'import', found newline",
+            "Parse error: Expected `import`, found newline",
         ];
         let expected_details = &[
             "  Looked in these locations:\n  Build system source database",
