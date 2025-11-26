@@ -44,8 +44,7 @@ impl BundledStub for BundledThirdParty {
     }
 
     fn modules(&self) -> impl Iterator<Item = ModuleName> {
-        // todo:(jvansch) This is just a mock, actual logic will be implemented later
-        std::iter::empty()
+        self.find.keys().copied()
     }
 
     fn config() -> ArcId<ConfigFile> {
