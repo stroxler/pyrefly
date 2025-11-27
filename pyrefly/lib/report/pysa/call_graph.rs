@@ -23,12 +23,14 @@ use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
 use pyrefly_types::types::Union;
+use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::ArgOrKeyword;
 use ruff_python_ast::Comprehension;
 use ruff_python_ast::ConversionFlag;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprFString;
@@ -87,6 +89,7 @@ pub enum OriginKind {
     SubscriptSetItem,
     FormatStringArtificial,
     FormatStringStringify,
+    BinaryOperator,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -102,6 +105,7 @@ impl std::fmt::Display for OriginKind {
             Self::SubscriptSetItem => write!(f, "subscript-set-item"),
             Self::FormatStringArtificial => write!(f, "format-string-artificial"),
             Self::FormatStringStringify => write!(f, "format-string-stringify"),
+            Self::BinaryOperator => write!(f, "binary"),
         }
     }
 }
@@ -1745,6 +1749,35 @@ impl<'a> CallGraphVisitor<'a> {
                 )
                 .into_call_callees()
             }
+            Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::BoundMethodOverload(
+                type_,
+                targets,
+                ..,
+            ))) => {
+                targets
+                    .map(|target| {
+                        self.call_targets_from_method_name(
+                            &method_name_from_function(&target.1),
+                            Some(&type_),
+                            callee_expr,
+                            callee_type,
+                            return_type,
+                            /* is_bound_method */ true,
+                            callee_expr_suffix,
+                            /* override_implicit_receiver*/ None,
+                            /* override_is_direct_call */ None,
+                            unknown_callee_as_direct_call,
+                            exclude_object_methods,
+                        )
+                        .into_call_callees()
+                    })
+                    .into_iter()
+                    .reduce(|mut left, right| {
+                        left.join_in_place(right);
+                        left
+                    })
+                    .unwrap()
+            }
             Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::Function(function))) => {
                 // Sometimes this means calling a function (e.g., static method) on a class instance. Sometimes
                 // this could be simply calling a module top-level function, which can be handled when the stack
@@ -2588,6 +2621,29 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_and_register_binop(&mut self, bin_op: &ExprBinOp) {
+        let callee_name = bin_op.op.dunder();
+        let lhs_range = bin_op.left.range();
+        let DunderAttrCallees { callees, .. } = self.call_targets_from_magic_dunder_attr(
+            /* base */
+            self.module_context
+                .answers
+                .get_type_trace(lhs_range)
+                .as_ref(),
+            /* attribute */ Some(&Name::new_static(callee_name)),
+            lhs_range,
+            /* callee_expr */ None,
+            /* unknown_callee_as_direct_call */ true,
+            "resolve_and_register_binop",
+            /* exclude_object_methods */ false,
+        );
+        let identifier = ExpressionIdentifier::ArtificialCall(Origin {
+            kind: OriginKind::BinaryOperator,
+            location: self.pysa_location(bin_op.range()),
+        });
+        self.add_callees(identifier, ExpressionCallees::Call(callees));
+    }
+
     fn resolve_and_register_expression(
         &mut self,
         expr: &Expr,
@@ -2683,6 +2739,10 @@ impl<'a> CallGraphVisitor<'a> {
             Expr::FString(fstring) => {
                 debug_println!(self.debug, "Resolving callees for fstring `{:#?}`", expr);
                 self.resolve_and_register_fstring(fstring);
+            }
+            Expr::BinOp(bin_op) => {
+                debug_println!(self.debug, "Resolving callees for bin op `{:#?}`", expr);
+                self.resolve_and_register_binop(bin_op);
             }
             _ => {
                 debug_println!(self.debug, "Nothing to resolve in expression `{:#?}`", expr);

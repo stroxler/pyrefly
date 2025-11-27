@@ -2644,6 +2644,15 @@ def foo() -> None:
                     constructor_call_callees(range_init_targets, range_new_targets),
                 ),
                 (
+                    "4:13-4:18|artificial-call|binary",
+                    regular_call_callees(vec![
+                        create_call_target("builtins.int.__add__", TargetType::Function)
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("builtins.int", context)
+                            .with_return_type(Some(ScalarTypeProperties::int())),
+                    ]),
+                ),
+                (
                     "4:28-4:37|artificial-call|generator-iter",
                     regular_call_callees(iter_targets.clone()),
                 ),
@@ -3415,7 +3424,17 @@ def foo(a: A):
 "#,
     &|_context: &ModuleContext| {
         // TODO(T146836847): Missing the stringify callee.
-        vec![("test.foo", vec![])]
+        vec![(
+            "test.foo",
+            vec![(
+                "5:3-5:17|artificial-call|binary",
+                regular_call_callees(vec![
+                    create_call_target("builtins.str.__mod__", TargetType::Function)
+                        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                        .with_return_type(Some(ScalarTypeProperties::none())),
+                ]),
+            )],
+        )]
     }
 );
 
@@ -3752,22 +3771,33 @@ call_graph_testcase!(
 def foo(e: Exception):
   return str(e) + "hello"
 "#,
-    &|_context: &ModuleContext| {
+    &|context: &ModuleContext| {
         vec![(
             "test.foo",
-            vec![(
-                "3:10-3:16",
-                constructor_call_callees(
-                    vec![
-                        create_call_target("builtins.object.__init__", TargetType::Function)
-                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
-                    ],
-                    vec![
-                        create_call_target("builtins.str.__new__", TargetType::Function)
-                            .with_is_static_method(true),
-                    ],
+            vec![
+                (
+                    "3:10-3:16",
+                    constructor_call_callees(
+                        vec![
+                            create_call_target("builtins.object.__init__", TargetType::Function)
+                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+                        ],
+                        vec![
+                            create_call_target("builtins.str.__new__", TargetType::Function)
+                                .with_is_static_method(true),
+                        ],
+                    ),
                 ),
-            )],
+                (
+                    "3:10-3:26|artificial-call|binary",
+                    regular_call_callees(vec![
+                        create_call_target("builtins.str.__add__", TargetType::Function)
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("builtins.str", context)
+                            .with_return_type(Some(ScalarTypeProperties::none())),
+                    ]),
+                ),
+            ],
         )]
     }
 );
