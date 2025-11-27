@@ -562,10 +562,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     {
         let binding = self.bindings().get(idx);
         let answer = K::solve(self, binding, self.base_errors);
-        let (v, rec) = calculation.record_value(answer);
-        // If this was the first write to a Calculation that had a recursive placeholder,
-        // we need to record the placeholder => final answer correspondence.
-        if let Some(r) = rec {
+
+        let v = calculation.record_value(answer, |r, answer| {
             let k = self.bindings().idx_to_key(idx).range();
             // Always force recursive Vars as soon as we produce the final answer. This limits
             // nondeterminism by ensuring that nothing downstream of the cycle can pin the type
@@ -574,11 +572,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //
             // `Var::ZERO` is just a dummy value used by a few of the `K: Solve`
             // implementations that doesn't actually use the Var, so we have to skip it.
-            K::record_recursive(self, k, &v, r, self.base_errors);
+            let final_answer = K::record_recursive(self, k, answer, r, self.base_errors);
             if r != Var::ZERO {
                 self.solver().force_var(r);
             }
-        }
+            final_answer
+        });
         // Handle cycle unwinding, if applicable.
         //
         // TODO(stroxler): we eventually need to use is-a-cycle-active information to isolate
@@ -709,12 +708,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn record_recursive(
         &self,
         loc: TextRange,
-        answer: Type,
+        ty: Type,
         recursive: Var,
         errors: &ErrorCollector,
-    ) {
+    ) -> Type {
         self.solver()
-            .record_recursive::<Ans>(recursive, answer, self.type_order(), errors, loc);
+            .record_recursive::<Ans>(recursive, ty, self.type_order(), errors, loc)
     }
 
     /// Check if `got` matches `want`, returning `want` if the check fails.

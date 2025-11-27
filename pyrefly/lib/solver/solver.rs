@@ -952,7 +952,7 @@ impl Solver {
         type_order: TypeOrder<Ans>,
         errors: &ErrorCollector,
         range: TextRange,
-    ) {
+    ) -> Type {
         fn expand(t: Type, variables: &Variables, recurser: &VarRecurser, res: &mut Vec<Type>) {
             match t {
                 Type::Var(v) if let Some(_guard) = variables.recurse(v, recurser) => {
@@ -996,6 +996,17 @@ impl Solver {
                         SubsetError::Other,
                     );
                 }
+                // In order to minimize the blast radius of poor cycle-handling, we currently produce
+                // inconsistent results - any other binding that saved an answer which depended on
+                // this one sees the forced type, but anything downstream of this sees the computed
+                // type.
+                //
+                // This is both highly unpredictable in terms of end user experience, and nondeterministic
+                // because we can definitely get non-idempotent errors in some cases.
+                //
+                // TODO(stroxler): Probably remove this - it regresses a CRTP example, so we should
+                // remove it in a dedicated diff.
+                ty
             }
             _ => {
                 // If we just recorded a LoopRecursive answer, we may now need to check the result
@@ -1034,9 +1045,10 @@ impl Solver {
                         });
                     }
                     None => {
-                        lock.update(var, Variable::Answer(ty));
+                        lock.update(var, Variable::Answer(ty.clone()));
                     }
                 }
+                ty
             }
         }
     }

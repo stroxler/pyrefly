@@ -483,7 +483,6 @@ assert_type(f([None], [0]), int)
 
 // Regression test for https://github.com/facebook/pyrefly/issues/1675
 testcase!(
-    bug = "Something is very broken, `T <: T` should always hold, so should `Any <: T`",
     test_generic_should_equal_itself,
     r#"
 from typing import cast, Iterator, Any
@@ -493,7 +492,7 @@ def f[T](iterator: Iterator[T]) -> T:
     while condition():
         for i in iterator:
             res = i
-    return res  # E: Returned type `T` is not assignable to declared return type `T`
+    return res
     "#,
 );
 

@@ -98,6 +98,13 @@ impl TypeInfo {
         }
     }
 
+    pub fn map_ty(self, f: impl FnOnce(Type) -> Type) -> Self {
+        Self {
+            ty: f(self.ty),
+            facets: self.facets,
+        }
+    }
+
     pub fn record_key_completion(&mut self, facets: &Vec1<FacetKind>, ty: Option<Type>) {
         if let Some((facet, rest)) = facets.as_slice().split_first() {
             let narrowed = self
