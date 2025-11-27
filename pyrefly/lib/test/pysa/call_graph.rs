@@ -3801,3 +3801,207 @@ def foo(e: Exception):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_multiple_calls_to_same_functions,
+    TEST_MODULE_NAME,
+    r#"
+def foo():
+    pass
+def bar():
+    pass
+def baz():
+    foo()
+    foo()
+    bar()
+    foo()
+    bar()
+"#,
+    &|_context: &ModuleContext| {
+        let foo_target = vec![create_call_target("test.foo", TargetType::Function)];
+        let bar_target = vec![create_call_target("test.bar", TargetType::Function)];
+        vec![(
+            "test.baz",
+            vec![
+                ("7:5-7:10", regular_call_callees(foo_target.clone())),
+                ("8:5-8:10", regular_call_callees(foo_target.clone())),
+                ("9:5-9:10", regular_call_callees(bar_target.clone())),
+                ("10:5-10:10", regular_call_callees(foo_target)),
+                ("11:5-11:10", regular_call_callees(bar_target)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_nested_function_calls_as_arguments,
+    TEST_MODULE_NAME,
+    r#"
+def foo(x=None, y=None):
+    pass
+def bar():
+    foo(foo(), foo(foo()))
+"#,
+    &|_context: &ModuleContext| {
+        let foo_target = vec![create_call_target("test.foo", TargetType::Function)];
+        vec![(
+            "test.bar",
+            vec![
+                ("5:5-5:27", regular_call_callees(foo_target.clone())),
+                ("5:9-5:14", regular_call_callees(foo_target.clone())),
+                ("5:16-5:26", regular_call_callees(foo_target.clone())),
+                ("5:20-5:25", regular_call_callees(foo_target)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_method_call_on_union_with_isinstance_narrowing,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Union
+class A:
+    def foo(self):
+        pass
+class B(A):
+    pass
+class C(A):
+    pass
+def test(x: Union[B, C]):
+    x.foo()
+    if isinstance(x, C):
+        x.foo()
+    else:
+        x.foo()
+    if isinstance(x, B):
+        x.foo()
+"#,
+    &|context: &ModuleContext| {
+        let foo_target_union = vec![
+            // TODO: Handle union types in the receiver class
+            create_call_target("test.A.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
+        ];
+        let foo_target_c = vec![
+            create_call_target("test.A.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", context),
+        ];
+        let foo_target_b = vec![
+            create_call_target("test.A.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.B", context),
+        ];
+        let isinstance_target = vec![
+            create_call_target("builtins.isinstance", TargetType::Function)
+                .with_return_type(Some(ScalarTypeProperties::bool())),
+        ];
+        let c_init_targets = vec![
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", context),
+        ];
+        let c_new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        let b_init_targets = vec![
+            create_call_target("builtins.object.__init__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.B", context),
+        ];
+        let b_new_targets = vec![
+            create_call_target("builtins.object.__new__", TargetType::Function)
+                .with_is_static_method(true),
+        ];
+        vec![(
+            "test.test",
+            vec![
+                ("11:5-11:12", regular_call_callees(foo_target_union.clone())),
+                (
+                    "12:22-12:23",
+                    identifier_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ c_init_targets.clone(),
+                        /* new_targets */ c_new_targets.clone(),
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */ Unresolved::False,
+                    ),
+                ),
+                (
+                    "12:8-12:24",
+                    regular_call_callees(isinstance_target.clone()),
+                ),
+                ("13:9-13:16", regular_call_callees(foo_target_c)),
+                ("15:9-15:16", regular_call_callees(foo_target_b.clone())),
+                (
+                    "16:22-16:23",
+                    identifier_callees(
+                        /* call_targets */ vec![],
+                        /* init_targets */ b_init_targets.clone(),
+                        /* new_targets */ b_new_targets.clone(),
+                        /* higher_order_parameters */ vec![],
+                        /* unresolved */ Unresolved::False,
+                    ),
+                ),
+                ("16:8-16:24", regular_call_callees(isinstance_target)),
+                ("17:9-17:16", regular_call_callees(foo_target_b)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_explicit_dunder_iter_and_next_calls,
+    TEST_MODULE_NAME,
+    r#"
+from typing import List
+def bar(l: List[int]):
+  return l.__iter__().__next__()
+"#,
+    &|context: &ModuleContext| {
+        let iter_target = vec![
+            create_call_target("builtins.list.__iter__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context),
+        ];
+        let next_target = vec![
+            create_call_target("typing.Iterator.__next__", TargetType::Override)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.Iterator", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            "test.bar",
+            vec![
+                ("4:10-4:22", regular_call_callees(iter_target)),
+                ("4:10-4:33", regular_call_callees(next_target)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_list_subscript_getitem,
+    TEST_MODULE_NAME,
+    r#"
+from typing import List
+def bar(l: List[int]):
+  return l[0]
+"#,
+    &|context: &ModuleContext| {
+        let getitem_target = vec![
+            create_call_target("builtins.list.__getitem__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context),
+        ];
+        vec![(
+            "test.bar",
+            vec![(
+                "4:10-4:14|artificial-call|subscript-get-item",
+                regular_call_callees(getitem_target),
+            )],
+        )]
+    }
+);
