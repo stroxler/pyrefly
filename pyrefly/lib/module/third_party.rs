@@ -21,7 +21,7 @@ use starlark_map::small_map::SmallMap;
 use crate::module::bundled::BundledStub;
 use crate::module::bundled::create_bundled_stub_config;
 
-#[expect(dead_code)]
+#[allow(dead_code)]
 pub struct BundledThirdParty {
     pub find: SmallMap<ModuleName, PathBuf>,
     pub load: SmallMap<PathBuf, Arc<String>>,
@@ -69,11 +69,11 @@ impl BundledStub for BundledThirdParty {
     }
 }
 
-#[expect(dead_code)]
+#[allow(dead_code)]
 static BUNDLED_THIRD_PARTY: LazyLock<anyhow::Result<BundledThirdParty>> =
     LazyLock::new(BundledThirdParty::new);
 
-#[expect(dead_code)]
+#[allow(dead_code)]
 pub fn bundled_third_party() -> anyhow::Result<&'static BundledThirdParty> {
     match &*BUNDLED_THIRD_PARTY {
         Ok(stub) => Ok(stub),
