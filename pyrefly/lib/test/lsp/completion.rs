@@ -2433,7 +2433,7 @@ x = sys.version
     let txn = state.transaction();
 
     // Position 0: inside comment - should return empty
-    let comment_completions = txn.completion(&handle, positions[0], ImportFormat::Absolute, true);
+    let comment_completions = txn.completion(handle, positions[0], ImportFormat::Absolute, true);
     assert!(
         comment_completions.is_empty(),
         "Expected no completions in comment, but got {} completions",
@@ -2441,7 +2441,7 @@ x = sys.version
     );
 
     // Position 1: normal code - should return completions
-    let normal_completions = txn.completion(&handle, positions[1], ImportFormat::Absolute, true);
+    let normal_completions = txn.completion(handle, positions[1], ImportFormat::Absolute, true);
     assert!(
         !normal_completions.is_empty(),
         "Expected completions in normal code but got none"
