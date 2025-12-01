@@ -26,14 +26,13 @@ use tracing::debug;
 use vec1::Vec1;
 
 use crate::handle::Handle;
-use crate::source_db::ModulePathCache;
 use crate::source_db::SourceDatabase;
 use crate::source_db::Target;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct ManifestItem {
     module_name: ModuleName,
-    absolute_path: PathBuf,
+    absolute_path: ModulePath,
 }
 
 fn strip_stubs_suffix(path: &Path) -> PathBuf {
@@ -60,6 +59,7 @@ fn read_manifest_file_data(data: &[u8]) -> anyhow::Result<Vec<ManifestItem>> {
                 // absolutize should be fine here to get absolute path, since Pyrefly
                 // will be run from Buck root.
                 let absolute_path = PathBuf::from(raw_item[1].clone()).absolutize();
+                let absolute_path = ModulePath::filesystem(absolute_path);
                 results.push(ManifestItem {
                     module_name,
                     absolute_path,
@@ -89,11 +89,11 @@ fn read_manifest_files(manifest_paths: &[PathBuf]) -> anyhow::Result<Vec<Manifes
     Ok(result)
 }
 
-fn same_module_path_compare(left: &Path, right: &Path) -> Ordering {
+fn same_module_path_compare(left: &ModulePath, right: &ModulePath) -> Ordering {
     // .pyi file always comes before .py file
     match (
-        left.extension().and_then(OsStr::to_str),
-        right.extension().and_then(OsStr::to_str),
+        left.as_path().extension().and_then(OsStr::to_str),
+        right.as_path().extension().and_then(OsStr::to_str),
     ) {
         (Some("pyi"), Some("py")) => Ordering::Less,
         (Some("py"), Some("pyi")) => Ordering::Greater,
@@ -103,8 +103,8 @@ fn same_module_path_compare(left: &Path, right: &Path) -> Ordering {
 
 fn create_manifest_item_index(
     items: impl Iterator<Item = ManifestItem>,
-) -> SmallMap<ModuleName, Vec1<PathBuf>> {
-    let mut accumulated: SmallMap<ModuleName, Vec<PathBuf>> =
+) -> SmallMap<ModuleName, Vec1<ModulePath>> {
+    let mut accumulated: SmallMap<ModuleName, Vec<ModulePath>> =
         SmallMap::with_capacity(items.size_hint().0);
     for item in items {
         accumulated
@@ -115,7 +115,7 @@ fn create_manifest_item_index(
     accumulated
         .into_iter()
         .map(|(name, mut paths)| {
-            paths.sort_by(|left, right| same_module_path_compare(left, right));
+            paths.sort_by(same_module_path_compare);
             (name, Vec1::try_from_vec(paths).unwrap())
         })
         .collect()
@@ -123,10 +123,9 @@ fn create_manifest_item_index(
 
 #[derive(Debug)]
 pub struct BuckCheckSourceDatabase {
-    sources: SmallMap<ModuleName, Vec1<PathBuf>>,
-    dependencies: SmallMap<ModuleName, Vec1<PathBuf>>,
+    sources: SmallMap<ModuleName, Vec1<ModulePath>>,
+    dependencies: SmallMap<ModuleName, Vec1<ModulePath>>,
     sys_info: SysInfo,
-    cached_modules: ModulePathCache,
 }
 
 impl SourceDatabase for BuckCheckSourceDatabase {
@@ -134,13 +133,9 @@ impl SourceDatabase for BuckCheckSourceDatabase {
         self.sources
             .iter()
             .flat_map(|(name, paths)| {
-                paths.iter().map(|path| {
-                    Handle::new(
-                        name.dupe(),
-                        self.cached_modules.get(path),
-                        self.sys_info.dupe(),
-                    )
-                })
+                paths
+                    .iter()
+                    .map(|path| Handle::new(name.dupe(), path.dupe(), self.sys_info.dupe()))
             })
             .collect()
     }
@@ -154,13 +149,13 @@ impl SourceDatabase for BuckCheckSourceDatabase {
         self.sources
             .get(module)
             .or_else(|| self.dependencies.get(module))
-            .map(|p| self.cached_modules.get(p.first()))
+            .map(|p| p.first().dupe())
     }
 
     fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle> {
-        let find = |i: &SmallMap<ModuleName, Vec1<PathBuf>>| {
+        let find = |i: &SmallMap<ModuleName, Vec1<ModulePath>>| {
             i.iter()
-                .find(|s| s.1.iter().any(|p| p == module_path.as_path()))
+                .find(|s| s.1.iter().any(|p| p.as_path() == module_path.as_path()))
                 .map(|s| s.0.dupe())
         };
         let name = find(&self.sources).or_else(|| find(&self.dependencies))?;
@@ -214,7 +209,6 @@ impl BuckCheckSourceDatabase {
                 dependency_items.into_iter().chain(typeshed_items),
             ),
             sys_info,
-            cached_modules: ModulePathCache::new(),
         }
     }
 }
@@ -230,10 +224,10 @@ mod tests {
     enum LookupResult {
         /// Source file of this module is owned by the current target.
         /// Type errors in the file should be reported to user.
-        OwningSource(PathBuf),
+        OwningSource(ModulePath),
         /// Source file of this module is owned by the dependency of the current target.
         /// The file should be analyzed but no type errors should be reported.
-        ExternalSource(PathBuf),
+        ExternalSource(ModulePath),
         /// Did not find any source file associated with the given module name.
         NoSource,
     }
@@ -241,9 +235,9 @@ mod tests {
     impl BuckCheckSourceDatabase {
         fn lookup_for_test(&self, module: ModuleName) -> LookupResult {
             match self.sources.get(&module) {
-                Some(paths) => LookupResult::OwningSource(paths.first().clone()),
+                Some(paths) => LookupResult::OwningSource(paths.first().dupe()),
                 None => match self.dependencies.get(&module) {
-                    Some(paths) => LookupResult::ExternalSource(paths.first().clone()),
+                    Some(paths) => LookupResult::ExternalSource(paths.first().dupe()),
                     None => LookupResult::NoSource,
                 },
             }
@@ -257,7 +251,9 @@ mod tests {
                 .unwrap(),
             vec![ManifestItem {
                 module_name: ModuleName::from_str("foo.bar"),
-                absolute_path: PathBuf::from_str("root/foo/bar.py").unwrap().absolutize()
+                absolute_path: ModulePath::filesystem(
+                    PathBuf::from_str("root/foo/bar.py").unwrap().absolutize()
+                )
             }]
         );
         assert_eq!(
@@ -268,9 +264,11 @@ mod tests {
             .unwrap(),
             vec![ManifestItem {
                 module_name: ModuleName::from_str("foo.bar"),
-                absolute_path: PathBuf::from_str("root/foo-stubs/bar/__init__.pyi")
-                    .unwrap()
-                    .absolutize()
+                absolute_path: ModulePath::filesystem(
+                    PathBuf::from_str("root/foo-stubs/bar/__init__.pyi")
+                        .unwrap()
+                        .absolutize()
+                )
             }]
         );
         assert_eq!(
@@ -284,21 +282,21 @@ mod tests {
 
     #[test]
     fn test_load_simple() {
-        let foo_path = PathBuf::from_str("/root/foo.py").unwrap();
-        let bar_path = PathBuf::from_str("/root/bar.py").unwrap();
-        let baz_path = PathBuf::from_str("/root/baz.py").unwrap();
+        let foo_path = ModulePath::filesystem(PathBuf::from_str("/root/foo.py").unwrap());
+        let bar_path = ModulePath::filesystem(PathBuf::from_str("/root/bar.py").unwrap());
+        let baz_path = ModulePath::filesystem(PathBuf::from_str("/root/baz.py").unwrap());
         let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![ManifestItem {
                 module_name: ModuleName::from_str("foo"),
-                absolute_path: foo_path.clone(),
+                absolute_path: foo_path.dupe(),
             }],
             vec![ManifestItem {
                 module_name: ModuleName::from_str("bar"),
-                absolute_path: bar_path.clone(),
+                absolute_path: bar_path.dupe(),
             }],
             vec![ManifestItem {
                 module_name: ModuleName::from_str("baz"),
-                absolute_path: baz_path.clone(),
+                absolute_path: baz_path.dupe(),
             }],
             SysInfo::default(),
         );
@@ -322,31 +320,31 @@ mod tests {
 
     #[test]
     fn test_load_source_over_dependencies() {
-        let src_foo_path = PathBuf::from_str("/src/foo.py").unwrap();
-        let dep_foo_path = PathBuf::from_str("/dep/foo.py").unwrap();
+        let src_foo_path = ModulePath::filesystem(PathBuf::from_str("/src/foo.py").unwrap());
+        let dep_foo_path = ModulePath::filesystem(PathBuf::from_str("/dep/foo.py").unwrap());
 
-        let src_bar_path = PathBuf::from_str("/src/bar.py").unwrap();
-        let dep_bar_path = PathBuf::from_str("/dep/bar.pyi").unwrap();
+        let src_bar_path = ModulePath::filesystem(PathBuf::from_str("/src/bar.py").unwrap());
+        let dep_bar_path = ModulePath::filesystem(PathBuf::from_str("/dep/bar.pyi").unwrap());
 
         let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    absolute_path: src_foo_path.clone(),
+                    absolute_path: src_foo_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    absolute_path: src_bar_path.clone(),
+                    absolute_path: src_bar_path.dupe(),
                 },
             ],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    absolute_path: dep_foo_path.clone(),
+                    absolute_path: dep_foo_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    absolute_path: dep_bar_path.clone(),
+                    absolute_path: dep_bar_path.dupe(),
                 },
             ],
             vec![],
@@ -364,30 +362,30 @@ mod tests {
 
     #[test]
     fn test_load_pyi_over_py() {
-        let foo_py_path = PathBuf::from_str("/root/foo.py").unwrap();
-        let foo_pyi_path = PathBuf::from_str("/root/foo.pyi").unwrap();
-        let bar_py_path = PathBuf::from_str("/root/bar.py").unwrap();
-        let bar_pyi_path = PathBuf::from_str("/root/bar.pyi").unwrap();
+        let foo_py_path = ModulePath::filesystem(PathBuf::from_str("/root/foo.py").unwrap());
+        let foo_pyi_path = ModulePath::filesystem(PathBuf::from_str("/root/foo.pyi").unwrap());
+        let bar_py_path = ModulePath::filesystem(PathBuf::from_str("/root/bar.py").unwrap());
+        let bar_pyi_path = ModulePath::filesystem(PathBuf::from_str("/root/bar.pyi").unwrap());
 
         let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    absolute_path: foo_py_path.clone(),
+                    absolute_path: foo_py_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("foo"),
-                    absolute_path: foo_pyi_path.clone(),
+                    absolute_path: foo_pyi_path.dupe(),
                 },
             ],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    absolute_path: bar_py_path.clone(),
+                    absolute_path: bar_py_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("bar"),
-                    absolute_path: bar_pyi_path.clone(),
+                    absolute_path: bar_pyi_path.dupe(),
                 },
             ],
             vec![],
@@ -405,52 +403,52 @@ mod tests {
 
     #[test]
     fn test_load_dependency_typeshed_conflict() {
-        let dep_a_path = PathBuf::from_str("/dep/a.py").unwrap();
-        let dep_b_path = PathBuf::from_str("/dep/b.pyi").unwrap();
-        let dep_c_path = PathBuf::from_str("/dep/c.py").unwrap();
-        let dep_d_path = PathBuf::from_str("/dep/d.pyi").unwrap();
+        let dep_a_path = ModulePath::filesystem(PathBuf::from_str("/dep/a.py").unwrap());
+        let dep_b_path = ModulePath::filesystem(PathBuf::from_str("/dep/b.pyi").unwrap());
+        let dep_c_path = ModulePath::filesystem(PathBuf::from_str("/dep/c.py").unwrap());
+        let dep_d_path = ModulePath::filesystem(PathBuf::from_str("/dep/d.pyi").unwrap());
 
-        let typeshed_a_path = PathBuf::from_str("/typeshed/a.py").unwrap();
-        let typeshed_b_path = PathBuf::from_str("/typeshed/b.py").unwrap();
-        let typeshed_c_path = PathBuf::from_str("/typeshed/c.pyi").unwrap();
-        let typeshed_d_path = PathBuf::from_str("/typeshed/d.pyi").unwrap();
+        let typeshed_a_path = ModulePath::filesystem(PathBuf::from_str("/typeshed/a.py").unwrap());
+        let typeshed_b_path = ModulePath::filesystem(PathBuf::from_str("/typeshed/b.py").unwrap());
+        let typeshed_c_path = ModulePath::filesystem(PathBuf::from_str("/typeshed/c.pyi").unwrap());
+        let typeshed_d_path = ModulePath::filesystem(PathBuf::from_str("/typeshed/d.pyi").unwrap());
 
         let source_db = BuckCheckSourceDatabase::from_manifest_items(
             vec![],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("a"),
-                    absolute_path: dep_a_path.clone(),
+                    absolute_path: dep_a_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("b"),
-                    absolute_path: dep_b_path.clone(),
+                    absolute_path: dep_b_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("c"),
-                    absolute_path: dep_c_path.clone(),
+                    absolute_path: dep_c_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("d"),
-                    absolute_path: dep_d_path.clone(),
+                    absolute_path: dep_d_path.dupe(),
                 },
             ],
             vec![
                 ManifestItem {
                     module_name: ModuleName::from_str("a"),
-                    absolute_path: typeshed_a_path.clone(),
+                    absolute_path: typeshed_a_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("b"),
-                    absolute_path: typeshed_b_path.clone(),
+                    absolute_path: typeshed_b_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("c"),
-                    absolute_path: typeshed_c_path.clone(),
+                    absolute_path: typeshed_c_path.dupe(),
                 },
                 ManifestItem {
                     module_name: ModuleName::from_str("d"),
-                    absolute_path: typeshed_d_path.clone(),
+                    absolute_path: typeshed_d_path.dupe(),
                 },
             ],
             SysInfo::default(),
