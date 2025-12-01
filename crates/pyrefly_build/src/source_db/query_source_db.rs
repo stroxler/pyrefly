@@ -208,7 +208,7 @@ impl SourceDatabase for QuerySourceDatabase {
 
     fn lookup(
         &self,
-        module: &ModuleName,
+        module: ModuleName,
         origin: Option<&Path>,
         style_filter: Option<ModuleStyle>,
     ) -> Option<ModulePath> {
@@ -216,7 +216,7 @@ impl SourceDatabase for QuerySourceDatabase {
         let read = self.inner.read();
         if let Some(start_target) = read.path_lookup.get(&origin)
             && let Some(result) =
-                self.lookup_from_target(&read, *module, *start_target, style_filter)
+                self.lookup_from_target(&read, module, *start_target, style_filter)
         {
             return Some(result);
         } else if let Some(package_targets) = read.package_lookup.get(&origin) {
@@ -250,7 +250,7 @@ impl SourceDatabase for QuerySourceDatabase {
                 //    directory. In this case, the dependencies don't really matter, because
                 //    what we're looking for is a relative import within *this* target
                 //    or another target that has a package at the origin's location.
-                match self.find_in_manifest(*module, manifest, style_filter) {
+                match self.find_in_manifest(module, manifest, style_filter) {
                     Some(Ok(result)) => return Some(result),
                     Some(Err(implicit_package)) => {
                         package_matches.insert(implicit_package);
@@ -541,7 +541,7 @@ mod tests {
         let assert_lookup = |name, path, style_filter, expected: Option<&str>| {
             assert_eq!(
                 db.lookup(
-                    &ModuleName::from_str(name),
+                    ModuleName::from_str(name),
                     Some(&root.join(path)),
                     style_filter
                 ),
@@ -550,10 +550,7 @@ mod tests {
             );
         };
 
-        assert_eq!(
-            db.lookup(&ModuleName::from_str("log.log"), None, None),
-            None
-        );
+        assert_eq!(db.lookup(ModuleName::from_str("log.log"), None, None), None);
         assert_lookup("does_not_exist", "pyre/client/log/__init__.py", None, None);
         // can be found, since we do an `init_lookup` and can find a result.
         assert_lookup(

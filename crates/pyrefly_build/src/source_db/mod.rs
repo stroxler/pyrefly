@@ -110,7 +110,7 @@ pub trait SourceDatabase: Send + Sync + fmt::Debug {
     /// Find the given module in the sourcedb, given the module it's originating from.
     fn lookup(
         &self,
-        module: &ModuleName,
+        module: ModuleName,
         origin: Option<&Path>,
         style_filter: Option<ModuleStyle>,
     ) -> Option<ModulePath>;

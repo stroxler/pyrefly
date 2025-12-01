@@ -68,11 +68,11 @@ impl SourceDatabase for MapDatabase {
 
     fn lookup(
         &self,
-        module: &ModuleName,
+        module: ModuleName,
         _: Option<&Path>,
         style: Option<ModuleStyle>,
     ) -> Option<ModulePath> {
-        let paths = self.0.get(module)?;
+        let paths = self.0.get(&module)?;
         let style = style.unwrap_or(ModuleStyle::Interface);
         if let Some(result) = paths.iter().find(|p| p.style() == style) {
             return Some(result.dupe());

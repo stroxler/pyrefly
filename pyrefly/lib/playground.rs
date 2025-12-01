@@ -77,11 +77,11 @@ impl SourceDatabase for PlaygroundSourceDatabase {
 
     fn lookup(
         &self,
-        module_name: &ModuleName,
+        module_name: ModuleName,
         _: Option<&Path>,
         _: Option<ModuleStyle>,
     ) -> Option<ModulePath> {
-        self.module_mappings.get(module_name).cloned()
+        self.module_mappings.get(&module_name).cloned()
     }
 
     fn handle_from_module_path(&self, path: &ModulePath) -> Option<Handle> {
