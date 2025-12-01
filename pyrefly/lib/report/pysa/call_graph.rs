@@ -23,6 +23,7 @@ use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::OverloadType;
 use pyrefly_types::types::Type;
 use pyrefly_types::types::Union;
+use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::ArgOrKeyword;
@@ -75,6 +76,7 @@ use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::types::ScalarTypeProperties;
 use crate::report::pysa::types::has_superclass;
+use crate::report::pysa::types::string_for_type;
 use crate::state::lsp::FindPreference;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Hash, PartialOrd, Ord)]
@@ -1150,7 +1152,12 @@ impl DirectCall {
     }
 
     // Whether the call is non-dynamically dispatched
-    fn is_direct_call(callee: Option<AnyNodeRef>, callee_type: Option<&Type>, debug: bool) -> Self {
+    fn is_direct_call(
+        callee: Option<AnyNodeRef>,
+        callee_type: Option<&Type>,
+        debug: bool,
+        context: &ModuleContext,
+    ) -> Self {
         Self::is_super_call(callee).or({
             match callee_type {
                 Some(Type::BoundMethod(box BoundMethod {
@@ -1165,12 +1172,14 @@ impl DirectCall {
                     // on an instance
                     Self::from_bool(false)
                 }
-                Some(Type::BoundMethod(bound_method)) => {
+                Some(Type::BoundMethod(_)) => {
                     debug_println!(
                         debug,
-                        "For callee `{:#?}`, unknown object type in bound method `{:#?}`",
-                        callee,
-                        bound_method
+                        "For callee `{}`, unknown object type in bound method `{}`",
+                        callee.display_with(context),
+                        callee_type
+                            .map(string_for_type)
+                            .unwrap_or("None".to_owned()),
                     );
                     // `true` would skip overrides, which may lead to false negatives. But we prefer false positives since
                     // we are blind to false negatives.
@@ -1178,7 +1187,7 @@ impl DirectCall {
                 }
                 Some(Type::Function(_)) => Self::from_bool(true),
                 Some(Type::Union(box Union { members: types, .. })) => {
-                    Self::is_direct_call(callee, Some(types.first().unwrap()), debug)
+                    Self::is_direct_call(callee, Some(types.first().unwrap()), debug, context)
                 }
                 _ => Self::from_bool(false),
             }
@@ -1428,7 +1437,12 @@ impl<'a> CallGraphVisitor<'a> {
     ) -> Vec1<CallTarget<FunctionRef>> {
         let is_direct_call = match override_is_direct_call {
             Some(override_is_direct_call) => DirectCall::from_bool(override_is_direct_call),
-            None => DirectCall::is_direct_call(callee_expr, callee_type, self.debug),
+            None => DirectCall::is_direct_call(
+                callee_expr,
+                callee_type,
+                self.debug,
+                self.module_context,
+            ),
         };
         let is_direct_call = match is_direct_call {
             DirectCall::True => true,
@@ -1561,9 +1575,11 @@ impl<'a> CallGraphVisitor<'a> {
         if call_targets.is_unresolved() {
             debug_println!(
                 self.debug,
-                "Cannot find call targets for method `{:#?}` in class `{:#?}`",
+                "Cannot find call targets for method `{}` in class `{}`",
                 method,
-                defining_class,
+                defining_class
+                    .map(string_for_type)
+                    .unwrap_or("None".to_owned()),
             );
         }
         call_targets
@@ -1855,8 +1871,8 @@ impl<'a> CallGraphVisitor<'a> {
                 if targets.is_empty() {
                     debug_println!(
                         self.debug,
-                        "Empty pyrefly target CallTargetLookup::Ok([]) or Error([]) for `{:#?}`",
-                        callee_expr,
+                        "Empty pyrefly target CallTargetLookup::Ok([]) or Error([]) for `{}`",
+                        callee_expr.display_with(self.module_context),
                     );
                     CallCallees::new_unresolved(UnresolvedReason::EmptyPyreflyTarget)
                 } else {
@@ -1883,9 +1899,9 @@ impl<'a> CallGraphVisitor<'a> {
             _ => {
                 debug_println!(
                     self.debug,
-                    "Unrecognized pyrefly target `{:#?}` for `{:#?}`",
+                    "Unrecognized pyrefly target `{:#?}` for `{}`",
                     pyrefly_target,
-                    callee_expr,
+                    callee_expr.display_with(self.module_context),
                 );
                 CallCallees::new_unresolved(UnresolvedReason::UnexpectedPyreflyTarget)
             }
@@ -1993,6 +2009,8 @@ impl<'a> CallGraphVisitor<'a> {
             return IdentifierCallees {
                 if_called: go_to_definitions,
             };
+        } else {
+            debug_println!(self.debug, "No go-to definitions for name `{}`", name.id);
         }
 
         // There is no go-to-definition when for example an `ExprName` is a class definition,
@@ -2149,6 +2167,12 @@ impl<'a> CallGraphVisitor<'a> {
         let receiver_type = self.module_context.answers.get_type_trace(base.range());
 
         if go_to_definitions.is_empty() {
+            debug_println!(
+                self.debug,
+                "No go-to definitions for attribute access `{}.{}`",
+                base.display_with(self.module_context),
+                attribute
+            );
             return self.resolve_magic_dunder_attr(
                 attribute,
                 receiver_type.as_ref(),
@@ -2287,6 +2311,11 @@ impl<'a> CallGraphVisitor<'a> {
                         },
                     )),
                     _ => {
+                        debug_println!(
+                            self.debug,
+                            "Resolving callees for higher order parameter `{}`",
+                            argument.display_with(self.module_context)
+                        );
                         let callees = self.resolve_call(
                             /* callee */ argument,
                             /* return_type */
@@ -2335,9 +2364,9 @@ impl<'a> CallGraphVisitor<'a> {
                 let callees = self.resolve_name(name, arguments, return_type);
                 debug_println!(
                     self.debug,
-                    "Resolved call `{:#?}` with arguments `{:#?}` into `{:#?}`",
-                    callee,
-                    arguments,
+                    "Resolved call `{}` with arguments `{}` into `{:#?}`",
+                    callee.display_with(self.module_context),
+                    arguments.display_with(self.module_context),
                     callees
                 );
                 callees.if_called
@@ -2359,8 +2388,8 @@ impl<'a> CallGraphVisitor<'a> {
                 );
                 debug_println!(
                     self.debug,
-                    "Resolved call `{:#?}` into `{:#?}`",
-                    callee,
+                    "Resolved call `{}` into `{:#?}`",
+                    callee.display_with(self.module_context),
                     callees
                 );
                 callees.if_called
@@ -2691,7 +2720,11 @@ impl<'a> CallGraphVisitor<'a> {
             ExpressionIdentifier::regular(expr.range(), &self.module_context.module_info);
         match expr {
             Expr::Call(call) => {
-                debug_println!(self.debug, "Resolving callees for call `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for call `{}`",
+                    expr.display_with(self.module_context)
+                );
                 let return_type_from_expr = expr_type()
                     .as_ref()
                     .map(|type_| ScalarTypeProperties::from_type(type_, self.module_context));
@@ -2703,7 +2736,11 @@ impl<'a> CallGraphVisitor<'a> {
                 );
             }
             Expr::Name(name) if !is_nested_callee_or_base => {
-                debug_println!(self.debug, "Resolving callees for name `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for name `{}`",
+                    expr.display_with(self.module_context)
+                );
                 let callees = self.resolve_name(
                     name,
                     /* call_arguments */ None,
@@ -2717,7 +2754,11 @@ impl<'a> CallGraphVisitor<'a> {
                 }
             }
             Expr::Attribute(attribute) if !is_nested_callee_or_base => {
-                debug_println!(self.debug, "Resolving callees for attribute `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for attribute `{}`",
+                    expr.display_with(self.module_context)
+                );
                 let callee_expr = Some(AnyNodeRef::from(attribute));
                 let callees = self.resolve_attribute_access(
                     &attribute.value,
@@ -2737,27 +2778,51 @@ impl<'a> CallGraphVisitor<'a> {
                 }
             }
             Expr::Compare(compare) => {
-                debug_println!(self.debug, "Resolving callees for compare `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for compare `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_compare(compare);
             }
             Expr::ListComp(comp) => {
-                debug_println!(self.debug, "Resolving callees for list comp `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for list comp `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_comprehension(&comp.generators);
             }
             Expr::SetComp(comp) => {
-                debug_println!(self.debug, "Resolving callees for set comp `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for set comp `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_comprehension(&comp.generators);
             }
             Expr::Generator(generator) => {
-                debug_println!(self.debug, "Resolving callees for generator `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for generator `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_comprehension(&generator.generators);
             }
             Expr::DictComp(comp) => {
-                debug_println!(self.debug, "Resolving callees for dict comp `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for dict comp `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_comprehension(&comp.generators);
             }
             Expr::Subscript(subscript) => {
-                debug_println!(self.debug, "Resolving callees for subscript `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for subscript `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_subscript(
                     subscript,
                     assignment_targets(current_statement),
@@ -2765,15 +2830,27 @@ impl<'a> CallGraphVisitor<'a> {
                 );
             }
             Expr::FString(fstring) => {
-                debug_println!(self.debug, "Resolving callees for fstring `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for fstring `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_fstring(fstring);
             }
             Expr::BinOp(bin_op) => {
-                debug_println!(self.debug, "Resolving callees for bin op `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Resolving callees for bin op `{}`",
+                    expr.display_with(self.module_context)
+                );
                 self.resolve_and_register_binop(bin_op);
             }
             _ => {
-                debug_println!(self.debug, "Nothing to resolve in expression `{:#?}`", expr);
+                debug_println!(
+                    self.debug,
+                    "Nothing to resolve in expression `{}`",
+                    expr.display_with(self.module_context)
+                );
             }
         };
     }
@@ -2885,8 +2962,8 @@ impl<'a> CallGraphVisitor<'a> {
         for decorator in decorators.iter() {
             debug_println!(
                 self.debug,
-                "Resolving callees for decorator call `{:#?}`",
-                decorator
+                "Resolving callees for decorator call `{}`",
+                decorator.display_with(self.module_context)
             );
             let callee_type = self
                 .module_context

@@ -117,7 +117,7 @@ impl ClassNamesFromType {
     }
 }
 
-fn string_for_type(type_: &Type) -> String {
+pub fn string_for_type(type_: &Type) -> String {
     let mut ctx = TypeDisplayContext::new(&[type_]);
     ctx.always_display_module_name_except_builtins();
     ctx.display(type_).to_string()
