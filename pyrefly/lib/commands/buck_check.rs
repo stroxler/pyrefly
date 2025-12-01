@@ -15,6 +15,10 @@ use clap::Parser;
 use dupe::Dupe;
 use pyrefly_build::source_db::SourceDatabase;
 use pyrefly_build::source_db::buck_check::BuckCheckSourceDatabase;
+use pyrefly_config::base::UntypedDefBehavior;
+use pyrefly_config::error::ErrorDisplayConfig;
+use pyrefly_config::error_kind::ErrorKind;
+use pyrefly_config::error_kind::Severity;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
@@ -69,6 +73,15 @@ fn compute_errors(sys_info: SysInfo, sourcedb: Box<impl SourceDatabase + 'static
     config.source_db = Some(Arc::new(sourcedb));
     config.interpreters.skip_interpreter_query = true;
     config.disable_search_path_heuristics = true;
+
+    // Modifications to make it more like Pyre.
+    // Should probably figure out how to move these into PACKAGE files, or put them in Pyrefly.toml.
+    config.root.permissive_ignores = Some(true);
+    config.root.untyped_def_behavior = Some(UntypedDefBehavior::CheckAndInferReturnAny);
+    let mut error_config = ErrorDisplayConfig::default();
+    error_config.set_error_severity(ErrorKind::Deprecated, Severity::Ignore);
+    config.root.errors = Some(error_config);
+
     config.configure();
     let config = ArcId::new(config);
 
