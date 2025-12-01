@@ -72,6 +72,17 @@ def f(condition) -> None:
 );
 
 testcase!(
+    bug = "We incorrectly flag `q` as redundant here",
+    test_while_condition_is_in_loop,
+    r#"
+def main():
+    q = 1
+    while q:  # E: Integer literal used as condition. It's equivalent to `True`
+        q -= 1
+    "#,
+);
+
+testcase!(
     bug = "A recursive redefinition in a loop produces a hard-to-follow error message + location",
     test_while_creates_recursive_type,
     r#"
