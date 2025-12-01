@@ -1999,7 +1999,7 @@ impl Scopes {
                     // exception because they are synthesized scope entries that don't exist at all
                     // in the runtime; we treat them as always initialized to avoid false positives
                     // for uninitialized local checks in class bodies.
-                    initialized: if flow_barrier == FlowBarrier::BlockFlow
+                    initialized: if flow_barrier > FlowBarrier::AllowFlowChecked
                         || matches!(static_info.style, StaticStyle::PossibleLegacyTParam)
                     {
                         InitializedInFlow::Yes

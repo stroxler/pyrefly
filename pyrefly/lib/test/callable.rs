@@ -1105,3 +1105,14 @@ def f():
     print(x)  # E: `x` is uninitialized
     "#,
 );
+
+testcase!(
+    test_anywhere_name_in_lambda,
+    r#"
+from typing import assert_type
+f = lambda: A.x
+class A:
+    x: int = 0
+assert_type(f(), int)
+    "#,
+);
