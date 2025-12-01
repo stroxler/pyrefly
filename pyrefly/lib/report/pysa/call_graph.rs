@@ -1797,6 +1797,34 @@ impl<'a> CallGraphVisitor<'a> {
                 )
                 .into_call_callees()
             }
+            Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::FunctionOverload(
+                functions,
+                ..,
+            ))) => {
+                functions
+                    .map(|function| {
+                        self.call_targets_from_method_name(
+                            &method_name_from_function(&function.1),
+                            callee_type,
+                            callee_expr,
+                            callee_type,
+                            return_type,
+                            /* is_bound_method */ false,
+                            callee_expr_suffix,
+                            /* override_implicit_receiver*/ None,
+                            /* override_is_direct_call */ None,
+                            unknown_callee_as_direct_call,
+                            exclude_object_methods,
+                        )
+                        .into_call_callees()
+                    })
+                    .into_iter()
+                    .reduce(|mut left, right| {
+                        left.join_in_place(right);
+                        left
+                    })
+                    .unwrap()
+            }
             Some(CallTargetLookup::Ok(box crate::alt::call::CallTarget::Class(class_type, _))) => {
                 // Constructing a class instance.
                 let (init_method, new_method) = self

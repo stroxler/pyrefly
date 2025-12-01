@@ -2399,7 +2399,7 @@ def foo(obj: Token):
                 (
                     "5:7-5:34",
                     ExpressionCallees::Call(CallCallees::new_unresolved(
-                        UnresolvedReason::UnexpectedPyreflyTarget,
+                        UnresolvedReason::UnexpectedDefiningClass,
                     )),
                 ),
                 (
@@ -2441,7 +2441,7 @@ def foo(obj: Token):
             vec![
                 (
                     "5:3-5:30",
-                    unresolved_expression_callees(UnresolvedReason::UnexpectedPyreflyTarget),
+                    unresolved_expression_callees(UnresolvedReason::UnexpectedDefiningClass),
                 ),
                 (
                     "5:3-5:30|artificial-attribute-access|get-attr-constant-literal",
@@ -4001,6 +4001,33 @@ def bar(l: List[int]):
             vec![(
                 "4:10-4:14|artificial-call|subscript-get-item",
                 regular_call_callees(getitem_target),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_overload_function_return_type,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Union, overload
+@overload
+def foo(x: int) -> int:
+  ...
+@overload
+def foo(x: str) -> str:
+  ...
+def foo(x: Union[int, str]) -> Union[int, str]:
+  return x
+def bar():
+  return foo(0)
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.bar",
+            vec![(
+                "12:10-12:16",
+                unresolved_expression_callees(UnresolvedReason::UnexpectedDefiningClass),
             )],
         )]
     }
