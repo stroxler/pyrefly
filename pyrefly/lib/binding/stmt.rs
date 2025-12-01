@@ -659,7 +659,8 @@ impl<'a> BindingsBuilder<'a> {
                     Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
                 });
                 // Note that we set up the loop *after* the header is fully bound, because the
-                // loop iterator is only evaluated once before the loop begins.
+                // loop iterator is only evaluated once before the loop begins. But the loop header
+                // targets - which get re-bound each iteration - are excluded from the loop Phi logic.
                 self.setup_loop(x.range, &NarrowOps::new(), &loop_header_targets);
                 self.stmts(x.body, parent);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent, false);
