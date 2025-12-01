@@ -853,7 +853,7 @@ impl ConfigFile {
         match &self
             .source_db
             .as_ref()
-            .and_then(|db| db.handle_from_module_path(module_path.dupe()))
+            .and_then(|db| db.handle_from_module_path(&module_path))
         {
             Some(handle) => handle.dupe(),
             None => {

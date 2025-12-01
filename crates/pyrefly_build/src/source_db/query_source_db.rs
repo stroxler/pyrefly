@@ -265,7 +265,7 @@ impl SourceDatabase for QuerySourceDatabase {
         None
     }
 
-    fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle> {
+    fn handle_from_module_path(&self, module_path: &ModulePath) -> Option<Handle> {
         let read = self.inner.read();
         let target = read.path_lookup.get(&module_path.module_path_buf())?;
 
@@ -707,14 +707,14 @@ mod tests {
             let name = ModuleName::from_str(name);
             let module_path = ModulePath::filesystem(root.join(path));
             assert_eq!(
-                db.handle_from_module_path(module_path.dupe()),
+                db.handle_from_module_path(&module_path),
                 Some(Handle::new(name, module_path, sys_info.dupe())),
                 "got result for {path}, expected {name}",
             );
         };
 
         assert_eq!(
-            db.handle_from_module_path(ModulePath::filesystem(root.join("does_not_exist"))),
+            db.handle_from_module_path(&ModulePath::filesystem(root.join("does_not_exist"))),
             None,
         );
         assert_handle("pyre/client/log/__init__.py", "pyre.client.log");
