@@ -75,6 +75,9 @@ impl Target {
     }
 }
 
+/// A `ModulePath` is optimised so that equal paths compare equal with `Arc::ptr_eq`,
+/// that only works if we reuse the `ModulePath` and don't create new ones each time.
+/// Use this cache to ensure we are reusing them.
 #[derive(Debug)]
 pub struct ModulePathCache(RwLock<SmallMap<PathBuf, ModulePath>>);
 
