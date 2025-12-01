@@ -4114,3 +4114,42 @@ class B(A):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_super_init_parent_is_stub,
+    TEST_MODULE_NAME,
+    r#"
+class A:
+    ...
+
+class B(A):
+    def __init__(self, x) -> None:
+        super().__init__(x) # type: ignore
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.B.__init__",
+            vec![
+                (
+                    "7:9-7:16",
+                    constructor_call_callees(
+                        vec![
+                            create_call_target("builtins.super.__init__", TargetType::Function)
+                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                                .with_receiver_class_for_test("builtins.super", context),
+                        ],
+                        vec![
+                            create_call_target("builtins.object.__new__", TargetType::Function)
+                                .with_is_static_method(true),
+                        ],
+                    ),
+                ),
+                (
+                    "7:9-7:28",
+                    // TODO(T225700656): Handle `super` calls to stub class
+                    unresolved_expression_callees(UnresolvedReason::UnexpectedDefiningClass),
+                ),
+            ],
+        )]
+    }
+);
