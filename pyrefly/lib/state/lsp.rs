@@ -103,7 +103,6 @@ pub struct InlayHintConfig {
     #[serde(default = "default_true")]
     pub function_return_types: bool,
     #[serde(default)]
-    #[expect(unused)]
     pub pytest_parameters: bool,
     #[serde(default = "default_true")]
     pub variable_types: bool,
