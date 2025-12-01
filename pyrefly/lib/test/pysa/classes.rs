@@ -565,6 +565,14 @@ class Foo:
                     },
                 ),
             ]))
+            .with_decorator_callees(HashMap::from([(
+                create_location(3, 2, 3, 11),
+                vec![Target::Function(get_function_ref(
+                    "dataclasses",
+                    "dataclass",
+                    context,
+                ))],
+            )]))
     },
 );
 

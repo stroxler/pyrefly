@@ -1977,12 +1977,12 @@ impl<'a> CallGraphVisitor<'a> {
             .map_or(vec![], |d| vec![d])
             .iter()
             .filter_map(|definition| {
-                FunctionRef::from_find_definition_item_with_docstring(
+                FunctionNode::exported_function_from_definition_item_with_docstring(
                     definition,
-                    self.function_base_definitions,
                     self.module_context,
                 )
             })
+            .map(|(function, context)| function.as_function_ref(&context))
             .collect::<Vec<_>>();
 
         let callee_type = self.module_context.answers.get_type_trace(name.range());
@@ -2184,13 +2184,13 @@ impl<'a> CallGraphVisitor<'a> {
         let (property_callees, non_property_callees): (Vec<FunctionRef>, Vec<FunctionRef>) =
             go_to_definitions
                 .iter()
-                .flat_map(|definition| {
-                    FunctionRef::from_find_definition_item_with_docstring(
+                .filter_map(|definition| {
+                    FunctionNode::exported_function_from_definition_item_with_docstring(
                         definition,
-                        self.function_base_definitions,
                         self.module_context,
                     )
                 })
+                .map(|(function, context)| function.as_function_ref(&context))
                 .partition(|function_ref| {
                     self.get_base_definition(function_ref)
                         .is_some_and(|definition| {

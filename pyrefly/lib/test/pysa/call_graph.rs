@@ -2398,9 +2398,10 @@ def foo(obj: Token):
             vec![
                 (
                     "5:7-5:34",
-                    ExpressionCallees::Call(CallCallees::new_unresolved(
-                        UnresolvedReason::UnexpectedDefiningClass,
-                    )),
+                    regular_call_callees(vec![create_call_target(
+                        "builtins.getattr",
+                        TargetType::Function,
+                    )]),
                 ),
                 (
                     "5:7-5:34|artificial-attribute-access|get-attr-constant-literal",
@@ -2441,7 +2442,10 @@ def foo(obj: Token):
             vec![
                 (
                     "5:3-5:30",
-                    unresolved_expression_callees(UnresolvedReason::UnexpectedDefiningClass),
+                    regular_call_callees(vec![create_call_target(
+                        "builtins.getattr",
+                        TargetType::Function,
+                    )]),
                 ),
                 (
                     "5:3-5:30|artificial-attribute-access|get-attr-constant-literal",
@@ -4027,7 +4031,31 @@ def bar():
             "test.bar",
             vec![(
                 "12:10-12:16",
-                unresolved_expression_callees(UnresolvedReason::UnexpectedDefiningClass),
+                regular_call_callees(vec![
+                    create_call_target("test.foo", TargetType::Function)
+                        .with_return_type(Some(ScalarTypeProperties::int())),
+                ]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_goto_definitions_to_overload,
+    TEST_MODULE_NAME,
+    r#"
+def foo(l: list[int]):
+  return sorted(l)
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "3:10-3:19",
+                regular_call_callees(vec![create_call_target(
+                    "builtins.sorted",
+                    TargetType::Function,
+                )]),
             )],
         )]
     }
