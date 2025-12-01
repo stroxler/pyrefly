@@ -675,9 +675,9 @@ class P2(Protocol):
     def __call__(self, *, v1: int) -> None: ...
 class P3(Protocol):
     def __call__(self, *, v1: int, v2: str, v4: str) -> None: ...
-x: P1 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P1`
-y: P2 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P2`
-z: P3 = func1  # E: `(**kwargs: Unpack[TypedDict[TD]]) -> None` is not assignable to `P3`
+x: P1 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P1`
+y: P2 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P2`
+z: P3 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P3`
 "#,
 );
 
