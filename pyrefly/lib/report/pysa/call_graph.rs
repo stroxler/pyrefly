@@ -21,6 +21,7 @@ use pyrefly_types::class::Class;
 use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::OverloadType;
+use pyrefly_types::types::SuperObj;
 use pyrefly_types::types::Type;
 use pyrefly_types::types::Union;
 use pyrefly_util::display::DisplayWithCtx;
@@ -1250,7 +1251,7 @@ impl<'a> CallGraphVisitor<'a> {
         match receiver_type {
             Type::ClassType(class_type)
             | Type::SelfType(class_type)
-            | Type::SuperInstance(box (class_type, _)) => (
+            | Type::SuperInstance(box (_, SuperObj::Instance(class_type))) => (
                 Some(ClassRef::from_class(
                     class_type.class_object(),
                     self.module_context.module_ids,

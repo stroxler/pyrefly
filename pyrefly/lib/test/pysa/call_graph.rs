@@ -1350,7 +1350,7 @@ class D(C):
             create_call_target("test.C.f", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_return_type(Some(ScalarTypeProperties::int()))
-                .with_receiver_class_for_test("test.C", context),
+                .with_receiver_class_for_test("test.D", context),
         ];
         vec![(
             "test.D.g",
@@ -4068,6 +4068,49 @@ def foo(l: list[int]):
                     TargetType::Function,
                 )]),
             )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_super_init,
+    TEST_MODULE_NAME,
+    r#"
+class A:
+    def __init__(self, x):
+        return
+
+class B(A):
+    def __init__(self, x) -> None:
+        super().__init__(x)
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.B.__init__",
+            vec![
+                (
+                    "8:9-8:16",
+                    constructor_call_callees(
+                        vec![
+                            create_call_target("builtins.super.__init__", TargetType::Function)
+                                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                                .with_receiver_class_for_test("builtins.super", context),
+                        ],
+                        vec![
+                            create_call_target("builtins.object.__new__", TargetType::Function)
+                                .with_is_static_method(true),
+                        ],
+                    ),
+                ),
+                (
+                    "8:9-8:28",
+                    regular_call_callees(vec![
+                        create_call_target("test.A.__init__", TargetType::Function)
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("test.B", context),
+                    ]),
+                ),
+            ],
         )]
     }
 );
