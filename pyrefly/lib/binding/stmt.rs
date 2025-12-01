@@ -661,19 +661,24 @@ impl<'a> BindingsBuilder<'a> {
                 // Note that we set up the loop *after* the header is fully bound, because the
                 // loop iterator is only evaluated once before the loop begins. But the loop header
                 // targets - which get re-bound each iteration - are excluded from the loop Phi logic.
-                self.setup_loop(x.range, &NarrowOps::new(), &loop_header_targets);
+                self.setup_loop(x.range, &loop_header_targets);
                 self.stmts(x.body, parent);
                 self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent, false);
             }
             Stmt::While(mut x) => {
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing(None));
-                let is_while_true = self.sys_info.evaluate_bool(&x.test) == Some(true);
-                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.setup_loop(x.range, &narrow_ops, &SmallSet::new());
+                self.setup_loop(x.range, &SmallSet::new());
                 // Note that it is important we ensure *after* we set up the loop, so that both the
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
                 // Typecheck the test condition during solving.
+                self.ensure_expr(&mut x.test, &mut Usage::Narrowing(None));
+                let is_while_true = self.sys_info.evaluate_bool(&x.test) == Some(true);
+                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
+                self.bind_narrow_ops(
+                    &narrow_ops,
+                    NarrowUseLocation::Span(x.range),
+                    &Usage::Narrowing(None),
+                );
                 self.insert_binding(KeyExpect(x.test.range()), BindingExpect::Bool(*x.test));
                 self.stmts(x.body, parent);
                 self.teardown_loop(x.range, &narrow_ops, x.orelse, parent, is_while_true);
