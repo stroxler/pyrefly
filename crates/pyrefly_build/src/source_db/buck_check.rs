@@ -59,6 +59,11 @@ fn read_manifest_file_data(data: &[u8]) -> anyhow::Result<Vec<ManifestItem>> {
                 // absolutize should be fine here to get absolute path, since Pyrefly
                 // will be run from Buck root.
                 let absolute_path = PathBuf::from(raw_item[1].clone()).absolutize();
+                if absolute_path.iter().any(|x| x == "pyre_buck_typeshed") {
+                    // We sometimes get Pyre typeshed files in the manifest, which don't match the versions we expect.
+                    // Once Pyre is retired, we can remove this filtering.
+                    continue;
+                }
                 let absolute_path = ModulePath::filesystem(absolute_path);
                 results.push(ManifestItem {
                     module_name,
