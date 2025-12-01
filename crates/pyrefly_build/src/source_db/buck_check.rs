@@ -125,6 +125,9 @@ fn create_manifest_item_index(
 pub struct BuckCheckSourceDatabase {
     sources: SmallMap<ModuleName, Vec1<ModulePath>>,
     dependencies: SmallMap<ModuleName, Vec1<ModulePath>>,
+    /// In Buck, any module that is the parent of a source/dependency is implicitly an empty `__init__.py` file.
+    /// See <https://github.com/facebook/buck2/blob/03ed62f85e7cc487fd505ad097ef9f260fae2522/prelude/python/tools/wheel.py#L196C1-L198C1>.
+    implicit_init: SmallMap<ModuleName, ModulePath>,
     sys_info: SysInfo,
 }
 
@@ -146,10 +149,15 @@ impl SourceDatabase for BuckCheckSourceDatabase {
         _: Option<&Path>,
         _: Option<ModuleStyle>,
     ) -> Option<ModulePath> {
-        self.sources
+        match self
+            .sources
             .get(&module)
             .or_else(|| self.dependencies.get(&module))
-            .map(|p| p.first().dupe())
+        {
+            Some(p) => Some(p.first().dupe()),
+            None if let Some(x) = self.implicit_init.get(&module) => Some(x.dupe()),
+            None => None,
+        }
     }
 
     fn handle_from_module_path(&self, module_path: &ModulePath) -> Option<Handle> {
@@ -203,11 +211,27 @@ impl BuckCheckSourceDatabase {
         typeshed_items: Vec<ManifestItem>,
         sys_info: SysInfo,
     ) -> Self {
+        let mut implicit_init = SmallMap::new();
+        for x in source_items
+            .iter()
+            .chain(dependency_items.iter())
+            .chain(typeshed_items.iter())
+        {
+            let mut name = x.module_name;
+            let mut path = x.absolute_path.as_path().to_owned();
+            while let Some(parent) = name.parent() {
+                path.pop();
+                implicit_init.insert(parent, ModulePath::namespace(path.clone()));
+                name = parent;
+            }
+        }
+
         Self {
             sources: create_manifest_item_index(source_items.into_iter()),
             dependencies: create_manifest_item_index(
                 dependency_items.into_iter().chain(typeshed_items),
             ),
+            implicit_init,
             sys_info,
         }
     }
@@ -469,5 +493,30 @@ mod tests {
             source_db.lookup_for_test(ModuleName::from_str("d")),
             LookupResult::ExternalSource(dep_d_path)
         );
+    }
+
+    #[test]
+    fn test_load_init() {
+        let source_db = BuckCheckSourceDatabase::from_manifest_items(
+            vec![
+                ManifestItem {
+                    module_name: ModuleName::from_str("foo.bar"),
+                    absolute_path: ModulePath::filesystem(
+                        PathBuf::from_str("/root/foo/bar.py").unwrap(),
+                    ),
+                },
+                ManifestItem {
+                    module_name: ModuleName::from_str("foo.baz"),
+                    absolute_path: ModulePath::filesystem(
+                        PathBuf::from_str("/root/foo/baz.py").unwrap(),
+                    ),
+                },
+            ],
+            vec![],
+            vec![],
+            SysInfo::default(),
+        );
+        let res = source_db.lookup(ModuleName::from_str("foo"), None, None);
+        assert_eq!(res.unwrap().as_path().to_str().unwrap(), "/root/foo");
     }
 }
