@@ -155,7 +155,7 @@ impl SourceDatabase for BuckCheckSourceDatabase {
     fn handle_from_module_path(&self, module_path: ModulePath) -> Option<Handle> {
         let find = |i: &SmallMap<ModuleName, Vec1<ModulePath>>| {
             i.iter()
-                .find(|s| s.1.iter().any(|p| p.as_path() == module_path.as_path()))
+                .find(|s| s.1.iter().any(|p| p == &module_path))
                 .map(|s| s.0.dupe())
         };
         let name = find(&self.sources).or_else(|| find(&self.dependencies))?;
