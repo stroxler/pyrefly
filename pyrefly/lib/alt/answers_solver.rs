@@ -561,29 +561,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         let binding = self.bindings().get(idx);
-        let answer = K::solve(self, binding, self.base_errors);
 
-        let v = calculation.record_value(answer, |var, answer| {
-            let range = self.bindings().idx_to_key(idx).range();
-            // Always force recursive Vars as soon as we produce the final answer. This limits
-            // nondeterminism by ensuring that nothing downstream of the cycle can pin the type
-            // once the cycle has finished (although there can still be data races where the
-            // Var escapes the cycle in another thread before it has finished computing).
-            //
-            // `Var::ZERO` is just a dummy value used by a few of the `K: Solve`
-            // implementations that doesn't actually use the Var, so we have to skip it.
-            let final_answer = K::record_recursive(self, range, answer, var, self.base_errors);
-            if var != Var::ZERO {
-                self.solver().force_var(var);
-            }
-            final_answer
-        });
+        let answer =
+            calculation.record_value(K::solve(self, binding, self.base_errors), |var, answer| {
+                let range = self.bindings().idx_to_key(idx).range();
+                // Always force recursive Vars as soon as we produce the final answer. This limits
+                // nondeterminism by ensuring that nothing downstream of the cycle can pin the type
+                // once the cycle has finished (although there can still be data races where the
+                // Var escapes the cycle in another thread before it has finished computing).
+                //
+                // `Var::ZERO` is just a dummy value used by a few of the `K: Solve`
+                // implementations that doesn't actually use the Var, so we have to skip it.
+                let final_answer = K::record_recursive(self, range, answer, var, self.base_errors);
+                if var != Var::ZERO {
+                    self.solver().force_var(var);
+                }
+                final_answer
+            });
         // Handle cycle unwinding, if applicable.
         //
         // TODO(stroxler): we eventually need to use is-a-cycle-active information to isolate
         // placeholder values.
         self.cycles().on_calculation_finished(&current);
-        v
+        answer
     }
 
     /// Attempt to record a cycle placeholder result to unwind a cycle from here.
