@@ -42,6 +42,7 @@ use ruff_python_ast::InterpolatedElement;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::StmtFor;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::StmtWith;
 use ruff_python_ast::name::Name;
@@ -93,6 +94,8 @@ pub enum OriginKind {
     FormatStringArtificial,
     FormatStringStringify,
     BinaryOperator,
+    ForIter,
+    ForNext,
 }
 
 impl std::fmt::Display for OriginKind {
@@ -109,6 +112,8 @@ impl std::fmt::Display for OriginKind {
             Self::FormatStringArtificial => write!(f, "format-string-artificial"),
             Self::FormatStringStringify => write!(f, "format-string-stringify"),
             Self::BinaryOperator => write!(f, "binary"),
+            Self::ForIter => write!(f, "for-iter"),
+            Self::ForNext => write!(f, "for-next"),
         }
     }
 }
@@ -2516,56 +2521,71 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_and_register_iter_next(
+        &mut self,
+        is_async: bool,
+        iter_range: TextRange,
+        iter_identifier: ExpressionIdentifier,
+        next_identifier: ExpressionIdentifier,
+    ) {
+        let (iter_callee_name, next_callee_name) = if is_async {
+            (dunder::AITER, dunder::ANEXT)
+        } else {
+            (dunder::ITER, dunder::NEXT)
+        };
+        let DunderAttrCallees {
+            callees: iter_callees,
+            attr_type: iter_callee_type,
+        } = self.call_targets_from_magic_dunder_attr(
+            /* base */
+            self.module_context
+                .answers
+                .get_type_trace(iter_range)
+                .as_ref(),
+            /* attribute */ Some(&iter_callee_name),
+            iter_range,
+            /* callee_expr */ None,
+            /* unknown_callee_as_direct_call */ true,
+            "resolve_and_register_iter_next",
+            /* exclude_object_methods */ false,
+        );
+        self.add_callees(iter_identifier, ExpressionCallees::Call(iter_callees));
+
+        let DunderAttrCallees {
+            callees: next_callees,
+            ..
+        } = self.call_targets_from_magic_dunder_attr(
+            /* base */
+            iter_callee_type
+                .and_then(|iter_callee_type| iter_callee_type.callable_return_type())
+                .as_ref(),
+            /* attribute */ Some(&next_callee_name),
+            iter_range,
+            /* callee_expr */ None,
+            /* unknown_callee_as_direct_call */ true,
+            "resolve_expression_for_comprehension_iter_next",
+            /* exclude_object_methods */ false,
+        );
+        self.add_callees(next_identifier, ExpressionCallees::Call(next_callees))
+    }
+
     fn resolve_and_register_comprehension(&mut self, generators: &[Comprehension]) {
         for generator in generators.iter() {
             let iter_range = generator.iter.range();
-            let (iter_callee_name, next_callee_name) = if generator.is_async {
-                (dunder::AITER, dunder::ANEXT)
-            } else {
-                (dunder::ITER, dunder::NEXT)
-            };
-            let DunderAttrCallees {
-                callees: iter_callees,
-                attr_type: iter_callee_type,
-            } = self.call_targets_from_magic_dunder_attr(
-                /* base */
-                self.module_context
-                    .answers
-                    .get_type_trace(iter_range)
-                    .as_ref(),
-                /* attribute */ Some(&iter_callee_name),
-                iter_range,
-                /* callee_expr */ None,
-                /* unknown_callee_as_direct_call */ true,
-                "resolve_expression_for_comprehension_iter",
-                /* exclude_object_methods */ false,
-            );
             let iter_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::GeneratorIter,
                 location: self.pysa_location(iter_range),
             });
-            self.add_callees(iter_identifier, ExpressionCallees::Call(iter_callees));
-
-            let DunderAttrCallees {
-                callees: next_callees,
-                ..
-            } = self.call_targets_from_magic_dunder_attr(
-                /* base */
-                iter_callee_type
-                    .and_then(|iter_callee_type| iter_callee_type.callable_return_type())
-                    .as_ref(),
-                /* attribute */ Some(&next_callee_name),
-                iter_range,
-                /* callee_expr */ None,
-                /* unknown_callee_as_direct_call */ true,
-                "resolve_expression_for_comprehension_iter_next",
-                /* exclude_object_methods */ false,
-            );
             let next_identifier = ExpressionIdentifier::ArtificialCall(Origin {
                 kind: OriginKind::GeneratorNext,
                 location: self.pysa_location(iter_range),
             });
-            self.add_callees(next_identifier, ExpressionCallees::Call(next_callees))
+            self.resolve_and_register_iter_next(
+                generator.is_async,
+                iter_range,
+                iter_identifier,
+                next_identifier,
+            );
         }
     }
 
@@ -2980,6 +3000,24 @@ impl<'a> CallGraphVisitor<'a> {
         }
     }
 
+    fn resolve_and_register_for_statement(&mut self, stmt_for: &StmtFor) {
+        let iter_range = stmt_for.iter.range();
+        let iter_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+            kind: OriginKind::ForIter,
+            location: self.pysa_location(iter_range),
+        });
+        let next_identifier = ExpressionIdentifier::ArtificialCall(Origin {
+            kind: OriginKind::ForNext,
+            location: self.pysa_location(iter_range),
+        });
+        self.resolve_and_register_iter_next(
+            stmt_for.is_async,
+            iter_range,
+            iter_identifier,
+            next_identifier,
+        );
+    }
+
     fn resolve_and_register_decorator_callees(
         &mut self,
         decorators: &[Decorator],
@@ -3126,6 +3164,7 @@ impl<'a> AstScopedVisitor for CallGraphVisitor<'a> {
         match stmt {
             Stmt::FunctionDef(function_def) => self.resolve_and_register_function_def(function_def),
             Stmt::With(stmt_with) => self.resolve_and_register_with_statement(stmt_with),
+            Stmt::For(stmt_for) => self.resolve_and_register_for_statement(stmt_for),
             _ => {}
         }
     }

@@ -1958,9 +1958,27 @@ def f(foo: Foo):
                 .with_receiver_class_for_test("test.Foo", context),
         ];
         let baz = vec![create_call_target("test.baz", TargetType::Function)];
+        let iter_targets = vec![
+            create_call_target("builtins.list.__iter__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context),
+        ];
+        let next_targets = vec![
+            create_call_target("typing.Iterator.__next__", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.Iterator", context),
+        ];
         vec![(
             "test.f",
             vec![
+                (
+                    "8:12-8:26|artificial-call|for-iter",
+                    regular_call_callees(iter_targets),
+                ),
+                (
+                    "8:12-8:26|artificial-call|for-next",
+                    regular_call_callees(next_targets),
+                ),
                 (
                     "8:13-8:20",
                     regular_attribute_access_callees(foo_bar.clone()),
@@ -2006,9 +2024,27 @@ def f():
             create_call_target("builtins.object.__new__", TargetType::Function)
                 .with_is_static_method(true),
         ];
+        let iter_targets = vec![
+            create_call_target("builtins.list.__iter__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context),
+        ];
+        let next_targets = vec![
+            create_call_target("typing.Iterator.__next__", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.Iterator", context),
+        ];
         vec![(
             "test.f",
             vec![
+                (
+                    "7:12-7:22|artificial-call|for-iter",
+                    regular_call_callees(iter_targets),
+                ),
+                (
+                    "7:12-7:22|artificial-call|for-next",
+                    regular_call_callees(next_targets),
+                ),
                 (
                     "7:13-7:16",
                     identifier_callees(
@@ -2661,13 +2697,11 @@ def foo() -> None:
     &|context: &ModuleContext| {
         let range_init_targets = vec![
             create_call_target("builtins.object.__init__", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_return_type(Some(ScalarTypeProperties::none())),
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
         ];
         let range_new_targets = vec![
             create_call_target("builtins.range.__new__", TargetType::Function)
-                .with_is_static_method(true)
-                .with_return_type(Some(ScalarTypeProperties::none())),
+                .with_is_static_method(true),
         ];
         let iter_targets = vec![{
             create_call_target("builtins.range.__iter__", TargetType::Function)
@@ -2996,18 +3030,12 @@ def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
   e["a"]["b"] = 0
 "#,
     &|context: &ModuleContext| {
-        let foo_target = vec![
-            create_call_target("test.foo", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::none())),
-        ];
+        let foo_target = vec![create_call_target("test.foo", TargetType::Function)];
         let bar_target = vec![
             create_call_target("test.bar", TargetType::Function)
                 .with_return_type(Some(ScalarTypeProperties::int())),
         ];
-        let baz_target = vec![
-            create_call_target("test.baz", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::none())),
-        ];
+        let baz_target = vec![create_call_target("test.baz", TargetType::Function)];
         let dict_setitem_target = vec![
             create_call_target("builtins.dict.__setitem__", TargetType::AllOverrides)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
@@ -3016,8 +3044,7 @@ def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
         let dict_getitem_target = vec![
             create_call_target("builtins.dict.__getitem__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("builtins.dict", context)
-                .with_return_type(Some(ScalarTypeProperties::none())),
+                .with_receiver_class_for_test("builtins.dict", context),
         ];
         vec![(
             "test.fun",
@@ -3061,8 +3088,7 @@ def foo(c: C) -> str:
         let method_call_targets = vec![
             create_call_target("test.C.m", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("test.C", context)
-                .with_return_type(Some(ScalarTypeProperties::none())),
+                .with_receiver_class_for_test("test.C", context),
         ];
         vec![(
             "test.foo",
@@ -3474,8 +3500,7 @@ def foo(a: A):
                 "5:3-5:17|artificial-call|binary",
                 regular_call_callees(vec![
                     create_call_target("builtins.str.__mod__", TargetType::Function)
-                        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                        .with_return_type(Some(ScalarTypeProperties::none())),
+                        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
                 ]),
             )],
         )]
@@ -3518,14 +3543,12 @@ def foo(e: Exception):
                         vec![
                             create_call_target("builtins.type.__init__", TargetType::AllOverrides)
                                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                                .with_receiver_class_for_test("builtins.type", context)
-                                .with_return_type(Some(ScalarTypeProperties::none())),
+                                .with_receiver_class_for_test("builtins.type", context),
                         ],
                         /* new_targets */
                         vec![
                             create_call_target("builtins.type.__new__", TargetType::Function)
-                                .with_is_static_method(true)
-                                .with_return_type(Some(ScalarTypeProperties::none())),
+                                .with_is_static_method(true),
                         ],
                         /* higher_order_parameters */ vec![],
                         /* unresolved */
@@ -3845,8 +3868,7 @@ def foo(e: Exception):
                     regular_call_callees(vec![
                         create_call_target("builtins.str.__add__", TargetType::Function)
                             .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                            .with_receiver_class_for_test("builtins.str", context)
-                            .with_return_type(Some(ScalarTypeProperties::none())),
+                            .with_receiver_class_for_test("builtins.str", context),
                     ]),
                 ),
             ],
@@ -4450,6 +4472,88 @@ def foo(base: A[T], arg: T) -> None:
                         .with_receiver_class_for_test("test.A", context),
                 ]),
             )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_for_aiter_anext,
+    TEST_MODULE_NAME,
+    r#"
+from typing import AsyncIterator
+def foo(l: AsyncIterator[int | str]):
+  async for x in l:
+    pass
+"#,
+    &|context: &ModuleContext| {
+        let aiter_targets = vec![
+            create_call_target("typing.AsyncIterator.__aiter__", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterator", context),
+        ];
+        let anext_targets = vec![
+            create_call_target("typing.AsyncIterator.__anext__", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterator", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "4:18-4:19|artificial-call|for-iter",
+                    regular_call_callees(aiter_targets),
+                ),
+                (
+                    "4:18-4:19|artificial-call|for-next",
+                    regular_call_callees(anext_targets),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_async_comprehension_with_method_call_on_different_parameter,
+    TEST_MODULE_NAME,
+    r#"
+from typing import AsyncIterator
+class A:
+  def foo(self): pass
+class B:
+  def foo(self): pass
+def foo(l: AsyncIterator[A], x: B):
+  ([x async for x in l], x.foo())
+"#,
+    &|context: &ModuleContext| {
+        let aiter_targets = vec![
+            create_call_target("typing.AsyncIterator.__aiter__", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterator", context),
+        ];
+        let anext_targets = vec![
+            create_call_target("typing.AsyncIterator.__anext__", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("typing.AsyncIterator", context),
+        ];
+        let b_foo = vec![
+            create_call_target("test.B.foo", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.B", context)
+                .with_return_type(None),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "8:22-8:23|artificial-call|generator-iter",
+                    regular_call_callees(aiter_targets),
+                ),
+                (
+                    "8:22-8:23|artificial-call|generator-next",
+                    regular_call_callees(anext_targets),
+                ),
+                ("8:26-8:33", regular_call_callees(b_foo)),
+            ],
         )]
     }
 );
