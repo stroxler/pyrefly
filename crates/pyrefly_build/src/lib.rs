@@ -25,18 +25,22 @@
 #![feature(const_type_name)]
 #![feature(if_let_guard)]
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
+use dupe::Dupe as _;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lock::Mutex;
 use serde::Deserialize;
 use serde::Serialize;
 
 pub mod handle;
 pub mod source_db;
 pub use source_db::SourceDatabase;
+use starlark_map::small_map::SmallMap;
 mod query;
-
 #[cfg(not(target_arch = "wasm32"))]
 use which::which;
 
@@ -47,7 +51,15 @@ use crate::query::custom::CustomQuerier;
 use crate::query::custom::CustomQueryArgs;
 use crate::source_db::query_source_db::QuerySourceDatabase;
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+/// A cache of previously loaded build systems, keyed on their project root
+/// and config.
+static BUILD_SYSTEM_CACHE: LazyLock<
+    Mutex<
+        SmallMap<(PathBuf, BuildSystemArgs), ArcId<Box<dyn source_db::SourceDatabase + 'static>>>,
+    >,
+> = LazyLock::new(|| Mutex::new(SmallMap::new()));
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum BuildSystemArgs {
     Buck(BxlArgs),
@@ -66,6 +78,13 @@ impl BuildSystemArgs {
         }
         #[cfg(target_arch = "wasm32")]
         false
+    }
+
+    fn get_repo_root(&self, cwd: &Path) -> anyhow::Result<PathBuf> {
+        match self {
+            Self::Buck(args) => args.get_repo_root(cwd),
+            Self::Custom(args) => args.get_repo_root(cwd),
+        }
     }
 }
 
@@ -93,13 +112,26 @@ impl BuildSystem {
                 )));
             }
         }
+
+        let repo_root = match self.args.get_repo_root(&config_root) {
+            Err(e) => return Some(Err(e)),
+            Ok(path) => path,
+        };
+        let mut cache = BUILD_SYSTEM_CACHE.lock();
+        let key = (repo_root.clone(), self.args.clone());
+        if let Some(result) = cache.get(&key) {
+            return Some(Ok(result.dupe()));
+        }
+
         let querier: Arc<dyn SourceDbQuerier> = match &self.args {
             BuildSystemArgs::Buck(args) => Arc::new(BxlQuerier::new(args.clone())),
             BuildSystemArgs::Custom(args) => Arc::new(CustomQuerier::new(args.clone())),
         };
-        Some(Ok(ArcId::new(Box::new(QuerySourceDatabase::new(
-            config_root,
+        let source_db = ArcId::new(Box::new(QuerySourceDatabase::new(
+            repo_root.to_path_buf(),
             querier,
-        )))))
+        )) as Box<dyn SourceDatabase>);
+        cache.insert(key, source_db.dupe());
+        Some(Ok(source_db))
     }
 }
