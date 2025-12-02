@@ -4153,3 +4153,165 @@ class B(A):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_list_getitem,
+    TEST_MODULE_NAME,
+    r#"
+import typing
+def bar(l: typing.List[int]):
+  return l[0]
+"#,
+    &|context: &ModuleContext| {
+        let getitem_target = vec![
+            create_call_target("builtins.list.__getitem__", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("builtins.list", context),
+        ];
+        vec![(
+            "test.bar",
+            vec![(
+                "4:10-4:14|artificial-call|subscript-get-item",
+                regular_call_callees(getitem_target),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_nested_function,
+    TEST_MODULE_NAME,
+    r#"
+
+def baz(x: int) -> int:
+  return x
+def foo():
+  def bar(x: int) -> int:
+    return baz(x)
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.bar",
+            vec![(
+                "7:12-7:18",
+                regular_call_callees(vec![
+                    create_call_target("test.baz", TargetType::Function)
+                        .with_return_type(Some(ScalarTypeProperties::int())),
+                ]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_nested_function_in_conditional,
+    TEST_MODULE_NAME,
+    r#"
+def baz(x: int) -> int:
+  return x
+def foo():
+  if 1 < 2:
+    def bar(x: int) -> int:
+      return baz(x)
+    return
+  else:
+    return
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.bar",
+            vec![(
+                "7:14-7:20",
+                regular_call_callees(vec![
+                    create_call_target("test.baz", TargetType::Function)
+                        .with_return_type(Some(ScalarTypeProperties::int())),
+                ]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_decorated_method_call_on_base_and_child_classes,
+    TEST_MODULE_NAME,
+    r#"
+def decorator(function):
+    return function
+class Base:
+    @decorator
+    def query(self, arg):
+        return arg
+class Child(Base):
+    pass
+class SubChild(Child):
+    def query(self, arg):
+        return arg
+def foo(base: Base, child: Child):
+    base.query(1)
+    child.query(1)
+"#,
+    &|context: &ModuleContext| {
+        let base_query = vec![
+            create_call_target("test.Base.query", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Base", context),
+        ];
+        let child_query = vec![
+            create_call_target("test.Base.query", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Child", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                // TODO: Expect `Override`
+                ("14:5-14:18", regular_call_callees(base_query)),
+                // TODO: Also expect `test.SubChild.query`
+                ("15:5-15:19", regular_call_callees(child_query)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_decorated_method_call_on_multi_inheritance_child,
+    TEST_MODULE_NAME,
+    r#"
+def decorator(function):
+    return function
+class BaseA:
+    @decorator
+    def query(self, arg):
+        return arg
+class BaseB:
+    pass
+class BaseC:
+    @decorator
+    def query(self, arg):
+        return arg
+class Child(BaseB, BaseA, BaseC):
+    pass
+def foo(base: BaseA, child: Child):
+    base.query(1)
+    child.query(1)
+"#,
+    &|context: &ModuleContext| {
+        let base_a_query = vec![
+            create_call_target("test.BaseA.query", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.BaseA", context),
+        ];
+        let child_query = vec![
+            create_call_target("test.BaseA.query", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Child", context),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                ("17:5-17:18", regular_call_callees(base_a_query)),
+                ("18:5-18:19", regular_call_callees(child_query)),
+            ],
+        )]
+    }
+);
