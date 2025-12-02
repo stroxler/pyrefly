@@ -337,7 +337,7 @@ impl Playground {
         }
 
         let source_db = PlaygroundSourceDatabase::new(module_mappings, self.sys_info.dupe());
-        config.source_db = Some(Arc::new(Box::new(source_db)));
+        config.source_db = Some(ArcId::new(Box::new(source_db)));
 
         config.configure();
         let config = ArcId::new(config);

@@ -30,7 +30,7 @@ pub struct CustomQueryArgs {
     /// and `<arg-flag>` is either `--file` or `--target`, depending on the type
     /// of `<arg>`
     /// and `<arg>` is an absolute path to a file or a build system's target.
-    command: Vec1<String>,
+    pub command: Vec1<String>,
 }
 
 /// A querier allowing for a custom command when querying and constructing source DB.

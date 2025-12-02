@@ -2085,6 +2085,7 @@ dependencies = [
  "tempfile",
  "tracing",
  "vec1",
+ "which",
 ]
 
 [[package]]

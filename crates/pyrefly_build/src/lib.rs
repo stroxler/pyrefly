@@ -28,6 +28,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use pyrefly_util::arc_id::ArcId;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -35,6 +36,9 @@ pub mod handle;
 pub mod source_db;
 pub use source_db::SourceDatabase;
 mod query;
+
+#[cfg(not(target_arch = "wasm32"))]
+use which::which;
 
 use crate::query::SourceDbQuerier;
 use crate::query::buck::BxlArgs;
@@ -45,20 +49,57 @@ use crate::source_db::query_source_db::QuerySourceDatabase;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case", tag = "type")]
-pub enum BuildSystem {
+pub enum BuildSystemArgs {
     Buck(BxlArgs),
     Custom(CustomQueryArgs),
+}
+
+impl BuildSystemArgs {
+    fn is_build_system_available(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let cmd = match self {
+                Self::Buck(_) => "buck2",
+                Self::Custom(args) => args.command.first(),
+            };
+            which(cmd).is_ok()
+        }
+        #[cfg(target_arch = "wasm32")]
+        false
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub struct BuildSystem {
+    #[serde(flatten)]
+    args: BuildSystemArgs,
+    #[serde(default)]
+    ignore_if_build_system_missing: bool,
 }
 
 impl BuildSystem {
     pub fn get_source_db(
         &self,
         config_root: PathBuf,
-    ) -> Box<dyn source_db::SourceDatabase + 'static> {
-        let querier: Arc<dyn SourceDbQuerier> = match &self {
-            Self::Buck(args) => Arc::new(BxlQuerier::new(args.clone())),
-            Self::Custom(args) => Arc::new(CustomQuerier::new(args.clone())),
+    ) -> Option<anyhow::Result<ArcId<Box<dyn source_db::SourceDatabase + 'static>>>> {
+        let build_system_available = self.args.is_build_system_available();
+        if !build_system_available {
+            if self.ignore_if_build_system_missing {
+                return None;
+            } else {
+                return Some(Err(anyhow::anyhow!(
+                    "Build system configured, but could not be found on PATH."
+                )));
+            }
+        }
+        let querier: Arc<dyn SourceDbQuerier> = match &self.args {
+            BuildSystemArgs::Buck(args) => Arc::new(BxlQuerier::new(args.clone())),
+            BuildSystemArgs::Custom(args) => Arc::new(CustomQuerier::new(args.clone())),
         };
-        Box::new(QuerySourceDatabase::new(config_root, querier))
+        Some(Ok(ArcId::new(Box::new(QuerySourceDatabase::new(
+            config_root,
+            querier,
+        )))))
     }
 }

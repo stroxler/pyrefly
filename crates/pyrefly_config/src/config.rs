@@ -501,7 +501,7 @@ pub struct ConfigFile {
     /// for a path and doing module finding.
     #[serde(skip, default)]
     #[derivative(PartialEq = "ignore")]
-    pub source_db: Option<Arc<Box<dyn SourceDatabase>>>,
+    pub source_db: Option<ArcId<Box<dyn SourceDatabase>>>,
 
     /// Skips the check to ensure any `-stubs` `site_package_path` entries have an
     /// installed non-stubs package.
@@ -991,19 +991,34 @@ impl ConfigFile {
         };
         self.root.enabled_ignores = Some(enabled_ignores);
 
-        if let Some(build_system) = &self.build_system {
-            match &self.source {
+        let mut configure_source_db = |build_system: &BuildSystem| {
+            let root = match &self.source {
                 ConfigSource::File(path) => {
                     let mut root = path.to_path_buf();
                     root.pop();
-                    self.source_db = Some(Arc::new(build_system.get_source_db(root.to_path_buf())));
+                    root
+                }
+                _ => {
+                    return Some(anyhow::anyhow!(
+                        "Invalid config state: `build-system` is set on project without config."
+                    ));
+                }
+            };
+
+            match build_system.get_source_db(root.to_path_buf())? {
+                Ok(source_db) => {
+                    self.source_db = Some(source_db);
                     self.fallback_search_path = FallbackSearchPath::DirectoryRelative(
                         DirectoryRelativeFallbackSearchPathCache::new(Some(root)),
                     );
+                    None
                 }
-                _ => configure_errors.push(anyhow::anyhow!(
-                    "Invalid config state: `build-system` is set on project without config."
-                )),
+                Err(error) => Some(error),
+            }
+        };
+        if let Some(build_system) = &self.build_system {
+            if let Some(error) = configure_source_db(build_system) {
+                configure_errors.push(error)
             }
         }
 
