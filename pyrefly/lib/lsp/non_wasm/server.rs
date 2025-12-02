@@ -807,6 +807,9 @@ impl Server {
                     return Ok(ProcessEvent::Continue);
                 }
 
+                let mut transaction =
+                    ide_transaction_manager.non_committable_transaction(&self.state);
+
                 if subsequent_mutation {
                     // We probably didn't bother completing a previous check, but we are now answering a query that
                     // really needs a previous check to be correct.
@@ -815,7 +818,11 @@ impl Server {
                         "Request {} ({}) has subsequent mutation, prepare to validate open files.",
                         x.method, x.id,
                     );
-                    self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
+                    Self::validate_in_memory_for_transaction(
+                        &self.state,
+                        &self.open_files,
+                        &mut transaction,
+                    );
                 }
 
                 info!("Handling non-canceled request {} ({})", x.method, &x.id);
@@ -826,15 +833,12 @@ impl Server {
                         )
                     {
                         let default_response = GotoDefinitionResponse::Array(Vec::new());
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self
                                 .goto_definition(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<GotoDeclaration>(&x) {
                     if let Some(params) = self
@@ -843,15 +847,12 @@ impl Server {
                         )
                     {
                         let default_response = GotoDefinitionResponse::Array(Vec::new());
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self
                                 .goto_declaration(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<GotoTypeDefinition>(&x) {
                     if let Some(params) = self
@@ -860,15 +861,12 @@ impl Server {
                         )
                     {
                         let default_response = GotoTypeDefinitionResponse::Array(Vec::new());
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self
                                 .goto_type_definition(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<GotoImplementation>(&x) {
                     if let Some(params) = self
@@ -876,7 +874,7 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        self.async_go_to_implementations(x.id, ide_transaction_manager, params);
+                        self.async_go_to_implementations(x.id, &transaction, params);
                     }
                 } else if let Some(params) = as_request::<CodeActionRequest>(&x) {
                     if let Some(params) = self
@@ -884,25 +882,19 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.code_action(&transaction, params).unwrap_or_default()),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<Completion>(&x) {
                     if let Some(params) = self
                         .extract_request_params_or_send_err_response::<Completion>(params, &x.id)
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             self.completion(&transaction, params),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<DocumentHighlightRequest>(&x) {
                     if let Some(params) = self
@@ -910,13 +902,10 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.document_highlight(&transaction, params)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<References>(&x) {
                     if let Some(params) = self
@@ -926,7 +915,7 @@ impl Server {
                             .read()
                             .contains_key(&params.text_document_position.text_document.uri)
                     {
-                        self.references(x.id, ide_transaction_manager, params);
+                        self.references(x.id, &transaction, params);
                     } else {
                         // TODO(yangdanny) handle notebooks
                         let locations: Vec<Location> = Vec::new();
@@ -939,13 +928,10 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.prepare_rename(&transaction, params)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<Rename>(&x) {
                     if let Some(params) =
@@ -958,15 +944,11 @@ impl Server {
                         // TODO(yangdanny) handle notebooks
                         // First check if rename is allowed via prepare_rename. If a rename is not allowed we
                         // send back an error. Otherwise we continue with the rename operation.
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         if let Some(_range) =
                             self.prepare_rename(&transaction, params.text_document_position.clone())
                         {
-                            ide_transaction_manager.save(transaction);
-                            self.rename(x.id, ide_transaction_manager, params);
+                            self.rename(x.id, &transaction, params);
                         } else {
-                            ide_transaction_manager.save(transaction);
                             self.send_response(Response {
                                 id: x.id,
                                 result: None,
@@ -984,13 +966,10 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.signature_help(&transaction, params)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<HoverRequest>(&x) {
                     if let Some(params) = self
@@ -1000,13 +979,10 @@ impl Server {
                             contents: HoverContents::Array(Vec::new()),
                             range: None,
                         };
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.hover(&transaction, params).unwrap_or(default_response)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<InlayHintRequest>(&x) {
                     if let Some(params) = self
@@ -1014,13 +990,10 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.inlay_hints(&transaction, params).unwrap_or_default()),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<SemanticTokensFullRequest>(&x) {
                     if let Some(params) = self
@@ -1032,15 +1005,12 @@ impl Server {
                             result_id: None,
                             data: Vec::new(),
                         });
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self
                                 .semantic_tokens_full(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<SemanticTokensRangeRequest>(&x) {
                     if let Some(params) = self
@@ -1052,15 +1022,12 @@ impl Server {
                             result_id: None,
                             data: Vec::new(),
                         });
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self
                                 .semantic_tokens_ranged(&transaction, params)
                                 .unwrap_or(default_response)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<DocumentSymbolRequest>(&x) {
                     if let Some(params) = self
@@ -1068,8 +1035,6 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(DocumentSymbolResponse::Nested(
@@ -1077,7 +1042,6 @@ impl Server {
                                     .unwrap_or_default(),
                             )),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<WorkspaceSymbolRequest>(&x) {
                     if let Some(params) = self
@@ -1085,15 +1049,12 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(WorkspaceSymbolResponse::Flat(
                                 self.workspace_symbols(&transaction, &params.query),
                             )),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x) {
                     if let Some(params) = self
@@ -1101,25 +1062,19 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.document_diagnostics(&transaction, params)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<ProvideType>(&x) {
                     if let Some(params) = self
                         .extract_request_params_or_send_err_response::<ProvideType>(params, &x.id)
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
                             x.id,
                             Ok(self.provide_type(&transaction, params)),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<WillRenameFiles>(&x) {
                     if let Some(params) = self
@@ -1127,8 +1082,6 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         let supports_document_changes = self
                             .initialize_params
                             .capabilities
@@ -1145,7 +1098,6 @@ impl Server {
                                 supports_document_changes,
                             )),
                         ));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if let Some(params) = as_request::<FoldingRangeRequest>(&x) {
                     if let Some(params) = self
@@ -1153,23 +1105,17 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        let transaction =
-                            ide_transaction_manager.non_committable_transaction(&self.state);
                         let result = self
                             .folding_ranges(&transaction, params)
                             .unwrap_or_default();
                         self.send_response(new_response(x.id, Ok(result)));
-                        ide_transaction_manager.save(transaction);
                     }
                 } else if &x.method == "pyrefly/textDocument/docstringRanges" {
                     let text_document: TextDocumentIdentifier = serde_json::from_value(x.params)?;
-                    let transaction =
-                        ide_transaction_manager.non_committable_transaction(&self.state);
                     let ranges = self
                         .docstring_ranges(&transaction, &text_document)
                         .unwrap_or_default();
                     self.send_response(new_response(x.id, Ok(ranges)));
-                    ide_transaction_manager.save(transaction);
                 } else if &x.method == "pyrefly/textDocument/typeErrorDisplayStatus" {
                     let text_document: TextDocumentIdentifier = serde_json::from_value(x.params)?;
                     if !self
@@ -1197,6 +1143,7 @@ impl Server {
                     ));
                     info!("Unhandled request: {x:?}");
                 }
+                ide_transaction_manager.save(transaction);
             }
         }
         Ok(ProcessEvent::Continue)
@@ -2222,7 +2169,7 @@ impl Server {
     fn async_go_to_implementations<'a>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut TransactionManager<'a>,
+        transaction: &Transaction<'a>,
         params: GotoImplementationParams,
     ) {
         let uri = &params.text_document_position_params.text_document.uri;
@@ -2242,7 +2189,7 @@ impl Server {
         };
         self.async_find_from_definition_helper(
             request_id,
-            ide_transaction_manager,
+            transaction,
             handle,
             uri,
             params.text_document_position_params.position,
@@ -2403,7 +2350,7 @@ impl Server {
     fn async_find_from_definition_helper<'a, V: serde::Serialize>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut TransactionManager<'a>,
+        transaction: &Transaction<'a>,
         handle: Handle,
         uri: &Url,
         position: Position,
@@ -2417,9 +2364,7 @@ impl Server {
         + 'static,
         map_result: impl FnOnce(Vec<(Url, Vec<Range>)>) -> V + Send + Sync + 'static,
     ) {
-        let transaction = ide_transaction_manager.non_committable_transaction(&self.state);
         let Some(info) = transaction.get_module_info(&handle) else {
-            ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
         let position = self.from_lsp_position(uri, &info, position);
@@ -2436,10 +2381,8 @@ impl Server {
             .into_iter()
             .next()
         else {
-            ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
-        ide_transaction_manager.save(transaction);
         let state = self.state.dupe();
         let open_files = self.open_files.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
@@ -2485,7 +2428,7 @@ impl Server {
     fn async_find_references_helper<'a, V: serde::Serialize>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut TransactionManager<'a>,
+        transaction: &Transaction<'a>,
         handle: Handle,
         uri: &Url,
         position: Position,
@@ -2493,7 +2436,7 @@ impl Server {
     ) {
         self.async_find_from_definition_helper(
             request_id,
-            ide_transaction_manager,
+            transaction,
             handle,
             uri,
             position,
@@ -2517,7 +2460,7 @@ impl Server {
     fn references<'a>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut TransactionManager<'a>,
+        transaction: &Transaction<'a>,
         params: ReferenceParams,
     ) {
         let uri = &params.text_document_position.text_document.uri;
@@ -2526,7 +2469,7 @@ impl Server {
         };
         self.async_find_references_helper(
             request_id,
-            ide_transaction_manager,
+            transaction,
             handle,
             uri,
             params.text_document_position.position,
@@ -2548,7 +2491,7 @@ impl Server {
     fn rename<'a>(
         &'a self,
         request_id: RequestId,
-        ide_transaction_manager: &mut TransactionManager<'a>,
+        transaction: &Transaction<'a>,
         params: RenameParams,
     ) {
         let uri = &params.text_document_position.text_document.uri;
@@ -2557,7 +2500,7 @@ impl Server {
         };
         self.async_find_references_helper(
             request_id,
-            ide_transaction_manager,
+            transaction,
             handle,
             uri,
             params.text_document_position.position,
