@@ -93,7 +93,7 @@ enum Variable {
 }
 
 impl Variable {
-    fn unsolved(q: &Quantified) -> Self {
+    fn finished(q: &Quantified) -> Self {
         if let Some(d) = q.default() {
             Variable::Answer(d.clone())
         } else {
@@ -740,7 +740,7 @@ impl Solver {
                 }
                 Variable::Quantified(q) => {
                     if self.infer_with_first_use {
-                        *e = Variable::unsolved(q);
+                        *e = Variable::finished(q);
                     } else {
                         *e = Variable::Answer(default(q))
                     }
@@ -829,7 +829,7 @@ impl Solver {
                     Some(t)
                 } else if self.infer_with_first_use {
                     let v = Var::new(uniques);
-                    self.variables.lock().insert_fresh(v, Variable::unsolved(q));
+                    self.variables.lock().insert_fresh(v, Variable::finished(q));
                     Some(v.to_type())
                 } else {
                     Some(default(q))
