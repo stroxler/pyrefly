@@ -563,8 +563,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let binding = self.bindings().get(idx);
         let answer = K::solve(self, binding, self.base_errors);
 
-        let v = calculation.record_value(answer, |r, answer| {
-            let k = self.bindings().idx_to_key(idx).range();
+        let v = calculation.record_value(answer, |var, answer| {
+            let range = self.bindings().idx_to_key(idx).range();
             // Always force recursive Vars as soon as we produce the final answer. This limits
             // nondeterminism by ensuring that nothing downstream of the cycle can pin the type
             // once the cycle has finished (although there can still be data races where the
@@ -572,9 +572,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //
             // `Var::ZERO` is just a dummy value used by a few of the `K: Solve`
             // implementations that doesn't actually use the Var, so we have to skip it.
-            let final_answer = K::record_recursive(self, k, answer, r, self.base_errors);
-            if r != Var::ZERO {
-                self.solver().force_var(r);
+            let final_answer = K::record_recursive(self, range, answer, var, self.base_errors);
+            if var != Var::ZERO {
+                self.solver().force_var(var);
             }
             final_answer
         });
