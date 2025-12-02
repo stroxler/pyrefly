@@ -257,9 +257,9 @@ fn definition_in_builtins_without_interpreter_goes_to_stub() {
         .definition("imports_builtins_no_config.py", 7, 7)
         .expect_definition_response_absolute(
             result_file.to_string_lossy().to_string(),
-            444,
+            447,
             0,
-            444,
+            447,
             4,
         )
         .unwrap();
@@ -337,9 +337,9 @@ fn goto_type_def_on_str_primitive_goes_to_builtins_stub() {
         .type_definition("primitive_type_test.py", 5, 0)
         .expect_definition_response_absolute(
             result_file.to_string_lossy().to_string(),
-            1023,
+            1025,
             6,
-            1023,
+            1025,
             9,
         )
         .unwrap();
@@ -371,9 +371,9 @@ fn goto_type_def_on_int_primitive_goes_to_builtins_stub() {
         .type_definition("primitive_type_test.py", 6, 0)
         .expect_definition_response_absolute(
             result_file.to_string_lossy().to_string(),
-            417,
+            419,
             6,
-            417,
+            419,
             9,
         )
         .unwrap();
@@ -405,9 +405,9 @@ fn goto_type_def_on_bool_primitive_goes_to_builtins_stub() {
         .type_definition("primitive_type_test.py", 7, 0)
         .expect_definition_response_absolute(
             result_file.to_string_lossy().to_string(),
-            3098,
+            3100,
             6,
-            3098,
+            3100,
             10,
         )
         .unwrap();
@@ -439,9 +439,9 @@ fn goto_type_def_on_bytes_primitive_goes_to_builtins_stub() {
         .type_definition("primitive_type_test.py", 8, 0)
         .expect_definition_response_absolute(
             result_file.to_string_lossy().to_string(),
-            1835,
+            1837,
             6,
-            1835,
+            1837,
             11,
         )
         .unwrap();
@@ -500,8 +500,8 @@ fn goto_type_def_on_list_of_primitives_shows_selector() {
 
                 for x in xs {
                     if x.uri.to_file_path().unwrap() == builtins_file {
-                        has_int = has_int || x.range.start.line == 417;
-                        has_list = has_list || x.range.start.line == 3348;
+                        has_int = has_int || x.range.start.line == 419;
+                        has_list = has_list || x.range.start.line == 3350;
                     }
                 }
 

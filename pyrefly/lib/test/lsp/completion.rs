@@ -1992,7 +1992,6 @@ Completion Results:
 - (Variable) _LiteralInteger
 - (Variable) _M_contra
 - (Variable) _NegativeInteger
-- (Class) _NotImplementedType
 - (Variable) _Opener
 - (Variable) _P
 - (Variable) _PositiveInteger
