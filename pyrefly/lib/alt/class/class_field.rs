@@ -194,31 +194,6 @@ pub enum DescriptorBase {
     ClassDef(Class),
 }
 
-/// Helper type for going from binding information to the calculated class field.
-///
-/// TODO(stroxler): This type is mostly an artifact of a refactor, it used to be
-/// used in `BindingClassField`. We probably can eliminate it.
-enum RawClassFieldInitialization {
-    /// At the point where the field is declared, it does not have an initial value. This includes
-    /// fields declared but not initialized in the class body, and instance-only fields of
-    /// synthesized classes.
-    Uninitialized,
-    /// The field is set in a method *and declared nowhere else*. Consider:
-    ///   class A:
-    ///     x: int
-    ///     def __init__(self):
-    ///         self.x = 42
-    ///         self.y = 42
-    /// `x`'s initialization type is `Uninitialized`, whereas y's is `Method('__init__')`.
-    Method(MethodThatSetsAttr),
-    /// The field is declared and initialized to a value in the class body.
-    ///
-    /// If the value is from an assignment, stores the expression that the field is assigned to,
-    /// which is needed for some cases like dataclass fields. The `None` case is for fields that
-    /// have values which don't come from assignment (e.g. function defs, imports in a class body)
-    ClassBody(Option<Expr>),
-}
-
 /// Correctly analyzing which attributes are visible on class objects, as well
 /// as handling method binding correctly, requires distinguishing which fields
 /// are assigned values in the class body.
@@ -1070,24 +1045,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // It's a mess because we are relying on refs to fields that don't make sense for some cases,
         // which requires us having a place to store synthesized dummy values until we've refactored more.
         let value_storage = Owner::new();
-        let initial_value_storage = Owner::new();
         let direct_annotation = self.annotation_of_field_definition(field_definition);
 
         let (
-            initial_value,
+            initialization,
             is_function_without_return_annotation,
             value_ty,
             inherited_annotation,
             is_inherited,
         ) = match field_definition {
             ClassFieldDefinition::DeclaredByAnnotation { .. } => {
-                let initial_value =
-                    initial_value_storage.push(RawClassFieldInitialization::Uninitialized);
+                let initialization = if class.module_path().is_interface()
+                    || direct_annotation
+                        .as_ref()
+                        .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar))
+                {
+                    ClassFieldInitialization::Magic
+                } else {
+                    ClassFieldInitialization::Uninitialized
+                };
                 if let Some(annotated_ty) =
                     direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
                 {
                     (
-                        initial_value,
+                        initialization,
                         false,
                         annotated_ty,
                         None,
@@ -1103,7 +1084,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let (value_ty, inherited_annotation, is_inherited) =
                         self.analyze_class_field_value(value, class, name, false, errors);
                     (
-                        initial_value,
+                        initialization,
                         false,
                         value_ty,
                         inherited_annotation,
@@ -1112,17 +1093,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             ClassFieldDefinition::AssignedInBody { value, .. } => {
-                let initial_value = initial_value_storage.push(
-                    RawClassFieldInitialization::ClassBody(match value {
-                        ExprOrBinding::Expr(e) => Some(e.clone()),
-                        ExprOrBinding::Binding(_) => None,
-                    }),
-                );
+                let initialization = if let ExprOrBinding::Expr(e) = value
+                    && let Some(dm) = metadata.dataclass_metadata()
+                    && let Expr::Call(call) = e
+                {
+                    let flags = self.compute_dataclass_field_initialization(call, dm);
+                    ClassFieldInitialization::ClassBody(flags.map(Box::new))
+                } else {
+                    ClassFieldInitialization::ClassBody(None)
+                };
                 if let Some(annotated_ty) =
                     direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
                 {
                     (
-                        initial_value,
+                        initialization,
                         false,
                         annotated_ty,
                         None,
@@ -1136,7 +1120,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let (value_ty, inherited_annotation, is_inherited) =
                         self.analyze_class_field_value(value, class, name, false, errors);
                     (
-                        initial_value,
+                        initialization,
                         false,
                         value_ty,
                         inherited_annotation,
@@ -1167,13 +1151,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
 
-                let initial_value =
-                    initial_value_storage.push(RawClassFieldInitialization::Method(method.clone()));
+                let initialization = match method.instance_or_class {
+                    MethodSelfKind::Class => ClassFieldInitialization::ClassBody(None),
+                    MethodSelfKind::Instance => ClassFieldInitialization::Method,
+                };
                 if let Some(annotated_ty) =
                     direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
                 {
                     (
-                        initial_value,
+                        initialization,
                         false,
                         annotated_ty,
                         None,
@@ -1192,7 +1178,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                     (
-                        initial_value,
+                        initialization,
                         false,
                         value_ty,
                         inherited_annotation,
@@ -1204,14 +1190,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 definition,
                 has_return_annotation,
             } => {
-                let initial_value =
-                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None));
+                let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
                 let (value_ty, inherited_annotation, is_inherited) =
                     self.analyze_class_field_value(value, class, name, false, errors);
                 (
-                    initial_value,
+                    initialization,
                     !has_return_annotation,
                     value_ty,
                     inherited_annotation,
@@ -1219,14 +1204,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )
             }
             ClassFieldDefinition::DefinedWithoutAssign { definition } => {
-                let initial_value =
-                    initial_value_storage.push(RawClassFieldInitialization::ClassBody(None));
+                let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
                 let (value_ty, inherited_annotation, is_inherited) =
                     self.analyze_class_field_value(value, class, name, false, errors);
                 (
-                    initial_value,
+                    initialization,
                     false,
                     value_ty,
                     inherited_annotation,
@@ -1235,50 +1219,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ClassFieldDefinition::DeclaredWithoutAnnotation => {
                 // This is a field in a synthesized class with no information at all, treat it as Any.
-                let initial_value =
-                    initial_value_storage.push(RawClassFieldInitialization::Uninitialized);
-                let value =
-                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit())));
-                let (value_ty, inherited_annotation, is_inherited) =
-                    self.analyze_class_field_value(value, class, name, false, errors);
-                (
-                    initial_value,
-                    false,
-                    value_ty,
-                    inherited_annotation,
-                    is_inherited,
-                )
-            }
-        };
-
-        let initialization = match initial_value {
-            RawClassFieldInitialization::ClassBody(None) => {
-                ClassFieldInitialization::ClassBody(None)
-            }
-            RawClassFieldInitialization::ClassBody(Some(e)) => {
-                // If this field was created via a call to a dataclass field specifier, extract field flags from the call.
-                if let Some(dm) = metadata.dataclass_metadata()
-                    && let Expr::Call(call) = e
-                {
-                    let flags = self.compute_dataclass_field_initialization(call, dm);
-                    ClassFieldInitialization::ClassBody(flags.map(Box::new))
-                } else {
-                    ClassFieldInitialization::ClassBody(None)
-                }
-            }
-            RawClassFieldInitialization::Method(MethodThatSetsAttr {
-                instance_or_class: MethodSelfKind::Class,
-                ..
-            }) => ClassFieldInitialization::ClassBody(None),
-            RawClassFieldInitialization::Method(MethodThatSetsAttr {
-                instance_or_class: MethodSelfKind::Instance,
-                ..
-            }) => ClassFieldInitialization::Method,
-            RawClassFieldInitialization::Uninitialized => {
-                // We consider fields to be always-initialized if it's defined within stub files.
-                // See https://github.com/python/typeshed/pull/13875 for reasoning.
-                if class.module_path().is_interface()
-                    // We consider fields to be always-initialized if it's annotated explicitly with `ClassVar`.
+                let initialization = if class.module_path().is_interface()
                     || direct_annotation
                         .as_ref()
                         .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar))
@@ -1286,7 +1227,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ClassFieldInitialization::Magic
                 } else {
                     ClassFieldInitialization::Uninitialized
-                }
+                };
+                let value =
+                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit())));
+                let (value_ty, inherited_annotation, is_inherited) =
+                    self.analyze_class_field_value(value, class, name, false, errors);
+                (
+                    initialization,
+                    false,
+                    value_ty,
+                    inherited_annotation,
+                    is_inherited,
+                )
             }
         };
 
@@ -1359,7 +1311,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             name,
             direct_annotation.as_ref(),
             &ty,
-            initial_value,
+            field_definition,
             descriptor.is_some(),
             range,
             errors,
@@ -1394,11 +1346,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // *** Everything below here is for validation only and has no impact on downstream analysis ***
 
-        if let RawClassFieldInitialization::Method(MethodThatSetsAttr {
-            method_name,
-            recognized_attribute_defining_method,
-            instance_or_class: _,
-        }) = initial_value
+        if let ClassFieldDefinition::DefinedInMethod {
+            method:
+                MethodThatSetsAttr {
+                    method_name,
+                    recognized_attribute_defining_method,
+                    instance_or_class: _,
+                },
+            ..
+        } = field_definition
         {
             let mut defined_in_parent = false;
             let parents = metadata.base_class_objects();
@@ -1507,13 +1463,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         direct_annotation: Option<&Annotation>,
         ty: &Type,
-        initial_value: &RawClassFieldInitialization,
+        field_definition: &ClassFieldDefinition,
         is_descriptor: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<Type> {
-        let is_initialized_on_class_body =
-            matches!(initial_value, RawClassFieldInitialization::ClassBody(_));
+        let is_initialized_on_class_body = matches!(
+            field_definition,
+            ClassFieldDefinition::AssignedInBody { .. }
+                | ClassFieldDefinition::MethodLike { .. }
+                | ClassFieldDefinition::DefinedWithoutAssign { .. }
+        );
         self.get_enum_class_field_type(
             class,
             name,
@@ -1526,8 +1486,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
         .or_else(|| self.get_pydantic_root_model_class_field_type(class, name))
         .or_else(|| {
-            let initial_value_expr = match initial_value {
-                RawClassFieldInitialization::ClassBody(e) => e.as_ref(),
+            let initial_value_expr = match field_definition {
+                ClassFieldDefinition::AssignedInBody {
+                    value: ExprOrBinding::Expr(expr),
+                    ..
+                } => Some(expr),
                 _ => None,
             };
             self.get_django_field_type(ty, class, Some(name), initial_value_expr)
