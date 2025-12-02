@@ -66,7 +66,7 @@ use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::ClassKind;
-use crate::types::keywords::DataclassTransformKeywords;
+use crate::types::keywords::DataclassTransformMetadata;
 use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
@@ -647,7 +647,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             SpecialDecorator::DataclassTransformCall(kws) => {
                 flags.dataclass_transform_metadata =
-                    Some(DataclassTransformKeywords::from_type_map(kws));
+                    Some(DataclassTransformMetadata::from_type_map(kws));
                 true
             }
             SpecialDecorator::AbstractMethod => {

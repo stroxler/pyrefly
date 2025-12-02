@@ -35,7 +35,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassKeywords;
-use crate::types::keywords::DataclassTransformKeywords;
+use crate::types::keywords::DataclassTransformMetadata;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
@@ -60,7 +60,7 @@ pub struct ClassMetadata {
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
-    dataclass_transform_metadata: Option<DataclassTransformKeywords>,
+    dataclass_transform_metadata: Option<DataclassTransformMetadata>,
     pydantic_model_kind: Option<PydanticModelKind>,
     django_model_metadata: Option<DjangoModelMetadata>,
 }
@@ -96,7 +96,7 @@ impl ClassMetadata {
         deprecation: Option<Deprecation>,
         is_disjoint_base: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
-        dataclass_transform_metadata: Option<DataclassTransformKeywords>,
+        dataclass_transform_metadata: Option<DataclassTransformMetadata>,
         pydantic_model_kind: Option<PydanticModelKind>,
         django_model_metadata: Option<DjangoModelMetadata>,
     ) -> ClassMetadata {
@@ -274,7 +274,7 @@ impl ClassMetadata {
         self.dataclass_metadata.as_ref()
     }
 
-    pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformKeywords> {
+    pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformMetadata> {
         self.dataclass_transform_metadata.as_ref()
     }
 

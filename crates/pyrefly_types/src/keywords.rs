@@ -78,7 +78,7 @@ impl KwCall {
 /// See https://typing.python.org/en/latest/spec/dataclasses.html#dataclass-transform-parameters.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
-pub struct DataclassTransformKeywords {
+pub struct DataclassTransformMetadata {
     pub eq_default: bool,
     pub order_default: bool,
     pub kw_only_default: bool,
@@ -90,7 +90,7 @@ pub struct DataclassTransformKeywords {
     pub converter_table: OrderedMap<Type, Type>,
 }
 
-impl DataclassTransformKeywords {
+impl DataclassTransformMetadata {
     const EQ_DEFAULT: Name = Name::new_static("eq_default");
     const ORDER_DEFAULT: Name = Name::new_static("order_default");
     const KW_ONLY_DEFAULT: Name = Name::new_static("kw_only_default");
@@ -207,7 +207,7 @@ impl DataclassKeywords {
     const UNSAFE_HASH: Name = Name::new_static("unsafe_hash");
     const SLOTS: Name = Name::new_static("slots");
 
-    pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformKeywords) -> Self {
+    pub fn from_type_map(map: &TypeMap, defaults: &DataclassTransformMetadata) -> Self {
         Self {
             init: map.get_bool(&Self::INIT).unwrap_or(true),
             order: map.get_bool(&Self::ORDER).unwrap_or(defaults.order_default),
@@ -227,6 +227,6 @@ impl DataclassKeywords {
     }
 
     pub fn new() -> Self {
-        Self::from_type_map(&TypeMap::new(), &DataclassTransformKeywords::new())
+        Self::from_type_map(&TypeMap::new(), &DataclassTransformMetadata::new())
     }
 }
