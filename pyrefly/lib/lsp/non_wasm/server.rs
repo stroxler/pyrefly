@@ -1101,11 +1101,6 @@ impl Server {
                             params, &x.id,
                         )
                     {
-                        info!(
-                            "Received document diagnostic request {} ({}), prepare to validate open files.",
-                            x.method, x.id,
-                        );
-                        self.validate_in_memory_and_commit_if_possible(ide_transaction_manager);
                         let transaction =
                             ide_transaction_manager.non_committable_transaction(&self.state);
                         self.send_response(new_response(
