@@ -271,9 +271,8 @@ pub struct CallTarget<Function: FunctionTrait> {
     // True if calling a static method.
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub(crate) is_static_method: bool,
-    // The return type of the call expression, or `None` for object targets.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) return_type: Option<ScalarTypeProperties>,
+    // The return type of the call expression.
+    pub(crate) return_type: ScalarTypeProperties,
 }
 
 impl<Function: FunctionTrait> CallTarget<Function> {
@@ -321,7 +320,7 @@ impl<Function: FunctionTrait> CallTarget<Function> {
     }
 
     #[cfg(test)]
-    pub fn with_return_type(mut self, return_type: Option<ScalarTypeProperties>) -> Self {
+    pub fn with_return_type(mut self, return_type: ScalarTypeProperties) -> Self {
         self.return_type = return_type;
         self
     }
@@ -329,7 +328,7 @@ impl<Function: FunctionTrait> CallTarget<Function> {
     fn format_string_target() -> Self {
         CallTarget {
             target: Target::FormatString,
-            return_type: None,
+            return_type: ScalarTypeProperties::none(),
             implicit_receiver: ImplicitReceiver::False,
             implicit_dunder_call: false,
             receiver_class: None,
@@ -1427,7 +1426,7 @@ impl<'a> CallGraphVisitor<'a> {
     fn call_target_from_function_target(
         &self,
         function_target: Target<FunctionRef>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         receiver_type: Option<&Type>,
         // For example, `f` in call expr `f(1)` or `__call__` in call expr `c.__call__(1)`
         callee_expr_suffix: Option<&str>,
@@ -1463,7 +1462,7 @@ impl<'a> CallGraphVisitor<'a> {
         callee_expr: Option<AnyNodeRef>,
         callee_type: Option<&Type>,
         precise_receiver_type: Option<&Type>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         callee_expr_suffix: Option<&str>,
         override_implicit_receiver: Option<ImplicitReceiver>,
         override_is_direct_call: Option<bool>,
@@ -1532,7 +1531,7 @@ impl<'a> CallGraphVisitor<'a> {
         defining_class: Option<&Type>,
         callee_expr: Option<AnyNodeRef>,
         callee_type: Option<&Type>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         is_bound_method: bool,
         callee_expr_suffix: Option<&str>,
         override_implicit_receiver: Option<ImplicitReceiver>,
@@ -1622,7 +1621,7 @@ impl<'a> CallGraphVisitor<'a> {
         new_method: &pyrefly_types::callable::Function,
         callee_expr: Option<AnyNodeRef>,
         callee_type: Option<&Type>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         callee_expr_suffix: Option<&str>,
         exclude_object_methods: bool,
     ) -> MaybeResolved<Vec1<CallTarget<FunctionRef>>> {
@@ -1648,7 +1647,7 @@ impl<'a> CallGraphVisitor<'a> {
         new_method: Option<Type>,
         callee_expr: Option<AnyNodeRef>,
         callee_type: Option<&Type>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         callee_expr_suffix: Option<&str>,
         exclude_object_methods: bool,
     ) -> CallCallees<FunctionRef> {
@@ -1771,7 +1770,7 @@ impl<'a> CallGraphVisitor<'a> {
         pyrefly_target: Option<crate::alt::call::CallTargetLookup>,
         callee_expr: Option<AnyNodeRef>,
         callee_type: Option<&Type>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         callee_expr_suffix: Option<&str>,
         unknown_callee_as_direct_call: bool,
         exclude_object_methods: bool,
@@ -1946,7 +1945,7 @@ impl<'a> CallGraphVisitor<'a> {
         call_arguments: Option<&ruff_python_ast::Arguments>,
         callee_expr: Option<AnyNodeRef>,
         callee_type: Option<&Type>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         callee_expr_suffix: Option<&str>,
     ) -> CallCallees<FunctionRef> {
         if function_ref.module_name == ModuleName::builtins()
@@ -1995,7 +1994,7 @@ impl<'a> CallGraphVisitor<'a> {
         &self,
         name: &ExprName,
         call_arguments: Option<&ruff_python_ast::Arguments>,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
     ) -> IdentifierCallees<FunctionRef> {
         let identifier = Ast::expr_name_identifier(name.clone());
         let go_to_definitions = self
@@ -2120,7 +2119,7 @@ impl<'a> CallGraphVisitor<'a> {
                                 Some(target),
                                 callee_expr,
                                 Some(&callee_type),
-                                Some(return_type),
+                                return_type,
                                 Some(attribute.as_str()),
                                 unknown_callee_as_direct_call,
                                 exclude_object_methods,
@@ -2182,7 +2181,7 @@ impl<'a> CallGraphVisitor<'a> {
         callee_expr: Option<AnyNodeRef>, // This is `base.attribute`
         callee_type: Option<&Type>,
         callee_range: TextRange,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         assignment_targets: Option<&[Expr]>,
     ) -> AttributeAccessCallees<FunctionRef> {
         let go_to_definitions = self
@@ -2281,7 +2280,7 @@ impl<'a> CallGraphVisitor<'a> {
                         callee_expr,
                         callee_type,
                         receiver_type.as_ref(),
-                        Some(ScalarTypeProperties::none()),
+                        /* return_type */ ScalarTypeProperties::none(),
                         callee_expr_suffix,
                         /* override_implicit_receiver*/ None,
                         /* override_is_direct_call */ None,
@@ -2294,7 +2293,9 @@ impl<'a> CallGraphVisitor<'a> {
                 // Hence we use the types of the whole expressions.
                 let return_type = callee_type
                     .as_ref()
-                    .map(|type_| ScalarTypeProperties::from_type(type_, self.module_context));
+                    .map_or(ScalarTypeProperties::none(), |type_| {
+                        ScalarTypeProperties::from_type(type_, self.module_context)
+                    });
                 property_getters
                     .into_iter()
                     .map(|function| {
@@ -2351,13 +2352,11 @@ impl<'a> CallGraphVisitor<'a> {
                         let callees = self.resolve_call(
                             /* callee */ argument,
                             /* return_type */
-                            Some(
-                                self.get_return_type_for_callee(
-                                    self.module_context
-                                        .answers
-                                        .get_type_trace(argument.range())
-                                        .as_ref(),
-                                ),
+                            self.get_return_type_for_callee(
+                                self.module_context
+                                    .answers
+                                    .get_type_trace(argument.range())
+                                    .as_ref(),
                             ),
                             /* arguments */ None,
                             /* assignment_targets */ None,
@@ -2385,7 +2384,7 @@ impl<'a> CallGraphVisitor<'a> {
     fn resolve_call(
         &self,
         callee: &Expr,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         arguments: Option<&ruff_python_ast::Arguments>,
         assignment_targets: Option<&[Expr]>,
     ) -> CallCallees<FunctionRef> {
@@ -2444,7 +2443,7 @@ impl<'a> CallGraphVisitor<'a> {
     fn resolve_and_register_call(
         &mut self,
         call: &ExprCall,
-        return_type: Option<ScalarTypeProperties>,
+        return_type: ScalarTypeProperties,
         expression_identifier: ExpressionIdentifier,
         assignment_targets: Option<&[Expr]>,
     ) {
@@ -2774,7 +2773,9 @@ impl<'a> CallGraphVisitor<'a> {
                 );
                 let return_type_from_expr = expr_type()
                     .as_ref()
-                    .map(|type_| ScalarTypeProperties::from_type(type_, self.module_context));
+                    .map_or(ScalarTypeProperties::none(), |type_| {
+                        ScalarTypeProperties::from_type(type_, self.module_context)
+                    });
                 self.resolve_and_register_call(
                     call,
                     return_type_from_expr,
@@ -2791,7 +2792,7 @@ impl<'a> CallGraphVisitor<'a> {
                 let callees = self.resolve_name(
                     name,
                     /* call_arguments */ None,
-                    Some(self.get_return_type_for_callee(expr_type().as_ref())), // This is the return type when `expr` is called
+                    self.get_return_type_for_callee(expr_type().as_ref()), // This is the return type when `expr` is called
                 );
                 if !callees.is_empty() {
                     self.add_callees(
@@ -2814,7 +2815,7 @@ impl<'a> CallGraphVisitor<'a> {
                     /* callee_type */ expr_type().as_ref(),
                     attribute.range(),
                     /* return_type */
-                    Some(self.get_return_type_for_callee(expr_type().as_ref())), // This is the return type when `expr` is called
+                    self.get_return_type_for_callee(expr_type().as_ref()), // This is the return type when `expr` is called
                     assignment_targets(current_statement),
                 );
                 if !callees.is_empty() {
@@ -2942,7 +2943,9 @@ impl<'a> CallGraphVisitor<'a> {
                     let return_type = decorated_function
                         .ty
                         .callable_return_type()
-                        .map(|type_| ScalarTypeProperties::from_type(&type_, self.module_context));
+                        .map_or(ScalarTypeProperties::none(), |type_| {
+                            ScalarTypeProperties::from_type(&type_, self.module_context)
+                        });
                     let target = self.call_target_from_function_target(
                         Target::Function(FunctionRef::from_decorated_function(
                             &decorated_function,
@@ -3036,7 +3039,7 @@ impl<'a> CallGraphVisitor<'a> {
             let return_type = self.get_return_type_for_callee(callee_type.as_ref());
             let callees = self.resolve_call(
                 /* callee */ &decorator.expression,
-                /* return_type */ Some(return_type),
+                return_type,
                 /* arguments */ None,
                 /* assignment_targets */ None,
             );
@@ -3195,7 +3198,9 @@ fn resolve_call(
         module_context
             .answers
             .get_type_trace(call.range())
-            .map(|type_| ScalarTypeProperties::from_type(&type_, module_context)),
+            .map_or(ScalarTypeProperties::none(), |type_| {
+                ScalarTypeProperties::from_type(&type_, module_context)
+            }),
         /* arguments */ Some(&call.arguments),
         /* assignment_targets */ None,
     );

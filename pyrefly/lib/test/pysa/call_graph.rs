@@ -192,7 +192,7 @@ fn create_call_target(target: &str, target_type: TargetType) -> CallTarget<Funct
         is_class_method: false,
         is_static_method: false,
         receiver_class: None,
-        return_type: Some(ScalarTypeProperties::none()),
+        return_type: ScalarTypeProperties::none(),
     }
 }
 
@@ -482,10 +482,8 @@ fn regular_identifier_callees(
 
 fn format_string_artificial_callees() -> ExpressionCallees<FunctionRefForTest> {
     let format_string_artificial_targets = vec![{
-        let mut target = create_call_target("", TargetType::FormatString)
-            .with_implicit_receiver(ImplicitReceiver::False);
-        target.return_type = None;
-        target
+        create_call_target("", TargetType::FormatString)
+            .with_implicit_receiver(ImplicitReceiver::False)
     }];
     ExpressionCallees::FormatStringArtificial(FormatStringArtificialCallees {
         targets: format_string_artificial_targets,
@@ -619,14 +617,14 @@ def foo(b: bool):
                     "6:9-6:12",
                     regular_identifier_callees(vec![
                         create_call_target("test.bar", TargetType::Function)
-                            .with_return_type(Some(ScalarTypeProperties::bool())),
+                            .with_return_type(ScalarTypeProperties::bool()),
                     ]),
                 ),
                 (
                     "8:9-8:12",
                     regular_identifier_callees(vec![
                         create_call_target("test.baz", TargetType::Function)
-                            .with_return_type(Some(ScalarTypeProperties::int())),
+                            .with_return_type(ScalarTypeProperties::int()),
                     ]),
                 ),
                 (
@@ -720,25 +718,25 @@ def foo(c: C):
                 .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
                 .with_receiver_class_for_test("test.C", context)
                 .with_is_class_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let class_method_target_2 = vec![
             create_call_target("test.C.f", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.C", context)
                 .with_is_class_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let method_target = vec![
             create_call_target("test.C.g", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::False)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let method_target_2 = vec![
             create_call_target("test.C.g", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.C", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -823,7 +821,7 @@ def foo(c: C):
             create_call_target("test.C.__call__", TargetType::Function)
                 .with_implicit_dunder_call(true)
                 .with_is_static_method(true)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         vec![(
             "test.foo",
@@ -846,7 +844,7 @@ def foo(c: C):
             create_call_target("test.C.__call__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.C", context)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         vec![(
             "test.foo",
@@ -903,7 +901,7 @@ def foo(c: C):
         let call_targets = vec![
             create_call_target("test.C.__call__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_return_type(Some(ScalarTypeProperties::bool()))
+                .with_return_type(ScalarTypeProperties::bool())
                 .with_implicit_dunder_call(true)
                 .with_receiver_class_for_test("test.C", context),
         ];
@@ -955,12 +953,12 @@ def foo(x: str) -> int:
         let init_targets = vec![
             create_call_target("builtins.object.__init__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let new_targets = vec![
             create_call_target("builtins.int.__new__", TargetType::Function)
                 .with_is_static_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1080,7 +1078,7 @@ def foo(c: C):
             create_call_target("test.C.p", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.C", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1148,7 +1146,7 @@ def foo(c_or_d: C | D, c_or_e: C | E):
         let property_getters_c_or_e = vec![
             create_call_target("test.C.foo", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1187,7 +1185,7 @@ def foo(c_or_d: TCOrD):
         let property_getters = vec![
             create_call_target("test.C.foo", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1213,7 +1211,7 @@ def foo():
         let call_targets = vec![
             create_call_target("test.C.f", TargetType::Function)
                 .with_is_static_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1373,7 +1371,7 @@ class D(C):
         let call_targets = vec![
             create_call_target("test.C.f", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_return_type(Some(ScalarTypeProperties::int()))
+                .with_return_type(ScalarTypeProperties::int())
                 .with_receiver_class_for_test("test.D", context),
         ];
         vec![(
@@ -1405,7 +1403,7 @@ def foo(c: C):
     &|_context: &ModuleContext| {
         let call_targets = vec![
             create_call_target("test.C.f", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1491,14 +1489,14 @@ def foo(c: C):
             create_call_target("test.C.f", TargetType::Function)
                 .with_receiver_class_for_test("test.C", context)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
-                .with_return_type(Some(ScalarTypeProperties::int()))
+                .with_return_type(ScalarTypeProperties::int())
                 .with_is_class_method(true),
         ];
         let call_targets_d_f = vec![
             create_call_target("test.D.f", TargetType::Function)
                 .with_receiver_class_for_test("test.D", context)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
-                .with_return_type(Some(ScalarTypeProperties::int()))
+                .with_return_type(ScalarTypeProperties::int())
                 .with_is_class_method(true),
         ];
         let call_targets_d_g = vec![
@@ -1533,11 +1531,11 @@ def foo():
     &|_context: &ModuleContext| {
         let hof = vec![
             create_call_target("test.hof", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         let bar = vec![
             create_call_target("test.bar", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1577,15 +1575,15 @@ def main():
     &|_context: &ModuleContext| {
         let hof = vec![
             create_call_target("test.hof", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         let foo = vec![
             create_call_target("test.foo", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let bar = vec![
             create_call_target("test.bar", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.main",
@@ -1667,7 +1665,7 @@ class Permission(Enum):
     &|context: &ModuleContext| {
         let len = vec![
             create_call_target("builtins.len", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let enum_value = vec![
             create_call_target("test.Enum.value", TargetType::Function)
@@ -1773,11 +1771,11 @@ def foo(c: C):
             create_call_target("test.C.f", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.C", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let c_f_explicit = vec![
             create_call_target("test.C.f", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -1801,7 +1799,7 @@ def outer(x: int) -> None:
     &|_context: &ModuleContext| {
         let inner_target = vec![
             create_call_target("test.inner", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.outer",
@@ -1826,7 +1824,7 @@ class Foo:
     &|_context: &ModuleContext| {
         let inner_target = vec![
             create_call_target("test.inner", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.Foo.outer",
@@ -2092,7 +2090,7 @@ def caller() -> None:
     &|_context: &ModuleContext| {
         let foo = vec![
             create_call_target("test.foo", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2125,7 +2123,7 @@ def caller(foo: Foo) -> None:
             create_call_target("test.Foo.bar", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.Foo", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2154,7 +2152,7 @@ def caller() -> None:
     &|_context: &ModuleContext| {
         let foo = vec![
             create_call_target("test.foo", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2186,7 +2184,7 @@ def caller(foo: Foo) -> None:
             create_call_target("test.Foo.bar", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.Foo", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2262,7 +2260,7 @@ def caller() -> None:
                 .with_implicit_receiver(ImplicitReceiver::TrueWithClassReceiver)
                 .with_receiver_class_for_test("test.Foo", context)
                 .with_is_class_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2295,7 +2293,7 @@ def caller() -> None:
         let bar = vec![
             create_call_target("test.Foo.bar", TargetType::Function)
                 .with_is_static_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2330,7 +2328,7 @@ class Foo:
             create_call_target("test.Foo.bar", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_is_class_method(true)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.Foo.caller",
@@ -2360,7 +2358,7 @@ def caller() -> None:
     &|_context: &ModuleContext| {
         let foo = vec![
             create_call_target("test.foo", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.caller",
@@ -2586,7 +2584,7 @@ def foo():
             create_call_target("builtins.int.__gt__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("builtins.int", context)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         vec![(
             "test.foo",
@@ -2610,7 +2608,7 @@ def foo():
             create_call_target("builtins.int.__gt__", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("builtins.int", context)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         vec![(
             "test.foo",
@@ -2712,7 +2710,7 @@ def foo() -> None:
             create_call_target("typing.Iterator.__next__", TargetType::AllOverrides)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("typing.Iterator", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -2727,7 +2725,7 @@ def foo() -> None:
                         create_call_target("builtins.int.__add__", TargetType::Function)
                             .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                             .with_receiver_class_for_test("builtins.int", context)
-                            .with_return_type(Some(ScalarTypeProperties::int())),
+                            .with_return_type(ScalarTypeProperties::int()),
                     ]),
                 ),
                 (
@@ -2785,7 +2783,7 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
             create_call_target("typing.Iterator.__next__", TargetType::AllOverrides)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("typing.Iterator", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let async_iterator_aiter_targets = vec![{
             create_call_target("typing.AsyncIterator.__aiter__", TargetType::AllOverrides)
@@ -2796,7 +2794,7 @@ def foo(l0: typing.AsyncIterator[int], l1: typing.List[int], l2: typing.AsyncIte
             create_call_target("typing.AsyncIterator.__anext__", TargetType::AllOverrides)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("typing.AsyncIterator", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let async_iterable_aiter_targets = vec![{
             create_call_target("typing.AsyncIterable.__aiter__", TargetType::AllOverrides)
@@ -2916,7 +2914,7 @@ def foo():
         )
         .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
         .with_receiver_class_for_test("contextlib.AbstractContextManager", context)
-        .with_return_type(Some(ScalarTypeProperties::int()));
+        .with_return_type(ScalarTypeProperties::int());
         vec![(
             "test.foo",
             vec![
@@ -2953,7 +2951,7 @@ async def foo():
         )
         .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
         .with_receiver_class_for_test("contextlib.AbstractAsyncContextManager", context)
-        .with_return_type(Some(ScalarTypeProperties::int()));
+        .with_return_type(ScalarTypeProperties::int());
         vec![(
             "test.foo",
             vec![
@@ -3033,7 +3031,7 @@ def fun(d: typing.Dict[str, int], e: typing.Dict[str, typing.Dict[str, int]]):
         let foo_target = vec![create_call_target("test.foo", TargetType::Function)];
         let bar_target = vec![
             create_call_target("test.bar", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let baz_target = vec![create_call_target("test.baz", TargetType::Function)];
         let dict_setitem_target = vec![
@@ -3226,7 +3224,7 @@ def foo(x) -> bool:
 "#,
     &|_context: &ModuleContext| {
         let foo = create_call_target("test.foo", TargetType::Function)
-            .with_return_type(Some(ScalarTypeProperties::bool()));
+            .with_return_type(ScalarTypeProperties::bool());
         vec![(
             "test.foo",
             vec![
@@ -3969,7 +3967,7 @@ def test(x: Union[B, C]):
         ];
         let isinstance_target = vec![
             create_call_target("builtins.isinstance", TargetType::Function)
-                .with_return_type(Some(ScalarTypeProperties::bool())),
+                .with_return_type(ScalarTypeProperties::bool()),
         ];
         let c_init_targets = vec![
             create_call_target("builtins.object.__init__", TargetType::Function)
@@ -4044,7 +4042,7 @@ def bar(l: List[int]):
             create_call_target("typing.Iterator.__next__", TargetType::AllOverrides)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("typing.Iterator", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.bar",
@@ -4103,7 +4101,7 @@ def bar():
                 "12:10-12:16",
                 regular_call_callees(vec![
                     create_call_target("test.foo", TargetType::Function)
-                        .with_return_type(Some(ScalarTypeProperties::int())),
+                        .with_return_type(ScalarTypeProperties::int()),
                 ]),
             )],
         )]
@@ -4255,7 +4253,7 @@ def foo():
                 "7:12-7:18",
                 regular_call_callees(vec![
                     create_call_target("test.baz", TargetType::Function)
-                        .with_return_type(Some(ScalarTypeProperties::int())),
+                        .with_return_type(ScalarTypeProperties::int()),
                 ]),
             )],
         )]
@@ -4283,7 +4281,7 @@ def foo():
                 "7:14-7:20",
                 regular_call_callees(vec![
                     create_call_target("test.baz", TargetType::Function)
-                        .with_return_type(Some(ScalarTypeProperties::int())),
+                        .with_return_type(ScalarTypeProperties::int()),
                 ]),
             )],
         )]
@@ -4424,13 +4422,13 @@ def foo(base: A[int], child_b: B, child_c: C, child_d: D):
             create_call_target("test.C.query", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.C", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         let child_d_query = vec![
             create_call_target("test.D.query", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.D", context)
-                .with_return_type(Some(ScalarTypeProperties::int())),
+                .with_return_type(ScalarTypeProperties::int()),
         ];
         vec![(
             "test.foo",
@@ -4538,8 +4536,7 @@ def foo(l: AsyncIterator[A], x: B):
         let b_foo = vec![
             create_call_target("test.B.foo", TargetType::Function)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("test.B", context)
-                .with_return_type(None),
+                .with_receiver_class_for_test("test.B", context),
         ];
         vec![(
             "test.foo",
