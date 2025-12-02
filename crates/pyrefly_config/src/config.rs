@@ -48,6 +48,7 @@ use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
+use tracing::error;
 
 use crate::base::ConfigBase;
 use crate::base::UntypedDefBehavior;
@@ -891,23 +892,49 @@ impl ConfigFile {
     }
 
     pub fn requery_source_db(
-        this: &ArcId<Self>,
-        files: &SmallSet<ModulePath>,
-    ) -> anyhow::Result<bool> {
-        let Some(source_db) = &this.source_db else {
-            return Ok(false);
-        };
+        configs_to_files: &SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>>,
+    ) -> SmallSet<ArcId<ConfigFile>> {
+        let mut reloaded_configs = SmallSet::new();
+        let mut sourcedb_configs: SmallMap<_, Vec<_>> = SmallMap::new();
+        for (config, files) in configs_to_files {
+            let Some(source_db) = &config.source_db else {
+                continue;
+            };
+            sourcedb_configs
+                .entry(source_db)
+                .or_default()
+                .push((config, files));
+        }
 
-        let files = files.iter().map(|p| p.module_path_buf()).collect();
-        let result = source_db.requery_source_db(files)?;
-        let generated_files = source_db.get_generated_files();
-        if !generated_files.is_empty() {
-            let mut write = GENERATED_FILE_CONFIG_OVERRIDE.write();
-            for file in generated_files {
-                write.insert(file, this.dupe());
+        for (source_db, configs_and_files) in sourcedb_configs {
+            let all_files = configs_and_files
+                .iter()
+                .flat_map(|x| x.1.iter())
+                .map(|p| p.module_path_buf())
+                .collect::<SmallSet<_>>();
+            let reloaded = match source_db.requery_source_db(all_files) {
+                Err(error) => {
+                    error!("Error reloading source database for config: {error:?}");
+                    continue;
+                }
+                Ok(r) => r,
+            };
+            let generated_files = source_db.get_generated_files();
+            if !generated_files.is_empty() {
+                let mut write = GENERATED_FILE_CONFIG_OVERRIDE.write();
+                // we don't need any specific config here, any config for this sourcedb will work
+                let first_config = configs_and_files.first().unwrap().0;
+                for file in generated_files {
+                    write.insert(file, first_config.dupe());
+                }
+            }
+            if reloaded {
+                for (config, _) in configs_and_files {
+                    reloaded_configs.insert(config.dupe());
+                }
             }
         }
-        Ok(result)
+        reloaded_configs
     }
 
     /// Configures values that must be updated *after* overwriting with CLI flag values,
