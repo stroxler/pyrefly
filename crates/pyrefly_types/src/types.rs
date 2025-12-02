@@ -26,6 +26,7 @@ use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -1642,6 +1643,23 @@ impl Type {
             members,
             display_name: None,
         }))
+    }
+}
+
+impl Visit<Type> for OrderedMap<Type, Type> {
+    fn recurse<'a>(&'a self, f: &mut dyn FnMut(&'a Type)) {
+        for (key, value) in self.iter() {
+            key.visit(f);
+            value.visit(f);
+        }
+    }
+}
+
+impl VisitMut<Type> for OrderedMap<Type, Type> {
+    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
+        for value in self.values_mut() {
+            value.visit_mut(f);
+        }
     }
 }
 

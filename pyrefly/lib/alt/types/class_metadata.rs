@@ -20,6 +20,7 @@ use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -466,9 +467,10 @@ pub struct DataclassMetadata {
     pub init_defaults: InitDefaults,
     /// Whether a default can be passed positionally to field specifier calls
     pub default_can_be_positional: bool,
-    /// Default converter to apply to fields that don't have an explicit converter.
-    /// Inherited from the dataclass_transform decorator's converter_default parameter.
-    pub _converter_default: Option<Type>,
+    /// Conversion table mapping field types to the union of types they can accept.
+    /// Inherited from the dataclass_transform decorator's converter_table parameter.
+    #[allow(dead_code)]
+    pub converter_table: OrderedMap<Type, Type>,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

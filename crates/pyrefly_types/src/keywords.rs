@@ -84,8 +84,10 @@ pub struct DataclassTransformKeywords {
     pub kw_only_default: bool,
     pub frozen_default: bool,
     pub field_specifiers: Vec<CalleeKind>,
-    /// Default converter to apply to fields that don't have an explicit converter.
-    pub _converter_default: Option<Type>,
+    /// Conversion table mapping field types to the union of types they can accept.
+    /// See https://typing.python.org/en/latest/spec/dataclasses.html#converters.
+    #[allow(dead_code)]
+    pub converter_table: OrderedMap<Type, Type>,
 }
 
 impl DataclassTransformKeywords {
@@ -107,7 +109,7 @@ impl DataclassTransformKeywords {
                 }
                 _ => Vec::new(),
             },
-            _converter_default: None,
+            converter_table: OrderedMap::new(),
         }
     }
 
