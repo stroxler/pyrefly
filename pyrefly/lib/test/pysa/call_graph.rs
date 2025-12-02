@@ -162,6 +162,7 @@ impl CallTarget<FunctionRefForTest> {
     }
 }
 
+#[derive(Clone)]
 enum TargetType {
     Function,
     AllOverrides,
@@ -514,6 +515,29 @@ fn unresolved_expression_callees(
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::Call(CallCallees::new_unresolved(reason))
 }
+
+static BASE_EXCEPTION_INIT_OVERRIDES: &[(&str, TargetType)] = &[
+    ("builtins.AttributeError.__init__", TargetType::Function),
+    ("builtins.ImportError.__init__", TargetType::Function),
+    ("builtins.NameError.__init__", TargetType::Function),
+    ("builtins.SyntaxError.__init__", TargetType::Function),
+    ("builtins.UnicodeDecodeError.__init__", TargetType::Function),
+    ("builtins.UnicodeEncodeError.__init__", TargetType::Function),
+    (
+        "builtins.UnicodeTranslateError.__init__",
+        TargetType::Function,
+    ),
+    ("re.error.__init__", TargetType::Function),
+    ("subprocess.TimeoutExpired.__init__", TargetType::Function),
+    (
+        "subprocess.CalledProcessError.__init__",
+        TargetType::Function,
+    ),
+    (
+        "email.errors.MessageDefect.__init__",
+        TargetType::AllOverrides,
+    ),
+];
 
 static TEST_MODULE_NAME: &str = "test";
 
@@ -1886,9 +1910,14 @@ def main(x) -> None:
 "#,
     &|context: &ModuleContext| {
         let init_targets = vec![
-            create_call_target("builtins.BaseException.__init__", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("builtins.Exception", context),
+            create_call_target(
+                "builtins.BaseException.__init__",
+                TargetType::OverrideSubset(
+                    Vec1::try_from_vec(BASE_EXCEPTION_INIT_OVERRIDES.to_vec()).unwrap(),
+                ),
+            )
+            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+            .with_receiver_class_for_test("builtins.Exception", context),
         ];
         let new_targets = vec![
             create_call_target("builtins.BaseException.__new__", TargetType::Function)
@@ -3487,14 +3516,16 @@ def foo(e: Exception):
                         /* call_targets */ vec![],
                         /* init_targets */
                         vec![
-                            create_call_target("builtins.type.__init__", TargetType::Function)
+                            create_call_target("builtins.type.__init__", TargetType::AllOverrides)
                                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                                .with_receiver_class_for_test("builtins.type", context),
+                                .with_receiver_class_for_test("builtins.type", context)
+                                .with_return_type(Some(ScalarTypeProperties::none())),
                         ],
                         /* new_targets */
                         vec![
                             create_call_target("builtins.type.__new__", TargetType::Function)
-                                .with_is_static_method(true),
+                                .with_is_static_method(true)
+                                .with_return_type(Some(ScalarTypeProperties::none())),
                         ],
                         /* higher_order_parameters */ vec![],
                         /* unresolved */
@@ -3535,7 +3566,10 @@ def foo(error_type: Union[str, Type[Exception]]):
                         vec![
                             create_call_target(
                                 "builtins.BaseException.__init__",
-                                TargetType::Function,
+                                TargetType::OverrideSubset(
+                                    Vec1::try_from_vec(BASE_EXCEPTION_INIT_OVERRIDES.to_vec())
+                                        .unwrap(),
+                                ),
                             )
                             .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                             .with_receiver_class_for_test("builtins.Exception", context),
@@ -3597,7 +3631,10 @@ def foo(error_type: Type[Exception]):
                         vec![
                             create_call_target(
                                 "builtins.BaseException.__init__",
-                                TargetType::Function,
+                                TargetType::OverrideSubset(
+                                    Vec1::try_from_vec(BASE_EXCEPTION_INIT_OVERRIDES.to_vec())
+                                        .unwrap(),
+                                ),
                             )
                             .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                             .with_receiver_class_for_test("builtins.Exception", context),
@@ -4252,21 +4289,25 @@ def foo(base: Base, child: Child):
 "#,
     &|context: &ModuleContext| {
         let base_query = vec![
-            create_call_target("test.Base.query", TargetType::Function)
+            create_call_target("test.Base.query", TargetType::AllOverrides)
                 .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
                 .with_receiver_class_for_test("test.Base", context),
         ];
         let child_query = vec![
-            create_call_target("test.Base.query", TargetType::Function)
-                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                .with_receiver_class_for_test("test.Child", context),
+            create_call_target(
+                "test.Base.query",
+                TargetType::OverrideSubset(Vec1::new((
+                    "test.SubChild.query",
+                    TargetType::Function,
+                ))),
+            )
+            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+            .with_receiver_class_for_test("test.Child", context),
         ];
         vec![(
             "test.foo",
             vec![
-                // TODO: Expect `Override`
                 ("14:5-14:18", regular_call_callees(base_query)),
-                // TODO: Also expect `test.SubChild.query`
                 ("15:5-15:19", regular_call_callees(child_query)),
             ],
         )]

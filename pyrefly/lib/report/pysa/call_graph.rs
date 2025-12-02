@@ -1341,9 +1341,14 @@ impl<'a> CallGraphVisitor<'a> {
     fn compute_targets_for_virtual_call(
         &self,
         callee_type: Option<&Type>,
+        precise_receiver_type: Option<&Type>,
         callee: FunctionRef,
     ) -> Target<FunctionRef> {
-        let receiver_type = receiver_type_from_callee_type(callee_type);
+        let receiver_type = if precise_receiver_type.is_some() {
+            precise_receiver_type
+        } else {
+            receiver_type_from_callee_type(callee_type)
+        };
         if receiver_type.is_none() {
             return Target::Function(callee);
         }
@@ -1378,7 +1383,7 @@ impl<'a> CallGraphVisitor<'a> {
         } else if let Some(overriding_classes) = self.override_graph.get_overriding_classes(&callee)
         {
             // case c
-            let callees = overriding_classes
+            let mut callees = overriding_classes
                 .iter()
                 .filter_map(|overriding_class| {
                     if has_superclass(
@@ -1402,6 +1407,7 @@ impl<'a> CallGraphVisitor<'a> {
             if callees.is_empty() {
                 Target::Function(callee)
             } else {
+                callees.sort();
                 Target::OverrideSubset {
                     base_method: callee,
                     subset: Vec1::try_from_vec(callees).unwrap(),
@@ -1487,7 +1493,11 @@ impl<'a> CallGraphVisitor<'a> {
                 override_implicit_receiver,
             )
         } else {
-            let target = self.compute_targets_for_virtual_call(callee_type, function_ref);
+            let target = self.compute_targets_for_virtual_call(
+                callee_type,
+                precise_receiver_type,
+                function_ref,
+            );
             match target {
                 Target::Function(_) | Target::AllOverrides(_) | Target::OverrideSubset { .. } => {
                     self.call_target_from_function_target(
