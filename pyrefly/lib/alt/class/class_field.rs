@@ -1045,7 +1045,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // It's a mess because we are relying on refs to fields that don't make sense for some cases,
         // which requires us having a place to store synthesized dummy values until we've refactored more.
         let value_storage = Owner::new();
-        let direct_annotation = self.annotation_of_field_definition(field_definition);
 
         let (
             initialization,
@@ -1053,8 +1052,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             value_ty,
             annotation,
             is_inherited,
+            direct_annotation,
         ) = match field_definition {
-            ClassFieldDefinition::DeclaredByAnnotation { .. } => {
+            ClassFieldDefinition::DeclaredByAnnotation { annotation: annot } => {
+                let direct_annotation = Some(self.get_idx(*annot).annotation.clone());
                 let initialization = if class.module_path().is_interface()
                     || direct_annotation
                         .as_ref()
@@ -1074,9 +1075,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     false,
                     errors,
                 );
-                (initialization, false, value_ty, annotation, is_inherited)
+                (
+                    initialization,
+                    false,
+                    value_ty,
+                    annotation,
+                    is_inherited,
+                    direct_annotation,
+                )
             }
-            ClassFieldDefinition::AssignedInBody { value, .. } => {
+            ClassFieldDefinition::AssignedInBody {
+                value,
+                annotation: annot,
+                ..
+            } => {
+                let direct_annotation = annot.map(|a| self.get_idx(a).annotation.clone());
                 let initialization = if let ExprOrBinding::Expr(e) = value
                     && let Some(dm) = metadata.dataclass_metadata()
                     && let Expr::Call(call) = e
@@ -1094,9 +1107,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     false,
                     errors,
                 );
-                (initialization, false, value_ty, annotation, is_inherited)
+                (
+                    initialization,
+                    false,
+                    value_ty,
+                    annotation,
+                    is_inherited,
+                    direct_annotation,
+                )
             }
-            ClassFieldDefinition::DefinedInMethod { value, method, .. } => {
+            ClassFieldDefinition::DefinedInMethod {
+                value,
+                method,
+                annotation: annot,
+                ..
+            } => {
+                let direct_annotation = annot.map(|a| self.get_idx(a).annotation.clone());
                 // Check if there's an inherited property field from a parent class
                 // If so, we should just use the parent's property instead of creating a new field
                 if !Ast::is_mangled_attr(name) {
@@ -1135,7 +1161,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     value_ty = self
                         .check_and_sanitize_type_parameters(class, value_ty, name, range, errors);
                 }
-                (initialization, false, value_ty, annotation, is_inherited)
+                (
+                    initialization,
+                    false,
+                    value_ty,
+                    annotation,
+                    is_inherited,
+                    direct_annotation,
+                )
             }
             ClassFieldDefinition::MethodLike {
                 definition,
@@ -1144,58 +1177,51 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
-                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
-                    value,
-                    class,
-                    name,
-                    direct_annotation.as_ref(),
-                    false,
-                    errors,
-                );
+                let (value_ty, annotation, is_inherited) =
+                    self.analyze_class_field_value(value, class, name, None, false, errors);
                 (
                     initialization,
                     !has_return_annotation,
                     value_ty,
                     annotation,
                     is_inherited,
+                    None,
                 )
             }
             ClassFieldDefinition::DefinedWithoutAssign { definition } => {
                 let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
-                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
-                    value,
-                    class,
-                    name,
-                    direct_annotation.as_ref(),
+                let (value_ty, annotation, is_inherited) =
+                    self.analyze_class_field_value(value, class, name, None, false, errors);
+                (
+                    initialization,
                     false,
-                    errors,
-                );
-                (initialization, false, value_ty, annotation, is_inherited)
+                    value_ty,
+                    annotation,
+                    is_inherited,
+                    None,
+                )
             }
             ClassFieldDefinition::DeclaredWithoutAnnotation => {
                 // This is a field in a synthesized class with no information at all, treat it as Any.
-                let initialization = if class.module_path().is_interface()
-                    || direct_annotation
-                        .as_ref()
-                        .is_some_and(|annot| annot.has_qualifier(&Qualifier::ClassVar))
-                {
+                let initialization = if class.module_path().is_interface() {
                     ClassFieldInitialization::Magic
                 } else {
                     ClassFieldInitialization::Uninitialized
                 };
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit())));
-                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
-                    value,
-                    class,
-                    name,
-                    direct_annotation.as_ref(),
+                let (value_ty, annotation, is_inherited) =
+                    self.analyze_class_field_value(value, class, name, None, false, errors);
+                (
+                    initialization,
                     false,
-                    errors,
-                );
-                (initialization, false, value_ty, annotation, is_inherited)
+                    value_ty,
+                    annotation,
+                    is_inherited,
+                    None,
+                )
             }
         };
 
@@ -1361,32 +1387,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         class_field
-    }
-
-    fn annotation_of_field_definition(
-        &self,
-        field_definition: &ClassFieldDefinition,
-    ) -> Option<Annotation> {
-        match field_definition {
-            ClassFieldDefinition::DeclaredByAnnotation { annotation }
-            | ClassFieldDefinition::AssignedInBody {
-                annotation: Some(annotation),
-                ..
-            }
-            | ClassFieldDefinition::DefinedInMethod {
-                annotation: Some(annotation),
-                ..
-            } => Some(self.get_idx(*annotation).annotation.clone()),
-            ClassFieldDefinition::AssignedInBody {
-                annotation: None, ..
-            }
-            | ClassFieldDefinition::DefinedInMethod {
-                annotation: None, ..
-            }
-            | ClassFieldDefinition::DeclaredWithoutAnnotation
-            | ClassFieldDefinition::MethodLike { .. }
-            | ClassFieldDefinition::DefinedWithoutAssign { .. } => None,
-        }
     }
 
     /// Helper to infer with an optional annotation as a hint and then expand
