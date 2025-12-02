@@ -4356,3 +4356,100 @@ def foo(base: BaseA, child: Child):
         )]
     }
 );
+
+call_graph_testcase!(
+    test_decorated_method_on_generic_class_with_inheritance,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Generic, TypeVar
+T = TypeVar("T")
+def decorator(function):
+    return function
+class A(Generic[T]):
+    @decorator
+    def query(self, arg: T) -> T:
+        pass
+class B(A[int]):
+    pass
+class C(A[int]):
+    def query(self, arg: int) -> int:
+        return arg
+class D(B):
+    def query(self, arg: int) -> int:
+        pass
+def foo(base: A[int], child_b: B, child_c: C, child_d: D):
+    base.query(1)
+    child_b.query(1)
+    child_c.query(1)
+    child_d.query(1)
+"#,
+    &|context: &ModuleContext| {
+        let base_query = vec![
+            create_call_target("test.A.query", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.A", context),
+        ];
+        let child_b_query = vec![
+            // TODO(T118125320): Return type is None, which is incorrect
+            create_call_target(
+                "test.A.query",
+                TargetType::OverrideSubset(Vec1::new(("test.D.query", TargetType::Function))),
+            )
+            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+            .with_receiver_class_for_test("test.B", context),
+        ];
+        let child_c_query = vec![
+            create_call_target("test.C.query", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.C", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        let child_d_query = vec![
+            create_call_target("test.D.query", TargetType::Function)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.D", context)
+                .with_return_type(Some(ScalarTypeProperties::int())),
+        ];
+        vec![(
+            "test.foo",
+            vec![
+                ("19:5-19:18", regular_call_callees(base_query)),
+                ("20:5-20:21", regular_call_callees(child_b_query)),
+                ("21:5-21:21", regular_call_callees(child_c_query)),
+                ("22:5-22:21", regular_call_callees(child_d_query)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_decorated_method_on_generic_class_with_typevar,
+    TEST_MODULE_NAME,
+    r#"
+from typing import Generic, TypeVar
+T = TypeVar("T")
+def decorator(function):
+    return function
+class A(Generic[T]):
+    @decorator
+    def query(self, arg: T) -> None:
+        pass
+class B(A[int]):
+    pass
+def foo(base: A[T], arg: T) -> None:
+    base.query(arg)
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "13:5-13:20",
+                regular_call_callees(vec![
+                    create_call_target("test.A.query", TargetType::Function)
+                        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                        .with_receiver_class_for_test("test.A", context),
+                ]),
+            )],
+        )]
+    }
+);
