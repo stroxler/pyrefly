@@ -1051,7 +1051,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             initialization,
             is_function_without_return_annotation,
             value_ty,
-            inherited_annotation,
+            annotation,
             is_inherited,
         ) = match field_definition {
             ClassFieldDefinition::DeclaredByAnnotation { .. } => {
@@ -1064,33 +1064,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     ClassFieldInitialization::Uninitialized
                 };
-                if let Some(annotated_ty) =
-                    direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
-                {
-                    (
-                        initialization,
-                        false,
-                        annotated_ty,
-                        None,
-                        if Ast::is_mangled_attr(name) {
-                            IsInherited::No
-                        } else {
-                            IsInherited::Maybe
-                        },
-                    )
-                } else {
-                    let value = value_storage
-                        .push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit())));
-                    let (value_ty, inherited_annotation, is_inherited) =
-                        self.analyze_class_field_value(value, class, name, false, errors);
-                    (
-                        initialization,
-                        false,
-                        value_ty,
-                        inherited_annotation,
-                        is_inherited,
-                    )
-                }
+                let value =
+                    value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit())));
+                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
+                    value,
+                    class,
+                    name,
+                    direct_annotation.as_ref(),
+                    false,
+                    errors,
+                );
+                (initialization, false, value_ty, annotation, is_inherited)
             }
             ClassFieldDefinition::AssignedInBody { value, .. } => {
                 let initialization = if let ExprOrBinding::Expr(e) = value
@@ -1102,31 +1086,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     ClassFieldInitialization::ClassBody(None)
                 };
-                if let Some(annotated_ty) =
-                    direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
-                {
-                    (
-                        initialization,
-                        false,
-                        annotated_ty,
-                        None,
-                        if Ast::is_mangled_attr(name) {
-                            IsInherited::No
-                        } else {
-                            IsInherited::Maybe
-                        },
-                    )
-                } else {
-                    let (value_ty, inherited_annotation, is_inherited) =
-                        self.analyze_class_field_value(value, class, name, false, errors);
-                    (
-                        initialization,
-                        false,
-                        value_ty,
-                        inherited_annotation,
-                        is_inherited,
-                    )
-                }
+                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
+                    value,
+                    class,
+                    name,
+                    direct_annotation.as_ref(),
+                    false,
+                    errors,
+                );
+                (initialization, false, value_ty, annotation, is_inherited)
             }
             ClassFieldDefinition::DefinedInMethod { value, method, .. } => {
                 // Check if there's an inherited property field from a parent class
@@ -1155,36 +1123,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     MethodSelfKind::Class => ClassFieldInitialization::ClassBody(None),
                     MethodSelfKind::Instance => ClassFieldInitialization::Method,
                 };
-                if let Some(annotated_ty) =
-                    direct_annotation.as_ref().and_then(|ann| ann.ty.clone())
-                {
-                    (
-                        initialization,
-                        false,
-                        annotated_ty,
-                        None,
-                        if Ast::is_mangled_attr(name) {
-                            IsInherited::No
-                        } else {
-                            IsInherited::Maybe
-                        },
-                    )
-                } else {
-                    let (mut value_ty, inherited_annotation, is_inherited) =
-                        self.analyze_class_field_value(value, class, name, true, errors);
-                    if matches!(method.instance_or_class, MethodSelfKind::Instance) {
-                        value_ty = self.check_and_sanitize_type_parameters(
-                            class, value_ty, name, range, errors,
-                        );
-                    }
-                    (
-                        initialization,
-                        false,
-                        value_ty,
-                        inherited_annotation,
-                        is_inherited,
-                    )
+                let (mut value_ty, annotation, is_inherited) = self.analyze_class_field_value(
+                    value,
+                    class,
+                    name,
+                    direct_annotation.as_ref(),
+                    true,
+                    errors,
+                );
+                if matches!(method.instance_or_class, MethodSelfKind::Instance) {
+                    value_ty = self
+                        .check_and_sanitize_type_parameters(class, value_ty, name, range, errors);
                 }
+                (initialization, false, value_ty, annotation, is_inherited)
             }
             ClassFieldDefinition::MethodLike {
                 definition,
@@ -1193,13 +1144,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
-                let (value_ty, inherited_annotation, is_inherited) =
-                    self.analyze_class_field_value(value, class, name, false, errors);
+                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
+                    value,
+                    class,
+                    name,
+                    direct_annotation.as_ref(),
+                    false,
+                    errors,
+                );
                 (
                     initialization,
                     !has_return_annotation,
                     value_ty,
-                    inherited_annotation,
+                    annotation,
                     is_inherited,
                 )
             }
@@ -1207,15 +1164,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
-                let (value_ty, inherited_annotation, is_inherited) =
-                    self.analyze_class_field_value(value, class, name, false, errors);
-                (
-                    initialization,
+                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
+                    value,
+                    class,
+                    name,
+                    direct_annotation.as_ref(),
                     false,
-                    value_ty,
-                    inherited_annotation,
-                    is_inherited,
-                )
+                    errors,
+                );
+                (initialization, false, value_ty, annotation, is_inherited)
             }
             ClassFieldDefinition::DeclaredWithoutAnnotation => {
                 // This is a field in a synthesized class with no information at all, treat it as Any.
@@ -1230,15 +1187,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Type(Type::any_implicit())));
-                let (value_ty, inherited_annotation, is_inherited) =
-                    self.analyze_class_field_value(value, class, name, false, errors);
-                (
-                    initialization,
+                let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
+                    value,
+                    class,
+                    name,
+                    direct_annotation.as_ref(),
                     false,
-                    value_ty,
-                    inherited_annotation,
-                    is_inherited,
-                )
+                    errors,
+                );
+                (initialization, false, value_ty, annotation, is_inherited)
             }
         };
 
@@ -1253,10 +1210,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
 
-        let annotation = direct_annotation.as_ref().or(inherited_annotation.as_ref());
         let read_only_reason = self.determine_read_only_reason(
             name,
-            annotation,
+            annotation.as_ref(),
             &metadata,
             &value_ty,
             &initialization,
@@ -1264,7 +1220,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
 
         // Determine the final type, promoting literals when appropriate.
-        let ty = if let Some(ty) = annotation.and_then(|ann| ann.ty.as_ref()) {
+        let ty = if let Some(ty) = annotation.as_ref().and_then(|ann| ann.ty.as_ref()) {
             ty.clone()
         } else if matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
             && value_ty.is_literal()
@@ -1334,7 +1290,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_abstract = ty.is_abstract_method();
         let class_field = ClassField::new(
             ty,
-            direct_annotation,
+            annotation,
             initialization,
             read_only_reason,
             descriptor,
@@ -1582,16 +1538,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         (found_field, annotation)
     }
 
-    /// Compute the type, inherited annotation, and inheritance status for a field
-    /// that has a `value: ExprOrBinding` and no directly annotated type.
+    /// Compute the type, final annotation (direct or inherited), and inheritance status for a field
+    /// that has a `value: ExprOrBinding` and possibly a directly annotated type.
     fn analyze_class_field_value(
         &self,
         value: &ExprOrBinding,
         class: &Class,
         name: &Name,
+        direct_annotation: Option<&Annotation>,
         inferrred_from_method: bool,
         errors: &ErrorCollector,
     ) -> (Type, Option<Annotation>, IsInherited) {
+        // If we have a direct annotation with a type, use it and skip analyzing the value
+        if let Some(ann) = direct_annotation
+            && let Some(ty) = ann.ty.clone()
+        {
+            let is_inherited = if Ast::is_mangled_attr(name) {
+                IsInherited::No
+            } else {
+                IsInherited::Maybe
+            };
+            return (ty, direct_annotation.cloned(), is_inherited);
+        }
+
+        // Otherwise, analyze the value to determine the type
         match value {
             ExprOrBinding::Expr(e) => {
                 let (inherited_ty, inherited_annotation) =
@@ -1610,11 +1580,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
                 };
-                (ty, inherited_annotation, is_inherited)
+                (
+                    ty,
+                    inherited_annotation.or_else(|| direct_annotation.cloned()),
+                    is_inherited,
+                )
             }
             ExprOrBinding::Binding(b) => (
                 Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
-                None,
+                direct_annotation.cloned(),
                 IsInherited::Maybe,
             ),
         }
