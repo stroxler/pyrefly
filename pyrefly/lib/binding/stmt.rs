@@ -1008,14 +1008,6 @@ impl<'a> BindingsBuilder<'a> {
             if &x.name == "*" {
                 for name in module_exports.wildcard(self.lookup).iter_hashed() {
                     let key = Key::Import(name.into_key().clone(), x.range);
-                    if let Some(ExportLocation::ThisModule(Export {
-                        deprecation: Some(deprecation),
-                        ..
-                    })) = exported.get_hashed(name)
-                    {
-                        let msg = deprecation.as_error_message(format!("`{name}` is deprecated"));
-                        self.error_multiline(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
-                    }
                     let val = if exported.contains_key_hashed(name) {
                         Binding::Import(m, name.into_key().clone(), None)
                     } else {

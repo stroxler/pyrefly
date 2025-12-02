@@ -27,7 +27,6 @@ $ echo "x: str = 12" > $TMPDIR/shown1.py && \
  WARN ast.pyi:1113:10-18: `Constant.n` is deprecated [deprecated]
  WARN ast.pyi:1123:10-11: `Constant.s` is deprecated [deprecated]
  WARN ast.pyi:1123:10-18: `Constant.s` is deprecated [deprecated]
- WARN importlib/_bootstrap_external.pyi:1:40-41: `WindowsRegistryFinder` is deprecated [deprecated]
  WARN importlib/resources/__init__.pyi:51:9-29: `contents` is deprecated [deprecated]
 */shown*.py:1:* (glob)
 [1]
