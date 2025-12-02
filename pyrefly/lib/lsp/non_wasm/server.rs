@@ -810,20 +810,17 @@ impl Server {
                 let mut transaction =
                     ide_transaction_manager.non_committable_transaction(&self.state);
 
-                if subsequent_mutation {
-                    // We probably didn't bother completing a previous check, but we are now answering a query that
-                    // really needs a previous check to be correct.
-                    // Validating sends out notifications, which isn't required, but this is the safest way.
-                    info!(
-                        "Request {} ({}) has subsequent mutation, prepare to validate open files.",
-                        x.method, x.id,
-                    );
-                    Self::validate_in_memory_for_transaction(
-                        &self.state,
-                        &self.open_files,
-                        &mut transaction,
-                    );
-                }
+                // As an over-approximation, validate open files. This request might be based on a transaction where we
+                // skipped this step due to a subsequent mutation. We might also have a stale saved state, which we needed
+                // to throw away because the underlying state has since changed.
+                //
+                // Validating in-memory files is relatively cheap, since we only actually recheck open files which have
+                // changed file contents, so it's simpler to just always do it.
+                Self::validate_in_memory_for_transaction(
+                    &self.state,
+                    &self.open_files,
+                    &mut transaction,
+                );
 
                 info!("Handling non-canceled request {} ({})", x.method, &x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
