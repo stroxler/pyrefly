@@ -125,3 +125,17 @@ Model(x=b'123')
 Model(x=Decimal('123'))
     "#,
 );
+
+pydantic_testcase!(
+    bug = "An error should be raised here",
+    test_lax_mode_coercion_literals,
+    r#"
+from typing import Literal
+from pydantic import BaseModel
+
+class Model1(BaseModel):
+    status: Literal[1]
+
+m = Model1(status="1")
+    "#,
+);
