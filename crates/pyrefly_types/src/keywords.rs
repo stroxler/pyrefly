@@ -111,6 +111,18 @@ impl ConverterMap {
     pub fn new() -> Self {
         Self(OrderedMap::new())
     }
+
+    pub fn from_map(map: OrderedMap<Type, Type>) -> Self {
+        Self(map)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn get(&self, key: &Type) -> Option<&Type> {
+        self.0.get(key)
+    }
 }
 
 impl VisitMut<Type> for ConverterMap {
