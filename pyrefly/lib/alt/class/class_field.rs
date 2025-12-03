@@ -1587,9 +1587,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             IsInherited::Maybe
         };
-        match value {
+        let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
+            inherited_annotation.clone(),
+            direct_qualifiers,
+        );
+        let inferred_ty = match value {
             ExprOrBinding::Expr(e) => {
-                let inferred_ty = if let Some(inherited_ty) = inherited_ty
+                if let Some(inherited_ty) = inherited_ty
                     && inferrred_from_method
                 {
                     // Inherit the previous type of the attribute if the only declaration-like
@@ -1597,30 +1601,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     inherited_ty
                 } else {
                     self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
-                };
-                let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
-                    inherited_annotation,
-                    direct_qualifiers,
-                );
-                let ty = final_annotation
-                    .as_ref()
-                    .and_then(|ann| ann.ty.clone())
-                    .unwrap_or(inferred_ty);
-                (ty, final_annotation, is_inherited)
+                }
             }
             ExprOrBinding::Binding(b) => {
-                let inferred_ty = Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty();
-                let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
-                    inherited_annotation,
-                    direct_qualifiers,
-                );
-                let ty = final_annotation
-                    .as_ref()
-                    .and_then(|ann| ann.ty.clone())
-                    .unwrap_or(inferred_ty);
-                (ty, final_annotation, is_inherited)
+                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty()
             }
-        }
+        };
+        // Note that we use `final_annotation`'s `ty` rather than `inherited_ty`
+        // because we only want to override the `inferred_ty` when there's an inherited
+        // *annotation*, and in some cases `inherited_ty` is inferred (which means we only
+        // use it for contextual typing, not as an explicit type declaration)
+        let ty = final_annotation
+            .as_ref()
+            .and_then(|ann| ann.ty.clone())
+            .unwrap_or(inferred_ty);
+        (ty, final_annotation, is_inherited)
     }
 
     /// Given an inherited annotation and possible qualifiers from a direct annotation,
