@@ -891,7 +891,7 @@ impl ConfigFile {
         result
     }
 
-    pub fn requery_source_db(
+    pub fn query_source_db(
         configs_to_files: &SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>>,
     ) -> SmallSet<ArcId<ConfigFile>> {
         let mut reloaded_configs = SmallSet::new();

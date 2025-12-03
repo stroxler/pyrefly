@@ -77,7 +77,7 @@ pub fn queue_source_db_rebuild_and_recheck(
                 .or_default()
                 .insert(handle.path().dupe());
         }
-        let new_invalidated_configs = ConfigFile::requery_source_db(&configs_to_paths);
+        let new_invalidated_configs = ConfigFile::query_source_db(&configs_to_paths);
         if !new_invalidated_configs.is_empty() {
             let mut lock = invalidated_configs.lock();
             for c in new_invalidated_configs {
