@@ -1514,7 +1514,41 @@ impl<'a> Transaction<'a> {
             }) => {
                 self.find_definition_for_attribute(handle, base_range, identifier.id(), preference)
             }
-            None => self.find_definition_for_operator(handle, &covering_nodes, preference),
+            None => {
+                // Check if this is a None literal, if so, resolve to NoneType class
+                if covering_nodes
+                    .iter()
+                    .any(|node| matches!(node, AnyNodeRef::ExprNoneLiteral(_)))
+                    && let Some(res) = self.find_definition_for_none(handle)
+                {
+                    return res;
+                }
+                // Fall back to operator handling
+                self.find_definition_for_operator(handle, &covering_nodes, preference)
+            }
+        }
+    }
+
+    /// Get the definition we should point at for `None`.
+    fn find_definition_for_none(
+        &self,
+        handle: &Handle,
+    ) -> Option<Vec<FindDefinitionItemWithDocstring>> {
+        let stdlib = self.get_stdlib(handle);
+        let none_type = stdlib.none_type().clone().to_type();
+        let symbol_def_paths = collect_symbol_def_paths(&none_type);
+        if symbol_def_paths.is_empty() {
+            None
+        } else {
+            Some(symbol_def_paths.map(|(qname, _)| {
+                let module_info = qname.module().clone();
+                FindDefinitionItemWithDocstring {
+                    metadata: DefinitionMetadata::VariableOrAttribute(Some(SymbolKind::Class)),
+                    module: module_info,
+                    definition_range: qname.range(),
+                    docstring_range: None,
+                }
+            }))
         }
     }
 

@@ -1682,3 +1682,15 @@ Definition Result:
         report.trim(),
     );
 }
+
+#[test]
+fn goto_def_on_none_test() {
+    let code = r#"
+x = None
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    // None should resolve to builtins.pyi
+    assert!(report.contains("Definition Result:"));
+    assert!(report.contains("None"));
+}
