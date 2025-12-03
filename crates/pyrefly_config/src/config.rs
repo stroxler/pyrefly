@@ -929,6 +929,13 @@ impl ConfigFile {
                 }
             }
             if reloaded {
+                debug!(
+                    "Performed grouped source db query for configs at {:?}",
+                    configs_and_files
+                        .iter()
+                        .filter_map(|x| x.0.source.root())
+                        .collect::<Vec<_>>(),
+                );
                 for (config, _) in configs_and_files {
                     reloaded_configs.insert(config.dupe());
                 }
@@ -1018,7 +1025,7 @@ impl ConfigFile {
         };
         self.root.enabled_ignores = Some(enabled_ignores);
 
-        let mut configure_source_db = |build_system: &BuildSystem| {
+        let mut configure_source_db = |build_system: &mut BuildSystem| {
             let root = match &self.source {
                 ConfigSource::File(path) => {
                     let mut root = path.to_path_buf();
@@ -1064,11 +1071,16 @@ impl ConfigFile {
                         "--client-metadata=id=pyrefly".to_owned(),
                     ]),
                     true,
+                    vec![
+                        "python/typeshed_experimental".into(),
+                        "python/typeshed_internal".into(),
+                        "python/pyre_temporary_stubs".into(),
+                    ],
                 ));
             }
         }
 
-        if let Some(build_system) = &self.build_system
+        if let Some(build_system) = &mut self.build_system
             && let Some(error) = configure_source_db(build_system)
         {
             configure_errors.push(error)

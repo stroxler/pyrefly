@@ -95,6 +95,10 @@ pub struct BuildSystem {
     args: BuildSystemArgs,
     #[serde(default)]
     ignore_if_build_system_missing: bool,
+    // TODO(connernilsen): remove once internal stubs are deprecated
+    /// Are there any sources we should use before looking at the build system (like stubs)?
+    #[serde(default)]
+    pub search_path_prefix: Vec<PathBuf>,
 }
 
 impl BuildSystem {
@@ -102,16 +106,18 @@ impl BuildSystem {
         isolation_dir: Option<String>,
         extras: Option<Vec<String>>,
         ignore_if_build_system_missing: bool,
+        search_path_prefix: Vec<PathBuf>,
     ) -> Self {
         let args = BuildSystemArgs::Buck(BxlArgs::new(isolation_dir, extras));
         Self {
             args,
             ignore_if_build_system_missing,
+            search_path_prefix,
         }
     }
 
     pub fn get_source_db(
-        &self,
+        &mut self,
         config_root: PathBuf,
     ) -> Option<anyhow::Result<ArcId<Box<dyn source_db::SourceDatabase + 'static>>>> {
         let build_system_available = self.args.is_build_system_available();
@@ -133,6 +139,10 @@ impl BuildSystem {
         let key = (repo_root.clone(), self.args.clone());
         if let Some(result) = cache.get(&key) {
             return Some(Ok(result.dupe()));
+        }
+
+        for path in &mut self.search_path_prefix {
+            *path = config_root.join(&path);
         }
 
         let querier: Arc<dyn SourceDbQuerier> = match &self.args {
