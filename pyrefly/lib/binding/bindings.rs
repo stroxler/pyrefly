@@ -753,6 +753,7 @@ impl<'a> BindingsBuilder<'a> {
             | FlowStyle::Import(..)
             | FlowStyle::ImportAs(_)
             | FlowStyle::FunctionDef(..)
+            | FlowStyle::ClassDef
             | FlowStyle::LoopRecursion => None,
         }
     }

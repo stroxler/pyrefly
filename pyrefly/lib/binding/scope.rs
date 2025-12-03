@@ -583,6 +583,8 @@ pub enum FlowStyle {
     /// Am I a function definition? Used to chain overload definitions.
     /// If so, does my return type have an explicit annotation?
     FunctionDef(Idx<KeyDecoratedFunction>, bool),
+    /// Am I a class definition?
+    ClassDef,
     /// The name is possibly uninitialized (perhaps due to merging branches)
     PossiblyUninitialized,
     /// The name was in an annotated declaration like `x: int` but not initialized
