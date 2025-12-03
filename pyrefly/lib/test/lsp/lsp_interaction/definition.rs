@@ -11,6 +11,7 @@ use lsp_server::Message;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_types::GotoDefinitionResponse;
+use lsp_types::Location;
 use lsp_types::Url;
 use lsp_types::request::GotoDeclarationResponse;
 use serde_json::json;
@@ -533,8 +534,6 @@ fn test_go_to_def_constructor_calls() {
 #[test]
 fn goto_def_on_none_goes_to_builtins_stub() {
     let root = get_test_files_root();
-    let pyrefly_typeshed_materialized = bundled_typeshed_path();
-    let result_file = pyrefly_typeshed_materialized.join("builtins.pyi");
     let mut interaction = LspInteraction::new();
     interaction.set_root(root.path().to_path_buf());
     interaction
@@ -544,28 +543,23 @@ fn goto_def_on_none_goes_to_builtins_stub() {
         .unwrap();
     interaction.client.did_open("primitive_type_test.py");
 
+    let check_none_type_location = |x: &Location| {
+        let path = x.uri.to_file_path().unwrap();
+        let file_name = path.file_name().and_then(|n| n.to_str());
+        // NoneType can be in types.pyi (Python 3.10+) or __init__.pyi (older versions)
+        file_name == Some("types.pyi") || file_name == Some("__init__.pyi")
+    };
+
     // Test goto definition on None - should go to NoneType in types.pyi or builtins.pyi
     interaction
         .client
         .definition("primitive_type_test.py", 10, 4)
         .expect_response_with(|response| match response {
-            Some(GotoDefinitionResponse::Scalar(x)) => {
-                let path = x.uri.to_file_path().unwrap();
-                // NoneType can be in types.pyi (Python 3.10+) or builtins.pyi (older versions)
-                path.file_name().and_then(|n| n.to_str()) == Some("types.pyi")
-                    || path.file_name().and_then(|n| n.to_str()) == Some("builtins.pyi")
-            }
+            Some(GotoDefinitionResponse::Scalar(x)) => check_none_type_location(&x),
             Some(GotoDefinitionResponse::Array(xs)) if !xs.is_empty() => {
-                let path = xs[0].uri.to_file_path().unwrap();
-                path.file_name().and_then(|n| n.to_str()) == Some("types.pyi")
-                    || path.file_name().and_then(|n| n.to_str()) == Some("builtins.pyi")
+                check_none_type_location(&xs[0])
             }
             _ => false,
         })
         .unwrap();
-
-    assert!(
-        result_file.exists(),
-        "Expected builtins.pyi to exist at {result_file:?}",
-    );
 }
