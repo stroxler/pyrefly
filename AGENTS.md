@@ -14,7 +14,9 @@ As described in the README, our architecture follows 3 phases:
 
 - figuring out exports
 - making bindings
-- solving the bindings Here's an overview of some important directories:
+- solving the bindings
+
+Here's an overview of some important directories:
 
 - pyrefly/lib/alt - Solving step
 - pyrefly/lib/binding - Binding step
@@ -31,7 +33,7 @@ As described in the README, our architecture follows 3 phases:
 - pyrefly/lib/test/lsp/lsp_interaction - Heavyweight integration tests for the
   language server (only add tests here if it's impossible to add them in the
   lightweight tests)
-- pyrefly/lib/types - Our internal representation for Python types
+- crates/pyrefly_types/src - Our internal representation for Python types
 - conformance - Typing conformance tests pulled from python/typing. Don't edit
   these manually. Instead, run test.py and include any generated changes with
   your PR.
@@ -41,7 +43,7 @@ As described in the README, our architecture follows 3 phases:
 
 ## Codebase style and guidelines
 
-Coding style: All code must also be clean, documented and minimal. That means:
+Coding style: All code must be clean, documented and minimal. That means:
 
 - Keep It Simple Stupid (KISS) by reducing the "Concept Count". That means,
   strive for fewer functions or methods, fewer helpers. If a helper is only
@@ -56,6 +58,11 @@ Coding style: All code must also be clean, documented and minimal. That means:
 - Code should have comments, and functions should have docstrings. The best
   comments are ones that introduce invariants, or prove that invariants are
   being upheld, or indicate which invariants the code relies upon.
+- Check for existing helpers in the `pyrefly_types` crate before manually
+  creating or destructuring a `Type`.
+- Minimize the number of places `Expr` nodes are passed around and the number of
+  times they are parsed. Generally, this means extracting semantic information
+  as early as possible.
 
 ## Feature guidelines
 
