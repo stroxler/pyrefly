@@ -84,11 +84,16 @@ pub trait BundledStub {
         }
         Ok(temp_dir)
     }
-    fn write(&self, temp_dir: &Path) -> anyhow::Result<()> {
-        fs_anyhow::create_dir_all(temp_dir)?;
+
+    /// Writes all bundled stub files to a directory on disk.
+    ///
+    /// File writes are atomic (using temp files and rename) to prevent corruption.
+    /// Files are made read-only after writing as a guardrail.
+    fn write(&self, output_dir: &Path) -> anyhow::Result<()> {
+        fs_anyhow::create_dir_all(output_dir)?;
 
         for (relative_path, contents) in self.load_map() {
-            let mut file_path = temp_dir.to_owned();
+            let mut file_path = output_dir.to_owned();
             file_path.push(relative_path);
 
             if let Some(parent) = file_path.parent() {
@@ -139,9 +144,12 @@ pub trait BundledStub {
 
         Self::config()
             .as_ref()
-            .write_to_toml_in_directory(temp_dir)
+            .write_to_toml_in_directory(output_dir)
             .with_context(|| {
-                format!("Failed to write pyrefly config at {:?}", temp_dir.display())
+                format!(
+                    "Failed to write pyrefly config at {:?}",
+                    output_dir.display()
+                )
             })?;
         Ok(())
     }
