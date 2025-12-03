@@ -1595,7 +1595,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 (
                     ty,
-                    inherited_annotation.or_else(|| direct_annotation.cloned()),
+                    Self::merge_direct_qualifiers_with_inherited_annotation(
+                        inherited_annotation,
+                        direct_annotation.map(|ann| &ann.qualifiers),
+                    ),
                     is_inherited,
                 )
             }
@@ -1604,6 +1607,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 direct_annotation.cloned(),
                 IsInherited::Maybe,
             ),
+        }
+    }
+
+    /// Given an inherited annotation and possible qualifiers from a direct annotation,
+    /// combine them:
+    /// - If neither is present, return `None`
+    /// - If only one is non-None, create an annotation from it
+    /// - If both are non-None, combine the type from the inherited annotation from
+    ///   the direct qualifiers.
+    ///
+    /// Note that qualifiers from the inherited annotation are always discarded
+    /// if the direct annotation is present. This is arguable (the typing rules
+    /// don't specify behavior) but simpler than combining qualifiers.
+    fn merge_direct_qualifiers_with_inherited_annotation(
+        inherited: Option<Annotation>,
+        direct_qualifiers: Option<&Vec<Qualifier>>,
+    ) -> Option<Annotation> {
+        match (inherited, direct_qualifiers) {
+            (inherited, Some(qualifiers)) => Some(Annotation {
+                ty: inherited.and_then(|ann| ann.ty),
+                qualifiers: qualifiers.clone(),
+            }),
+            (ann, None) => ann,
         }
     }
 
