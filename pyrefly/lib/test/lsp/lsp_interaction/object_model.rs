@@ -188,19 +188,6 @@ impl<'a> ClientRequestHandle<'a, HoverRequest> {
 }
 
 impl<'a> ClientRequestHandle<'a, GotoDefinition> {
-    pub fn expect_definition_response_absolute(
-        self,
-        file: String,
-        line_start: u32,
-        char_start: u32,
-        line_end: u32,
-        char_end: u32,
-    ) -> Result<(), LspMessageError> {
-        self.client.expect_definition_response_absolute(
-            self.id, file, line_start, char_start, line_end, char_end,
-        )
-    }
-
     pub fn expect_definition_response_from_root(
         self,
         file: &'static str,

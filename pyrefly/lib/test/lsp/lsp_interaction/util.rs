@@ -62,7 +62,6 @@ fn copy_dir_recursively(src: &Path, dst: &Path) {
 /// rather than exact position (line/column numbers).
 ///
 /// Reads the content at the returned location and verifies it contains the expected symbol.
-#[expect(dead_code)]
 pub fn expect_definition_points_to_symbol(
     response: Option<&GotoDefinitionResponse>,
     expected_file_pattern: &str,
@@ -107,7 +106,6 @@ pub fn expect_definition_points_to_symbol(
 
 /// Helper to read line content at a specific location.
 /// Useful for multi-target tests that need to check multiple responses.
-#[expect(dead_code)]
 pub fn line_at_location(location: &Location) -> Option<String> {
     let path = location.uri.to_file_path().ok()?;
     let content = fs::read_to_string(&path).ok()?;
