@@ -5088,9 +5088,7 @@ call_graph_testcase!(
     TEST_MODULE_NAME,
     r#"
 def decorator(f):
-  def inner():
-    return 0
-  return inner
+  return f
 class C:
   @decorator
   def __init__(self, x):
@@ -5099,23 +5097,21 @@ class C:
   def __new__(cls, *args, **kwargs):
     ...
 def foo():
-  return C()  # Redirect `__init__` and `__new__`
+  return C(0)  # Redirect `__init__` and `__new__`
 "#,
     &|_context: &ModuleContext| {
         vec![(
             "test.foo",
             vec![(
-                "14:10-14:13",
+                "12:10-12:14",
                 constructor_call_callees(
                     vec![
                         create_call_target("builtins.object.__init__", TargetType::Function)
-                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                            .with_return_type(ScalarTypeProperties::int()),
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver),
                     ],
                     vec![
                         create_call_target("builtins.object.__new__", TargetType::Function)
-                            .with_is_static_method(true)
-                            .with_return_type(ScalarTypeProperties::int()),
+                            .with_is_static_method(true),
                     ],
                 ),
             )],
@@ -5378,5 +5374,105 @@ def bar():
                 ),
             ],
         )]
+    }
+);
+
+call_graph_testcase!(
+    test_type_var,
+    TEST_MODULE_NAME,
+    r#"
+import typing
+T = typing.TypeVar("T")
+def foo(x: T) -> T:
+  return x
+def bar():
+  return foo(0)
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.bar",
+            vec![(
+                "7:10-7:16",
+                regular_call_callees(vec![
+                    create_call_target("test.foo", TargetType::Function)
+                        .with_return_type(ScalarTypeProperties::int()),
+                ]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_objects,
+    TEST_MODULE_NAME,
+    r#"
+class Object:
+  bar: str
+x = Object()
+y = Object()
+def baz(x: Object):
+  pass
+def foo():
+  x.bar = ""
+  y.bar = ""
+  baz(x)
+  baz(y)
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "11:3-11:9",
+                    regular_call_callees(vec![create_call_target(
+                        "test.baz",
+                        TargetType::Function,
+                    )]),
+                ),
+                (
+                    "11:7-11:8",
+                    global_identifier_callees(vec![get_global_ref("test", "x", context)]),
+                ),
+                (
+                    "12:3-12:9",
+                    regular_call_callees(vec![create_call_target(
+                        "test.baz",
+                        TargetType::Function,
+                    )]),
+                ),
+                (
+                    "12:7-12:8",
+                    global_identifier_callees(vec![get_global_ref("test", "y", context)]),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_object,
+    TEST_MODULE_NAME,
+    r#"
+class Object:
+  bar: str
+x = Object()
+def foo():
+  y = x.bar
+"#,
+    &|_context: &ModuleContext| { vec![("test.foo", vec![])] }
+);
+
+call_graph_testcase!(
+    test_global_keyword,
+    TEST_MODULE_NAME,
+    r#"
+x = ""
+def foo():
+  global x
+  x = "str"
+"#,
+    &|_context: &ModuleContext| {
+        // TODO: Handle `global` keyword
+        vec![("test.foo", vec![])]
     }
 );
