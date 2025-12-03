@@ -1565,16 +1565,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> (Type, Option<Annotation>, IsInherited) {
         // If we have a direct annotation with a type, use it and skip analyzing the value
-        if let Some(ann) = direct_annotation
-            && let Some(ty) = ann.ty.clone()
-        {
-            let is_inherited = if Ast::is_mangled_attr(name) {
-                IsInherited::No
+        let direct_qualifiers = if let Some(ann) = direct_annotation {
+            if let Some(ty) = ann.ty.clone() {
+                let is_inherited = if Ast::is_mangled_attr(name) {
+                    IsInherited::No
+                } else {
+                    IsInherited::Maybe
+                };
+                return (ty, direct_annotation.cloned(), is_inherited);
             } else {
-                IsInherited::Maybe
-            };
-            return (ty, direct_annotation.cloned(), is_inherited);
-        }
+                Some(&ann.qualifiers)
+            }
+        } else {
+            None
+        };
         // Otherwise, analyze the value to determine the type
         let (inherited_ty, inherited_annotation) =
             self.get_inherited_type_and_annotation(class, name);
@@ -1596,7 +1600,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
                     inherited_annotation,
-                    direct_annotation.map(|ann| &ann.qualifiers),
+                    direct_qualifiers,
                 );
                 let ty = final_annotation
                     .as_ref()
@@ -1608,7 +1612,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let inferred_ty = Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty();
                 let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
                     inherited_annotation,
-                    direct_annotation.map(|ann| &ann.qualifiers),
+                    direct_qualifiers,
                 );
                 let ty = final_annotation
                     .as_ref()
