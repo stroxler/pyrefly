@@ -1249,14 +1249,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
 
-        let read_only_reason = self.determine_read_only_reason(
-            name,
-            annotation.as_ref(),
-            &metadata,
-            &value_ty,
-            field_definition,
-            range,
-        );
+        let read_only_reason =
+            self.determine_read_only_reason(name, annotation.as_ref(), &metadata, field_definition);
 
         // Determine the final type, promoting literals when appropriate.
         let ty = if annotation
@@ -1473,9 +1467,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         annotation: Option<&Annotation>,
         metadata: &ClassMetadata,
-        ty: &Type,
         field_definition: &ClassFieldDefinition,
-        range: TextRange,
     ) -> Option<ReadOnlyReason> {
         if let Some(ann) = annotation {
             // TODO: enable this for Final attrs that aren't initialized on the class;
@@ -1520,10 +1512,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return Some(reason);
         }
 
-        // A nested class def is assumed to be ReadOnly. We distinguish a nested `class C: ...`
-        // from an assignment of a class object (`SomeAttr = C`) by checking the attribute range
-        // against the nested class definition range.
-        if matches!(ty, Type::ClassDef(cls) if cls.range() == range) {
+        // Nested class definitions are read-only
+        if matches!(field_definition, ClassFieldDefinition::NestedClass { .. }) {
             return Some(ReadOnlyReason::ClassObjectInitializedOnBody);
         }
         // Default: the field is read-write
