@@ -1259,9 +1259,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
 
         // Determine the final type, promoting literals when appropriate.
-        let ty = if let Some(ty) = annotation.as_ref().and_then(|ann| ann.ty.as_ref()) {
-            ty.clone()
-        } else if matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
+        let ty = if annotation
+            .as_ref()
+            .and_then(|ann| ann.ty.as_ref())
+            .is_none()
+            && matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
             && value_ty.is_literal()
         {
             value_ty.promote_literals(self.stdlib)
@@ -1573,7 +1575,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             return (ty, direct_annotation.cloned(), is_inherited);
         }
-
         // Otherwise, analyze the value to determine the type
         let (inherited_ty, inherited_annotation) =
             self.get_inherited_type_and_annotation(class, name);
@@ -1582,10 +1583,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             IsInherited::Maybe
         };
-
         match value {
             ExprOrBinding::Expr(e) => {
-                let ty = if let Some(inherited_ty) = inherited_ty
+                let inferred_ty = if let Some(inherited_ty) = inherited_ty
                     && inferrred_from_method
                 {
                     // Inherit the previous type of the attribute if the only declaration-like
@@ -1594,23 +1594,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
                 };
-                (
-                    ty,
-                    Self::merge_direct_qualifiers_with_inherited_annotation(
-                        inherited_annotation,
-                        direct_annotation.map(|ann| &ann.qualifiers),
-                    ),
-                    is_inherited,
-                )
-            }
-            ExprOrBinding::Binding(b) => (
-                Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
-                Self::merge_direct_qualifiers_with_inherited_annotation(
+                let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
                     inherited_annotation,
                     direct_annotation.map(|ann| &ann.qualifiers),
-                ),
-                is_inherited,
-            ),
+                );
+                let ty = final_annotation
+                    .as_ref()
+                    .and_then(|ann| ann.ty.clone())
+                    .unwrap_or(inferred_ty);
+                (ty, final_annotation, is_inherited)
+            }
+            ExprOrBinding::Binding(b) => {
+                let inferred_ty = Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty();
+                let final_annotation = Self::merge_direct_qualifiers_with_inherited_annotation(
+                    inherited_annotation,
+                    direct_annotation.map(|ann| &ann.qualifiers),
+                );
+                let ty = final_annotation
+                    .as_ref()
+                    .and_then(|ann| ann.ty.clone())
+                    .unwrap_or(inferred_ty);
+                (ty, final_annotation, is_inherited)
+            }
         }
     }
 
