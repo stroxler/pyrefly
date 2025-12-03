@@ -1188,6 +1188,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None,
                 )
             }
+            ClassFieldDefinition::NestedClass { definition } => {
+                // Nested classes are initialized in the class body
+                let initialization = ClassFieldInitialization::ClassBody(None);
+                let value =
+                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
+                let (value_ty, annotation, is_inherited) =
+                    self.analyze_class_field_value(value, class, name, None, false, errors);
+                (
+                    initialization,
+                    false,
+                    value_ty,
+                    annotation,
+                    is_inherited,
+                    None,
+                )
+            }
             ClassFieldDefinition::DefinedWithoutAssign { definition } => {
                 let initialization = ClassFieldInitialization::ClassBody(None);
                 let value =
