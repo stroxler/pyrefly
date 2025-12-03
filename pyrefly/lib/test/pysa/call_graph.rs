@@ -37,12 +37,15 @@ use crate::report::pysa::function::FunctionId;
 use crate::report::pysa::function::FunctionRef;
 use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::function::collect_function_base_definitions;
+use crate::report::pysa::global_variable::GlobalVariableRef;
+use crate::report::pysa::global_variable::collect_global_variables;
 use crate::report::pysa::module::ModuleIds;
 use crate::report::pysa::override_graph::OverrideGraph;
 use crate::report::pysa::override_graph::build_reversed_override_graph;
 use crate::report::pysa::types::ScalarTypeProperties;
 use crate::test::pysa::utils::create_state;
 use crate::test::pysa::utils::get_class_ref;
+use crate::test::pysa::utils::get_global_ref;
 use crate::test::pysa::utils::get_handle_for_module_name;
 
 // Omit fields from `FunctionRef` so that we can easily write the expected results
@@ -289,6 +292,7 @@ fn test_building_call_graph_for_module(
         &module_ids,
         &reversed_override_graph,
     );
+    let global_variables = collect_global_variables(&handles, &transaction, &module_ids);
 
     let test_module_handle = get_handle_for_module_name(test_module_name, &transaction);
     let context = ModuleContext::create(test_module_handle, &transaction, &module_ids).unwrap();
@@ -298,7 +302,12 @@ fn test_building_call_graph_for_module(
     let override_graph =
         OverrideGraph::from_reversed(&reversed_override_graph, &function_base_definitions);
     let mut actual_call_graph = call_graph_for_test_from_actual(
-        export_call_graphs(&context, &function_base_definitions, &override_graph),
+        export_call_graphs(
+            &context,
+            &function_base_definitions,
+            &override_graph,
+            &global_variables,
+        ),
         &function_base_definitions,
     );
     // We don't care about callables that are not specified in the expected call graphs
@@ -396,6 +405,18 @@ fn attribute_access_callees(
         },
         property_setters,
         property_getters,
+        global_targets: vec![],
+    })
+}
+
+fn global_attribute_access_callees(
+    global_targets: Vec<GlobalVariableRef>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::AttributeAccess(AttributeAccessCallees {
+        if_called: CallCallees::empty(),
+        property_setters: vec![],
+        property_getters: vec![],
+        global_targets,
     })
 }
 
@@ -403,15 +424,10 @@ fn property_getter_callees(
     property_getters: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-        if_called: CallCallees {
-            call_targets: vec![],
-            init_targets: vec![],
-            new_targets: vec![],
-            higher_order_parameters: HashMap::new(),
-            unresolved: Unresolved::False,
-        },
+        if_called: CallCallees::empty(),
         property_setters: vec![],
         property_getters,
+        global_targets: vec![],
     })
 }
 
@@ -419,15 +435,10 @@ fn property_setter_callees(
     property_setters: Vec<CallTarget<FunctionRefForTest>>,
 ) -> ExpressionCallees<FunctionRefForTest> {
     ExpressionCallees::AttributeAccess(AttributeAccessCallees {
-        if_called: CallCallees {
-            call_targets: vec![],
-            init_targets: vec![],
-            new_targets: vec![],
-            higher_order_parameters: HashMap::new(),
-            unresolved: Unresolved::False,
-        },
+        if_called: CallCallees::empty(),
         property_setters,
         property_getters: vec![],
+        global_targets: vec![],
     })
 }
 
@@ -444,6 +455,7 @@ fn regular_attribute_access_callees(
         },
         property_setters: vec![],
         property_getters: vec![],
+        global_targets: vec![],
     })
 }
 
@@ -463,6 +475,7 @@ fn identifier_callees(
             higher_order_parameters: create_higher_order_parameters(higher_order_parameters),
             unresolved,
         },
+        global_targets: vec![],
     })
 }
 
@@ -477,6 +490,16 @@ fn regular_identifier_callees(
             higher_order_parameters: HashMap::new(),
             unresolved: Unresolved::False,
         },
+        global_targets: vec![],
+    })
+}
+
+fn global_identifier_callees(
+    global_targets: Vec<GlobalVariableRef>,
+) -> ExpressionCallees<FunctionRefForTest> {
+    ExpressionCallees::Identifier(IdentifierCallees {
+        if_called: CallCallees::empty(),
+        global_targets,
     })
 }
 
@@ -2489,6 +2512,7 @@ def foo(obj: Token):
                         },
                         property_setters: vec![],
                         property_getters: vec![],
+                        global_targets: vec![],
                     }),
                 ),
             ],
@@ -3001,6 +3025,10 @@ def calls_d_method(s: str):
         vec![(
             "test.calls_d_method",
             vec![
+                (
+                    "11:3-11:4",
+                    global_identifier_callees(vec![get_global_ref("test", "d", context)]),
+                ),
                 ("11:3-11:13", regular_call_callees(call_target)),
                 (
                     "11:3-11:7|artificial-call|subscript-get-item",
@@ -4550,6 +4578,143 @@ def foo(l: AsyncIterator[A], x: B):
                     regular_call_callees(anext_targets),
                 ),
                 ("8:26-8:33", regular_call_callees(b_foo)),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_variable_attribute_access,
+    TEST_MODULE_NAME,
+    r#"
+import os
+
+def foo():
+    x = os.environ
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "5:9-5:19",
+                global_attribute_access_callees(vec![get_global_ref("os", "environ", context)]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_variable_name,
+    TEST_MODULE_NAME,
+    r#"
+from os import environ
+
+def foo():
+    x = environ
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "5:9-5:16",
+                global_identifier_callees(vec![get_global_ref("os", "environ", context)]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_variable_alias,
+    TEST_MODULE_NAME,
+    r#"
+from os import environ as y
+
+def foo():
+    x = y
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "5:9-5:10",
+                global_identifier_callees(vec![get_global_ref("os", "environ", context)]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_variable_same_module,
+    TEST_MODULE_NAME,
+    r#"
+g = 1
+
+def foo():
+    x = g
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "5:9-5:10",
+                global_identifier_callees(vec![get_global_ref("test", "g", context)]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_variable_within_call,
+    TEST_MODULE_NAME,
+    r#"
+import os
+
+def foo():
+    return os.environ.get("foo")
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![
+                // TODO(T225700656): Missing global target for os.environ
+                (
+                    "5:12-5:33",
+                    regular_call_callees(vec![
+                        create_call_target("typing.Mapping.get", TargetType::Function)
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("os._Environ", context),
+                    ]),
+                ),
+            ],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_global_variable_attribute_access_write,
+    TEST_MODULE_NAME,
+    r#"
+import os
+
+def foo():
+    os.environ = os.environ.copy()
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "5:5-5:15",
+                    global_attribute_access_callees(vec![get_global_ref("os", "environ", context)]),
+                ),
+                (
+                    "5:18-5:35",
+                    regular_call_callees(vec![
+                        create_call_target("os._Environ.copy", TargetType::Function)
+                            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                            .with_receiver_class_for_test("os._Environ", context),
+                    ]),
+                ),
             ],
         )]
     }

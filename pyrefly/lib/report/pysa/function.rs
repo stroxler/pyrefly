@@ -194,7 +194,8 @@ pub struct FunctionSignature {
     pub return_annotation: PysaType,
 }
 
-/// Only store memory-efficient information from `FunctionDefinition`
+/// Represents information about a function definition, collected in a pre-analysis step.
+/// See `FunctionDefinition` for the type exported to Pysa. This only store memory-efficient information.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct FunctionBaseDefinition {
     pub name: Name,
@@ -331,10 +332,10 @@ impl<GenericFunctionDefinition> WholeProgramFunctionDefinitions<GenericFunctionD
             .and_then(|functions| functions.0.get(function_id))
     }
 
-    pub fn get_for_module<'a>(
-        &'a self,
+    pub fn get_for_module(
+        &self,
         module_id: ModuleId,
-    ) -> Option<&'a ModuleFunctionDefinitions<GenericFunctionDefinition>> {
+    ) -> Option<&ModuleFunctionDefinitions<GenericFunctionDefinition>> {
         self.0.get(&module_id)
     }
 }
