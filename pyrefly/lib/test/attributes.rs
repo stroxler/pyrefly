@@ -1554,6 +1554,20 @@ C.x = 43  # E: This field is marked as Final
 );
 
 testcase!(
+    bug = "TODO(stroxler): When direct_annotation has only a qualifier (Final) and inherited annotation has a type, we should combine them",
+    test_final_qualifier_with_inherited_type,
+    r#"
+from typing import Final
+class Parent:
+    x: float = 1
+class Child(Parent):
+    x: Final = 2
+child = Child()
+child.x = 3.0  # Should error: This field is marked as Final
+    "#,
+);
+
+testcase!(
     test_attr_cast,
     r#"
 from typing import Self, cast, Any, assert_type
