@@ -61,6 +61,12 @@ pub fn create_bundled_stub_config(
     config_file
 }
 
+/// Trait for managing bundled Python stub files (type hints) that are embedded in the binary.
+///
+/// This trait provides methods for accessing bundled stub files, such as those from typeshed,
+/// which are included with the type checker rather than loaded from the file system.
+/// Implementations can find modules by name, load their contents, and materialize the bundled
+/// files to disk when needed for inspection or debugging.
 pub trait BundledStub {
     fn new() -> anyhow::Result<Self>
     where
