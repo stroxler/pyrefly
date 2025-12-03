@@ -1858,6 +1858,9 @@ impl Scopes {
                         definition: value.idx,
                         has_return_annotation: *has_return_annotation,
                     },
+                    FlowStyle::ClassDef => ClassFieldDefinition::NestedClass {
+                        definition: value.idx,
+                    },
                     FlowStyle::ClassField {
                         initial_value: Some(e),
                     } => ClassFieldDefinition::AssignedInBody {
