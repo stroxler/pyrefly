@@ -1567,7 +1567,6 @@ child.x = 3.0  # E: Cannot set field `x`
 );
 
 testcase!(
-    bug = "TODO(stroxler): Binding case ignores inherited annotation in tuple unpacking",
     test_inherited_annotation_with_tuple_unpacking,
     r#"
 from typing import assert_type
@@ -1575,10 +1574,10 @@ class Parent:
     x: float
     y: float
 class Child(Parent):
-    x, y = 3, 4  # E: `Child.x` has type `int`  # E: `Child.x` has type `int`
+    x, y = 3, 4
 child = Child()
-assert_type(child.x, float)  # E: assert_type(int, float)
-assert_type(child.y, float)  # E: assert_type(int, float)
+assert_type(child.x, float)
+assert_type(child.y, float)
     "#,
 );
 

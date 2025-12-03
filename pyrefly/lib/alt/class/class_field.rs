@@ -1575,15 +1575,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         // Otherwise, analyze the value to determine the type
+        let (inherited_ty, inherited_annotation) =
+            self.get_inherited_type_and_annotation(class, name);
+        let is_inherited = if inherited_ty.is_none() {
+            IsInherited::No
+        } else {
+            IsInherited::Maybe
+        };
+
         match value {
             ExprOrBinding::Expr(e) => {
-                let (inherited_ty, inherited_annotation) =
-                    self.get_inherited_type_and_annotation(class, name);
-                let is_inherited = if inherited_ty.is_none() {
-                    IsInherited::No
-                } else {
-                    IsInherited::Maybe
-                };
                 let ty = if let Some(inherited_ty) = inherited_ty
                     && inferrred_from_method
                 {
@@ -1604,8 +1605,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ExprOrBinding::Binding(b) => (
                 Arc::unwrap_or_clone(self.solve_binding(b, errors)).into_ty(),
-                direct_annotation.cloned(),
-                IsInherited::Maybe,
+                Self::merge_direct_qualifiers_with_inherited_annotation(
+                    inherited_annotation,
+                    direct_annotation.map(|ann| &ann.qualifiers),
+                ),
+                is_inherited,
             ),
         }
     }
