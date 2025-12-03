@@ -1175,32 +1175,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 has_return_annotation,
             } => {
                 let initialization = ClassFieldInitialization::ClassBody(None);
-                let value =
-                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
-                let (value_ty, annotation, is_inherited) =
-                    self.analyze_class_field_value(value, class, name, None, false, errors);
+                // Evaluate the binding directly without analyzing inherited annotations
+                let binding = Binding::Forward(*definition);
+                let value_ty = Arc::unwrap_or_clone(self.solve_binding(&binding, errors)).into_ty();
                 (
                     initialization,
                     !has_return_annotation,
                     value_ty,
-                    annotation,
-                    is_inherited,
+                    None, // No annotation for methods
+                    IsInherited::Maybe,
                     None,
                 )
             }
             ClassFieldDefinition::NestedClass { definition } => {
-                // Nested classes are initialized in the class body
+                // Evaluate the binding directly without analyzing inherited annotations
                 let initialization = ClassFieldInitialization::ClassBody(None);
-                let value =
-                    value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
-                let (value_ty, annotation, is_inherited) =
-                    self.analyze_class_field_value(value, class, name, None, false, errors);
+                let binding = Binding::Forward(*definition);
+                let value_ty = Arc::unwrap_or_clone(self.solve_binding(&binding, errors)).into_ty();
                 (
                     initialization,
                     false,
                     value_ty,
-                    annotation,
-                    is_inherited,
+                    None, // No annotation for nested classes
+                    IsInherited::Maybe,
                     None,
                 )
             }
