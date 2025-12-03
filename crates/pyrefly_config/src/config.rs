@@ -1043,10 +1043,35 @@ impl ConfigFile {
                 Err(error) => Some(error),
             }
         };
-        if let Some(build_system) = &self.build_system {
-            if let Some(error) = configure_source_db(build_system) {
-                configure_errors.push(error)
+
+        // TODO(connernilsen): remove once PyTorch performs an upgrade
+        if cfg!(fbcode_build) {
+            let root = match &self.source {
+                ConfigSource::File(path) => {
+                    let mut root = path.to_path_buf();
+                    root.pop();
+                    Some(root)
+                }
+                _ => None,
+            };
+            if let Some(root) = root
+                && root.ends_with("fbsource/fbcode/caffe2")
+            {
+                self.build_system = Some(BuildSystem::new(
+                    Some(".pyrelsp".to_owned()),
+                    Some(vec![
+                        "--oncall=pyre".to_owned(),
+                        "--client-metadata=id=pyrefly".to_owned(),
+                    ]),
+                    true,
+                ));
             }
+        }
+
+        if let Some(build_system) = &self.build_system
+            && let Some(error) = configure_source_db(build_system)
+        {
+            configure_errors.push(error)
         }
 
         fn validate<'a>(

@@ -98,6 +98,18 @@ pub struct BuildSystem {
 }
 
 impl BuildSystem {
+    pub fn new(
+        isolation_dir: Option<String>,
+        extras: Option<Vec<String>>,
+        ignore_if_build_system_missing: bool,
+    ) -> Self {
+        let args = BuildSystemArgs::Buck(BxlArgs::new(isolation_dir, extras));
+        Self {
+            args,
+            ignore_if_build_system_missing,
+        }
+    }
+
     pub fn get_source_db(
         &self,
         config_root: PathBuf,

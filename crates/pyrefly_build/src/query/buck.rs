@@ -24,6 +24,13 @@ pub struct BxlArgs {
 }
 
 impl BxlArgs {
+    pub fn new(isolation_dir: Option<String>, extras: Option<Vec<String>>) -> Self {
+        Self {
+            isolation_dir,
+            extras,
+        }
+    }
+
     pub fn get_repo_root(&self, cwd: &Path) -> anyhow::Result<PathBuf> {
         let mut cmd = Command::new("buck2");
         cmd.arg("root");
