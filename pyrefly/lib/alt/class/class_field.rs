@@ -1254,7 +1254,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             annotation.as_ref(),
             &metadata,
             &value_ty,
-            &initialization,
+            field_definition,
             range,
         );
 
@@ -1474,12 +1474,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         annotation: Option<&Annotation>,
         metadata: &ClassMetadata,
         ty: &Type,
-        initialization: &ClassFieldInitialization,
+        field_definition: &ClassFieldDefinition,
         range: TextRange,
     ) -> Option<ReadOnlyReason> {
         if let Some(ann) = annotation {
-            // TODO: enable this for Final attrs that aren't initialized on the class
-            if ann.is_final() && matches!(initialization, ClassFieldInitialization::ClassBody(_)) {
+            // TODO: enable this for Final attrs that aren't initialized on the class;
+            // this is a hack to avoid throwing errors when the attribute is set in
+            // `__init__` because so far we lack the hooks to special-case that.
+            let is_class_body_init = !matches!(
+                field_definition,
+                ClassFieldDefinition::DeclaredByAnnotation { .. }
+                    | ClassFieldDefinition::DeclaredWithoutAnnotation
+                    | ClassFieldDefinition::DefinedInMethod {
+                        method: MethodThatSetsAttr {
+                            instance_or_class: MethodSelfKind::Instance,
+                            ..
+                        },
+                        ..
+                    }
+            );
+            if ann.is_final() && is_class_body_init {
                 return Some(ReadOnlyReason::Final);
             }
             if ann.has_qualifier(&Qualifier::ReadOnly) {
