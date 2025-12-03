@@ -275,6 +275,7 @@ pub struct CallTarget<Function: FunctionTrait> {
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub(crate) is_static_method: bool,
     // The return type of the call expression.
+    #[serde(skip_serializing_if = "ScalarTypeProperties::is_none")]
     pub(crate) return_type: ScalarTypeProperties,
 }
 

@@ -349,6 +349,11 @@ impl ScalarTypeProperties {
         }
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn is_none(&self) -> bool {
+        *self == Self::none()
+    }
+
     #[cfg(test)]
     pub fn int() -> ScalarTypeProperties {
         ScalarTypeProperties {
