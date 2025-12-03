@@ -794,12 +794,9 @@ def foo(d: D):
             vec![(
                 "11:3-11:8",
                 regular_call_callees(vec![
-                    create_call_target(
-                        "test.C.m",
-                        TargetType::OverrideSubset(Vec1::new(("test.E.m", TargetType::Function))),
-                    )
-                    .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-                    .with_receiver_class_for_test("test.D", context),
+                    create_call_target("test.C.m", TargetType::AllOverrides)
+                        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                        .with_receiver_class_for_test("test.D", context),
                 ]),
             )],
         )]
@@ -4342,15 +4339,9 @@ def foo(base: Base, child: Child):
                 .with_receiver_class_for_test("test.Base", context),
         ];
         let child_query = vec![
-            create_call_target(
-                "test.Base.query",
-                TargetType::OverrideSubset(Vec1::new((
-                    "test.SubChild.query",
-                    TargetType::Function,
-                ))),
-            )
-            .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
-            .with_receiver_class_for_test("test.Child", context),
+            create_call_target("test.Base.query", TargetType::AllOverrides)
+                .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                .with_receiver_class_for_test("test.Child", context),
         ];
         vec![(
             "test.foo",

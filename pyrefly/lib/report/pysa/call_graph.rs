@@ -1435,6 +1435,8 @@ impl<'a> CallGraphVisitor<'a> {
 
             if callees.is_empty() {
                 Target::Function(callee)
+            } else if callees.len() == overriding_classes.len() {
+                Target::AllOverrides(callee)
             } else {
                 callees.sort();
                 Target::OverrideSubset {
