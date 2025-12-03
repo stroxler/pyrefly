@@ -122,8 +122,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
 
         // Default: use _pyi_private_get_type from the field class
-        self.get_class_member(field, &DJANGO_PRIVATE_GET_TYPE)
-            .map(|field| field.ty())
+        let base_type = self
+            .get_class_member(field, &DJANGO_PRIVATE_GET_TYPE)
+            .map(|field| field.ty())?;
+
+        // Check if the field is nullable (applies to all Django fields)
+        if let Some(e) = initial_value_expr
+            && let Some(call_expr) = e.as_call_expr()
+            && self.is_django_field_nullable(call_expr)
+        {
+            Some(self.union(base_type, Type::None))
+        } else {
+            Some(base_type)
+        }
     }
 
     /// Check if a class inherits from Django's Field class

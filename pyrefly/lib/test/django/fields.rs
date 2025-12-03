@@ -8,7 +8,6 @@
 use crate::django_testcase;
 
 django_testcase!(
-    bug = "null=True not detected in django TextField",
     test_textfield_nullable,
     r#"
 from django.db import models
@@ -21,6 +20,6 @@ class Customer(models.Model):
 
 def test():
     c = Customer.objects.create()
-    c.name = None # E: `None` is not assignable to attribute `name` with type `str`
+    c.name = None
 "#,
 );
