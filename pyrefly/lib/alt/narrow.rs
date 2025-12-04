@@ -97,7 +97,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_literal =
             |t: &Type| matches!(t, Type::Literal(_) | Type::LiteralString | Type::None);
         if self.is_subset_eq(right, left) {
-            right.clone()
+            if left.is_toplevel_callable()
+                && right.is_toplevel_callable()
+                && self.is_subset_eq(left, right)
+            {
+                // If is_subset_eq checks succeed in both directions, we typically want to
+                // return `right`, which corresponds to more recently encountered type info.
+                // The exception is that, for callables, it's common to intersect a callable
+                // with `(...) -> object` via `builtins.callable`, so we return the original
+                // callable type.
+                left.clone()
+            } else {
+                right.clone()
+            }
         } else if self.is_subset_eq(left, right) {
             left.clone()
         } else if is_literal(left) || is_literal(right) {

@@ -1059,6 +1059,9 @@ def f(x: object):
 def g(x: int):
     if isinstance(x, Callable):
         reveal_type(x)  # E: ((...) -> Unknown) & int
+def h(x: Callable[[int], int]):
+    if isinstance(x, Callable):
+        assert_type(x, Callable[[int], int])
     "#,
 );
 
@@ -1068,6 +1071,51 @@ testcase!(
 from typing import Any, Callable
 def f(x: object):
     isinstance(x, Callable[..., Any])  # E: Expected class object, got `type[(...) -> Any]`
+    "#,
+);
+
+testcase!(
+    test_builtins_callable_narrow,
+    r#"
+from typing import Any, Callable, assert_type
+def f(
+  x1: Callable[[int], int],
+  x2: Callable[..., int],
+  x3: Callable[[int], Any],
+  x4: Callable[..., int | Any],
+  x5: Callable,
+):
+    if callable(x1):
+        assert_type(x1, Callable[[int], int])
+    if callable(x2):
+        assert_type(x2, Callable[..., int])
+    if callable(x3):
+        assert_type(x3, Callable[[int], Any])
+    if callable(x4):
+        assert_type(x4, Callable[..., int | Any])
+    if callable(x5):
+        assert_type(x5, Callable[..., Any])
+    "#,
+);
+
+testcase!(
+    test_narrow_union,
+    r#"
+from typing import Any, Callable, assert_type
+def f(x: type[int] | Callable[[int], Any]):
+    if callable(x):
+        assert_type(x, type[int] | Callable[[int], Any])
+    "#,
+);
+
+testcase!(
+    test_narrow_function,
+    r#"
+from typing import Any, Callable, assert_type
+def f() -> Any:
+    pass
+if callable(f):
+    assert_type(f, Callable[[], Any])
     "#,
 );
 
