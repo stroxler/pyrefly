@@ -809,3 +809,46 @@ class B(A):
         pass
     "#,
 );
+
+testcase!(
+    test_override_staticmethod,
+    r#"
+class A:
+    @staticmethod
+    def f() -> A | None:
+        return A()
+
+class B(A):
+    @staticmethod
+    def f() -> B:
+        return B()
+    "#,
+);
+
+testcase!(
+    test_override_instance_method_with_staticmethod,
+    r#"
+class A:
+    def f(self) -> None:
+        pass
+
+class B(A):
+    @staticmethod
+    def f() -> None:
+        pass
+    "#,
+);
+
+testcase!(
+    test_override_instance_method_with_staticmethod_2,
+    r#"
+class A:
+    def f(self) -> A:
+        return A()
+
+class B(A):
+    @staticmethod
+    def f() -> B:
+        return B()
+    "#,
+);

@@ -1120,6 +1120,10 @@ impl Type {
         }
     }
 
+    pub fn has_toplevel_func_metadata(&self) -> bool {
+        self.check_toplevel_func_metadata(&|_| true)
+    }
+
     pub fn is_abstract_method(&self) -> bool {
         self.check_toplevel_func_metadata(&|meta| meta.flags.is_abstract_method)
     }

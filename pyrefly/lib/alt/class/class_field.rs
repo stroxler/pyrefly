@@ -3466,15 +3466,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
                 // in some cases for unknown reasons they wind up being ReadWrite.
-                ClassAttribute::ReadWrite(got @ Type::BoundMethod(_)),
-                ClassAttribute::ReadWrite(want @ Type::BoundMethod(_)),
-            ) => is_subset(got, want).map_err(|subset_error| AttrSubsetError::Covariant {
-                got: got.clone(),
-                want: want.clone(),
-                got_is_property: false,
-                want_is_property: false,
-                subset_error,
-            }),
+                ClassAttribute::ReadWrite(got),
+                ClassAttribute::ReadWrite(want),
+            ) if got.has_toplevel_func_metadata() && want.has_toplevel_func_metadata() => {
+                is_subset(got, want).map_err(|subset_error| AttrSubsetError::Covariant {
+                    got: got.clone(),
+                    want: want.clone(),
+                    got_is_property: false,
+                    want_is_property: false,
+                    subset_error,
+                })
+            }
             (ClassAttribute::ReadWrite(got), ClassAttribute::ReadWrite(want)) => {
                 let subset_error = is_subset(got, want)
                     .map_or_else(Some, |_| is_subset(want, got).map_or_else(Some, |_| None));
