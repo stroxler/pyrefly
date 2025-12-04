@@ -186,7 +186,7 @@ testcase!(
     r#"
 from typing import assert_type, Literal, Never
 def f(x: bool | None):
-    if x is True and x is None:
+    if x is True and x is None:  # E: Identity comparison `True is None` is always False
         assert_type(x, Never)
     else:
         assert_type(x, bool | None)
@@ -305,7 +305,7 @@ testcase!(
     r#"
 from typing import assert_type, Literal
 def f(x: bool | None):
-    if not (x is True and x is None):
+    if not (x is True and x is None):  # E: Identity comparison `True is None` is always False
         assert_type(x, Literal[False] | bool | None)
     "#,
 );
@@ -423,7 +423,7 @@ from typing import assert_type, Never
 def f(x: bool | None, y: bool | None):
     if x is None is None:
         assert_type(x, None)
-    if y is None is True:
+    if y is None is True:  # E: Identity comparison `None is True` is always False
         assert_type(y, Never)
     "#,
 );

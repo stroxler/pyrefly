@@ -348,6 +348,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut results = Vec::new();
         for (op, comparator) in x.ops.iter().zip(x.comparators.iter()) {
             let right = self.expr_infer(comparator, errors);
+
+            // Check for unnecessary identity comparisons (is/is not) BEFORE distribute_over_union
+            // to avoid false positives with union types.
+            self.check_unnecessary_comparison(
+                &current_left,
+                &right,
+                *op,
+                comparator.range(),
+                errors,
+            );
+
             let result = self.distribute_over_union(&current_left, |left| {
                 self.distribute_over_union(&right, |right| {
                     let context = || {
@@ -474,5 +485,69 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 unop(t, &f, &dunder::INVERT)
             }
         })
+    }
+
+    /// Checks for unnecessary identity comparisons.
+    ///
+    /// Only emits warnings for identity comparisons (`is` or `is not`) between literals
+    /// whose comparison result is statically known.
+    /// Returns early without warnings for other comparison operators.
+    fn check_unnecessary_comparison(
+        &self,
+        left: &Type,
+        right: &Type,
+        op: CmpOp,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        // Only check identity comparisons
+        if !matches!(op, CmpOp::Is | CmpOp::IsNot) {
+            return;
+        }
+
+        let is_op = matches!(op, CmpOp::Is);
+        let is_bool_literal = |lit: &Lit| matches!(lit, Lit::Bool(_));
+        let emit_literal_warning = |left_str: &str, right_str: &str, result: &str| {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::UnnecessaryComparison),
+                format!(
+                    "Identity comparison `{} {} {}` is always {}",
+                    left_str,
+                    if is_op { "is" } else { "is not" },
+                    right_str,
+                    result
+                ),
+            );
+        };
+
+        match (left, right) {
+            // If both are literals/None, check for predictable results
+            (Type::Literal(l1), Type::Literal(l2)) => {
+                if l1 != l2 {
+                    emit_literal_warning(
+                        &l1.to_string(),
+                        &l2.to_string(),
+                        if is_op { "False" } else { "True" },
+                    );
+                } else if is_bool_literal(l1) {
+                    emit_literal_warning(
+                        &l1.to_string(),
+                        &l2.to_string(),
+                        if is_op { "True" } else { "False" },
+                    );
+                }
+            }
+            (Type::Literal(l), Type::None) => {
+                emit_literal_warning(&l.to_string(), "None", if is_op { "False" } else { "True" });
+            }
+            (Type::None, Type::Literal(l)) => {
+                emit_literal_warning("None", &l.to_string(), if is_op { "False" } else { "True" });
+            }
+
+            // All other combinations: no warning
+            _ => {}
+        }
     }
 }
