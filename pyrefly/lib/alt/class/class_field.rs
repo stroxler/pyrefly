@@ -1132,29 +1132,6 @@ fn make_bound_method(obj: Type, attr: Type) -> Result<Type, Type> {
     make_bound_method_helper(obj, attr, &should_bind)
 }
 
-fn bind_instance_attribute(
-    instance: &Instance,
-    attr: Type,
-    is_class_var: bool,
-    read_only: Option<ReadOnlyReason>,
-) -> ClassAttribute {
-    if is_class_var {
-        ClassAttribute::read_only(
-            make_bound_method(instance.to_type(), attr).into_inner(),
-            ReadOnlyReason::ClassVar,
-        )
-    } else if let Some(reason) = read_only {
-        ClassAttribute::read_only(
-            make_bound_method(instance.to_type(), attr).into_inner(),
-            reason,
-        )
-    } else {
-        ClassAttribute::read_write(make_bound_method(instance.to_type(), attr).unwrap_or_else(
-            |attr| make_bound_classmethod(&instance.to_class_base(), attr).into_inner(),
-        ))
-    }
-}
-
 /// Result of looking up a member of a class in the MRO, including a handle to the defining
 /// class which may be some ancestor.
 ///
@@ -2103,10 +2080,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
                     ClassFieldInitialization::ClassBody(_) => {
-                        // Simple variant no longer contains methods - those are in Method variant
-                        // Just bind the attribute directly
                         self.expand_vars_mut(&mut ty);
-                        bind_instance_attribute(instance, ty, is_class_var, read_only_reason)
+                        if is_class_var {
+                            ClassAttribute::read_only(ty, ReadOnlyReason::ClassVar)
+                        } else if let Some(reason) = read_only_reason {
+                            ClassAttribute::read_only(ty, reason)
+                        } else {
+                            ClassAttribute::read_write(ty)
+                        }
                     }
                     ClassFieldInitialization::Method
                     | ClassFieldInitialization::Uninitialized
