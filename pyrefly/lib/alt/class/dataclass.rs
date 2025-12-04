@@ -49,6 +49,7 @@ use crate::types::callable::Params;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::display::ClassDisplayContext;
+use crate::types::keywords::ConverterMap;
 use crate::types::keywords::DataclassFieldKeywords;
 use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
@@ -107,22 +108,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Some(PydanticModelKind::BaseSettings)
                 );
 
+                let field_types: Vec<Type> = self
+                    .iter_fields(cls, dataclass, false)
+                    .into_iter()
+                    .map(|(_, field, _)| field.ty())
+                    .collect();
+                let converter_table = self.build_pydantic_lax_conversion_table(&field_types);
+
                 self.get_dataclass_init(
                     cls,
                     dataclass,
                     dataclass.kws.strict,
                     transform_type,
                     force_optional,
+                    converter_table,
                     errors,
                 )
             } else {
-                // Regular dataclasses: no type transformation
+                // Regular dataclasses: no type transformation, no conversion table
                 self.get_dataclass_init(
                     cls,
                     dataclass,
                     dataclass.kws.strict,
                     &|ty| ty,
                     false,
+                    ConverterMap::new(),
                     errors,
                 )
             };
@@ -520,6 +530,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         strict_default: bool,
         param_type_transform: &dyn Fn(Type) -> Type,
         force_optional: bool,
+        _converter_table: ConverterMap,
         errors: &ErrorCollector,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, false)];
