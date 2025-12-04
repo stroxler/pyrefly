@@ -530,7 +530,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         strict_default: bool,
         param_type_transform: &dyn Fn(Type) -> Type,
         force_optional: bool,
-        _converter_table: ConverterMap,
+        converter_table: ConverterMap,
         errors: &ErrorCollector,
     ) -> ClassSynthesizedField {
         let mut params = vec![self.class_self_param(cls, false)];
@@ -560,6 +560,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_seen_default = true;
                     }
                 }
+
+                // Get converter param: explicit field converter takes priority, then Pydantic lax table
+                let converter_param = field_flags.converter_param.clone().or_else(|| {
+                    if !strict {
+                        converter_table.get(&field.ty()).cloned()
+                    } else {
+                        None
+                    }
+                });
+
                 if field_flags.init_by_name {
                     params.push(self.as_param(
                         &field,
@@ -567,7 +577,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_default,
                         is_kw_only,
                         strict,
-                        field_flags.converter_param.clone(),
+                        converter_param.clone(),
                         param_type_transform,
                         errors,
                     ));
@@ -579,7 +589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         has_default,
                         is_kw_only,
                         strict,
-                        field_flags.converter_param.clone(),
+                        converter_param,
                         param_type_transform,
                         errors,
                     ));
