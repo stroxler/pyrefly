@@ -647,6 +647,10 @@ impl Callable {
                 params: Params::ParamSpec(ts, _),
                 ret: _,
             } => ts.first().cloned().map(|x| x.0),
+            Self {
+                params: Params::Ellipsis,
+                ret: _,
+            } => Some(Type::any_implicit()),
             _ => None,
         }
     }
