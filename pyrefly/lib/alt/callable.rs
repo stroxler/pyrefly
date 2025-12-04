@@ -714,9 +714,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 (type_owner.push(field.ty), field.required),
                             );
                         });
-                    if let ExtraItems::Extra(extra) =
-                        self.typed_dict_extra_items(typed_dict.class_object())
-                    {
+                    if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(typed_dict) {
                         kwargs = Some((name.as_ref(), type_owner.push(extra.ty)))
                     }
                     kwargs_is_unpack = true;

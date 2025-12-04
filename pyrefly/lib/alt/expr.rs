@@ -2135,7 +2135,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             {
                                 field.ty.clone()
                             } else if let ExtraItems::Extra(extra) =
-                                self.typed_dict_extra_items(typed_dict.class_object())
+                                self.typed_dict_extra_items(&typed_dict)
                             {
                                 extra.ty
                             } else {
@@ -2154,7 +2154,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Type::ClassType(cls)
                             if cls.is_builtin("str")
                                 && !matches!(
-                                    self.typed_dict_extra_items(typed_dict.class_object()),
+                                    self.typed_dict_extra_items(&typed_dict),
                                     ExtraItems::Default
                                 ) =>
                         {

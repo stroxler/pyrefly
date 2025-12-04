@@ -1385,6 +1385,11 @@ impl Type {
         g(&mut self, &mut |ty| match &ty {
             Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),
             Type::LiteralString => *ty = stdlib.str().clone().to_type(),
+            Type::TypedDict(TypedDict::Anonymous(inner)) => {
+                *ty = stdlib
+                    .dict(stdlib.str().clone().to_type(), inner.value_type.clone())
+                    .to_type()
+            }
             _ => {}
         });
         self
@@ -1431,6 +1436,16 @@ impl Type {
         self.transform(&mut |ty| {
             if let Type::Type(box Type::Union(box Union { members, .. })) = ty {
                 *ty = unions(members.drain(..).map(Type::type_form).collect());
+            }
+        })
+    }
+
+    pub fn anon_typed_dicts(self, stdlib: &Stdlib) -> Self {
+        self.transform(&mut |ty| {
+            if let Type::TypedDict(TypedDict::Anonymous(inner)) = ty {
+                *ty = stdlib
+                    .dict(stdlib.str().clone().to_type(), inner.value_type.clone())
+                    .to_type()
             }
         })
     }
@@ -1563,8 +1578,8 @@ impl Type {
         match self {
             Type::ClassDef(cls) => Some(cls.qname()),
             Type::ClassType(c) => Some(c.qname()),
-            Type::TypedDict(c) => Some(c.qname()),
-            Type::PartialTypedDict(c) => Some(c.qname()),
+            Type::TypedDict(TypedDict::TypedDict(c)) => Some(c.qname()),
+            Type::PartialTypedDict(TypedDict::TypedDict(c)) => Some(c.qname()),
             Type::TypeVar(t) => Some(t.qname()),
             Type::TypeVarTuple(t) => Some(t.qname()),
             Type::ParamSpec(t) => Some(t.qname()),

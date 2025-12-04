@@ -15,6 +15,7 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::annotation::Annotation;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
+use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
@@ -867,15 +868,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if is_new_type {
                     BaseClassParseResult::InvalidType(typed_dict.to_type(), range)
                 } else {
-                    let class_object = typed_dict.class_object();
-                    let class_metadata = self.get_metadata_for_class(class_object);
-                    BaseClassParseResult::Parsed({
-                        ParsedBaseClass {
-                            class_object: class_object.dupe(),
-                            range,
-                            metadata: class_metadata,
+                    match typed_dict {
+                        TypedDict::TypedDict(inner) => {
+                            let class_object = inner.class_object();
+                            let class_metadata = self.get_metadata_for_class(class_object);
+                            BaseClassParseResult::Parsed({
+                                ParsedBaseClass {
+                                    class_object: class_object.dupe(),
+                                    range,
+                                    metadata: class_metadata,
+                                }
+                            })
                         }
-                    })
+                        TypedDict::Anonymous(_) => {
+                            BaseClassParseResult::InvalidType(typed_dict.to_type(), range)
+                        }
+                    }
                 }
             }
             _ => {

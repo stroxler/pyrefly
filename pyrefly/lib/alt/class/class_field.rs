@@ -22,6 +22,7 @@ use pyrefly_types::callable::ParamList;
 use pyrefly_types::callable::Params;
 use pyrefly_types::simplify::unions;
 use pyrefly_types::type_var::Restriction;
+use pyrefly_types::typed_dict::TypedDictInner;
 use pyrefly_types::types::TParams;
 use pyrefly_types::types::Union;
 use pyrefly_util::owner::Owner;
@@ -784,7 +785,7 @@ impl<'a> Instance<'a> {
         }
     }
 
-    fn of_typed_dict(td: &'a TypedDict) -> Self {
+    fn of_typed_dict(td: &'a TypedDictInner) -> Self {
         Self {
             kind: InstanceKind::TypedDict,
             class: td.class_object(),
@@ -1819,7 +1820,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // If the field is a dunder or ClassVar[Callable] & the assigned value is a callable, we replace it with a named function
                         // so that it gets treated as a bound method.
                         //
-                        // Both of these are heuristics that aren't guaranteed to be correct, but the dunder heuristic has useability benefits
+                        // Both of these are heuristics that aren't guaranteed to be correct, but the dunder heuristic has usability benefits
                         // and the ClassVar heuristic aligns us with existing type checkers.
                         let field_name_str = field_name.as_str();
                         if (is_dunder(field_name_str) || field.is_callable_class_var())
@@ -2711,7 +2712,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    pub fn get_typed_dict_attribute(&self, td: &TypedDict, name: &Name) -> Option<ClassAttribute> {
+    pub fn get_typed_dict_attribute(
+        &self,
+        td: &TypedDictInner,
+        name: &Name,
+    ) -> Option<ClassAttribute> {
         if let Some(meta) = self
             .get_metadata_for_class(td.class_object())
             .typed_dict_metadata()
@@ -2867,7 +2872,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.get_dunder_init_helper(&Instance::of_class(cls), get_object_init)
     }
 
-    pub fn get_typed_dict_dunder_init(&self, td: &TypedDict) -> Type {
+    pub fn get_typed_dict_dunder_init(&self, td: &TypedDictInner) -> Type {
         // We synthesize `__init__`, so the lookup will never entirely fail.
         //
         // But if the user defined an `__init__` directly on the typed dict - which is always
@@ -3113,7 +3118,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassAttribute::ReadWrite(..)
             | ClassAttribute::Property(..)
             | ClassAttribute::Descriptor(..) => {
-                // Allow deleting most attributes for now, for compatbility with mypy.
+                // Allow deleting most attributes for now, for compatibility with mypy.
             }
         }
     }

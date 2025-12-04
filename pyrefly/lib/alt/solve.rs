@@ -1556,9 +1556,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (read_only, required) =
             if let Some(field) = self.typed_dict_field(typed_dict, field_name) {
                 (field.is_read_only(), field.required)
-            } else if let ExtraItems::Extra(extra) =
-                self.typed_dict_extra_items(typed_dict.class_object())
-            {
+            } else if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(typed_dict) {
                 (extra.read_only, false)
             } else {
                 self.error(
@@ -2379,9 +2377,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if let Some(field) = self.typed_dict_field(typed_dict, field_name) {
                 let read_only = field.is_read_only();
                 (field.ty, read_only)
-            } else if let ExtraItems::Extra(extra) =
-                self.typed_dict_extra_items(typed_dict.class_object())
-            {
+            } else if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(typed_dict) {
                 (extra.ty, extra.read_only)
             } else {
                 return self.error(

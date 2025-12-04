@@ -30,6 +30,7 @@ use crate::tuple::Tuple;
 use crate::type_output::DisplayOutput;
 use crate::type_output::OutputWithLocations;
 use crate::type_output::TypeOutput;
+use crate::typed_dict::TypedDict;
 use crate::types::AnyStyle;
 use crate::types::BoundMethod;
 use crate::types::BoundMethodType;
@@ -323,14 +324,28 @@ impl<'a> TypeDisplayContext<'a> {
                 output.write_qname(class_type.qname())?;
                 output.write_targs(class_type.targs())
             }
-            Type::TypedDict(typed_dict) => {
-                output.write_qname(typed_dict.qname())?;
-                output.write_targs(typed_dict.targs())
-            }
-            Type::PartialTypedDict(typed_dict) => {
-                output.write_qname(typed_dict.qname())?;
-                output.write_targs(typed_dict.targs())
-            }
+            Type::TypedDict(typed_dict) => match typed_dict {
+                TypedDict::TypedDict(inner) => {
+                    output.write_qname(inner.qname())?;
+                    output.write_targs(inner.targs())
+                }
+                TypedDict::Anonymous(inner) => {
+                    output.write_str("dict[str, ")?;
+                    self.fmt_helper_generic(&inner.value_type, false, output)?;
+                    output.write_str("]")
+                }
+            },
+            Type::PartialTypedDict(typed_dict) => match typed_dict {
+                TypedDict::TypedDict(inner) => {
+                    output.write_qname(inner.qname())?;
+                    output.write_targs(inner.targs())
+                }
+                TypedDict::Anonymous(inner) => {
+                    output.write_str("dict[str, ")?;
+                    self.fmt_helper_generic(&inner.value_type, false, output)?;
+                    output.write_str("]")
+                }
+            },
             Type::TypeVar(t) => {
                 output.write_str("TypeVar[")?;
                 output.write_qname(t.qname())?;
@@ -810,6 +825,7 @@ pub mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
+    use TypedDict;
     use dupe::Dupe;
     use pyrefly_python::module::Module;
     use pyrefly_python::module_name::ModuleName;
@@ -839,7 +855,6 @@ pub mod tests {
     use crate::type_var::PreInferenceVariance;
     use crate::type_var::Restriction;
     use crate::type_var::TypeVar;
-    use crate::typed_dict::TypedDict;
     use crate::types::BoundMethodType;
     use crate::types::Overload;
     use crate::types::OverloadType;
