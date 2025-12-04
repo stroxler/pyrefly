@@ -17,6 +17,7 @@ use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -521,6 +522,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             );
         };
+        let emit_instance_is_class_warning = |instance_str: &str, class_str: &str, is_op: bool| {
+            errors.add(
+                range,
+                ErrorInfo::Kind(ErrorKind::UnnecessaryComparison),
+                vec1![
+                    format!(
+                        "Identity comparison between an instance of `{}` and class `{}` is always {}",
+                        instance_str,
+                        class_str,
+                        if is_op { "False" } else { "True" }
+                    ),
+                    format!(
+                        "Did you mean to do `{}isinstance(..., {})`?",
+                        if is_op { "" } else { "not " },
+                        class_str,
+                    )
+                ],
+            );
+        };
 
         match (left, right) {
             // If both are literals/None, check for predictable results
@@ -544,6 +564,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             (Type::None, Type::Literal(l)) => {
                 emit_literal_warning("None", &l.to_string(), if is_op { "False" } else { "True" });
+            }
+
+            // ClassDef vs ClassType - disjoint unless ClassType is `type`, `object`,
+            // or another metaclass (subclass of type)
+            (Type::ClassDef(cdef), ctype @ Type::ClassType(cls))
+            | (ctype @ Type::ClassType(cls), Type::ClassDef(cdef)) => {
+                // A class object is an instance of `type` (or a metaclass), so it's only
+                // compatible with ClassType if that ClassType is `type`, `object`, or a metaclass
+                let is_metaclass_or_object = cls.is_builtin("object")
+                    || self.has_superclass(
+                        cls.class_object(),
+                        self.stdlib.builtins_type().class_object(),
+                    );
+                if !is_metaclass_or_object {
+                    emit_instance_is_class_warning(&ctype.to_string(), cdef.name().as_str(), is_op);
+                }
             }
 
             // All other combinations: no warning

@@ -1032,12 +1032,17 @@ This warning is raised when an identity comparison (`is` or `is not`) is made be
 literals whose comparison result is statically known.
 
 ```python
-def h():
+def test0() -> None:
     # Different literals are always different objects
     if 1 is 2:  # unnecessary-comparison: always False
         pass
     # Same singletons are always the same object
     if True is not False:  # unnecessary-comparison: always True
+        pass
+
+def test1(x: object) -> None:
+    # Comparing an instance to a class is always False
+    if x is int:  # unnecessary-comparison: did you mean isinstance(x, int)?
         pass
 ```
 

@@ -73,3 +73,37 @@ def f(obj1: MyClass, obj2: MyClass):
         pass
 "#,
 );
+
+testcase!(
+    test_classdef_vs_class_instance,
+    r#"
+class A: pass
+def f(x: int, y: str, z: A):
+    if x is A:  # E: Identity comparison between an instance of `int` and class `A` is always False
+        pass
+    if y is not A:  # E: Identity comparison between an instance of `str` and class `A` is always True
+        pass
+    if z is A:  # E: Identity comparison between an instance of `A` and class `A` is always False
+        pass
+"#,
+);
+
+testcase!(
+    test_classdef_vs_type_ok,
+    r#"
+class A: pass
+def f(x: type):
+    if x is A:  # OK - A (a ClassDef) is an instance of type
+        pass
+"#,
+);
+
+testcase!(
+    test_classdef_vs_object_ok,
+    r#"
+class A: pass
+def f(x: object):
+    if x is A:  # OK - everything is a subtype of object
+        pass
+"#,
+);
