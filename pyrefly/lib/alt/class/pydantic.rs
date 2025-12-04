@@ -18,6 +18,7 @@ use pyrefly_types::callable::Function;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::ParamList;
 use pyrefly_types::callable::Required;
+use pyrefly_types::keywords::ConverterMap;
 use pyrefly_types::keywords::DataclassFieldKeywords;
 use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::Lit;
@@ -463,5 +464,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(le) = &keywords.le {
             emit_violation("le", le);
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn build_pydantic_lax_conversion_table(&self, _field_types: &[Type]) -> ConverterMap {
+        // TODO: Populate conversion table
+        ConverterMap::new()
     }
 }
