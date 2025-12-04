@@ -1730,6 +1730,28 @@ impl<'a> Transaction<'a> {
         false
     }
 
+    #[expect(dead_code)]
+    fn is_source_file(&self, module: &Module, handle: &Handle) -> bool {
+        let config = self.get_config(handle);
+        let module_path = module.path();
+
+        if let Some(config) = config {
+            // Editable packages are installed in site-packages (via .pth files) but their
+            // source code resides in the search_path location. A module is from an editable
+            // package if its path starts with an explicitly configured search_path entry.
+            // We only check search_path_from_file (user-configured paths) and not import_root
+            // (auto-inferred paths), because import_root defaults to the project root and
+            // would incorrectly match all modules.
+            for search_path in &config.search_path_from_file {
+                if module_path.as_path().starts_with(search_path) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn prepare_rename(&self, handle: &Handle, position: TextSize) -> Option<TextRange> {
         let identifier_context = self.identifier_at(handle, position);
 
