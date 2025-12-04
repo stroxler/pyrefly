@@ -5642,3 +5642,87 @@ def foo():
         vec![("test.foo", vec![])]
     }
 );
+
+call_graph_testcase!(
+    test_lru_cache,
+    TEST_MODULE_NAME,
+    r#"
+from functools import lru_cache
+@lru_cache()
+def f() -> int:
+  return 0
+def foo():
+  f()
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "7:3-7:6",
+                regular_call_callees(vec![
+                    create_call_target("test.f", TargetType::Function)
+                        .with_return_type(ScalarTypeProperties::int()),
+                ]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_lru_cache_on_methods,
+    TEST_MODULE_NAME,
+    r#"
+from functools import lru_cache
+class C:
+  @lru_cache()
+  def m(self, x: int) -> int:
+    return x
+def foo(c: C):
+  c.m(1)
+"#,
+    &|context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![(
+                "8:3-8:9",
+                regular_call_callees(vec![
+                    create_call_target("test.C.m", TargetType::Function)
+                        .with_implicit_receiver(ImplicitReceiver::TrueWithObjectReceiver)
+                        .with_receiver_class_for_test("test.C", context)
+                        .with_return_type(ScalarTypeProperties::int()),
+                ]),
+            )],
+        )]
+    }
+);
+
+call_graph_testcase!(
+    test_lru_cache_on_inner_function,
+    TEST_MODULE_NAME,
+    r#"
+from functools import lru_cache
+def foo():
+  @lru_cache()
+  def inner() -> int:
+    return 0
+  inner()
+"#,
+    &|_context: &ModuleContext| {
+        vec![(
+            "test.foo",
+            vec![
+                (
+                    "4:3-6:13",
+                    define_callees(vec![create_call_target("test.inner", TargetType::Function)]),
+                ),
+                (
+                    "7:3-7:10",
+                    regular_call_callees(vec![
+                        create_call_target("test.inner", TargetType::Function)
+                            .with_return_type(ScalarTypeProperties::int()),
+                    ]),
+                ),
+            ],
+        )]
+    }
+);
