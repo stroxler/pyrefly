@@ -1730,7 +1730,6 @@ impl<'a> Transaction<'a> {
         false
     }
 
-    #[expect(dead_code)]
     fn is_source_file(&self, module: &Module, handle: &Handle) -> bool {
         let config = self.get_config(handle);
         let module_path = module.path();
@@ -1758,7 +1757,10 @@ impl<'a> Transaction<'a> {
         let definitions = self.find_definition(handle, position, FindPreference::default());
 
         for FindDefinitionItemWithDocstring { module, .. } in definitions {
-            if self.is_third_party_module(&module, handle) {
+            // Block rename only if it's third-party AND not an editable install/source file.
+
+            if self.is_third_party_module(&module, handle) && !self.is_source_file(&module, handle)
+            {
                 return None;
             }
         }

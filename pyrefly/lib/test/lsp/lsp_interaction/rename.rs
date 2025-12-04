@@ -105,16 +105,11 @@ fn test_rename_third_party_symbols_in_venv_is_not_allowed() {
     interaction.shutdown().unwrap();
 }
 
-/// todo(jvansch): Fix this test once bug fix is implemented.
 #[test]
-fn test_rename_editable_package_symbols_is_currently_blocked() {
-    // BUG: This test demonstrates the current bug where editable packages cannot be renamed.
+fn test_rename_editable_package_symbols_is_allowed() {
+    // This test verifies that symbols from editable packages CAN be renamed.
     // Editable packages (installed via `pip install -e .`) appear in both site-packages
     // AND the search_path, and should be treated like first-party code for renaming purposes.
-    //
-    // Currently, this test expects renaming to be blocked (returns null), which is the BUG.
-    // When the bug is fixed, this test should be updated to expect a successful rename
-    // (return a range instead of null, and verify the rename succeeds).
     let root = get_test_files_root();
     let root_path = root.path().join("rename_editable_package");
     let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
@@ -130,11 +125,12 @@ fn test_rename_editable_package_symbols_is_currently_blocked() {
         .unwrap();
 
     let user_code = root_path.join("user_code.py");
+    let editable_module = root_path.join("editable_module.py");
 
     interaction.client.did_open("user_code.py");
+    interaction.client.did_open("editable_module.py");
 
-    // BUG: Currently prepareRename returns null for editable packages, blocking rename
-    // This should return a range instead, allowing the rename
+    // Verify that prepareRename returns a range for editable package symbols
     interaction
         .client
         .send_request::<PrepareRenameRequest>(json!({
@@ -142,15 +138,17 @@ fn test_rename_editable_package_symbols_is_currently_blocked() {
                 "uri": Url::from_file_path(&user_code).unwrap().to_string()
             },
             "position": {
-                "line": 13,  // Line with "editable_result = editable_function()"
+                "line": 14,  // Line with "editable_result = editable_function()"
                 "character": 25  // Position on "editable_function"
             }
         }))
-        .expect_response(serde_json::Value::Null) // BUG: Should return a range, not null
+        .expect_response(json!({
+            "start": {"line": 14, "character": 22},
+            "end": {"line": 14, "character": 39},
+        }))
         .unwrap();
 
-    // BUG: Verify that attempting to rename an editable package symbol returns an error
-    // This should succeed instead
+    // Verify that renaming an editable package symbol succeeds
     interaction
         .client
         .send_request::<Rename>(json!({
@@ -158,15 +156,30 @@ fn test_rename_editable_package_symbols_is_currently_blocked() {
                 "uri": Url::from_file_path(&user_code).unwrap().to_string()
             },
             "position": {
-                "line": 13,  // Line with "editable_result = editable_function()"
+                "line": 14,  // Line with "editable_result = editable_function()"
                 "character": 25  // Position on "editable_function"
             },
             "newName": "new_editable_function"
         }))
-        .expect_response_error(json!({
-            "code": -32600,
-            "message": "Third-party symbols cannot be renamed",
-            "data": null,
+        .expect_response(json!({
+            "changes": {
+                Url::from_file_path(&user_code).unwrap().to_string(): [
+                    {
+                        "newText": "new_editable_function",
+                        "range": {"start": {"line": 5, "character": 28}, "end": {"line": 5, "character": 45}}
+                    },
+                    {
+                        "newText": "new_editable_function",
+                        "range": {"start": {"line": 14, "character": 22}, "end": {"line": 14, "character": 39}}
+                    },
+                ],
+                Url::from_file_path(&editable_module).unwrap().to_string(): [
+                    {
+                        "newText": "new_editable_function",
+                        "range": {"start": {"line": 6, "character": 4}, "end": {"line": 6, "character": 21}}
+                    },
+                ]
+            }
         }))
         .unwrap();
 
