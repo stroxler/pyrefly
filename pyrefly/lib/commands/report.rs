@@ -192,14 +192,14 @@ impl ReportArgs {
                 let func_name = if let Some(class_key) = fun.class_key {
                     match bindings.get(class_key) {
                         BindingClass::ClassDef(cls) => {
-                            format!("{}.{}.{}", module.name(), cls.def.name, fun.def.name)
+                            format!("{}.{}", cls.def.name, fun.def.name)
                         }
                         BindingClass::FunctionalClassDef(..) => {
                             continue;
                         }
                     }
                 } else {
-                    format!("{}.{}", module.name(), fun.def.name)
+                    format!("{}", fun.def.name)
                 };
                 // Get return annotation from ReturnTypeKind
                 let return_annotation = {
