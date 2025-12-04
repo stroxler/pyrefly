@@ -1220,56 +1220,60 @@ pub enum DataclassMember {
     NotAField,
 }
 
+fn is_bindable_type(ty: &Type) -> bool {
+    match ty {
+        Type::Function(func) => !func.metadata.flags.is_staticmethod,
+        Type::Overload(overload) => !overload.metadata.flags.is_staticmethod,
+        Type::Forall(box Forall {
+            body: Forallable::Function(func),
+            ..
+        }) => !func.metadata.flags.is_staticmethod,
+        _ => false,
+    }
+}
+
+fn has_any_bindable(ty: &Type) -> bool {
+    match ty {
+        Type::Union(union) => union.members.iter().any(is_bindable_type),
+        _ => is_bindable_type(ty),
+    }
+}
+
+fn has_any_abstract(ty: &Type) -> bool {
+    match ty {
+        Type::Union(union) => union.members.iter().any(|item| item.is_abstract_method()),
+        _ => ty.is_abstract_method(),
+    }
+}
+
 /// Determine if a class field should be treated as a method (getting method binding behavior). It is if:
 /// - It's a function type (not Callable), initialized on the class body, and not a staticmethod
 /// - or, it's a Callable initialized on the class body and satisfying some special case:
 ///   - it's marked as a ClassVar
 ///   - it's assigned to a dunder name like `__add__`
+/// - or, it's a union where ANY element is bindable using the above rules
+///   - TODO In this case, when only some elements are bindable downstream behavior is poorly defined,
+///     see make_bound_method_helper for details.
 fn is_method(
     ty: &Type,
     initialization: &ClassFieldInitialization,
     name: &Name,
     annotation: Option<&Annotation>,
 ) -> bool {
-    // Check if the type is a callable
-    let is_callable = matches!(
-        ty,
-        Type::Function(_)
-            | Type::Overload(_)
-            | Type::Forall(box Forall {
-                body: Forallable::Function(_),
-                ..
-            })
-            | Type::Callable(_)
-    );
-
-    if !is_callable {
-        return false;
-    }
-
-    // Treat staticmethods as regular class attributes, they don't have method binding behavior.
-    let is_staticmethod = match ty {
-        Type::Function(func) => func.metadata.flags.is_staticmethod,
-        Type::Overload(overload) => overload.metadata.flags.is_staticmethod,
-        Type::Forall(box Forall {
-            body: Forallable::Function(func),
-            ..
-        }) => func.metadata.flags.is_staticmethod,
-        _ => false,
-    };
-    if is_staticmethod {
-        return false;
-    }
-
     let initialized_in_class_body =
         matches!(initialization, ClassFieldInitialization::ClassBody(_));
-    if initialized_in_class_body {
-        // Function type case
-        if matches!(ty, Type::Function(_) | Type::Overload(_) | Type::Forall(box Forall { body: Forallable::Function(_), .. }))
-        {
-            return true;
-        }
-        // Special cases where Callable is assumed to be a method
+
+    if !initialized_in_class_body {
+        return false;
+    }
+
+    // Check if it's a bindable function or union of functions
+    if has_any_bindable(ty) {
+        return true;
+    }
+
+    // Special cases where Callable is assumed to be a method
+    if matches!(ty, Type::Callable(_)) {
         if is_dunder(name.as_str()) {
             return true;
         }
@@ -1606,10 +1610,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 is_inherited,
             )
         } else if is_method(&ty, &initialization, name, annotation.as_ref()) {
+            // Use helper functions to compute flags for unions
+            let is_abstract_flag = has_any_abstract(&ty);
             ClassField(
                 ClassFieldInner::Method {
                     ty,
-                    is_abstract,
+                    is_abstract: is_abstract_flag,
                     is_function_without_return_annotation,
                 },
                 is_inherited,
