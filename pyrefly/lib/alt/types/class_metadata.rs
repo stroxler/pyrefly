@@ -15,7 +15,6 @@ use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_types::callable::Deprecation;
-use pyrefly_types::keywords::ConverterMap;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::VisitMut;
@@ -454,10 +453,6 @@ pub struct DataclassMetadata {
     pub init_defaults: InitDefaults,
     /// Whether a default can be passed positionally to field specifier calls
     pub default_can_be_positional: bool,
-    /// Conversion table mapping field types to the union of types they can accept.
-    /// Inherited from the dataclass_transform decorator's converter_table parameter.
-    #[allow(dead_code)]
-    pub converter_table: ConverterMap,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]

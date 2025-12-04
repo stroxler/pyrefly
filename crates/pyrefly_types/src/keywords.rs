@@ -69,10 +69,6 @@ pub struct DataclassTransformMetadata {
     pub kw_only_default: bool,
     pub frozen_default: bool,
     pub field_specifiers: Vec<CalleeKind>,
-    /// Conversion table mapping field types to the union of types they can accept.
-    /// See https://typing.python.org/en/latest/spec/dataclasses.html#converters.
-    #[allow(dead_code)]
-    pub converter_table: ConverterMap,
 }
 
 impl DataclassTransformMetadata {
@@ -94,7 +90,6 @@ impl DataclassTransformMetadata {
                 }
                 _ => Vec::new(),
             },
-            converter_table: ConverterMap::new(),
         }
     }
 
