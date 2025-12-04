@@ -409,19 +409,30 @@ impl ClassField {
     }
 
     pub fn new_synthesized(ty: Type) -> Self {
-        ClassField(
-            ClassFieldInner::Simple {
-                ty,
-                annotation: None,
-                initialization: ClassFieldInitialization::ClassBody(None),
-                read_only_reason: None,
-                descriptor: None,
-                is_function_without_return_annotation: false,
-                is_abstract: false,
-                is_foreign_key: false,
-            },
-            IsInherited::Maybe,
-        )
+        // Detect if this is a property and construct the appropriate variant
+        if ty.is_property_getter() || ty.is_property_setter_with_getter().is_some() {
+            ClassField(
+                ClassFieldInner::Property {
+                    ty,
+                    is_abstract: false,
+                },
+                IsInherited::Maybe,
+            )
+        } else {
+            ClassField(
+                ClassFieldInner::Simple {
+                    ty,
+                    annotation: None,
+                    initialization: ClassFieldInitialization::ClassBody(None),
+                    read_only_reason: None,
+                    descriptor: None,
+                    is_function_without_return_annotation: false,
+                    is_abstract: false,
+                    is_foreign_key: false,
+                },
+                IsInherited::Maybe,
+            )
+        }
     }
 
     pub fn recursive() -> Self {
@@ -1064,25 +1075,7 @@ fn bind_instance_attribute(
     is_class_var: bool,
     read_only: Option<ReadOnlyReason>,
 ) -> ClassAttribute {
-    // Decorated objects are methods, so they can't be ClassVars
-    if attr.is_property_getter() {
-        ClassAttribute::property(
-            make_bound_method(instance.to_type(), attr).into_inner(),
-            None,
-            instance.class.dupe(),
-        )
-    } else if let Some(getter) = attr.is_property_setter_with_getter() {
-        // The attribute lookup code and function decorator logic together ensure that
-        // a property with a setter winds up being bound to the raw setter function
-        // type, with function metadata that includes the raw getter function type.
-        //
-        // See the `attr.rs` and `function.rs` code for more details on how this works.
-        ClassAttribute::property(
-            make_bound_method(instance.to_type(), getter).into_inner(),
-            Some(make_bound_method(instance.to_type(), attr).into_inner()),
-            instance.class.dupe(),
-        )
-    } else if is_class_var {
+    if is_class_var {
         ClassAttribute::read_only(
             make_bound_method(instance.to_type(), attr).into_inner(),
             ReadOnlyReason::ClassVar,
@@ -1991,7 +1984,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ClassFieldInner::Property { ty, .. } => {
                 // Properties on instances bind to the getter/setter
-                bind_instance_attribute(instance, ty.clone(), false, None)
+                if let Some(getter) = ty.is_property_setter_with_getter() {
+                    // Property with a setter: bind both getter and setter
+                    ClassAttribute::property(
+                        make_bound_method(instance.to_type(), getter).into_inner(),
+                        Some(make_bound_method(instance.to_type(), ty.clone()).into_inner()),
+                        instance.class.dupe(),
+                    )
+                } else {
+                    // Property getter only (no setter)
+                    ClassAttribute::property(
+                        make_bound_method(instance.to_type(), ty.clone()).into_inner(),
+                        None,
+                        instance.class.dupe(),
+                    )
+                }
             }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
