@@ -802,23 +802,6 @@ impl ClassField {
         }
     }
 
-    fn is_callable_class_var(&self) -> bool {
-        match &self.0 {
-            ClassFieldInner::Simple { annotation, .. } => annotation.as_ref().is_some_and(|ann| {
-                ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_))
-            }),
-            ClassFieldInner::Property { .. } => false,
-            ClassFieldInner::Descriptor { annotation, .. } => {
-                annotation.as_ref().is_some_and(|ann| {
-                    ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_))
-                })
-            }
-            ClassFieldInner::Method { .. } => false,
-            ClassFieldInner::NestedClass { .. } => false,
-            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
-        }
-    }
-
     pub fn is_init_var(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => {
@@ -2110,31 +2093,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let is_class_var = annotation.is_some_and(|ann| ann.is_class_var());
                 match field.initialization() {
                     ClassFieldInitialization::ClassBody(_) => {
-                        // bind_instance matches on the type, so resolve it if we can
+                        // Simple variant no longer contains methods - those are in Method variant
+                        // Just bind the attribute directly
                         self.expand_vars_mut(&mut ty);
-                        // If the field is a dunder or ClassVar[Callable] & the assigned value is a callable, we replace it with a named function
-                        // so that it gets treated as a bound method.
-                        //
-                        // Both of these are heuristics that aren't guaranteed to be correct, but the dunder heuristic has usability benefits
-                        // and the ClassVar heuristic aligns us with existing type checkers.
-                        let field_name_str = field_name.as_str();
-                        if (is_dunder(field_name_str) || field.is_callable_class_var())
-                            && let Type::Callable(box callable) = ty
-                        {
-                            let module = self.module();
-                            let func_id = FuncId {
-                                module: module.clone(),
-                                cls: None,
-                                name: field_name.clone(),
-                            };
-                            ty = Type::Function(Box::new(Function {
-                                signature: callable,
-                                metadata: FuncMetadata {
-                                    kind: FunctionKind::Def(Box::new(func_id)),
-                                    flags: FuncFlags::default(),
-                                },
-                            }))
-                        }
                         bind_instance_attribute(instance, ty, is_class_var, read_only_reason)
                     }
                     ClassFieldInitialization::Method
