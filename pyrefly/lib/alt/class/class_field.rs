@@ -1243,21 +1243,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         &|cls, name| self.get_field_from_current_class_only(cls, name),
                     ) {
                         match &*parent_field.value {
-                            ClassField(ClassFieldInner::Simple { ty, .. }, ..) => {
-                                // Check if the parent field is a property (either getter or setter with getter)
-                                if ty.is_property_getter()
-                                    || ty.is_property_setter_with_getter().is_some()
-                                {
-                                    // If we found a property in the parent, just return the parent's field
-                                    // This ensures the property with its setter is properly inherited
-                                    return Arc::unwrap_or_clone(parent_field.value);
-                                }
-                            }
                             ClassField(ClassFieldInner::Property { .. }, ..) => {
-                                // Property variant is definitely a property, return it
+                                // If we found a property in the parent, just return the parent's field
+                                // This ensures the property with its setter is properly inherited
                                 return Arc::unwrap_or_clone(parent_field.value);
                             }
-                            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
+                            _ => {
+                                // For non-property fields, continue with normal processing
+                            }
                         }
                     }
                 }
