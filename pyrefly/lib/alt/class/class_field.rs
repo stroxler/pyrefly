@@ -242,9 +242,9 @@ pub struct ClassField(ClassFieldInner, IsInherited);
 
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
 enum ClassFieldInner {
-    // TODO(stroxler): We should refactor `ClassFieldInner` into enum cases; currently
-    // the semantics are encoded ad-hoc into the fields of a large product which
-    // has made hacking features relatively easy, but makes the code hard to read.
+    // TODO(stroxler): In-progress refactor to structured enum variants.
+    // Currently Simple is still used, but we're migrating to the specific variants below.
+    // See features-md/class-field.md for the refactor plan.
     Simple {
         ty: Type,
         annotation: Option<Annotation>,
@@ -258,6 +258,59 @@ enum ClassFieldInner {
         is_abstract: bool,
         /// Whether this field is a Django ForeignKey field
         is_foreign_key: bool,
+    },
+    /// Properties discovered via @property decorator.
+    /// Read-onlyness is handled by presence of and type of setter.
+    #[allow(dead_code)]
+    Property { ty: Type, is_abstract: bool },
+    /// Descriptors: attributes initialized in the class body whose type has __get__/__set__ methods.
+    /// Read-onlyness is handled by descriptor protocol calls.
+    #[allow(dead_code)]
+    Descriptor {
+        ty: Type,
+        annotation: Option<Annotation>,
+        descriptor: Descriptor,
+    },
+    /// Methods (including abstract methods, functions without return annotations). We always
+    /// treat them as read only.
+    ///
+    /// Callable types are only methods if some form of method binding applies; staticmethods
+    /// or Callables that we decide not to model as descriptors become ClassAttributes.
+    #[allow(dead_code)]
+    Method {
+        ty: Type,
+        is_abstract: bool,
+        is_function_without_return_annotation: bool,
+    },
+    /// Nested class definitions (class statements inside class body).
+    /// These are always of type `Type::ClassDef`, and we treat them as read-only.
+    #[allow(dead_code)]
+    NestedClass { ty: Type },
+    /// Class attributes (includes staticmethods, Django fields, regular attrs).
+    /// These may also be shadowed on instances, unless they are marked as ClassVar.
+    ///
+    /// To minimize false positives, we treat attributes annotated but not initialized on the
+    /// class body as class attributes even though in many cases they will not be defined on
+    /// the class; `initialization` tracks information about whether we are sure that access
+    /// should succeed.
+    #[allow(dead_code)]
+    ClassAttribute {
+        ty: Type,
+        annotation: Option<Annotation>,
+        initialization: ClassFieldInitialization,
+        read_only_reason: Option<ReadOnlyReason>,
+        /// ClassVar: can read from instance, but cannot write/shadow from instance
+        is_classvar: bool,
+        is_staticmethod: bool,
+        /// Django ForeignKey - triggers synthesis of _id field
+        is_foreign_key: bool,
+    },
+    /// Instance-only attributes (defined in methods, not in class body).
+    #[allow(dead_code)]
+    InstanceAttribute {
+        ty: Type,
+        annotation: Option<Annotation>,
+        read_only_reason: Option<ReadOnlyReason>,
     },
 }
 
@@ -277,6 +330,7 @@ impl Display for ClassField {
             ClassFieldInner::Simple {
                 ty, initialization, ..
             } => write!(f, "{ty} ({initialization})"),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 }
@@ -345,6 +399,7 @@ impl ClassField {
             ClassFieldInner::Simple { ty, annotation, .. } => {
                 Some((ty, annotation.as_ref(), self.is_read_only()))
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -383,6 +438,7 @@ impl ClassField {
     fn initialization(&self) -> ClassFieldInitialization {
         match &self.0 {
             ClassFieldInner::Simple { initialization, .. } => initialization.clone(),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -420,6 +476,7 @@ impl ClassField {
                     self.1.clone(),
                 )
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -555,6 +612,7 @@ impl ClassField {
                 | ClassFieldInitialization::Uninitialized
                 | ClassFieldInitialization::Magic => None,
             },
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -577,24 +635,29 @@ impl ClassField {
     pub fn ty(&self) -> Type {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.clone(),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
     pub fn is_abstract(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { is_abstract, .. } => *is_abstract,
+            ClassFieldInner::Property { is_abstract, .. } => *is_abstract,
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
     fn is_non_callable_protocol_method(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_non_callable_protocol_method(),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
     pub fn is_foreign_key(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { is_foreign_key, .. } => *is_foreign_key,
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -615,6 +678,7 @@ impl ClassField {
                     | ClassFieldInitialization::Magic,
                 ..
             } => Required::Required,
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -651,6 +715,7 @@ impl ClassField {
             ClassFieldInner::Simple { ty, .. } => {
                 matches!(ty, Type::ClassType(cls) if cls.has_qname("dataclasses", "KW_ONLY"))
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -659,6 +724,7 @@ impl ClassField {
             ClassFieldInner::Simple { annotation, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_class_var())
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -667,6 +733,7 @@ impl ClassField {
             ClassFieldInner::Simple { annotation, .. } => annotation.as_ref().is_some_and(|ann| {
                 ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_))
             }),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -675,6 +742,7 @@ impl ClassField {
             ClassFieldInner::Simple { annotation, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_init_var())
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -683,12 +751,14 @@ impl ClassField {
             ClassFieldInner::Simple { annotation, ty, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_final()) || ty.has_final_decoration()
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
     fn is_override(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_override(),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -706,12 +776,14 @@ impl ClassField {
             ClassFieldInner::Simple { ty, .. } => {
                 ty.is_property_setter_with_getter().is_none() && ty.is_property_getter()
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
     pub fn has_explicit_annotation(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => annotation.is_some(),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -721,6 +793,7 @@ impl ClassField {
                 is_function_without_return_annotation,
                 ..
             } => *is_function_without_return_annotation,
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -737,6 +810,7 @@ impl ClassField {
                 | ClassFieldInitialization::Uninitialized
                 | ClassFieldInitialization::Magic => DataclassFieldKeywords::new(),
             },
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -745,6 +819,7 @@ impl ClassField {
             ClassFieldInner::Simple { initialization, .. } => {
                 matches!(initialization, ClassFieldInitialization::Method)
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 }
@@ -1134,14 +1209,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         name,
                         &|cls, name| self.get_field_from_current_class_only(cls, name),
                     ) {
-                        let ClassField(ClassFieldInner::Simple { ty, .. }, ..) =
-                            &*parent_field.value;
-                        // Check if the parent field is a property (either getter or setter with getter)
-                        if ty.is_property_getter() || ty.is_property_setter_with_getter().is_some()
-                        {
-                            // If we found a property in the parent, just return the parent's field
-                            // This ensures the property with its setter is properly inherited
-                            return Arc::unwrap_or_clone(parent_field.value);
+                        match &*parent_field.value {
+                            ClassField(ClassFieldInner::Simple { ty, .. }, ..) => {
+                                // Check if the parent field is a property (either getter or setter with getter)
+                                if ty.is_property_getter()
+                                    || ty.is_property_setter_with_getter().is_some()
+                                {
+                                    // If we found a property in the parent, just return the parent's field
+                                    // This ensures the property with its setter is properly inherited
+                                    return Arc::unwrap_or_clone(parent_field.value);
+                                }
+                            }
+                            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
                         }
                     }
                 }
@@ -1547,13 +1626,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .find_map(|parent| {
                 let parent_field =
                     self.get_field_from_current_class_only(parent.class_object(), name)?;
-                let ClassField(ClassFieldInner::Simple { ty, annotation, .. }, ..) = &*parent_field;
-                if found_field.is_none() {
-                    found_field = Some(parent.targs().substitution().substitute_into(ty.clone()));
+                match &*parent_field {
+                    ClassField(ClassFieldInner::Simple { ty, annotation, .. }, ..) => {
+                        if found_field.is_none() {
+                            found_field =
+                                Some(parent.targs().substitution().substitute_into(ty.clone()));
+                        }
+                        annotation
+                            .clone()
+                            .map(|ann| ann.substitute_with(parent.targs().substitution()))
+                    }
+                    _ => unreachable!("new ClassFieldInner variants not yet constructed"),
                 }
-                annotation
-                    .clone()
-                    .map(|ann| ann.substitute_with(parent.targs().substitution()))
             });
         (found_field, annotation)
     }
@@ -1861,6 +1945,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     | ClassFieldInitialization::Magic => ClassAttribute::read_write(ty),
                 }
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -1901,6 +1986,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     bind_class_attribute(cls, ty, read_only_reason)
                 }
             }
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
 
@@ -1915,7 +2001,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         param_type_transform: &dyn Fn(Type) -> Type,
         errors: &ErrorCollector,
     ) -> Param {
-        let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }, ..) = field;
+        let (ty, descriptor) = match &field.0 {
+            ClassFieldInner::Simple { ty, descriptor, .. } => (ty, descriptor),
+            _ => unreachable!("new ClassFieldInner variants not yet constructed"),
+        };
         let param_ty = if let Some(converter_param) = converter_param {
             // If a converter is specified (e.g., from pydantic lax mode or explicit field converter),
             // use it regardless of strict mode
