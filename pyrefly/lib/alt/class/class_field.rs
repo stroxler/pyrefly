@@ -413,6 +413,16 @@ impl ClassField {
                 },
                 IsInherited::Maybe,
             )
+        } else if is_method_type(&ty) {
+            // Synthesized methods (like __init__, __eq__, __iter__, etc.)
+            ClassField(
+                ClassFieldInner::Method {
+                    ty,
+                    is_abstract: false,
+                    is_function_without_return_annotation: false,
+                },
+                IsInherited::Maybe,
+            )
         } else {
             ClassField(
                 ClassFieldInner::Simple {
