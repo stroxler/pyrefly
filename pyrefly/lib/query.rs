@@ -275,6 +275,7 @@ fn bound_of_type_var_decl(ty: &Type) -> Option<(&QName, &Type)> {
 fn type_to_string(ty: &Type) -> String {
     let mut ctx = TypeDisplayContext::new(&[ty]);
     ctx.always_display_module_name();
+    ctx.always_display_expanded_unions();
     if is_static_method(ty) {
         format!("typing.StaticMethod[{}]", ctx.display(ty))
     } else if let Some(bound) = bound_of_type_var(ty) {

@@ -93,6 +93,7 @@ pub struct TypeDisplayContext<'a> {
     /// Should we display for IDE Hover? This makes type names more readable but less precise.
     hover: bool,
     always_display_module_name: bool,
+    always_display_expanded_unions: bool,
 }
 
 impl<'a> TypeDisplayContext<'a> {
@@ -129,6 +130,10 @@ impl<'a> TypeDisplayContext<'a> {
             c.info.insert(fake_module, None);
         }
         self.always_display_module_name = true;
+    }
+
+    pub fn always_display_expanded_unions(&mut self) {
+        self.always_display_expanded_unions = true;
     }
 
     /// Always display the module name, except for builtins.
@@ -482,7 +487,7 @@ impl<'a> TypeDisplayContext<'a> {
             Type::Union(box Union {
                 display_name: Some(name),
                 ..
-            }) if !is_toplevel => output.write_str(name),
+            }) if !(self.always_display_expanded_unions || is_toplevel) => output.write_str(name),
             Type::Union(box Union { members, .. }) => {
                 let mut literal_idx = None;
                 let mut literals = Vec::new();
