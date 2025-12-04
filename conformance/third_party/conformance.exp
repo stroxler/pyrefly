@@ -1941,39 +1941,6 @@
     },
     {
       "code": -2,
-      "column": 11,
-      "concise_description": "Unpacked keyword argument `int | str` is not assignable to parameter `v1` with type `int` in function `func1`",
-      "description": "Unpacked keyword argument `int | str` is not assignable to parameter `v1` with type `int` in function `func1`",
-      "line": 61,
-      "name": "bad-argument-type",
-      "severity": "error",
-      "stop_column": 15,
-      "stop_line": 61
-    },
-    {
-      "code": -2,
-      "column": 11,
-      "concise_description": "Unpacked keyword argument `int | str` is not assignable to parameter `v2` with type `str` in function `func1`",
-      "description": "Unpacked keyword argument `int | str` is not assignable to parameter `v2` with type `str` in function `func1`",
-      "line": 61,
-      "name": "bad-argument-type",
-      "severity": "error",
-      "stop_column": 15,
-      "stop_line": 61
-    },
-    {
-      "code": -2,
-      "column": 11,
-      "concise_description": "Unpacked keyword argument `int | str` is not assignable to parameter `v3` with type `str` in function `func1`",
-      "description": "Unpacked keyword argument `int | str` is not assignable to parameter `v3` with type `str` in function `func1`",
-      "line": 61,
-      "name": "bad-argument-type",
-      "severity": "error",
-      "stop_column": 15,
-      "stop_line": 61
-    },
-    {
-      "code": -2,
       "column": 17,
       "concise_description": "Multiple values for argument `v1` in function `func1`",
       "description": "Multiple values for argument `v1` in function `func1`",

@@ -2004,3 +2004,48 @@ def test(x: TD, k1: LiteralString, k2: str):
     x[k2]
 "#,
 );
+
+testcase!(
+    test_anonymous_typed_dict_usage,
+    r#"
+from typing import TypedDict, Unpack, Mapping
+
+class TD(TypedDict):
+    x: int
+    y: str
+d = { "x": 1, "y": "2" }
+d = { "x": 2, "y": "3" }
+
+def test(**kwargs: Unpack[TD]): pass
+test(**d)
+test(**{ "x": 1, "y": "2" })
+
+def test2(**kwargs: str | int): pass
+test2(**d)
+test2(**{ "x": 1, "y": "2" })
+
+def test3(x: int, y: str): pass
+test3(**d)
+test3(**{ "x": 1, "y": "2" })
+
+d2: dict[str, str | int] = { "x": 1, "y": "2" }
+d2 = d
+m: Mapping[str, str | int] = { "x": 1, "y": "2" }
+m = d
+"#,
+);
+
+testcase!(
+    test_anonymous_typed_dict_return,
+    r#"
+def foo():
+    return {
+        "a": "b",
+        "c": {
+            "d": "e"
+        }
+    }
+foo()
+x: str = foo()["a"]
+"#,
+);
