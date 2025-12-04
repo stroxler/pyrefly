@@ -2862,12 +2862,10 @@ impl<'a> CallGraphVisitor<'a> {
         parent_expression: Option<&Expr>,
         current_statement: Option<&Stmt>,
     ) {
-        let is_nested_callee_or_base =
+        let is_nested_callee =
             parent_expression.is_some_and(|parent_expression| match parent_expression {
                 // For example, avoid visiting `x.__call__` in `x.__call__(1)`
                 Expr::Call(callee) if expr.range() == callee.func.range() => true,
-                // For example, avoid visiting `x` in `x.__call__` or `x.y` in `x.y.__call__`
-                Expr::Attribute(_) => true,
                 _ => false,
             });
         let expr_type = || self.module_context.answers.get_type_trace(expr.range());
@@ -2892,7 +2890,7 @@ impl<'a> CallGraphVisitor<'a> {
                     assignment_targets(current_statement),
                 );
             }
-            Expr::Name(name) if !is_nested_callee_or_base => {
+            Expr::Name(name) if !is_nested_callee => {
                 debug_println!(
                     self.debug,
                     "Resolving callees for name `{}`",
@@ -2910,7 +2908,7 @@ impl<'a> CallGraphVisitor<'a> {
                     );
                 }
             }
-            Expr::Attribute(attribute) if !is_nested_callee_or_base => {
+            Expr::Attribute(attribute) if !is_nested_callee => {
                 debug_println!(
                     self.debug,
                     "Resolving callees for attribute `{}`",
