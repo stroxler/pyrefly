@@ -1991,3 +1991,16 @@ def test(x: TD, y: TD2, z: TD3):
     fun(**z)
 "#,
 );
+
+testcase!(
+    test_extra_items_literalstring_key,
+    r#"
+from typing import TypedDict, LiteralString
+
+class TD(TypedDict, extra_items=str):
+    ...
+def test(x: TD, k1: LiteralString, k2: str):
+    x[k1]
+    x[k2]
+"#,
+);

@@ -2151,25 +2151,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 )
                             }
                         }
-                        Type::ClassType(cls)
-                            if cls.is_builtin("str")
+                        _ => {
+                            if self.is_subset_eq(ty, &self.stdlib.str().clone().to_type())
                                 && !matches!(
                                     self.typed_dict_extra_items(&typed_dict),
                                     ExtraItems::Default
-                                ) =>
-                        {
-                            self.get_typed_dict_value_type(&typed_dict)
+                                )
+                            {
+                                self.get_typed_dict_value_type(&typed_dict)
+                            } else {
+                                self.error(
+                                    errors,
+                                    slice.range(),
+                                    ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                    format!(
+                                        "Invalid key for TypedDict `{}`, got `{}`",
+                                        typed_dict.name(),
+                                        self.for_display(ty.clone())
+                                    ),
+                                )
+                            }
                         }
-                        _ => self.error(
-                            errors,
-                            slice.range(),
-                            ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
-                            format!(
-                                "Invalid key for TypedDict `{}`, got `{}`",
-                                typed_dict.name(),
-                                self.for_display(ty.clone())
-                            ),
-                        ),
                     })
                 }
                 t => self.error(
