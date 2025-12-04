@@ -251,9 +251,6 @@ enum ClassFieldInner {
         initialization: ClassFieldInitialization,
         /// The reason this field is read-only. `None` indicates it is read-write.
         read_only_reason: Option<ReadOnlyReason>,
-        is_function_without_return_annotation: bool,
-        /// Whether this field is an abstract method
-        is_abstract: bool,
         /// Whether this field is a Django ForeignKey field
         is_foreign_key: bool,
     },
@@ -343,8 +340,6 @@ impl ClassField {
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
         read_only_reason: Option<ReadOnlyReason>,
-        is_function_without_return_annotation: bool,
-        is_abstract: bool,
         is_foreign_key: bool,
         is_inherited: IsInherited,
     ) -> Self {
@@ -354,8 +349,6 @@ impl ClassField {
                 annotation,
                 initialization,
                 read_only_reason,
-                is_function_without_return_annotation,
-                is_abstract,
                 is_foreign_key,
             },
             is_inherited,
@@ -368,8 +361,6 @@ impl ClassField {
             None,
             ClassFieldInitialization::Magic,
             None,
-            false,
-            false,
             false,
             IsInherited::Maybe,
         )
@@ -385,8 +376,6 @@ impl ClassField {
             Some(annotation),
             ClassFieldInitialization::Uninitialized,
             read_only_reason,
-            false,
-            false,
             false,
             IsInherited::Maybe,
         )
@@ -431,8 +420,6 @@ impl ClassField {
                     annotation: None,
                     initialization: ClassFieldInitialization::ClassBody(None),
                     read_only_reason: None,
-                    is_function_without_return_annotation: false,
-                    is_abstract: false,
                     is_foreign_key: false,
                 },
                 IsInherited::Maybe,
@@ -447,8 +434,6 @@ impl ClassField {
                 annotation: None,
                 initialization: ClassFieldInitialization::recursive(),
                 read_only_reason: None,
-                is_function_without_return_annotation: false,
-                is_abstract: false,
                 is_foreign_key: false,
             },
             IsInherited::Maybe,
@@ -473,8 +458,6 @@ impl ClassField {
                 annotation,
                 initialization,
                 read_only_reason,
-                is_function_without_return_annotation,
-                is_abstract,
                 is_foreign_key,
             } => {
                 let mut ty = ty.clone();
@@ -485,9 +468,6 @@ impl ClassField {
                         annotation: annotation.clone(),
                         initialization: initialization.clone(),
                         read_only_reason: read_only_reason.clone(),
-                        is_function_without_return_annotation:
-                            *is_function_without_return_annotation,
-                        is_abstract: *is_abstract,
                         is_foreign_key: *is_foreign_key,
                     },
                     self.1.clone(),
@@ -693,13 +673,7 @@ impl ClassField {
     }
 
     pub fn is_simple_instance_attribute(&self) -> bool {
-        matches!(
-            &self.0,
-            ClassFieldInner::Simple {
-                is_function_without_return_annotation: false,
-                ..
-            }
-        )
+        matches!(&self.0, ClassFieldInner::Simple { .. })
     }
 
     pub fn ty(&self) -> Type {
@@ -715,7 +689,7 @@ impl ClassField {
 
     pub fn is_abstract(&self) -> bool {
         match &self.0 {
-            ClassFieldInner::Simple { is_abstract, .. } => *is_abstract,
+            ClassFieldInner::Simple { .. } => false,
             ClassFieldInner::Property { is_abstract, .. } => *is_abstract,
             ClassFieldInner::Descriptor { .. } => false,
             ClassFieldInner::Method { is_abstract, .. } => *is_abstract,
@@ -917,10 +891,7 @@ impl ClassField {
 
     fn is_function_without_return_annotation(&self) -> bool {
         match &self.0 {
-            ClassFieldInner::Simple {
-                is_function_without_return_annotation,
-                ..
-            } => *is_function_without_return_annotation,
+            ClassFieldInner::Simple { .. } => false,
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { .. } => false,
             ClassFieldInner::Method {
@@ -1627,8 +1598,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 annotation,
                 initialization,
                 read_only_reason,
-                is_function_without_return_annotation,
-                is_abstract,
                 is_foreign_key,
                 is_inherited,
             )
@@ -3324,7 +3293,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassFieldInner::Simple {
                 ty,
                 read_only_reason: Some(_),
-                is_function_without_return_annotation: false,
                 ..
             } => Some(ty),
             _ => None,
