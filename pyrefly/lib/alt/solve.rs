@@ -2425,8 +2425,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             errors,
                         )
                     }
-                    (Type::TypedDict(typed_dict), Type::ClassType(cls))
-                        if cls.is_builtin("str")
+                    (Type::TypedDict(typed_dict), key)
+                        if self.is_subset_eq(key, &self.stdlib.str().clone().to_type())
                             && let Some(field_ty) =
                                 self.get_typed_dict_value_type_as_builtins_dict(typed_dict) =>
                     {
@@ -4048,43 +4048,45 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::Subscript(x) => {
                 let base = self.expr_infer(&x.value, errors);
                 let slice_ty = self.expr_infer(&x.slice, errors);
-                match (&base, &slice_ty) {
-                    (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
-                        let field_name = Name::new(field_name);
-                        self.check_del_typed_dict_literal_key(
-                            typed_dict,
-                            &field_name,
-                            x.slice.range(),
-                            errors,
-                        );
-                    }
-                    (Type::TypedDict(typed_dict), Type::ClassType(cls))
-                        if cls.is_builtin("str")
-                            && self
-                                .get_typed_dict_value_type_as_builtins_dict(typed_dict)
-                                .is_some() =>
-                    {
-                        self.check_del_typed_dict_field(
-                            typed_dict.name(),
-                            None,
-                            false,
-                            false,
-                            x.slice.range(),
-                            errors,
-                        )
-                    }
-                    (_, _) => {
-                        self.call_method_or_error(
-                            &base,
-                            &dunder::DELITEM,
-                            x.range,
-                            &[CallArg::ty(&slice_ty, x.slice.range())],
-                            &[],
-                            errors,
-                            Some(&|| ErrorContext::DelItem(self.for_display(base.clone()))),
-                        );
-                    }
-                }
+                self.map_over_union(&base, |base| {
+                    self.map_over_union(&slice_ty, |key| match (base, key) {
+                        (Type::TypedDict(typed_dict), Type::Literal(Lit::Str(field_name))) => {
+                            let field_name = Name::new(field_name);
+                            self.check_del_typed_dict_literal_key(
+                                typed_dict,
+                                &field_name,
+                                x.slice.range(),
+                                errors,
+                            );
+                        }
+                        (Type::TypedDict(typed_dict), key)
+                            if self.is_subset_eq(key, &self.stdlib.str().clone().to_type())
+                                && self
+                                    .get_typed_dict_value_type_as_builtins_dict(typed_dict)
+                                    .is_some() =>
+                        {
+                            self.check_del_typed_dict_field(
+                                typed_dict.name(),
+                                None,
+                                false,
+                                false,
+                                x.slice.range(),
+                                errors,
+                            )
+                        }
+                        (_, _) => {
+                            self.call_method_or_error(
+                                base,
+                                &dunder::DELITEM,
+                                x.range,
+                                &[CallArg::ty(&slice_ty, x.slice.range())],
+                                &[],
+                                errors,
+                                Some(&|| ErrorContext::DelItem(self.for_display(base.clone()))),
+                            );
+                        }
+                    })
+                })
             }
             _ => {
                 self.error(

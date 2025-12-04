@@ -308,15 +308,19 @@ def foo(c: Coord, key: str, key2: Literal["x", "y"]):
 testcase!(
     test_typed_dict_delete,
     r#"
-from typing import TypedDict, ReadOnly, Required
+from typing import TypedDict, ReadOnly, Required, LiteralString, NotRequired
 class Coord(TypedDict, total=False):
     x: int
     y: ReadOnly[str]
     z: Required[bool]
-def foo(c: Coord):
+class JustX(TypedDict, extra_items=int):
+    x: NotRequired[int]
+def foo(c: Coord, c2: Coord | JustX, c3: JustX, k: LiteralString):
     del c["x"]  # OK
     del c["y"]  # E: Key `y` in TypedDict `Coord` may not be deleted
     del c["z"]  # E: Key `z` in TypedDict `Coord` may not be deleted
+    del c2["x"]  # OK
+    del c3[k] # OK
     "#,
 );
 
