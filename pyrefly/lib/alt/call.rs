@@ -366,6 +366,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             },
             Type::KwCall(call) => self.as_call_target_impl(call.return_ty, quantified, dunder_call),
+            Type::Literal(Lit::Enum(enum_)) => {
+                self.as_call_target_impl(enum_.class.to_type(), quantified, dunder_call)
+            }
             _ => CallTargetLookup::Error(vec![]),
         }
     }
