@@ -330,6 +330,7 @@ impl Display for ClassField {
             } => write!(f, "{ty} ({initialization})"),
             ClassFieldInner::Property { ty, .. } => write!(f, "{ty} (property)"),
             ClassFieldInner::Descriptor { ty, .. } => write!(f, "{ty} (descriptor)"),
+            ClassFieldInner::NestedClass { ty, .. } => write!(f, "{ty} (nested class)"),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -403,6 +404,7 @@ impl ClassField {
                 // Descriptors may have annotations
                 Some((ty, annotation.as_ref(), self.is_read_only()))
             }
+            ClassFieldInner::NestedClass { ty, .. } => Some((ty, None, self.is_read_only())),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -453,6 +455,7 @@ impl ClassField {
             ClassFieldInner::Simple { initialization, .. } => initialization.clone(),
             ClassFieldInner::Property { .. } => ClassFieldInitialization::ClassBody(None),
             ClassFieldInner::Descriptor { .. } => ClassFieldInitialization::ClassBody(None),
+            ClassFieldInner::NestedClass { .. } => ClassFieldInitialization::ClassBody(None),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -512,6 +515,11 @@ impl ClassField {
                     },
                     self.1.clone(),
                 )
+            }
+            ClassFieldInner::NestedClass { ty } => {
+                let mut ty = ty.clone();
+                f(&mut ty);
+                Self(ClassFieldInner::NestedClass { ty }, self.1.clone())
             }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
@@ -650,6 +658,7 @@ impl ClassField {
                 | ClassFieldInitialization::Magic => None,
             },
             ClassFieldInner::Descriptor { ty, .. } => Some(ty),
+            ClassFieldInner::NestedClass { ty, .. } => Some(ty),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -674,6 +683,7 @@ impl ClassField {
             ClassFieldInner::Simple { ty, .. } => ty.clone(),
             ClassFieldInner::Property { ty, .. } => ty.clone(),
             ClassFieldInner::Descriptor { ty, .. } => ty.clone(),
+            ClassFieldInner::NestedClass { ty, .. } => ty.clone(),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -683,6 +693,7 @@ impl ClassField {
             ClassFieldInner::Simple { is_abstract, .. } => *is_abstract,
             ClassFieldInner::Property { is_abstract, .. } => *is_abstract,
             ClassFieldInner::Descriptor { .. } => false,
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -692,6 +703,7 @@ impl ClassField {
             ClassFieldInner::Simple { ty, .. } => ty.is_non_callable_protocol_method(),
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { .. } => false,
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -701,6 +713,7 @@ impl ClassField {
             ClassFieldInner::Simple { is_foreign_key, .. } => *is_foreign_key,
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { .. } => false,
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -724,6 +737,7 @@ impl ClassField {
             } => Required::Required,
             ClassFieldInner::Property { .. } => Required::Optional(None),
             ClassFieldInner::Descriptor { .. } => Required::Optional(None),
+            ClassFieldInner::NestedClass { .. } => Required::Optional(None),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -764,6 +778,7 @@ impl ClassField {
             }
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { .. } => false,
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -777,6 +792,7 @@ impl ClassField {
             ClassFieldInner::Descriptor { annotation, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_class_var())
             }
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -792,6 +808,7 @@ impl ClassField {
                     ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_))
                 })
             }
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -805,6 +822,7 @@ impl ClassField {
             ClassFieldInner::Descriptor { annotation, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_init_var())
             }
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -818,6 +836,7 @@ impl ClassField {
             ClassFieldInner::Descriptor { annotation, ty, .. } => {
                 annotation.as_ref().is_some_and(|ann| ann.is_final()) || ty.has_final_decoration()
             }
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -827,6 +846,7 @@ impl ClassField {
             ClassFieldInner::Simple { ty, .. } => ty.is_override(),
             ClassFieldInner::Property { ty, .. } => ty.is_override(),
             ClassFieldInner::Descriptor { ty, .. } => ty.is_override(),
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -843,6 +863,7 @@ impl ClassField {
             }
             ClassFieldInner::Property { ty, .. } => ty.is_property_setter_with_getter().is_none(),
             ClassFieldInner::Descriptor { descriptor, .. } => !descriptor.setter,
+            ClassFieldInner::NestedClass { .. } => true,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -852,6 +873,7 @@ impl ClassField {
             ClassFieldInner::Simple { annotation, .. } => annotation.is_some(),
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { annotation, .. } => annotation.is_some(),
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -864,6 +886,7 @@ impl ClassField {
             } => *is_function_without_return_annotation,
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { .. } => false,
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -883,6 +906,7 @@ impl ClassField {
             },
             ClassFieldInner::Property { .. } => DataclassFieldKeywords::new(),
             ClassFieldInner::Descriptor { .. } => DataclassFieldKeywords::new(),
+            ClassFieldInner::NestedClass { .. } => DataclassFieldKeywords::new(),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -894,6 +918,7 @@ impl ClassField {
             }
             ClassFieldInner::Property { .. } => false,
             ClassFieldInner::Descriptor { .. } => false,
+            ClassFieldInner::NestedClass { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -1459,31 +1484,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let is_abstract = ty.is_abstract_method();
 
         // Detect if this is a property or descriptor and construct the appropriate variant
-        let class_field =
-            if ty.is_property_getter() || ty.is_property_setter_with_getter().is_some() {
-                ClassField(ClassFieldInner::Property { ty, is_abstract }, is_inherited)
-            } else if let Some(descriptor) = descriptor {
-                // Descriptors are always initialized in class body (or wouldn't trigger descriptor protocol)
-                ClassField(
-                    ClassFieldInner::Descriptor {
-                        ty,
-                        annotation,
-                        descriptor,
-                    },
-                    is_inherited,
-                )
-            } else {
-                ClassField::new(
+        let class_field = if matches!(field_definition, ClassFieldDefinition::NestedClass { .. }) {
+            // Nested classes have their own variant
+            ClassField(ClassFieldInner::NestedClass { ty }, is_inherited)
+        } else if ty.is_property_getter() || ty.is_property_setter_with_getter().is_some() {
+            ClassField(ClassFieldInner::Property { ty, is_abstract }, is_inherited)
+        } else if let Some(descriptor) = descriptor {
+            // Descriptors are always initialized in class body (or wouldn't trigger descriptor protocol)
+            ClassField(
+                ClassFieldInner::Descriptor {
                     ty,
                     annotation,
-                    initialization,
-                    read_only_reason,
-                    is_function_without_return_annotation,
-                    is_abstract,
-                    is_foreign_key,
-                    is_inherited,
-                )
-            };
+                    descriptor,
+                },
+                is_inherited,
+            )
+        } else {
+            ClassField::new(
+                ty,
+                annotation,
+                initialization,
+                read_only_reason,
+                is_function_without_return_annotation,
+                is_abstract,
+                is_foreign_key,
+                is_inherited,
+            )
+        };
 
         // *** Everything below here is for validation only and has no impact on downstream analysis ***
 
@@ -1721,6 +1748,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         annotation
                             .clone()
                             .map(|ann| ann.substitute_with(parent.targs().substitution()))
+                    }
+                    ClassField(ClassFieldInner::NestedClass { ty, .. }, ..) => {
+                        if found_field.is_none() {
+                            found_field =
+                                Some(parent.targs().substitution().substitute_into(ty.clone()));
+                        }
+                        // Nested classes don't have annotations
+                        None
                     }
                     _ => unreachable!("new ClassFieldInner variants not yet constructed"),
                 }
@@ -2050,6 +2085,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     unreachable!("A descriptor attribute should always have a valid base")
                 }
             }
+            ClassFieldInner::NestedClass { ty, .. } => {
+                // Nested classes are always read-only (ClassObjectInitializedOnBody)
+                ClassAttribute::read_only(ty, ReadOnlyReason::ClassObjectInitializedOnBody)
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -2092,6 +2131,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 descriptor,
                 DescriptorBase::ClassDef(cls.class_object().dupe()),
             ),
+            ClassFieldInner::NestedClass { ty, .. } => {
+                // Nested classes are always read-only (ClassObjectInitializedOnBody)
+                bind_class_attribute(cls, ty, Some(ReadOnlyReason::ClassObjectInitializedOnBody))
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -2111,6 +2154,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassFieldInner::Simple { ty, .. } => (ty, None),
             ClassFieldInner::Property { ty, .. } => (ty, None),
             ClassFieldInner::Descriptor { ty, descriptor, .. } => (ty, Some(descriptor)),
+            ClassFieldInner::NestedClass { ty, .. } => (ty, None),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         };
         let param_ty = if let Some(converter_param) = converter_param {
