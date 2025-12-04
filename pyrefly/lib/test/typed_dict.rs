@@ -744,7 +744,7 @@ class A(TypedDict):
 class B(A):
     y: str
 B(x=0, y='1')  # OK
-B(x=0, y=1)  # E: Argument `Literal[1]` is not assignable to parameter `y` with type `str` in function `B.__init__`
+B(x=0, y=1)  # E: No matching overload found for function `B.__init__`
     "#,
 );
 
@@ -782,7 +782,7 @@ class D(TypedDict):
      z: NotRequired[int]
 # Default values are completely ignored in constructor behavior, so requiredness in `__init__` should be
 # determined entirely by whether the field is required in the resulting dict.
-D(x=5)  # E: Missing argument `y`
+D(x=5)  # E: No matching overload found for function `D.__init__`
     "#,
 );
 
@@ -982,7 +982,7 @@ testcase!(
 from typing import TypedDict
 class C(TypedDict):
     x: int
-C(0)  # E: Expected argument `x` to be passed by name in function `C.__init__`
+C(0)  # E: No matching overload found for function `C.__init__`
     "#,
 );
 
@@ -1254,7 +1254,7 @@ from typing import TypedDict
 class Movie(TypedDict, extra_items=int):
     name: str
 good_movie = Movie(name='Toy Story', year=1995)
-bad_movie = Movie(name='Toy Story', studio='Pixar')  # E: `Literal['Pixar']` is not assignable to kwargs type `int`
+bad_movie = Movie(name='Toy Story', studio='Pixar')  # E: No matching overload found for function `Movie.__init__`
     "#,
 );
 
@@ -2047,5 +2047,20 @@ def foo():
     }
 foo()
 x: str = foo()["a"]
+"#,
+);
+
+testcase!(
+    test_typed_dict_constructor_with_dict_literal,
+    r#"
+from typing import TypedDict, NotRequired
+
+class TD(TypedDict):
+    x: int
+    y: NotRequired[str]
+
+x: TD = TD({"x": 1, "y": "2"})
+x = TD({"x": 1}, y="2")
+x = TD({"x": 1})
 "#,
 );

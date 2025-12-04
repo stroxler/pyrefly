@@ -312,25 +312,56 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         fields: &SmallMap<Name, bool>,
     ) -> ClassSynthesizedField {
-        let mut params = vec![self.class_self_param(cls, true)];
+        // This overload requires that all the fields are passed by name
+        let mut kw_params = vec![self.class_self_param(cls, true)];
+        // This overload lets you pass a TypedDict or dict as the first positional argument
+        // and optionally pass in additional fields by name
+        let mut map_params = vec![
+            self.class_self_param(cls, true),
+            Param::PosOnly(
+                Some(Name::new_static("__map")),
+                self.instantiate(cls),
+                Required::Required,
+            ),
+        ];
         for (name, field) in self.names_to_fields(cls, fields) {
-            params.push(Param::KwOnly(
+            kw_params.push(Param::KwOnly(
                 name.clone(),
-                field.ty,
+                field.ty.clone(),
                 if field.required {
                     Required::Required
                 } else {
                     Required::Optional(None)
                 },
             ));
+            map_params.push(Param::KwOnly(
+                name.clone(),
+                field.ty,
+                Required::Optional(None),
+            ));
         }
         if let ExtraItems::Extra(extra) = self.typed_dict_extra_items_for_cls(cls) {
-            params.push(Param::Kwargs(None, extra.ty));
+            kw_params.push(Param::Kwargs(None, extra.ty.clone()));
+            map_params.push(Param::Kwargs(None, extra.ty));
         }
-        let ty = Type::Function(Box::new(Function {
-            signature: Callable::list(ParamList::new(params), Type::None),
-            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
-        }));
+
+        let ty = Type::Overload(Overload {
+            signatures: vec1![
+                OverloadType::Function(Function {
+                    signature: Callable::list(ParamList::new(kw_params), Type::None),
+                    metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
+                }),
+                OverloadType::Function(Function {
+                    signature: Callable::list(ParamList::new(map_params), Type::None),
+                    metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
+                })
+            ],
+            metadata: Box::new(FuncMetadata::def(
+                self.module().dupe(),
+                cls.dupe(),
+                dunder::INIT,
+            )),
+        });
         ClassSynthesizedField::new(ty)
     }
 
