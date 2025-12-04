@@ -104,7 +104,6 @@ Model2(x='0')  # E: `Literal['0']` is not assignable to parameter `x`
 );
 
 pydantic_testcase!(
-    bug = "Revealed type should be more informative",
     test_lax_mode_coercion,
     r#"
 from pydantic import BaseModel
@@ -114,7 +113,7 @@ from decimal import Decimal
 class Model(BaseModel):
     x: int = 0
 
-reveal_type(Model.__init__)  # E: revealed type: (self: Model, *, x: Any = ..., **Unknown) -> None
+reveal_type(Model.__init__)  # E: revealed type: (self: Model, *, x: Decimal | bool | bytes | float | int | str = ..., **Unknown) -> None
 
 # int field accepts: int, bool, float, str, bytes, Decimal
 Model(x=1)
