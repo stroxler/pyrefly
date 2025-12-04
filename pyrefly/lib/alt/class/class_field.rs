@@ -1915,10 +1915,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Param {
         let ClassField(ClassFieldInner::Simple { ty, descriptor, .. }, ..) = field;
-        let param_ty = if !strict {
-            Type::any_explicit()
-        } else if let Some(converter_param) = converter_param {
+        let param_ty = if let Some(converter_param) = converter_param {
+            // If a converter is specified (e.g., from pydantic lax mode or explicit field converter),
+            // use it regardless of strict mode
             converter_param
+        } else if !strict {
+            Type::any_explicit()
         } else if let Some(x) = descriptor
             && let Some(setter) = self.resolve_descriptor_setter(name, x, errors)
         {
