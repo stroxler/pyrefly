@@ -1220,22 +1220,22 @@ pub enum DataclassMember {
     NotAField,
 }
 
-fn is_bindable_type(ty: &Type) -> bool {
-    match ty {
-        Type::Function(func) => !func.metadata.flags.is_staticmethod,
-        Type::Overload(overload) => !overload.metadata.flags.is_staticmethod,
-        Type::Forall(box Forall {
-            body: Forallable::Function(func),
-            ..
-        }) => !func.metadata.flags.is_staticmethod,
-        _ => false,
-    }
+fn is_method_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Function(_)
+            | Type::Overload(_)
+            | Type::Forall(box Forall {
+                body: Forallable::Function(_),
+                ..
+            })
+    )
 }
 
-fn has_any_bindable(ty: &Type) -> bool {
+fn has_any_method_type(ty: &Type) -> bool {
     match ty {
-        Type::Union(union) => union.members.iter().any(is_bindable_type),
-        _ => is_bindable_type(ty),
+        Type::Union(union) => union.members.iter().any(is_method_type),
+        _ => is_method_type(ty),
     }
 }
 
@@ -1247,13 +1247,14 @@ fn has_any_abstract(ty: &Type) -> bool {
 }
 
 /// Determine if a class field should be treated as a method (getting method binding behavior). It is if:
-/// - It's a function type (not Callable), initialized on the class body, and not a staticmethod
+/// - It's a function type (including staticmethods), initialized on the class body
 /// - or, it's a Callable initialized on the class body and satisfying some special case:
 ///   - it's marked as a ClassVar
 ///   - it's assigned to a dunder name like `__add__`
-/// - or, it's a union where ANY element is bindable using the above rules
-///   - TODO In this case, when only some elements are bindable downstream behavior is poorly defined,
-///     see make_bound_method_helper for details.
+/// - or, it's a union where ANY element satisfies the above rules
+///
+/// Note: staticmethods and union types that have at least one method type are included.
+/// We rely on make_bound_method_helper to handle defining the binding logic for those cases.
 fn is_method(
     ty: &Type,
     initialization: &ClassFieldInitialization,
@@ -1268,7 +1269,7 @@ fn is_method(
     }
 
     // Check if it's a bindable function or union of functions
-    if has_any_bindable(ty) {
+    if has_any_method_type(ty) {
         return true;
     }
 
