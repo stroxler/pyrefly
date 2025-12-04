@@ -21,6 +21,7 @@ use pyrefly_python::dunder;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
@@ -604,7 +605,7 @@ impl Callable {
         }
     }
 
-    pub fn split_first_param(&self) -> Option<(&Type, Self)> {
+    pub fn split_first_param<'a>(&'a self, owner: &'a mut Owner<Type>) -> Option<(&'a Type, Self)> {
         match self {
             Self {
                 params: Params::List(params),
@@ -623,6 +624,10 @@ impl Callable {
                     Self::concatenate(rest.iter().cloned().collect(), p.clone(), ret.clone()),
                 ))
             }
+            Self {
+                params: Params::Ellipsis,
+                ret: _,
+            } => Some((owner.push(Type::any_implicit()), self.clone())),
             _ => None,
         }
     }

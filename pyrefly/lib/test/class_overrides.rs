@@ -790,3 +790,22 @@ class MySubclass(Myclass):
         self.hello = 1
 "#,
 );
+
+testcase!(
+    test_override_method_with_unknown_callable,
+    r#"
+from typing import Callable
+
+class A:
+    def f(self) -> None:
+        pass
+
+def decorate(f: Callable) -> Callable:
+    return f
+
+class B(A):
+    @decorate
+    def f(self) -> None:
+        pass
+    "#,
+);
