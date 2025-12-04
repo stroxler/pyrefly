@@ -251,8 +251,6 @@ enum ClassFieldInner {
         initialization: ClassFieldInitialization,
         /// The reason this field is read-only. `None` indicates it is read-write.
         read_only_reason: Option<ReadOnlyReason>,
-        /// If this is a descriptor, data derived from `ty`.
-        descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         /// Whether this field is an abstract method
         is_abstract: bool,
@@ -343,7 +341,6 @@ impl ClassField {
         annotation: Option<Annotation>,
         initialization: ClassFieldInitialization,
         read_only_reason: Option<ReadOnlyReason>,
-        descriptor: Option<Descriptor>,
         is_function_without_return_annotation: bool,
         is_abstract: bool,
         is_foreign_key: bool,
@@ -355,7 +352,6 @@ impl ClassField {
                 annotation,
                 initialization,
                 read_only_reason,
-                descriptor,
                 is_function_without_return_annotation,
                 is_abstract,
                 is_foreign_key,
@@ -369,7 +365,6 @@ impl ClassField {
             Type::any_error(),
             None,
             ClassFieldInitialization::Magic,
-            None,
             None,
             false,
             false,
@@ -388,7 +383,6 @@ impl ClassField {
             Some(annotation),
             ClassFieldInitialization::Uninitialized,
             read_only_reason,
-            None,
             false,
             false,
             false,
@@ -430,7 +424,6 @@ impl ClassField {
                     annotation: None,
                     initialization: ClassFieldInitialization::ClassBody(None),
                     read_only_reason: None,
-                    descriptor: None,
                     is_function_without_return_annotation: false,
                     is_abstract: false,
                     is_foreign_key: false,
@@ -447,7 +440,6 @@ impl ClassField {
                 annotation: None,
                 initialization: ClassFieldInitialization::recursive(),
                 read_only_reason: None,
-                descriptor: None,
                 is_function_without_return_annotation: false,
                 is_abstract: false,
                 is_foreign_key: false,
@@ -472,25 +464,18 @@ impl ClassField {
                 annotation,
                 initialization,
                 read_only_reason,
-                descriptor,
                 is_function_without_return_annotation,
                 is_abstract,
                 is_foreign_key,
             } => {
                 let mut ty = ty.clone();
                 f(&mut ty);
-                let descriptor = descriptor.as_ref().map(|x| {
-                    let mut x = x.clone();
-                    x.cls.visit_mut(f);
-                    x
-                });
                 Self(
                     ClassFieldInner::Simple {
                         ty,
                         annotation: annotation.clone(),
                         initialization: initialization.clone(),
                         read_only_reason: read_only_reason.clone(),
-                        descriptor,
                         is_function_without_return_annotation:
                             *is_function_without_return_annotation,
                         is_abstract: *is_abstract,
@@ -678,7 +663,6 @@ impl ClassField {
         matches!(
             &self.0,
             ClassFieldInner::Simple {
-                descriptor: None,
                 is_function_without_return_annotation: false,
                 ..
             }
@@ -852,10 +836,6 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple {
                 read_only_reason: Some(_),
-                ..
-            } => true,
-            ClassFieldInner::Simple {
-                descriptor: Some(Descriptor { setter: false, .. }),
                 ..
             } => true,
             ClassFieldInner::Simple { ty, .. } => {
@@ -1498,7 +1478,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     annotation,
                     initialization,
                     read_only_reason,
-                    None, // descriptor is None since we handled Some case above
                     is_function_without_return_annotation,
                     is_abstract,
                     is_foreign_key,
@@ -1989,14 +1968,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         instance: &Instance,
     ) -> ClassAttribute {
         match field.instantiate_for(instance).0 {
-            // TODO(stroxler): Clean up this match by making `ClassFieldInner` an
-            // enum; the match is messy
-            ClassFieldInner::Simple {
-                descriptor: Some(descriptor),
-                ..
-            } if let Some(base) = instance.to_descriptor_base() => {
-                ClassAttribute::descriptor(descriptor, base)
-            }
             ClassFieldInner::Simple {
                 mut ty,
                 read_only_reason,
@@ -2095,13 +2066,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         match field.0 {
             ClassFieldInner::Simple {
-                descriptor: Some(descriptor),
-                ..
-            } => ClassAttribute::descriptor(
-                descriptor,
-                DescriptorBase::ClassDef(cls.class_object().dupe()),
-            ),
-            ClassFieldInner::Simple {
                 initialization: ClassFieldInitialization::Method,
                 ..
             } => ClassAttribute::no_access(NoAccessReason::ClassUseOfInstanceAttribute(
@@ -2144,7 +2108,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Param {
         let (ty, descriptor) = match &field.0 {
-            ClassFieldInner::Simple { ty, descriptor, .. } => (ty, descriptor.as_ref()),
+            ClassFieldInner::Simple { ty, .. } => (ty, None),
             ClassFieldInner::Property { ty, .. } => (ty, None),
             ClassFieldInner::Descriptor { ty, descriptor, .. } => (ty, Some(descriptor)),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
@@ -3156,7 +3120,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ClassFieldInner::Simple {
                 ty,
                 read_only_reason: Some(_),
-                descriptor: None,
                 is_function_without_return_annotation: false,
                 ..
             } => Some(ty),
