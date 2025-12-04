@@ -199,6 +199,14 @@ pub struct BindingsBuilder<'a> {
     unused_variables: Vec<UnusedVariable>,
 }
 
+/// An enum tracking whether we are in a generator expression
+/// like `(x for x in xs)` - used to allow `await` inside of generators
+/// even when a function is not async, for example (await x for x in xs).
+///
+/// This is legal because the resulting AsyncGenerator does not actually
+/// await until iterated (which can only be done in an `async def`).
+///
+/// In any other comprehension, `await` requires us to be in an `async def`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AwaitContext {
     #[default]
