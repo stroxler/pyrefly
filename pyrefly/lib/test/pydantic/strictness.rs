@@ -140,7 +140,6 @@ m = Model1(status="1")
 );
 
 pydantic_testcase!(
-    bug = "Revealed type should be more informative and conversion table should be applied to containers",
     test_lax_mode_coercion_container,
     r#"
 from typing import List, reveal_type
@@ -150,6 +149,21 @@ from pydantic import BaseModel
 class Model(BaseModel):
     x: List[int] = [0, 1]
 
-reveal_type(Model.__init__) # E: revealed type: (self: Model, *, x: Any = ..., **Unknown) -> None
+reveal_type(Model.__init__) # E: revealed type: (self: Model, *, x: list[Decimal | bool | bytes | float | int | str] = ..., **Unknown) -> None
+    "#,
+);
+
+pydantic_testcase!(
+    test_lax_mode_coercion_union,
+    r#"
+from typing import List, reveal_type
+from decimal import Decimal
+
+from pydantic import BaseModel
+
+class Model(BaseModel):
+    y: int | bool
+
+reveal_type(Model.__init__)  # E: revealed type: (self: Model, *, y: Decimal | bool | bytes | float | int | str, **Unknown) -> None
     "#,
 );

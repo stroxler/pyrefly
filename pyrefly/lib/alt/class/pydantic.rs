@@ -23,6 +23,7 @@ use pyrefly_types::keywords::ConverterMap;
 use pyrefly_types::keywords::DataclassFieldKeywords;
 use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::Lit;
+use pyrefly_types::types::TArgs;
 use pyrefly_types::types::Union;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -468,17 +469,70 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn insert_lax_conversion(
-        &self,
-        table: &mut OrderedMap<Type, Type>,
-        field_ty: &Type,
-        accepted_class_types: &[&ClassType],
-    ) {
-        let accepted_types: Vec<Type> = accepted_class_types
+    fn types_to_union(&self, types: &[&ClassType]) -> Type {
+        let expanded_types: Vec<Type> = types.iter().map(|cls| (*cls).clone().to_type()).collect();
+        self.unions(expanded_types)
+    }
+
+    fn expand_types(&self, types: &[Type]) -> Vec<Type> {
+        types
             .iter()
-            .map(|cls| (*cls).clone().to_type())
-            .collect();
-        table.insert(field_ty.clone(), self.unions(accepted_types));
+            .map(|t| self.expand_type_for_lax_mode(t))
+            .collect()
+    }
+
+    fn get_atomic_lax_conversion(&self, ty: &Type) -> Option<Type> {
+        match ty {
+            Type::ClassType(cls) if cls == self.stdlib.bool() => Some(self.types_to_union(&[
+                self.stdlib.bool(),
+                self.stdlib.int(),
+                self.stdlib.float(),
+                self.stdlib.str(),
+                self.stdlib.decimal(),
+            ])),
+            Type::ClassType(cls) if cls == self.stdlib.int() => Some(self.types_to_union(&[
+                self.stdlib.int(),
+                self.stdlib.bool(),
+                self.stdlib.float(),
+                self.stdlib.str(),
+                self.stdlib.bytes(),
+                self.stdlib.decimal(),
+            ])),
+            Type::ClassType(cls) if cls == self.stdlib.float() => Some(self.types_to_union(&[
+                self.stdlib.float(),
+                self.stdlib.int(),
+                self.stdlib.bool(),
+                self.stdlib.str(),
+                self.stdlib.bytes(),
+                self.stdlib.decimal(),
+            ])),
+            _ => None,
+        }
+    }
+
+    fn expand_type_for_lax_mode(&self, ty: &Type) -> Type {
+        match ty {
+            // Container types: recursively expand all type arguments
+            Type::ClassType(cls) if !cls.targs().as_slice().is_empty() => {
+                let class_obj = cls.class_object();
+                let targs = cls.targs().as_slice();
+                let expanded_targs = self.expand_types(targs);
+
+                let tparams = self.get_class_tparams(class_obj);
+                Type::ClassType(ClassType::new(
+                    class_obj.dupe(),
+                    TArgs::new(tparams, expanded_targs),
+                ))
+            }
+            Type::Union(box Union { members, .. }) => {
+                let expanded_members = self.expand_types(members);
+                self.unions(expanded_members)
+            }
+            // Known atomic types with conversion tables, or Any for everything else
+            _ => self
+                .get_atomic_lax_conversion(ty)
+                .unwrap_or_else(Type::any_explicit),
+        }
     }
 
     pub fn build_pydantic_lax_conversion_table(&self, field_types: &[Type]) -> ConverterMap {
@@ -489,47 +543,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 continue;
             }
 
-            if let Type::ClassType(cls) = field_ty {
-                if cls == self.stdlib.bool() {
-                    self.insert_lax_conversion(
-                        &mut table,
-                        field_ty,
-                        &[
-                            self.stdlib.bool(),
-                            self.stdlib.int(),
-                            self.stdlib.float(),
-                            self.stdlib.str(),
-                            self.stdlib.decimal(),
-                        ],
-                    );
-                } else if cls == self.stdlib.int() {
-                    self.insert_lax_conversion(
-                        &mut table,
-                        field_ty,
-                        &[
-                            self.stdlib.int(),
-                            self.stdlib.bool(),
-                            self.stdlib.float(),
-                            self.stdlib.str(),
-                            self.stdlib.bytes(),
-                            self.stdlib.decimal(),
-                        ],
-                    );
-                } else if cls == self.stdlib.float() {
-                    self.insert_lax_conversion(
-                        &mut table,
-                        field_ty,
-                        &[
-                            self.stdlib.float(),
-                            self.stdlib.int(),
-                            self.stdlib.bool(),
-                            self.stdlib.str(),
-                            self.stdlib.bytes(),
-                            self.stdlib.decimal(),
-                        ],
-                    );
-                }
-            }
+            let expanded = self.expand_type_for_lax_mode(field_ty);
+            table.insert(field_ty.clone(), expanded);
         }
 
         ConverterMap::from_map(table)
