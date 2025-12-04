@@ -664,7 +664,7 @@ f1(**x)
 f2(**x)  # E: Argument `int` is not assignable to parameter `z` with type `str` in function `f2`
 f3(**x)  # E: Unexpected keyword argument `z`
 f4(**x)
-f5(**x)  # E: Expected key `z` to be required
+f5(**x)
 f6(**x)  # E: Argument `int` is not assignable to parameter `z` with type `str` in function `f6`
 f1(1, **x)  # E: Multiple values for argument `x`
     "#,
@@ -1963,5 +1963,31 @@ class D(TypedDict):
     x: int
     __init__ = any()  # E: TypedDict members must be declared in the form `field: Annotation` with no assignment
 D(x=5)
+"#,
+);
+
+testcase!(
+    test_notrequired_with_extra_items_as_kwargs,
+    r#"
+from typing import TypedDict, NotRequired
+
+class TD(TypedDict, extra_items=str):
+    field1: NotRequired[str]
+    field2: NotRequired[str]
+
+class TD2(TypedDict, extra_items=str):
+    field1: NotRequired[str]
+
+class TD3(TypedDict):
+    field1: NotRequired[str]
+    field2: NotRequired[str]
+
+def fun(field1: str, field2: str):
+    pass
+
+def test(x: TD, y: TD2, z: TD3):
+    fun(**x)
+    fun(**y)  # E: Missing argument `field2` in function `fun`
+    fun(**z)
 "#,
 );
