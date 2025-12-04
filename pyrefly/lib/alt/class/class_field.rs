@@ -331,6 +331,7 @@ impl Display for ClassField {
                 ty, initialization, ..
             } => write!(f, "{ty} ({initialization})"),
             ClassFieldInner::Property { ty, .. } => write!(f, "{ty} (property)"),
+            ClassFieldInner::Descriptor { ty, .. } => write!(f, "{ty} (descriptor)"),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -404,6 +405,10 @@ impl ClassField {
                 // Properties don't have annotations (defined by decorator)
                 Some((ty, None, self.is_read_only()))
             }
+            ClassFieldInner::Descriptor { ty, annotation, .. } => {
+                // Descriptors may have annotations
+                Some((ty, annotation.as_ref(), self.is_read_only()))
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -455,6 +460,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { initialization, .. } => initialization.clone(),
             ClassFieldInner::Property { .. } => ClassFieldInitialization::ClassBody(None),
+            ClassFieldInner::Descriptor { .. } => ClassFieldInitialization::ClassBody(None),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -500,6 +506,24 @@ impl ClassField {
                     ClassFieldInner::Property {
                         ty,
                         is_abstract: *is_abstract,
+                    },
+                    self.1.clone(),
+                )
+            }
+            ClassFieldInner::Descriptor {
+                ty,
+                annotation,
+                descriptor,
+            } => {
+                let mut ty = ty.clone();
+                f(&mut ty);
+                let mut descriptor = descriptor.clone();
+                descriptor.cls.visit_mut(f);
+                Self(
+                    ClassFieldInner::Descriptor {
+                        ty,
+                        annotation: annotation.clone(),
+                        descriptor,
                     },
                     self.1.clone(),
                 )
@@ -640,6 +664,7 @@ impl ClassField {
                 | ClassFieldInitialization::Uninitialized
                 | ClassFieldInitialization::Magic => None,
             },
+            ClassFieldInner::Descriptor { ty, .. } => Some(ty),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -664,6 +689,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.clone(),
             ClassFieldInner::Property { ty, .. } => ty.clone(),
+            ClassFieldInner::Descriptor { ty, .. } => ty.clone(),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -672,6 +698,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { is_abstract, .. } => *is_abstract,
             ClassFieldInner::Property { is_abstract, .. } => *is_abstract,
+            ClassFieldInner::Descriptor { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -680,6 +707,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_non_callable_protocol_method(),
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -688,6 +716,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { is_foreign_key, .. } => *is_foreign_key,
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -710,6 +739,7 @@ impl ClassField {
                 ..
             } => Required::Required,
             ClassFieldInner::Property { .. } => Required::Optional(None),
+            ClassFieldInner::Descriptor { .. } => Required::Optional(None),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -749,6 +779,7 @@ impl ClassField {
                 matches!(ty, Type::ClassType(cls) if cls.has_qname("dataclasses", "KW_ONLY"))
             }
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -759,6 +790,9 @@ impl ClassField {
                 annotation.as_ref().is_some_and(|ann| ann.is_class_var())
             }
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { annotation, .. } => {
+                annotation.as_ref().is_some_and(|ann| ann.is_class_var())
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -769,6 +803,11 @@ impl ClassField {
                 ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_))
             }),
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { annotation, .. } => {
+                annotation.as_ref().is_some_and(|ann| {
+                    ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_))
+                })
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -779,6 +818,9 @@ impl ClassField {
                 annotation.as_ref().is_some_and(|ann| ann.is_init_var())
             }
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { annotation, .. } => {
+                annotation.as_ref().is_some_and(|ann| ann.is_init_var())
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -789,6 +831,9 @@ impl ClassField {
                 annotation.as_ref().is_some_and(|ann| ann.is_final()) || ty.has_final_decoration()
             }
             ClassFieldInner::Property { ty, .. } => ty.has_final_decoration(),
+            ClassFieldInner::Descriptor { annotation, ty, .. } => {
+                annotation.as_ref().is_some_and(|ann| ann.is_final()) || ty.has_final_decoration()
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -797,6 +842,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { ty, .. } => ty.is_override(),
             ClassFieldInner::Property { ty, .. } => ty.is_override(),
+            ClassFieldInner::Descriptor { ty, .. } => ty.is_override(),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -816,6 +862,7 @@ impl ClassField {
                 ty.is_property_setter_with_getter().is_none() && ty.is_property_getter()
             }
             ClassFieldInner::Property { ty, .. } => ty.is_property_setter_with_getter().is_none(),
+            ClassFieldInner::Descriptor { descriptor, .. } => !descriptor.setter,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -824,6 +871,7 @@ impl ClassField {
         match &self.0 {
             ClassFieldInner::Simple { annotation, .. } => annotation.is_some(),
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { annotation, .. } => annotation.is_some(),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -835,6 +883,7 @@ impl ClassField {
                 ..
             } => *is_function_without_return_annotation,
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -853,6 +902,7 @@ impl ClassField {
                 | ClassFieldInitialization::Magic => DataclassFieldKeywords::new(),
             },
             ClassFieldInner::Property { .. } => DataclassFieldKeywords::new(),
+            ClassFieldInner::Descriptor { .. } => DataclassFieldKeywords::new(),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -863,6 +913,7 @@ impl ClassField {
                 matches!(initialization, ClassFieldInitialization::Method)
             }
             ClassFieldInner::Property { .. } => false,
+            ClassFieldInner::Descriptor { .. } => false,
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -1427,17 +1478,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Create the resulting field and check for override inconsistencies before returning
         let is_abstract = ty.is_abstract_method();
 
-        // Detect if this is a property and construct the appropriate variant
+        // Detect if this is a property or descriptor and construct the appropriate variant
         let class_field =
             if ty.is_property_getter() || ty.is_property_setter_with_getter().is_some() {
                 ClassField(ClassFieldInner::Property { ty, is_abstract }, is_inherited)
+            } else if let Some(descriptor) = descriptor {
+                // Descriptors are always initialized in class body (or wouldn't trigger descriptor protocol)
+                ClassField(
+                    ClassFieldInner::Descriptor {
+                        ty,
+                        annotation,
+                        descriptor,
+                    },
+                    is_inherited,
+                )
             } else {
                 ClassField::new(
                     ty,
                     annotation,
                     initialization,
                     read_only_reason,
-                    descriptor,
+                    None, // descriptor is None since we handled Some case above
                     is_function_without_return_annotation,
                     is_abstract,
                     is_foreign_key,
@@ -1672,6 +1733,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 Some(parent.targs().substitution().substitute_into(ty.clone()));
                         }
                         None
+                    }
+                    ClassField(ClassFieldInner::Descriptor { ty, annotation, .. }, ..) => {
+                        if found_field.is_none() {
+                            found_field =
+                                Some(parent.targs().substitution().substitute_into(ty.clone()));
+                        }
+                        annotation
+                            .clone()
+                            .map(|ann| ann.substitute_with(parent.targs().substitution()))
                     }
                     _ => unreachable!("new ClassFieldInner variants not yet constructed"),
                 }
@@ -2000,6 +2070,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             }
+            ClassFieldInner::Descriptor { descriptor, .. } => {
+                if let Some(base) = instance.to_descriptor_base() {
+                    ClassAttribute::descriptor(descriptor, base)
+                } else {
+                    // Unreachable because only TypedDicts can hit this, and we never
+                    // construct Descriptors for typed dicts.
+                    unreachable!("A descriptor attribute should always have a valid base")
+                }
+            }
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -2045,6 +2124,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // When accessing a property on a class (not instance), you get the property object itself
                 bind_class_attribute(cls, ty, None)
             }
+            ClassFieldInner::Descriptor { descriptor, .. } => ClassAttribute::descriptor(
+                descriptor,
+                DescriptorBase::ClassDef(cls.class_object().dupe()),
+            ),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         }
     }
@@ -2061,8 +2144,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Param {
         let (ty, descriptor) = match &field.0 {
-            ClassFieldInner::Simple { ty, descriptor, .. } => (ty, descriptor),
-            ClassFieldInner::Property { ty, .. } => (ty, &None),
+            ClassFieldInner::Simple { ty, descriptor, .. } => (ty, descriptor.as_ref()),
+            ClassFieldInner::Property { ty, .. } => (ty, None),
+            ClassFieldInner::Descriptor { ty, descriptor, .. } => (ty, Some(descriptor)),
             _ => unreachable!("new ClassFieldInner variants not yet constructed"),
         };
         let param_ty = if let Some(converter_param) = converter_param {
