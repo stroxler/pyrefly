@@ -481,7 +481,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
 
                 // If it's not a callable type, it's a data member
-                if !ty.is_function_type() {
+                if !ty.is_toplevel_callable() {
                     return true;
                 }
             }

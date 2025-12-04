@@ -231,13 +231,15 @@ fn on_class(
         if let Some((ty, _, read_only)) = field.for_variance_inference() {
             // TODO: We need a much better way to distinguish between fields and methods than this
             // currently, class field representation isn't good enough but we need to fix that soon
-            let variance =
-                if ty.is_function_type() || is_private_field(name) || read_only || field.is_final()
-                {
-                    Variance::Covariant
-                } else {
-                    Variance::Invariant
-                };
+            let variance = if ty.is_toplevel_callable()
+                || is_private_field(name)
+                || read_only
+                || field.is_final()
+            {
+                Variance::Covariant
+            } else {
+                Variance::Invariant
+            };
             on_type(variance, true, ty, on_edge, on_var);
         }
     }

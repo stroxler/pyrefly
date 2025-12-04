@@ -2729,7 +2729,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // is assignable to the intersection.
                         // Skip function types for this check for now.
                         if !info.read_only
-                            && !info.ty.is_function_type()
+                            && !info.ty.is_toplevel_callable()
                             && !self.is_subset_eq(&info.ty, &intersect)
                         {
                             self.error(

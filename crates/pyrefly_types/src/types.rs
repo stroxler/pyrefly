@@ -863,16 +863,6 @@ impl Type {
         Type::Never(NeverStyle::Never)
     }
 
-    pub fn is_function_type(&self) -> bool {
-        matches!(
-            self,
-            Type::Function { .. }
-                | Type::Overload { .. }
-                | Type::BoundMethod { .. }
-                | Type::Callable { .. }
-        )
-    }
-
     pub fn as_module(&self) -> Option<&ModuleType> {
         match self {
             Type::Module(m) => Some(m),
