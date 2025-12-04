@@ -2167,8 +2167,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         },
                     }))
                 }
-                // Methods bind to the instance (become bound methods)
-                bind_instance_attribute(instance, ty, false, None)
+                ClassAttribute::read_write(
+                    make_bound_method(instance.to_type(), ty).unwrap_or_else(|ty| {
+                        make_bound_classmethod(&instance.to_class_base(), ty).into_inner()
+                    }),
+                )
             }
             ClassFieldInner::NestedClass { ty, .. } => {
                 // Nested classes are always read-only (ClassObjectInitializedOnBody)
