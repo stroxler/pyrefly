@@ -696,3 +696,19 @@ for i in range(10):
     a = d.get('x', a)
     "#,
 );
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1565
+testcase!(
+    test_nested_while_int_assignment,
+    r#"
+def decode(s: str):
+    i = 0
+    while i < len(s):
+        j = i
+        while (
+            s[j] != ""
+        ):
+            j += 1
+        i = j + 1
+    "#,
+);
