@@ -1930,7 +1930,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         class: &Class,
         name: &Name,
         direct_annotation: Option<&Annotation>,
-        inferrred_from_method: bool,
+        inferred_from_method: bool,
         errors: &ErrorCollector,
     ) -> (Type, Option<Annotation>, IsInherited) {
         // If we have a direct annotation with a type, use it and skip analyzing the value
@@ -1962,14 +1962,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
         let inferred_ty = match value {
             ExprOrBinding::Expr(e) => {
-                if let Some(inherited_ty) = inherited_ty
-                    && inferrred_from_method
-                {
-                    // Inherit the previous type of the attribute if the only declaration-like
-                    // thing the current class does is assign to the attribute in a method.
-                    inherited_ty
-                } else {
-                    self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors)
+                match inherited_ty {
+                    Some(inherited_ty) if inferred_from_method => {
+                        // Inherit the previous type of the attribute if the only declaration-like
+                        // thing the current class does is assign to the attribute in a method.
+                        inherited_ty
+                    }
+                    Some(inherited_ty)
+                        if inherited_annotation.is_none() && direct_annotation.is_none() =>
+                    {
+                        // If there are no explicit annotations, use the inherited type as a contextual hint.
+                        let errors2 = self.error_collector();
+                        self.attribute_expr_infer(
+                            e,
+                            Some(&Annotation::new_type(inherited_ty.clone())),
+                            name,
+                            &errors2,
+                        );
+                        if errors2.is_empty() {
+                            // The new type is compatible with the inherited one; use the inherited type to
+                            // avoid spurious errors about changing the type of a read-write attribute.
+                            inherited_ty
+                        } else {
+                            // The hint was no good; infer the type without it.
+                            self.attribute_expr_infer(e, None, name, errors)
+                        }
+                    }
+                    _ => self.attribute_expr_infer(e, inherited_annotation.as_ref(), name, errors),
                 }
             }
             ExprOrBinding::Binding(b) => {

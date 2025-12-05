@@ -852,3 +852,59 @@ class B(A):
         return B()
     "#,
 );
+
+testcase!(
+    test_annotated_union,
+    r#"
+from typing import assert_type
+class A:
+    x: int | None = 0
+class B(A):
+    x = 1
+class C(A):
+    x = "oops"  # E: `Literal['oops']` is not assignable to attribute `x` with type `int | None`
+def f(b: B):
+    assert_type(b.x, int | None)
+    "#,
+);
+
+testcase!(
+    test_inferred_union,
+    r#"
+from typing import assert_type
+def f() -> int | None: ...
+class A:
+    x = f()
+class B(A):
+    x = 1
+def f(b: B):
+    assert_type(b.x, int | None)
+    "#,
+);
+
+testcase!(
+    test_violate_inherited_type,
+    r#"
+class A:
+    x = 1
+class B(A):
+    x = "oops"  # E: `B.x` has type `str`, which is not consistent with `int`
+    "#,
+);
+
+testcase!(
+    test_use_inherited_type_as_context,
+    r#"
+from typing import assert_type
+
+class A: ...
+class B(A): ...
+class C:
+    x = [A()]
+class D(C):
+    x = [B()]
+
+def f(d: D):
+    assert_type(d.x, list[A])
+    "#,
+);
