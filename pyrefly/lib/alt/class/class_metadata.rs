@@ -13,9 +13,12 @@ use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_types::annotation::Annotation;
+use pyrefly_types::quantified::QuantifiedKind;
+use pyrefly_types::type_var::Restriction;
 use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
+use pyrefly_types::types::Forallable;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
@@ -833,8 +836,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let base = self.base_class_expr_infer_for_metadata(value, errors);
                 self.attr_infer_for_type(&base, &attr.id, *range, errors, None)
             }
-            BaseClassExpr::Subscript { value, .. } => {
-                self.base_class_expr_infer_for_metadata(value, errors)
+            BaseClassExpr::Subscript { value, slice, .. } => {
+                let ty = self.base_class_expr_infer_for_metadata(value, errors);
+
+                // One niche special-case: the base expr has type `Forall T. type[T]`. This usually happens for snippets like this:
+                // ```
+                // T = TypeVar("T")
+                // Foo: TypeAlias = T  # or `Foo: TypeAlias = Annotated[T, ...]`
+                // class A(Foo[B]): ...
+                // ```
+                // In this case, we can be sure that `Foo[B]` would be the same as `B`, so we inspect the subscript.
+                // This does create a potential cycle (e.g. `class A(Foo["A"])`), but not supporting it ended up breaking some important use cases.
+                match &ty {
+                    Type::Forall(forall)
+                        if forall.tparams.len() == 1
+                            && let Forallable::TypeAlias(type_alias) = &forall.body
+                            && let Type::Type(box Type::Quantified(quantified)) =
+                                type_alias.as_type()
+                            && quantified.kind() == QuantifiedKind::TypeVar
+                            && matches!(quantified.restriction(), Restriction::Unrestricted)
+                            && let Some(tparam) = forall.tparams.as_vec().first()
+                            && *quantified == tparam.quantified
+                            && let Some(subscript_base_expr) = BaseClassExpr::from_expr(slice) =>
+                    {
+                        self.base_class_expr_infer_for_metadata(&subscript_base_expr, errors)
+                    }
+                    _ => ty,
+                }
             }
         }
     }
