@@ -14,6 +14,8 @@ use std::path::Path;
 #[cfg(unix)]
 use std::path::PathBuf;
 
+use lsp_types::DocumentDiagnosticReport;
+use lsp_types::DocumentDiagnosticReportResult;
 use lsp_types::Url;
 use lsp_types::notification::DidChangeWorkspaceFolders;
 use lsp_types::request::WorkspaceConfiguration;
@@ -972,13 +974,62 @@ fn test_initialization_options_without_workspace_folders() {
         })
         .expect("Failed to initialize");
 
-    // Open a file and immediately test that language services are disabled
-    // This proves that initialization_options were applied to the default workspace
     interaction.client.did_open("foo.py");
     interaction
         .client
         .definition("foo.py", 6, 16)
         .expect_response(json!([]))
+        .expect("Failed to receive expected response");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
+#[test]
+fn test_error_missing_imports_mode() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("error_missing_imports_mode");
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            configuration: Some(Some(
+                json!([{"pyrefly": {"displayTypeErrors": "error-missing-imports"}}]),
+            )),
+            ..Default::default()
+        })
+        .expect("Failed to initialize");
+
+    interaction.client.did_open("test_file.py");
+
+    interaction
+        .client
+        .diagnostic("test_file.py")
+        .expect_response_with(|response| {
+            if let DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
+                full_report,
+            )) = response
+            {
+                let items = &full_report.full_document_diagnostic_report.items;
+
+                let has_missing_import = items.iter().any(|item| {
+                    item.code.as_ref().and_then(|c| match c {
+                        lsp_types::NumberOrString::String(s) => Some(s.as_str()),
+                        _ => None,
+                    }) == Some("missing-import")
+                });
+
+                let has_bad_assignment = items.iter().any(|item| {
+                    item.code.as_ref().and_then(|c| match c {
+                        lsp_types::NumberOrString::String(s) => Some(s.as_str()),
+                        _ => None,
+                    }) == Some("bad-assignment")
+                });
+
+                has_missing_import && !has_bad_assignment
+            } else {
+                false
+            }
+        })
         .expect("Failed to receive expected response");
 
     interaction.shutdown().expect("Failed to shutdown");

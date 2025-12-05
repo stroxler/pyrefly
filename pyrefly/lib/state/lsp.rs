@@ -134,6 +134,8 @@ pub enum DisplayTypeErrors {
     Default,
     ForceOff,
     ForceOn,
+    /// Only show errors for missing imports and missing sources
+    ErrorMissingImports,
 }
 
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);

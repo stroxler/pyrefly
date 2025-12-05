@@ -90,12 +90,13 @@
                 },
                 "python.pyrefly.displayTypeErrors": {
                     "type": "string",
-                    "description": "If 'default', Pyrefly will only provide type check squiggles in the IDE if your file is covered by a Pyrefly configuration. If 'force-off', Pyrefly will never provide type check squiggles in the IDE. If 'force-on', Pyrefly will always provide type check squiggles in the IDE.",
+                    "description": "If 'default', Pyrefly will only provide type check squiggles in the IDE if your file is covered by a Pyrefly configuration. If 'force-off', Pyrefly will never provide type check squiggles in the IDE. If 'force-on', Pyrefly will always provide type check squiggles in the IDE. If 'error-missing-imports', Pyrefly will only show errors for missing imports and missing sources (missing-import, missing-source, and missing-source-for-stubs).",
                     "default": "default",
                     "enum": [
                         "default",
                         "force-on",
-                        "force-off"
+                        "force-off",
+                        "error-missing-imports"
                     ]
                 },
                 "pyrefly.trace.server": {

@@ -210,6 +210,7 @@ use crate::lsp::non_wasm::queue::HeavyTaskQueue;
 use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
 use crate::lsp::non_wasm::stdlib::is_python_stdlib_file;
+use crate::lsp::non_wasm::stdlib::should_show_error_for_display_mode;
 use crate::lsp::non_wasm::stdlib::should_show_stdlib_error;
 use crate::lsp::non_wasm::transaction_manager::TransactionManager;
 use crate::lsp::non_wasm::unsaved_file_tracker::UnsavedFileTracker;
@@ -1275,6 +1276,15 @@ impl Server {
                 return None;
             }
 
+            // Check if we should filter based on error kind for ErrorMissingImports mode
+            let display_type_errors_mode = self
+                .workspaces
+                .get_with(path.to_path_buf(), |(_, w)| w.display_type_errors);
+
+            if !should_show_error_for_display_mode(e, display_type_errors_mode) {
+                return None;
+            }
+
             if let Some(lsp_file) = open_files.get(&path)
                 && config.project_includes.covers(&path)
                 && !config.project_excludes.covers(&path)
@@ -1324,6 +1334,9 @@ impl Server {
             .get_with(path.to_path_buf(), |(_, w)| w.display_type_errors)
         {
             Some(DisplayTypeErrors::ForceOn) => TypeErrorDisplayStatus::EnabledInIdeConfig,
+            Some(DisplayTypeErrors::ErrorMissingImports) => {
+                TypeErrorDisplayStatus::EnabledInIdeConfig
+            }
             Some(DisplayTypeErrors::ForceOff) => TypeErrorDisplayStatus::DisabledInIdeConfig,
             Some(DisplayTypeErrors::Default) | None => match &config.source {
                 // In this case, we don't have a config file.

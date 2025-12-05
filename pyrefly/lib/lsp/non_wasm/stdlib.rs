@@ -8,9 +8,12 @@
 use std::path::Path;
 
 use pyrefly_config::config::ConfigFile;
+use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_util::arc_id::ArcId;
 
+use crate::error::error::Error;
 use crate::lsp::non_wasm::server::TypeErrorDisplayStatus;
+use crate::state::lsp::DisplayTypeErrors;
 
 /// Determines whether a file path belongs to the Python standard library.
 ///
@@ -47,6 +50,26 @@ pub fn should_show_stdlib_error(
         type_error_status,
         TypeErrorDisplayStatus::EnabledInIdeConfig
     ) || (config.project_includes.covers(path) && !config.project_excludes.covers(path))
+}
+
+/// Determines whether an error should be shown based on the display type errors mode.
+///
+/// When the display mode is set to `ErrorMissingImports`, only import-related errors
+/// (MissingImport, MissingSource, MissingSourceForStubs) are shown. For all other
+/// display modes, all errors are shown.
+pub fn should_show_error_for_display_mode(
+    error: &Error,
+    display_mode: Option<DisplayTypeErrors>,
+) -> bool {
+    if let Some(DisplayTypeErrors::ErrorMissingImports) = display_mode {
+        let error_kind = error.error_kind();
+        matches!(
+            error_kind,
+            ErrorKind::MissingImport | ErrorKind::MissingSource | ErrorKind::MissingSourceForStubs
+        )
+    } else {
+        true
+    }
 }
 
 #[cfg(test)]
