@@ -935,6 +935,10 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                     &want,
                 )
             }
+            (Type::Intersect(l), u) => any(l.0.iter(), |l| self.is_subset_eq(l, u)),
+            (Type::Union(box Union { members: ls, .. }), u) => {
+                all(ls.iter(), |l| self.is_subset_eq(l, u))
+            }
             (t1, Type::Quantified(q)) => match q.restriction() {
                 // This only works for constraints and not bounds, because a TypeVar must resolve to exactly one of its constraints.
                 Restriction::Constraints(constraints) => all(constraints.iter(), |constraint| {
@@ -942,13 +946,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }),
                 _ => Err(SubsetError::Other),
             },
-            (Type::Union(box Union { members: ls, .. }), u) => {
-                all(ls.iter(), |l| self.is_subset_eq(l, u))
-            }
             (l, Type::Intersect(u)) => all(u.0.iter(), |u| self.is_subset_eq(l, u)),
-            (l, Type::Overload(overload)) => all(overload.signatures.iter(), |u| {
-                self.is_subset_eq(l, &u.as_type())
-            }),
             (l, Type::Union(box Union { members: us, .. })) => {
                 // Check var and non-var elements separately, so that if we match a non-var, we
                 // don't pin the vars.
@@ -960,7 +958,9 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 any(nonvars.iter(), |u| self.is_subset_eq(l, u))
                     .or_else(|_| any(vars.iter(), |u| self.is_subset_eq(l, u)))
             }
-            (Type::Intersect(l), u) => any(l.0.iter(), |l| self.is_subset_eq(l, u)),
+            (l, Type::Overload(overload)) => all(overload.signatures.iter(), |u| {
+                self.is_subset_eq(l, &u.as_type())
+            }),
             (Type::Quantified(q), u) if !q.restriction().is_restricted() => {
                 self.is_subset_eq(&self.type_order.stdlib().object().clone().to_type(), u)
             }

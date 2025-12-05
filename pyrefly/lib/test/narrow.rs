@@ -2091,3 +2091,33 @@ def test_narrowing(x: RequiredDict | None, y: EmptyDict | None):
     assert_type(yval, int | None | EmptyDict)
 "#,
 );
+
+testcase!(
+    test_typevar_intersection,
+    r#"
+from collections.abc import Mapping, Sequence
+
+def identity_on_mapping[M: Mapping](m: M) -> M: return m
+
+def test_isinstance[T: Mapping[str, int] | Sequence[int]](arg: T) -> T:
+    if isinstance(arg, Mapping):
+        return identity_on_mapping(arg)
+    return arg
+    "#,
+);
+
+testcase!(
+    test_match_intersection_against_constrained_typevar,
+    r#"
+class A: ...
+class B: ...
+class C: ...
+
+def f[T: (A, B)](x: T) -> T:
+    return x
+
+def g(x: C):
+    if isinstance(x, A):
+        f(x)
+    "#,
+);
