@@ -91,6 +91,16 @@ pub fn debug_log(errors: Vec<ConfigError>) {
     }
 }
 
+/// Function to run before checking cached state.
+type BeforeCallback =
+    Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<ArcId<ConfigFile>>> + Send + Sync>;
+
+/// Function to load a config file from disk.
+type LoadCallback = Box<dyn Fn(&Path) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync>;
+
+/// Fallback function when no config file exists or loading fails.
+type FallbackCallback = Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>;
+
 /// A way to find a config file given a directory or Python file.
 /// Uses a lot of caching.
 pub struct ConfigFinder {
@@ -98,23 +108,19 @@ pub struct ConfigFinder {
     search: UpwardSearch<ArcId<ConfigFile>>,
     /// The errors that have occurred when loading.
     errors: Arc<Mutex<Vec<ConfigError>>>,
-
-    /// Function to run before checking the state. If this returns a value, it is _not_ cached.
+    /// If this returns a value, it is _not_ cached.
     /// If this returns anything other than `Ok`, the rest of the functions are used.
-    before: Box<
-        dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<ArcId<ConfigFile>>> + Send + Sync,
-    >,
+    before: BeforeCallback,
     /// If there is no config file, or loading it fails, use this fallback.
-    fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>,
-
+    fallback: FallbackCallback,
     clear_extra_caches: Box<dyn Fn() + Send + Sync>,
 }
 
 impl ConfigFinder {
     /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
     pub fn new(
-        load: Box<dyn Fn(&Path) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync>,
-        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>,
+        load: LoadCallback,
+        fallback: FallbackCallback,
         clear_extra_caches: Box<dyn Fn() + Send + Sync>,
     ) -> Self {
         Self::new_custom(
@@ -143,13 +149,9 @@ impl ConfigFinder {
     /// If the `before` function fails to produce a config, then the other methods will be used.
     /// The `before` function is not cached in any way.
     pub fn new_custom(
-        before: Box<
-            dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<ArcId<ConfigFile>>>
-                + Send
-                + Sync,
-        >,
-        load: Box<dyn Fn(&Path) -> (ArcId<ConfigFile>, Vec<ConfigError>) + Send + Sync>,
-        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> ArcId<ConfigFile> + Send + Sync>,
+        before: BeforeCallback,
+        load: LoadCallback,
+        fallback: FallbackCallback,
         clear_extra_caches: Box<dyn Fn() + Send + Sync>,
     ) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
