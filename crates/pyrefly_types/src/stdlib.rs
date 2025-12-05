@@ -32,6 +32,7 @@ pub struct Stdlib {
     bool: StdlibResult<ClassType>,
     int: StdlibResult<ClassType>,
     bytes: StdlibResult<ClassType>,
+    bytearray: StdlibResult<ClassType>,
     float: StdlibResult<ClassType>,
     complex: StdlibResult<ClassType>,
     decimal: StdlibResult<ClassType>,
@@ -155,6 +156,7 @@ impl Stdlib {
             bool: lookup_concrete(builtins, "bool"),
             int: lookup_concrete(builtins, "int"),
             bytes: lookup_concrete(builtins, "bytes"),
+            bytearray: lookup_concrete(builtins, "bytearray"),
             float: lookup_concrete(builtins, "float"),
             complex: lookup_concrete(builtins, "complex"),
             decimal: lookup_concrete(ModuleName::from_str("decimal"), "Decimal"),
@@ -298,6 +300,10 @@ impl Stdlib {
 
     pub fn bytes(&self) -> &ClassType {
         Self::primitive(&self.bytes)
+    }
+
+    pub fn bytearray(&self) -> &ClassType {
+        Self::primitive(&self.bytearray)
     }
 
     pub fn str(&self) -> &ClassType {

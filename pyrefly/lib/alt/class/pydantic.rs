@@ -506,6 +506,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.stdlib.bytes(),
                 self.stdlib.decimal(),
             ])),
+            Type::ClassType(cls) if cls == self.stdlib.bytes() => Some(self.types_to_union(&[
+                self.stdlib.bytes(),
+                self.stdlib.bytearray(),
+                self.stdlib.str(),
+            ])),
             _ => None,
         }
     }

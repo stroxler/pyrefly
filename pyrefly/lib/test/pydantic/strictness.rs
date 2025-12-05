@@ -122,6 +122,12 @@ Model(x=1.0)
 Model(x='123')
 Model(x=b'123')
 Model(x=Decimal('123'))
+
+
+class Model2(BaseModel):
+    x: bytes
+
+reveal_type(Model2.__init__)  # E: revealed type: (self: Model2, *, x: bytearray | bytes | str, **Unknown) -> None
     "#,
 );
 
