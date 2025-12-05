@@ -139,6 +139,11 @@ class Model4(BaseModel):
     d: date
 
 reveal_type(Model4.__init__)  # E: revealed type: (self: Model4, *, d: Decimal | bytes | date | datetime | float | int | str, **Unknown) -> None
+
+class Model5(BaseModel):
+    dt: datetime
+
+reveal_type(Model5.__init__)  # E: revealed type: (self: Model5, *, dt: Decimal | bytes | date | datetime | float | int | str, **Unknown) -> None
     "#,
 );
 
