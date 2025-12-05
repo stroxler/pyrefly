@@ -119,10 +119,10 @@ class B: ...
 class C[T]: ...
 class D[T = A]: ...
 def f[E](e: type[E]) -> E: ...
-assert_type(f(A), A) 
-assert_type(f(B), B) 
-assert_type(f(C), C[Any]) 
-assert_type(f(D), D) 
+assert_type(f(A), A)
+assert_type(f(B), B)
+assert_type(f(C), C[Any])
+assert_type(f(D), D)
 "#,
 );
 
@@ -180,7 +180,7 @@ class A[*Ts, T = int]:  # E: TypeVar `T` with a default cannot follow TypeVarTup
     pass
 class B[*Ts, T1, T2 = T1]:  # E: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
     pass
-assert_type(B[int](), B[*tuple[()], int, int]) 
+assert_type(B[int](), B[*tuple[()], int, int])
 assert_type(B[int, str](), B[*tuple[()], int, str])
 assert_type(B[int, str, float, bool, bytes](), B[int, str, float, bool, bytes])
 # It doesn't matter too much how we fill in the type arguments when they aren't
@@ -198,9 +198,9 @@ class A[*Ts, **P1, **P2 = P1]:
     pass
 class B[*Ts, T, **P = [int, str]]:
     pass
-assert_type(A[[int, str]](), A[*tuple[()], [int, str], [int, str]]) 
+assert_type(A[[int, str]](), A[*tuple[()], [int, str], [int, str]])
 assert_type(A[bool, [int, str]](),  A[bool, [int, str], [int, str]])
-assert_type(A[bool, bytes, [int, str]](), A[bool, bytes, [int, str], [int, str]]) 
+assert_type(A[bool, bytes, [int, str]](), A[bool, bytes, [int, str], [int, str]])
 assert_type(B[int, str, float](), B[int, str, float, [int, str]])
     "#,
 );
@@ -493,6 +493,19 @@ def f[T](iterator: Iterator[T]) -> T:
         for i in iterator:
             res = i
     return res
+    "#,
+);
+
+testcase!(
+    test_bounded_type_var_subscriptable,
+    r#"
+from collections.abc import Sequence
+
+def test[S: Sequence[int]](sequence: S) -> int:
+    return sequence[0]
+
+def test2[S](not_a_sequence: S) -> int:
+    return not_a_sequence[0]  # E: `S` is not subscriptable
     "#,
 );
 

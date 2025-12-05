@@ -2176,6 +2176,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                     Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
                 ),
+                Type::Quantified(ref q) if q.is_type_var() && q.restriction().is_restricted() => {
+                    self.call_method_or_error(
+                        &base,
+                        &dunder::GETITEM,
+                        range,
+                        &[CallArg::expr(slice)],
+                        &[],
+                        errors,
+                        Some(&|| ErrorContext::Index(self.for_display(base.clone()))),
+                    )
+                }
                 Type::TypedDict(typed_dict) => {
                     let key_ty = self.expr_infer(slice, errors);
                     self.distribute_over_union(&key_ty, |ty| match ty {
