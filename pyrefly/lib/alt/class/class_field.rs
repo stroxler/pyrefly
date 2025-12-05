@@ -33,6 +33,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::helpers::is_dunder;
 use ruff_python_ast::name::Name;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -1735,7 +1736,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.expr(x, hint, errors)
             }
             // We interpret `self.foo = None` to mean the type of foo is None or some unknown type.
-            (None, Expr::NoneLiteral(_)) => self.union(Type::None, Type::any_implicit()),
+            (None, Expr::NoneLiteral(_)) => {
+                self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::ImplicitAny), "This expression is implicitly inferred to be `Any | None`. Please provide an explicit type annotation.".to_owned());
+                self.union(Type::None, Type::any_implicit())
+            }
             (None, _) => self.expr_infer(x, errors),
         };
         self.expand_vars_mut(&mut ty);

@@ -92,3 +92,14 @@ x1 = []
 x2 = {}
 "#,
 );
+
+testcase!(
+    test_warn_on_implicit_any_in_attribute,
+    TestEnv::new().enable_implicit_any_error(),
+    r#"
+from typing import Any
+class A:
+    def __init__(self):
+        self.x = None  # E: implicitly inferred to be `Any | None`
+    "#,
+);
