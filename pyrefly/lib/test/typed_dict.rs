@@ -2067,6 +2067,17 @@ x: str = foo()["a"]
 );
 
 testcase!(
+    test_typed_dict_none_var_pinning,
+    r#"
+from typing import assert_type
+x = { "foo": None }
+x["foo"] = 1
+# currently extra_items does not use the var, but we could
+assert_type(x["bar"], None)
+"#,
+);
+
+testcase!(
     test_typed_dict_constructor_with_dict_literal,
     r#"
 from typing import TypedDict, NotRequired

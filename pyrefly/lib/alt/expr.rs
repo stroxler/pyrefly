@@ -952,7 +952,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             typed_dict_fields.push((
                                 key_name,
                                 TypedDictField {
-                                    ty: value_t.clone(),
+                                    ty: if value_t == Type::None {
+                                        Type::union(vec![
+                                            Type::None,
+                                            self.solver()
+                                                .fresh_partial_contained(self.uniques)
+                                                .to_type(),
+                                        ])
+                                    } else {
+                                        value_t.clone()
+                                    },
                                     required: false,
                                     read_only_reason: None,
                                 },
