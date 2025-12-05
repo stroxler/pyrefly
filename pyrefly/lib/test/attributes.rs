@@ -1913,3 +1913,21 @@ class Bar(Foo):
     assert_type(attr, int)
     "#,
 );
+
+testcase!(
+    test_set_attr_to_none,
+    r#"
+from typing import Any, assert_type
+class A:
+    def __init__(self):
+        self.x = None
+        self.y: None = None
+    def set_x(self, x: int):
+        self.x = x
+    def set_y(self, y: int):
+        self.y = y  # E: `int` is not assignable to attribute `y` with type `None`
+def f(a: A):
+    assert_type(a.x, Any | None)
+    assert_type(a.y, None)
+    "#,
+);

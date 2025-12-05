@@ -727,7 +727,7 @@ class B(A):
 testcase!(
     test_unannotated_none_attribute_override,
     r#"
-from typing import assert_type
+from typing import Any, assert_type
 
 class Foo:
     x = None
@@ -735,10 +735,10 @@ class Foo:
 class Bar(Foo):
     x = 1
 
-assert_type(Bar.x, int)
-assert_type(Foo.x, None)
+assert_type(Bar.x, Any | None)
+assert_type(Foo.x, Any | None)
 def test(x: type[Foo]):
-    assert_type(x.x, None)
+    assert_type(x.x, Any | None)
     "#,
 );
 

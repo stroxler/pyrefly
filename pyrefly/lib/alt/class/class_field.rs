@@ -1727,14 +1727,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         errors: &ErrorCollector,
     ) -> Type {
-        let mut ty = match annotation {
-            Some(annotation) => {
+        let mut ty = match (annotation, x) {
+            (Some(annotation), _) => {
                 let ctx: &dyn Fn() -> TypeCheckContext =
                     &|| TypeCheckContext::of_kind(TypeCheckKind::Attribute(name.clone()));
                 let hint = Some((annotation.get_type(), ctx));
                 self.expr(x, hint, errors)
             }
-            None => self.expr_infer(x, errors),
+            // We interpret `self.foo = None` to mean the type of foo is None or some unknown type.
+            (None, Expr::NoneLiteral(_)) => self.union(Type::None, Type::any_implicit()),
+            (None, _) => self.expr_infer(x, errors),
         };
         self.expand_vars_mut(&mut ty);
         ty
