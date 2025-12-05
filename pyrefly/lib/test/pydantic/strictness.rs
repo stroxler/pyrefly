@@ -107,7 +107,7 @@ pydantic_testcase!(
     test_lax_mode_coercion,
     r#"
 from pydantic import BaseModel
-from typing import reveal_type
+from typing import Callable, reveal_type
 from decimal import Decimal
 
 class Model(BaseModel):
@@ -128,6 +128,11 @@ class Model2(BaseModel):
     x: bytes
 
 reveal_type(Model2.__init__)  # E: revealed type: (self: Model2, *, x: bytearray | bytes | str, **Unknown) -> None
+
+class Model3(BaseModel):
+    func: Callable[[int], str]
+
+reveal_type(Model3.__init__)  # E: revealed type: (self: Model3, *, func: Any, **Unknown) -> None
     "#,
 );
 
