@@ -17,6 +17,10 @@ where
     let mut best: Option<(Name, usize, usize)> = None;
     for (candidate, priority) in candidates {
         let candidate_str = candidate.as_str();
+        // Skip single-letter candidates to reduce noise
+        if candidate_str.len() == 1 {
+            continue;
+        }
         let distance = levenshtein(missing_str, candidate_str);
         let max_distance = match missing_str.len().max(candidate_str.len()) {
             0..=4 => 1,

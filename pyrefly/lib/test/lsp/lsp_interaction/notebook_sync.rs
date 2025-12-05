@@ -380,7 +380,7 @@ fn test_notebook_did_change_delete_cell() {
                 "codeDescription": {
                     "href": "https://pyrefly.org/en/docs/error-kinds/#unknown-name"
                 },
-                "message": "Could not find name `y`\n  Did you mean `x`?",
+                "message": "Could not find name `y`",
                 "range": {
                     "start": {"line": 0, "character": 4},
                     "end": {"line": 0, "character": 5}

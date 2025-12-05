@@ -57,8 +57,17 @@ testcase!(
     test_unknown_name_suggests_in_class_body,
     r#"
 class Foo:
-    x = 42
-    y = xx + 42  # E: Did you mean `x`?
+    abc = 42
+    y = ab + 42  # E: Did you mean `abc`?
+"#,
+);
+
+testcase!(
+    test_unknown_name_no_suggest_single_letter_names,
+    r#"
+a = 1
+b = 2
+aa  # E: Could not find name `aa`
 "#,
 );
 
