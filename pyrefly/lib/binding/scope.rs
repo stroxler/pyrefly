@@ -1953,17 +1953,42 @@ impl Scopes {
         }
     }
 
-    pub fn suggest_similar_name(&self, missing: &Name, position: TextSize) -> Option<Name> {
-        let mut candidates: Vec<(&Name, usize)> = Vec::new();
+    /// Helper for iterating over scopes in a way that respects class body visibility rules.
+    fn visit_scopes<'a, T>(
+        &'a self,
+        mut visitor: impl FnMut(usize, &'a Scope, FlowBarrier) -> Option<T>,
+    ) -> Option<T> {
         let mut flow_barrier = FlowBarrier::AllowFlowChecked;
         let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
+            // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
+            //   The scope of names defined in a class block is limited to the
+            //   class block; it does not extend to the code blocks of
+            //   methods. This includes comprehensions and generator
+            //   expressions, but it does not include annotation scopes, which
+            //   have access to their enclosing class scopes.
             if is_class
                 && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
             {
+                // Note: class body scopes have `flow_barrier = AllowFlowChecked`, so skipping the flow_barrier update is okay.
                 continue;
             }
+
+            if let Some(result) = visitor(lookup_depth, scope, flow_barrier) {
+                return Some(result);
+            }
+
+            flow_barrier = max(flow_barrier, scope.flow_barrier);
+        }
+        None
+    }
+
+    pub fn suggest_similar_name(&self, missing: &Name, position: TextSize) -> Option<Name> {
+        let mut candidates: Vec<(&Name, usize)> = Vec::new();
+
+        self.visit_scopes(|lookup_depth, scope, flow_barrier| {
+            let is_class = matches!(scope.kind, ScopeKind::Class(_));
 
             if flow_barrier < FlowBarrier::BlockFlow {
                 for candidate in scope.flow.info.keys() {
@@ -1983,9 +2008,8 @@ impl Scopes {
                     }
                 }
             }
-
-            flow_barrier = max(flow_barrier, scope.flow_barrier);
-        }
+            None::<()>
+        });
 
         best_suggestion(missing, candidates)
     }
@@ -1993,22 +2017,8 @@ impl Scopes {
     /// Look up the information needed to create a `Usage` binding for a read of a name
     /// in the current scope stack.
     pub fn look_up_name_for_read(&self, name: Hashed<&Name>) -> NameReadInfo {
-        let mut flow_barrier = FlowBarrier::AllowFlowChecked;
-        let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
-        for (lookup_depth, scope) in self.iter_rev().enumerate() {
+        self.visit_scopes(|_, scope, flow_barrier| {
             let is_class = matches!(scope.kind, ScopeKind::Class(_));
-            // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
-            //   The scope of names defined in a class block is limited to the
-            //   class block; it does not extend to the code blocks of
-            //   methods. This includes comprehensions and generator
-            //   expressions, but it does not include annotation scopes, which
-            //   have access to their enclosing class scopes.
-            if is_class
-                && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
-            {
-                // Note: class body scopes have `flow_barrier = AllowFlowChecked`, so skipping the flow_barrier update is okay.
-                continue;
-            }
 
             if let Some(flow_info) = scope.flow.get_info_hashed(name)
                 && flow_barrier < FlowBarrier::BlockFlow
@@ -2022,12 +2032,12 @@ impl Scopes {
                 // Because class body scopes are dynamic, if we know that the the name is
                 // definitely not initialized in the flow, we should skip it.
                 if is_class && matches!(initialized, InitializedInFlow::No) {
-                    continue;
+                    return None;
                 }
-                return NameReadInfo::Flow {
+                return Some(NameReadInfo::Flow {
                     idx: flow_info.idx(),
                     initialized,
-                };
+                });
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
             // current flow we keep looking. In every other kind of scope, anything the Python
@@ -2035,7 +2045,7 @@ impl Scopes {
             // inner static lookups to outer flow lookups.
             if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
                 let forward_ref_key = static_info.as_key(name.into_key());
-                return NameReadInfo::Anywhere {
+                return Some(NameReadInfo::Anywhere {
                     key: forward_ref_key,
                     // If we look up static info from the a non-barrier scope because we didn't find
                     // flow, it is not initialized. PossibleLegacyTParam scope entries are an
@@ -2049,11 +2059,11 @@ impl Scopes {
                     } else {
                         InitializedInFlow::No
                     },
-                };
+                });
             }
-            flow_barrier = max(flow_barrier, scope.flow_barrier);
-        }
-        NameReadInfo::NotFound
+            None
+        })
+        .unwrap_or(NameReadInfo::NotFound)
     }
 
     /// Look up a name for a mutable capture during initialization of static scope.
