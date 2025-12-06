@@ -19,6 +19,7 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_util::suggest::best_suggestion;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -73,7 +74,6 @@ use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
-use crate::suggest::best_suggestion;
 use crate::types::class::ClassDefIndex;
 use crate::types::type_info::JoinStyle;
 

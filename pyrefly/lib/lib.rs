@@ -42,7 +42,6 @@ pub mod query;
 mod report;
 mod solver;
 mod state;
-mod suggest;
 mod test;
 #[cfg(not(target_arch = "wasm32"))]
 mod tsp;
