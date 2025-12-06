@@ -474,6 +474,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.unions(expanded_types)
     }
 
+    fn class_types_to_union(&self, types: Vec<ClassType>) -> Type {
+        self.unions(types.into_iter().map(|c| c.to_type()).collect())
+    }
+
     fn expand_types(&self, types: &[Type]) -> Vec<Type> {
         types
             .iter()
@@ -543,18 +547,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         class_obj: &Class,
         expanded_targs: &[Type],
     ) -> Option<Type> {
-        // deque accepts: deque, frozenset, list, set, tuple
         if class_obj.has_toplevel_qname(ModuleName::collections().as_str(), "deque") {
             let elem_ty = expanded_targs
                 .first()
                 .cloned()
                 .unwrap_or_else(Type::any_implicit);
-            return Some(self.unions(vec![
-                self.stdlib.deque(elem_ty.clone()).to_type(),
-                self.stdlib.frozenset(elem_ty.clone()).to_type(),
-                self.stdlib.list(elem_ty.clone()).to_type(),
-                self.stdlib.set(elem_ty.clone()).to_type(),
-                self.stdlib.tuple(elem_ty).to_type(),
+            return Some(self.class_types_to_union(vec![
+                self.stdlib.deque(elem_ty.clone()),
+                self.stdlib.frozenset(elem_ty.clone()),
+                self.stdlib.list(elem_ty.clone()),
+                self.stdlib.set(elem_ty.clone()),
+                self.stdlib.tuple(elem_ty),
+            ]));
+        }
+        if class_obj == self.stdlib.dict_object() {
+            let key_ty = expanded_targs
+                .first()
+                .cloned()
+                .unwrap_or_else(Type::any_implicit);
+            let val_ty = expanded_targs
+                .get(1)
+                .cloned()
+                .unwrap_or_else(Type::any_implicit);
+            return Some(self.class_types_to_union(vec![
+                self.stdlib.dict(key_ty.clone(), val_ty.clone()),
+                self.stdlib.mapping(key_ty, val_ty),
             ]));
         }
         None
