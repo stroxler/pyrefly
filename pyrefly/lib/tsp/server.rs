@@ -10,7 +10,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use dupe::Dupe;
 use lsp_server::Connection;
 use lsp_server::Request;
 use lsp_server::RequestId;
@@ -142,20 +141,16 @@ pub fn tsp_loop(
     lsp_queue: LspQueue,
 ) -> anyhow::Result<()> {
     eprintln!("Reading TSP messages");
-    let connection_for_dispatcher = connection.dupe();
-
     let server = TspServer::new(lsp_server);
 
     std::thread::scope(|scope| {
         // Start the recheck queue thread to process async tasks
-        let recheck_queue = server.inner.recheck_queue().dupe();
-        scope.spawn(move || {
-            recheck_queue.run_until_stopped();
+        scope.spawn(|| {
+            server.inner.recheck_queue().run_until_stopped();
         });
 
-        let lsp_queue2 = lsp_queue.dupe();
-        scope.spawn(move || {
-            dispatch_lsp_events(&connection_for_dispatcher, lsp_queue2);
+        scope.spawn(|| {
+            dispatch_lsp_events(&connection, &lsp_queue);
         });
 
         let mut ide_transaction_manager = TransactionManager::default();

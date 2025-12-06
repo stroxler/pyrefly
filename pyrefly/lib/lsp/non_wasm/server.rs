@@ -264,7 +264,7 @@ impl TypeErrorDisplayStatus {
 }
 
 /// Interface exposed for TSP to interact with the LSP server
-pub trait TspInterface {
+pub trait TspInterface: Send + Sync {
     /// Send a response back to the LSP client
     fn send_response(&self, response: Response);
 
@@ -369,7 +369,7 @@ pub struct Server {
 /// - priority_events includes those that should be handled as soon as possible (e.g. know that a
 ///   request is cancelled)
 /// - queued_events includes most of the other events.
-pub fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
+pub fn dispatch_lsp_events(connection: &Connection, lsp_queue: &LspQueue) {
     for msg in &connection.receiver {
         match msg {
             Message::Request(x) => {
@@ -561,31 +561,26 @@ pub fn lsp_loop(
     workspace_indexing_limit: usize,
 ) -> anyhow::Result<()> {
     info!("Reading messages");
-    let connection_for_dispatcher = connection.dupe();
     let lsp_queue = LspQueue::new();
     let server = Server::new(
-        connection,
+        connection.dupe(),
         lsp_queue.dupe(),
         initialization_params,
         indexing_mode,
         workspace_indexing_limit,
     );
     std::thread::scope(|scope| {
-        let lsp_queue2 = lsp_queue.dupe();
-        scope.spawn(move || {
-            dispatch_lsp_events(&connection_for_dispatcher, lsp_queue2);
+        scope.spawn(|| {
+            dispatch_lsp_events(&connection, &lsp_queue);
         });
-        let recheck_queue = server.recheck_queue.dupe();
-        scope.spawn(move || {
-            recheck_queue.run_until_stopped();
+        scope.spawn(|| {
+            server.recheck_queue.run_until_stopped();
         });
-        let find_reference_queue = server.find_reference_queue.dupe();
-        scope.spawn(move || {
-            find_reference_queue.run_until_stopped();
+        scope.spawn(|| {
+            server.find_reference_queue.run_until_stopped();
         });
-        let sourcedb_queue = server.sourcedb_queue.dupe();
-        scope.spawn(move || {
-            sourcedb_queue.run_until_stopped();
+        scope.spawn(|| {
+            server.sourcedb_queue.run_until_stopped();
         });
         let mut ide_transaction_manager = TransactionManager::default();
         let mut canceled_requests = HashSet::new();
@@ -617,9 +612,9 @@ pub fn lsp_loop(
         server.recheck_queue.stop();
         server.find_reference_queue.stop();
         server.sourcedb_queue.stop();
-        drop(server); // close connection
-        Ok(())
-    })
+    });
+    drop(server); // close connection
+    Ok(())
 }
 
 impl Server {
