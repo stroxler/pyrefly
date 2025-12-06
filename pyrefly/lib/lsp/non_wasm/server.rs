@@ -427,7 +427,8 @@ pub fn dispatch_lsp_events(connection: &Connection, lsp_queue: LspQueue) {
                     };
                     lsp_queue.send(LspEvent::CancelRequest(id))
                 } else if as_notification::<Exit>(&x).is_some() {
-                    lsp_queue.send(LspEvent::Exit)
+                    // Send LspEvent::Exit and stop listening
+                    break;
                 } else {
                     info!("Unhandled notification: {x:?}");
                     Ok(())
