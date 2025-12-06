@@ -332,7 +332,7 @@ pub struct Server {
     lsp_queue: Arc<LspQueue>,
     recheck_queue: HeavyTaskQueue,
     find_reference_queue: HeavyTaskQueue,
-    sourcedb_queue: HeavyTaskQueue,
+    sourcedb_queue: Arc<HeavyTaskQueue>,
     /// Any configs whose find cache should be invalidated.
     invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
     initialize_params: InitializeParams,
@@ -1176,7 +1176,7 @@ impl Server {
             lsp_queue: Arc::new(lsp_queue),
             recheck_queue: HeavyTaskQueue::new("recheck_queue"),
             find_reference_queue: HeavyTaskQueue::new("find_reference_queue"),
-            sourcedb_queue: HeavyTaskQueue::new("sourcedb_queue"),
+            sourcedb_queue: Arc::new(HeavyTaskQueue::new("sourcedb_queue")),
             invalidated_configs: Arc::new(Mutex::new(SmallSet::new())),
             initialize_params,
             indexing_mode,
@@ -1486,7 +1486,7 @@ impl Server {
         queue_source_db_rebuild_and_recheck(
             self.state.dupe(),
             self.invalidated_configs.dupe(),
-            self.sourcedb_queue.dupe(),
+            &self.sourcedb_queue,
             self.lsp_queue.dupe(),
             self.open_files.dupe(),
         );
@@ -1949,7 +1949,7 @@ impl Server {
             queue_source_db_rebuild_and_recheck(
                 self.state.dupe(),
                 self.invalidated_configs.dupe(),
-                self.sourcedb_queue.dupe(),
+                &self.sourcedb_queue,
                 self.lsp_queue.dupe(),
                 self.open_files.dupe(),
             );
@@ -1993,7 +1993,7 @@ impl Server {
             queue_source_db_rebuild_and_recheck(
                 state.dupe(),
                 invalidated_configs,
-                sourcedb_queue,
+                &sourcedb_queue,
                 lsp_queue,
                 open_files.dupe(),
             );

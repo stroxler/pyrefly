@@ -57,7 +57,7 @@ pub fn should_requery_build_system(events: &CategorizedEvents) -> bool {
 pub fn queue_source_db_rebuild_and_recheck(
     state: Arc<State>,
     invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
-    sourcedb_queue: HeavyTaskQueue,
+    sourcedb_queue: &HeavyTaskQueue,
     lsp_queue: Arc<LspQueue>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<LspFile>>>>,
 ) {

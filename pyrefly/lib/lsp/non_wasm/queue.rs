@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
@@ -15,7 +14,6 @@ use crossbeam_channel::RecvError;
 use crossbeam_channel::Select;
 use crossbeam_channel::SendError;
 use crossbeam_channel::Sender;
-use dupe::Dupe;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
@@ -194,7 +192,8 @@ impl LspQueue {
 
 pub struct HeavyTask(Box<dyn FnOnce() + Send + Sync + 'static>, Instant);
 
-struct HeavyTaskQueueInner {
+/// A queue for heavy tasks that should be run in the background thread.
+pub struct HeavyTaskQueue {
     task_sender: Sender<HeavyTask>,
     task_receiver: Receiver<HeavyTask>,
     stop_sender: Sender<()>,
@@ -202,58 +201,53 @@ struct HeavyTaskQueueInner {
     queue_name: String,
 }
 
-/// A queue for heavy tasks that should be run in the background thread.
-#[derive(Clone, Dupe)]
-pub struct HeavyTaskQueue(Arc<HeavyTaskQueueInner>);
-
 impl HeavyTaskQueue {
     pub fn new(queue_name: &str) -> Self {
         let queue_name = queue_name.to_owned();
         let (task_sender, task_receiver) = crossbeam_channel::unbounded();
         let (stop_sender, stop_receiver) = crossbeam_channel::unbounded();
-        Self(Arc::new(HeavyTaskQueueInner {
+        Self {
             task_sender,
             task_receiver,
             stop_sender,
             stop_receiver,
             queue_name,
-        }))
+        }
     }
 
     pub fn queue_task(&self, f: Box<dyn FnOnce() + Send + Sync + 'static>) {
-        self.0
-            .task_sender
+        self.task_sender
             .send(HeavyTask(f, Instant::now()))
             .expect("Failed to queue heavy task");
-        debug!("Enqueued task on {} heavy task queue", self.0.queue_name);
+        debug!("Enqueued task on {} heavy task queue", self.queue_name);
     }
 
     pub fn run_until_stopped(&self) {
         let mut receiver_selector = Select::new_biased();
         // Biased selector will pick the receiver with lower index over higher ones,
         // so we register priority_events_receiver first.
-        let stop_receiver_index = receiver_selector.recv(&self.0.stop_receiver);
-        let task_receiver_index = receiver_selector.recv(&self.0.task_receiver);
+        let stop_receiver_index = receiver_selector.recv(&self.stop_receiver);
+        let task_receiver_index = receiver_selector.recv(&self.task_receiver);
         loop {
             let selected = receiver_selector.select();
             match selected.index() {
                 i if i == stop_receiver_index => {
                     selected
-                        .recv(&self.0.stop_receiver)
+                        .recv(&self.stop_receiver)
                         .expect("Failed to receive stop signal");
                     return;
                 }
                 i if i == task_receiver_index => {
                     let task = selected
-                        .recv(&self.0.task_receiver)
+                        .recv(&self.task_receiver)
                         .expect("Failed to receive heavy task");
                     let queue_duration = task.1.elapsed().as_secs_f32();
-                    debug!("Dequeued task on {} heavy task queue", self.0.queue_name);
+                    debug!("Dequeued task on {} heavy task queue", self.queue_name);
                     let task_start = Instant::now();
                     (task.0)();
                     info!(
                         "Ran task on {} heavy task queue. Queue time: {:.2}, task time: {:.2}",
-                        self.0.queue_name,
+                        self.queue_name,
                         queue_duration,
                         task_start.elapsed().as_secs_f32()
                     );
@@ -265,9 +259,6 @@ impl HeavyTaskQueue {
 
     /// Make `run_until_stopped` exit after finishing the current task.
     pub fn stop(&self) {
-        self.0
-            .stop_sender
-            .send(())
-            .expect("Failed to stop the queue");
+        self.stop_sender.send(()).expect("Failed to stop the queue");
     }
 }
