@@ -96,6 +96,8 @@ use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
 use crate::state::load::FileContents;
 use crate::state::load::Load;
+use crate::state::loader::FindError;
+use crate::state::loader::Finding;
 use crate::state::loader::FindingOrError;
 use crate::state::loader::LoaderFindCache;
 use crate::state::memory::MemoryFiles;
@@ -122,6 +124,9 @@ struct ModuleData {
     /// The dependencies of this module.
     /// Most modules exist in exactly one place, but it can be possible to load the same module multiple times with different paths.
     deps: HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>,
+    /// Imports that failed to resolve. Necessary for incremental invalidation.
+    /// TODO(kylei): Merge this with deps above based on D87952758 once we are confident.
+    failed_deps: HashMap<ModuleName, FindError>,
     rdeps: HashSet<Handle>,
 }
 
@@ -136,6 +141,8 @@ struct ModuleDataMut {
     ///
     /// To ensure that is atomic, we always modify the rdeps while holding the deps write lock.
     deps: RwLock<HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>>,
+    /// Imports that failed to resolve. Necessary for incremental invalidation.
+    failed_deps: RwLock<HashMap<ModuleName, FindError>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
     /// Note that if we are only running once, e.g. on the command line, this isn't valuable.
     /// But we create it anyway for simplicity, since it doesn't seem to add much overhead.
@@ -170,6 +177,7 @@ impl ModuleData {
             config: RwLock::new(self.config.dupe()),
             state: UpgradeLock::new(self.state.clone()),
             deps: RwLock::new(self.deps.clone()),
+            failed_deps: RwLock::new(self.failed_deps.clone()),
             rdeps: Mutex::new(self.rdeps.clone()),
         }
     }
@@ -182,6 +190,7 @@ impl ModuleDataMut {
             config: RwLock::new(config),
             state: UpgradeLock::new(ModuleDataInner::new(require, now)),
             deps: Default::default(),
+            failed_deps: Default::default(),
             rdeps: Default::default(),
         }
     }
@@ -194,9 +203,11 @@ impl ModuleDataMut {
             config,
             state,
             deps,
+            failed_deps,
             rdeps,
         } = self;
         let deps = mem::take(&mut *deps.write());
+        let failed_deps = mem::take(&mut *failed_deps.write());
         let rdeps = mem::take(&mut *rdeps.lock());
         let state = state.read().clone();
         ModuleData {
@@ -204,6 +215,7 @@ impl ModuleDataMut {
             config: config.read().dupe(),
             state,
             deps,
+            failed_deps,
             rdeps,
         }
     }
@@ -686,6 +698,8 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.find {
             let loader = self.get_cached_loader(&module_data.config.read());
             let mut is_dirty = false;
+
+            // Check dependencies for changes
             for dependency_handle in module_data.deps.read().values().flatten() {
                 match loader
                     .find_import(dependency_handle.module(), Some(module_data.handle.path()))
@@ -697,8 +711,36 @@ impl<'a> Transaction<'a> {
                     }
                 }
             }
+
+            // Check import errors for changes
+            for (module_name, import_failure) in module_data.failed_deps.read().iter() {
+                match loader.find_import(*module_name, Some(module_data.handle.path())) {
+                    // If we can now resolve an import, we need to rebuild
+                    FindingOrError::Finding(_) => {
+                        is_dirty = true;
+                        break;
+                    }
+                    // If the error changes, we need to rebuild
+                    FindingOrError::Error(error) if error != *import_failure => {
+                        is_dirty = true;
+                        break;
+                    }
+                    FindingOrError::Error(_) => {}
+                }
+            }
+
             if is_dirty {
-                let write = exclusive.write();
+                let mut write = exclusive.write();
+                // Create new ErrorCollector to clear old errors from the previous config
+                if let Some(old_load) = write.steps.load.dupe() {
+                    write.steps.load = Some(Arc::new(Load {
+                        errors: ErrorCollector::new(
+                            old_load.module_info.dupe(),
+                            old_load.errors.style(),
+                        ),
+                        module_info: old_load.module_info.clone(),
+                    }));
+                }
                 rebuild(write, false);
                 return;
             }
@@ -1553,24 +1595,40 @@ impl<'a> TransactionHandle<'a> {
         let handle = self
             .transaction
             .import_handle(&self.module_data.handle, module, path);
-        handle.map(|handle| {
-            let res = self.transaction.get_imported_module(&handle, require);
-            let mut write = self.module_data.deps.write();
-            let did_insert = match write.entry(module) {
-                Entry::Vacant(e) => {
-                    e.insert(SmallSet1::new(handle));
-                    true
+
+        match handle {
+            FindingOrError::Finding(finding) => {
+                let handle = finding.finding;
+                let error = finding.error;
+                let res = self.transaction.get_imported_module(&handle, require);
+                let mut write = self.module_data.deps.write();
+                let did_insert = match write.entry(module) {
+                    Entry::Vacant(e) => {
+                        e.insert(SmallSet1::new(handle));
+                        true
+                    }
+                    Entry::Occupied(mut e) => e.get_mut().insert(handle),
+                };
+                if did_insert {
+                    let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
+                    assert!(inserted);
                 }
-                Entry::Occupied(mut e) => e.get_mut().insert(handle),
-            };
-            if did_insert {
-                let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
-                assert!(inserted);
+                // Make sure we hold the deps write lock until after we insert into rdeps.
+                drop(write);
+                FindingOrError::Finding(Finding {
+                    finding: res,
+                    error,
+                })
             }
-            // Make sure we hold the deps write lock until after we insert into rdeps.
-            drop(write);
-            res
-        })
+            FindingOrError::Error(err) => {
+                // Store the failed import so we can retry it when the config changes
+                self.module_data
+                    .failed_deps
+                    .write()
+                    .insert(module, err.dupe());
+                FindingOrError::Error(err)
+            }
+        }
     }
 }
 
