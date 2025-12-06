@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -367,6 +368,35 @@ class Bar:
 # For read-write fields, the inherited type from each parent should be assignable to the intersection
 class Both(Foo, Bar):  # E: Field `x` is declared `float`
     ...
+"#,
+);
+
+fn env_conditional_import() -> TestEnv {
+    TestEnv::one(
+        "foo",
+        r#"
+class Foo1: pass
+class Foo2: pass
+"#,
+    )
+}
+
+testcase!(
+    test_conditional_import_base_class,
+    env_conditional_import(),
+    r#"
+if int("1"):
+    from foo import Foo1 as Foo
+else:
+    from foo import Foo2 as Foo
+
+class Document(Foo): pass  # E: Invalid base class: `Foo1 | Foo2`
+
+from abc import ABC, abstractmethod
+class CustomModel[T: Document](ABC):
+    @abstractmethod
+    async def to_db(self) -> T:
+        pass
 "#,
 );
 

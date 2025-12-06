@@ -3194,7 +3194,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     });
                     if let Some(base_exception_group_any_type) =
                         base_exception_group_any_type.as_ref()
-                        && !exception.is_any()
+                        && !self.behaves_like_any(&exception)
                         && self.is_subset_eq(&exception, base_exception_group_any_type)
                     {
                         self.error(

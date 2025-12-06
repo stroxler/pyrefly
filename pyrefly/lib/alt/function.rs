@@ -462,9 +462,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .function_has_return_annotation_or_infers_return(&stmt.name);
         if stmt.is_async
             && def.metadata.flags.is_abstract_method
-            && !ret.is_any()
+            && !self.behaves_like_any(&ret)
             && let Some((_, _, coroutine_ret)) = self.unwrap_coroutine(&ret)
-            && !coroutine_ret.is_any()
+            && !self.behaves_like_any(&coroutine_ret)
             && self.unwrap_async_iterator(&coroutine_ret).is_some()
         {
             self.error(
