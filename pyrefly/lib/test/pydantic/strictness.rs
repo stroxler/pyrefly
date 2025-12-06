@@ -165,6 +165,7 @@ pydantic_testcase!(
     test_lax_mode_coercion_container,
     r#"
 from typing import List, reveal_type
+from collections import deque
 
 from pydantic import BaseModel
 
@@ -172,6 +173,11 @@ class Model(BaseModel):
     x: List[int] = [0, 1]
 
 reveal_type(Model.__init__) # E: revealed type: (self: Model, *, x: list[Decimal | bool | bytes | float | int | str] = ..., **Unknown) -> None
+
+class Model2(BaseModel):
+    q: deque[int]
+
+reveal_type(Model2.__init__) # E: revealed type: (self: Model2, *, q: deque[Decimal | bool | bytes | float | int | str] | frozenset[Decimal | bool | bytes | float | int | str] | list[Decimal | bool | bytes | float | int | str] | set[Decimal | bool | bytes | float | int | str] | tuple[Decimal | bool | bytes | float | int | str, ...], **Unknown) -> None
     "#,
 );
 

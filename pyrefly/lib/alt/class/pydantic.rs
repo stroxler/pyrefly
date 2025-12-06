@@ -538,6 +538,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn get_container_lax_conversion(
+        &self,
+        class_obj: &Class,
+        expanded_targs: &[Type],
+    ) -> Option<Type> {
+        // deque accepts: deque, frozenset, list, set, tuple
+        if class_obj.has_toplevel_qname(ModuleName::collections().as_str(), "deque") {
+            let elem_ty = expanded_targs
+                .first()
+                .cloned()
+                .unwrap_or_else(Type::any_implicit);
+            return Some(self.unions(vec![
+                self.stdlib.deque(elem_ty.clone()).to_type(),
+                self.stdlib.frozenset(elem_ty.clone()).to_type(),
+                self.stdlib.list(elem_ty.clone()).to_type(),
+                self.stdlib.set(elem_ty.clone()).to_type(),
+                self.stdlib.tuple(elem_ty).to_type(),
+            ]));
+        }
+        None
+    }
+
     fn expand_type_for_lax_mode(&self, ty: &Type) -> Type {
         match ty {
             // Container types: recursively expand all type arguments
@@ -545,6 +567,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let class_obj = cls.class_object();
                 let targs = cls.targs().as_slice();
                 let expanded_targs = self.expand_types(targs);
+
+                // Check for container type conversions
+                if let Some(converted) =
+                    self.get_container_lax_conversion(class_obj, &expanded_targs)
+                {
+                    return converted;
+                }
 
                 let tparams = self.get_class_tparams(class_obj);
                 Type::ClassType(ClassType::new(
