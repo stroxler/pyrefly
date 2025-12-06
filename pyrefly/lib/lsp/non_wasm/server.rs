@@ -271,6 +271,10 @@ pub trait TspInterface: Send + Sync {
     /// Get access to the state for creating transactions
     fn state(&self) -> &Arc<State>;
 
+    fn connection(&self) -> &Connection;
+
+    fn lsp_queue(&self) -> &LspQueue;
+
     /// Get access to the recheck queue for async task processing
     fn recheck_queue(&self) -> &HeavyTaskQueue;
 
@@ -325,7 +329,7 @@ impl ServerConnection {
 
 pub struct Server {
     connection: ServerConnection,
-    lsp_queue: LspQueue,
+    lsp_queue: Arc<LspQueue>,
     recheck_queue: HeavyTaskQueue,
     find_reference_queue: HeavyTaskQueue,
     sourcedb_queue: HeavyTaskQueue,
@@ -555,7 +559,7 @@ pub enum ProcessEvent {
 const PYTHON_SECTION: &str = "python";
 
 pub fn lsp_loop(
-    connection: Arc<Connection>,
+    connection: Connection,
     initialization_params: InitializeParams,
     indexing_mode: IndexingMode,
     workspace_indexing_limit: usize,
@@ -563,15 +567,15 @@ pub fn lsp_loop(
     info!("Reading messages");
     let lsp_queue = LspQueue::new();
     let server = Server::new(
-        connection.dupe(),
-        lsp_queue.dupe(),
+        connection,
+        lsp_queue,
         initialization_params,
         indexing_mode,
         workspace_indexing_limit,
     );
     std::thread::scope(|scope| {
         scope.spawn(|| {
-            dispatch_lsp_events(&connection, &lsp_queue);
+            dispatch_lsp_events(&server.connection.0, &server.lsp_queue);
         });
         scope.spawn(|| {
             server.recheck_queue.run_until_stopped();
@@ -584,7 +588,7 @@ pub fn lsp_loop(
         });
         let mut ide_transaction_manager = TransactionManager::default();
         let mut canceled_requests = HashSet::new();
-        while let Ok((subsequent_mutation, event, queue_time)) = lsp_queue.recv() {
+        while let Ok((subsequent_mutation, event, queue_time)) = server.lsp_queue.recv() {
             let queue_duration = queue_time.elapsed().as_secs_f32();
             let process_start = Instant::now();
             let event_description = event.describe();
@@ -1146,7 +1150,7 @@ impl Server {
     }
 
     pub fn new(
-        connection: Arc<Connection>,
+        connection: Connection,
         lsp_queue: LspQueue,
         initialize_params: InitializeParams,
         indexing_mode: IndexingMode,
@@ -1168,8 +1172,8 @@ impl Server {
 
         let config_finder = Workspaces::config_finder(&workspaces);
         let s = Self {
-            connection: ServerConnection(connection),
-            lsp_queue,
+            connection: ServerConnection(Arc::new(connection)),
+            lsp_queue: Arc::new(lsp_queue),
             recheck_queue: HeavyTaskQueue::new("recheck_queue"),
             find_reference_queue: HeavyTaskQueue::new("find_reference_queue"),
             sourcedb_queue: HeavyTaskQueue::new("sourcedb_queue"),
@@ -1601,7 +1605,7 @@ impl Server {
     fn populate_all_project_files_in_config(
         config: ArcId<ConfigFile>,
         state: Arc<State>,
-        lsp_queue: LspQueue,
+        lsp_queue: Arc<LspQueue>,
     ) {
         let unknown = ModuleName::unknown();
 
@@ -1634,7 +1638,7 @@ impl Server {
         workspace_roots: Vec<PathBuf>,
         state: Arc<State>,
         workspace_indexing_limit: usize,
-        lsp_queue: LspQueue,
+        lsp_queue: Arc<LspQueue>,
     ) {
         for workspace_root in workspace_roots {
             info!(
@@ -3182,6 +3186,14 @@ impl TspInterface for Server {
 
     fn state(&self) -> &Arc<State> {
         &self.state
+    }
+
+    fn connection(&self) -> &Connection {
+        &self.connection.0
+    }
+
+    fn lsp_queue(&self) -> &LspQueue {
+        &self.lsp_queue
     }
 
     fn recheck_queue(&self) -> &HeavyTaskQueue {

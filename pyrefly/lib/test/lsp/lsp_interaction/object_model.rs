@@ -1044,7 +1044,7 @@ impl LspInteraction {
                 indexing_mode,
                 workspace_indexing_limit: 50,
             };
-            let _ = run_lsp(Arc::new(conn_server), args, "pyrefly-lsp-test-version");
+            let _ = run_lsp(conn_server, args, "pyrefly-lsp-test-version");
             finish_server.notify_finished();
         });
 

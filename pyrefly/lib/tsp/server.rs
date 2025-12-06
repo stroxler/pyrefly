@@ -10,7 +10,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use lsp_server::Connection;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_types::InitializeParams;
@@ -21,7 +20,6 @@ use tsp_types::TSPRequests;
 use crate::commands::lsp::IndexingMode;
 use crate::lsp::non_wasm::lsp::new_response;
 use crate::lsp::non_wasm::queue::LspEvent;
-use crate::lsp::non_wasm::queue::LspQueue;
 use crate::lsp::non_wasm::server::ProcessEvent;
 use crate::lsp::non_wasm::server::TspInterface;
 use crate::lsp::non_wasm::server::capabilities;
@@ -136,9 +134,7 @@ impl TspServer {
 
 pub fn tsp_loop(
     lsp_server: Box<dyn TspInterface>,
-    connection: Arc<Connection>,
     _initialization_params: InitializeParams,
-    lsp_queue: LspQueue,
 ) -> anyhow::Result<()> {
     eprintln!("Reading TSP messages");
     let server = TspServer::new(lsp_server);
@@ -150,13 +146,13 @@ pub fn tsp_loop(
         });
 
         scope.spawn(|| {
-            dispatch_lsp_events(&connection, &lsp_queue);
+            dispatch_lsp_events(server.inner.connection(), server.inner.lsp_queue());
         });
 
         let mut ide_transaction_manager = TransactionManager::default();
         let mut canceled_requests = HashSet::new();
 
-        while let Ok((subsequent_mutation, event, queue_time)) = lsp_queue.recv() {
+        while let Ok((subsequent_mutation, event, queue_time)) = server.inner.lsp_queue().recv() {
             let queue_duration = queue_time.elapsed().as_secs_f32();
             let process_start = Instant::now();
             let event_description = event.describe();

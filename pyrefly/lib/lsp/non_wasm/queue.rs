@@ -118,10 +118,7 @@ impl LspEvent {
     }
 }
 
-#[derive(Clone, Dupe)]
-pub struct LspQueue(Arc<LspQueueInner>);
-
-struct LspQueueInner {
+pub struct LspQueue {
     /// The next id to use for a new event.
     id: AtomicUsize,
     /// The index of the last event we are aware of that is a mutation. 0 = unknown.
@@ -138,32 +135,30 @@ struct LspQueueInner {
 
 impl LspQueue {
     pub fn new() -> Self {
-        Self(Arc::new(LspQueueInner {
+        Self {
             id: AtomicUsize::new(1),
             last_mutation: AtomicUsize::new(0),
             normal: crossbeam_channel::unbounded(),
             priority: crossbeam_channel::unbounded(),
-        }))
+        }
     }
 
     #[allow(clippy::result_large_err)]
     pub fn send(&self, x: LspEvent) -> Result<(), SendError<LspEvent>> {
         let kind = x.kind();
-        let id = self.0.id.fetch_add(1, Ordering::Relaxed);
+        let id = self.id.fetch_add(1, Ordering::Relaxed);
         if kind == LspEventKind::Mutation {
             // This is gently dubious, as we might race condition and it might not really be the last
             // mutation. But it's good enough for now.
-            self.0.last_mutation.store(id, Ordering::Relaxed);
+            self.last_mutation.store(id, Ordering::Relaxed);
         }
         if kind == LspEventKind::Priority {
-            self.0
-                .priority
+            self.priority
                 .0
                 .send((id, x, Instant::now()))
                 .map_err(|x| SendError(x.0.1))
         } else {
-            self.0
-                .normal
+            self.normal
                 .0
                 .send((id, x, Instant::now()))
                 .map_err(|x| SendError(x.0.1))
@@ -179,18 +174,18 @@ impl LspQueue {
         let mut event_receiver_selector = Select::new_biased();
         // Biased selector will pick the receiver with lower index over higher ones,
         // so we register priority_events_receiver first.
-        let priority_receiver_index = event_receiver_selector.recv(&self.0.priority.1);
-        let queued_events_receiver_index = event_receiver_selector.recv(&self.0.normal.1);
+        let priority_receiver_index = event_receiver_selector.recv(&self.priority.1);
+        let queued_events_receiver_index = event_receiver_selector.recv(&self.normal.1);
 
         let selected = event_receiver_selector.select();
         let (id, x, queue_time) = match selected.index() {
-            i if i == priority_receiver_index => selected.recv(&self.0.priority.1)?,
-            i if i == queued_events_receiver_index => selected.recv(&self.0.normal.1)?,
+            i if i == priority_receiver_index => selected.recv(&self.priority.1)?,
+            i if i == queued_events_receiver_index => selected.recv(&self.normal.1)?,
             _ => unreachable!(),
         };
-        let mut last_mutation = self.0.last_mutation.load(Ordering::Relaxed);
+        let mut last_mutation = self.last_mutation.load(Ordering::Relaxed);
         if id == last_mutation {
-            self.0.last_mutation.store(0, Ordering::Relaxed);
+            self.last_mutation.store(0, Ordering::Relaxed);
             last_mutation = 0;
         }
         Ok((last_mutation != 0, x, queue_time))

@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::sync::Arc;
-
 use clap::Parser;
 use clap::ValueEnum;
 use lsp_server::Connection;
@@ -47,11 +45,7 @@ pub struct LspArgs {
     pub(crate) workspace_indexing_limit: usize,
 }
 
-pub fn run_lsp(
-    connection: Arc<Connection>,
-    args: LspArgs,
-    version_string: &str,
-) -> anyhow::Result<()> {
+pub fn run_lsp(connection: Connection, args: LspArgs, version_string: &str) -> anyhow::Result<()> {
     let initialization_params = match initialize_connection(&connection, &args, version_string) {
         Ok(it) => it,
         Err(e) => {
@@ -102,7 +96,7 @@ impl LspArgs {
         // also be implemented to use sockets or HTTP.
         let (connection, io_threads) = Connection::stdio();
 
-        run_lsp(Arc::new(connection), self, version_string)?;
+        run_lsp(connection, self, version_string)?;
         io_threads.join()?;
         // We have shut down gracefully.
         eprintln!("shutting down server");
