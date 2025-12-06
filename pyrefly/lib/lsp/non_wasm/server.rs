@@ -570,54 +570,56 @@ pub fn lsp_loop(
         indexing_mode,
         workspace_indexing_limit,
     );
-    let lsp_queue2 = lsp_queue.dupe();
-    std::thread::spawn(move || {
-        dispatch_lsp_events(&connection_for_dispatcher, lsp_queue2);
-    });
-    let recheck_queue = server.recheck_queue.dupe();
-    std::thread::spawn(move || {
-        recheck_queue.run_until_stopped();
-    });
-    let find_reference_queue = server.find_reference_queue.dupe();
-    std::thread::spawn(move || {
-        find_reference_queue.run_until_stopped();
-    });
-    let sourcedb_queue = server.sourcedb_queue.dupe();
-    std::thread::spawn(move || {
-        sourcedb_queue.run_until_stopped();
-    });
-    let mut ide_transaction_manager = TransactionManager::default();
-    let mut canceled_requests = HashSet::new();
-    while let Ok((subsequent_mutation, event, queue_time)) = lsp_queue.recv() {
-        let queue_duration = queue_time.elapsed().as_secs_f32();
-        let process_start = Instant::now();
-        let event_description = event.describe();
-        match server.process_event(
-            &mut ide_transaction_manager,
-            &mut canceled_requests,
-            subsequent_mutation,
-            event,
-        ) {
-            Ok(ProcessEvent::Continue) => {
-                let process_duration = process_start.elapsed().as_secs_f32();
-                info!(
-                    "Language server processed event `{}` in {:.2}s ({:.2}s waiting)",
-                    event_description, process_duration, queue_duration
-                );
-            }
-            Ok(ProcessEvent::Exit) => break,
-            Err(e) => {
-                // Log the error and continue processing the next event
-                error!("Error processing event `{}`: {:?}", event_description, e);
+    std::thread::scope(|scope| {
+        let lsp_queue2 = lsp_queue.dupe();
+        scope.spawn(move || {
+            dispatch_lsp_events(&connection_for_dispatcher, lsp_queue2);
+        });
+        let recheck_queue = server.recheck_queue.dupe();
+        scope.spawn(move || {
+            recheck_queue.run_until_stopped();
+        });
+        let find_reference_queue = server.find_reference_queue.dupe();
+        scope.spawn(move || {
+            find_reference_queue.run_until_stopped();
+        });
+        let sourcedb_queue = server.sourcedb_queue.dupe();
+        scope.spawn(move || {
+            sourcedb_queue.run_until_stopped();
+        });
+        let mut ide_transaction_manager = TransactionManager::default();
+        let mut canceled_requests = HashSet::new();
+        while let Ok((subsequent_mutation, event, queue_time)) = lsp_queue.recv() {
+            let queue_duration = queue_time.elapsed().as_secs_f32();
+            let process_start = Instant::now();
+            let event_description = event.describe();
+            match server.process_event(
+                &mut ide_transaction_manager,
+                &mut canceled_requests,
+                subsequent_mutation,
+                event,
+            ) {
+                Ok(ProcessEvent::Continue) => {
+                    let process_duration = process_start.elapsed().as_secs_f32();
+                    info!(
+                        "Language server processed event `{}` in {:.2}s ({:.2}s waiting)",
+                        event_description, process_duration, queue_duration
+                    );
+                }
+                Ok(ProcessEvent::Exit) => break,
+                Err(e) => {
+                    // Log the error and continue processing the next event
+                    error!("Error processing event `{}`: {:?}", event_description, e);
+                }
             }
         }
-    }
-    info!("waiting for connection to close");
-    server.recheck_queue.stop();
-    server.find_reference_queue.stop();
-    server.sourcedb_queue.stop();
-    drop(server); // close connection
-    Ok(())
+        info!("waiting for connection to close");
+        server.recheck_queue.stop();
+        server.find_reference_queue.stop();
+        server.sourcedb_queue.stop();
+        drop(server); // close connection
+        Ok(())
+    })
 }
 
 impl Server {
