@@ -1065,6 +1065,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
+        // Check if this is a decorator that's special-cased to preserve the decorated function's signature
+        if let Type::KwCall(call) = &decorator
+            && call.func_metadata.kind.is_signature_preserving_decorator()
+        {
+            return decoratee;
+        }
         // Preserve function metadata, so things like method binding still work.
         let call_target =
             self.as_call_target_or_error(decorator, CallStyle::FreeForm, range, errors, None);

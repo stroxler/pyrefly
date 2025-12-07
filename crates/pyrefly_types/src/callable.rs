@@ -496,6 +496,10 @@ pub enum FunctionKind {
     CallbackProtocol(Box<ClassType>),
     TotalOrdering,
     DisjointBase,
+    /// `numba.jit()`
+    NumbaJit,
+    /// `numba.njit()`
+    NumbaNjit,
 }
 
 impl Callable {
@@ -819,6 +823,8 @@ impl FunctionKind {
             ("abc", None, "abstractmethod") => Self::AbstractMethod,
             ("functools", None, "total_ordering") => Self::TotalOrdering,
             ("typing" | "typing_extensions", None, "disjoint_base") => Self::DisjointBase,
+            ("numba", None, "jit") => Self::NumbaJit,
+            ("numba", None, "njit") => Self::NumbaNjit,
             _ => Self::Def(Box::new(FuncId {
                 module,
                 cls,
@@ -846,6 +852,8 @@ impl FunctionKind {
             Self::AbstractMethod => ModuleName::abc(),
             Self::TotalOrdering => ModuleName::functools(),
             Self::DisjointBase => ModuleName::typing(),
+            Self::NumbaJit => ModuleName::from_str("numba"),
+            Self::NumbaNjit => ModuleName::from_str("numba"),
             Self::Def(func_id) => func_id.module.name().dupe(),
         }
     }
@@ -869,6 +877,8 @@ impl FunctionKind {
             Self::AbstractMethod => Cow::Owned(Name::new_static("abstractmethod")),
             Self::TotalOrdering => Cow::Owned(Name::new_static("total_ordering")),
             Self::DisjointBase => Cow::Owned(Name::new_static("disjoint_base")),
+            Self::NumbaJit => Cow::Owned(Name::new_static("jit")),
+            Self::NumbaNjit => Cow::Owned(Name::new_static("njit")),
             Self::Def(func_id) => Cow::Borrowed(&func_id.name),
         }
     }
@@ -888,6 +898,8 @@ impl FunctionKind {
             Self::AssertType => None,
             Self::RevealType => None,
             Self::RuntimeCheckable => None,
+            Self::NumbaJit => None,
+            Self::NumbaNjit => None,
             Self::CallbackProtocol(cls) => Some(cls.class_object().dupe()),
             Self::AbstractMethod => None,
             Self::TotalOrdering => None,
@@ -903,6 +915,14 @@ impl FunctionKind {
             self.function_name().as_ref(),
             current_module,
         )
+    }
+
+    /// Does this decorator require special-casing to be signature-preserving?
+    pub fn is_signature_preserving_decorator(&self) -> bool {
+        match self {
+            Self::NumbaJit | Self::NumbaNjit => true,
+            _ => false,
+        }
     }
 }
 
