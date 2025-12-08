@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use sha2::Digest;
 
-fn get_input_path() -> PathBuf {
+fn get_typeshed_input_path() -> PathBuf {
     match env::var_os("TYPESHED_ROOT") {
         Some(root) => {
             // When building with Buck, typeshed filegroup dir is passed in using TYPESHED_ROOT
@@ -20,6 +20,19 @@ fn get_input_path() -> PathBuf {
         None => {
             // When building with Cargo, we could locate typeshed directly using relative dir
             PathBuf::from("third_party/typeshed")
+        }
+    }
+}
+
+fn get_stubs_input_path() -> PathBuf {
+    match env::var_os("STUBS_ROOT") {
+        Some(root) => {
+            // When building with Buck, stubs filegroup dir is passed in using STUBS_ROOT
+            Path::new(&root).join("stubs")
+        }
+        None => {
+            // When building with Cargo, we could locate stubs directly using relative dir
+            PathBuf::from("third_party/stubs")
         }
     }
 }
@@ -74,11 +87,17 @@ fn main() -> Result<(), std::io::Error> {
     // changes in the entire typeshed dir.
     println!("cargo::rerun-if-changed=third_party/typeshed_metadata.json");
 
-    let input_path = get_input_path();
     let output_dir = get_output_path().unwrap();
-    let output_path = output_dir.join("typeshed.tar.zst");
 
-    create_archive(&input_path, &output_path, "typeshed.sha256")?;
+    // Create typeshed archive
+    let typeshed_input = get_typeshed_input_path();
+    let typeshed_output = output_dir.join("typeshed.tar.zst");
+    create_archive(&typeshed_input, &typeshed_output, "typeshed.sha256")?;
+
+    // Create third-party stubs archive (non-typeshed stubs)
+    let stubs_input = get_stubs_input_path();
+    let stubs_output = output_dir.join("stubs.tar.zst");
+    create_archive(&stubs_input, &stubs_output, "stubs.sha256")?;
 
     Ok(())
 }
