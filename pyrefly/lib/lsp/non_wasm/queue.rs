@@ -27,6 +27,7 @@ use lsp_types::DidSaveTextDocumentParams;
 use tracing::debug;
 use tracing::info;
 
+use crate::lsp::non_wasm::server::Server;
 use crate::lsp::wasm::notebook::DidChangeNotebookDocumentParams;
 use crate::lsp::wasm::notebook::DidCloseNotebookDocumentParams;
 use crate::lsp::wasm::notebook::DidOpenNotebookDocumentParams;
@@ -190,15 +191,15 @@ impl LspQueue {
     }
 }
 
-pub struct HeavyTask(Box<dyn FnOnce() + Send + Sync + 'static>);
+pub struct HeavyTask(Box<dyn FnOnce(&Server) + Send + Sync + 'static>);
 
 impl HeavyTask {
-    pub fn new(f: impl FnOnce() + Send + Sync + 'static) -> Self {
+    pub fn new(f: impl FnOnce(&Server) + Send + Sync + 'static) -> Self {
         Self(Box::new(f))
     }
 
-    pub fn run(self) {
-        self.0()
+    pub fn run(self, server: &Server) {
+        self.0(server)
     }
 }
 

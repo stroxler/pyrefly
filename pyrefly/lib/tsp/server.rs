@@ -145,7 +145,7 @@ pub fn tsp_loop(
             server
                 .inner
                 .recheck_queue()
-                .run_until_stopped(|task| task.run());
+                .run_until_stopped(|task| server.inner.run_task(task));
         });
 
         scope.spawn(|| {

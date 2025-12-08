@@ -195,7 +195,6 @@ use crate::commands::lsp::IndexingMode;
 use crate::config::config::ConfigFile;
 use crate::error::error::Error;
 use crate::lsp::module_helpers::to_real_path;
-use crate::lsp::non_wasm::build_system::queue_source_db_rebuild_and_recheck;
 use crate::lsp::non_wasm::build_system::should_requery_build_system;
 use crate::lsp::non_wasm::lsp::apply_change_events;
 use crate::lsp::non_wasm::lsp::as_notification;
@@ -287,6 +286,8 @@ pub trait TspInterface: Send + Sync {
         subsequent_mutation: bool,
         event: LspEvent,
     ) -> anyhow::Result<ProcessEvent>;
+
+    fn run_task(&self, task: HeavyTask);
 }
 
 #[derive(Clone, Dupe)]
@@ -579,15 +580,19 @@ pub fn lsp_loop(
             dispatch_lsp_events(&server.connection.0, &server.lsp_queue);
         });
         scope.spawn(|| {
-            server.recheck_queue.run_until_stopped(|task| task.run());
+            server
+                .recheck_queue
+                .run_until_stopped(|task| task.run(&server));
         });
         scope.spawn(|| {
             server
                 .find_reference_queue
-                .run_until_stopped(|task| task.run());
+                .run_until_stopped(|task| task.run(&server));
         });
         scope.spawn(|| {
-            server.sourcedb_queue.run_until_stopped(|task| task.run());
+            server
+                .sourcedb_queue
+                .run_until_stopped(|task| task.run(&server));
         });
         let mut ide_transaction_manager = TransactionManager::default();
         let mut canceled_requests = HashSet::new();
@@ -1486,13 +1491,7 @@ impl Server {
                 info!("Validated open files and saved non-committable transaction.");
             }
         }
-        queue_source_db_rebuild_and_recheck(
-            self.state.dupe(),
-            self.invalidated_configs.dupe(),
-            &self.sourcedb_queue,
-            self.lsp_queue.dupe(),
-            self.open_files.dupe(),
-        );
+        self.queue_source_db_rebuild_and_recheck()
     }
 
     fn invalidate_find_for_configs(&self, invalidated_configs: SmallSet<ArcId<ConfigFile>>) {
@@ -1511,10 +1510,12 @@ impl Server {
                 IndexingMode::None => {}
                 IndexingMode::LazyNonBlockingBackground => {
                     if self.indexed_configs.lock().insert(config.dupe()) {
-                        let state = self.state.dupe();
-                        let lsp_queue = self.lsp_queue.dupe();
-                        self.recheck_queue.queue_task(HeavyTask::new(move || {
-                            Self::populate_all_project_files_in_config(config, state, lsp_queue);
+                        self.recheck_queue.queue_task(HeavyTask::new(move |server| {
+                            Self::populate_all_project_files_in_config(
+                                config,
+                                server.state.dupe(),
+                                server.lsp_queue.dupe(),
+                            );
                         }));
                     }
                 }
@@ -1548,14 +1549,12 @@ impl Server {
             IndexingMode::LazyNonBlockingBackground => {
                 indexed_workspaces.extend(roots_to_populate_files.iter().cloned());
                 drop(indexed_workspaces);
-                let state = self.state.dupe();
-                let lsp_queue = self.lsp_queue.dupe();
-                self.recheck_queue.queue_task(HeavyTask::new(move || {
+                self.recheck_queue.queue_task(HeavyTask::new(move |server| {
                     Self::populate_all_workspaces_files(
                         roots_to_populate_files,
-                        state,
+                        server.state.dupe(),
                         workspace_indexing_limit,
-                        lsp_queue,
+                        server.lsp_queue.dupe(),
                     );
                 }));
             }
@@ -1575,29 +1574,33 @@ impl Server {
     /// Perform an invalidation of elements on `State` and commit them.
     /// Runs asynchronously. Returns immediately and may wait a while for a committable transaction.
     fn invalidate(&self, f: impl FnOnce(&mut Transaction) + Send + Sync + 'static) {
-        let state = self.state.dupe();
-        let lsp_queue = self.lsp_queue.dupe();
-        let cancellation_handles = self.cancellation_handles.dupe();
-        let open_files = self.open_files.dupe();
-        self.recheck_queue.queue_task(HeavyTask::new(move || {
-            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
+        self.recheck_queue.queue_task(HeavyTask::new(move |server| {
+            let mut transaction = server
+                .state
+                .new_committable_transaction(Require::indexing(), None);
             f(transaction.as_mut());
 
-            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+            Self::validate_in_memory_for_transaction(
+                &server.state,
+                &server.open_files,
+                transaction.as_mut(),
+            );
 
             // Commit will be blocked until there are no ongoing reads.
             // If we have some long running read jobs that can be cancelled, we should cancel them
             // to unblock committing transactions.
-            for (_, cancellation_handle) in cancellation_handles.lock().drain() {
+            for (_, cancellation_handle) in server.cancellation_handles.lock().drain() {
                 cancellation_handle.cancel();
             }
             // we have to run, not just commit to process updates
-            state.run_with_committing_transaction(transaction, &[], Require::Everything);
+            server
+                .state
+                .run_with_committing_transaction(transaction, &[], Require::Everything);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
             info!("Invalidated state, prepare to recheck open files.");
-            let _ = lsp_queue.send(LspEvent::RecheckFinished);
+            let _ = server.lsp_queue.send(LspEvent::RecheckFinished);
         }));
     }
 
@@ -1672,6 +1675,37 @@ impl Server {
             info!("Populated all files in the workspace, prepare to recheck open files.");
             let _ = lsp_queue.send(LspEvent::RecheckFinished);
         }
+    }
+
+    /// Attempts to requery any open sourced_dbs for open files, and if there are changes,
+    /// invalidate find and perform a recheck.
+    fn queue_source_db_rebuild_and_recheck(&self) {
+        self.sourcedb_queue.queue_task(HeavyTask::new(|server| {
+            let mut configs_to_paths: SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>> =
+                SmallMap::new();
+            let config_finder = server.state.config_finder();
+            let handles = server
+                .open_files
+                .read()
+                .keys()
+                .map(|x| make_open_handle(&server.state, x))
+                .collect::<Vec<_>>();
+            for handle in handles {
+                let config = config_finder.python_file(handle.module(), handle.path());
+                configs_to_paths
+                    .entry(config)
+                    .or_default()
+                    .insert(handle.path().dupe());
+            }
+            let new_invalidated_configs = ConfigFile::query_source_db(&configs_to_paths);
+            if !new_invalidated_configs.is_empty() {
+                let mut lock = server.invalidated_configs.lock();
+                for c in new_invalidated_configs {
+                    lock.insert(c);
+                }
+                let _ = server.lsp_queue.send(LspEvent::InvalidateConfigFind);
+            }
+        }));
     }
 
     fn did_save(&self, url: Url) {
@@ -1949,13 +1983,7 @@ impl Server {
         // If no build system file was changed, then we should just not do anything. If
         // a build system file was changed, then the change should take effect soon.
         if should_requery_build_system {
-            queue_source_db_rebuild_and_recheck(
-                self.state.dupe(),
-                self.invalidated_configs.dupe(),
-                &self.sourcedb_queue,
-                self.lsp_queue.dupe(),
-                self.open_files.dupe(),
-            );
+            self.queue_source_db_rebuild_and_recheck()
         }
     }
 
@@ -1964,8 +1992,8 @@ impl Server {
             return;
         };
         self.version_info.lock().remove(&path);
-        let open_files = self.open_files.dupe();
-        if let Some(LspFile::Notebook(notebook)) = open_files.write().remove(&path).as_deref() {
+        if let Some(LspFile::Notebook(notebook)) = self.open_files.write().remove(&path).as_deref()
+        {
             for cell in notebook.cell_urls() {
                 self.connection
                     .publish_diagnostics_for_uri(cell.clone(), Vec::new(), None);
@@ -1976,30 +2004,21 @@ impl Server {
                 .publish_diagnostics_for_uri(url.clone(), Vec::new(), None);
         }
         self.unsaved_file_tracker.forget_uri_path(&url);
-        let state = self.state.dupe();
-        let lsp_queue = self.lsp_queue.dupe();
-        let open_files = self.open_files.dupe();
-        let sourcedb_queue = self.sourcedb_queue.dupe();
-        let invalidated_configs = self.invalidated_configs.dupe();
-        let path_for_task = path.clone();
-        self.recheck_queue.queue_task(HeavyTask::new(move || {
+        self.recheck_queue.queue_task(HeavyTask::new(move |server| {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
-            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
-            transaction
-                .as_mut()
-                .set_memory(vec![(path_for_task.clone(), None)]);
-            let _ =
-                Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
-            state.commit_transaction(transaction);
-            queue_source_db_rebuild_and_recheck(
-                state.dupe(),
-                invalidated_configs,
-                &sourcedb_queue,
-                lsp_queue,
-                open_files.dupe(),
+            let mut transaction = server
+                .state
+                .new_committable_transaction(Require::indexing(), None);
+            transaction.as_mut().set_memory(vec![(path, None)]);
+            let _ = Self::validate_in_memory_for_transaction(
+                &server.state,
+                &server.open_files,
+                transaction.as_mut(),
             );
+            server.state.commit_transaction(transaction);
+            server.queue_source_db_rebuild_and_recheck()
         }));
     }
 
@@ -2398,18 +2417,18 @@ impl Server {
         else {
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
-        let state = self.state.dupe();
-        let open_files = self.open_files.dupe();
-        let cancellation_handles = self.cancellation_handles.dupe();
-
-        let connection = self.connection.dupe();
         self.find_reference_queue
-            .queue_task(HeavyTask::new(move || {
-                let mut transaction = state.cancellable_transaction();
-                cancellation_handles
+            .queue_task(HeavyTask::new(move |server| {
+                let mut transaction = server.state.cancellable_transaction();
+                server
+                    .cancellation_handles
                     .lock()
                     .insert(request_id.clone(), transaction.get_cancellation_handle());
-                Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+                Self::validate_in_memory_for_transaction(
+                    &server.state,
+                    &server.open_files,
+                    transaction.as_mut(),
+                );
                 match find_fn(&mut transaction, &handle, definition) {
                     Ok(results) => {
                         let mut locations = Vec::new();
@@ -2419,8 +2438,8 @@ impl Server {
                                     .push((uri, ranges.into_map(|range| info.to_lsp_range(range))));
                             };
                         }
-                        cancellation_handles.lock().remove(&request_id);
-                        connection.send(Message::Response(new_response(
+                        server.cancellation_handles.lock().remove(&request_id);
+                        server.connection.send(Message::Response(new_response(
                             request_id,
                             Ok(Some(map_result(locations))),
                         )));
@@ -2428,7 +2447,7 @@ impl Server {
                     Err(Cancelled) => {
                         let message = format!("Request {request_id} is canceled");
                         info!("{message}");
-                        connection.send(Message::Response(Response::new_err(
+                        server.connection.send(Message::Response(Response::new_err(
                             request_id,
                             ErrorCode::RequestCanceled as i32,
                             message,
@@ -3086,31 +3105,35 @@ impl Server {
     /// Asynchronously invalidate configuration and then validate in-memory files
     /// This ensures validate_in_memory() only runs after config invalidation completes
     fn invalidate_config_and_validate_in_memory(&self) {
-        let state = self.state.dupe();
-        let lsp_queue = self.lsp_queue.dupe();
-        let cancellation_handles = self.cancellation_handles.dupe();
-        let open_files = self.open_files.dupe();
-        self.recheck_queue.queue_task(HeavyTask::new(move || {
-            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
+        self.recheck_queue.queue_task(HeavyTask::new(move |server| {
+            let mut transaction = server
+                .state
+                .new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().invalidate_config();
 
-            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+            Self::validate_in_memory_for_transaction(
+                &server.state,
+                &server.open_files,
+                transaction.as_mut(),
+            );
 
             // Commit will be blocked until there are no ongoing reads.
             // If we have some long running read jobs that can be cancelled, we should cancel them
             // to unblock committing transactions.
-            for (_, cancellation_handle) in cancellation_handles.lock().drain() {
+            for (_, cancellation_handle) in server.cancellation_handles.lock().drain() {
                 cancellation_handle.cancel();
             }
             // we have to run, not just commit to process updates
-            state.run_with_committing_transaction(transaction, &[], Require::Everything);
+            server
+                .state
+                .run_with_committing_transaction(transaction, &[], Require::Everything);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
             // Only send RecheckFinished if there are actually open files to revalidate.
-            if !open_files.read().is_empty() {
+            if !server.open_files.read().is_empty() {
                 info!("Invalidated config, prepare to recheck open files.");
-                let _ = lsp_queue.send(LspEvent::RecheckFinished);
+                let _ = server.lsp_queue.send(LspEvent::RecheckFinished);
             } else {
                 info!("Invalidated config, but no open files to recheck.");
             }
@@ -3217,5 +3240,9 @@ impl TspInterface for Server {
             subsequent_mutation,
             event,
         )
+    }
+
+    fn run_task(&self, task: HeavyTask) {
+        task.run(self)
     }
 }
