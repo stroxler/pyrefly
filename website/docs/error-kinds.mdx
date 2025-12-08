@@ -975,6 +975,22 @@ if "abc":
 
 Pyrefly uses this error to communicate the output of the [`reveal_type`](https://typing.python.org/en/latest/spec/directives.html#reveal-type) function.
 
+## unannotated-attribute
+
+This error is raised when a class attribute is missing a type annotation and is initialized with the `None` literal. Without an explicit annotation, Pyrefly infers the type as `Any | None`, which reduces type safety.
+
+This error is off by default. To fix it, add an explicit type annotation to the attribute.
+
+```python
+class MyClass:
+    # error: This expression is implicitly inferred to be `Any | None`. Please provide an explicit type annotation.
+    value = None
+
+# Fixed version:
+class MyClass:
+    value: int | None = None
+```
+
 ## unannotated-parameter
 
 This error is raised when a function parameter is missing a type annotation. This helps enforce fully-typed codebases by ensuring all parameters have explicit types.

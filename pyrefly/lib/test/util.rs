@@ -108,6 +108,7 @@ pub struct TestEnv {
     implicit_any_error: bool,
     unannotated_return_error: bool,
     unannotated_parameter_error: bool,
+    unannotated_attribute_error: bool,
     implicit_abstract_class_error: bool,
     open_unpacking_error: bool,
     default_require_level: Require,
@@ -127,6 +128,7 @@ impl TestEnv {
             implicit_any_error: false,
             unannotated_return_error: false,
             unannotated_parameter_error: false,
+            unannotated_attribute_error: false,
             implicit_abstract_class_error: false,
             open_unpacking_error: false,
             default_require_level: Require::Exports,
@@ -164,6 +166,11 @@ impl TestEnv {
 
     pub fn enable_implicit_any_error(mut self) -> Self {
         self.implicit_any_error = true;
+        self
+    }
+
+    pub fn enable_unannotated_attribute_error(mut self) -> Self {
+        self.unannotated_attribute_error = true;
         self
     }
 
@@ -267,6 +274,9 @@ impl TestEnv {
         }
         if self.implicit_any_error {
             errors.set_error_severity(ErrorKind::ImplicitAny, Severity::Error);
+        }
+        if self.unannotated_attribute_error {
+            errors.set_error_severity(ErrorKind::UnannotatedAttribute, Severity::Error);
         }
         if self.unannotated_return_error {
             errors.set_error_severity(ErrorKind::UnannotatedReturn, Severity::Error);

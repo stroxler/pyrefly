@@ -97,7 +97,7 @@ x2 = {}
 
 testcase!(
     test_warn_on_implicit_any_in_attribute,
-    TestEnv::new().enable_implicit_any_error(),
+    TestEnv::new().enable_unannotated_attribute_error(),
     r#"
 from typing import Any
 class A:

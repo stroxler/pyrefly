@@ -232,6 +232,8 @@ pub enum ErrorKind {
     RedundantCondition,
     /// Raised by a call to reveal_type().
     RevealType,
+    /// An attribute is missing a type annotation and is initialized with the `None` literal.
+    UnannotatedAttribute,
     /// A function parameter is missing a type annotation.
     UnannotatedParameter,
     /// A function is missing a return type annotation.
@@ -304,6 +306,7 @@ impl ErrorKind {
             ErrorKind::ImplicitAny => Severity::Ignore,
             ErrorKind::UnannotatedParameter => Severity::Ignore,
             ErrorKind::UnannotatedReturn => Severity::Ignore,
+            ErrorKind::UnannotatedAttribute => Severity::Ignore,
             ErrorKind::MissingSource => Severity::Ignore,
             ErrorKind::OpenUnpacking => Severity::Ignore,
             _ => Severity::Error,
