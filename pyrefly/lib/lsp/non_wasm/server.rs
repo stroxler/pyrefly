@@ -1510,21 +1510,13 @@ impl Server {
                 IndexingMode::LazyNonBlockingBackground => {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         self.recheck_queue.queue_task(HeavyTask::new(move |server| {
-                            Self::populate_all_project_files_in_config(
-                                config,
-                                &server.state,
-                                &server.lsp_queue,
-                            );
+                            server.populate_all_project_files_in_config(config);
                         }));
                     }
                 }
                 IndexingMode::LazyBlocking => {
                     if self.indexed_configs.lock().insert(config.dupe()) {
-                        Self::populate_all_project_files_in_config(
-                            config,
-                            &self.state,
-                            &self.lsp_queue,
-                        );
+                        self.populate_all_project_files_in_config(config);
                     }
                 }
             }
@@ -1549,23 +1541,13 @@ impl Server {
                 indexed_workspaces.extend(roots_to_populate_files.iter().cloned());
                 drop(indexed_workspaces);
                 self.recheck_queue.queue_task(HeavyTask::new(move |server| {
-                    Self::populate_all_workspaces_files(
-                        roots_to_populate_files,
-                        &server.state,
-                        workspace_indexing_limit,
-                        &server.lsp_queue,
-                    );
+                    server.populate_all_workspaces_files(roots_to_populate_files);
                 }));
             }
             IndexingMode::LazyBlocking => {
                 indexed_workspaces.extend(roots_to_populate_files.iter().cloned());
                 drop(indexed_workspaces);
-                Self::populate_all_workspaces_files(
-                    roots_to_populate_files,
-                    &self.state,
-                    workspace_indexing_limit,
-                    &self.lsp_queue,
-                );
+                self.populate_all_workspaces_files(roots_to_populate_files);
             }
         }
     }
@@ -1607,72 +1589,71 @@ impl Server {
     /// entire project to work. This blocking function should be called when we know that a project
     /// file is opened and if we intend to provide features like find-references, and should be
     /// called when config changes (currently this is a TODO).
-    fn populate_all_project_files_in_config(
-        config: ArcId<ConfigFile>,
-        state: &State,
-        lsp_queue: &LspQueue,
-    ) {
+    fn populate_all_project_files_in_config(&self, config: ArcId<ConfigFile>) {
         let unknown = ModuleName::unknown();
 
         info!("Populating all files in the config ({:?}).", config.source);
-        let mut transaction = state.new_committable_transaction(Require::indexing(), None);
+        let mut transaction = self
+            .state
+            .new_committable_transaction(Require::indexing(), None);
 
         let project_path_blobs = config.get_filtered_globs(None);
         let paths = project_path_blobs.files().unwrap_or_default();
         let mut handles = Vec::new();
         for path in paths {
             let module_path = ModulePath::filesystem(path.clone());
-            let path_config = state.config_finder().python_file(unknown, &module_path);
+            let path_config = self
+                .state
+                .config_finder()
+                .python_file(unknown, &module_path);
             if config != path_config {
                 continue;
             }
-            handles.push(handle_from_module_path(state, module_path));
+            handles.push(handle_from_module_path(&self.state, module_path));
         }
 
         info!("Prepare to check {} files.", handles.len());
         transaction.as_mut().run(&handles, Require::indexing());
-        state.commit_transaction(transaction);
+        self.state.commit_transaction(transaction);
         // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
         // the main event loop of the server. As a result, the server can do a revalidation of
         // all the in-memory files based on the fresh main State as soon as possible.
         info!("Populated all files in the project path, prepare to recheck open files.");
-        let _ = lsp_queue.send(LspEvent::RecheckFinished);
+        let _ = self.lsp_queue.send(LspEvent::RecheckFinished);
     }
 
-    fn populate_all_workspaces_files(
-        workspace_roots: Vec<PathBuf>,
-        state: &State,
-        workspace_indexing_limit: usize,
-        lsp_queue: &LspQueue,
-    ) {
+    fn populate_all_workspaces_files(&self, workspace_roots: Vec<PathBuf>) {
         for workspace_root in workspace_roots {
             info!(
-                "Populating up to {workspace_indexing_limit} files in the workspace ({workspace_root:?}).",
+                "Populating up to {} files in the workspace ({workspace_root:?}).",
+                self.workspace_indexing_limit
             );
-            let mut transaction = state.new_committable_transaction(Require::indexing(), None);
+            let mut transaction = self
+                .state
+                .new_committable_transaction(Require::indexing(), None);
 
             let includes =
                 ConfigFile::default_project_includes().from_root(workspace_root.as_path());
             let globs = FilteredGlobs::new(includes, ConfigFile::required_project_excludes(), None);
             let paths = globs
-                .files_with_limit(workspace_indexing_limit)
+                .files_with_limit(self.workspace_indexing_limit)
                 .unwrap_or_default();
             let mut handles = Vec::new();
             for path in paths {
                 handles.push(handle_from_module_path(
-                    state,
+                    &self.state,
                     ModulePath::filesystem(path.clone()),
                 ));
             }
 
             info!("Prepare to check {} files.", handles.len());
             transaction.as_mut().run(&handles, Require::indexing());
-            state.commit_transaction(transaction);
+            self.state.commit_transaction(transaction);
             // After we finished a recheck asynchronously, we immediately send `RecheckFinished` to
             // the main event loop of the server. As a result, the server can do a revalidation of
             // all the in-memory files based on the fresh main State as soon as possible.
             info!("Populated all files in the workspace, prepare to recheck open files.");
-            let _ = lsp_queue.send(LspEvent::RecheckFinished);
+            let _ = self.lsp_queue.send(LspEvent::RecheckFinished);
         }
     }
 
