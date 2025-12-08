@@ -1688,7 +1688,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         use pyrefly_python::module_path::ModulePathDetails;
         match module_path.details() {
             ModulePathDetails::BundledTypeshed(_)
-            | ModulePathDetails::BundledTypeshedThirdParty(_) => true,
+            | ModulePathDetails::BundledTypeshedThirdParty(_)
+            | ModulePathDetails::BundledThirdParty(_) => true,
             ModulePathDetails::FileSystem(path)
             | ModulePathDetails::Memory(path)
             | ModulePathDetails::Namespace(path) => {
