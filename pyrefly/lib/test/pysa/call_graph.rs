@@ -681,14 +681,14 @@ def foo(b: bool):
             "test.foo",
             vec![
                 (
-                    "6:9-6:12",
+                    "6:9-6:12|identifier|bar",
                     regular_identifier_callees(vec![
                         create_call_target("test.bar", TargetType::Function)
                             .with_return_type(ScalarTypeProperties::bool()),
                     ]),
                 ),
                 (
-                    "8:9-8:12",
+                    "8:9-8:12|identifier|baz",
                     regular_identifier_callees(vec![
                         create_call_target("test.baz", TargetType::Function)
                             .with_return_type(ScalarTypeProperties::int()),
@@ -784,7 +784,7 @@ def foo(c: C):
             "test.foo",
             vec![
                 (
-                    "7:3-7:4",
+                    "7:3-7:4|identifier|C",
                     class_identifier_without_constructors("test.C", context),
                 ),
                 (
@@ -808,7 +808,7 @@ def foo(c: C):
                     ]),
                 ),
                 (
-                    "9:3-9:4",
+                    "9:3-9:4|identifier|C",
                     class_identifier_without_constructors("test.C", context),
                 ),
                 (
@@ -930,7 +930,7 @@ def foo(c: C):
             "test.foo",
             vec![
                 (
-                    "5:4-5:5",
+                    "5:4-5:5|identifier|c",
                     ExpressionCallees::Identifier(IdentifierCallees {
                         if_called: CallCallees {
                             call_targets: vec![
@@ -983,7 +983,7 @@ def foo():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                ("7:8-7:11", regular_identifier_callees(bar)),
+                ("7:8-7:11|identifier|bar", regular_identifier_callees(bar)),
             ],
         )]
     }
@@ -1322,7 +1322,7 @@ def foo():
             "test.foo",
             vec![
                 (
-                    "6:3-6:4",
+                    "6:3-6:4|identifier|C",
                     class_identifier_without_constructors("test.C", context),
                 ),
                 (
@@ -1364,7 +1364,7 @@ def bar():
             "test.bar",
             vec![
                 (
-                    "17:3-17:4",
+                    "17:3-17:4|identifier|B",
                     class_identifier_without_constructors("test.B", context),
                 ),
                 (
@@ -1531,7 +1531,7 @@ def foo(c: C):
             "test.foo",
             vec![
                 (
-                    "9:3-9:4",
+                    "9:3-9:4|identifier|C",
                     class_identifier_without_constructors("test.C", context),
                 ),
                 (
@@ -1623,7 +1623,7 @@ def foo(c: C):
             "test.foo",
             vec![
                 (
-                    "14:3-14:4",
+                    "14:3-14:4|identifier|C",
                     class_identifier_without_constructors("test.C", context),
                 ),
                 (
@@ -1637,7 +1637,7 @@ def foo(c: C):
                     ]),
                 ),
                 (
-                    "15:3-15:4",
+                    "15:3-15:4|identifier|D",
                     class_identifier_without_constructors("test.D", context),
                 ),
                 (
@@ -1651,7 +1651,7 @@ def foo(c: C):
                     ]),
                 ),
                 (
-                    "16:3-16:4",
+                    "16:3-16:4|identifier|D",
                     class_identifier_without_constructors("test.D", context),
                 ),
                 (
@@ -1703,7 +1703,7 @@ def foo():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                ("8:7-8:10", regular_identifier_callees(bar)),
+                ("8:7-8:10|identifier|bar", regular_identifier_callees(bar)),
             ],
         )]
     }
@@ -1754,8 +1754,11 @@ def main():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                ("11:12-11:15", regular_identifier_callees(bar)),
-                ("11:7-11:10", regular_identifier_callees(foo)),
+                (
+                    "11:12-11:15|identifier|bar",
+                    regular_identifier_callees(bar),
+                ),
+                ("11:7-11:10|identifier|foo", regular_identifier_callees(foo)),
             ],
         )]
     }
@@ -1932,7 +1935,7 @@ def foo(c: C):
                     ]),
                 ),
                 (
-                    "7:3-7:4",
+                    "7:3-7:4|identifier|C",
                     class_identifier_without_constructors("test.C", context),
                 ),
                 (
@@ -2141,7 +2144,7 @@ def f(foo: Foo):
                     "8:13-8:20",
                     regular_attribute_access_callees(foo_bar.clone()),
                 ),
-                ("8:22-8:25", regular_identifier_callees(baz)),
+                ("8:22-8:25|identifier|baz", regular_identifier_callees(baz)),
                 (
                     "9:5-9:8",
                     call_callees(
@@ -2204,7 +2207,7 @@ def f():
                     regular_call_callees(next_targets),
                 ),
                 (
-                    "7:13-7:16",
+                    "7:13-7:16|identifier|Foo",
                     identifier_callees(
                         /* call_targets */ vec![],
                         /* init_targets */ init_targets.clone(),
@@ -2213,7 +2216,7 @@ def f():
                         /* unresolved */ Unresolved::False,
                     ),
                 ),
-                ("7:18-7:21", regular_identifier_callees(bar)),
+                ("7:18-7:21|identifier|bar", regular_identifier_callees(bar)),
                 (
                     "8:5-8:8",
                     ExpressionCallees::Call(CallCallees {
@@ -2419,7 +2422,7 @@ def caller() -> None:
             "test.caller",
             vec![
                 (
-                    "16:3-16:6",
+                    "16:3-16:6|identifier|Foo",
                     class_identifier_without_constructors("test.Foo", context),
                 ),
                 (
@@ -2462,7 +2465,7 @@ def caller() -> None:
             "test.caller",
             vec![
                 (
-                    "16:3-16:6",
+                    "16:3-16:6|identifier|Foo",
                     class_identifier_without_constructors("test.Foo", context),
                 ),
                 (
@@ -2504,7 +2507,7 @@ class Foo:
             "test.Foo.caller",
             vec![
                 (
-                    "17:5-17:8",
+                    "17:5-17:8|identifier|cls",
                     class_identifier_without_constructors("test.Foo", context),
                 ),
                 (
@@ -3187,7 +3190,7 @@ def calls_d_method(s: str):
             "test.calls_d_method",
             vec![
                 (
-                    "11:3-11:4",
+                    "11:3-11:4|identifier|d",
                     global_identifier_callees(vec![get_global_ref("test", "d", context)]),
                 ),
                 ("11:3-11:13", regular_call_callees(call_target)),
@@ -3781,7 +3784,7 @@ def foo(error_type: Union[str, Type[Exception]]):
                     format_string_artificial_callees(),
                 ),
                 (
-                    "4:13-4:23",
+                    "4:13-4:23|identifier|error_type",
                     identifier_callees(
                         /* call_targets */ vec![],
                         /* init_targets */
@@ -3841,7 +3844,7 @@ def foo(error_type: Type[Exception]):
                     format_string_artificial_callees(),
                 ),
                 (
-                    "4:13-4:23",
+                    "4:13-4:23|identifier|error_type",
                     identifier_callees(
                         /* call_targets */ vec![],
                         /* init_targets */
@@ -4180,7 +4183,7 @@ def test(x: Union[B, C]):
             vec![
                 ("11:5-11:12", regular_call_callees(foo_target_union.clone())),
                 (
-                    "12:22-12:23",
+                    "12:22-12:23|identifier|C",
                     identifier_callees(
                         /* call_targets */ vec![],
                         /* init_targets */ c_init_targets.clone(),
@@ -4196,7 +4199,7 @@ def test(x: Union[B, C]):
                 ("13:9-13:16", regular_call_callees(foo_target_c)),
                 ("15:9-15:16", regular_call_callees(foo_target_b.clone())),
                 (
-                    "16:22-16:23",
+                    "16:22-16:23|identifier|B",
                     identifier_callees(
                         /* call_targets */ vec![],
                         /* init_targets */ b_init_targets.clone(),
@@ -4770,7 +4773,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "5:9-5:16",
+                "5:9-5:16|identifier|environ",
                 global_identifier_callees(vec![get_global_ref("os", "environ", context)]),
             )],
         )]
@@ -4790,7 +4793,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "5:9-5:10",
+                "5:9-5:10|identifier|y",
                 global_identifier_callees(vec![get_global_ref("os", "environ", context)]),
             )],
         )]
@@ -4810,7 +4813,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "5:9-5:10",
+                "5:9-5:10|identifier|g",
                 global_identifier_callees(vec![get_global_ref("test", "g", context)]),
             )],
         )]
@@ -4893,7 +4896,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "4:10-4:13",
+                "4:10-4:13|identifier|bar",
                 regular_identifier_callees(vec![create_call_target(
                     "test.bar",
                     TargetType::Function,
@@ -4915,7 +4918,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "4:9-4:12",
+                "4:9-4:12|identifier|bar",
                 regular_identifier_callees(vec![create_call_target(
                     "test.bar",
                     TargetType::Function,
@@ -4967,7 +4970,7 @@ def foo():
                     define_callees(vec![create_call_target("test.inner", TargetType::Function)]),
                 ),
                 (
-                    "4:7-4:12",
+                    "4:7-4:12|identifier|inner",
                     regular_identifier_callees(vec![create_call_target(
                         "test.inner",
                         TargetType::Function,
@@ -5239,7 +5242,7 @@ def baz():
                     ),
                 ),
                 (
-                    "7:7-7:10",
+                    "7:7-7:10|identifier|bar",
                     identifier_callees(
                         vec![create_call_target("test.bar", TargetType::Function)],
                         /* init_targets */ vec![],
@@ -5337,7 +5340,7 @@ def bar():
                     ),
                 ),
                 (
-                    "9:7-9:8",
+                    "9:7-9:8|identifier|a",
                     identifier_callees(
                         /* call_targets */ a_call_target,
                         /* init_targets */ vec![],
@@ -5402,7 +5405,7 @@ def bar():
                 ),
                 // TODO: Filter the results with `filter_implicit_dunder_calls`
                 (
-                    "9:7-9:8",
+                    "9:7-9:8|identifier|a",
                     identifier_callees(
                         /* call_targets */ a_call_target,
                         /* init_targets */ vec![],
@@ -5454,7 +5457,7 @@ def bar():
                     constructor_call_callees(init_targets, new_targets),
                 ),
                 (
-                    "10:7-10:8",
+                    "10:7-10:8|identifier|a",
                     identifier_callees(
                         /* call_targets */ a_call_target.clone(),
                         /* init_targets */ vec![],
@@ -5521,7 +5524,7 @@ def bar():
                     constructor_call_callees(init_targets, new_targets),
                 ),
                 (
-                    "13:7-13:8",
+                    "13:7-13:8|identifier|a",
                     identifier_callees(
                         /* call_targets */ a_call_target.clone(),
                         /* init_targets */ vec![],
@@ -5593,11 +5596,11 @@ def foo():
             "test.foo",
             vec![
                 (
-                    "9:3-9:4",
+                    "9:3-9:4|identifier|x",
                     global_identifier_callees(vec![get_global_ref("test", "x", context)]),
                 ),
                 (
-                    "10:3-10:4",
+                    "10:3-10:4|identifier|y",
                     global_identifier_callees(vec![get_global_ref("test", "y", context)]),
                 ),
                 (
@@ -5608,7 +5611,7 @@ def foo():
                     )]),
                 ),
                 (
-                    "11:7-11:8",
+                    "11:7-11:8|identifier|x",
                     global_identifier_callees(vec![get_global_ref("test", "x", context)]),
                 ),
                 (
@@ -5619,7 +5622,7 @@ def foo():
                     )]),
                 ),
                 (
-                    "12:7-12:8",
+                    "12:7-12:8|identifier|y",
                     global_identifier_callees(vec![get_global_ref("test", "y", context)]),
                 ),
             ],
@@ -5641,7 +5644,7 @@ def foo():
         vec![(
             "test.foo",
             vec![(
-                "6:7-6:8",
+                "6:7-6:8|identifier|x",
                 global_identifier_callees(vec![get_global_ref("test", "x", context)]),
             )],
         )]

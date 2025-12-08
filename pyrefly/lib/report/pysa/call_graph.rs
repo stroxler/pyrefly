@@ -130,6 +130,11 @@ pub enum ExpressionIdentifier {
     ArtificialCall(Origin),
     FormatStringArtificial(PysaLocation),
     FormatStringStringify(PysaLocation),
+    /// Represents an ExprName
+    Identifier {
+        location: PysaLocation,
+        identifier: Name,
+    },
 }
 
 impl std::fmt::Display for ExpressionIdentifier {
@@ -145,7 +150,13 @@ impl std::fmt::Display for ExpressionIdentifier {
                 )
             }
             Self::ArtificialCall(Origin { kind, location }) => {
-                write!(f, "{}|artificial-call|{}", location.as_key(), kind,)
+                write!(f, "{}|artificial-call|{}", location.as_key(), kind)
+            }
+            Self::Identifier {
+                location,
+                identifier,
+            } => {
+                write!(f, "{}|identifier|{}", location.as_key(), identifier)
             }
             Self::FormatStringArtificial(location) => {
                 write!(f, "{}|format-string-artificial", location.as_key())
@@ -164,6 +175,13 @@ impl ExpressionIdentifier {
 
     fn regular(location: TextRange, module: &pyrefly_python::module::Module) -> Self {
         ExpressionIdentifier::Regular(PysaLocation::new(module.display_range(location)))
+    }
+
+    fn expr_name(expr: &ExprName, module: &pyrefly_python::module::Module) -> Self {
+        ExpressionIdentifier::Identifier {
+            location: PysaLocation::new(module.display_range(expr.range())),
+            identifier: expr.id.clone(),
+        }
     }
 }
 
@@ -2925,8 +2943,6 @@ impl<'a> CallGraphVisitor<'a> {
                 _ => false,
             });
         let expr_type = || self.module_context.answers.get_type_trace(expr.range());
-        let regular_expression_identifier =
-            ExpressionIdentifier::regular(expr.range(), &self.module_context.module_info);
         match expr {
             Expr::Call(call) => {
                 debug_println!(
@@ -2942,7 +2958,7 @@ impl<'a> CallGraphVisitor<'a> {
                 self.resolve_and_register_call(
                     call,
                     return_type_from_expr,
-                    regular_expression_identifier,
+                    ExpressionIdentifier::regular(expr.range(), &self.module_context.module_info),
                     assignment_targets(current_statement),
                 );
             }
@@ -2959,7 +2975,7 @@ impl<'a> CallGraphVisitor<'a> {
                 );
                 if !callees.is_empty() {
                     self.add_callees(
-                        regular_expression_identifier,
+                        ExpressionIdentifier::expr_name(name, &self.module_context.module_info),
                         ExpressionCallees::Identifier(callees),
                     );
                 }
@@ -2983,7 +2999,10 @@ impl<'a> CallGraphVisitor<'a> {
                 );
                 if !callees.is_empty() {
                     self.add_callees(
-                        regular_expression_identifier,
+                        ExpressionIdentifier::regular(
+                            expr.range(),
+                            &self.module_context.module_info,
+                        ),
                         ExpressionCallees::AttributeAccess(callees),
                     );
                 }
@@ -3215,13 +3234,23 @@ impl<'a> CallGraphVisitor<'a> {
                 ExpressionCallees::Call(callees),
             );
             // Remove callees for the underlying expression, to avoid duplicates.
-            if matches!(decorator.expression, Expr::Name(_))
-                || matches!(decorator.expression, Expr::Attribute(_))
-            {
-                self.call_graphs.remove_callees(
-                    decorated_target.clone(),
-                    ExpressionIdentifier::Regular(self.pysa_location(decorator.expression.range())),
-                );
+            match &decorator.expression {
+                Expr::Name(name) => {
+                    self.call_graphs.remove_callees(
+                        decorated_target.clone(),
+                        ExpressionIdentifier::expr_name(name, &self.module_context.module_info),
+                    );
+                }
+                Expr::Attribute(_) => {
+                    self.call_graphs.remove_callees(
+                        decorated_target.clone(),
+                        ExpressionIdentifier::regular(
+                            decorator.expression.range(),
+                            &self.module_context.module_info,
+                        ),
+                    );
+                }
+                _ => (),
             }
         }
     }
@@ -3406,8 +3435,10 @@ fn resolve_expression(
         parent_expression,
         /* current_statement */ None,
     );
-    let expression_identifier =
-        ExpressionIdentifier::regular(expression.range(), &module_context.module_info);
+    let expression_identifier = match expression {
+        Expr::Name(name) => ExpressionIdentifier::expr_name(name, &module_context.module_info),
+        _ => ExpressionIdentifier::regular(expression.range(), &module_context.module_info),
+    };
     call_graphs
         .0
         .entry(current_function)
