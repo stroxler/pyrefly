@@ -24,14 +24,14 @@ enum PathFilter {
     /// Filter for stdlib files (typeshed/stdlib/...)
     Stdlib,
     /// Filter for third-party stubs (typeshed/stubs/package-name/...)
-    ThirdPartyStubs,
+    ThirdPartyTypeshedStubs,
 }
 
 impl PathFilter {
     fn expected_first_component(&self) -> &str {
         match self {
             PathFilter::Stdlib => "stdlib",
-            PathFilter::ThirdPartyStubs => "stubs",
+            PathFilter::ThirdPartyTypeshedStubs => "stubs",
         }
     }
 
@@ -39,7 +39,7 @@ impl PathFilter {
     fn should_skip_next_component(&self) -> bool {
         match self {
             PathFilter::Stdlib => false,
-            PathFilter::ThirdPartyStubs => true, // Skip package directory
+            PathFilter::ThirdPartyTypeshedStubs => true, // Skip package directory
         }
     }
 }
@@ -78,7 +78,7 @@ fn extract_pyi_files_from_archive(filter: PathFilter) -> anyhow::Result<SmallMap
         // third-party example: typeshed/stubs/package-name/package-name/other.pyi
         // An example of this might be the path typeshed/stubs/JACK-Client/jack/other.pyi
         // In this case we want out path to be jack/other.pyi, so we skip over "stubs" and "JACK-Client".
-        let relative_path = if filter == PathFilter::ThirdPartyStubs {
+        let relative_path = if filter == PathFilter::ThirdPartyTypeshedStubs {
             relative_path_components.next();
             relative_path_components.collect::<PathBuf>()
         } else {
@@ -107,7 +107,7 @@ pub fn bundled_typeshed() -> anyhow::Result<SmallMap<PathBuf, String>> {
 
 #[allow(dead_code)]
 pub fn bundled_third_party_stubs() -> anyhow::Result<SmallMap<PathBuf, String>> {
-    extract_pyi_files_from_archive(PathFilter::ThirdPartyStubs)
+    extract_pyi_files_from_archive(PathFilter::ThirdPartyTypeshedStubs)
 }
 
 #[cfg(test)]
@@ -244,7 +244,7 @@ mod tests {
             "Stdlib filter should expect 'stdlib' component"
         );
         assert_eq!(
-            PathFilter::ThirdPartyStubs.expected_first_component(),
+            PathFilter::ThirdPartyTypeshedStubs.expected_first_component(),
             "stubs",
             "ThirdPartyStubs filter should expect 'stubs' component"
         );
