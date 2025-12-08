@@ -467,14 +467,18 @@ pub enum ClassBase {
 }
 
 impl ClassBase {
-    pub fn class_object(&self) -> &Class {
+    pub fn class_type(&self) -> &ClassType {
         match self {
-            ClassBase::ClassDef(c) => c.class_object(),
-            ClassBase::ClassType(c) => c.class_object(),
-            ClassBase::Quantified(_, c) => c.class_object(),
-            ClassBase::SelfType(c) => c.class_object(),
-            ClassBase::Protocol(c, _) => c.class_object(),
+            ClassBase::ClassDef(c)
+            | ClassBase::ClassType(c)
+            | ClassBase::Quantified(_, c)
+            | ClassBase::SelfType(c)
+            | ClassBase::Protocol(c, _) => c,
         }
+    }
+
+    pub fn class_object(&self) -> &Class {
+        self.class_type().class_object()
     }
 
     pub fn targs(&self) -> Option<&TArgs> {
