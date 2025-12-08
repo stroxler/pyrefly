@@ -9,7 +9,6 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dupe::Dupe;
 use lsp_types::Url;
 use lsp_types::WorkspaceFoldersChangeEvent;
 use pyrefly_config::config::FallbackSearchPath;
@@ -315,8 +314,8 @@ impl Workspaces {
         f(workspace.unwrap_or((None, &default_workspace)))
     }
 
-    pub fn config_finder(workspaces: &Arc<Workspaces>) -> ConfigFinder {
-        standard_config_finder(Arc::new(WorkspaceConfigConfigurer(workspaces.dupe())))
+    pub fn config_finder(workspaces: Arc<Workspaces>) -> ConfigFinder {
+        standard_config_finder(Arc::new(WorkspaceConfigConfigurer(workspaces)))
     }
 
     pub fn roots(&self) -> Vec<PathBuf> {

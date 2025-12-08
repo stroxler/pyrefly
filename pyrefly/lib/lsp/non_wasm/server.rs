@@ -269,7 +269,7 @@ pub trait TspInterface: Send + Sync {
     fn send_response(&self, response: Response);
 
     /// Get access to the state for creating transactions
-    fn state(&self) -> &Arc<State>;
+    fn state(&self) -> &State;
 
     fn connection(&self) -> &Connection;
 
@@ -290,8 +290,7 @@ pub trait TspInterface: Send + Sync {
     fn run_task(&self, task: HeavyTask);
 }
 
-#[derive(Clone, Dupe)]
-struct ServerConnection(Arc<Connection>);
+struct ServerConnection(Connection);
 
 impl ServerConnection {
     fn send(&self, msg: Message) {
@@ -331,23 +330,23 @@ impl ServerConnection {
 
 pub struct Server {
     connection: ServerConnection,
-    lsp_queue: Arc<LspQueue>,
+    lsp_queue: LspQueue,
     recheck_queue: HeavyTaskQueue<HeavyTask>,
     find_reference_queue: HeavyTaskQueue<HeavyTask>,
-    sourcedb_queue: Arc<HeavyTaskQueue<HeavyTask>>,
+    sourcedb_queue: HeavyTaskQueue<HeavyTask>,
     /// Any configs whose find cache should be invalidated.
-    invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
+    invalidated_configs: Mutex<SmallSet<ArcId<ConfigFile>>>,
     initialize_params: InitializeParams,
     indexing_mode: IndexingMode,
     workspace_indexing_limit: usize,
-    state: Arc<State>,
+    state: State,
     /// This is a mapping from open notebook cells to the paths of the notebooks they belong to,
     /// which can be used to look up the notebook contents in `open_files`.
     ///
     /// Notebook cell URIs are entirely arbitrary, and any URI received from the language client
     /// should be mapped through here in case they correspond to a cell.
-    open_notebook_cells: Arc<RwLock<HashMap<Url, PathBuf>>>,
-    open_files: Arc<RwLock<HashMap<PathBuf, Arc<LspFile>>>>,
+    open_notebook_cells: RwLock<HashMap<Url, PathBuf>>,
+    open_files: RwLock<HashMap<PathBuf, Arc<LspFile>>>,
     /// Tracks URIs (including virtual/untitled ones) to synthetic on-disk paths so we can
     /// treat them like regular files throughout the server.
     unsaved_file_tracker: UnsavedFileTracker,
@@ -358,7 +357,7 @@ pub struct Server {
     /// performed with best effort up to certain limit of user files. When the workspace changes,
     /// we rely on file watchers to catch up.
     indexed_workspaces: Mutex<HashSet<PathBuf>>,
-    cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
+    cancellation_handles: Mutex<HashMap<RequestId, CancellationHandle>>,
     workspaces: Arc<Workspaces>,
     outgoing_request_id: AtomicI32,
     outgoing_requests: Mutex<HashMap<RequestId, Request>>,
@@ -1178,24 +1177,24 @@ impl Server {
 
         let workspaces = Arc::new(Workspaces::new(Workspace::default(), &folders));
 
-        let config_finder = Workspaces::config_finder(&workspaces);
+        let config_finder = Workspaces::config_finder(workspaces.dupe());
         let s = Self {
-            connection: ServerConnection(Arc::new(connection)),
-            lsp_queue: Arc::new(lsp_queue),
+            connection: ServerConnection(connection),
+            lsp_queue,
             recheck_queue: HeavyTaskQueue::new("recheck_queue"),
             find_reference_queue: HeavyTaskQueue::new("find_reference_queue"),
-            sourcedb_queue: Arc::new(HeavyTaskQueue::new("sourcedb_queue")),
-            invalidated_configs: Arc::new(Mutex::new(SmallSet::new())),
+            sourcedb_queue: HeavyTaskQueue::new("sourcedb_queue"),
+            invalidated_configs: Mutex::new(SmallSet::new()),
             initialize_params,
             indexing_mode,
             workspace_indexing_limit,
-            state: Arc::new(State::new(config_finder)),
-            open_notebook_cells: Arc::new(RwLock::new(HashMap::new())),
-            open_files: Arc::new(RwLock::new(HashMap::new())),
+            state: State::new(config_finder),
+            open_notebook_cells: RwLock::new(HashMap::new()),
+            open_files: RwLock::new(HashMap::new()),
             unsaved_file_tracker: UnsavedFileTracker::new(),
             indexed_configs: Mutex::new(HashSet::new()),
             indexed_workspaces: Mutex::new(HashSet::new()),
-            cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
+            cancellation_handles: Mutex::new(HashMap::new()),
             workspaces,
             outgoing_request_id: AtomicI32::new(1),
             outgoing_requests: Mutex::new(HashMap::new()),
@@ -1513,8 +1512,8 @@ impl Server {
                         self.recheck_queue.queue_task(HeavyTask::new(move |server| {
                             Self::populate_all_project_files_in_config(
                                 config,
-                                server.state.dupe(),
-                                server.lsp_queue.dupe(),
+                                &server.state,
+                                &server.lsp_queue,
                             );
                         }));
                     }
@@ -1523,8 +1522,8 @@ impl Server {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         Self::populate_all_project_files_in_config(
                             config,
-                            self.state.dupe(),
-                            self.lsp_queue.dupe(),
+                            &self.state,
+                            &self.lsp_queue,
                         );
                     }
                 }
@@ -1552,9 +1551,9 @@ impl Server {
                 self.recheck_queue.queue_task(HeavyTask::new(move |server| {
                     Self::populate_all_workspaces_files(
                         roots_to_populate_files,
-                        server.state.dupe(),
+                        &server.state,
                         workspace_indexing_limit,
-                        server.lsp_queue.dupe(),
+                        &server.lsp_queue,
                     );
                 }));
             }
@@ -1563,9 +1562,9 @@ impl Server {
                 drop(indexed_workspaces);
                 Self::populate_all_workspaces_files(
                     roots_to_populate_files,
-                    self.state.dupe(),
+                    &self.state,
                     workspace_indexing_limit,
-                    self.lsp_queue.dupe(),
+                    &self.lsp_queue,
                 );
             }
         }
@@ -1610,8 +1609,8 @@ impl Server {
     /// called when config changes (currently this is a TODO).
     fn populate_all_project_files_in_config(
         config: ArcId<ConfigFile>,
-        state: Arc<State>,
-        lsp_queue: Arc<LspQueue>,
+        state: &State,
+        lsp_queue: &LspQueue,
     ) {
         let unknown = ModuleName::unknown();
 
@@ -1627,7 +1626,7 @@ impl Server {
             if config != path_config {
                 continue;
             }
-            handles.push(handle_from_module_path(&state, module_path));
+            handles.push(handle_from_module_path(state, module_path));
         }
 
         info!("Prepare to check {} files.", handles.len());
@@ -1642,9 +1641,9 @@ impl Server {
 
     fn populate_all_workspaces_files(
         workspace_roots: Vec<PathBuf>,
-        state: Arc<State>,
+        state: &State,
         workspace_indexing_limit: usize,
-        lsp_queue: Arc<LspQueue>,
+        lsp_queue: &LspQueue,
     ) {
         for workspace_root in workspace_roots {
             info!(
@@ -1661,7 +1660,7 @@ impl Server {
             let mut handles = Vec::new();
             for path in paths {
                 handles.push(handle_from_module_path(
-                    &state,
+                    state,
                     ModulePath::filesystem(path.clone()),
                 ));
             }
@@ -3211,7 +3210,7 @@ impl TspInterface for Server {
         self.send_response(response)
     }
 
-    fn state(&self) -> &Arc<State> {
+    fn state(&self) -> &State {
         &self.state
     }
 
