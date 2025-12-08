@@ -470,6 +470,20 @@ fn find_module_prefixes<'a>(
     results.iter().map(|(_, name)| *name).collect::<Vec<_>>()
 }
 
+fn find_third_party_typeshed_stub(
+    module: ModuleName,
+    style_filter: Option<ModuleStyle>,
+) -> Option<FindingOrError<ModulePath>> {
+    if matches!(style_filter, Some(ModuleStyle::Interface) | None) {
+        typeshed_third_party().map_or_else(
+            |err| Some(FindingOrError::Error(FindError::not_found(err, module))),
+            |ts| ts.find(module).map(FindingOrError::new_finding),
+        )
+    } else {
+        None
+    }
+}
+
 // TODO(connernilsen): change things so that we return all entries that match for a given
 // module name across all path components (search path, site package path, ...).
 // Instead, at specific times (`find_module_components`, `find_module`, `find_import_filtered`),
@@ -501,15 +515,7 @@ pub fn find_import_filtered(
     let mut namespaces_found = vec![];
     let origin = origin.map(|p| p.as_path());
     let from_real_config_file = config.from_real_config_file();
-    let typeshed_third_party_result: Option<FindingOrError<ModulePath>> =
-        if matches!(style_filter, Some(ModuleStyle::Interface) | None) {
-            typeshed_third_party().map_or_else(
-                |err| Some(FindingOrError::Error(FindError::not_found(err, module))),
-                |ts| ts.find(module).map(FindingOrError::new_finding),
-            )
-        } else {
-            None
-        };
+    let typeshed_third_party_result = find_third_party_typeshed_stub(module, style_filter);
 
     let typeshed_third_party_stub = match from_real_config_file {
         true => None,
