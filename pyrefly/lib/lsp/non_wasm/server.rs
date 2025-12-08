@@ -206,6 +206,7 @@ use crate::lsp::non_wasm::lsp::new_response;
 use crate::lsp::non_wasm::module_helpers::handle_from_module_path;
 use crate::lsp::non_wasm::module_helpers::make_open_handle;
 use crate::lsp::non_wasm::module_helpers::module_info_to_uri;
+use crate::lsp::non_wasm::queue::HeavyTask;
 use crate::lsp::non_wasm::queue::HeavyTaskQueue;
 use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
@@ -276,7 +277,7 @@ pub trait TspInterface: Send + Sync {
     fn lsp_queue(&self) -> &LspQueue;
 
     /// Get access to the recheck queue for async task processing
-    fn recheck_queue(&self) -> &HeavyTaskQueue;
+    fn recheck_queue(&self) -> &HeavyTaskQueue<HeavyTask>;
 
     /// Process an LSP event and return the next step
     fn process_event<'a>(
@@ -330,9 +331,9 @@ impl ServerConnection {
 pub struct Server {
     connection: ServerConnection,
     lsp_queue: Arc<LspQueue>,
-    recheck_queue: HeavyTaskQueue,
-    find_reference_queue: HeavyTaskQueue,
-    sourcedb_queue: Arc<HeavyTaskQueue>,
+    recheck_queue: HeavyTaskQueue<HeavyTask>,
+    find_reference_queue: HeavyTaskQueue<HeavyTask>,
+    sourcedb_queue: Arc<HeavyTaskQueue<HeavyTask>>,
     /// Any configs whose find cache should be invalidated.
     invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
     initialize_params: InitializeParams,
@@ -578,13 +579,15 @@ pub fn lsp_loop(
             dispatch_lsp_events(&server.connection.0, &server.lsp_queue);
         });
         scope.spawn(|| {
-            server.recheck_queue.run_until_stopped();
+            server.recheck_queue.run_until_stopped(|task| task.run());
         });
         scope.spawn(|| {
-            server.find_reference_queue.run_until_stopped();
+            server
+                .find_reference_queue
+                .run_until_stopped(|task| task.run());
         });
         scope.spawn(|| {
-            server.sourcedb_queue.run_until_stopped();
+            server.sourcedb_queue.run_until_stopped(|task| task.run());
         });
         let mut ide_transaction_manager = TransactionManager::default();
         let mut canceled_requests = HashSet::new();
@@ -1510,7 +1513,7 @@ impl Server {
                     if self.indexed_configs.lock().insert(config.dupe()) {
                         let state = self.state.dupe();
                         let lsp_queue = self.lsp_queue.dupe();
-                        self.recheck_queue.queue_task(Box::new(move || {
+                        self.recheck_queue.queue_task(HeavyTask::new(move || {
                             Self::populate_all_project_files_in_config(config, state, lsp_queue);
                         }));
                     }
@@ -1547,7 +1550,7 @@ impl Server {
                 drop(indexed_workspaces);
                 let state = self.state.dupe();
                 let lsp_queue = self.lsp_queue.dupe();
-                self.recheck_queue.queue_task(Box::new(move || {
+                self.recheck_queue.queue_task(HeavyTask::new(move || {
                     Self::populate_all_workspaces_files(
                         roots_to_populate_files,
                         state,
@@ -1576,7 +1579,7 @@ impl Server {
         let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
         let open_files = self.open_files.dupe();
-        self.recheck_queue.queue_task(Box::new(move || {
+        self.recheck_queue.queue_task(HeavyTask::new(move || {
             let mut transaction = state.new_committable_transaction(Require::indexing(), None);
             f(transaction.as_mut());
 
@@ -1979,7 +1982,7 @@ impl Server {
         let sourcedb_queue = self.sourcedb_queue.dupe();
         let invalidated_configs = self.invalidated_configs.dupe();
         let path_for_task = path.clone();
-        self.recheck_queue.queue_task(Box::new(move || {
+        self.recheck_queue.queue_task(HeavyTask::new(move || {
             // Clear out the memory associated with this file.
             // Not a race condition because we immediately call validate_in_memory to put back the open files as they are now.
             // Having the extra file hanging around doesn't harm anything, but does use extra memory.
@@ -2400,38 +2403,39 @@ impl Server {
         let cancellation_handles = self.cancellation_handles.dupe();
 
         let connection = self.connection.dupe();
-        self.find_reference_queue.queue_task(Box::new(move || {
-            let mut transaction = state.cancellable_transaction();
-            cancellation_handles
-                .lock()
-                .insert(request_id.clone(), transaction.get_cancellation_handle());
-            Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
-            match find_fn(&mut transaction, &handle, definition) {
-                Ok(results) => {
-                    let mut locations = Vec::new();
-                    for (info, ranges) in results {
-                        if let Some(uri) = module_info_to_uri(&info) {
-                            locations
-                                .push((uri, ranges.into_map(|range| info.to_lsp_range(range))));
-                        };
+        self.find_reference_queue
+            .queue_task(HeavyTask::new(move || {
+                let mut transaction = state.cancellable_transaction();
+                cancellation_handles
+                    .lock()
+                    .insert(request_id.clone(), transaction.get_cancellation_handle());
+                Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
+                match find_fn(&mut transaction, &handle, definition) {
+                    Ok(results) => {
+                        let mut locations = Vec::new();
+                        for (info, ranges) in results {
+                            if let Some(uri) = module_info_to_uri(&info) {
+                                locations
+                                    .push((uri, ranges.into_map(|range| info.to_lsp_range(range))));
+                            };
+                        }
+                        cancellation_handles.lock().remove(&request_id);
+                        connection.send(Message::Response(new_response(
+                            request_id,
+                            Ok(Some(map_result(locations))),
+                        )));
                     }
-                    cancellation_handles.lock().remove(&request_id);
-                    connection.send(Message::Response(new_response(
-                        request_id,
-                        Ok(Some(map_result(locations))),
-                    )));
+                    Err(Cancelled) => {
+                        let message = format!("Request {request_id} is canceled");
+                        info!("{message}");
+                        connection.send(Message::Response(Response::new_err(
+                            request_id,
+                            ErrorCode::RequestCanceled as i32,
+                            message,
+                        )))
+                    }
                 }
-                Err(Cancelled) => {
-                    let message = format!("Request {request_id} is canceled");
-                    info!("{message}");
-                    connection.send(Message::Response(Response::new_err(
-                        request_id,
-                        ErrorCode::RequestCanceled as i32,
-                        message,
-                    )))
-                }
-            }
-        }));
+            }));
     }
 
     /// Compute references of a symbol at a given position using the standard find_global_references_from_definition
@@ -3086,7 +3090,7 @@ impl Server {
         let lsp_queue = self.lsp_queue.dupe();
         let cancellation_handles = self.cancellation_handles.dupe();
         let open_files = self.open_files.dupe();
-        self.recheck_queue.queue_task(Box::new(move || {
+        self.recheck_queue.queue_task(HeavyTask::new(move || {
             let mut transaction = state.new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().invalidate_config();
 
@@ -3196,7 +3200,7 @@ impl TspInterface for Server {
         &self.lsp_queue
     }
 
-    fn recheck_queue(&self) -> &HeavyTaskQueue {
+    fn recheck_queue(&self) -> &HeavyTaskQueue<HeavyTask> {
         &self.recheck_queue
     }
 

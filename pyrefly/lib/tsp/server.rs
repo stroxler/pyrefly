@@ -142,7 +142,10 @@ pub fn tsp_loop(
     std::thread::scope(|scope| {
         // Start the recheck queue thread to process async tasks
         scope.spawn(|| {
-            server.inner.recheck_queue().run_until_stopped();
+            server
+                .inner
+                .recheck_queue()
+                .run_until_stopped(|task| task.run());
         });
 
         scope.spawn(|| {

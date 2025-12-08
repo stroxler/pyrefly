@@ -190,18 +190,28 @@ impl LspQueue {
     }
 }
 
-pub struct HeavyTask(Box<dyn FnOnce() + Send + Sync + 'static>, Instant);
+pub struct HeavyTask(Box<dyn FnOnce() + Send + Sync + 'static>);
+
+impl HeavyTask {
+    pub fn new(f: impl FnOnce() + Send + Sync + 'static) -> Self {
+        Self(Box::new(f))
+    }
+
+    pub fn run(self) {
+        self.0()
+    }
+}
 
 /// A queue for heavy tasks that should be run in the background thread.
-pub struct HeavyTaskQueue {
-    task_sender: Sender<HeavyTask>,
-    task_receiver: Receiver<HeavyTask>,
+pub struct HeavyTaskQueue<T> {
+    task_sender: Sender<(T, Instant)>,
+    task_receiver: Receiver<(T, Instant)>,
     stop_sender: Sender<()>,
     stop_receiver: Receiver<()>,
     queue_name: String,
 }
 
-impl HeavyTaskQueue {
+impl<T> HeavyTaskQueue<T> {
     pub fn new(queue_name: &str) -> Self {
         let queue_name = queue_name.to_owned();
         let (task_sender, task_receiver) = crossbeam_channel::unbounded();
@@ -215,14 +225,14 @@ impl HeavyTaskQueue {
         }
     }
 
-    pub fn queue_task(&self, f: Box<dyn FnOnce() + Send + Sync + 'static>) {
+    pub fn queue_task(&self, task: T) {
         self.task_sender
-            .send(HeavyTask(f, Instant::now()))
+            .send((task, Instant::now()))
             .expect("Failed to queue heavy task");
         debug!("Enqueued task on {} heavy task queue", self.queue_name);
     }
 
-    pub fn run_until_stopped(&self) {
+    pub fn run_until_stopped(&self, f: impl Fn(T)) {
         let mut receiver_selector = Select::new_biased();
         // Biased selector will pick the receiver with lower index over higher ones,
         // so we register priority_events_receiver first.
@@ -238,18 +248,18 @@ impl HeavyTaskQueue {
                     return;
                 }
                 i if i == task_receiver_index => {
-                    let task = selected
+                    let (task, enqueued) = selected
                         .recv(&self.task_receiver)
                         .expect("Failed to receive heavy task");
-                    let queue_duration = task.1.elapsed().as_secs_f32();
                     debug!("Dequeued task on {} heavy task queue", self.queue_name);
                     let task_start = Instant::now();
-                    (task.0)();
+                    f(task);
+                    let task_end = Instant::now();
                     info!(
                         "Ran task on {} heavy task queue. Queue time: {:.2}, task time: {:.2}",
                         self.queue_name,
-                        queue_duration,
-                        task_start.elapsed().as_secs_f32()
+                        (task_start - enqueued).as_secs_f32(),
+                        (task_end - task_start).as_secs_f32()
                     );
                 }
                 _ => unreachable!(),

@@ -24,6 +24,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::lsp::non_wasm::module_helpers::make_open_handle;
+use crate::lsp::non_wasm::queue::HeavyTask;
 use crate::lsp::non_wasm::queue::HeavyTaskQueue;
 use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
@@ -57,11 +58,11 @@ pub fn should_requery_build_system(events: &CategorizedEvents) -> bool {
 pub fn queue_source_db_rebuild_and_recheck(
     state: Arc<State>,
     invalidated_configs: Arc<Mutex<SmallSet<ArcId<ConfigFile>>>>,
-    sourcedb_queue: &HeavyTaskQueue,
+    sourcedb_queue: &HeavyTaskQueue<HeavyTask>,
     lsp_queue: Arc<LspQueue>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<LspFile>>>>,
 ) {
-    sourcedb_queue.queue_task(Box::new(move || {
+    sourcedb_queue.queue_task(HeavyTask::new(move || {
         let mut configs_to_paths: SmallMap<ArcId<ConfigFile>, SmallSet<ModulePath>> =
             SmallMap::new();
         let config_finder = state.config_finder();
