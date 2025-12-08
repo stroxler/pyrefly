@@ -140,7 +140,7 @@ class C:
         PysaType::new(
             "int | None".to_owned(),
             ClassNamesFromType::from_class(context.stdlib.int().class_object(), &context)
-                .with_strip_optional(true),
+                .prepend_optional(),
         )
         .with_is_int(true),
         PysaType::from_type(
@@ -153,7 +153,7 @@ class C:
         PysaType::new(
             "str | None".to_owned(),
             ClassNamesFromType::from_class(context.stdlib.str().class_object(), &context)
-                .with_strip_optional(true),
+                .prepend_optional(),
         ),
         PysaType::from_type(
             &Type::optional(Type::ClassType(context.stdlib.str().clone())),
@@ -165,7 +165,7 @@ class C:
         PysaType::new(
             "bool | None".to_owned(),
             ClassNamesFromType::from_class(context.stdlib.bool().class_object(), &context)
-                .with_strip_optional(true),
+                .prepend_optional(),
         )
         .with_is_bool(true)
         .with_is_int(true),
@@ -179,7 +179,7 @@ class C:
         PysaType::new(
             "float | None".to_owned(),
             ClassNamesFromType::from_class(context.stdlib.float().class_object(), &context)
-                .with_strip_optional(true),
+                .prepend_optional(),
         )
         .with_is_float(true),
         PysaType::from_type(
@@ -192,7 +192,7 @@ class C:
         PysaType::new(
             "test.MyEnum | None".to_owned(),
             ClassNamesFromType::from_class(&get_class("test", "MyEnum", &context), &context)
-                .with_strip_optional(true),
+                .prepend_optional(),
         )
         .with_is_enum(true),
         PysaType::from_type(
@@ -208,7 +208,7 @@ class C:
         PysaType::new(
             "test.MyClass | None".to_owned(),
             ClassNamesFromType::from_class(&get_class("test", "MyClass", &context), &context)
-                .with_strip_optional(true),
+                .prepend_optional(),
         ),
         PysaType::from_type(
             &Type::optional(Type::ClassType(ClassType::new(
@@ -320,7 +320,7 @@ class C:
         PysaType::new(
             "typing.Awaitable[int]".to_owned(),
             ClassNamesFromType::from_class(context.stdlib.int().class_object(), &context)
-                .with_strip_coroutine(true),
+                .prepend_awaitable(),
         )
         .with_is_int(true),
         PysaType::from_type(
@@ -338,8 +338,8 @@ class C:
         PysaType::new(
             "typing.Awaitable[int] | None".to_owned(),
             ClassNamesFromType::from_class(context.stdlib.int().class_object(), &context)
-                .with_strip_coroutine(true)
-                .with_strip_optional(true),
+                .prepend_awaitable()
+                .prepend_optional(),
         )
         .with_is_int(true),
         PysaType::from_type(
@@ -362,7 +362,7 @@ class C:
                 ],
                 /* is_exhaustive */ true
             )
-            .with_strip_coroutine(true),
+            .prepend_awaitable(),
         ),
         PysaType::from_type(
             &Type::ClassType(context.stdlib.awaitable(unions(vec![
