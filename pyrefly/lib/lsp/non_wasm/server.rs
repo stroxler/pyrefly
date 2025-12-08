@@ -826,11 +826,7 @@ impl Server {
                 //
                 // Validating in-memory files is relatively cheap, since we only actually recheck open files which have
                 // changed file contents, so it's simpler to just always do it.
-                Self::validate_in_memory_for_transaction(
-                    &self.state,
-                    &self.open_files,
-                    &mut transaction,
-                );
+                self.validate_in_memory_for_transaction(&mut transaction);
 
                 info!("Handling non-canceled request {} ({})", x.method, &x.id);
                 if let Some(params) = as_request::<GotoDefinition>(&x) {
@@ -1241,18 +1237,15 @@ impl Server {
     }
 
     /// Run the transaction with the in-memory content of open files. Returns the handles of open files when the transaction is done.
-    fn validate_in_memory_for_transaction(
-        state: &State,
-        open_files: &RwLock<HashMap<PathBuf, Arc<LspFile>>>,
-        transaction: &mut Transaction<'_>,
-    ) -> Vec<Handle> {
-        let handles = open_files
+    fn validate_in_memory_for_transaction(&self, transaction: &mut Transaction<'_>) -> Vec<Handle> {
+        let handles = self
+            .open_files
             .read()
             .keys()
-            .map(|x| make_open_handle(state, x))
+            .map(|x| make_open_handle(&self.state, x))
             .collect::<Vec<_>>();
         transaction.set_memory(
-            open_files
+            self.open_files
                 .read()
                 .iter()
                 .map(|x| (x.0.clone(), Some(Arc::new(x.1.to_file_contents()))))
@@ -1426,8 +1419,7 @@ impl Server {
             Ok(transaction) => transaction.as_mut(),
             Err(transaction) => transaction,
         };
-        let handles =
-            Self::validate_in_memory_for_transaction(&self.state, &self.open_files, transaction);
+        let handles = self.validate_in_memory_for_transaction(transaction);
 
         let publish = |transaction: &Transaction| {
             let mut diags: SmallMap<PathBuf, Vec<Diagnostic>> = SmallMap::new();
@@ -1561,11 +1553,7 @@ impl Server {
                 .new_committable_transaction(Require::indexing(), None);
             f(transaction.as_mut());
 
-            Self::validate_in_memory_for_transaction(
-                &server.state,
-                &server.open_files,
-                transaction.as_mut(),
-            );
+            server.validate_in_memory_for_transaction(transaction.as_mut());
 
             // Commit will be blocked until there are no ongoing reads.
             // If we have some long running read jobs that can be cancelled, we should cancel them
@@ -1992,11 +1980,7 @@ impl Server {
                 .state
                 .new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().set_memory(vec![(path, None)]);
-            let _ = Self::validate_in_memory_for_transaction(
-                &server.state,
-                &server.open_files,
-                transaction.as_mut(),
-            );
+            let _ = server.validate_in_memory_for_transaction(transaction.as_mut());
             server.state.commit_transaction(transaction);
             server.queue_source_db_rebuild_and_recheck()
         }));
@@ -2404,11 +2388,7 @@ impl Server {
                     .cancellation_handles
                     .lock()
                     .insert(request_id.clone(), transaction.get_cancellation_handle());
-                Self::validate_in_memory_for_transaction(
-                    &server.state,
-                    &server.open_files,
-                    transaction.as_mut(),
-                );
+                server.validate_in_memory_for_transaction(transaction.as_mut());
                 match find_fn(&mut transaction, &handle, definition) {
                     Ok(results) => {
                         let mut locations = Vec::new();
@@ -3091,11 +3071,7 @@ impl Server {
                 .new_committable_transaction(Require::indexing(), None);
             transaction.as_mut().invalidate_config();
 
-            Self::validate_in_memory_for_transaction(
-                &server.state,
-                &server.open_files,
-                transaction.as_mut(),
-            );
+            server.validate_in_memory_for_transaction(transaction.as_mut());
 
             // Commit will be blocked until there are no ongoing reads.
             // If we have some long running read jobs that can be cancelled, we should cancel them
