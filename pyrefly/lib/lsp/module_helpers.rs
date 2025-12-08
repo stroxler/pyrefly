@@ -15,7 +15,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::warn;
 
 use crate::module::bundled::BundledStub;
-use crate::module::third_party::bundled_third_party;
+use crate::module::third_party::get_bundled_third_party;
 use crate::module::typeshed::typeshed;
 use crate::module::typeshed_third_party::typeshed_third_party;
 
@@ -49,7 +49,7 @@ pub fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
             Some(typeshed_path.join(&**path))
         }
         ModulePathDetails::BundledThirdParty(path) => {
-            let bundled_third_party = bundled_third_party().ok()?;
+            let bundled_third_party = get_bundled_third_party().ok()?;
             let bundled_path = match bundled_third_party.materialized_path_on_disk() {
                 Ok(bundled_path) => Some(bundled_path),
                 Err(err) => {

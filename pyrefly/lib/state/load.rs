@@ -25,7 +25,7 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
 use crate::error::style::ErrorStyle;
 use crate::module::bundled::BundledStub;
-use crate::module::third_party::bundled_third_party;
+use crate::module::third_party::get_bundled_third_party;
 use crate::module::typeshed::typeshed;
 use crate::module::typeshed_third_party::typeshed_third_party;
 use crate::state::memory::MemoryFilesLookup;
@@ -111,7 +111,7 @@ impl Load {
                         .map(FileContents::Source)
                 })
             }
-            ModulePathDetails::BundledThirdParty(path) => bundled_third_party().and_then(|x| {
+            ModulePathDetails::BundledThirdParty(path) => get_bundled_third_party().and_then(|x| {
                 x.load(path)
                     .ok_or_else(|| anyhow!("bundled third party problem"))
                     .map(FileContents::Source)
