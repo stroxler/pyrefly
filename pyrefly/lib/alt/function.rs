@@ -457,9 +457,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .get(&Key::ReturnType(ShortIdentifier::new(&stmt.name)))
             .arc_clone_ty();
         // `stmt.returns` is always set to None because the binding step calls `mem::take` on it
-        let has_return_annotation_or_infers_return = self
-            .bindings()
-            .function_has_return_annotation_or_infers_return(&stmt.name);
+        let has_return_annotation = self.bindings().function_has_return_annotation(&stmt.name);
         if stmt.is_async
             && def.metadata.flags.is_abstract_method
             && !self.behaves_like_any(&ret)
@@ -476,11 +474,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             ret = coroutine_ret;
         }
-        if !has_return_annotation_or_infers_return {
+        if !has_return_annotation {
             self.error(
                 errors,
                 stmt.name.range(),
-                ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                ErrorInfo::Kind(ErrorKind::UnannotatedReturn),
                 format!("`{}` is missing a return annotation", stmt.name),
             );
         }
@@ -490,7 +488,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     p.name().range(),
-                    ErrorInfo::Kind(ErrorKind::ImplicitAny),
+                    ErrorInfo::Kind(ErrorKind::UnannotatedParameter),
                     format!(
                         "`{}` is missing an annotation for parameter `{name}`",
                         stmt.name

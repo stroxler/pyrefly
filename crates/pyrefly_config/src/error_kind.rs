@@ -232,6 +232,10 @@ pub enum ErrorKind {
     RedundantCondition,
     /// Raised by a call to reveal_type().
     RevealType,
+    /// A function parameter is missing a type annotation.
+    UnannotatedParameter,
+    /// A function is missing a return type annotation.
+    UnannotatedReturn,
     /// Attempting to use a name that may be unbound or uninitialized
     UnboundName,
     /// An error caused by a keyword argument used in the wrong place.
@@ -298,6 +302,8 @@ impl ErrorKind {
             ErrorKind::ImplicitlyDefinedAttribute => Severity::Ignore,
             ErrorKind::ImplicitAbstractClass => Severity::Ignore,
             ErrorKind::ImplicitAny => Severity::Ignore,
+            ErrorKind::UnannotatedParameter => Severity::Ignore,
+            ErrorKind::UnannotatedReturn => Severity::Ignore,
             ErrorKind::MissingSource => Severity::Ignore,
             ErrorKind::OpenUnpacking => Severity::Ignore,
             _ => Severity::Error,
