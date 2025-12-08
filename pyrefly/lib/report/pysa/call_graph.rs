@@ -94,8 +94,6 @@ pub enum OriginKind {
     ForDecoratedTarget,
     SubscriptGetItem,
     SubscriptSetItem,
-    FormatStringArtificial,
-    FormatStringStringify,
     BinaryOperator,
     ForIter,
     ForNext,
@@ -112,8 +110,6 @@ impl std::fmt::Display for OriginKind {
             Self::ForDecoratedTarget => write!(f, "for-decorated-target"),
             Self::SubscriptGetItem => write!(f, "subscript-get-item"),
             Self::SubscriptSetItem => write!(f, "subscript-set-item"),
-            Self::FormatStringArtificial => write!(f, "format-string-artificial"),
-            Self::FormatStringStringify => write!(f, "format-string-stringify"),
             Self::BinaryOperator => write!(f, "binary"),
             Self::ForIter => write!(f, "for-iter"),
             Self::ForNext => write!(f, "for-next"),
@@ -132,6 +128,8 @@ pub enum ExpressionIdentifier {
     Regular(PysaLocation),
     ArtificialAttributeAccess(Origin),
     ArtificialCall(Origin),
+    FormatStringArtificial(PysaLocation),
+    FormatStringStringify(PysaLocation),
 }
 
 impl std::fmt::Display for ExpressionIdentifier {
@@ -148,6 +146,12 @@ impl std::fmt::Display for ExpressionIdentifier {
             }
             Self::ArtificialCall(Origin { kind, location }) => {
                 write!(f, "{}|artificial-call|{}", location.as_key(), kind,)
+            }
+            Self::FormatStringArtificial(location) => {
+                write!(f, "{}|format-string-artificial", location.as_key())
+            }
+            Self::FormatStringStringify(location) => {
+                write!(f, "{}|format-string-stringify", location.as_key())
             }
         }
     }
@@ -835,12 +839,55 @@ impl<Function: FunctionTrait> FormatStringArtificialCallees<Function> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FormatStringStringifyCallees<Function: FunctionTrait> {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) targets: Vec<CallTarget<Function>>,
+    #[serde(skip_serializing_if = "Unresolved::is_resolved")]
+    pub(crate) unresolved: Unresolved,
+}
+
+impl<Function: FunctionTrait> FormatStringStringifyCallees<Function> {
+    #[cfg(test)]
+    fn map_function<OutputFunction: FunctionTrait, MapFunction>(
+        self,
+        map: &MapFunction,
+    ) -> FormatStringStringifyCallees<OutputFunction>
+    where
+        MapFunction: Fn(Function) -> OutputFunction,
+    {
+        FormatStringStringifyCallees {
+            targets: self
+                .targets
+                .into_iter()
+                .map(|call_target| CallTarget::map_function(call_target, map))
+                .collect(),
+            unresolved: self.unresolved,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn is_empty(&self) -> bool {
+        self.targets.is_empty()
+    }
+
+    pub fn all_targets(&self) -> impl Iterator<Item = &CallTarget<Function>> {
+        self.targets.iter()
+    }
+
+    fn dedup_and_sort(&mut self) {
+        self.targets.sort();
+        self.targets.dedup();
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum ExpressionCallees<Function: FunctionTrait> {
     Call(CallCallees<Function>),
     Identifier(IdentifierCallees<Function>),
     AttributeAccess(AttributeAccessCallees<Function>),
     Define(DefineCallees<Function>),
     FormatStringArtificial(FormatStringArtificialCallees<Function>),
+    FormatStringStringify(FormatStringStringifyCallees<Function>),
 }
 
 impl<Function: FunctionTrait> ExpressionCallees<Function> {
@@ -868,6 +915,9 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             ExpressionCallees::FormatStringArtificial(callees) => {
                 ExpressionCallees::FormatStringArtificial(callees.map_function(map))
             }
+            ExpressionCallees::FormatStringStringify(callees) => {
+                ExpressionCallees::FormatStringStringify(callees.map_function(map))
+            }
         }
     }
 
@@ -881,6 +931,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             }
             ExpressionCallees::Define(define_callees) => define_callees.is_empty(),
             ExpressionCallees::FormatStringArtificial(callees) => callees.is_empty(),
+            ExpressionCallees::FormatStringStringify(callees) => callees.is_empty(),
         }
     }
 
@@ -895,6 +946,7 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
             }
             ExpressionCallees::Define(define_callees) => Box::new(define_callees.all_targets()),
             ExpressionCallees::FormatStringArtificial(callees) => Box::new(callees.all_targets()),
+            ExpressionCallees::FormatStringStringify(callees) => Box::new(callees.all_targets()),
         }
     }
 
@@ -913,6 +965,9 @@ impl<Function: FunctionTrait> ExpressionCallees<Function> {
                 define_callees.dedup_and_sort();
             }
             ExpressionCallees::FormatStringArtificial(callees) => {
+                callees.dedup_and_sort();
+            }
+            ExpressionCallees::FormatStringStringify(callees) => {
                 callees.dedup_and_sort();
             }
         }
@@ -2785,10 +2840,7 @@ impl<'a> CallGraphVisitor<'a> {
 
     fn resolve_and_register_fstring(&mut self, fstring: &ExprFString) {
         self.add_callees(
-            ExpressionIdentifier::ArtificialCall(Origin {
-                kind: OriginKind::FormatStringArtificial,
-                location: self.pysa_location(fstring.range()),
-            }),
+            ExpressionIdentifier::FormatStringArtificial(self.pysa_location(fstring.range())),
             ExpressionCallees::FormatStringArtificial(FormatStringArtificialCallees {
                 targets: vec![CallTarget::format_string_target()],
             }),
@@ -2825,11 +2877,15 @@ impl<'a> CallGraphVisitor<'a> {
             } else {
                 CallCallees::new_unresolved(UnresolvedReason::UnresolvedMagicDunderAttrDueToNoBase)
             };
-            let identifier = ExpressionIdentifier::ArtificialCall(Origin {
-                kind: OriginKind::FormatStringStringify,
-                location: self.pysa_location(expression_range),
-            });
-            self.add_callees(identifier, ExpressionCallees::Call(callees));
+            let identifier =
+                ExpressionIdentifier::FormatStringStringify(self.pysa_location(expression_range));
+            self.add_callees(
+                identifier,
+                ExpressionCallees::FormatStringStringify(FormatStringStringifyCallees {
+                    targets: callees.all_targets().cloned().collect(),
+                    unresolved: callees.unresolved,
+                }),
+            );
         }
     }
 
