@@ -36,6 +36,43 @@ fn get_output_path() -> Result<PathBuf, std::env::VarError> {
     }
 }
 
+/// Creates a compressed tar archive from the given input path and writes it to the output path.
+/// Also computes and writes a SHA256 digest of the archive.
+///
+/// todo(jvansch): Refactor the main function to use this logic. When other third party stubs are
+/// implemented we can also re-use this for that purpose.
+#[allow(dead_code)]
+fn create_archive(
+    input_path: &Path,
+    output_path: &Path,
+    digest_name: &str,
+) -> Result<(), std::io::Error> {
+    let digest_path = output_path.with_file_name(digest_name);
+
+    // Create the tar.zst archive
+    let mut archive_bytes = Vec::new();
+    let encoder = zstd::stream::write::Encoder::new(&mut archive_bytes, 0)?;
+    let mut tar = tar::Builder::new(encoder);
+
+    if !input_path.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Input path does not exist: {}", input_path.display()),
+        ));
+    }
+    tar.append_dir_all("", input_path)?;
+
+    let encoder = tar.into_inner()?;
+    encoder.finish()?;
+
+    let hash = sha2::Sha256::digest(&archive_bytes);
+
+    std::fs::write(output_path, &archive_bytes)?;
+    std::fs::write(&digest_path, hash)?;
+
+    Ok(())
+}
+
 fn main() -> Result<(), std::io::Error> {
     // Only watch for metadata changes to avoid having Cargo repeatedly crawling for
     // changes in the entire typeshed dir.
