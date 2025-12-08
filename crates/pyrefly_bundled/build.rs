@@ -27,21 +27,17 @@ fn get_input_path() -> PathBuf {
 fn get_output_path() -> Result<PathBuf, std::env::VarError> {
     // When building with Buck, output artifact directory is specified using this env var
     match env::var_os("OUT") {
-        Some(path) => Ok(Path::new(&path).join("typeshed.tar.zst")),
+        Some(path) => Ok(Path::new(&path).to_path_buf()),
         None => {
             // When building with Cargo, this env var is the containing directory of the artifact
             let out_dir = env::var("OUT_DIR")?;
-            Ok(Path::new(&out_dir).join("typeshed.tar.zst"))
+            Ok(Path::new(&out_dir).to_path_buf())
         }
     }
 }
 
 /// Creates a compressed tar archive from the given input path and writes it to the output path.
 /// Also computes and writes a SHA256 digest of the archive.
-///
-/// todo(jvansch): Refactor the main function to use this logic. When other third party stubs are
-/// implemented we can also re-use this for that purpose.
-#[allow(dead_code)]
 fn create_archive(
     input_path: &Path,
     output_path: &Path,
@@ -79,23 +75,10 @@ fn main() -> Result<(), std::io::Error> {
     println!("cargo::rerun-if-changed=third_party/typeshed_metadata.json");
 
     let input_path = get_input_path();
-    let output_path = get_output_path().unwrap();
-    let digest_path = output_path.with_file_name("typeshed.sha256");
+    let output_dir = get_output_path().unwrap();
+    let output_path = output_dir.join("typeshed.tar.zst");
 
-    // Create the tar.zst archive
-    let mut archive_bytes = Vec::new();
-    let encoder = zstd::stream::write::Encoder::new(&mut archive_bytes, 0)?;
-    let mut tar = tar::Builder::new(encoder);
-    tar.append_dir_all("", input_path)?;
-    let encoder = tar.into_inner()?;
-    encoder.finish()?;
-
-    // Compute SHA256 hash of the archive
-    let hash = sha2::Sha256::digest(&archive_bytes);
-
-    // Write digest to file
-    std::fs::write(&output_path, &archive_bytes)?;
-    std::fs::write(&digest_path, hash)?;
+    create_archive(&input_path, &output_path, "typeshed.sha256")?;
 
     Ok(())
 }
