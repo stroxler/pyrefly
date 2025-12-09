@@ -595,8 +595,7 @@ pub fn lsp_loop(
         });
         let mut ide_transaction_manager = TransactionManager::default();
         let mut canceled_requests = HashSet::new();
-        while let Ok((subsequent_mutation, event, queue_time)) = server.lsp_queue.recv() {
-            let queue_duration = queue_time.elapsed().as_secs_f32();
+        while let Ok((subsequent_mutation, event, enqueue_time)) = server.lsp_queue.recv() {
             let process_start = Instant::now();
             let event_description = event.describe();
             match server.process_event(
@@ -606,7 +605,9 @@ pub fn lsp_loop(
                 event,
             ) {
                 Ok(ProcessEvent::Continue) => {
-                    let process_duration = process_start.elapsed().as_secs_f32();
+                    let process_end = Instant::now();
+                    let process_duration = (process_end - process_start).as_secs_f32();
+                    let queue_duration = (process_start - enqueue_time).as_secs_f32();
                     info!(
                         "Language server processed event `{}` in {:.2}s ({:.2}s waiting)",
                         event_description, process_duration, queue_duration
