@@ -22,9 +22,9 @@ import {
   ServerOptions,
 } from 'vscode-languageclient/node';
 import {PythonExtension} from '@vscode/python-extension';
+import {updateStatusBar, getStatusBarItem} from './status-bar';
 
 let client: LanguageClient;
-let statusBarItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
 
 /// Get a setting at the path, or throw an error if it's not set.
@@ -36,80 +36,11 @@ function requireSetting<T>(path: string): T {
   return ret;
 }
 
-/// Update the status bar based on current configuration
-async function updateStatusBar() {
-  const document = vscode.window.activeTextEditor?.document;
-  if (
-    document == null ||
-    (document.uri.scheme !== 'file' &&
-      document.uri.scheme !== 'vscode-notebook-cell' && document.uri.scheme !== 'untitled') ||
-    document.languageId !== 'python'
-  ) {
-    statusBarItem?.hide();
-    return;
-  }
-  let status;
-  try {
-    status = await client.sendRequest(
-      'pyrefly/textDocument/typeErrorDisplayStatus',
-      client.code2ProtocolConverter.asTextDocumentItem(document),
-    );
-  } catch {
-    statusBarItem?.hide();
-    return;
-  }
-
-  if (!statusBarItem) {
-    statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
-    );
-    statusBarItem.name = 'Pyrefly';
-  }
-
-  switch (status) {
-    case 'disabled-due-to-missing-config-file':
-      statusBarItem.text = 'Pyrefly (error-off)';
-      statusBarItem.tooltip =
-        new vscode.MarkdownString(`Pyrefly type checking is disabled by default.
-Create a [\`pyrefly.toml\`](https://pyrefly.org/en/docs/configuration/) file or set disableTypeErrors to false in settings to show type errors.`);
-      break;
-    case 'disabled-in-ide-config':
-      statusBarItem.text = 'Pyrefly (error-off)';
-      statusBarItem.tooltip =
-        new vscode.MarkdownString(`Pyrefly type checking is explicitly disabled.
-No errors will be shown even if there is a [\`pyrefly.toml\`](https://pyrefly.org/en/docs/configuration/) file.`);
-      break;
-    case 'disabled-in-config-file':
-      statusBarItem.text = 'Pyrefly (error-off)';
-      statusBarItem.tooltip = new vscode.MarkdownString(
-        `Pyrefly type checking is disabled through a config file.`,
-      );
-      break;
-    case 'enabled-in-ide-config':
-      statusBarItem.text = 'Pyrefly';
-      statusBarItem.tooltip = new vscode.MarkdownString(
-        'Pyrefly type checking is explicitly enabled.\nType errors will always be shown.',
-      );
-      break;
-    case 'enabled-in-config-file':
-      statusBarItem.text = 'Pyrefly';
-      statusBarItem.tooltip = new vscode.MarkdownString(
-        'Pyrefly type checking is enabled through a config file.',
-      );
-      break;
-    default:
-      statusBarItem?.hide();
-      return;
-  }
-  statusBarItem.show();
-}
-
 async function getDocstringRanges(
   document: vscode.TextDocument,
 ): Promise<vscode.Range[]> {
-  const identifier = client.code2ProtocolConverter.asTextDocumentIdentifier(
-    document,
-  );
+  const identifier =
+    client.code2ProtocolConverter.asTextDocumentIdentifier(document);
   const response = (await client.sendRequest(
     'pyrefly/textDocument/docstringRanges',
     identifier,
@@ -173,7 +104,9 @@ async function runDocstringFoldingCommand(
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
+      error instanceof Error
+        ? error.message
+        : `Unknown error: ${String(error)}`;
     outputChannel?.appendLine(
       `Failed to ${commandId === 'editor.fold' ? 'fold' : 'unfold'} docstrings: ${message}`,
     );
@@ -310,7 +243,7 @@ export async function activate(context: ExtensionContext) {
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(async () => {
-      await updateStatusBar();
+      await updateStatusBar(client);
     }),
   );
 
@@ -329,7 +262,7 @@ export async function activate(context: ExtensionContext) {
           settings: {},
         });
       }
-      await updateStatusBar();
+      await updateStatusBar(client);
     }),
   );
 
@@ -374,8 +307,11 @@ export async function activate(context: ExtensionContext) {
   // Start the client. This will also launch the server
   await client.start();
 
-  await updateStatusBar();
-  context.subscriptions.push(statusBarItem);
+  await updateStatusBar(client);
+  const statusBarItem = getStatusBarItem();
+  if (statusBarItem) {
+    context.subscriptions.push(statusBarItem);
+  }
 }
 
 /**
