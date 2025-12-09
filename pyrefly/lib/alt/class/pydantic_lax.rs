@@ -18,10 +18,29 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::types::class::Class;
 use crate::types::types::Type;
 
+const LAX_PREFIX: &str = "Lax";
+
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn types_to_union(&self, types: &[&ClassType]) -> Type {
+    fn lax_display_name_for_class(&self, cls: &ClassType) -> String {
+        format!("{}{}", LAX_PREFIX, capitalize_first(cls.name().as_str()))
+    }
+
+    fn types_to_lax_union(&self, base_type: &ClassType, types: &[&ClassType]) -> Type {
+        let display_name = self.lax_display_name_for_class(base_type);
         let expanded_types: Vec<Type> = types.iter().map(|cls| (*cls).clone().to_type()).collect();
-        self.unions(expanded_types)
+        let mut union_type = self.unions(expanded_types);
+        if let Type::Union(ref mut boxed_union) = union_type {
+            boxed_union.display_name = Some(display_name);
+        }
+        union_type
     }
 
     fn class_types_to_union(&self, types: Vec<ClassType>) -> Type {
@@ -37,57 +56,78 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn get_atomic_lax_conversion(&self, ty: &Type) -> Option<Type> {
         match ty {
-            Type::ClassType(cls) if cls == self.stdlib.bool() => Some(self.types_to_union(&[
+            Type::ClassType(cls) if cls == self.stdlib.bool() => Some(self.types_to_lax_union(
                 self.stdlib.bool(),
+                &[
+                    self.stdlib.bool(),
+                    self.stdlib.int(),
+                    self.stdlib.float(),
+                    self.stdlib.str(),
+                    self.stdlib.decimal(),
+                ],
+            )),
+            Type::ClassType(cls) if cls == self.stdlib.int() => Some(self.types_to_lax_union(
                 self.stdlib.int(),
+                &[
+                    self.stdlib.int(),
+                    self.stdlib.bool(),
+                    self.stdlib.float(),
+                    self.stdlib.str(),
+                    self.stdlib.bytes(),
+                    self.stdlib.decimal(),
+                ],
+            )),
+            Type::ClassType(cls) if cls == self.stdlib.float() => Some(self.types_to_lax_union(
                 self.stdlib.float(),
-                self.stdlib.str(),
-                self.stdlib.decimal(),
-            ])),
-            Type::ClassType(cls) if cls == self.stdlib.int() => Some(self.types_to_union(&[
-                self.stdlib.int(),
-                self.stdlib.bool(),
-                self.stdlib.float(),
-                self.stdlib.str(),
+                &[
+                    self.stdlib.float(),
+                    self.stdlib.int(),
+                    self.stdlib.bool(),
+                    self.stdlib.str(),
+                    self.stdlib.bytes(),
+                    self.stdlib.decimal(),
+                ],
+            )),
+            Type::ClassType(cls) if cls == self.stdlib.bytes() => Some(self.types_to_lax_union(
                 self.stdlib.bytes(),
-                self.stdlib.decimal(),
-            ])),
-            Type::ClassType(cls) if cls == self.stdlib.float() => Some(self.types_to_union(&[
-                self.stdlib.float(),
-                self.stdlib.int(),
-                self.stdlib.bool(),
+                &[
+                    self.stdlib.bytes(),
+                    self.stdlib.bytearray(),
+                    self.stdlib.str(),
+                ],
+            )),
+            Type::ClassType(cls) if cls == self.stdlib.str() => Some(self.types_to_lax_union(
                 self.stdlib.str(),
-                self.stdlib.bytes(),
-                self.stdlib.decimal(),
-            ])),
-            Type::ClassType(cls) if cls == self.stdlib.bytes() => Some(self.types_to_union(&[
-                self.stdlib.bytes(),
-                self.stdlib.bytearray(),
-                self.stdlib.str(),
-            ])),
-            Type::ClassType(cls) if cls == self.stdlib.str() => Some(self.types_to_union(&[
-                self.stdlib.str(),
-                self.stdlib.bytes(),
-                self.stdlib.bytearray(),
-            ])),
-            Type::ClassType(cls) if cls == self.stdlib.date() => Some(self.types_to_union(&[
+                &[
+                    self.stdlib.str(),
+                    self.stdlib.bytes(),
+                    self.stdlib.bytearray(),
+                ],
+            )),
+            Type::ClassType(cls) if cls == self.stdlib.date() => Some(self.types_to_lax_union(
                 self.stdlib.date(),
+                &[
+                    self.stdlib.date(),
+                    self.stdlib.datetime(),
+                    self.stdlib.int(),
+                    self.stdlib.float(),
+                    self.stdlib.str(),
+                    self.stdlib.bytes(),
+                    self.stdlib.decimal(),
+                ],
+            )),
+            Type::ClassType(cls) if cls == self.stdlib.datetime() => Some(self.types_to_lax_union(
                 self.stdlib.datetime(),
-                self.stdlib.int(),
-                self.stdlib.float(),
-                self.stdlib.str(),
-                self.stdlib.bytes(),
-                self.stdlib.decimal(),
-            ])),
-            Type::ClassType(cls) if cls == self.stdlib.datetime() => Some(self.types_to_union(&[
-                self.stdlib.datetime(),
-                self.stdlib.date(),
-                self.stdlib.int(),
-                self.stdlib.float(),
-                self.stdlib.str(),
-                self.stdlib.bytes(),
-                self.stdlib.decimal(),
-            ])),
+                &[
+                    self.stdlib.datetime(),
+                    self.stdlib.date(),
+                    self.stdlib.int(),
+                    self.stdlib.float(),
+                    self.stdlib.str(),
+                    self.stdlib.bytes(),
+                    self.stdlib.decimal(),
+                ],
+            )),
             _ => None,
         }
     }

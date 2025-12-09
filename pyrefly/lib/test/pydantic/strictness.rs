@@ -114,7 +114,7 @@ from datetime import date, datetime
 class Model(BaseModel):
     x: int = 0
 
-reveal_type(Model.__init__)  # E: revealed type: (self: Model, *, x: Decimal | bool | bytes | float | int | str = ..., **Unknown) -> None
+reveal_type(Model.__init__)  # E: revealed type: (self: Model, *, x: LaxInt = ..., **Unknown) -> None
 
 # int field accepts: int, bool, float, str, bytes, Decimal
 Model(x=1)
@@ -128,7 +128,7 @@ Model(x=Decimal('123'))
 class Model2(BaseModel):
     x: bytes
 
-reveal_type(Model2.__init__)  # E: revealed type: (self: Model2, *, x: bytearray | bytes | str, **Unknown) -> None
+reveal_type(Model2.__init__)  # E: revealed type: (self: Model2, *, x: LaxBytes, **Unknown) -> None
 
 class Model3(BaseModel):
     func: Callable[[int], str]
@@ -138,12 +138,12 @@ reveal_type(Model3.__init__)  # E: revealed type: (self: Model3, *, func: Any, *
 class Model4(BaseModel):
     d: date
 
-reveal_type(Model4.__init__)  # E: revealed type: (self: Model4, *, d: Decimal | bytes | date | datetime | float | int | str, **Unknown) -> None
+reveal_type(Model4.__init__)  # E: revealed type: (self: Model4, *, d: LaxDate, **Unknown) -> None
 
 class Model5(BaseModel):
     dt: datetime
 
-reveal_type(Model5.__init__)  # E: revealed type: (self: Model5, *, dt: Decimal | bytes | date | datetime | float | int | str, **Unknown) -> None
+reveal_type(Model5.__init__)  # E: revealed type: (self: Model5, *, dt: LaxDatetime, **Unknown) -> None
     "#,
 );
 
@@ -172,22 +172,22 @@ from pydantic import BaseModel
 class Model(BaseModel):
     x: List[int] = [0, 1]
 
-reveal_type(Model.__init__) # E: revealed type: (self: Model, *, x: list[Decimal | bool | bytes | float | int | str] = ..., **Unknown) -> None
+reveal_type(Model.__init__) # E: revealed type: (self: Model, *, x: list[LaxInt] = ..., **Unknown) -> None
 
 class Model2(BaseModel):
     q: deque[int]
 
-reveal_type(Model2.__init__) # E: revealed type: (self: Model2, *, q: deque[Decimal | bool | bytes | float | int | str] | frozenset[Decimal | bool | bytes | float | int | str] | list[Decimal | bool | bytes | float | int | str] | set[Decimal | bool | bytes | float | int | str] | tuple[Decimal | bool | bytes | float | int | str, ...], **Unknown) -> None
+reveal_type(Model2.__init__) # E: revealed type: (self: Model2, *, q: deque[LaxInt] | frozenset[LaxInt] | list[LaxInt] | set[LaxInt] | tuple[Decimal | bool | bytes | float | int | str, ...], **Unknown) -> None
 
 class Model3(BaseModel):
     d: dict[str, int]
 
-reveal_type(Model3.__init__) # E: revealed type: (self: Model3, *, d: Mapping[bytearray | bytes | str, Decimal | bool | bytes | float | int | str] | dict[bytearray | bytes | str, Decimal | bool | bytes | float | int | str], **Unknown) -> None
+reveal_type(Model3.__init__) # E: revealed type: (self: Model3, *, d: Mapping[LaxStr, LaxInt] | dict[LaxStr, LaxInt], **Unknown) -> None
 
 class Model4(BaseModel):
     f: frozenset[int]
 
-reveal_type(Model4.__init__) # E: revealed type: (self: Model4, *, f: deque[Decimal | bool | bytes | float | int | str] | dict_keys[Decimal | bool | bytes | float | int | str, Decimal | bool | bytes | float | int | str] | dict_values[Decimal | bool | bytes | float | int | str, Decimal | bool | bytes | float | int | str] | frozenset[Decimal | bool | bytes | float | int | str] | list[Decimal | bool | bytes | float | int | str] | set[Decimal | bool | bytes | float | int | str] | tuple[Decimal | bool | bytes | float | int | str, ...], **Unknown) -> None
+reveal_type(Model4.__init__) # E: revealed type: (self: Model4, *, f: deque[LaxInt] | dict_keys[LaxInt, LaxInt] | dict_values[LaxInt, LaxInt] | frozenset[LaxInt] | list[LaxInt] | set[LaxInt] | tuple[Decimal | bool | bytes | float | int | str, ...], **Unknown) -> None
     "#,
 );
 
