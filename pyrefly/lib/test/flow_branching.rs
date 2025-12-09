@@ -721,12 +721,25 @@ match x:
 );
 
 testcase!(
-    test_crashing_match,
+    test_crashing_match_sequence,
     r#"
 match []:
     case [[1]]:
         pass
     case _:
+        pass
+"#,
+);
+
+testcase!(
+    test_crashing_match_star,
+    r#"
+match []:
+    case *x: # E: Parse error: Star pattern cannot be used here
+        pass
+    case *x | 1: # E: Parse error: Star pattern cannot be used here # E: alternative patterns bind different names
+        pass
+    case 1 | *x: # E: Parse error: Star pattern cannot be used here # E: alternative patterns bind different names
         pass
 "#,
 );
