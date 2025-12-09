@@ -27,6 +27,7 @@ import {runDocstringFoldingCommand} from './docstring';
 import {
   triggerMsPythonRefreshLanguageServers,
   disableWindsurfPyrightIfInstalled,
+  disableBasedPyrightIfInstalled,
 } from './extension-interop';
 
 let client: LanguageClient;
@@ -234,6 +235,14 @@ export async function activate(context: ExtensionContext) {
 
   // Disable Windsurf Pyright language services if the extension is installed
   await disableWindsurfPyrightIfInstalled();
+
+  // Disable Based Pyright language services if the extension is installed and Pyrefly is enabled
+  const pyreflyDisabled = vscode.workspace
+    .getConfiguration('python.pyrefly')
+    .get<boolean>('disableLanguageServices', false);
+  if (!pyreflyDisabled) {
+    await disableBasedPyrightIfInstalled();
+  }
 
   // Start the client. This will also launch the server
   await client.start();

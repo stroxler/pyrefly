@@ -49,3 +49,18 @@ export async function disableWindsurfPyrightIfInstalled() {
     await config.update(setting, true, vscode.ConfigurationTarget.Global);
   }
 }
+
+/**
+ * This function checks if the Based Pyright extension is installed, and if so,
+ * disables its language services to avoid conflicts with Pyrefly.
+ */
+export async function disableBasedPyrightIfInstalled() {
+  const basedPyrightExtension = vscode.extensions.getExtension(
+    'detachhead.basedpyright',
+  );
+  if (basedPyrightExtension) {
+    const config = vscode.workspace.getConfiguration('basedpyright');
+    const setting = 'disableLanguageServices';
+    await config.update(setting, true, vscode.ConfigurationTarget.Global);
+  }
+}
