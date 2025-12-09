@@ -34,3 +34,18 @@ export async function triggerMsPythonRefreshLanguageServers() {
     vscode.ConfigurationTarget.Global,
   );
 }
+
+/**
+ * This function checks if the Windsurf Pyright extension is installed, and if so,
+ * disables its language services to avoid conflicts with Pyrefly.
+ */
+export async function disableWindsurfPyrightIfInstalled() {
+  const windsurfPyrightExtension = vscode.extensions.getExtension(
+    'codeium.windsurfpyright',
+  );
+  if (windsurfPyrightExtension) {
+    const config = vscode.workspace.getConfiguration('windsurfPyright');
+    const setting = 'disableLanguageServices';
+    await config.update(setting, true, vscode.ConfigurationTarget.Global);
+  }
+}

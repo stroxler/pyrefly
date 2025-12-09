@@ -24,7 +24,10 @@ import {
 import {PythonExtension} from '@vscode/python-extension';
 import {updateStatusBar, getStatusBarItem} from './status-bar';
 import {runDocstringFoldingCommand} from './docstring';
-import {triggerMsPythonRefreshLanguageServers} from './extension-interop';
+import {
+  triggerMsPythonRefreshLanguageServers,
+  disableWindsurfPyrightIfInstalled,
+} from './extension-interop';
 
 let client: LanguageClient;
 let outputChannel: vscode.OutputChannel;
@@ -228,6 +231,9 @@ export async function activate(context: ExtensionContext) {
       await triggerMsPythonRefreshLanguageServers();
     }
   });
+
+  // Disable Windsurf Pyright language services if the extension is installed
+  await disableWindsurfPyrightIfInstalled();
 
   // Start the client. This will also launch the server
   await client.start();
