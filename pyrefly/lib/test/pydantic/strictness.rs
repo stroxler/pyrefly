@@ -183,6 +183,11 @@ class Model3(BaseModel):
     d: dict[str, int]
 
 reveal_type(Model3.__init__) # E: revealed type: (self: Model3, *, d: Mapping[bytearray | bytes | str, Decimal | bool | bytes | float | int | str] | dict[bytearray | bytes | str, Decimal | bool | bytes | float | int | str], **Unknown) -> None
+
+class Model4(BaseModel):
+    f: frozenset[int]
+
+reveal_type(Model4.__init__) # E: revealed type: (self: Model4, *, f: deque[Decimal | bool | bytes | float | int | str] | dict_keys[Decimal | bool | bytes | float | int | str, Decimal | bool | bytes | float | int | str] | dict_values[Decimal | bool | bytes | float | int | str, Decimal | bool | bytes | float | int | str] | frozenset[Decimal | bool | bytes | float | int | str] | list[Decimal | bool | bytes | float | int | str] | set[Decimal | bool | bytes | float | int | str] | tuple[Decimal | bool | bytes | float | int | str, ...], **Unknown) -> None
     "#,
 );
 

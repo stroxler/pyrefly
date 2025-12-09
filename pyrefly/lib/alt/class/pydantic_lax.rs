@@ -97,33 +97,47 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         class_obj: &Class,
         expanded_targs: &[Type],
     ) -> Option<Type> {
+        // Extract first type argument (element type for most containers, key type for dict)
+        let first_ty = expanded_targs
+            .first()
+            .cloned()
+            .unwrap_or_else(Type::any_implicit);
+
+        // Single-element containers
         if class_obj.has_toplevel_qname(ModuleName::collections().as_str(), "deque") {
-            let elem_ty = expanded_targs
-                .first()
-                .cloned()
-                .unwrap_or_else(Type::any_implicit);
             return Some(self.class_types_to_union(vec![
-                self.stdlib.deque(elem_ty.clone()),
-                self.stdlib.frozenset(elem_ty.clone()),
-                self.stdlib.list(elem_ty.clone()),
-                self.stdlib.set(elem_ty.clone()),
-                self.stdlib.tuple(elem_ty),
+                self.stdlib.deque(first_ty.clone()),
+                self.stdlib.frozenset(first_ty.clone()),
+                self.stdlib.list(first_ty.clone()),
+                self.stdlib.set(first_ty.clone()),
+                self.stdlib.tuple(first_ty),
             ]));
         }
+
+        if class_obj == self.stdlib.frozenset_object() {
+            return Some(self.class_types_to_union(vec![
+                self.stdlib.frozenset(first_ty.clone()),
+                self.stdlib.deque(first_ty.clone()),
+                self.stdlib.dict_keys(first_ty.clone(), first_ty.clone()),
+                self.stdlib.dict_values(first_ty.clone(), first_ty.clone()),
+                self.stdlib.list(first_ty.clone()),
+                self.stdlib.set(first_ty.clone()),
+                self.stdlib.tuple(first_ty),
+            ]));
+        }
+
+        // Two-element containers
         if class_obj == self.stdlib.dict_object() {
-            let key_ty = expanded_targs
-                .first()
-                .cloned()
-                .unwrap_or_else(Type::any_implicit);
             let val_ty = expanded_targs
                 .get(1)
                 .cloned()
                 .unwrap_or_else(Type::any_implicit);
             return Some(self.class_types_to_union(vec![
-                self.stdlib.dict(key_ty.clone(), val_ty.clone()),
-                self.stdlib.mapping(key_ty, val_ty),
+                self.stdlib.dict(first_ty.clone(), val_ty.clone()),
+                self.stdlib.mapping(first_ty, val_ty),
             ]));
         }
+
         None
     }
 

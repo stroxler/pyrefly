@@ -49,6 +49,7 @@ pub struct Stdlib {
     deque: StdlibResult<(Class, Arc<TParams>)>,
     frozenset: StdlibResult<(Class, Arc<TParams>)>,
     dict_items: StdlibResult<(Class, Arc<TParams>)>,
+    dict_keys: StdlibResult<(Class, Arc<TParams>)>,
     dict_values: StdlibResult<(Class, Arc<TParams>)>,
     mapping: StdlibResult<(Class, Arc<TParams>)>,
     set: StdlibResult<(Class, Arc<TParams>)>,
@@ -179,6 +180,7 @@ impl Stdlib {
             deque: lookup_generic(ModuleName::collections(), "deque", 1),
             frozenset: lookup_generic(builtins, "frozenset", 1),
             dict_items: lookup_generic(collections_abc, "dict_items", 2),
+            dict_keys: lookup_generic(collections_abc, "dict_keys", 2),
             dict_values: lookup_generic(collections_abc, "dict_values", 2),
             set: lookup_generic(builtins, "set", 1),
             tuple: lookup_generic(builtins, "tuple", 1),
@@ -376,6 +378,10 @@ impl Stdlib {
         Self::apply(&self.frozenset, vec![x])
     }
 
+    pub fn frozenset_object(&self) -> &Class {
+        &Self::unwrap(&self.frozenset).0
+    }
+
     pub fn dict(&self, key: Type, value: Type) -> ClassType {
         Self::apply(&self.dict, vec![key, value])
     }
@@ -386,6 +392,10 @@ impl Stdlib {
 
     pub fn dict_items(&self, key: Type, value: Type) -> ClassType {
         Self::apply(&self.dict_items, vec![key, value])
+    }
+
+    pub fn dict_keys(&self, key: Type, value: Type) -> ClassType {
+        Self::apply(&self.dict_keys, vec![key, value])
     }
 
     pub fn dict_values(&self, key: Type, value: Type) -> ClassType {
