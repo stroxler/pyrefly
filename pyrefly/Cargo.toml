@@ -61,6 +61,10 @@ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tsp_types = { path = "../crates/tsp_types" }
 vec1 = { version = "1", features = ["serde"] }
 yansi = { version = "1.0.0-rc.1", features = ["hyperlink"] }
+backtrace-on-stack-overflow = { version = "0.3", optional = true }
+
+[features]
+debug-stack-overflow = ["backtrace-on-stack-overflow"]
 
 [dev-dependencies]
 pretty_assertions = { version = "1.2", features = ["alloc"], default-features = false }
