@@ -773,6 +773,12 @@ pub struct ConfigFile {
     #[serde(skip)]
     #[derivative(PartialEq = "ignore")]
     pub synthesized_preset_reason: Option<SynthesizedPresetReason>,
+
+    /// The files in this config's `extends` chain, excluding this config's own file. Changes to
+    /// these files change the config.
+    #[serde(skip)]
+    #[derivative(PartialEq = "ignore")]
+    pub extended_config_paths: Vec<PathBuf>,
 }
 
 impl Default for ConfigFile {
@@ -818,6 +824,7 @@ impl Default for ConfigFile {
             skip_lsp_config_indexing: false,
             extra_file_extensions: Vec::new(),
             synthesized_preset_reason: None,
+            extended_config_paths: Vec::new(),
         }
     }
 }
@@ -1447,6 +1454,12 @@ impl ConfigFile {
                 let config_root = InternedPath::from_path(config_root);
                 result.extend(Self::metadata_watch_patterns(config_root));
             }
+            result.extend(
+                config
+                    .extended_config_paths
+                    .iter()
+                    .map(|path| WatchPattern::file(path.clone())),
+            );
             // A custom typeshed normally sits outside every watched root, so without this its
             // version metadata would be read once and never revisited.
             if let Some(stdlib) = config.typeshed_stdlib_path() {
@@ -2096,7 +2109,8 @@ const CONFIG_KEY_ALIASES: &[(&str, &str)] = &[
 ];
 
 /// If `config`, loaded from `config_path`, has an `extends` key, reloads it merged on top of
-/// the chain of configs that it extends.
+/// the chain of configs that it extends, and records the files in the chain in the config's
+/// `extended_config_paths`.
 ///
 /// Settings can only be merged before deserialization, while it is still possible to tell an
 /// omitted setting from one that is explicitly set to its default value. So the chain is
@@ -2105,6 +2119,7 @@ fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<Config
     if config.extends.is_none() {
         return Ok(config);
     }
+    let mut extended_config_paths = Vec::new();
     // The chain of configs, starting from `config_path`, as (canonical path, table) pairs.
     let mut layers: Vec<(PathBuf, toml::Table)> = Vec::new();
     let mut path = config_path.to_path_buf();
@@ -2122,7 +2137,10 @@ fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<Config
             .with_context(|| format!("While loading extended config `{}`", path.display()))?;
         layers.push((canonical, layer));
         match extends {
-            Some(extends) => path = extends,
+            Some(extends) => {
+                extended_config_paths.push(extends.clone());
+                path = extends;
+            }
             None => break,
         }
     }
@@ -2130,9 +2148,11 @@ fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<Config
     for (_, layer) in layers.into_iter().rev() {
         merge_config_layer(&mut merged, layer);
     }
-    merged
+    let mut config: ConfigFile = merged
         .try_into()
-        .context("While merging the configs in the `extends` chain")
+        .context("While merging the configs in the `extends` chain")?;
+    config.extended_config_paths = extended_config_paths;
+    Ok(config)
 }
 
 /// Reads a config file as a TOML table with canonical keys and absolute paths, along with the
@@ -2647,6 +2667,7 @@ mod tests {
                 skip_lsp_config_indexing: false,
                 extra_file_extensions: Vec::new(),
                 synthesized_preset_reason: None,
+                extended_config_paths: Vec::new(),
             }
         );
     }
@@ -2987,6 +3008,7 @@ mod tests {
             skip_lsp_config_indexing: false,
             extra_file_extensions: Vec::new(),
             synthesized_preset_reason: None,
+            extended_config_paths: Vec::new(),
         };
 
         let current_dir = std::env::current_dir().unwrap();
@@ -3066,6 +3088,7 @@ mod tests {
             skip_lsp_config_indexing: false,
             extra_file_extensions: Vec::new(),
             synthesized_preset_reason: None,
+            extended_config_paths: Vec::new(),
         };
         assert_eq!(config, expected_config);
     }
@@ -4991,10 +5014,19 @@ bad-return = false
 
         assert!(errors.is_empty());
         assert_eq!(config.source, ConfigSource::File(child));
+        assert_eq!(
+            config.extended_config_paths,
+            vec![shared.join(ConfigFile::PYPROJECT_FILE_NAME)]
+        );
         assert_eq!(config.preset, Some(Preset::Strict));
         assert_eq!(config.use_ignore_files, false);
 
         config.configure();
+        let watches =
+            ConfigFile::get_paths_to_watch(&SmallSet::from_iter([ArcId::new(config.clone())]));
+        assert!(watches.contains(&WatchPattern::file(
+            shared.join(ConfigFile::PYPROJECT_FILE_NAME)
+        )));
         let errors = config.errors(&test_path("src/main.py"));
         assert_eq!(errors.severity(ErrorKind::BadAssignment), Severity::Ignore);
         assert_eq!(errors.severity(ErrorKind::BadReturn), Severity::Ignore);

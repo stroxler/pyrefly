@@ -4534,13 +4534,13 @@ impl Server {
         Ok(())
     }
 
-    fn should_rewatch(
-        events: &CategorizedEvents,
-        explicit_config_paths: &SmallSet<PathBuf>,
-    ) -> bool {
-        events.iter().any(|path| {
-            ConfigFile::is_watched_metadata(path) || explicit_config_paths.contains(path)
-        }) || !events.created.is_empty()
+    /// Whether to re-register file watchers. `config_paths` are config files that are watched by
+    /// exact path, because they can have any name.
+    fn should_rewatch(events: &CategorizedEvents, config_paths: &SmallSet<PathBuf>) -> bool {
+        events
+            .iter()
+            .any(|path| ConfigFile::is_watched_metadata(path) || config_paths.contains(path))
+            || !events.created.is_empty()
             || !events.removed.is_empty()
             || !events.unknown.is_empty()
     }
@@ -4584,7 +4584,15 @@ impl Server {
 
         let should_requery_build_system = should_requery_build_system(&events);
 
-        let rewatch = Self::should_rewatch(&events, &self.workspaces.explicit_config_paths());
+        let mut config_paths = self.workspaces.explicit_config_paths();
+        config_paths.extend(
+            self.workspaces
+                .loaded_configs
+                .clean_and_get_configs()
+                .iter()
+                .flat_map(|config| config.extended_config_paths.iter().cloned()),
+        );
+        let rewatch = Self::should_rewatch(&events, &config_paths);
 
         // Accumulate events in the pending buffer. The heavy task drains this
         // buffer at execution time, so consecutive DrainWatchedFileChanges events
