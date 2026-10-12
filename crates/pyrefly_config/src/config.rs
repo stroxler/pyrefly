@@ -775,7 +775,8 @@ pub struct ConfigFile {
     pub synthesized_preset_reason: Option<SynthesizedPresetReason>,
 
     /// The files in this config's `extends` chain, excluding this config's own file. Changes to
-    /// these files change the config.
+    /// these files change the config. Recorded even when loading the chain fails, so that fixing
+    /// a missing or invalid file is noticed.
     #[serde(skip)]
     #[derivative(PartialEq = "ignore")]
     pub extended_config_paths: Vec<PathBuf>,
@@ -1948,14 +1949,17 @@ impl ConfigFile {
     pub fn from_file(config_path: &Path) -> (ConfigFile, Vec<ConfigError>) {
         /// Read a config path and determine both the config content (if any)
         /// and the appropriate `ConfigSource` classification.
-        fn read_path(config_path: &Path) -> anyhow::Result<(Option<ConfigFile>, ConfigSource)> {
+        fn read_path(
+            config_path: &Path,
+            extended_config_paths: &mut Vec<PathBuf>,
+        ) -> anyhow::Result<(Option<ConfigFile>, ConfigSource)> {
             let config_str = fs_anyhow::read_to_string(config_path)?;
             let path = config_path.to_path_buf();
             if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
                 let (config, has_python_tools) = ConfigFile::parse_pyproject_toml(&config_str)?;
                 match config {
                     Some(config) => Ok((
-                        Some(with_extends(config_path, config)?),
+                        Some(with_extends(config_path, config, extended_config_paths)?),
                         ConfigSource::File(path),
                     )),
                     None if has_python_tools => Ok((None, ConfigSource::PythonToolMarker(path))),
@@ -1972,6 +1976,7 @@ impl ConfigFile {
                     Some(with_extends(
                         config_path,
                         ConfigFile::parse_config(&config_str)?,
+                        extended_config_paths,
                     )?),
                     ConfigSource::File(path),
                 ))
@@ -1979,13 +1984,15 @@ impl ConfigFile {
         }
         fn f(config_path: &Path) -> (ConfigFile, Vec<ConfigError>) {
             let mut errors = Vec::new();
-            let (maybe_config, config_source) = match read_path(config_path) {
-                Ok(result) => result,
-                Err(e) => {
-                    errors.push(ConfigError::error(e));
-                    (None, ConfigSource::FailedParse(config_path.to_path_buf()))
-                }
-            };
+            let mut extended_config_paths = Vec::new();
+            let (maybe_config, config_source) =
+                match read_path(config_path, &mut extended_config_paths) {
+                    Ok(result) => result,
+                    Err(e) => {
+                        errors.push(ConfigError::error(e));
+                        (None, ConfigSource::FailedParse(config_path.to_path_buf()))
+                    }
+                };
             let mut config = match config_path.parent() {
                 Some(config_root) => {
                     let layout = ProjectLayout::new(config_root);
@@ -2006,6 +2013,7 @@ impl ConfigFile {
                 }
             };
             config.source = config_source;
+            config.extended_config_paths = extended_config_paths;
 
             if config.root.pytorch_efficiency_lints.is_some()
                 || config
@@ -2109,17 +2117,20 @@ const CONFIG_KEY_ALIASES: &[(&str, &str)] = &[
 ];
 
 /// If `config`, loaded from `config_path`, has an `extends` key, reloads it merged on top of
-/// the chain of configs that it extends, and records the files in the chain in the config's
-/// `extended_config_paths`.
+/// the chain of configs that it extends. Adds each file in the chain to `extended_config_paths`
+/// before reading it.
 ///
 /// Settings can only be merged before deserialization, while it is still possible to tell an
 /// omitted setting from one that is explicitly set to its default value. So the chain is
 /// loaded as TOML tables, with each table's relative paths resolved against its own file.
-fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<ConfigFile> {
+fn with_extends(
+    config_path: &Path,
+    config: ConfigFile,
+    extended_config_paths: &mut Vec<PathBuf>,
+) -> anyhow::Result<ConfigFile> {
     if config.extends.is_none() {
         return Ok(config);
     }
-    let mut extended_config_paths = Vec::new();
     // The chain of configs, starting from `config_path`, as (canonical path, table) pairs.
     let mut layers: Vec<(PathBuf, toml::Table)> = Vec::new();
     let mut path = config_path.to_path_buf();
@@ -2148,11 +2159,9 @@ fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<Config
     for (_, layer) in layers.into_iter().rev() {
         merge_config_layer(&mut merged, layer);
     }
-    let mut config: ConfigFile = merged
+    merged
         .try_into()
-        .context("While merging the configs in the `extends` chain")?;
-    config.extended_config_paths = extended_config_paths;
-    Ok(config)
+        .context("While merging the configs in the `extends` chain")
 }
 
 /// Reads a config file as a TOML table with canonical keys and absolute paths, along with the
@@ -5186,6 +5195,22 @@ bad-override = "error"
 
         assert!(matches!(config.source, ConfigSource::FailedParse(path) if path == child));
         assert!(!errors.is_empty(), "expected missing [tool.pyrefly] error");
+    }
+
+    #[test]
+    fn test_extends_records_missing_base() {
+        let root = TempDir::new().unwrap();
+        let child = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(&child, "extends = \"base.toml\"\n").unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&child);
+
+        assert!(matches!(config.source, ConfigSource::FailedParse(path) if path == child));
+        assert!(!errors.is_empty());
+        assert_eq!(
+            config.extended_config_paths,
+            vec![root.path().join("base.toml")]
+        );
     }
 
     #[test]
