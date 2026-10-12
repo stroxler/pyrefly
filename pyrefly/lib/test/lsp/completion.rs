@@ -49,6 +49,14 @@ struct ResultsFilter {
     include_builtins: bool,
 }
 
+/// Attributes inherited from `object` appear in almost every attribute completion, so most
+/// tests exclude them to keep their expectations short.
+fn is_object_attribute(item: &CompletionItem) -> bool {
+    item.sort_text
+        .as_deref()
+        .is_some_and(|sort_text| sort_text.starts_with("3a"))
+}
+
 #[test]
 fn completion_magic_methods_in_class() {
     let code = r#"
@@ -124,8 +132,7 @@ from pathlib import Path
 Path(".").read_text.__do
 #                       ^
 "#;
-    // Bug: `__doc__` is inherited from `object`, so it is missing.
-    assert_eq!(completion_sort_text(code, "__doc__"), None);
+    assert_eq!(completion_sort_text(code, "__doc__").as_deref(), Some("3a"));
 }
 
 #[test]
@@ -141,9 +148,8 @@ Foo().__
         completion_sort_text(code, "__custom__").as_deref(),
         Some("3")
     );
-    // Bug: `__eq__` and `__doc__` are inherited from `object`, so they are missing.
-    assert_eq!(completion_sort_text(code, "__eq__"), None);
-    assert_eq!(completion_sort_text(code, "__doc__"), None);
+    assert_eq!(completion_sort_text(code, "__eq__").as_deref(), Some("3a"));
+    assert_eq!(completion_sort_text(code, "__doc__").as_deref(), Some("3a"));
 }
 
 fn get_default_test_report() -> impl Fn(&State, &Handle, TextSize) -> String {
@@ -169,6 +175,8 @@ fn get_test_report(
         } in state
             .transaction()
             .completion(handle, position, import_format, true, None)
+            .into_iter()
+            .filter(|item| !is_object_attribute(item))
         {
             let is_deprecated = if let Some(tags) = tags {
                 tags.contains(&lsp_types::CompletionItemTag::Deprecated)
@@ -218,7 +226,7 @@ fn get_test_report(
 fn dict_field_labels(txn: &Transaction<'_>, handle: &Handle, position: TextSize) -> Vec<String> {
     txn.completion(handle, position, ImportFormat::Absolute, true, None)
         .into_iter()
-        .filter(|item| item.kind == Some(CompletionItemKind::Field))
+        .filter(|item| item.kind == Some(CompletionItemKind::Field) && !is_object_attribute(item))
         .map(|item| item.label)
         .collect()
 }

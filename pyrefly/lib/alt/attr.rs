@@ -3275,10 +3275,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         expected_attribute_name: Option<&Name>,
         res: &mut Vec<AttrInfo>,
     ) {
-        // NOTE: We do not provide completions from object, to avoid noise like __hash__. Maybe we should?
         let mro = self.get_mro_for_class(cls);
-        let ancestors =
-            iter::once(cls).chain(mro.ancestors_no_object().iter().map(|x| x.class_object()));
+        let ancestors = iter::once(cls).chain(mro.ancestors(self.stdlib).map(|x| x.class_object()));
         self.completions_mro(ancestors, expected_attribute_name, res)
     }
 
