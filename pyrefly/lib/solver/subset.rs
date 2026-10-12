@@ -2184,12 +2184,10 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     Err(error.unwrap_or(SubsetError::Other))
                 }
             }
-            // Matches if any branch does. We don't know which applies, so no branch solves vars.
+            // An `Overloaded` value can be used as any of its branches, so a value must match every
+            // branch to stand in for it.
             (l, Type::Overloaded(branches)) => {
-                let vars = l.collect_maybe_placeholder_vars();
-                any(branches.iter(), |branch| {
-                    self.probe(&vars, |me| me.is_subset_eq(l, branch))
-                })
+                all(branches.iter(), |branch| self.is_subset_eq(l, branch))
             }
             (l, Type::Overload(overload)) => {
                 let l_gradual = sig_is_gradual_variadic(l);

@@ -1678,7 +1678,7 @@ y, z = ret(h)
 testcase!(
     test_assign_to_overloaded_attribute,
     r#"
-from typing import Any, Callable, assert_type, overload, reveal_type
+from typing import Callable, assert_type, overload
 
 def make[A, R](f: Callable[[A], R]) -> list[R]: ...
 
@@ -1691,14 +1691,45 @@ def h(x: int | str) -> str | int: ...
 class C:
     def __init__(self) -> None:
         self.xs = make(h)
-        reveal_type(self.xs)  # E: revealed type: Overloaded[list[str], list[int]]
 
     def reset(self, ints: list[int], floats: list[float]) -> None:
         self.xs = ints
         assert_type(self.xs, list[int])
         self.xs = []
-        assert_type(self.xs, list[Any])
-        self.xs = floats  # E: `list[float]` is not assignable to attribute `xs` with type `Overloaded[list[str], list[int]]`
+        assert_type(self.xs, list[int])
+        self.xs = floats  # E: `list[float]` is not assignable to attribute `xs` with type `list[int] | list[str]`
+    "#,
+);
+
+// A `Final` attribute keeps its `Overloaded` type, so a value must match every branch.
+testcase!(
+    test_assign_to_overloaded_protocol_member,
+    r#"
+from typing import Callable, Final, Never, Protocol, overload
+
+class Box[T]:
+    def get(self) -> T: ...
+
+def make[A, R](f: Callable[[A], R]) -> Box[R]: ...
+
+@overload
+def h(x: int) -> str: ...
+@overload
+def h(x: str) -> int: ...
+def h(x: int | str) -> str | int: ...
+
+class P(Protocol):
+    x: Final = make(h)
+
+class MatchesOneBranch:
+    x: Final = Box[int]()
+
+class MatchesAllBranches:
+    x: Final = Box[Never]()
+
+def f(p: P): ...
+f(MatchesOneBranch())  # E: Argument `MatchesOneBranch` is not assignable to parameter `p` with type `P`
+f(MatchesAllBranches())
     "#,
 );
 

@@ -2093,6 +2093,22 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             &initialization,
         );
 
+        let is_inferred_and_mutable = annotation
+            .as_ref()
+            .and_then(|ann| ann.ty.as_ref())
+            .is_none()
+            && matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple));
+        // The attribute can be reassigned a value matching any branch of an `Overloaded` value.
+        let value_ty = if is_inferred_and_mutable {
+            value_ty.transform(&mut |ty| {
+                if let Type::Overloaded(branches) = ty {
+                    *ty = self.unions(branches.to_vec());
+                }
+            })
+        } else {
+            value_ty
+        };
+
         // Determine the final type, promoting literals when appropriate.
         // Skip literal promotion for NNModule and DataFrame types: their captured
         // fields/columns must preserve literal types for shape/column inference.
@@ -2111,13 +2127,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 });
             }
             // Save any unpromoted literal types, we need them for enums
-            if annotation
-                .as_ref()
-                .and_then(|ann| ann.ty.as_ref())
-                .is_none()
-                && matches!(read_only_reason, None | Some(ReadOnlyReason::NamedTuple))
-                && has_implicit_literal
-            {
+            if is_inferred_and_mutable && has_implicit_literal {
                 let pre = value_ty.clone();
                 (value_ty.promote_implicit_literals(self.stdlib), Some(pre))
             } else {
