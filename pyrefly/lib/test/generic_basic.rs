@@ -296,7 +296,6 @@ class A[*Ps, *Qs = *Ps]: # E: may not have more than one TypeVarTuple
 );
 
 testcase!(
-    bug = "Any bases bypass declared type arguments",
     test_any_base_generic_type_arguments,
     r#"
 from typing import Any, reveal_type
@@ -308,8 +307,8 @@ def unbox[T](box: Box[T]) -> T:
     return box.value
 
 def wrong_return(box: Box[int]) -> Box[str]:
-    reveal_type(unbox(box))  # E: revealed type: @_
-    return box
+    reveal_type(unbox(box))  # E: revealed type: int
+    return box  # E: Returned type `Box[int]` is not assignable
 
 def gradual_control(unknown: Box[Any], precise: Box[int]) -> str:
     unknown = precise

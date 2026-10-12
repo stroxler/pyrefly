@@ -2492,6 +2492,12 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     want,
                 )
             }
+            (Type::ClassType(got), Type::ClassType(want))
+                if got.class_object() == want.class_object() =>
+            {
+                // A gradual base does not erase the class's declared type arguments.
+                self.check_targs(got, want)
+            }
             (Type::ClassType(ty), _) | (_, Type::ClassType(ty))
                 if self.type_order.extends_any(ty.class_object()) =>
             {
