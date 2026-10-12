@@ -2256,14 +2256,30 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .cloned()
     }
 
+    /// Publish the contextual types of the parameters of the lambdas that `owner` owns, as this
+    /// solve installed them while computing `owner`. Called before `owner`'s answer is recorded,
+    /// so a solve that finds the answer also finds these types.
+    pub(crate) fn publish_owned_lambda_param_types(&self, owner: Idx<Key>) {
+        for id in self.bindings().owned_lambda_params(owner) {
+            if let Some(ty) = self.get_lambda_param_type(*id) {
+                self.current()
+                    .publish_lambda_param_type(*id, self.solver().expand(ty));
+            }
+        }
+    }
+
     pub(crate) fn resolve_lambda_param_type(&self, id: LambdaParamId, owner: Idx<Key>) -> Type {
         // Contextual lambda types are installed while their enclosing expression is
-        // solved, so resolving the parameter independently must force that owner.
+        // solved, so resolving the parameter independently must force that owner. If another
+        // solve computed the owner, this solve's thread-local state has no type for the
+        // parameter, so use the one that solve published.
         let _ = self.get_idx(owner);
-        self.get_lambda_param_type(id).unwrap_or_else(|| {
-            // Some lambda parameters have no contextual type in the current solve.
-            self.heap.mk_any_implicit()
-        })
+        self.get_lambda_param_type(id)
+            .or_else(|| self.current().published_lambda_param_type(id))
+            .unwrap_or_else(|| {
+                // Some lambda parameters have no contextual type in the current solve.
+                self.heap.mk_any_implicit()
+            })
     }
 
     pub fn stack(&self) -> &CalcStack {
@@ -2615,6 +2631,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             // Not an SCC member even after computation: publish directly to
             // the result slot. No recursive placeholder can exist because
             // placeholders are stored only in SCC-local SccNodeState::HasPlaceholder.
+            K::before_record(self, idx);
             let (answer, did_write) = match solve_result {
                 SolveResult::Answer(raw_answer) => {
                     self.sanitize_answer_vars::<K>(&raw_answer, range, &local_errors);
@@ -2841,6 +2858,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
         // Store in IterationSccNodeState::Done. Do NOT publish to the result slot;
         // that happens only when the iteration driver commits final answers.
+        if !self.stack().is_cold_iteration() {
+            K::before_record(self, idx);
+        }
         let errors = if self.stack().is_cold_iteration() {
             None
         } else {

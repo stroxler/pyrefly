@@ -234,6 +234,8 @@ pub struct Bindings {
     /// keyed by the lambda's TextRange. Populated at binding time so the
     /// solver can look up yield info without re-walking the AST.
     lambda_yield_keys: Vec<(TextRange, Box<[Idx<KeyYield>]>, Box<[Idx<KeyYieldFrom>]>)>,
+    /// For each binding that owns lambdas, the parameters of those lambdas.
+    owned_lambda_params: SmallMap<Idx<Key>, Vec<LambdaParamId>>,
     /// Class body ranges paired with class indices. Used by the solver to
     /// recover the enclosing class for an expression that resolves to
     /// `typing.Self`, without needing a per-`Self`-use bind-time key.
@@ -325,6 +327,8 @@ pub struct BindingsBuilder<'a> {
     deferred_bound_names: SmallMap<ShortIdentifier, DeferredBoundName>,
     /// Yield and yield-from indices for lambdas that contain yields.
     lambda_yield_keys: Vec<(TextRange, Box<[Idx<KeyYield>]>, Box<[Idx<KeyYieldFrom>]>)>,
+    /// Lambda parameters, grouped by their lambdas' owners.
+    owned_lambda_params: SmallMap<Idx<Key>, Vec<LambdaParamId>>,
     next_lambda_param_id: u32,
     /// Class body ranges paired with class indices, populated as
     /// `class_def_inner` enters each class body. The solver uses this to
@@ -418,6 +422,7 @@ impl Bindings {
             unused_variables: Vec::new(),
             pytest_info: None,
             lambda_yield_keys: Vec::new(),
+            owned_lambda_params: SmallMap::new(),
             class_scopes: Vec::new(),
             shape_declarations: ShapeDeclarations::default(),
             subsequently_initialized: SmallSet::new(),
@@ -508,6 +513,13 @@ impl Bindings {
             .iter()
             .find(|(r, _, _)| *r == range)
             .map_or((&[], &[]), |(_, yields, yield_froms)| (yields, yield_froms))
+    }
+
+    /// The parameters of the lambdas that `owner` owns.
+    pub fn owned_lambda_params(&self, owner: Idx<Key>) -> &[LambdaParamId] {
+        self.owned_lambda_params
+            .get(&owner)
+            .map_or(&[], |params| params.as_slice())
     }
 
     /// Returns the innermost class whose body range contains `range`, or
@@ -722,6 +734,7 @@ impl Bindings {
             pytest_info,
             deferred_bound_names: SmallMap::new(),
             lambda_yield_keys: Vec::new(),
+            owned_lambda_params: SmallMap::new(),
             next_lambda_param_id: 0,
             class_scopes: Vec::new(),
             shape_declarations: ShapeDeclarations::default(),
@@ -853,6 +866,7 @@ impl Bindings {
             unused_variables: builder.unused_variables,
             pytest_info: builder.pytest_info,
             lambda_yield_keys: builder.lambda_yield_keys,
+            owned_lambda_params: builder.owned_lambda_params,
             class_scopes: builder.class_scopes,
             shape_declarations: builder.shape_declarations.finish(),
             subsequently_initialized: builder.subsequently_initialized,
@@ -2482,7 +2496,10 @@ impl<'a> BindingsBuilder<'a> {
             // dropped by parse-error recovery. The remaining contexts are static type information
             // and expressions derived from it, which are not type-checked.
             LambdaKind::Ordinary => match usage.current_idx() {
-                Some(owner) => Binding::LambdaParameter(id, owner),
+                Some(owner) => {
+                    self.owned_lambda_params.entry(owner).or_default().push(id);
+                    Binding::LambdaParameter(id, owner)
+                }
                 None => Binding::StaticLambdaParameter(id),
             },
             LambdaKind::TypeLevel => {

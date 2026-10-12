@@ -155,6 +155,9 @@ pub trait Solve<Ans: LookupAnswer>: Keyed {
     ) -> Option<Self::Answer> {
         None
     }
+
+    /// Called after the current solve has computed the answer for `idx`, before recording it.
+    fn before_record(_answers: &AnswersSolver<Ans>, _idx: Idx<Self>) {}
 }
 
 impl<Ans: LookupAnswer> Solve<Ans> for Key {
@@ -204,6 +207,10 @@ impl<Ans: LookupAnswer> Solve<Ans> for Key {
             }
             _ => None,
         }
+    }
+
+    fn before_record(answers: &AnswersSolver<Ans>, idx: Idx<Self>) {
+        answers.publish_owned_lambda_param_types(idx);
     }
 }
 
