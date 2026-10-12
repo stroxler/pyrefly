@@ -2365,29 +2365,33 @@ impl Type {
 
     pub fn materialize(&self) -> Self {
         let mut ty = self.clone();
-        ty.transform_types_in_type_variable_positions(&mut |ty| {
-            if ty.is_any() {
-                *ty = Type::Materialization;
-            } else {
-                // Gradual shape dimensions are the shape analog of `Any`, but they
-                // are stored as `Int` rather than `Type`, so the traversal above
-                // never reaches them directly. Materialize them at each carrier so
-                // `is_equivalent` does not treat a gradual size as equivalent to a
-                // concrete one.
-                match ty {
-                    Type::Int(dim) => dim.materialize(),
-                    Type::IntTuple(tuple) => tuple.materialize(),
-                    Type::ShapedArray(shaped) => shaped.materialize_inline_shape(),
-                    _ => {}
-                }
-            }
-            ty.transform_toplevel_callable_signatures(|callable: &mut Callable, _| {
-                if matches!(callable.params, Params::Ellipsis) {
-                    callable.params = Params::Materialization;
-                }
-            });
-        });
+        ty.materialize_mut();
         ty
+    }
+
+    /// Materializes `self` in place, children first.
+    fn materialize_mut(&mut self) {
+        if self.is_any() {
+            *self = Type::Materialization;
+            return;
+        }
+        self.recurse_type_variable_positions_mut(&mut |ty| ty.materialize_mut());
+        // Gradual shape dimensions are the shape analog of `Any`, but they
+        // are stored as `Int` rather than `Type`, so the traversal above
+        // never reaches them directly. Materialize them at each carrier so
+        // `is_equivalent` does not treat a gradual size as equivalent to a
+        // concrete one.
+        match self {
+            Type::Int(dim) => dim.materialize(),
+            Type::IntTuple(tuple) => tuple.materialize(),
+            Type::ShapedArray(shaped) => shaped.materialize_inline_shape(),
+            _ => {}
+        }
+        self.transform_toplevel_callable_signatures(|callable: &mut Callable, _| {
+            if matches!(callable.params, Params::Ellipsis) {
+                callable.params = Params::Materialization;
+            }
+        });
     }
 
     /// Creates a union from the provided types without simplifying
