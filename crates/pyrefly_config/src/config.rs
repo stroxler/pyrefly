@@ -9,6 +9,7 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
+use std::fs;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
@@ -583,6 +584,10 @@ pub struct ConfigFile {
     /// The PEP 440 version requirement that the running Pyrefly must satisfy.
     pub required_version: Option<String>,
 
+    /// A configuration file to inherit settings from, relative to this file. Settings in this
+    /// file override inherited ones.
+    pub extends: Option<PathBuf>,
+
     /// Files that should be counted as sources (e.g. user-space code).
     /// NOTE: unlike other args, this is never replaced with CLI arg overrides
     /// in this config, but may be overridden by CLI args where used.
@@ -776,6 +781,7 @@ impl Default for ConfigFile {
         ConfigFile {
             source: ConfigSource::Synthetic(None),
             required_version: None,
+            extends: None,
             project_includes: Default::default(),
             project_excludes: Default::default(),
             interpreters: Interpreters {
@@ -1935,7 +1941,10 @@ impl ConfigFile {
             if config_path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
                 let (config, has_python_tools) = ConfigFile::parse_pyproject_toml(&config_str)?;
                 match config {
-                    Some(config) => Ok((Some(config), ConfigSource::File(path))),
+                    Some(config) => Ok((
+                        Some(with_extends(config_path, config)?),
+                        ConfigSource::File(path),
+                    )),
                     None if has_python_tools => Ok((None, ConfigSource::PythonToolMarker(path))),
                     None => Ok((None, ConfigSource::Marker(path))),
                 }
@@ -1947,7 +1956,10 @@ impl ConfigFile {
                 Ok((None, ConfigSource::Marker(path)))
             } else {
                 Ok((
-                    Some(ConfigFile::parse_config(&config_str)?),
+                    Some(with_extends(
+                        config_path,
+                        ConfigFile::parse_config(&config_str)?,
+                    )?),
                     ConfigSource::File(path),
                 ))
             }
@@ -2059,6 +2071,90 @@ impl ConfigFile {
         let pyproject = parse_toml_document::<PyProject>(config_str)?;
         let has_python_tools = pyproject.has_python_tools();
         Ok((pyproject.pyrefly(), has_python_tools))
+    }
+}
+
+/// If `config`, loaded from `config_path`, has an `extends` key, reloads it merged on top of
+/// the chain of configs that it extends.
+///
+/// Settings can only be merged before deserialization, while it is still possible to tell an
+/// omitted setting from one that is explicitly set to its default value. So the chain is
+/// loaded as TOML tables.
+fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<ConfigFile> {
+    if config.extends.is_none() {
+        return Ok(config);
+    }
+    // The chain of configs, starting from `config_path`, as (canonical path, table) pairs.
+    let mut layers: Vec<(PathBuf, toml::Table)> = Vec::new();
+    let mut path = config_path.to_path_buf();
+    loop {
+        let canonical = fs::canonicalize(&path)
+            .with_context(|| format!("While resolving `extends` path `{}`", path.display()))?;
+        if layers.iter().any(|(seen, _)| *seen == canonical) {
+            return Err(anyhow!(
+                "Cycle in `extends`: {} -> {}",
+                layers.iter().map(|(seen, _)| seen.display()).join(" -> "),
+                canonical.display()
+            ));
+        }
+        let (layer, extends) = read_config_layer(&path)
+            .with_context(|| format!("While loading extended config `{}`", path.display()))?;
+        layers.push((canonical, layer));
+        match extends {
+            Some(extends) => path = extends,
+            None => break,
+        }
+    }
+    let mut merged = toml::Table::new();
+    for (_, layer) in layers.into_iter().rev() {
+        merge_config_layer(&mut merged, layer);
+    }
+    merged
+        .try_into()
+        .context("While merging the configs in the `extends` chain")
+}
+
+/// Reads a config file as a TOML table, along with the absolute path of the file that it
+/// extends, if any. For a `pyproject.toml`, the table is the `[tool.pyrefly]` section.
+fn read_config_layer(path: &Path) -> anyhow::Result<(toml::Table, Option<PathBuf>)> {
+    let config_str = fs_anyhow::read_to_string(path)?;
+    let mut document = toml::from_str::<toml::Table>(&config_str)?;
+    // Parsing each file into a `ConfigFile` reports invalid settings against the right file and
+    // line, which the merged table cannot do. It also guarantees well-typed values below.
+    let layer = if path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
+        ConfigFile::parse_pyproject_toml(&config_str)?;
+        document
+            .get_mut("tool")
+            .and_then(|tool| tool.get_mut("pyrefly"))
+            .and_then(toml::Value::as_table_mut)
+            .map(mem::take)
+            .ok_or_else(|| anyhow!("`{}` has no `[tool.pyrefly]` section", path.display()))?
+    } else {
+        ConfigFile::parse_config(&config_str)?;
+        document
+    };
+    let root = path
+        .parent()
+        .expect("a readable config file has a parent directory");
+    let extends = layer
+        .get("extends")
+        .and_then(toml::Value::as_str)
+        .map(|extends| root.join(extends).absolutize());
+    Ok((layer, extends))
+}
+
+/// Merges `child` into `base`. A setting in `child` replaces the same setting in `base`, except
+/// that tables are merged by key.
+fn merge_config_layer(base: &mut toml::Table, child: toml::Table) {
+    for (key, value) in child {
+        match (base.get_mut(&key), value) {
+            (Some(toml::Value::Table(base_table)), toml::Value::Table(child_table)) => {
+                merge_config_layer(base_table, child_table);
+            }
+            (_, value) => {
+                base.insert(key, value);
+            }
+        }
     }
 }
 
@@ -2351,6 +2447,7 @@ mod tests {
             ConfigFile {
                 source: ConfigSource::Synthetic(None),
                 required_version: None,
+                extends: None,
                 project_includes: Globs::new(vec![
                     "tests".to_owned(),
                     "./implementation".to_owned()
@@ -2762,6 +2859,7 @@ mod tests {
         let mut config = ConfigFile {
             source: ConfigSource::Synthetic(None),
             required_version: None,
+            extends: None,
             project_includes: Globs::new(vec!["path1/**".to_owned(), "path2/path3".to_owned()])
                 .unwrap(),
             project_excludes: Globs::new(vec!["tests/untyped/**".to_owned()]).unwrap(),
@@ -2843,6 +2941,7 @@ mod tests {
         let expected_config = ConfigFile {
             source: ConfigSource::Synthetic(None),
             required_version: None,
+            extends: None,
             project_includes: Globs::new(project_includes_vec).unwrap(),
             project_excludes: Globs::new(project_excludes_vec).unwrap(),
             interpreters: Interpreters {
@@ -4773,6 +4872,119 @@ output-format = "omit-errors"
         assert!(!errors.is_empty(), "Expected errors for invalid TOML");
         // The config should still respect the file's location for project root detection.
         assert_eq!(config.source.root_from_file(), Some(root.path()));
+    }
+
+    #[test]
+    fn test_extends_pyproject_merges_child_overrides() {
+        let root = TempDir::new().unwrap();
+        let shared = root.path().join("shared");
+        let project = root.path().join("project");
+        fs::create_dir_all(&shared).unwrap();
+        fs::create_dir_all(&project).unwrap();
+        fs::write(
+            shared.join(ConfigFile::PYPROJECT_FILE_NAME),
+            r#"
+[tool.pyrefly]
+preset = "strict"
+use-ignore-files = false
+
+[tool.pyrefly.errors]
+bad-assignment = false
+"#,
+        )
+        .unwrap();
+        let child = project.join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(
+            &child,
+            r#"
+extends = "../shared/pyproject.toml"
+skip-interpreter-query = true
+
+[errors]
+bad-return = false
+"#,
+        )
+        .unwrap();
+
+        let (mut config, errors) = ConfigFile::from_file(&child);
+
+        assert!(errors.is_empty());
+        assert_eq!(config.source, ConfigSource::File(child));
+        assert_eq!(config.preset, Some(Preset::Strict));
+        assert_eq!(config.use_ignore_files, false);
+
+        config.configure();
+        let errors = config.errors(&test_path("src/main.py"));
+        assert_eq!(errors.severity(ErrorKind::BadAssignment), Severity::Ignore);
+        assert_eq!(errors.severity(ErrorKind::BadReturn), Severity::Ignore);
+        assert_eq!(errors.severity(ErrorKind::ImplicitAny), Severity::Error);
+    }
+
+    #[test]
+    fn test_extends_child_replaces_explicit_lists() {
+        let root = TempDir::new().unwrap();
+        let base = root.path().join("base.toml");
+        let child = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(
+            &base,
+            r#"
+project-includes = ["base/**/*.py"]
+search-path = ["base-src"]
+"#,
+        )
+        .unwrap();
+        fs::write(
+            &child,
+            r#"
+extends = "base.toml"
+project-includes = ["child/**/*.py"]
+search-path = []
+"#,
+        )
+        .unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&child);
+
+        assert!(errors.is_empty());
+        assert_eq!(
+            config.project_includes,
+            Globs::new(vec![
+                root.path()
+                    .join("child/**/*.py")
+                    .to_string_lossy()
+                    .to_string()
+            ])
+            .unwrap()
+        );
+        assert!(config.search_path_from_file.is_empty());
+    }
+
+    #[test]
+    fn test_extends_requires_pyrefly_section_in_pyproject() {
+        let root = TempDir::new().unwrap();
+        let base = root.path().join(ConfigFile::PYPROJECT_FILE_NAME);
+        let child = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(&base, "[project]\nname = \"no-pyrefly-config\"\n").unwrap();
+        fs::write(&child, "extends = \"pyproject.toml\"\n").unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&child);
+
+        assert!(matches!(config.source, ConfigSource::FailedParse(path) if path == child));
+        assert!(!errors.is_empty(), "expected missing [tool.pyrefly] error");
+    }
+
+    #[test]
+    fn test_extends_reports_cycles() {
+        let root = TempDir::new().unwrap();
+        let first = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        let second = root.path().join("base.toml");
+        fs::write(&first, "extends = \"base.toml\"\n").unwrap();
+        fs::write(&second, "extends = \"pyrefly.toml\"\n").unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&first);
+
+        assert!(matches!(config.source, ConfigSource::FailedParse(path) if path == first));
+        assert!(!errors.is_empty(), "expected inheritance cycle error");
     }
 
     #[test]
