@@ -22,7 +22,9 @@ pub fn glean(transaction: &Transaction, handle: &Handle, ownership: bool) -> Str
     let data = f(transaction, handle, ownership)
         .expect("Glean data be ready")
         .entries;
-    serde_json::to_string_pretty(&data).unwrap()
+    // Compact, because Glean ingests this output at scale and indentation more than doubles its
+    // size.
+    serde_json::to_string(&data).unwrap()
 }
 
 #[test]
