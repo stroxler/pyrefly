@@ -1657,6 +1657,27 @@ def g(x: tuple[Any, ...]):
 );
 
 testcase!(
+    test_materialization_respects_type_parameter_bound,
+    r#"
+from typing import Any, Generic, TypeVar, assert_type, overload
+
+T = TypeVar("T", bound=tuple[int, ...])
+
+class A(Generic[T]): ...
+
+@overload
+def f(x: A[T]) -> A[T]: ...
+@overload
+def f(x: object) -> None: ...
+def f(x: object) -> Any: ...
+
+def g(x1: A[Any], x2: A[tuple[Any, ...]]):
+    assert_type(f(x1), A[Any])
+    assert_type(f(x2), A[tuple[Any, ...]])
+    "#,
+);
+
+testcase!(
     test_abstractmethod_does_not_need_implementation,
     r#"
 from typing import overload

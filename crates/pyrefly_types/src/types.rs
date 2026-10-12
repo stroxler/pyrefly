@@ -2375,7 +2375,31 @@ impl Type {
             *self = Type::Materialization;
             return;
         }
-        self.recurse_type_variable_positions_mut(&mut |ty| ty.materialize_mut());
+        if let Type::ClassType(cls) = self {
+            for (tparam, targ) in cls.targs_mut().iter_paired_mut() {
+                match tparam.restriction() {
+                    Restriction::Bound(bound) => {
+                        let original = targ.clone();
+                        targ.materialize_mut();
+                        // A well-formed type argument satisfies its parameter's bound, so only
+                        // subtypes of the (unmaterialized) bound are possible. The shapeless
+                        // `IntTuple` is the top of the shape domain, so intersecting with it is a
+                        // no-op.
+                        if *targ != original
+                            && !matches!(bound, Type::IntTuple(shape) if shape.is_shapeless())
+                        {
+                            *targ = Type::Intersect(Box::new((
+                                vec![targ.clone(), bound.clone()],
+                                targ.clone(),
+                            )));
+                        }
+                    }
+                    _ => targ.materialize_mut(),
+                }
+            }
+        } else {
+            self.recurse_type_variable_positions_mut(&mut |ty| ty.materialize_mut());
+        }
         // Gradual shape dimensions are the shape analog of `Any`, but they
         // are stored as `Int` rather than `Type`, so the traversal above
         // never reaches them directly. Materialize them at each carrier so
