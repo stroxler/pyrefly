@@ -2409,8 +2409,8 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    /// Invalidate based on what a watcher told you.
-    pub fn invalidate_events(&mut self, events: &CategorizedEvents) {
+    /// Invalidate based on what a watcher told you. Returns whether the config was invalidated.
+    pub fn invalidate_events(&mut self, events: &CategorizedEvents) -> bool {
         *self.data.inputs_changed.get_mut() = true;
         let watched_metadata_changed = events
             .iter()
@@ -2444,6 +2444,7 @@ impl<'a> Transaction<'a> {
         if watched_metadata_changed {
             self.invalidate_config();
         }
+        watched_metadata_changed
     }
 
     /// Called if the `find` portion of loading might have changed.

@@ -4611,17 +4611,8 @@ impl Server {
                     if config_override_changed {
                         t.invalidate_config();
                     }
-                    t.invalidate_events(&events);
-                    // `invalidate_events` above also invalidates the config whenever a
-                    // `pyrefly.toml`/`pyproject.toml`/lockfile changed, even if it isn't an
-                    // explicit `configPath` override -- mirror that condition here so the
-                    // client is told about every config change, not just override ones,
-                    // without invalidating the config a second time for the metadata case.
-                    if config_override_changed
-                        || events
-                            .iter()
-                            .any(|path| ConfigFile::is_watched_metadata(path))
-                    {
+                    let config_changed = t.invalidate_events(&events);
+                    if config_override_changed || config_changed {
                         Self::notify_type_error_display_status_changed(
                             &sender,
                             push_type_error_display_status,
