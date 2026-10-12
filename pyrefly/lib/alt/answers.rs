@@ -1755,7 +1755,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 is_deprecated: _,
                 definition,
                 is_reexport: _,
-            } in self.completions(base.clone(), Some(attribute_name), false)
+                is_from_object: _,
+            } in self.completions(base.clone(), Some(attribute_name), false, false)
             {
                 match definition {
                     AttrDefinition::FullyResolved {

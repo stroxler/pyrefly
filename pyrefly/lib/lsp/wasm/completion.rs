@@ -991,7 +991,7 @@ impl Transaction<'_> {
     ) {
         self.ad_hoc_solve(handle, "completion_attributes", |solver| {
             solver
-                .completions(base_type, None, true)
+                .completions(base_type, None, true, true)
                 .iter()
                 .for_each(|attr| {
                     let kind = match attr.ty {

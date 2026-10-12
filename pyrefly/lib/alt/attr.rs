@@ -3207,6 +3207,8 @@ pub struct AttrInfo {
     pub definition: AttrDefinition,
     /// is this defined in another module (true) or in this module (false)?
     pub is_reexport: bool,
+    /// Is this attribute inherited from `object` rather than defined on a subclass?
+    pub is_from_object: bool,
 }
 
 impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
@@ -3219,7 +3221,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         T: Iterator<Item = &'a Class>,
     {
         let mut seen = SmallSet::new();
-        for c in mro {
+        for (i, c) in mro.enumerate() {
+            // When the base itself is `object`, its attributes are its own, not inherited.
+            let is_from_object = i > 0 && c == self.stdlib.object().class_object();
             let Some(class_fields) = self.get_class_fields(c) else {
                 continue;
             };
@@ -3239,6 +3243,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                     docstring_range: class_fields.field_docstring_range(fld),
                                 },
                                 is_reexport: false,
+                                is_from_object,
                             });
                         }
                     }
@@ -3256,6 +3261,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                     .field_docstring_range(expected_attribute_name),
                             },
                             is_reexport: false,
+                            is_from_object,
                         });
                     }
                 }
@@ -3324,6 +3330,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         module_name: ModuleName::from_parts(submodule.parts()),
                     },
                     is_reexport: false,
+                    is_from_object: false,
                 });
                 return;
             }
@@ -3341,6 +3348,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             module_name,
                         },
                         is_reexport: self.exports.reexport_source(module_name, name).is_some(),
+                        is_from_object: false,
                     });
                 }
             }
@@ -3354,6 +3362,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             module_name,
                         },
                         is_reexport: self.exports.reexport_source(module_name, name).is_some(),
+                        is_from_object: false,
                     }));
                 }
             }
@@ -3365,10 +3374,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         base: AttributeBase,
         expected_attribute_name: Option<&Name>,
         include_types: bool,
+        include_object: bool,
         res: &mut Vec<AttrInfo>,
     ) {
         for base1 in &base.0 {
             self.completions_inner1(base1, expected_attribute_name, res);
+        }
+        if !include_object {
+            res.retain(|info| !info.is_from_object);
         }
         if include_types {
             for info in res {
@@ -3490,16 +3503,24 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     }
     /// List all the attributes available from a type. Used to power completion.
     /// Not all usages need types, so we can skip type computation with `include_types=false`.
+    /// Attributes inherited from `object` are only listed when `include_object=true`.
     pub fn completions(
         &self,
         base: Type,
         expected_attribute_name: Option<&Name>,
         include_types: bool,
+        include_object: bool,
     ) -> Vec<AttrInfo> {
         let annotated_fields = self.django_annotated_fields(&base);
         let mut res = Vec::new();
         if let Some(base) = self.as_attribute_base(base) {
-            self.completions_inner(base, expected_attribute_name, include_types, &mut res);
+            self.completions_inner(
+                base,
+                expected_attribute_name,
+                include_types,
+                include_object,
+                &mut res,
+            );
         }
         for (name, ty) in annotated_fields {
             if expected_attribute_name.is_none_or(|expected| expected == &name)
@@ -3511,6 +3532,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     is_deprecated: false,
                     definition: AttrDefinition::Synthetic,
                     is_reexport: false,
+                    is_from_object: false,
                 });
             }
         }

@@ -4048,3 +4048,16 @@ fn definition_of_name_only_listed_in_dunder_all_goes_to_stub() {
         "datetime"
     );
 }
+
+#[test]
+fn attribute_of_object_class() {
+    let code = r#"
+object.__setattr__
+#       ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert!(
+        report.contains("def __setattr__"),
+        "missing definition of `object.__setattr__`:\n{report}"
+    );
+}
