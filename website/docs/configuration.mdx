@@ -48,8 +48,9 @@ site-package-path = [".venv/lib/python3.13/site-packages"]
 Pyrefly loads the base configuration first, then applies settings from the
 extending file. Explicit child values replace inherited scalar and list values;
 tables merge by key, so a child `[errors]` table can override individual error
-codes. Multiple levels of inheritance are supported. An inheritance cycle or an
-invalid base configuration is an error.
+codes. Multiple levels of inheritance are supported. Relative paths are resolved
+against the configuration file that declares them, and an inheritance cycle or
+an invalid base configuration is an error.
 
 `extends` does not change [configuration finding](#configuration-finding):
 Pyrefly still selects one nearby configuration file before loading its base.

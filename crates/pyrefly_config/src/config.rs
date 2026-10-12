@@ -2100,7 +2100,7 @@ const CONFIG_KEY_ALIASES: &[(&str, &str)] = &[
 ///
 /// Settings can only be merged before deserialization, while it is still possible to tell an
 /// omitted setting from one that is explicitly set to its default value. So the chain is
-/// loaded as TOML tables.
+/// loaded as TOML tables, with each table's relative paths resolved against its own file.
 fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<ConfigFile> {
     if config.extends.is_none() {
         return Ok(config);
@@ -2135,27 +2135,30 @@ fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<Config
         .context("While merging the configs in the `extends` chain")
 }
 
-/// Reads a config file as a TOML table with canonical keys, along with the absolute path of the
-/// file that it extends, if any. For a `pyproject.toml`, the table is the `[tool.pyrefly]`
-/// section.
+/// Reads a config file as a TOML table with canonical keys and absolute paths, along with the
+/// absolute path of the file that it extends, if any. For a `pyproject.toml`, the table is the
+/// `[tool.pyrefly]` section.
 fn read_config_layer(path: &Path) -> anyhow::Result<(toml::Table, Option<PathBuf>)> {
     let config_str = fs_anyhow::read_to_string(path)?;
     let mut document = toml::from_str::<toml::Table>(&config_str)?;
     // Parsing each file into a `ConfigFile` reports invalid settings against the right file and
     // line, which the merged table cannot do. It also guarantees well-typed values below.
-    let layer = if path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
-        ConfigFile::parse_pyproject_toml(&config_str)?;
-        document
-            .get_mut("tool")
-            .and_then(|tool| tool.get_mut("pyrefly"))
-            .and_then(toml::Value::as_table_mut)
-            .map(mem::take)
-            .ok_or_else(|| anyhow!("`{}` has no `[tool.pyrefly]` section", path.display()))?
-    } else {
-        ConfigFile::parse_config(&config_str)?;
-        document
-    };
-    let layer: toml::Table = layer
+    let (mut config, layer) =
+        if path.file_name() == Some(OsStr::new(ConfigFile::PYPROJECT_FILE_NAME)) {
+            let config = ConfigFile::parse_pyproject_toml(&config_str)?
+                .0
+                .ok_or_else(|| anyhow!("`{}` has no `[tool.pyrefly]` section", path.display()))?;
+            let layer = document
+                .get_mut("tool")
+                .and_then(|tool| tool.get_mut("pyrefly"))
+                .and_then(toml::Value::as_table_mut)
+                .map(mem::take)
+                .expect("`parse_pyproject_toml` found a `[tool.pyrefly]` table");
+            (config, layer)
+        } else {
+            (ConfigFile::parse_config(&config_str)?, document)
+        };
+    let mut layer: toml::Table = layer
         .into_iter()
         .map(|(key, value)| {
             let key = CONFIG_KEY_ALIASES
@@ -2168,11 +2171,41 @@ fn read_config_layer(path: &Path) -> anyhow::Result<(toml::Table, Option<PathBuf
     let root = path
         .parent()
         .expect("a readable config file has a parent directory");
+    // Resolve this file's relative paths the same way as for a single config file, then copy back
+    // only the settings that this file sets, so that the merge still sees which ones it omits.
+    // This relies on `layer` having canonical keys, which match the serialized ones.
+    config.rewrite_with_path_to_config(root);
+    // `rewrite_with_path_to_config` leaves this to `BuildSystem::get_source_db`, which would
+    // resolve it against the extending file's directory.
+    if let Some(build_system) = &mut config.build_system {
+        build_system
+            .search_path_prefix
+            .iter_mut()
+            .for_each(|prefix| *prefix = prefix.absolutize_from(root));
+    }
+    copy_set_values(
+        &mut layer,
+        &toml::Table::try_from(&config).expect("a parsed config serializes to a table"),
+    );
     let extends = layer
         .get("extends")
         .and_then(toml::Value::as_str)
         .map(|extends| root.join(extends).absolutize());
     Ok((layer, extends))
+}
+
+/// Replaces each value in `layer` with the value at the same key in `resolved`, recursing into
+/// tables so that keys absent from `layer` stay absent.
+fn copy_set_values(layer: &mut toml::Table, resolved: &toml::Table) {
+    for (key, value) in layer {
+        match (value, resolved.get(key)) {
+            (toml::Value::Table(table), Some(toml::Value::Table(resolved_table))) => {
+                copy_set_values(table, resolved_table);
+            }
+            (value, Some(resolved_value)) => *value = resolved_value.clone(),
+            (_, None) => {}
+        }
+    }
 }
 
 /// Merges `child` into `base`. A setting in `child` replaces the same setting in `base`, except
@@ -4966,6 +4999,53 @@ bad-return = false
         assert_eq!(errors.severity(ErrorKind::BadAssignment), Severity::Ignore);
         assert_eq!(errors.severity(ErrorKind::BadReturn), Severity::Ignore);
         assert_eq!(errors.severity(ErrorKind::ImplicitAny), Severity::Error);
+    }
+
+    #[test]
+    fn test_extends_resolves_paths_against_declaring_file() {
+        let root = TempDir::new().unwrap();
+        let shared = root.path().join("shared");
+        let project = root.path().join("project");
+        fs::create_dir_all(&shared).unwrap();
+        fs::create_dir_all(&project).unwrap();
+        fs::write(
+            shared.join("base.toml"),
+            r#"
+project-includes = ["base/**/*.py"]
+search_path = ["stubs"]
+
+[coverage]
+includes = ["covered"]
+
+[[sub-config]]
+matches = "generated/**"
+"#,
+        )
+        .unwrap();
+        let child = project.join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(
+            &child,
+            "extends = \"../shared/base.toml\"\nsite-package-path = [\"venv\"]\n",
+        )
+        .unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&child);
+
+        assert!(errors.is_empty());
+        let shared_glob = |pattern: &str| {
+            Globs::new(vec![shared.join(pattern).to_string_lossy().into_owned()]).unwrap()
+        };
+        assert_eq!(config.project_includes, shared_glob("base/**/*.py"));
+        assert_eq!(config.search_path_from_file, vec![shared.join("stubs")]);
+        assert_eq!(config.coverage.includes, Some(shared_glob("covered")));
+        assert_eq!(
+            config.sub_configs[0].matches,
+            Glob::new(shared.join("generated/**").to_string_lossy().into_owned()).unwrap()
+        );
+        assert_eq!(
+            config.python_environment.site_package_path,
+            Some(vec![project.join("venv")])
+        );
     }
 
     #[test]
