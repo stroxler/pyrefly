@@ -192,6 +192,55 @@ fn shape_extensions_env_with_torch_and_jaxtyping() -> TestEnv {
     env
 }
 
+// https://github.com/facebook/pyrefly/issues/5172
+// A partial Torch overlay can inherit an Any base when runtime Torch is absent.
+testcase!(
+    bug = "Any bases bypass declared shape arguments",
+    test_any_base_tensor_argument_dimensions,
+    shape_extensions_env(),
+    r#"
+from shape_extensions import IntTuple, IntVar
+from typing import Any, reveal_type
+
+class Tensor[Shape: IntTuple](Any):
+    shape: Shape
+
+def identity[B: IntVar, H: IntVar](x: Tensor[[B, 16, H, H]]) -> Tensor[[B, 16, H, H]]:
+    return x
+
+def symbolic[B: IntVar](x: Tensor[[B, 16, 8, 8]]) -> Tensor[[B, 16, 4, 4]]:
+    reveal_type(x)  # E: revealed type: Tensor[[B, 16, 8, 8]]
+    reveal_type(identity(x))  # E: revealed type: Tensor[[@_, 16, @_, @_]]
+    return identity(x)
+
+def concrete(x: Tensor[[2, 16, 8, 8]]) -> Tensor[[2, 16, 4, 4]]:
+    reveal_type(identity(x))  # E: revealed type: Tensor[[@_, 16, @_, @_]]
+    return identity(x)
+"#,
+);
+
+testcase!(
+    bug = "Any bases bypass declared shape arguments",
+    test_any_base_tensor_argument_shape,
+    shape_extensions_env(),
+    r#"
+from shape_extensions import IntTuple
+from typing import Any, reveal_type
+
+type _Shape = IntTuple
+class _TensorBase(Any): ...
+class Tensor[Shape: _Shape = _Shape](_TensorBase):
+    shape: Shape
+
+def identity[S: IntTuple](x: Tensor[S]) -> Tensor[S]:
+    return x
+
+def wrong_return(x: Tensor[[2, 16, 8, 8]]) -> Tensor[[2, 16, 4, 4]]:
+    reveal_type(identity(x))  # E: revealed type: Tensor[@_]
+    return identity(x)
+"#,
+);
+
 testcase!(
     test_flag_int_accepts_shape_int_capture,
     shape_extensions_env(),
