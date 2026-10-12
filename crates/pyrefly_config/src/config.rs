@@ -2074,6 +2074,27 @@ impl ConfigFile {
     }
 }
 
+/// Deprecated spellings of top-level config keys, mapped to their canonical spellings. Keep this
+/// in sync with the `alias` attributes on `ConfigFile` and the structs that it flattens.
+const CONFIG_KEY_ALIASES: &[(&str, &str)] = &[
+    ("project_includes", "project-includes"),
+    ("project_excludes", "project-excludes"),
+    ("search_path", "search-path"),
+    ("sub_config", "sub-config"),
+    ("python_platform", "python-platform"),
+    ("python_version", "python-version"),
+    ("site_package_path", "site-package-path"),
+    ("stdlib_paths", "interpreter-stdlib-path"),
+    ("python_interpreter", "python-interpreter-path"),
+    ("python-interpreter", "python-interpreter-path"),
+    ("replace_imports_with_any", "replace-imports-with-any"),
+    ("untyped_def_behavior", "untyped-def-behavior"),
+    (
+        "ignore_errors_in_generated_code",
+        "ignore-errors-in-generated-code",
+    ),
+];
+
 /// If `config`, loaded from `config_path`, has an `extends` key, reloads it merged on top of
 /// the chain of configs that it extends.
 ///
@@ -2114,8 +2135,9 @@ fn with_extends(config_path: &Path, config: ConfigFile) -> anyhow::Result<Config
         .context("While merging the configs in the `extends` chain")
 }
 
-/// Reads a config file as a TOML table, along with the absolute path of the file that it
-/// extends, if any. For a `pyproject.toml`, the table is the `[tool.pyrefly]` section.
+/// Reads a config file as a TOML table with canonical keys, along with the absolute path of the
+/// file that it extends, if any. For a `pyproject.toml`, the table is the `[tool.pyrefly]`
+/// section.
 fn read_config_layer(path: &Path) -> anyhow::Result<(toml::Table, Option<PathBuf>)> {
     let config_str = fs_anyhow::read_to_string(path)?;
     let mut document = toml::from_str::<toml::Table>(&config_str)?;
@@ -2133,6 +2155,16 @@ fn read_config_layer(path: &Path) -> anyhow::Result<(toml::Table, Option<PathBuf
         ConfigFile::parse_config(&config_str)?;
         document
     };
+    let layer: toml::Table = layer
+        .into_iter()
+        .map(|(key, value)| {
+            let key = CONFIG_KEY_ALIASES
+                .iter()
+                .find(|(alias, _)| *alias == key)
+                .map_or(key, |(_, canonical)| (*canonical).to_owned());
+            (key, value)
+        })
+        .collect();
     let root = path
         .parent()
         .expect("a readable config file has a parent directory");
@@ -4973,6 +5005,27 @@ search-path = []
             .unwrap()
         );
         assert!(config.search_path_from_file.is_empty());
+    }
+
+    #[test]
+    fn test_extends_canonicalizes_key_aliases() {
+        let root = TempDir::new().unwrap();
+        let base = root.path().join("base.toml");
+        let child = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(&base, "python_version = \"3.10\"\n").unwrap();
+        fs::write(
+            &child,
+            "extends = \"base.toml\"\npython-version = \"3.12\"\n",
+        )
+        .unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&child);
+
+        assert!(errors.is_empty());
+        assert_eq!(
+            config.python_environment.python_version,
+            Some(PythonVersion::new(3, 12, 0))
+        );
     }
 
     #[test]
