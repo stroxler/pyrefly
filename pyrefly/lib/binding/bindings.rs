@@ -220,6 +220,8 @@ pub struct Bindings {
     /// Multi-line ranges and ignore-all directives, computed from the AST
     /// here, before the AST is evicted from memory. Used for error suppression.
     module_ranges: Arc<ModuleRanges>,
+    /// Ranges of `Annotated` metadata, sorted and non-overlapping.
+    annotated_metadata_ranges: Vec<TextRange>,
     scope_trace: Option<ScopeTrace>,
     /// Names `del`eted at module scope; retained outside the LSP `scope_trace`.
     module_deletes: SmallSet<Name>,
@@ -291,6 +293,8 @@ struct DeferredBoundName {
 
 pub struct BindingsBuilder<'a> {
     pub module_info: ModuleInfo,
+    /// Ranges of `Annotated` metadata, inside which bindings only report name resolution errors.
+    pub(crate) annotated_metadata_ranges: Vec<TextRange>,
     pub lookup: &'a dyn LookupExport,
     pub sys_info: SysInfo,
     pub metadata: BindingsMetadata,
@@ -360,6 +364,19 @@ pub enum AwaitContext {
     GeneratorElement,
 }
 
+/// Sort `ranges` and merge the overlapping ones, so that containment can be checked by binary search.
+fn merge_ranges(mut ranges: Vec<TextRange>) -> Vec<TextRange> {
+    ranges.sort_by_key(|r| r.start());
+    let mut merged: Vec<TextRange> = Vec::with_capacity(ranges.len());
+    for range in ranges {
+        match merged.last_mut() {
+            Some(last) if range.start() <= last.end() => *last = last.cover(range),
+            _ => merged.push(range),
+        }
+    }
+    merged
+}
+
 impl Bindings {
     #[expect(dead_code)] // Useful API
     fn len(&self) -> usize {
@@ -393,6 +410,7 @@ impl Bindings {
                 ignore_all: Vec::new(),
                 misplaced_ignore_all: Vec::new(),
             }),
+            annotated_metadata_ranges: Vec::new(),
             scope_trace: None,
             module_deletes: SmallSet::new(),
             unused_parameters: Vec::new(),
@@ -428,6 +446,17 @@ impl Bindings {
 
     pub fn module_ranges(&self) -> &Arc<ModuleRanges> {
         &self.module_ranges
+    }
+
+    /// Whether `range` lies inside `Annotated` metadata. Pyrefly does not type-check metadata, so
+    /// bindings created inside it only report name resolution errors. Specialized interpretations
+    /// of metadata, like jaxtyping shapes or pydantic's `Field(...)`, report while solving the
+    /// annotation.
+    pub fn in_annotated_metadata(&self, range: TextRange) -> bool {
+        let idx = self
+            .annotated_metadata_ranges
+            .partition_point(|r| r.start() <= range.start());
+        idx > 0 && self.annotated_metadata_ranges[idx - 1].contains_range(range)
     }
 
     /// Look up pre-computed class fields by `ClassDefIndex`. O(1) Vec index.
@@ -591,7 +620,7 @@ impl Bindings {
     pub fn get_lambda_param_id(&self, name: &Identifier) -> LambdaParamId {
         let b = self.get(self.key_to_idx(&Key::Definition(ShortIdentifier::new(name))));
         match b {
-            Binding::LambdaParameter(id, _) => *id,
+            Binding::LambdaParameter(id, _) | Binding::StaticLambdaParameter(id) => *id,
             Binding::TypeLevelLambdaParameter(parameter) => parameter.id,
             _ => panic!(
                 "Internal error: unexpected binding for lambda parameter `{}` @  {:?}: {}, module={}, path={}",
@@ -668,6 +697,7 @@ impl Bindings {
         let module_ranges = Arc::new(ModuleRanges::compute(&x, &module_info));
         let mut builder = BindingsBuilder {
             module_info: module_info.dupe(),
+            annotated_metadata_ranges: Vec::new(),
             lookup,
             sys_info,
             errors,
@@ -811,6 +841,7 @@ impl Bindings {
             table: builder.table,
             metadata: Arc::new(builder.metadata),
             module_ranges,
+            annotated_metadata_ranges: merge_ranges(builder.annotated_metadata_ranges),
             scope_trace: if enable_trace {
                 Some(scope_trace)
             } else {
@@ -1972,7 +2003,9 @@ impl<'a> BindingsBuilder<'a> {
         } else if let Some(b) = self.idx_to_binding(target_idx)
             && matches!(
                 b,
-                Binding::LambdaParameter(..) | Binding::TypeLevelLambdaParameter(_)
+                Binding::LambdaParameter(..)
+                    | Binding::StaticLambdaParameter(_)
+                    | Binding::TypeLevelLambdaParameter(_)
             )
         {
             // Lambda parameters have special handling in Key::check_shortcut.
@@ -2445,6 +2478,7 @@ impl<'a> BindingsBuilder<'a> {
         let id = LambdaParamId(self.next_lambda_param_id);
         self.next_lambda_param_id += 1;
         let binding = match kind {
+            LambdaKind::Ordinary if usage.is_static() => Binding::StaticLambdaParameter(id),
             LambdaKind::Ordinary => Binding::LambdaParameter(id, usage.current_idx()),
             LambdaKind::TypeLevel => {
                 Binding::TypeLevelLambdaParameter(Box::new(TypeLevelLambdaParameter {

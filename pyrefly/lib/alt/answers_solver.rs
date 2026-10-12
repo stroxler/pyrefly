@@ -2632,7 +2632,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 SolveResult::Alias(target) => self.current().record_alias(idx, target),
             };
             if did_write {
-                self.base_errors.extend(local_errors);
+                self.base_errors
+                    .extend(self.retain_annotated_metadata_errors(range, local_errors));
                 // Publish trace side effects alongside errors.
                 if let Some(traces) = trace_side_effects {
                     self.current().merge_trace_side_effects(traces);
@@ -2849,7 +2850,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let errors = if self.stack().is_cold_iteration() {
             None
         } else {
-            Some(Arc::new(local_errors))
+            Some(Arc::new(
+                self.retain_annotated_metadata_errors(range, local_errors),
+            ))
         };
         let answer_erased = self.stack().set_iteration_node_done(
             self.answer_scope,
@@ -3856,6 +3859,26 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .with_context(context)
             .emit();
         self.heap.mk_any_error()
+    }
+
+    /// Bindings inside `Annotated` metadata are not type-checked, but names in them must still
+    /// resolve, so only name resolution errors are kept for them.
+    fn retain_annotated_metadata_errors(
+        &self,
+        range: TextRange,
+        errors: ErrorCollector,
+    ) -> ErrorCollector {
+        if !self.bindings().in_annotated_metadata(range) {
+            return errors;
+        }
+        let kept = self.error_collector();
+        kept.extend_filtered(errors, |err| {
+            matches!(
+                err.error_kind(),
+                ErrorKind::UnknownName | ErrorKind::UnboundName
+            )
+        });
+        kept
     }
 
     /// Create a new error collector. Useful when a caller wants to decide whether or not to report

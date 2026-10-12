@@ -725,6 +725,21 @@ impl<'a> BindingsBuilder<'a> {
         );
     }
 
+    /// Bind the metadata items of an `Annotated[...]` type form. Names in them still resolve, but
+    /// the metadata is not type-checked, so their ranges are recorded and bindings created inside
+    /// them only report name resolution errors.
+    fn bind_annotated_metadata(&mut self, metadata: &mut [Expr]) {
+        for e in metadata {
+            self.ensure_expr(
+                e,
+                &mut Usage::StaticTypeInformation {
+                    is_annotation: false,
+                },
+            );
+            self.annotated_metadata_ranges.push(e.range());
+        }
+    }
+
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_expr(&mut self, x: &mut Expr, usage: &mut Usage) {
         self.with_semantic_checker(|semantic, context| semantic.visit_expr(x, context));
@@ -788,14 +803,7 @@ impl<'a> BindingsBuilder<'a> {
                             &mut type_usage,
                             false,
                         );
-                        for elt in tup.elts[1..].iter_mut() {
-                            self.ensure_expr(
-                                elt,
-                                &mut Usage::StaticTypeInformation {
-                                    is_annotation: false,
-                                },
-                            );
-                        }
+                        self.bind_annotated_metadata(&mut tup.elts[1..]);
                     } else {
                         self.ensure_type_impl(
                             &mut *slice,
@@ -1384,14 +1392,7 @@ impl<'a> BindingsBuilder<'a> {
                 let bound_as_shape = special == SpecialExport::Shaped
                     && self.bind_shape_string(*range, tup, tparams_builder, usage);
                 if !bound_as_shape {
-                    for e in tup.elts[1..].iter_mut() {
-                        self.ensure_expr(
-                            e,
-                            &mut Usage::StaticTypeInformation {
-                                is_annotation: false,
-                            },
-                        );
-                    }
+                    self.bind_annotated_metadata(&mut tup.elts[1..]);
                 }
             }
             Expr::Subscript(ExprSubscript { value, slice, .. })

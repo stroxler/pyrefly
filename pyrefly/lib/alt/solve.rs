@@ -6835,6 +6835,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 Forallable::TypeAlias(TypeAliasData::Ref(r)).forall(tparams)
             }
             Binding::LambdaParameter(id, owner) => self.resolve_lambda_param_type(*id, *owner),
+            Binding::StaticLambdaParameter(_) => self.heap.mk_any_implicit(),
             Binding::TypeLevelLambdaParameter(parameter) => {
                 self.resolve_map_int_tuples_mapper_parameter(&parameter.identifier)
             }

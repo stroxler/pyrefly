@@ -195,6 +195,9 @@ impl<Ans: LookupAnswer> Solve<Ans> for Key {
                 let ty = answers.resolve_lambda_param_type(*id, *owner);
                 Some(TypeInfo::of_ty(ty))
             }
+            Binding::StaticLambdaParameter(_) => {
+                Some(TypeInfo::of_ty(answers.heap.mk_any_implicit()))
+            }
             Binding::TypeLevelLambdaParameter(parameter) => {
                 let ty = answers.resolve_map_int_tuples_mapper_parameter(&parameter.identifier);
                 Some(TypeInfo::of_ty(ty))

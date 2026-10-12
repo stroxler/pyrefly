@@ -379,3 +379,22 @@ var_instance: type(instance)  # E: Function call cannot be used in annotations
 self_ref: type(self_ref) = 1  # E: Function call cannot be used in annotations
 "#,
 );
+
+testcase!(
+    test_annotated_metadata_is_not_checked,
+    r#"
+from typing import Annotated, Callable
+
+def validator(func: Callable[[int], object]) -> object: ...
+def needs_int(x: int) -> object: ...
+
+a: Annotated[str, needs_int("oops")]
+b: Annotated[str, [e for e in 1]]
+c: Annotated[str, validator(lambda v: v.missing)]
+d: Annotated[str, undefined_name]  # E: Could not find name `undefined_name`
+
+class C:
+    e: Annotated[str, [e for e in 1]]
+    f: Annotated[str, undefined_in_class]  # E: Could not find name `undefined_in_class`
+"#,
+);

@@ -863,11 +863,10 @@ class C:
     "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/5169: whether the lambda in the `Annotated`
-// metadata reports an error depends on which module is solved first. With a single thread,
-// `main` is always solved first, so these tests pin down both orders.
+// https://github.com/facebook/pyrefly/issues/5169: `Annotated` metadata is not type-checked, so
+// the lambda in it must not report errors regardless of which module is solved first. With a
+// single thread, `main` is always solved first, so these tests pin down both orders.
 testcase!(
-    bug = "Error is only reported when an importer of `foo` is solved before `a`",
     test_annotated_lambda_solved_from_importer,
     {
         let mut env = TestEnv::new().with_thread_count(ThreadCount::NumThreads(NonZeroUsize::MIN));
@@ -885,7 +884,7 @@ def f(a: type[object]): ...
 def V(func: Callable[[object], object]) -> object: ...
 
 class Bar(Base):
-    bar: Annotated[str, V(lambda data: [e for e in data])]  # E: Type `object` is not iterable
+    bar: Annotated[str, V(lambda data: [e for e in data])]
 
 foo = f(Bar)
 "#,

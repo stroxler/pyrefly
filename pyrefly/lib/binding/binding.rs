@@ -2676,6 +2676,10 @@ pub enum Binding {
     /// If the parameter is solved before that owner has established thread-local
     /// lambda vars, we can force the owner to solve first.
     LambdaParameter(LambdaParamId, Option<Idx<Key>>),
+    /// Parameter of a lambda in static type information, such as `Annotated` metadata. That
+    /// code is not type-checked, so the parameter is always an implicit `Any`, regardless of
+    /// whether anything happened to infer the lambda against an expected type first.
+    StaticLambdaParameter(LambdaParamId),
     /// Parameter of a type-level lambda. It denotes a deterministic synthetic type binder rather
     /// than a contextual value type. The experimental `shape_extensions.MapIntTuples` operation
     /// is currently the only syntax that creates this binding.
@@ -2962,6 +2966,7 @@ impl DisplayWith<Bindings> for Binding {
             Self::LambdaParameter(id, owner) => {
                 write!(f, "LambdaParameter(id={id:?}, owner={owner:?})")
             }
+            Self::StaticLambdaParameter(id) => write!(f, "StaticLambdaParameter(id={id:?})"),
             Self::TypeLevelLambdaParameter(parameter) => {
                 write!(f, "TypeLevelLambdaParameter({parameter:?})")
             }
@@ -3119,6 +3124,7 @@ impl Binding {
                 }
             }
             Binding::LambdaParameter(..)
+            | Binding::StaticLambdaParameter(_)
             | Binding::TypeLevelLambdaParameter(_)
             | Binding::FunctionParameter(_) => Some(SymbolKind::Parameter),
             Binding::PatternCapture(_) => Some(SymbolKind::Variable),
