@@ -2739,3 +2739,39 @@ fn test_empty_dunder_all_name_has_no_synthetic_binding() {
             .any(|idx| bindings.idx_to_key(idx).0 == "missing")
     );
 }
+
+// A runtime `typing_extensions.py` defines most special forms depending on the Python version, so
+// its definition of `Self` is a union of `typing.Self` and a decorated function. See
+// https://github.com/facebook/pyrefly/issues/698.
+testcase!(
+    bug = "A runtime `typing_extensions` does not define a valid `Self` type form",
+    test_runtime_typing_extensions_special_form,
+    TestEnv::one_with_path(
+        "typing_extensions",
+        "typing_extensions.py",
+        r#"
+import typing
+
+class _SpecialForm:
+    def __init__(self, getitem): ...
+
+if hasattr(typing, "Self"):
+    Self = typing.Self
+else:
+    @_SpecialForm
+    def Self(self, params): ...
+"#,
+    ),
+    r#"
+from typing import assert_type
+import typing_extensions
+from typing_extensions import Self
+
+class Node:
+    def clone(self) -> Self: ...  # E: Expected a type form
+    def copy(self) -> typing_extensions.Self: ...  # E: Expected a type form
+
+assert_type(Node().clone(), Node)  # E: assert_type(Unknown, Node) failed
+assert_type(Node().copy(), Node)  # E: assert_type(Unknown, Node) failed
+"#,
+);
