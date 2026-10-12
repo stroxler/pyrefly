@@ -2672,13 +2672,13 @@ pub enum Binding {
     /// expression, and is where clause-level (as opposed to class-level) errors go.
     ExceptionHandler(Box<[Idx<Key>]>, bool, TextRange),
     /// Binding for an ordinary lambda parameter.
-    /// The optional owner is the binding whose expression contains this lambda.
-    /// If the parameter is solved before that owner has established thread-local
-    /// lambda vars, we can force the owner to solve first.
-    LambdaParameter(LambdaParamId, Option<Idx<Key>>),
-    /// Parameter of a lambda in static type information, such as `Annotated` metadata. That
-    /// code is not type-checked, so the parameter is always an implicit `Any`, regardless of
-    /// whether anything happened to infer the lambda against an expected type first.
+    /// The owner is the binding whose expression contains this lambda. Solving the owner installs
+    /// the parameter's contextual type in thread-local state, so the parameter forces the owner
+    /// to solve first, which makes its type independent of solve order.
+    LambdaParameter(LambdaParamId, Idx<Key>),
+    /// Parameter of a lambda without an owner binding: one in static type information, such as
+    /// `Annotated` metadata, which is not type-checked, or in a decorator of a definition dropped
+    /// by parse-error recovery. The parameter is always an implicit `Any`.
     StaticLambdaParameter(LambdaParamId),
     /// Parameter of a type-level lambda. It denotes a deterministic synthetic type binder rather
     /// than a contextual value type. The experimental `shape_extensions.MapIntTuples` operation

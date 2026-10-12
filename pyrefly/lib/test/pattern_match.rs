@@ -2014,3 +2014,17 @@ def check(arg: object) -> None:
             assert_type(dtypes, Any)
     "#,
 );
+
+testcase!(
+    test_guard_lambda_contextual_type,
+    r#"
+from typing import Callable
+
+def pred(f: Callable[[int], object]) -> bool: ...
+
+def f(x: object) -> None:
+    match x:
+        case _ if pred(lambda v: [e for e in v]):  # E: Type `int` is not iterable
+            pass
+"#,
+);

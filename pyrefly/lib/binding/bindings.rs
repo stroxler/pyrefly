@@ -2478,8 +2478,13 @@ impl<'a> BindingsBuilder<'a> {
         let id = LambdaParamId(self.next_lambda_param_id);
         self.next_lambda_param_id += 1;
         let binding = match kind {
-            LambdaKind::Ordinary if usage.is_static() => Binding::StaticLambdaParameter(id),
-            LambdaKind::Ordinary => Binding::LambdaParameter(id, usage.current_idx()),
+            // Every value context provides a current binding, except decorators of a definition
+            // dropped by parse-error recovery. The remaining contexts are static type information
+            // and expressions derived from it, which are not type-checked.
+            LambdaKind::Ordinary => match usage.current_idx() {
+                Some(owner) => Binding::LambdaParameter(id, owner),
+                None => Binding::StaticLambdaParameter(id),
+            },
             LambdaKind::TypeLevel => {
                 Binding::TypeLevelLambdaParameter(Box::new(TypeLevelLambdaParameter {
                     id,

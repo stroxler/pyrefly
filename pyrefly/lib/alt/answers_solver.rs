@@ -2256,16 +2256,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .cloned()
     }
 
-    pub(crate) fn resolve_lambda_param_type(
-        &self,
-        id: LambdaParamId,
-        owner: Option<Idx<Key>>,
-    ) -> Type {
-        if let Some(owner_idx) = owner {
-            // Contextual lambda types are installed while their enclosing expression is
-            // solved, so resolving the parameter independently must force that owner.
-            let _ = self.get_idx(owner_idx);
-        }
+    pub(crate) fn resolve_lambda_param_type(&self, id: LambdaParamId, owner: Idx<Key>) -> Type {
+        // Contextual lambda types are installed while their enclosing expression is
+        // solved, so resolving the parameter independently must force that owner.
+        let _ = self.get_idx(owner);
         self.get_lambda_param_type(id).unwrap_or_else(|| {
             // Some lambda parameters have no contextual type in the current solve.
             self.heap.mk_any_implicit()

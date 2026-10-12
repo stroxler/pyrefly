@@ -58,6 +58,7 @@ use crate::binding::binding::SuppressedException;
 use crate::binding::binding::TypeAliasBinding;
 use crate::binding::binding::TypeAliasParams;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::bindings::CurrentIdx;
 use crate::binding::bindings::LegacyTParamCollector;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::AtomicNarrowOp;
@@ -213,12 +214,24 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Bind a condition that `BindingExpect::Bool` checks. The returned link owns any lambda in the
+    /// condition, and solving it solves the check. Pass it to `insert_bool_condition`.
+    pub(crate) fn bind_bool_condition(&mut self, test: &mut Expr) -> CurrentIdx {
+        let link = self.declare_current_idx(Key::UsageLink(test.range()));
+        self.ensure_expr(test, &mut Usage::NonPinningValue(Some(link.idx())));
+        link
+    }
+
+    pub(crate) fn insert_bool_condition(&mut self, link: CurrentIdx, test: Expr) {
+        let idx = self.insert_binding(KeyExpect::Bool(test.range()), BindingExpect::Bool(test));
+        self.insert_binding_current(link, Binding::UsageLink(LinkedKey::Expect(idx)));
+    }
+
     fn assert(&mut self, assert_range: TextRange, mut test: Expr, msg: Option<Expr>) {
-        let test_range = test.range();
-        self.ensure_expr(&mut test, &mut Usage::NonPinningValue(None));
+        let test_link = self.bind_bool_condition(&mut test);
         let narrow_ops = NarrowOps::from_expr(self, Some(&test));
         let static_test = self.sys_info.evaluate_bool(&test);
-        self.insert_binding(KeyExpect::Bool(test_range), BindingExpect::Bool(test));
+        self.insert_bool_condition(test_link, test);
         if let Some(mut msg_expr) = msg {
             let mut base = self.scopes.clone_current_flow();
             // Negate the narrowing of the test expression when typechecking
@@ -1362,7 +1375,7 @@ impl<'a> BindingsBuilder<'a> {
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
                 // Typecheck the test condition during solving.
-                self.ensure_expr(&mut x.test, &mut Usage::NonPinningValue(None));
+                let test_link = self.bind_bool_condition(&mut x.test);
                 // The while condition always evaluates at least once, so walrus
                 // targets are guaranteed to be assigned after the loop.
                 self.scopes.propagate_new_flow_entries_to_loop_base();
@@ -1370,10 +1383,7 @@ impl<'a> BindingsBuilder<'a> {
                 let test_is_environment_independent = !SysInfo::depends_on_sys_info(&x.test);
                 let is_while_true = static_test == Some(true);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.insert_binding(
-                    KeyExpect::Bool(x.test.range()),
-                    BindingExpect::Bool(*x.test),
-                );
+                self.insert_bool_condition(test_link, *x.test);
                 // An environment-dependent condition is false only under the configuration
                 // being checked, so its body stays ordinary live code: binding it as dead
                 // would silence real diagnostics in it, such as an undefined name.
@@ -1418,7 +1428,13 @@ impl<'a> BindingsBuilder<'a> {
                 // Process the first `if` test before forking so that walrus-defined names
                 // are in the base flow and visible after the if-statement. This mirrors the
                 // fix for ternary expressions in expr.rs (Expr::If handling).
-                self.ensure_expr(&mut x.test, &mut Usage::NonPinningValue(None));
+                // Every test is checked by one `BranchSuiteReachability` binding, which is
+                // reserved here so that a link to it can own the lambdas in the tests.
+                let reachability_idx =
+                    self.idx_for_promise(KeyExpect::BranchSuiteReachability(if_range));
+                let tests_link = self.declare_current_idx(Key::UsageLink(if_range));
+                let tests_usage = Usage::NonPinningValue(Some(tests_link.idx()));
+                self.ensure_expr(&mut x.test, &mut tests_usage.clone());
                 self.start_fork(if_range);
                 // Type narrowing operations that are carried over from one branch to the next. For example, in:
                 //   if x is None:
@@ -1451,7 +1467,7 @@ impl<'a> BindingsBuilder<'a> {
                     // The first `if` test was already processed before the fork (above).
                     // Only process elif/else tests here, inside the branch.
                     if !is_first_branch {
-                        self.ensure_expr_opt(test.as_mut(), &mut Usage::NonPinningValue(None));
+                        self.ensure_expr_opt(test.as_mut(), &mut tests_usage.clone());
                         // Lift walrus-defined names from the elif condition into the
                         // fork's base flow. The elif condition always executes when
                         // control reaches past the preceding branch, so any walrus
@@ -1551,12 +1567,14 @@ impl<'a> BindingsBuilder<'a> {
                         break; // We definitely picked this branch if we got here, nothing below is reachable.
                     }
                 }
-                if branch_suites.iter().any(|branch| branch.test.is_some()) {
-                    self.insert_binding(
-                        KeyExpect::BranchSuiteReachability(if_range),
-                        BindingExpect::BranchSuiteReachability(branch_suites.into_boxed_slice()),
-                    );
-                }
+                self.insert_binding_idx(
+                    reachability_idx,
+                    BindingExpect::BranchSuiteReachability(branch_suites.into_boxed_slice()),
+                );
+                self.insert_binding_current(
+                    tests_link,
+                    Binding::UsageLink(LinkedKey::Expect(reachability_idx)),
+                );
                 // Create Exhaustive binding for type-based exhaustiveness checking.
                 // This is done BEFORE finish_*_fork() so the binding exists in the right scope.
                 // Only do this when there's no else clause (not syntactically exhaustive).

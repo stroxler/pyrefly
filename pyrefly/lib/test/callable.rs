@@ -2368,3 +2368,21 @@ class C:
         self.callback: Callable[[int], int] = lambda value: value + 1
     "#,
 );
+
+testcase!(
+    test_lambda_in_condition_contextual_type,
+    r#"
+from typing import Callable, assert_type
+
+def check(f: Callable[[int], object]) -> bool: ...
+
+def f(flag: bool) -> None:
+    if check(lambda v: assert_type(v, int)):
+        pass
+    elif check(lambda v: [e for e in v]):  # E: Type `int` is not iterable
+        pass
+    while check(lambda v: [e for e in v]):  # E: Type `int` is not iterable
+        pass
+    assert check(lambda v: [e for e in v])  # E: Type `int` is not iterable
+"#,
+);
