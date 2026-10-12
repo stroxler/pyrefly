@@ -2148,6 +2148,22 @@ fn read_config_layer(path: &Path) -> anyhow::Result<(toml::Table, Option<PathBuf
 fn merge_config_layer(base: &mut toml::Table, child: toml::Table) {
     for (key, value) in child {
         match (base.get_mut(&key), value) {
+            (Some(toml::Value::Table(base_errors)), toml::Value::Table(child_errors))
+                if key == "errors" =>
+            {
+                // Error kinds form a hierarchy, so a child's setting for a parent kind such as
+                // `bad-override` must also replace inherited settings for its child kinds.
+                let mut errors = mem::take(base_errors)
+                    .try_into::<ErrorDisplayConfig>()
+                    .expect("`read_config_layer` validates `[errors]`");
+                errors.merge_user_overrides(
+                    &child_errors
+                        .try_into()
+                        .expect("`read_config_layer` validates `[errors]`"),
+                );
+                *base_errors =
+                    toml::Table::try_from(errors).expect("`ErrorDisplayConfig` is a table");
+            }
             (Some(toml::Value::Table(base_table)), toml::Value::Table(child_table)) => {
                 merge_config_layer(base_table, child_table);
             }
@@ -4957,6 +4973,40 @@ search-path = []
             .unwrap()
         );
         assert!(config.search_path_from_file.is_empty());
+    }
+
+    #[test]
+    fn test_extends_error_parent_override_replaces_inherited_child() {
+        let root = TempDir::new().unwrap();
+        let base = root.path().join("base.toml");
+        let child = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(
+            &base,
+            "[errors]\nbad-override-mutable-attribute = \"ignore\"\n",
+        )
+        .unwrap();
+        fs::write(
+            &child,
+            r#"
+extends = "base.toml"
+skip-interpreter-query = true
+
+[errors]
+bad-override = "error"
+"#,
+        )
+        .unwrap();
+
+        let (mut config, errors) = ConfigFile::from_file(&child);
+
+        assert!(errors.is_empty());
+        config.configure();
+        assert_eq!(
+            config
+                .errors(&test_path("src/main.py"))
+                .severity(ErrorKind::BadOverrideMutableAttribute),
+            Severity::Error
+        );
     }
 
     #[test]
