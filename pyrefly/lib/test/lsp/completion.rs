@@ -95,6 +95,57 @@ class Foo:
     assert_eq!(get_value_suggestions, 1);
 }
 
+/// Returns the `sort_text` of the completion at the cursor with `label`, or `None` if there is none.
+fn completion_sort_text(code: &str, label: &str) -> Option<String> {
+    let (handles, state) = mk_multi_file_state(&[("main", code)], Require::Exports, false);
+    let position = extract_cursors_for_test(code)[0];
+    let mut items = state
+        .transaction()
+        .completion(
+            &handles["main"],
+            position,
+            ImportFormat::Absolute,
+            true,
+            None,
+        )
+        .into_iter()
+        .filter(|item| item.label == label);
+    let item = items.next()?;
+    assert!(items.next().is_none(), "duplicate completion for {label}");
+    item.sort_text
+}
+
+// https://github.com/facebook/pyrefly/issues/1211
+#[test]
+fn completion_dunder_attribute_inherited_from_object() {
+    let code = r#"
+from pathlib import Path
+
+Path(".").read_text.__do
+#                       ^
+"#;
+    // Bug: `__doc__` is inherited from `object`, so it is missing.
+    assert_eq!(completion_sort_text(code, "__doc__"), None);
+}
+
+#[test]
+fn completion_object_attributes_rank_after_class_attributes() {
+    let code = r#"
+class Foo:
+    def __custom__(self): ...
+
+Foo().__
+#       ^
+"#;
+    assert_eq!(
+        completion_sort_text(code, "__custom__").as_deref(),
+        Some("3")
+    );
+    // Bug: `__eq__` and `__doc__` are inherited from `object`, so they are missing.
+    assert_eq!(completion_sort_text(code, "__eq__"), None);
+    assert_eq!(completion_sort_text(code, "__doc__"), None);
+}
+
 fn get_default_test_report() -> impl Fn(&State, &Handle, TextSize) -> String {
     get_test_report(ResultsFilter::default(), ImportFormat::Absolute)
 }
