@@ -1384,11 +1384,13 @@ fn has_any_abstract(ty: &Type) -> bool {
 /// - or, it's a Callable initialized on the class body and satisfying some special case:
 ///   - it's marked as a ClassVar
 ///   - it's assigned to a dunder name like `__add__`
+///   - it's unannotated and its first positional parameter is an instance of the containing class
 /// - or, it's a union where ANY element satisfies the above rules
 ///
 /// Note: staticmethods and union types that have at least one method type are included.
 /// We rely on make_bound_method_helper to handle defining the binding logic for those cases.
 fn is_method(
+    class: &Class,
     ty: &Type,
     initialization: &ClassFieldInitialization,
     name: &Name,
@@ -1407,12 +1409,22 @@ fn is_method(
     }
 
     // Special cases where Callable is assumed to be a method
-    if matches!(ty, Type::Callable(_)) {
+    if let Type::Callable(callable) = ty {
         if is_dunder(name.as_str()) {
             return true;
         }
         if annotation
             .is_some_and(|ann| ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_)))
+        {
+            return true;
+        }
+        // An unannotated Callable that expects an instance of the containing class as its first
+        // argument is a method in all but name, e.g. `isNull = _unary_op("isNull")` where
+        // `_unary_op` returns `Callable[[Column], Column]`. An explicit non-`ClassVar` annotation
+        // declares an instance attribute, which is not bound.
+        if annotation.is_none()
+            && let Some(Type::ClassType(first_param)) = callable.get_positional_param(0)
+            && first_param.class_object() == class
         {
             return true;
         }
@@ -2389,7 +2401,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 },
                 is_inherited,
             )
-        } else if is_method(&ty, &initialization, name, annotation.as_ref()) {
+        } else if is_method(class, &ty, &initialization, name, annotation.as_ref()) {
             // Use helper functions to compute flags for unions
             let is_abstract_flag = has_any_abstract(&ty);
             let is_classvar = annotation.as_ref().is_some_and(|ann| ann.is_class_var());

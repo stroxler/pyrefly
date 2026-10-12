@@ -584,6 +584,48 @@ C().f = lambda _, x: x
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/3465
+testcase!(
+    test_callable_with_containing_class_first_param_is_method,
+    r#"
+from typing import assert_type, Callable
+def _unary_op(name: str) -> Callable[["Column"], "Column"]: ...
+def _bin_op(name: str) -> Callable[["Column", "Column | int"], "Column"]: ...
+def _callback(name: str) -> Callable[[int], int]: ...
+class Column:
+    isNull = _unary_op("isNull")
+    eqNullSafe = _bin_op("eqNullSafe")
+    callback = _callback("callback")
+c = Column()
+assert_type(c.isNull(), Column)
+assert_type(c.eqNullSafe(c), Column)
+assert_type(c.eqNullSafe(1), Column)
+assert_type(Column.isNull(c), Column)
+assert_type(c.callback(1), int)
+c.isNull(c)  # E: Expected 0 positional arguments
+# An instance-level shadow is not bound at runtime, so it must accept the bound signature.
+c.isNull = lambda: c
+c.isNull = _unary_op("isNull")  # E: not assignable to attribute `isNull`
+"#,
+);
+
+// An explicitly annotated Callable is an instance attribute, so it is not bound even when its
+// first parameter is the containing class. This pattern appears in aiohttp's `ClientResponse`.
+testcase!(
+    test_annotated_callable_with_containing_class_first_param_is_not_method,
+    r#"
+from typing import assert_type, Callable
+class Response:
+    resolve: Callable[["Response", bytes], str] = lambda *_: "utf-8"
+    def __init__(self, resolve: Callable[["Response", bytes], str]) -> None:
+        self.resolve = resolve
+    def encoding(self) -> str:
+        return self.resolve(self, b"")
+r = Response(lambda _, b: "utf-8")
+assert_type(r.resolve(r, b""), str)
+"#,
+);
+
 testcase!(
     test_class_access_of_instance_only_attribute,
     r#"
