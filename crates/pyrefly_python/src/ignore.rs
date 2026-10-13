@@ -38,12 +38,14 @@ use clap::ValueEnum;
 use dupe::Dupe;
 use enum_iterator::Sequence;
 use pyrefly_util::lined_buffer::LineNumber;
+use pyrefly_util::lined_buffer::LinedBuffer;
 use ruff_python_ast::token::TokenKind;
 use ruff_python_ast::token::Tokens;
 use ruff_python_parser::Mode;
 use ruff_python_parser::lexer::lex;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use ruff_text_size::TextSize;
 use serde::Deserialize;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
@@ -344,6 +346,19 @@ pub struct Suppression {
     comment_end_offset: usize,
 }
 
+/// A source edit that removes all or part of a suppression comment.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SuppressionEdit {
+    /// The type checker targeted by the suppression.
+    pub tool: Tool,
+    /// The exact source range occupied by the suppression comment.
+    pub range: TextRange,
+    /// The source text expected in `range`, used to reject stale edits.
+    pub expected: String,
+    /// Replacement text for `range`; empty text removes the entire suppression.
+    pub replacement: String,
+}
+
 impl Suppression {
     /// A blanket suppression for `tool` that matches every error code.
     fn blanket(
@@ -421,6 +436,58 @@ impl Suppression {
                 }
             }
             _ => SuppressionEffect::Suppress,
+        }
+    }
+
+    /// Build an edit that removes this suppression, or only `codes_to_remove` when present.
+    pub fn removal_edit(
+        &self,
+        buffer: &LinedBuffer,
+        codes_to_remove: Option<&SmallSet<String>>,
+    ) -> SuppressionEdit {
+        let line = buffer.content_in_line_range(self.comment_line, self.comment_line);
+        let comment = line
+            .get(self.comment_offset..self.comment_end_offset)
+            .expect("suppression offsets must be within its source line");
+        let replacement = codes_to_remove.map_or_else(String::new, |codes_to_remove| {
+            let codes_start = comment
+                .find('[')
+                .expect("a code-specific suppression must contain an opening bracket")
+                + 1;
+            let codes_end = comment[codes_start..]
+                .find(']')
+                .map_or(comment.len(), |offset| codes_start + offset);
+            let codes = &comment[codes_start..codes_end];
+            let separator = if codes.contains(", ") { ", " } else { "," };
+            let kept = codes
+                .split(',')
+                .map(str::trim)
+                .filter(|code| !code.is_empty() && !codes_to_remove.contains(*code))
+                .collect::<Vec<_>>();
+            assert!(
+                !kept.is_empty(),
+                "a partial suppression edit must retain at least one code"
+            );
+            format!(
+                "{}{kept}{}",
+                &comment[..codes_start],
+                &comment[codes_end..],
+                kept = kept.join(separator),
+            )
+        });
+        let line_start = buffer.line_start(self.comment_line);
+        SuppressionEdit {
+            tool: self.tool,
+            range: TextRange::new(
+                line_start
+                    + TextSize::try_from(self.comment_offset)
+                        .expect("suppression offset must fit in u32"),
+                line_start
+                    + TextSize::try_from(self.comment_end_offset)
+                        .expect("suppression offset must fit in u32"),
+            ),
+            expected: comment.to_owned(),
+            replacement,
         }
     }
 }
