@@ -139,6 +139,13 @@ def test_arithmetic_rejects_invalid_scalar_options() -> None:
 
 if TYPE_CHECKING:
 
+    def check_gradual_operand_defaults(
+        concrete: Tensor[[2, 3]], gradual: Tensor
+    ) -> None:
+        # TODO: A gradual argument should override the empty-shape defaults.
+        assert_type(torch.add(concrete, gradual), Tensor[[2, 3]])
+        assert_type(concrete.add(gradual), Tensor[[2, 3]])
+
     def check_any_operand(tensor: Tensor[[2, 5]], other: Any) -> None:
         assert_type(tensor + other, Any)
         assert_type(other + tensor, Any)

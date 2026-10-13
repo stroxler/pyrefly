@@ -447,6 +447,20 @@ assert_type(C.attr, int)  # E: assert_type(Unknown, int) failed  # E: Generic at
 );
 
 testcase!(
+    test_gradual_argument_overrides_typevar_default,
+    r#"
+from typing import Any, assert_type
+
+class C[T]: ...
+
+def f[T = int](value: C[T]) -> T: ...
+
+def check(value: C[Any]) -> None:
+    assert_type(f(value), Any)
+"#,
+);
+
+testcase!(
     test_union_bound_attr_get,
     r#"
 from typing import assert_type

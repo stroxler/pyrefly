@@ -5,9 +5,21 @@
 
 from __future__ import annotations
 
+from typing import assert_type, TYPE_CHECKING
+
+import jax
 import jax.numpy as jnp
 import numpy as np
-from shape_extensions import assert_shape
+from shape_extensions import assert_shape, IntTuple
+
+if TYPE_CHECKING:
+
+    def check_gradual_array_defaults(
+        concrete: jax.Array[[2, 3]], gradual: jax.Array
+    ) -> None:
+        # TODO: A gradual argument should override the empty-shape defaults.
+        assert_type(jnp.exp(gradual), jax.Array[[]])
+        assert_type(concrete + gradual, jax.Array[[2, 3]])
 
 
 def test_elementwise_operators_preserve_shape() -> None:

@@ -6869,6 +6869,27 @@ def check(default: Array, explicit: Array[IntTuple]) -> None:
 );
 
 testcase!(
+    bug = "gradual shape arguments use an empty-shape default",
+    test_gradual_int_tuple_argument_does_not_override_default,
+    shape_extensions_env(),
+    r#"
+from typing import Any, assert_type
+from shape_extensions import IntTuple
+
+class Array[Shape: IntTuple = IntTuple]: ...
+
+type ArrayLike[Shape: IntTuple = []] = Array[Shape] | float
+
+def as_array[Shape: IntTuple = []](value: ArrayLike[Shape]) -> Array[Shape]: ...
+
+def check(explicit: Array[IntTuple], bare: Array, any_shape: Array[Any]) -> None:
+    assert_type(as_array(explicit), Array[[]])
+    assert_type(as_array(bare), Array[[]])
+    assert_type(as_array(any_shape), Array[[]])
+"#,
+);
+
+testcase!(
     test_empty_int_tuple_defaults_for_array_like_unions,
     shape_extensions_env(),
     r#"
