@@ -953,7 +953,8 @@ boundary receipts.
 The `shape_extensions` package bridges pyrefly's type system and Python runtime.
 Importing it patches `torch.Tensor`, `nn.Conv2d`, and other torch classes to
 accept subscript syntax (e.g., `Tensor[[B, C, H, W]]`) at runtime without
-crashing. It also provides `IntVar` with arithmetic support (`N + 1`, `N // 2`
+crashing, whether torch is imported before or after it; importing
+`shape_extensions` never imports torch itself. It also provides `IntVar` with arithmetic support (`N + 1`, `N // 2`
 return `self` instead of `TypeError`) and `Int` for binding runtime ints to
 type-level symbols.
 

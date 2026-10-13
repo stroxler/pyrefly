@@ -13,6 +13,7 @@ safe to evaluate in runtime annotations.
 
 import contextlib
 import keyword
+import sys
 import typing
 from dataclasses import dataclass
 
@@ -70,7 +71,76 @@ def _return_int(cls, params):
     return int
 
 
-def _patch_torch_if_available() -> None:
+class _PostImportHook:
+    """A one-shot `sys.meta_path` finder that calls `callback` after a module loads.
+
+    The hook wraps the loader that the finders after it return for `name`, so
+    `callback` runs once the module body has finished executing, while the
+    import system still holds the module's import lock. The import that loaded
+    the module, and any concurrent import of it, therefore return only after
+    `callback` has run. A failed load leaves the hook registered, so a retried
+    import still runs `callback`.
+    """
+
+    def __init__(self, name, callback):
+        self.name = name
+        self.callback = callback
+
+    def find_spec(self, fullname, path, target=None):
+        if fullname != self.name:
+            return None
+        meta_path = sys.meta_path
+        # An import still iterating the list this hook was removed from can
+        # call it after removal; the finders after it are consulted anyway.
+        if self not in meta_path:
+            return None
+        for finder in meta_path[meta_path.index(self) + 1 :]:
+            find_spec = getattr(finder, "find_spec", None)
+            if find_spec is None:
+                continue
+            spec = find_spec(fullname, path, target)
+            if spec is None:
+                continue
+            # A legacy loader without `exec_module` loads without the callback.
+            if hasattr(spec.loader, "exec_module"):
+                spec.loader = _PostImportLoader(spec, self)
+            return spec
+        return None
+
+    def remove(self) -> None:
+        # Replace the list rather than mutating it: the import system iterates
+        # `sys.meta_path` without a lock, and an in-place removal would make a
+        # concurrent import skip the finder after this one.
+        sys.meta_path = [finder for finder in sys.meta_path if finder is not self]
+
+
+class _PostImportLoader:
+    """Delegates to a module's real loader, then runs its `_PostImportHook`."""
+
+    def __init__(self, spec, hook):
+        self.spec = spec
+        self.loader = spec.loader
+        self.hook = hook
+
+    def __getattr__(self, name):
+        return getattr(self.loader, name)
+
+    def create_module(self, spec):
+        return self.loader.create_module(spec)
+
+    def exec_module(self, module):
+        # The module body sees its real loader, and keeps it afterwards.
+        self.spec.loader = self.loader
+        if getattr(module, "__loader__", None) is self:
+            module.__loader__ = self.loader
+        self.loader.exec_module(module)
+        self.hook.remove()
+        self.hook.callback()
+
+
+def _patch_torch() -> None:
+    """Make Torch classes subscriptable at runtime. Calling it again is a no-op."""
+
     try:
         import torch  # @manual
         import torch.nn as nn  # @manual
@@ -111,7 +181,37 @@ def _patch_torch_if_available() -> None:
             cls.__class_getitem__ = classmethod(_return_class)
 
 
-_patch_torch_if_available()
+def _is_initializing(module) -> bool:
+    """Whether the import system is still executing `module`'s body."""
+
+    return getattr(getattr(module, "__spec__", None), "_initializing", False)
+
+
+def _patch_torch_when_imported() -> None:
+    """Patch Torch now if it has been imported, and otherwise once it is.
+
+    Importing `shape_extensions` alone never imports Torch.
+    """
+
+    torch = sys.modules.get("torch")
+    if _is_initializing(torch):
+        # Another thread may be importing Torch, in which case `import torch`
+        # waits for that import to finish. If Torch's own initialization
+        # imported this module, it instead returns the same partially
+        # initialized module, which cannot be patched yet. A failed import
+        # leaves `sys.modules`, so the hook below patches a retried import.
+        with contextlib.suppress(ImportError):
+            import torch  # @manual
+        torch = sys.modules.get("torch")
+        if _is_initializing(torch):
+            return
+    if torch is None:
+        sys.meta_path.insert(0, _PostImportHook("torch", _patch_torch))
+        return
+    _patch_torch()
+
+
+_patch_torch_when_imported()
 
 
 def _patch_jax_if_available() -> None:
