@@ -2338,7 +2338,7 @@ impl Type {
                 // `Never` containers cannot hold any items; they are always empty; they are always falsy.
                 const CONTAINER_NAMES: &[&str] = &["set", "frozenset", "list", "dict"];
                 (CONTAINER_NAMES.iter().any(|n| cls.is_builtin(n))
-                    && cls.targs().as_slice()[0].is_never())
+                    && cls.targs().as_slice().first().is_some_and(|t| t.is_never()))
                 .then_some(false)
             }
             _ => None,
