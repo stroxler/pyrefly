@@ -369,6 +369,9 @@ resolution, after [`search-path`](#search-path) and `typeshed`.
 
 See more on [how Pyrefly does import resolution](import-resolution.mdx).
 
+The legacy config keys `site-package-path` and `site_package_path`, and the CLI flag
+`--site-package-path`, remain supported as aliases for backward compatibility.
+
 - Type: list of directories
 - Default: Pyrefly adds the `typings/` directory in the project root if it exists.
   Pyrefly then adds entries from
