@@ -15,6 +15,7 @@ import contextlib
 import keyword
 import sys
 import typing
+import warnings
 from dataclasses import dataclass
 
 # A shape annotation carrying its shape as string metadata. To Pyrefly, the
@@ -77,9 +78,10 @@ class _PostImportHook:
     The hook wraps the loader that the finders after it return for `name`, so
     `callback` runs once the module body has finished executing, while the
     import system still holds the module's import lock. The import that loaded
-    the module, and any concurrent import of it, therefore return only after
-    `callback` has run. A failed load leaves the hook registered, so a retried
-    import still runs `callback`.
+    the module, and any concurrent import of it that reaches the hook, therefore
+    return only after `callback` has run. An import already resolving the module
+    when the hook is installed can bypass it. A failed load leaves the hook
+    registered, so a retried import still runs `callback`.
     """
 
     def __init__(self, name, callback):
@@ -104,6 +106,8 @@ class _PostImportHook:
             # A legacy loader without `exec_module` loads without the callback.
             if hasattr(spec.loader, "exec_module"):
                 spec.loader = _PostImportLoader(spec, self)
+            else:
+                self.remove()
             return spec
         return None
 
@@ -181,6 +185,19 @@ def _patch_torch() -> None:
             cls.__class_getitem__ = classmethod(_return_class)
 
 
+def _patch_torch_safely() -> None:
+    """Report incompatible Torch classes without breaking the Torch import."""
+
+    try:
+        _patch_torch()
+    except (AttributeError, TypeError) as error:
+        warnings.warn(
+            f"Could not patch torch for shape annotations: {error}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
 def _is_initializing(module) -> bool:
     """Whether the import system is still executing `module`'s body."""
 
@@ -206,9 +223,9 @@ def _patch_torch_when_imported() -> None:
         if _is_initializing(torch):
             return
     if torch is None:
-        sys.meta_path.insert(0, _PostImportHook("torch", _patch_torch))
+        sys.meta_path.insert(0, _PostImportHook("torch", _patch_torch_safely))
         return
-    _patch_torch()
+    _patch_torch_safely()
 
 
 _patch_torch_when_imported()

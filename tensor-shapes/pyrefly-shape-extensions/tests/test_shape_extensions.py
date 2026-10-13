@@ -106,6 +106,19 @@ class PostImportHookTest(unittest.TestCase):
         self.assertIn(hook, sys.meta_path)
         self.assertNotIn(self.name, sys.modules)
 
+    def test_legacy_loader_removes_hook(self) -> None:
+        hook = self.install_hook()
+        loader = mock.Mock(spec=["load_module"])
+        spec = importlib.util.spec_from_loader(self.name, loader)
+        assert spec is not None
+        finder = mock.Mock()
+        finder.find_spec.return_value = spec
+
+        with mock.patch.object(sys, "meta_path", [hook, finder]):
+            self.assertIs(hook.find_spec(self.name, None), spec)
+            self.assertNotIn(hook, sys.meta_path)
+            self.assertIs(spec.loader, loader)
+
     def test_failed_import_keeps_hook_for_retry(self) -> None:
         self.write_module(
             """
@@ -291,6 +304,30 @@ class TorchPatchTest(unittest.TestCase):
             assert hooks() == []
             """,
             FAKE_TORCH_FAIL_ONCE="1",
+        )
+
+    def test_patch_failure_does_not_fail_torch_import(self) -> None:
+        self.run_script(
+            """
+            import warnings
+            from unittest import mock
+
+            import shape_extensions
+
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                with mock.patch.object(
+                    shape_extensions, "_patch_torch", side_effect=AttributeError("missing class")
+                ):
+                    import torch
+
+            assert torch.fully_imported
+            assert sys.modules["torch"] is torch
+            assert hooks() == []
+            assert len(caught) == 1
+            assert issubclass(caught[0].category, RuntimeWarning)
+            assert "missing class" in str(caught[0].message)
+            """
         )
 
     def test_waits_for_torch_import_in_another_thread(self) -> None:
