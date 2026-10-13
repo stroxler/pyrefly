@@ -3171,12 +3171,15 @@ impl Binding {
 }
 
 /// An export binding. Every export is a forward reference to a `Key`, optionally
-/// with an annotation.
+/// with an annotation, except for a special form exported by `typing_extensions`.
 #[derive(Clone, Debug)]
 pub enum BindingExport {
     Forward(Idx<Key>),
     PromoteForward(Idx<Key>),
     AnnotatedForward(Idx<KeyAnnotation>, Idx<Key>),
+    /// A special form exported by `typing_extensions`, whose type comes from its name
+    /// rather than from its definition at the `Key`.
+    SpecialForm(SpecialForm, Idx<Key>),
 }
 
 impl BindingExport {
@@ -3191,7 +3194,10 @@ impl BindingExport {
     /// The forwarded key index that this export points to.
     pub fn key_idx(&self) -> Idx<Key> {
         match self {
-            Self::Forward(idx) | Self::PromoteForward(idx) | Self::AnnotatedForward(_, idx) => *idx,
+            Self::Forward(idx)
+            | Self::PromoteForward(idx)
+            | Self::AnnotatedForward(_, idx)
+            | Self::SpecialForm(_, idx) => *idx,
         }
     }
 }
@@ -3208,6 +3214,13 @@ impl DisplayWith<Bindings> for BindingExport {
                     f,
                     "BindingExport::AnnotatedForward({}, {})",
                     ctx.display(*ann),
+                    ctx.display(*idx)
+                )
+            }
+            Self::SpecialForm(special, idx) => {
+                write!(
+                    f,
+                    "BindingExport::SpecialForm({special}, {})",
                     ctx.display(*idx)
                 )
             }

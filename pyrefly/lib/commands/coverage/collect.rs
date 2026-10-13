@@ -550,6 +550,8 @@ fn parse_variables(
                     classify_annotation(answers, Some(*annot_idx))
                 }
             }
+            // IMPLICIT: special type forms have 0 slots
+            BindingExport::SpecialForm(..) => SlotCounts::default(),
             BindingExport::Forward(idx) | BindingExport::PromoteForward(idx) => {
                 match bindings.get(*idx) {
                     // Skip injected implicit globals

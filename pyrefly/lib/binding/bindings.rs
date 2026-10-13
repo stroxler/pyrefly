@@ -10,6 +10,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::slice;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use dupe::Dupe;
@@ -137,6 +138,7 @@ use crate::types::quantified::AnchorIndex;
 use crate::types::quantified::QuantifiedIdentity;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::quantified::QuantifiedOrigin;
+use crate::types::special_form::SpecialForm;
 use crate::types::types::AnyStyle;
 
 /// The result of looking up a name. Similar to `NameReadInfo`, but
@@ -809,6 +811,7 @@ impl Bindings {
         }
 
         let exported = exports.exports(lookup);
+        let is_typing_extensions = module_info.name() == ModuleName::typing_extensions();
         let mut exported_names = SmallSet::new();
         for (name, exportable) in scope_trace.exportables().into_iter_hashed() {
             let binding = match exportable {
@@ -822,6 +825,18 @@ impl Bindings {
                     builder.table.types.0.insert(key),
                     name.key(),
                 ),
+            };
+            // The runtime `typing_extensions` defines most special forms differently depending
+            // on the Python version, e.g. `Self = typing.Self` on 3.11+ and a function decorated
+            // with `@_SpecialForm` before, so its definitions do not produce a valid type form.
+            // A special form is identified by its qualified name instead, regardless of which
+            // `typing_extensions` defines it.
+            let binding = if is_typing_extensions
+                && let Ok(special) = SpecialForm::from_str(name.key().as_str())
+            {
+                BindingExport::SpecialForm(special, binding.key_idx())
+            } else {
+                binding
             };
             if exported.contains_key_hashed(name.as_ref()) {
                 let key = name.into_key().clone();

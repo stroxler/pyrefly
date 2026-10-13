@@ -272,6 +272,9 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyExport {
             BindingExport::AnnotatedForward(ann, idx) => {
                 Binding::AnnotatedType(*ann, Box::new(Binding::Forward(*idx)))
             }
+            BindingExport::SpecialForm(special, _) => {
+                return SolveResult::Answer(special.to_type(answers.heap));
+            }
         };
         SolveResult::Answer(answers.solve_binding(&inner, range, errors).into_ty())
     }
