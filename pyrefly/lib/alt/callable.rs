@@ -1029,8 +1029,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let mut unpacked_vararg_matched_args = Vec::new();
         let mut variadic_name = None;
         let mut variadic_collected = Vec::new();
-        // Later arguments may provide the bounds needed to contextually type a lambda's parameters.
-        let mut deferred_lambdas = Vec::new();
+        // Later arguments may provide the bounds needed to contextually type a lambda's parameters,
+        // or the inputs of a type-level DSL call in a callback parameter's signature.
+        let mut deferred_callbacks = Vec::new();
 
         // Resolve a deferred ParamSpec Var into additional parameters.
         // Returns `Err(q)` when the Var resolved to a quantified ParamSpec `q`
@@ -1131,10 +1132,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         let unhinted_arg_ty = bound_args
                             .as_ref()
                             .map(|_| arg_pre.inferred_type(self, arg_errors));
-                        let arg_ty = if matches!(arg_pre, CallArgPreEval::Expr(Expr::Lambda(_), _))
-                            && bound_args.is_none()
-                        {
-                            deferred_lambdas.push((
+                        let arg_ty = if bound_args.is_none()
+                            && match arg_pre {
+                                CallArgPreEval::Expr(Expr::Lambda(_), _) => true,
+                                CallArgPreEval::Expr(..) | CallArgPreEval::Type(..) => {
+                                    matches!(ty, Type::Callable(_))
+                                        && ty.any(|ty| matches!(ty, Type::TypeLevelDslCall(_)))
+                                }
+                                _ => false,
+                            } {
+                            deferred_callbacks.push((
                                 arg_pre.clone(),
                                 ty,
                                 name,
@@ -1979,15 +1986,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 .with_call_context(call_context),
             );
         }
-        for (mut arg, hint, name, range, argument) in deferred_lambdas {
+        for (mut arg, hint, name, range, argument) in deferred_callbacks {
             let call_context = &call_context.clone().with_argument(argument);
             let mut hint = hint.clone();
             // Read parameter bounds collected from the other arguments while leaving the return
-            // type open for the lambda body to constrain.
+            // type open for the argument to constrain. Every input of a DSL call in a parameter
+            // type is now as solved as it will be, so the call is evaluated here.
             if let Type::Callable(callable) = &mut hint {
-                callable
-                    .params
-                    .visit_mut(&mut |ty| self.solver().expand_with_bounds(ty));
+                callable.params.visit_mut(&mut |ty| {
+                    self.solver().expand_with_bounds(ty);
+                    for error in ty.finalize_type_level_dsl_at_boundary() {
+                        self.error_with_context(
+                            call_errors,
+                            range,
+                            ErrorKind::UnsupportedOperation,
+                            format!("Cannot evaluate type-level shape DSL call: {error}"),
+                            context,
+                        );
+                    }
+                });
             }
             arg.post_check(
                 self,

@@ -1621,6 +1621,29 @@ def lax_scan_shape(shape: IntTuple, axis: int) -> IntTuple:
     return shape
 
 @type_shape_dsl_function
+def lax_scan_slice_shape(shape: IntTuple) -> IntTuple:
+    # `lax_scan_stacked_shape` reports a missing scan axis for the whole call.
+    if len(shape) == 0:
+        return dsl.IntTuple.gradual()
+    return shape[1:]
+
+@type_shape_dsl_function
+def lax_scan_stacked_shape(xs_shapes: IntTuples, out_shape: IntTuple) -> IntTuple:
+    if len(xs_shapes) == 0:
+        return dsl.concat(dsl.IntTuple((dsl.Int.gradual(),)), out_shape)
+    ranks = dsl.IntTuple((1 if len(shape) == 0 else 0 for shape in xs_shapes))
+    if any(r == 1 for r in ranks):
+        return dsl.Invalid("scan requires every xs array to have a leading axis")
+    first = xs_shapes[0]
+    length = first[0]
+    mismatches = dsl.IntTuple((1 if shape[0] != length else 0 for shape in xs_shapes))
+    if any(m == 1 for m in mismatches):
+        return dsl.Invalid(
+            "scan requires every xs array to have the same leading axis size"
+        )
+    return dsl.concat(dsl.IntTuple((length,)), out_shape)
+
+@type_shape_dsl_function
 def lax_associative_scan_shape(shape: IntTuple, axis: int) -> IntTuple:
     rank = len(shape)
     if axis < 0:
