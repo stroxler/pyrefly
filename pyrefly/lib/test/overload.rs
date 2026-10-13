@@ -2649,3 +2649,99 @@ def f(d: D[Any]):
     add(d.m, 1)  # E: `str` is not assignable to upper bound `int` of type variable `B`
     "#,
 );
+
+testcase!(
+    test_overloaded_protocol_method_against_unsolved_vars,
+    r#"
+from typing import assert_type, overload
+
+class RHS: ...
+
+class LHS:
+    @overload
+    def __divmod__(self, other: RHS) -> tuple[RHS, RHS]: ...
+    @overload
+    def __divmod__(self, other: object) -> tuple[LHS, LHS]: ...
+    def __divmod__(self, other: object) -> tuple[object, object]: ...
+
+def f(lhs: LHS, rhs: RHS):
+    assert_type(divmod(lhs, 1), tuple[LHS, LHS])
+    assert_type(divmod(lhs, rhs), tuple[RHS, RHS])
+    "#,
+);
+
+// `str.__iter__` is overloaded on `self: LiteralString`. The call's var appears only in the return
+// type of `Iterable.__iter__`, so the first matching overload applies rather than a union of all
+// matching overloads.
+testcase!(
+    test_overloaded_protocol_method_with_vars_only_in_return,
+    r#"
+from typing import Iterable, LiteralString, assert_type
+
+def first[T](x: Iterable[T]) -> T: ...
+
+def f(s: str, ls: LiteralString):
+    assert_type(first(s), str)
+    assert_type(first(ls), LiteralString)
+    "#,
+);
+
+// `D.__radd__` matches `int` with its first overload, so a later overload that only applies to
+// `D[str]` must not be chosen in its place when the first one violates `B`'s bound.
+testcase!(
+    test_overloaded_protocol_method_bound_violation,
+    r#"
+from typing import Any, Never, Protocol, overload
+
+class SupportsRAdd[T, R](Protocol):
+    def __radd__(self, other: T, /) -> R: ...
+
+def add[A, B: int](x: SupportsRAdd[A, B], y: A) -> B: ...
+
+class C:
+    @overload
+    def __radd__(self, other: int) -> str: ...
+    @overload
+    def __radd__(self, other: bytes) -> bytes: ...
+    def __radd__(self, other: object) -> object: ...
+
+class D[T]:
+    @overload
+    def __radd__(self, other: int) -> str: ...
+    @overload
+    def __radd__(self: D[str], other: float) -> Never: ...
+    def __radd__(self, other: object) -> object: ...
+
+def f(c: C, d: D[Any]):
+    add(c, 1)  # E: `str` is not assignable to upper bound `int` of type variable `B`
+    add(d, 1)  # E: `str` is not assignable to upper bound `int` of type variable `B`
+    "#,
+);
+
+// Binding `self` for `C.__radd__` solves the method's own type parameters on the spot, so the
+// choice of `_proto_radd` overload cannot be deferred to the enclosing call.
+testcase!(
+    test_overloaded_protocol_method_in_self_annotation,
+    r#"
+from typing import Protocol, assert_type, overload
+
+class SupportsRAdd[T, R](Protocol):
+    def __radd__(self, other: T, /) -> R: ...
+
+class ProtoRAdd[T, R](Protocol):
+    def _proto_radd(self, other: T, /) -> R: ...
+
+def radd[A, B](x: SupportsRAdd[A, B], y: A) -> B: ...
+
+class C[T]:
+    @overload
+    def _proto_radd(self: C[int], other: int) -> C[int]: ...
+    @overload
+    def _proto_radd(self: C[float], other: float) -> C[float]: ...
+    def _proto_radd(self, other: object) -> object: ...
+    def __radd__[X, Y](self: ProtoRAdd[X, Y], other: X) -> Y: ...
+
+def f(c: C[int]):
+    assert_type(radd(c, 1), C[int])
+    "#,
+);

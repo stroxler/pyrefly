@@ -784,7 +784,6 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             .type_order
             .get_protocol_member_names(protocol.class_object());
         for name in protocol_members {
-            let records_overload_branches = name == dunder::CALL;
             if name == dunder::INIT || name == dunder::NEW {
                 // Protocols can't be instantiated
                 continue;
@@ -806,39 +805,20 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 if let Type::BoundMethod(method) = &want
                     && let Some(want_no_self) = self.bind_boundmethod(method)
                 {
-                    self.is_subset_eq_for_protocol_member(
-                        &got,
-                        &want_no_self,
-                        records_overload_branches,
-                    )?;
+                    self.is_subset_eq(&got, &want_no_self)?;
                 } else {
-                    self.is_subset_eq_for_protocol_member(&got, &want, records_overload_branches)?;
+                    self.is_subset_eq(&got, &want)?;
                 }
             } else {
                 self.type_order.is_protocol_subset_at_attr(
                     &got,
                     &protocol,
                     &name,
-                    &mut |got, want| {
-                        self.is_subset_eq_for_protocol_member(got, want, records_overload_branches)
-                    },
+                    &mut |got, want| self.is_subset_eq(got, want),
                 )?;
             }
         }
         Ok(())
-    }
-
-    fn is_subset_eq_for_protocol_member(
-        &mut self,
-        got: &Type,
-        want: &Type,
-        records_overload_branches: bool,
-    ) -> Result<(), SubsetError> {
-        self.with_active_call_context(
-            (!records_overload_branches)
-                .then(|| self.active_call_context.clone().with_outside_context()),
-            |me| me.is_subset_eq(got, want),
-        )
     }
 
     /// Bind `self` for a bound method. Binding solves the method's own type parameters and
@@ -1537,6 +1517,24 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         };
         let captured_vars = self.solver.unsolved_argument_vars(&argument);
         if captured_vars.is_empty() {
+            return OverloadCapture::NotApplicable;
+        }
+        // Which branch applies can depend on the captured vars only if they appear in the
+        // parameters that the branches are matched against. Otherwise, the branches see fully
+        // known argument types, so the first matching branch is the one that applies.
+        let mut signatures = want.toplevel_callable_signatures().peekable();
+        if signatures.peek().is_some()
+            && !signatures.any(|(callable, _)| {
+                let mut mentions_captured_var = false;
+                callable.params.visit(&mut |ty: &Type| {
+                    mentions_captured_var |= ty
+                        .collect_maybe_placeholder_vars()
+                        .iter()
+                        .any(|v| captured_vars.contains(v));
+                });
+                mentions_captured_var
+            })
+        {
             return OverloadCapture::NotApplicable;
         }
         let free_quantified_vars_in_call = self.active_call_context.free_quantified_vars_in_call();
