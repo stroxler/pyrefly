@@ -621,6 +621,7 @@ from torch._shapes import (
     repeat_shape,
     replace_axis_extent,
     reshape_shape,
+    reverse_shape,
     scatter_shape,
     select_shape,
     size_dim_shape,
@@ -757,7 +758,8 @@ class Tensor[Shape: _Shape = _Shape](_TensorBase):
     device: Any  # Device where tensor is stored (cpu, cuda, etc.)
     dtype: Any  # Data type of tensor elements (float32, int64, etc.)
     ndim: builtins.int  # Number of dimensions
-    T: Self  # Transpose property (for 2D tensors). Use .t() method for shape inference.
+    @property
+    def T(self: Tensor[Shape]) -> Tensor[reverse_shape(Shape)]: ...
     real: Self  # Real part of complex tensor (shape-preserving)
     imag: Self  # Imaginary part of complex tensor (shape-preserving)
 
