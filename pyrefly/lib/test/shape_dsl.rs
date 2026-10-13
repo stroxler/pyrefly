@@ -2057,6 +2057,26 @@ def raw_arithmetic[N: Int]() -> Tensor[[identity(N + N)]]: ...  # E: `N` must be
 );
 
 testcase!(
+    bug = "Literal arithmetic becomes gradual when inferred as a shape dimension",
+    test_literal_arithmetic_is_gradual_in_shape_inference,
+    shape_extensions_env(),
+    r#"
+from shape_extensions import Int
+from typing import assert_type
+
+class Layer[N: Int]:
+    def __init__(self, channels: N) -> None: ...
+
+layer = Layer(128 + 64)
+assert_type(layer, Layer[Int[int]])
+
+def expects_256(layer: Layer[Int[256]]) -> None: ...
+
+expects_256(layer)
+"#,
+);
+
+testcase!(
     test_type_shape_dsl_arange_stop,
     shape_extensions_env_with_torch(),
     r#"
