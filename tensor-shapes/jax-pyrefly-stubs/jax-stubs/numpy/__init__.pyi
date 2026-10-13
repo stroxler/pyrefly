@@ -1027,7 +1027,12 @@ def kron[AShape: _Shape = [], BShape: _Shape = []](
     b: _ArrayLike[BShape],
 ) -> _Array[kron_shape(AShape, BShape)]: ...
 def matmul[LeftShape: _Shape, RightShape: _Shape](
-    a: _ShapedArrayLike[LeftShape], b: _ShapedArrayLike[RightShape]
+    a: _ShapedArrayLike[LeftShape],
+    b: _ShapedArrayLike[RightShape],
+    *,
+    precision: Any = None,
+    preferred_element_type: Any = None,
+    out_sharding: _NamedSharding | _PartitionSpec | None = None,
 ) -> _Array[matmul_shape(LeftShape, RightShape)]: ...
 def matvec[LeftShape: _Shape, RightShape: _Shape](
     x1: _ShapedArrayLike[LeftShape],
