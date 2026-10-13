@@ -41,6 +41,43 @@ fn test_did_change_configuration() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+// bug = "The server never registers for `workspace/didChangeConfiguration` on the `python` section."
+// https://github.com/facebook/pyrefly/issues/5084
+#[test]
+fn test_did_change_configuration_dynamic_registration() {
+    let root = get_test_files_root();
+    let scope_uri = Uri::from_file_path(root.path()).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        capabilities: Some(json!({
+            "workspace": {"didChangeConfiguration": {"dynamicRegistration": true}}
+        })),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+
+    // VS Code only sends `workspace/didChangeConfiguration` for a section that the
+    // server registers, so `python.analysis` changes never reach the server.
+    interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request")
+        .send_configuration_response(json!([{}]));
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[test]
 fn test_invalid_workspace_configuration_response_does_not_crash() {
     let root = get_test_files_root();
