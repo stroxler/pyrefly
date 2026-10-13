@@ -988,6 +988,45 @@ assert_type(result("ok"), int)
 );
 
 testcase!(
+    test_reconstructed_overload_preserves_gradual_variadic_flags,
+    r#"
+from typing import Any, Callable, overload
+
+class Callback[T, R]:
+    @staticmethod
+    @overload
+    def method(*args: Any, **kwargs: Any) -> R: ...
+    @staticmethod
+    @overload
+    def method(*args: T, **kwargs: T) -> R: ...
+    @staticmethod
+    def method(*args: Any, **kwargs: Any) -> Any:
+        return True
+
+def lift[A, R](f: Callable[[A], R]) -> Callback[Any, R]:
+    return Callback()
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: str) -> bool: ...
+def f(x: int | str) -> int:
+    return isinstance(x, str)
+
+def install[F](slot: list[F], value: F) -> None:
+    slot[0] = value
+
+def no_args() -> bool:
+    return True
+
+# Substituting Any for T leaves the second signature strict despite matching parameters.
+slot = [lift(f).method]
+install(slot, no_args)  # E: Argument `() -> bool` is not assignable to parameter `value`
+slot[0](1, unknown_keyword=2)
+"#,
+);
+
+testcase!(
     test_await_preserves_overload_fallback_in_callback_protocol,
     r#"
 import asyncio

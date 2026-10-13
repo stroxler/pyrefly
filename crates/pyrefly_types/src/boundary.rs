@@ -175,10 +175,11 @@ impl Type {
             .cloned()
             .map(|branch_ty| branch_ty.into_overload_signatures(&metadata))
             .collect::<Option<Vec<_>>>()?;
-        // A signature with the same type and value parameters as an earlier one would never be
-        // chosen, so the two share one signature that returns both results.
-        let mut merged: SmallMap<(Option<Arc<TParams>>, Params), (FuncMetadata, Vec<Type>)> =
-            SmallMap::new();
+        // Merge signatures with the same inputs and flags; otherwise later ones would never be called.
+        let mut merged: SmallMap<
+            (Option<Arc<TParams>>, Params, FuncFlags),
+            (FunctionKind, Vec<Type>),
+        > = SmallMap::new();
         for signature in signatures.into_iter().flatten() {
             let (tparams, function) = match signature {
                 OverloadType::Function(function) => (None, function),
@@ -186,22 +187,22 @@ impl Type {
             };
             let Function {
                 signature: Callable { params, ret },
-                metadata,
+                metadata: FuncMetadata { kind, flags },
             } = function;
             merged
-                .entry((tparams, params))
-                .or_insert_with(|| (metadata, Vec::new()))
+                .entry((tparams, params, flags))
+                .or_insert_with(|| (kind, Vec::new()))
                 .1
                 .push(ret);
         }
         let signatures = merged
             .into_iter()
-            .map(|((tparams, params), (metadata, rets))| {
+            .map(|((tparams, params, flags), (kind, rets))| {
                 let ret = Self::combine_overload_results(rets, heap)
                     .expect("each group has at least one return");
                 let function = Function {
                     signature: Callable { params, ret },
-                    metadata,
+                    metadata: FuncMetadata { kind, flags },
                 };
                 (tparams, function)
             })
