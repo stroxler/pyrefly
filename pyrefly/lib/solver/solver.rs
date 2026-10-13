@@ -151,6 +151,9 @@ pub struct OverloadBranch {
     /// `overload_branch_value_type` to decide whether an unsolved branch value
     /// should be a free quantified.
     free_quantified_vars: SmallSet<Var>,
+    /// Errors that matching this branch recorded against the captured vars, such as a bound
+    /// violation. Probing rolls them back, so they are kept here until the call finishes.
+    errors: Vec<TypeVarSpecializationError>,
 }
 
 type OverloadBranchesByArgument = SmallMap<ArgumentKey, Vec<OverloadBranch>>;
@@ -223,6 +226,18 @@ enum OverloadPruning {
 }
 
 type OverloadPruningByArgument = SmallMap<ArgumentKey, OverloadPruning>;
+
+/// The branches of one argument that survive its pruning decision.
+fn surviving_branches<'a>(
+    branches: &'a [OverloadBranch],
+    pruning: Option<&'a OverloadPruning>,
+) -> impl Iterator<Item = &'a OverloadBranch> {
+    branches.iter().filter(move |branch| match pruning {
+        Some(OverloadPruning::AllPruned(_)) => false,
+        Some(OverloadPruning::Surviving(kept)) => kept.contains(&branch.branch_index),
+        Some(OverloadPruning::Ambiguous) | None => true,
+    })
+}
 
 #[derive(Clone, Debug)]
 struct OverloadSolvedConstraint {
@@ -1025,10 +1040,16 @@ impl Solver {
             .copied()
             .filter(|var| free_quantified_vars_in_call.contains(var))
             .collect();
+        let instantiation_errors = self.instantiation_errors.read();
+        let errors = vars
+            .iter()
+            .filter_map(|var| instantiation_errors.get(var).cloned())
+            .collect();
         OverloadBranch {
             branch_index,
             values,
             free_quantified_vars,
+            errors,
         }
     }
 
@@ -1810,14 +1831,8 @@ impl Solver {
         let mut rows = vec![OverloadRow {
             values: SmallMap::new(),
         }];
-        for (&argument, branches) in captures.iter() {
-            let branches = branches
-                .iter()
-                .filter(|branch| match pruning.get(&argument) {
-                    Some(OverloadPruning::AllPruned(_)) => false,
-                    Some(OverloadPruning::Surviving(kept)) => kept.contains(&branch.branch_index),
-                    Some(OverloadPruning::Ambiguous) | None => true,
-                })
+        for (argument, branches) in captures.iter() {
+            let branches = surviving_branches(branches, pruning.get(argument))
                 .map(|branch| self.resolve_overload_branch(branch))
                 .collect::<Vec<_>>();
             // The join is a product over the arguments, so arguments that share no variable to
@@ -2267,6 +2282,13 @@ impl Solver {
             };
         let mut overload_columns = SmallSet::new();
 
+        // A surviving branch's errors fail the call, as they would if the branch had been matched
+        // directly.
+        for (argument, branches) in captures.overload.iter() {
+            for branch in surviving_branches(branches, overload_pruning_by_argument.get(argument)) {
+                err.extend(branch.errors.iter().cloned());
+            }
+        }
         for decision in overload_pruning_by_argument.values() {
             let OverloadPruning::AllPruned(all_pruned_cause) = decision else {
                 continue;

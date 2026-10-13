@@ -2621,3 +2621,31 @@ def f(c: C[int]):
     assert_type(apply(c.radd, 1), C[int])
     "#,
 );
+
+// A captured branch that violates `B`'s bound fails the call. For `d: D[Any]`, the later overload
+// that only applies to `D[str]` must not be chosen in place of the first one.
+testcase!(
+    test_overloaded_argument_bound_violation,
+    r#"
+from typing import Any, Callable, Never, overload
+
+def add[A, B: int](f: Callable[[A], B], y: A) -> B: ...
+
+@overload
+def g(x: int) -> str: ...
+@overload
+def g(x: bytes) -> bytes: ...
+def g(x: object) -> object: ...
+
+class D[T]:
+    @overload
+    def m(self, other: int) -> str: ...
+    @overload
+    def m(self: D[str], other: float) -> Never: ...
+    def m(self, other: object) -> object: ...
+
+def f(d: D[Any]):
+    add(g, 1)  # E: `str` is not assignable to upper bound `int` of type variable `B`
+    add(d.m, 1)  # E: `str` is not assignable to upper bound `int` of type variable `B`
+    "#,
+);
