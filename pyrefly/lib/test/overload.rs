@@ -2598,3 +2598,26 @@ def f(any_frame: Frame[Any], owner: type[Frame[Any]]) -> None:
     assert_type(any_frame.impl, int)
     "#,
 );
+
+testcase!(
+    test_overloaded_call_in_self_annotation,
+    r#"
+from typing import Callable, Protocol, assert_type, overload
+
+class CallP[T, R](Protocol):
+    def __call__(self, other: T, /) -> R: ...
+
+def apply[A, B](f: Callable[[A], B], y: A) -> B: ...
+
+class C[T]:
+    @overload
+    def __call__(self: C[int], other: int) -> C[int]: ...
+    @overload
+    def __call__(self: C[float], other: float) -> C[float]: ...
+    def __call__(self, other: object) -> object: ...
+    def radd[X, Y](self: CallP[X, Y], other: X) -> Y: ...
+
+def f(c: C[int]):
+    assert_type(apply(c.radd, 1), C[int])
+    "#,
+);

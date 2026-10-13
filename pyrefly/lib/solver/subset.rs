@@ -38,6 +38,7 @@ use pyrefly_types::typed_dict::ExtraItem;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::typed_dict::TypedDictField;
+use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::Forall;
 use pyrefly_types::types::Overload;
 use pyrefly_types::types::OverloadType;
@@ -803,10 +804,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 && let Some(want) = self.type_order.instance_as_dunder_call(&protocol)
             {
                 if let Type::BoundMethod(method) = &want
-                    && let Some(want_no_self) =
-                        self.type_order.bind_boundmethod(method, &mut |got, want| {
-                            self.is_subset_eq(got, want).is_ok()
-                        })
+                    && let Some(want_no_self) = self.bind_boundmethod(method)
                 {
                     self.is_subset_eq_for_protocol_member(
                         &got,
@@ -840,6 +838,19 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             (!records_overload_branches)
                 .then(|| self.active_call_context.clone().with_outside_context()),
             |me| me.is_subset_eq(got, want),
+        )
+    }
+
+    /// Bind `self` for a bound method. Binding solves the method's own type parameters and
+    /// finishes them immediately, so it must not record overload branches for the active call,
+    /// which would resolve them only after they are finished.
+    fn bind_boundmethod(&mut self, method: &BoundMethod) -> Option<Type> {
+        self.with_active_call_context(
+            Some(self.active_call_context.clone().with_outside_context()),
+            |me| {
+                me.type_order
+                    .bind_boundmethod(method, &mut |got, want| me.is_subset_eq(got, want).is_ok())
+            },
         )
     }
 
@@ -2257,29 +2268,18 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             }
             (Type::Overload(overload), want) => self.is_subset_overload(overload, want),
             (Type::BoundMethod(method), Type::Callable(_) | Type::Function(_))
-                if let Some(l_no_self) =
-                    self.type_order.bind_boundmethod(method, &mut |got, want| {
-                        self.is_subset_eq(got, want).is_ok()
-                    }) =>
+                if let Some(l_no_self) = self.bind_boundmethod(method) =>
             {
                 self.is_subset_eq(&l_no_self, want)
             }
             (Type::Callable(_) | Type::Function(_), Type::BoundMethod(method))
-                if let Some(u_no_self) =
-                    self.type_order.bind_boundmethod(method, &mut |got, want| {
-                        self.is_subset_eq(got, want).is_ok()
-                    }) =>
+                if let Some(u_no_self) = self.bind_boundmethod(method) =>
             {
                 self.is_subset_eq(got, &u_no_self)
             }
             (Type::BoundMethod(l), Type::BoundMethod(u))
-                if let Some(l_no_self) = self
-                    .type_order
-                    .bind_boundmethod(l, &mut |got, want| self.is_subset_eq(got, want).is_ok())
-                    && let Some(u_no_self) =
-                        self.type_order.bind_boundmethod(u, &mut |got, want| {
-                            self.is_subset_eq(got, want).is_ok()
-                        }) =>
+                if let Some(l_no_self) = self.bind_boundmethod(l)
+                    && let Some(u_no_self) = self.bind_boundmethod(u) =>
             {
                 self.is_subset_eq(&l_no_self, &u_no_self)
             }
