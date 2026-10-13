@@ -4277,7 +4277,8 @@ ff
 4 | ff
      ^
 Completion Results:
-- (Variable) fff: int
+- (Variable) fff: Literal[1, 2]
+- (Variable) fff: Literal[2]
 "#
         .trim(),
         report.trim(),

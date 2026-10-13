@@ -89,6 +89,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         .ty
     }
 
+    fn try_literal_int_binop(op: Operator, lhs: &Type, rhs: &Type) -> Option<Type> {
+        let (Type::Literal(lhs), Type::Literal(rhs)) = (lhs, rhs) else {
+            return None;
+        };
+        let (Lit::Int(lhs), Lit::Int(rhs)) = (&lhs.value, &rhs.value) else {
+            return None;
+        };
+        let result = match op {
+            Operator::Add => lhs.add(rhs),
+            Operator::Sub => lhs.sub(rhs),
+            Operator::Mult => lhs.mul(rhs),
+            Operator::FloorDiv => lhs.floor_div(rhs)?,
+            _ => return None,
+        };
+        Some(result.to_implicit_type())
+    }
+
     /// Try to handle binary operations on symbolic integer types.
     /// Returns Some(result_type) if the operation was handled, None otherwise.
     fn try_int_binop(&self, op: Operator, lhs: &Type, rhs: &Type) -> Option<Type> {
@@ -541,6 +558,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     }
 
     fn binop_types(&self, x: &ExprBinOp, lhs: &Type, rhs: &Type, errors: &ErrorCollector) -> Type {
+        if let Some(result) = Self::try_literal_int_binop(x.op, lhs, rhs) {
+            return result;
+        }
+
         let left_range = x.left.range();
         let right_range = x.right.range();
         let binop_call = |op: Operator, lhs: &Type, rhs: &Type, range: TextRange| -> Type {

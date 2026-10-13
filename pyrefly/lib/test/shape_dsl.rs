@@ -2057,8 +2057,7 @@ def raw_arithmetic[N: Int]() -> Tensor[[identity(N + N)]]: ...  # E: `N` must be
 );
 
 testcase!(
-    bug = "Literal arithmetic becomes gradual when inferred as a shape dimension",
-    test_literal_arithmetic_is_gradual_in_shape_inference,
+    test_literal_arithmetic_is_concrete_in_shape_inference,
     shape_extensions_env(),
     r#"
 from shape_extensions import Int
@@ -2068,11 +2067,11 @@ class Layer[N: Int]:
     def __init__(self, channels: N) -> None: ...
 
 layer = Layer(128 + 64)
-assert_type(layer, Layer[Int[int]])
+assert_type(layer, Layer[Int[192]])
 
 def expects_256(layer: Layer[Int[256]]) -> None: ...
 
-expects_256(layer)
+expects_256(layer)  # E: is not assignable to parameter `layer`
 "#,
 );
 
@@ -4254,7 +4253,7 @@ def modulo(n: Int, k: int) -> Int:
 
 @type_shape_dsl_function
 def computed_zero_divisor(n: Int) -> Int:
-    return n // (1 - 1)
+    return n // (1 - 1)  # E: Cannot divide by zero
 
 @type_shape_dsl_function
 def local_extent(shape: IntTuple, k: int) -> Int:
@@ -7250,17 +7249,17 @@ def h(x: int) -> None:
 );
 
 testcase!(
-    test_tensor_shapes_keeps_ordinary_literal_arithmetic_int,
+    test_tensor_shapes_preserves_ordinary_literal_arithmetic,
     shape_extensions_env(),
     r#"
 from shape_extensions import Int, IntVar
 from typing import reveal_type
 
 def ordinary_literals() -> None:
-    reveal_type(1 + 2)  # E: revealed type: int
-    reveal_type(1 - 2)  # E: revealed type: int
-    reveal_type(2 * 3)  # E: revealed type: int
-    reveal_type(5 // 2)  # E: revealed type: int
+    reveal_type(1 + 2)  # E: revealed type: Literal[3]
+    reveal_type(1 - 2)  # E: revealed type: Literal[-1]
+    reveal_type(2 * 3)  # E: revealed type: Literal[6]
+    reveal_type(5 // 2)  # E: revealed type: Literal[2]
     reveal_type(2 ** 3)  # E: revealed type: int
     total = 1
     total += 2
