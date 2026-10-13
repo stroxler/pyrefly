@@ -1244,9 +1244,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 .solver()
                 .freshen_class_targs(cls.targs_mut(), self.uniques);
 
+            // Argument matching, not the hint, solves the enclosing call's type parameters.
+            let call_vars = hint
+                .collect_maybe_placeholder_vars()
+                .into_iter()
+                .filter(|v| self.solver().var_is_quantified(*v))
+                .collect::<Vec<_>>();
+            let snapshot = self.solver().snapshot_exact_vars(&call_vars);
             let matched_hint = self.is_subset_eq(&self.heap.mk_class_type(cls.clone()), hint);
             self.solver()
                 .generalize_class_targs_for_constructor_hint(cls.targs_mut(), &SmallSet::new());
+            self.solver().restore_vars(snapshot);
             (vs, matched_hint)
         } else {
             (QuantifiedHandle::empty(), false)

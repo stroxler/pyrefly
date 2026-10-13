@@ -2745,3 +2745,27 @@ def f(c: C[int]):
     assert_type(radd(c, 1), C[int])
     "#,
 );
+
+testcase!(
+    test_overloaded_protocol_method_against_constructor_hint,
+    r#"
+from typing import Protocol, assert_type, overload
+
+class SupportsDivMod[T, R](Protocol):
+    def __divmod__(self, other: T, /) -> R: ...
+
+def my_divmod[T, R](x: SupportsDivMod[T, R], y: T, /) -> R: ...
+
+class RHS: ...
+
+class LHS:
+    @overload
+    def __divmod__(self, other: RHS) -> tuple[RHS, RHS]: ...
+    @overload
+    def __divmod__(self, other: object) -> tuple[LHS, LHS]: ...
+    def __divmod__(self, other: object) -> tuple[object, object]: ...
+
+assert_type(my_divmod(LHS(), 1), tuple[LHS, LHS])
+assert_type(my_divmod(LHS(), RHS()), tuple[RHS, RHS])
+    "#,
+);
