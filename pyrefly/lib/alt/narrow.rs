@@ -2060,12 +2060,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let ignore_errors = self.error_swallower();
         let attributes = type_info.narrowed_attribute_types();
         for (name, stored) in attributes {
-            let old = self.narrowable_for_attr(&old_ty, &name, fake_range, &ignore_errors);
-            let new = self.narrowable_for_attr(result.ty(), &name, fake_range, &ignore_errors);
+            let old = self.narrowable_for_attr(old_ty, name, fake_range, &ignore_errors);
+            let new = self.narrowable_for_attr(result.ty(), name, fake_range, &ignore_errors);
             if self.is_equivalent(&old, &new) {
                 continue;
             }
-            let rebased = self.intersect(&stored, &new);
+            let rebased = self.intersect(stored, &new);
             if rebased.is_never() {
                 return TypeInfo::of_ty(self.heap.mk_never());
             }
