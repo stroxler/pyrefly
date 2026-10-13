@@ -1743,6 +1743,44 @@ reveal_type(0, oops=1)  # E: revealed type: Literal[0]  # E: `reveal_type` got a
     "#,
 );
 
+// An `assert-type-unspellable-subtype` error is suppressed by its own ignore comment, while an
+// `assert-type` error is not.
+testcase!(
+    test_assert_type_unspellable_subtype,
+    r#"
+from typing import Any, Callable, assert_type, overload
+
+class A: ...
+class B: ...
+
+def f(x: A, y: tuple[Any]):
+    if isinstance(x, B):
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(x, B)
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type((x,), tuple[B])
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(x, int)  # E: assert_type(A & B, int) failed
+        assert_type(x, A)  # E: `A & B` is a subtype of `A`, but they are not equivalent
+    if isinstance(y, B):
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(y, tuple[object])
+        # Some materializations of `tuple[Any]` are not subtypes of `tuple[int]`.
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(y, tuple[int])  # E: assert_type(B & tuple[Any], tuple[int]) failed
+
+@overload
+def g(x: int) -> int: ...
+@overload
+def g(x: str) -> str: ...
+def g(x: int | str) -> int | str: ...
+
+# A callback protocol can express an overloaded type.
+# pyrefly: ignore[assert-type-unspellable-subtype]
+assert_type(g, Callable[[int], int])  # E: (int) -> int) failed
+    "#,
+);
+
 testcase!(
     test_special_calls_alias,
     r#"

@@ -86,6 +86,10 @@ pub enum ErrorKind {
     AbstractMethodCall,
     /// Raised when an assert_type() call fails.
     AssertType,
+    /// Raised when an assert_type() call fails because the actual type is a subtype of the
+    /// asserted type that no type annotation can express.
+    /// This is a sub-kind of [AssertType]: suppressing `assert-type` also suppresses this error.
+    AssertTypeUnspellableSubtype,
     /// Setting an attribute on an object with type `Never`.
     AttributeAssignOnNever,
     /// Attempting to call a function with the wrong number of arguments.
@@ -530,6 +534,7 @@ impl ErrorKind {
     /// Suppressing the parent kind also suppresses this kind.
     pub fn parent_kind(self) -> Option<ErrorKind> {
         match self {
+            ErrorKind::AssertTypeUnspellableSubtype => Some(ErrorKind::AssertType),
             ErrorKind::DirectAbstractBaseInstantiation => Some(ErrorKind::BadInstantiation),
             ErrorKind::BadOverrideMutableAttribute | ErrorKind::BadOverrideParamName => {
                 Some(ErrorKind::BadOverride)

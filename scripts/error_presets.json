@@ -7,6 +7,7 @@
   "enabled_by": {
     "abstract-method-call": ["legacy", "default", "strict", "all"],
     "assert-type": ["legacy", "default", "strict", "all"],
+    "assert-type-unspellable-subtype": ["legacy", "default", "strict", "all"],
     "attribute-assign-on-never": ["legacy", "default", "strict", "all"],
     "bad-argument-count": ["legacy", "default", "strict", "all"],
     "bad-argument-type": ["legacy", "default", "strict", "all"],

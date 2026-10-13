@@ -2363,6 +2363,69 @@ impl Type {
         self.toplevel_func_metadata().map(|meta| &meta.kind)
     }
 
+    /// Returns whether some type annotation expresses a type equivalent to this one. The
+    /// annotation may refer to newly defined classes, such as a callback protocol for a callable
+    /// type that the `Callable` special form cannot express.
+    pub fn is_spellable(&self) -> bool {
+        !self.any(|ty| match ty {
+            Type::Overloaded(_)
+            | Type::Intersect(_)
+            | Type::Module(_)
+            | Type::SpecialForm(_)
+            | Type::TypeAlias(_)
+            | Type::SuperInstance(_) => true,
+            Type::Literal(_)
+            | Type::LiteralString(_)
+            | Type::Callable(_)
+            | Type::TypeLevelDslCall(_)
+            | Type::Function(_)
+            | Type::BoundMethod(_)
+            | Type::Overload(_)
+            | Type::Union(_)
+            | Type::ClassDef(_)
+            | Type::ClassType(_)
+            | Type::TypedDict(_)
+            | Type::PartialTypedDict(_)
+            | Type::ShapedArray(_)
+            | Type::IntTuple(_)
+            | Type::NamedInts(_)
+            | Type::NNModule(_)
+            | Type::DataFrame(_)
+            | Type::Series(_)
+            | Type::Int(_)
+            | Type::Tuple(_)
+            | Type::Forall(_)
+            | Type::Var(_)
+            | Type::Quantified(_)
+            | Type::QuantifiedValue(_)
+            | Type::ElementOfTypeVarTuple(_)
+            | Type::TypeGuard(_)
+            | Type::TypeIs(_)
+            | Type::Annotated(_, _)
+            | Type::Unpack(_)
+            | Type::TypeVar(_)
+            | Type::ParamSpec(_)
+            | Type::TypeVarTuple(_)
+            | Type::Concatenate(_, _)
+            | Type::ParamSpecValue(_)
+            | Type::Args(_)
+            | Type::Kwargs(_)
+            | Type::ArgsValue(_)
+            | Type::KwargsValue(_)
+            | Type::Type(_)
+            | Type::TypeForm(_)
+            | Type::Ellipsis
+            | Type::Any(_)
+            | Type::Never(_)
+            | Type::UntypedAlias(_)
+            | Type::Sentinel(_)
+            | Type::SelfType(_)
+            | Type::KwCall(_)
+            | Type::Materialization
+            | Type::None => false,
+        })
+    }
+
     pub fn materialize(&self) -> Self {
         let mut ty = self.clone();
         ty.materialize_mut();
