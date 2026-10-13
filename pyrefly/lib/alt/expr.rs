@@ -4371,6 +4371,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         cls.has_toplevel_qname("shape_extensions", "IntVar")
     }
 
+    fn is_builtin_abs_call(&self, call: &ExprCall) -> bool {
+        matches!(
+            self.expr_infer(&call.func, &self.error_swallower())
+                .to_func_kind(),
+            Some(FunctionKind::Def(id)) if id.has_toplevel_qname("builtins", "abs")
+        )
+    }
+
     /// Parse a single dimension expression (recursive helper).
     ///
     /// A dimension expression is one element of a tensor shape. For example, in
@@ -4524,6 +4532,27 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         }
                     }
                 }
+            }
+            Expr::Call(call) if self.is_builtin_abs_call(call) => {
+                if call.arguments.args.len() != 1
+                    || !call.arguments.keywords.is_empty()
+                    || matches!(call.arguments.args.first(), Some(Expr::Starred(_)))
+                {
+                    self.error(
+                        errors,
+                        call.arguments.range,
+                        ErrorKind::InvalidAnnotation,
+                        "`abs` requires exactly one positional integer argument".to_owned(),
+                    );
+                    return Err(DimensionExprError::Invalid);
+                }
+                let operand = self.parse_dimension_expr_with_context(
+                    &call.arguments.args[0],
+                    errors,
+                    context.operand(),
+                    type_form_context,
+                )?;
+                Ok(canonicalize(self.heap.mk_int(Int::abs(operand))))
             }
             // Unary negation: -N, -1, -(N + 1), etc.
             Expr::UnaryOp(x) if x.op == UnaryOp::USub => {
@@ -4692,6 +4721,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         for arg in args {
             let dim = if let Expr::Call(call) = arg
                 && type_form_context.allows_type_level_dsl_call()
+                && !self.is_builtin_abs_call(call)
             {
                 let callee = self.expr_infer(&call.func, &self.error_swallower());
                 let ty = self.parse_type_level_dsl_call(call, &callee, type_form_context, errors);

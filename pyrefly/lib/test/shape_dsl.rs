@@ -703,7 +703,7 @@ from shape_extensions import Int, IntVar, type_shape_dsl_function
 
 @type_shape_dsl_function
 def invalid(x: Int) -> Int:
-    return abs(x)
+    return round(x)
 
 @type_shape_dsl_function
 def invalid_domain(x: str) -> str:
@@ -3476,6 +3476,62 @@ def test_symbolic[N: IntVar, M: IntVar](x: Tensor[[N]], y: Tensor[[M]]) -> None:
     assert_type(same_symbol(x), Tensor[[7]])
     assert_type(different_symbols(x, y), Tensor[[int]])
     assert_type(mixed_symbol_literal(x), Tensor[[int]])
+"#,
+);
+
+testcase!(
+    test_type_shape_dsl_abs,
+    shape_extensions_env_with_torch(),
+    r#"
+from builtins import abs as magnitude
+from shape_extensions import Flag, Int, IntTuple, IntVar, type_shape_dsl_function
+from torch import Tensor
+from typing import assert_type
+
+@type_shape_dsl_function
+def abs_flag(value: int) -> Int:
+    return abs(value)
+
+@type_shape_dsl_function
+def abs_flag_control(n: Int, value: int) -> Int:
+    if abs(value) == 2:
+        return n + 1
+    return n
+
+@type_shape_dsl_function
+def abs_first(shape: IntTuple) -> Int:
+    value = abs(shape[0])
+    if abs(shape[0]) == abs(shape[0]):
+        return value
+    return value
+
+@type_shape_dsl_function
+def diag_extent(n: Int, offset: Int) -> Int:
+    return n + magnitude(offset)
+
+def direct_abs[N: IntVar](x: Tensor[[N]]) -> Tensor[[abs(N)]]: ...
+def first_abs[Shape: IntTuple](x: Tensor[Shape]) -> Tensor[[abs_first(Shape)]]: ...
+def diagonal[N: IntVar, Offset: Int](
+    x: Tensor[[N]], offset: Offset,
+) -> Tensor[[diag_extent(Int[N], Offset)]]: ...
+def flag_result[Offset: Flag[int]](offset: Offset) -> Tensor[[abs_flag(Offset)]]: ...
+def controlled[Offset: Flag[int]](offset: Offset) -> Tensor[[
+    abs_flag_control(Int[3], Offset)
+]]: ...
+
+def check_symbolic[N: IntVar](x: Tensor[[N]]) -> None:
+    assert_type(direct_abs(x), Tensor[[abs(N)]])
+    assert_type(first_abs(x), Tensor[[abs(N)]])
+    assert_type(diagonal(x, -2), Tensor[[N + 2]])
+
+def check_concrete(x: Tensor[[3]], broad: int) -> None:
+    assert_type(direct_abs(x), Tensor[[3]])
+    assert_type(diagonal(x, -2), Tensor[[5]])
+    assert_type(flag_result(-2), Tensor[[2]])
+    assert_type(flag_result(broad), Tensor[[int]])
+    assert_type(flag_result(-9223372036854775808), Tensor[[int]])
+    assert_type(controlled(-2), Tensor[[4]])
+    assert_type(controlled(broad), Tensor[[int]])
 "#,
 );
 
