@@ -1857,11 +1857,21 @@ impl Solver {
     }
 
     /// Collect compatibility constraints without mutating the captured branch value.
+    ///
+    /// The upper bounds of a captured var are the branch's parameter types that the var's solved
+    /// type is passed to. If `materialize` is true, the solved type is materialized in those
+    /// constraints, so they hold only if the branch accepts every materialization of it.
     fn overload_branch_constraints(
         &self,
         branch_value: &Variable,
         solved_ty: &Type,
+        materialize: bool,
     ) -> Vec<(Type, Type)> {
+        let passed_ty = if materialize {
+            solved_ty.materialize()
+        } else {
+            solved_ty.clone()
+        };
         let bounds = match branch_value {
             Variable::Quantified { bounds, .. } | Variable::Unwrap(bounds) => bounds,
             Variable::Answer { ty: branch_ty, .. } => {
@@ -1869,7 +1879,7 @@ impl Solver {
                 // compatibility as type equivalence against the solved type.
                 return vec![
                     (branch_ty.clone(), solved_ty.clone()),
-                    (solved_ty.clone(), branch_ty.clone()),
+                    (passed_ty, branch_ty.clone()),
                 ];
             }
             Variable::PartialQuantified(_)
@@ -1887,7 +1897,7 @@ impl Solver {
             let upper = self
                 .sanitize_self_referential_vars(upper, solved_ty)
                 .unwrap_or_else(|| upper.clone());
-            (solved_ty.clone(), upper)
+            (passed_ty.clone(), upper)
         }));
         let Variable::Quantified { quantified, .. } = branch_value else {
             return constraints;
@@ -1994,22 +2004,49 @@ impl Solver {
             return Some(OverloadPruning::Ambiguous);
         }
 
-        let mut surviving_branches = branches
-            .iter()
-            .filter_map(|capture| {
-                let constraints = solved_vars_in_argument.iter().try_fold(
-                    Vec::new(),
-                    |mut constraints, (var, solved_var)| {
-                        constraints.extend(self.overload_branch_constraints(
-                            capture.values.get(var)?,
-                            &solved_var.solved_ty,
-                        ));
-                        Some(constraints)
-                    },
-                )?;
-                probe_constraints(&constraints).map(|state| (capture.branch_index, state))
-            })
-            .collect::<Vec<_>>();
+        let branch_constraints = |capture: &OverloadBranch, materialize: bool| {
+            solved_vars_in_argument.iter().try_fold(
+                Vec::new(),
+                |mut constraints, (var, solved_var)| {
+                    constraints.extend(self.overload_branch_constraints(
+                        capture.values.get(var)?,
+                        &solved_var.solved_ty,
+                        materialize,
+                    ));
+                    Some(constraints)
+                },
+            )
+        };
+        let mut surviving_branches = Vec::new();
+        for capture in branches {
+            let Some(state) = branch_constraints(capture, false)
+                .and_then(|constraints| probe_constraints(&constraints))
+            else {
+                continue;
+            };
+            surviving_branches.push((capture.branch_index, state));
+            // Step 5 of overload call evaluation: once the types passed to a branch's parameters
+            // are known, a branch that accepts every materialization of them eliminates later
+            // branches. A var receives a parameter type as an upper bound, or is pinned outright.
+            let passed_types_are_known = capture.values.iter().all(|(var, branch_value)| {
+                solved_vars.contains_key(var)
+                    || match branch_value {
+                        Variable::Quantified { bounds, .. } | Variable::Unwrap(bounds) => {
+                            bounds.upper.is_empty()
+                        }
+                        Variable::Answer { .. } => false,
+                        Variable::PartialQuantified(_)
+                        | Variable::PartialContained(_)
+                        | Variable::Recursive => true,
+                    }
+            });
+            if passed_types_are_known
+                && branch_constraints(capture, true)
+                    .is_some_and(|constraints| probe_constraints(&constraints).is_some())
+            {
+                break;
+            }
+        }
 
         let surviving_branch_indices: SmallSet<usize> = if surviving_branches.len() == 1 {
             let (branch_index, state) = surviving_branches

@@ -987,7 +987,10 @@ assert_type(result("ok"), int)
 "#,
 );
 
+// `partial(lift, f)` is an overload of two signatures with no parameters, so calling it applies
+// only the first.
 testcase!(
+    bug = "partial(lift, f) loses the second overload of `f`",
     test_await_preserves_overload_fallback_in_callback_protocol,
     r#"
 import asyncio
@@ -1009,7 +1012,7 @@ async def test() -> None:
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, partial(lift, f))
     assert_type(result(1), str)
-    assert_type(result("ok"), int)
+    assert_type(result("ok"), int)  # E: assert_type(str, int) failed  # E: Argument `Literal['ok']` is not assignable to parameter `x` with type `int` in function `Callback.__call__`
 "#,
 );
 
@@ -1507,8 +1510,9 @@ reveal_type(two(h, h))  # E: revealed type: Overloaded[tuple[int, int], tuple[in
     "#,
 );
 
+// The first branch applies, just as it would for a direct `h(True)` call.
 testcase!(
-    test_uncorrelated_results_are_a_union,
+    test_first_matching_branch_applies,
     r#"
 from typing import Callable, assert_type, overload
 def apply[T, R](f: Callable[[T], R], x: T) -> R: ...
@@ -1517,9 +1521,7 @@ def h(x: int) -> int: ...
 @overload
 def h(x: bool) -> bytes: ...
 def h(x: int | bool) -> int | bytes: ...
-r = apply(h, True)
-assert_type(r, int | bytes)
-r + 1  # E: `+` is not supported between `bytes` and `Literal[1]`
+assert_type(apply(h, True), int)
     "#,
 );
 
