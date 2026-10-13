@@ -987,10 +987,7 @@ assert_type(result("ok"), int)
 "#,
 );
 
-// `partial(lift, f)` is an overload of two signatures with no parameters, so calling it applies
-// only the first.
 testcase!(
-    bug = "partial(lift, f) loses the second overload of `f`",
     test_await_preserves_overload_fallback_in_callback_protocol,
     r#"
 import asyncio
@@ -1012,7 +1009,7 @@ async def test() -> None:
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(None, partial(lift, f))
     assert_type(result(1), str)
-    assert_type(result("ok"), int)  # E: assert_type(str, int) failed  # E: Argument `Literal['ok']` is not assignable to parameter `x` with type `int` in function `Callback.__call__`
+    assert_type(result("ok"), int)
 "#,
 );
 

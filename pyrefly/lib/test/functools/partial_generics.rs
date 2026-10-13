@@ -329,7 +329,7 @@ p("x")  # E: Argument `Literal['x']` is not assignable to parameter `a` with typ
 );
 
 functools_testcase!(
-    bug = "partial of an overloaded __call__ protocol always resolves the first overload: partial(x, \"a\")() should be str but is int",
+    bug = "partial of an overloaded __call__ protocol doesn't resolve precisely",
     test_partial_over_overloaded_protocol,
     r#"
 from typing import reveal_type
@@ -341,9 +341,10 @@ class P(Protocol):
     @overload
     def __call__(self, x: str) -> str: ...
 def f(x: P) -> None:
-    reveal_type(partial(x, 1)())  # E: revealed type: int
+    # WANT: revealed type: int
+    reveal_type(partial(x, 1)())  # E: revealed type: int | str
     # WANT: revealed type: str
-    reveal_type(partial(x, "a")())  # E: revealed type: int
+    reveal_type(partial(x, "a")())  # E: revealed type: int | str
 "#,
 );
 

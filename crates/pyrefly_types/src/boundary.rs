@@ -29,10 +29,12 @@ use std::sync::Arc;
 
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
+use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
 use crate::callable::Callable;
+use crate::callable::Params;
 use crate::function::FuncFlags;
 use crate::function::FuncMetadata;
 use crate::function::Function;
@@ -120,7 +122,7 @@ impl Type {
         if results.len() == 1 {
             return Some(results.split_off_first().0);
         }
-        if let Some(combined) = Self::try_combine_reconstructed_overload(&results) {
+        if let Some(combined) = Self::try_combine_reconstructed_overload(&results, heap) {
             return Some(combined);
         }
         if !Self::results_share_a_shape(&results) {
@@ -156,26 +158,75 @@ impl Type {
         results.iter().skip(1).all(|other| same_shape(first, other))
     }
 
-    fn try_combine_reconstructed_overload(reconstructed: &[Type]) -> Option<Type> {
-        let metadata = reconstructed
-            .first()?
-            .toplevel_func_metadata()
-            .cloned()
-            .unwrap_or(FuncMetadata {
-                kind: FunctionKind::Overload,
-                flags: FuncFlags::default(),
-            });
+    fn try_combine_reconstructed_overload(reconstructed: &[Type], heap: &TypeHeap) -> Option<Type> {
+        let (metadata, has_original_metadata) =
+            match reconstructed.first()?.toplevel_func_metadata() {
+                Some(m) => (m.clone(), true),
+                None => (
+                    FuncMetadata {
+                        kind: FunctionKind::Overload,
+                        flags: FuncFlags::default(),
+                    },
+                    false,
+                ),
+            };
         let signatures = reconstructed
             .iter()
             .cloned()
             .map(|branch_ty| branch_ty.into_overload_signatures(&metadata))
-            .collect::<Option<Vec<_>>>()?
+            .collect::<Option<Vec<_>>>()?;
+        // A signature with the same type and value parameters as an earlier one would never be
+        // chosen, so the two share one signature that returns both results.
+        let mut merged: SmallMap<(Option<Arc<TParams>>, Params), (FuncMetadata, Vec<Type>)> =
+            SmallMap::new();
+        for signature in signatures.into_iter().flatten() {
+            let (tparams, function) = match signature {
+                OverloadType::Function(function) => (None, function),
+                OverloadType::Forall(forall) => (Some(forall.tparams), forall.body),
+            };
+            let Function {
+                signature: Callable { params, ret },
+                metadata,
+            } = function;
+            merged
+                .entry((tparams, params))
+                .or_insert_with(|| (metadata, Vec::new()))
+                .1
+                .push(ret);
+        }
+        let signatures = merged
             .into_iter()
-            .flatten()
+            .map(|((tparams, params), (metadata, rets))| {
+                let ret = Self::combine_overload_results(rets, heap)
+                    .expect("each group has at least one return");
+                let function = Function {
+                    signature: Callable { params, ret },
+                    metadata,
+                };
+                (tparams, function)
+            })
             .collect();
         let signatures = Vec1::try_from_vec(signatures).ok()?;
+        if signatures.len() == 1 {
+            let (tparams, function) = signatures.split_off_first().0;
+            let body = if has_original_metadata {
+                Forallable::Function(function)
+            } else {
+                Forallable::Callable(function.signature)
+            };
+            return Some(match tparams {
+                Some(tparams) => body.forall(tparams),
+                None => body.as_type(),
+            });
+        }
         Some(Type::Overload(Overload {
-            signatures,
+            signatures: signatures.mapped(|(tparams, function)| match tparams {
+                Some(tparams) => OverloadType::Forall(Forall {
+                    tparams,
+                    body: function,
+                }),
+                None => OverloadType::Function(function),
+            }),
             metadata: Box::new(metadata),
         }))
     }
