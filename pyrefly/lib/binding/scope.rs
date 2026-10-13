@@ -63,6 +63,9 @@ use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodSelfKind;
 use crate::binding::binding::MethodThatSetsAttr;
+use crate::binding::binding::NNModuleRegistration;
+use crate::binding::binding::NNModuleRegistrationKind;
+use crate::binding::binding::NNModuleRegistrations;
 use crate::binding::binding::NarrowUseLocation;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::BindingsBuilder;
@@ -1042,7 +1045,7 @@ struct ScopeClass {
     indices: ClassIndices,
     attributes_from_recognized_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
     attributes_from_other_methods: SmallMap<Name, SmallMap<Name, InstanceAttribute>>,
-    nn_module_registrations: SmallMap<Name, Vec<Expr>>,
+    nn_module_registrations: NNModuleRegistrations,
     has_protocol_base: bool,
 }
 
@@ -1062,17 +1065,17 @@ impl ScopeClass {
         &mut self,
         method_name: Name,
         attributes: SmallMap<Name, InstanceAttribute>,
-        nn_module_registrations: SmallMap<Name, Vec<Expr>>,
+        nn_module_registrations: NNModuleRegistrations,
     ) {
         if is_attribute_defining_method(&method_name, &self.name.id) {
             self.attributes_from_recognized_methods
                 .insert(method_name.clone(), attributes);
             if method_name == dunder::INIT || method_name == dunder::POST_INIT {
-                for (name, values) in nn_module_registrations {
+                for (name, registrations) in nn_module_registrations {
                     self.nn_module_registrations
                         .entry(name)
                         .or_default()
-                        .extend(values);
+                        .extend(registrations);
                 }
             }
         } else {
@@ -1167,7 +1170,7 @@ struct ScopeMethod {
     name: Identifier,
     self_name: Option<Identifier>,
     instance_attributes: SmallMap<Name, InstanceAttribute>,
-    nn_module_registrations: SmallMap<Name, Vec<Expr>>,
+    nn_module_registrations: NNModuleRegistrations,
     parameters: SmallMap<Name, ParameterUsage>,
     yields_and_returns: YieldsAndReturns,
     is_async: bool,
@@ -2200,7 +2203,13 @@ impl Scopes {
 
     /// Record the value of `self.register_buffer(...)` or `self.register_parameter(...)`.
     /// The enclosing class is checked for `torch.nn.Module` ancestry during solving.
-    pub fn record_nn_module_registration(&mut self, receiver: &Expr, name: Name, value: Expr) {
+    pub fn record_nn_module_registration(
+        &mut self,
+        receiver: &Expr,
+        name: Name,
+        kind: NNModuleRegistrationKind,
+        value: Expr,
+    ) {
         for scope in self.iter_rev_mut() {
             match &mut scope.kind {
                 ScopeKind::Method(method_scope) => {
@@ -2211,7 +2220,7 @@ impl Scopes {
                             .nn_module_registrations
                             .entry(name)
                             .or_default()
-                            .push(value);
+                            .push(NNModuleRegistration { kind, value });
                     }
                     return;
                 }
@@ -3094,7 +3103,7 @@ impl Scopes {
         &mut self,
     ) -> (
         SmallMap<Name, (ClassFieldDefinition, TextRange)>,
-        SmallMap<Name, Vec<Expr>>,
+        NNModuleRegistrations,
     ) {
         let mut field_definitions = SmallMap::new();
         let class_body = self.pop();

@@ -3555,13 +3555,51 @@ pub enum MethodSelfKind {
     Class,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum NNModuleRegistrationKind {
+    Buffer,
+    Parameter,
+}
+
+impl NNModuleRegistrationKind {
+    const ALL: [Self; 2] = [Self::Buffer, Self::Parameter];
+
+    pub fn from_method_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|kind| kind.method_name() == name)
+    }
+
+    pub fn method_name(self) -> &'static str {
+        match self {
+            Self::Buffer => "register_buffer",
+            Self::Parameter => "register_parameter",
+        }
+    }
+
+    pub fn value_parameter_name(self) -> &'static str {
+        match self {
+            Self::Buffer => "tensor",
+            Self::Parameter => "param",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NNModuleRegistration {
+    pub kind: NNModuleRegistrationKind,
+    pub value: Expr,
+}
+
+pub type NNModuleRegistrations = SmallMap<Name, Vec<NNModuleRegistration>>;
+
 /// Bindings for fields synthesized by a class, such as a dataclass's `__init__` method. This
 /// has to be its own key/binding type because of the dependencies between the various pieces of
 /// information about a class: ClassDef -> ClassMetadata -> ClassField -> ClassSynthesizedFields.
 #[derive(Clone, Debug)]
 pub struct BindingClassSynthesizedFields {
     pub class_idx: Idx<KeyClass>,
-    pub nn_module_registrations: Option<Box<SmallMap<Name, Vec<Expr>>>>,
+    pub nn_module_registrations: Option<Box<NNModuleRegistrations>>,
 }
 
 impl DisplayWith<Bindings> for BindingClassSynthesizedFields {

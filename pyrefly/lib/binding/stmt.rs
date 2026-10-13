@@ -52,6 +52,7 @@ use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyTypeAlias;
 use crate::binding::binding::LinkedKey;
+use crate::binding::binding::NNModuleRegistrationKind;
 use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
 use crate::binding::binding::SuppressedException;
@@ -2003,12 +2004,10 @@ impl<'a> BindingsBuilder<'a> {
                 // Collect literal-name candidates now; solving later verifies nn.Module ancestry.
                 if let Expr::Call(call) = x.value.as_ref()
                     && let Expr::Attribute(func) = call.func.as_ref()
-                    && let Some(value_keyword) = match func.attr.id.as_str() {
-                        "register_buffer" => Some("tensor"),
-                        "register_parameter" => Some("param"),
-                        _ => None,
-                    }
+                    && let Some(kind) =
+                        NNModuleRegistrationKind::from_method_name(func.attr.id.as_str())
                 {
+                    let value_keyword = kind.value_parameter_name();
                     let name = call.arguments.args.first().or_else(|| {
                         call.arguments.keywords.iter().find_map(|keyword| {
                             (keyword
@@ -2031,6 +2030,7 @@ impl<'a> BindingsBuilder<'a> {
                         self.scopes.record_nn_module_registration(
                             &func.value,
                             Name::new(name.value.to_str()),
+                            kind,
                             value.clone(),
                         );
                     }
