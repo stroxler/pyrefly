@@ -75,8 +75,10 @@ use lsp_types::DefinitionResponse;
 use lsp_types::Diagnostic;
 use lsp_types::DiagnosticSeverity;
 use lsp_types::DiagnosticTag;
+use lsp_types::DidChangeConfigurationClientCapabilities;
 use lsp_types::DidChangeConfigurationNotification;
 use lsp_types::DidChangeConfigurationParams;
+use lsp_types::DidChangeConfigurationRegistrationOptions;
 use lsp_types::DidChangeTextDocumentNotification;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidChangeWatchedFilesClientCapabilities;
@@ -1891,6 +1893,7 @@ const MAX_WORKSPACE_SYMBOLS: usize = 1000;
 
 impl Server {
     const FILEWATCHER_ID: &str = "FILEWATCHER";
+    const DID_CHANGE_CONFIGURATION_ID: &str = "DID_CHANGE_CONFIGURATION";
     const EXACT_FILEWATCHER_ID_PREFIX: &str = "FILEWATCHER-EXACT-";
 
     fn clear_published_workspace_diagnostics(&self) {
@@ -3093,6 +3096,7 @@ impl Server {
         }
 
         s.setup_file_watcher_if_necessary(None);
+        s.register_did_change_configuration_if_supported();
         s.request_settings_for_all_workspaces();
         s
     }
@@ -4757,6 +4761,35 @@ impl Server {
         self.clear_published_workspace_diagnostics();
         self.setup_file_watcher_if_necessary(Some(telemetry_event));
         self.request_settings_for_all_workspaces();
+    }
+
+    /// Ask the client to send `workspace/didChangeConfiguration` whenever any setting in the
+    /// `python` section changes. Clients such as VS Code only send this notification for
+    /// sections that someone registered.
+    fn register_did_change_configuration_if_supported(&self) {
+        if let Some(WorkspaceClientCapabilities {
+            did_change_configuration:
+                Some(DidChangeConfigurationClientCapabilities {
+                    dynamic_registration: Some(true),
+                }),
+            ..
+        }) = &self.initialize_params.capabilities.workspace
+        {
+            self.send_request::<RegistrationRequest>(RegistrationParams {
+                registrations: Vec::from([Registration {
+                    id: Self::DID_CHANGE_CONFIGURATION_ID.to_owned(),
+                    method: DidChangeConfigurationNotification::METHOD
+                        .as_str()
+                        .to_owned(),
+                    register_options: Some(
+                        serde_json::to_value(DidChangeConfigurationRegistrationOptions {
+                            section: Some(PYTHON_SECTION.to_owned().into()),
+                        })
+                        .unwrap(),
+                    ),
+                }]),
+            });
+        }
     }
 
     fn did_change_configuration<'a>(&'a self, params: DidChangeConfigurationParams) {

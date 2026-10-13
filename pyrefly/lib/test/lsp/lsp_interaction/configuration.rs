@@ -7,6 +7,7 @@
 
 use lsp_types::ConfigurationRequest;
 use lsp_types::DidChangeWorkspaceFoldersNotification;
+use lsp_types::RegistrationRequest;
 use lsp_types::Uri;
 use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
@@ -41,7 +42,6 @@ fn test_did_change_configuration() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
-// bug = "The server never registers for `workspace/didChangeConfiguration` on the `python` section."
 // https://github.com/facebook/pyrefly/issues/5084
 #[test]
 fn test_did_change_configuration_dynamic_registration() {
@@ -67,8 +67,17 @@ fn test_did_change_configuration_dynamic_registration() {
         .expect("Failed to initialize");
     interaction.client.send_initialized();
 
-    // VS Code only sends `workspace/didChangeConfiguration` for a section that the
-    // server registers, so `python.analysis` changes never reach the server.
+    interaction
+        .client
+        .expect_request::<RegistrationRequest>(json!({
+            "registrations": [{
+                "id": "DID_CHANGE_CONFIGURATION",
+                "method": "workspace/didChangeConfiguration",
+                "registerOptions": {"section": "python"},
+            }]
+        }))
+        .expect("Failed to receive didChangeConfiguration registration")
+        .send_response(json!(null));
     interaction
         .client
         .expect_configuration_request(Some(vec![&scope_uri]))
