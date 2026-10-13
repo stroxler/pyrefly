@@ -55,6 +55,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::alt::answers::AttributeReferenceKind;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::answers_solver::TypeCheckOptions;
@@ -5774,6 +5775,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // This should be the case since contextual typing requires working out the class field
         // type information first, but is difficult to see from a skim.
         let base = self.expr_infer(&attr.value, errors);
+        self.record_attribute_definition_index(
+            &base,
+            &attr.attr.id,
+            attr.attr.range,
+            AttributeReferenceKind::Textual,
+        );
         let narrowed = self.check_assign_to_attribute_and_infer_narrow(
             &base,
             &attr.attr.id,
@@ -7619,6 +7626,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             }
             Expr::Attribute(attr) => {
                 let base = self.expr_with_options(&attr.value, ExprOptions::infer(errors, None));
+                self.record_attribute_definition_index(
+                    base.ty(),
+                    &attr.attr.id,
+                    attr.attr.range,
+                    AttributeReferenceKind::Textual,
+                );
                 self.check_attr_delete(
                     &base,
                     &attr.attr.id,
