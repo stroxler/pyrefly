@@ -659,8 +659,8 @@ def f(x, y): ...
 result = identity(f)
 reveal_type(result)  # E: revealed type: Overload[ (int, str) -> bool (str, int) -> bytes ]
 assert_type(result(1, "ok"), bool)
-result("x", "ok")  # E: No matching overload found for function `typing.overload` called with arguments: (Literal['x'], Literal['ok'])
-result(1, 1)  # E: No matching overload found for function `typing.overload` called with arguments: (Literal[1], Literal[1])
+result("x", "ok")  # E: No matching overload found for function `<callable>` called with arguments: (Literal['x'], Literal['ok'])
+result(1, 1)  # E: No matching overload found for function `<callable>` called with arguments: (Literal[1], Literal[1])
 "#,
 );
 

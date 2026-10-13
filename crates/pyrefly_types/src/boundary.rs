@@ -25,10 +25,15 @@
 //! * `AnswersSolver::finish_return`, which calls `boundary.rs`'s finishing helpers to finish a
 //!   function call's returned type.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
+use pyrefly_python::module::Module;
+use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
+use ruff_python_ast::name::Name;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
@@ -169,10 +174,15 @@ impl Type {
             match reconstructed.first()?.toplevel_func_metadata() {
                 Some(m) => (m.clone(), true),
                 None => (
-                    FuncMetadata {
-                        kind: FunctionKind::Overload,
-                        flags: FuncFlags::default(),
-                    },
+                    FuncMetadata::synthesized(
+                        &Module::new(
+                            ModuleName::from_str(""),
+                            ModulePath::filesystem(PathBuf::default()),
+                            Arc::new(String::new()),
+                        ),
+                        None,
+                        Name::new_static("<callable>"),
+                    ),
                     false,
                 ),
             };
