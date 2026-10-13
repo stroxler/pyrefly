@@ -499,10 +499,10 @@ impl Display for ImportLookupPathPart<'_> {
                 )
             }
             Self::SitePackagePath(paths) => {
-                write!(f, "Site package path from user: {paths:?}")
+                write!(f, "Site packages path from user: {paths:?}")
             }
             Self::InterpreterSitePackagePath(paths) => {
-                write!(f, "Site package path queried from interpreter: {paths:?}")
+                write!(f, "Site packages path queried from interpreter: {paths:?}")
             }
             Self::BuildSystem(target) => {
                 write!(f, "Build system source database")?;
@@ -1893,7 +1893,7 @@ impl ConfigFile {
             })
         }
         if let Some(site_package_path) = &self.python_environment.site_package_path {
-            configure_errors.extend(validate(site_package_path.as_ref(), "site-package-path"));
+            configure_errors.extend(validate(site_package_path.as_ref(), "site-packages-path"));
         }
         configure_errors.extend(validate(&self.search_path_from_file, "search-path"));
 
@@ -2104,7 +2104,8 @@ const CONFIG_KEY_ALIASES: &[(&str, &str)] = &[
     ("sub_config", "sub-config"),
     ("python_platform", "python-platform"),
     ("python_version", "python-version"),
-    ("site_package_path", "site-package-path"),
+    ("site-package-path", "site-packages-path"),
+    ("site_package_path", "site-packages-path"),
     ("stdlib_paths", "interpreter-stdlib-path"),
     ("python_interpreter", "python-interpreter-path"),
     ("python-interpreter", "python-interpreter-path"),
@@ -2521,7 +2522,7 @@ mod tests {
              search-path = ["../.."]
              python-platform = "darwin"
              python-version = "1.2.3"
-             site-package-path = ["venv/lib/python1.2.3/site-packages"]
+             site-packages-path = ["venv/lib/python1.2.3/site-packages"]
              python-interpreter = "venv/my/python"
              output-format = "min-text"
              replace-imports-with-any = ["fibonacci"]
@@ -5147,6 +5148,43 @@ search-path = []
         assert_eq!(
             config.python_environment.python_version,
             Some(PythonVersion::new(3, 12, 0))
+        );
+    }
+
+    #[test]
+    fn test_extends_canonicalizes_site_packages_path_aliases() {
+        let root = TempDir::new().unwrap();
+        let base = root.path().join("base.toml");
+        let child = root.path().join(ConfigFile::PYREFLY_FILE_NAME);
+        fs::write(&base, "site-package-path = [\"stubs\"]\n").unwrap();
+        fs::write(
+            &child,
+            "extends = \"base.toml\"\nsite-packages-path = [\"custom\"]\n",
+        )
+        .unwrap();
+
+        let (config, errors) = ConfigFile::from_file(&child);
+
+        assert!(errors.is_empty());
+        assert_eq!(
+            config.python_environment.site_package_path,
+            Some(vec![child.parent().unwrap().join("custom")])
+        );
+
+        let base_snake = root.path().join("base_snake.toml");
+        let child_snake = root.path().join("child_snake.toml");
+        fs::write(&base_snake, "site_package_path = [\"stubs\"]\n").unwrap();
+        fs::write(
+            &child_snake,
+            "extends = \"base_snake.toml\"\nsite-packages-path = [\"custom\"]\n",
+        )
+        .unwrap();
+
+        let (config_snake, errors_snake) = ConfigFile::from_file(&child_snake);
+        assert!(errors_snake.is_empty());
+        assert_eq!(
+            config_snake.python_environment.site_package_path,
+            Some(vec![child_snake.parent().unwrap().join("custom")])
         );
     }
 
