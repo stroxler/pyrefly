@@ -111,14 +111,20 @@ impl Type {
 
     /// Combine per-overload results of a function call into a single type.
     pub fn combine_overload_results(results: Vec<Type>, heap: &TypeHeap) -> Option<Type> {
-        let results = Vec1::try_from_vec(
-            results
-                .into_iter()
-                .collect::<SmallSet<_>>() // Dedup while preserving order
-                .into_iter()
-                .collect(),
-        )
-        .ok()?;
+        // Collect into a SmallSet to dedup while preserving order.
+        let mut deduped = SmallSet::with_capacity(results.len());
+        fn flatten(results: Vec<Type>, deduped: &mut SmallSet<Type>) {
+            for result in results {
+                match result {
+                    Type::Overloaded(branches) => flatten(branches.into_vec(), deduped),
+                    result => {
+                        deduped.insert(result);
+                    }
+                }
+            }
+        }
+        flatten(results, &mut deduped);
+        let results = Vec1::try_from_vec(deduped.into_iter().collect()).ok()?;
         if results.len() == 1 {
             return Some(results.split_off_first().0);
         }
