@@ -2163,29 +2163,43 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 bases,
                 fallback,
                 combine,
-            } => {
-                let mut candidates = Vec::new();
-                for b in bases {
-                    let mut acc_candidate = LookupResult::empty();
-                    self.lookup_attr_static1(b.clone(), attr_name, &mut acc_candidate);
-                    if acc_candidate.not_found.is_empty() && acc_candidate.internal_error.is_empty()
-                    {
-                        candidates.push(acc_candidate.found);
-                    }
-                }
-                if candidates.len() == 1 {
-                    acc.found.extend(candidates.into_iter().next().unwrap());
-                } else if let Some(folded) =
-                    self.fold_attribute_candidates(candidates.as_slice(), *combine)
-                {
-                    acc.found.push(folded);
-                } else {
-                    // Properties and descriptors require access-specific resolution, so use the
-                    // intersection's fallback instead of combining their declarations.
-                    for b in fallback {
-                        self.lookup_attr_static1(b.clone(), attr_name, acc);
-                    }
-                }
+            } => self.lookup_composite_attr(bases, fallback, *combine, acc, &|b, acc| {
+                self.lookup_attr_static1(b, attr_name, acc)
+            }),
+        }
+    }
+
+    /// Looks up an attribute on the members of a composite base with `lookup1` and combines the
+    /// results according to `combine`.
+    fn lookup_composite_attr(
+        &self,
+        bases: &[AttributeBase1],
+        fallback: &[AttributeBase1],
+        combine: Combine,
+        acc: &mut LookupResult,
+        lookup1: &dyn Fn(AttributeBase1, &mut LookupResult),
+    ) {
+        let mut candidates = Vec::new();
+        for b in bases {
+            let mut acc_candidate = LookupResult::empty();
+            lookup1(b.clone(), &mut acc_candidate);
+            if acc_candidate.not_found.is_empty() && acc_candidate.internal_error.is_empty() {
+                candidates.push(acc_candidate.found);
+            }
+        }
+        if candidates.len() == 1 {
+            acc.found.extend(candidates.into_iter().next().unwrap());
+        } else if let Some(folded) = self.fold_attribute_candidates(candidates.as_slice(), combine)
+        {
+            acc.found.push(folded);
+        } else {
+            // Properties and descriptors require access-specific resolution.
+            let fallback = match combine {
+                Combine::Overloaded => bases,
+                Combine::Intersect => fallback,
+            };
+            for b in fallback {
+                lookup1(b.clone(), acc);
             }
         }
     }
@@ -2209,6 +2223,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         acc: &mut LookupResult,
     ) {
         match &base {
+            AttributeBase1::Composite {
+                bases,
+                fallback,
+                combine,
+            } => self.lookup_composite_attr(bases, fallback, *combine, acc, &|b, acc| {
+                self.lookup_magic_dunder_attr1(b, dunder_name, acc)
+            }),
             AttributeBase1::ClassObject(class) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
                 let metaclass = metadata.metaclass(self.stdlib);
@@ -2805,11 +2826,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 for t in branches.into_iter() {
                     self.as_attribute_base1(t, &mut acc_branches);
                 }
-                acc.push(AttributeBase1::Composite {
-                    bases: acc_branches,
-                    fallback: Vec::new(),
-                    combine: Combine::Overloaded,
-                });
+                if !acc_branches.is_empty() {
+                    acc.push(AttributeBase1::Composite {
+                        bases: acc_branches,
+                        fallback: Vec::new(),
+                        combine: Combine::Overloaded,
+                    });
+                }
             }
             Type::Intersect(x) => {
                 let mut acc_intersect = Vec::new();

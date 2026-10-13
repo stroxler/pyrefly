@@ -1852,6 +1852,62 @@ f(MatchesAllBranches())
 );
 
 testcase!(
+    test_overloaded_properties_and_descriptors,
+    r#"
+from typing import Callable, assert_type, overload
+
+class ReadOnly[T]:
+    def __get__(self, obj: object, owner: type | None = None) -> list[T]: ...
+
+class Descriptor[T]:
+    def __get__(self, obj: object, owner: type | None = None) -> list[T]: ...
+    def __set__(self, obj: object, value: int) -> None: ...
+
+class Box[T]:
+    plain: T
+    readonly: ReadOnly[T] = ReadOnly()
+    descriptor: Descriptor[T] = Descriptor()
+
+    @property
+    def values(self) -> list[T]: ...
+    @property
+    def size(self) -> int: ...
+
+def make[T](f: Callable[[T], T]) -> Box[T]: ...
+@overload
+def h(x: int) -> int: ...
+@overload
+def h(x: str) -> str: ...
+def h(x: int | str) -> int | str: ...
+
+def check() -> None:
+    box = make(h)
+    assert_type(box.values, list[int] | list[str])
+    assert_type(box.readonly, list[int] | list[str])
+    assert_type(box.descriptor, list[int] | list[str])
+    if box.values:
+        assert_type(box.values, list[int] | list[str])
+    assert_type(box.size, int)
+    box.missing  # E: Object of class `Box` has no attribute `missing`
+    box.missing = 1  # E: Object of class `Box` has no attribute `missing`
+    box.size = 1  # E: Attribute `size` of class `Box` is a read-only property and cannot be set
+    box.readonly = 1  # E: Attribute `readonly` of class `Box` is a read-only descriptor with no `__set__` and cannot be set
+    box.descriptor = 1
+    box.descriptor = b"x"  # E: is not assignable
+    box.plain = 1
+    box.plain = "x"
+    box.plain = b"x"  # E: is not assignable to attribute `plain`
+
+def union(flag: bool) -> None:
+    box = make(h) if flag else None
+    if box is not None:
+        assert_type(box.values, list[int] | list[str])
+    box.values  # E: Object of class `NoneType` has no attribute `values`
+    box.size = 1  # E: read-only property and cannot be set  # E: Object of class `NoneType` has no attribute `size`
+"#,
+);
+
+testcase!(
     test_overloaded_branches_are_deduplicated,
     r#"
 from typing import Callable, assert_type, overload, reveal_type
