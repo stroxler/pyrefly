@@ -34,6 +34,7 @@ use crate::types::callable::Params;
 use crate::types::callable::PrefixParam;
 use crate::types::callable::Required;
 use crate::types::function::Function;
+use crate::types::types::BoundMethodType;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
@@ -134,6 +135,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 None => Type::ClassType(instance),
             },
             other => other,
+        };
+        // Overloaded bound methods need their receiver bound before checking each overload's arguments.
+        let target_ty = if let Type::BoundMethod(method) = &target_ty
+            && matches!(&method.func, BoundMethodType::Overload(_))
+            && let Some(bound) =
+                self.bind_boundmethod(method, &mut |got, want| self.is_subset_eq(got, want))
+        {
+            bound
+        } else {
+            target_ty
         };
         // A union target with a non-callable member can never be a valid partial target for that
         // member, so flag it the way a direct call would; the stub still reports the whole union as
