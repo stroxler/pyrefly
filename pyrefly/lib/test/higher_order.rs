@@ -1734,12 +1734,92 @@ class C:
         self.xs = ints
         assert_type(self.xs, list[int])
         self.xs = []
-        assert_type(self.xs, list[int])
-        self.xs = floats  # E: `list[float]` is not assignable to attribute `xs` with type `list[int] | list[str]`
+        assert_type(self.xs, list[str])
+        self.xs = floats  # E: `list[float]` is not assignable to attribute `xs` with type `Overloaded[list[str], list[int]]`
     "#,
 );
 
-// A `Final` attribute keeps its `Overloaded` type, so a value must match every branch.
+testcase!(
+    test_overloaded_in_method_return,
+    r#"
+from typing import Callable, overload
+
+def make[A, R](f: Callable[[A], R]) -> list[R]: ...
+
+@overload
+def h(x: int) -> str: ...
+@overload
+def h(x: str) -> int: ...
+def h(x: int | str) -> str | int: ...
+
+def use_ints(xs: list[int]) -> None: ...
+
+def f():
+    return make(h)
+
+class C:
+    g = f
+
+    def m(self):
+        return make(h)
+
+use_ints(f())
+use_ints(C().m())
+use_ints(C.g())
+    "#,
+);
+
+testcase!(
+    test_overloaded_attribute_keeps_overload_structure,
+    r#"
+from typing import Callable, assert_type, overload
+
+@overload
+def parse(x: int) -> str: ...
+@overload
+def parse(x: str) -> int: ...
+def parse(x: int | str) -> str | int: ...
+
+class Wrapper[**P, R]:
+    def __init__(self, fn: Callable[P, R]):
+        self.fn = fn
+
+class C:
+    def __init__(self) -> None:
+        self.w = Wrapper(parse)
+
+    def use(self) -> None:
+        assert_type(self.w.fn(1), str)
+        assert_type(self.w.fn(""), int)
+    "#,
+);
+
+testcase!(
+    test_override_overloaded_attribute,
+    r#"
+from typing import Callable, overload
+
+def make[A, R](f: Callable[[A], R]) -> list[R]: ...
+
+@overload
+def h(x: int) -> str: ...
+@overload
+def h(x: str) -> int: ...
+def h(x: int | str) -> str | int: ...
+
+class Parent:
+    def __init__(self) -> None:
+        self.xs = make(h)
+
+class MatchesOneBranch(Parent):
+    xs: list[int]
+
+class MatchesNoBranch(Parent):
+    xs: list[float]  # E: Class member `MatchesNoBranch.xs` overrides parent class `Parent` in an inconsistent manner
+    "#,
+);
+
+// A `Final` member is read-only, so a value must match every branch of its `Overloaded` type.
 testcase!(
     test_assign_to_overloaded_protocol_member,
     r#"

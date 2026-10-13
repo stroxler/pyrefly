@@ -1091,6 +1091,24 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // against all of them.
         let narrowed_types = setters.into_map(|setter| match setter? {
             AttrSetter::Declared { ty, narrow } => {
+                // A value matching any branch of an `Overloaded` attribute can be assigned to it.
+                let ty = if let Type::Overloaded(branches) = &ty
+                    && let Some(branch) = branches.iter().find(|branch| match got {
+                        TypeOrExpr::Expr(got) => {
+                            let branch_errors = self.error_collector();
+                            self.expr_check(
+                                got,
+                                Some((branch, &type_check_context)),
+                                &branch_errors,
+                            );
+                            branch_errors.is_empty()
+                        }
+                        TypeOrExpr::Type(got, _) => self.is_subset_eq(got, branch),
+                    }) {
+                    branch.clone()
+                } else {
+                    ty
+                };
                 let got_ty = match got {
                     TypeOrExpr::Expr(got) => {
                         self.expr_check(got, Some((&ty, &type_check_context)), errors)
