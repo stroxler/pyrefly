@@ -3052,18 +3052,14 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 let want_arg = Self::intvar_targ_for_compare(want_arg)?;
                 self.check_targ_variance(variance, &got_arg, &want_arg)?;
             } else if self.solver.config.tensor_shapes && has_int_tuple_bound(param) {
-                match (
-                    IntTuple::from_shape_arg_or_tuple_carrier(got_arg),
-                    IntTuple::from_shape_arg_or_tuple_carrier(want_arg),
-                ) {
-                    (Some(got_shape), Some(want_shape))
-                        if (got_shape.is_shapeless() || want_shape.is_shapeless())
-                            && (matches!(got_arg, Type::Var(_))
-                                || matches!(want_arg, Type::Var(_))) =>
-                    {
-                        // A bare inference variable is a valid tuple carrier, so it projects to an
-                        // unpacked shape above. Do not let a gradual peer constrain that variable.
+                let as_shape = |arg: &Type| {
+                    if arg.is_any() {
+                        Some(IntTuple::shapeless())
+                    } else {
+                        IntTuple::from_shape_arg_or_tuple_carrier(arg)
                     }
+                };
+                match (as_shape(got_arg), as_shape(want_arg)) {
                     (Some(got_shape), Some(want_shape)) => {
                         // A direct `IntTuple` bound gives this parameter shape semantics. Compare
                         // its projected dimensions rather than its internal representation. Shape

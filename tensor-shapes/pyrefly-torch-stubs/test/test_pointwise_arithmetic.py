@@ -142,9 +142,8 @@ if TYPE_CHECKING:
     def check_gradual_operand_defaults(
         concrete: Tensor[[2, 3]], gradual: Tensor
     ) -> None:
-        # TODO: A gradual argument should override the empty-shape defaults.
-        assert_type(torch.add(concrete, gradual), Tensor[[2, 3]])
-        assert_type(concrete.add(gradual), Tensor[[2, 3]])
+        assert_type(torch.add(concrete, gradual), Tensor[IntTuple])
+        assert_type(concrete.add(gradual), Tensor[IntTuple])
 
     def check_any_operand(tensor: Tensor[[2, 5]], other: Any) -> None:
         assert_type(tensor + other, Any)
@@ -175,7 +174,6 @@ if TYPE_CHECKING:
         left: Tensor[[N, 3]], right: Tensor[[M, 3]]
     ) -> None:
         # E: `+` is not supported
-        # E: Cannot evaluate type-level shape DSL call
         left + right
 
     def check_incompatible_variadic_broadcast[Batch: IntTuple](

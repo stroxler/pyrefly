@@ -17,9 +17,8 @@ if TYPE_CHECKING:
     def check_gradual_array_defaults(
         concrete: jax.Array[[2, 3]], gradual: jax.Array
     ) -> None:
-        # TODO: A gradual argument should override the empty-shape defaults.
-        assert_type(jnp.exp(gradual), jax.Array[[]])
-        assert_type(concrete + gradual, jax.Array[[2, 3]])
+        assert_type(jnp.exp(gradual), jax.Array[IntTuple])
+        assert_type(concrete + gradual, jax.Array[IntTuple])
 
 
 def test_elementwise_operators_preserve_shape() -> None:

@@ -97,6 +97,10 @@ const VAR_LEAK: &str = "Internal error: a variable has leaked from one module to
 /// due to large enums (Type) and lock guards.
 const INITIAL_GAS: Gas = Gas::new(200);
 
+fn is_gradual_shape_bound(ty: &Type) -> bool {
+    matches!(ty, Type::IntTuple(shape) if shape.is_shapeless())
+}
+
 /// Pin a solver answer for a variable of the given `kind`.
 ///
 /// `IntVar` answers are normalized into dimension space, falling back to a
@@ -1561,7 +1565,11 @@ impl Solver {
         // * We're keeping `Any` separate so it can be filtered out in `solve_one_bounds`.
         // * We're relying on `is_subset` to pin vars.
         let updated_bound = existing_bound.and_then(|first| {
-            let can_absorb = |t: &Type| !t.is_any() && t.collect_all_vars().is_empty();
+            let can_absorb = |t: &Type| {
+                !t.is_any()
+                    && !(self.config.tensor_shapes && is_gradual_shape_bound(t))
+                    && t.collect_all_vars().is_empty()
+            };
             if !can_absorb(&first) || !can_absorb(&bound) {
                 let _ = is_subset(&bound, &first); // Ignore the result, just pin vars
                 None
@@ -1746,6 +1754,15 @@ impl Solver {
         }
         if bounds.iter().any(|t| !t.is_any() && !t.is_placeholder()) {
             bounds.retain(|t| !t.is_any() && !t.is_placeholder());
+        }
+        // Gradual shapes constrain a variable when they are the only shape evidence, but they must
+        // not erase a precise shape inferred from another argument.
+        if self.config.tensor_shapes
+            && bounds
+                .iter()
+                .any(|t| !t.is_any() && !is_gradual_shape_bound(t))
+        {
+            bounds.retain(|t| !is_gradual_shape_bound(t));
         }
         // Keeping `Any` bounds causes `Any` to propagate to too many places,
         // so we filter them out unless `Any` is the only solution.
