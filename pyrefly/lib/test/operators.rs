@@ -21,6 +21,23 @@ def f(a: int, b: int) -> None:
 );
 
 testcase!(
+    bug = "Literal integer arithmetic is widened instead of folded",
+    test_literal_int_arithmetic,
+    r#"
+from typing import assert_type
+
+C = 128
+
+assert_type(1 + 2, int)
+assert_type(10 - 3, int)
+assert_type(6 * 7, int)
+assert_type(7 // 2, int)
+assert_type(-7 // 2, int)
+assert_type(C + 64, int)
+"#,
+);
+
+testcase!(
     test_dict_union_literal_keys,
     r#"
 from typing import Literal
