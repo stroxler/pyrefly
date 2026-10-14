@@ -70,7 +70,9 @@ fn test_initial_configuration_blocks_tsp_requests() {
         response.error
     );
     let paths: Vec<String> = serde_json::from_value(response.result.unwrap()).unwrap();
-    let site_packages = Uri::from_file_path(venv.site_packages()).unwrap();
+    // The server reports canonical paths, and the temporary directory may sit behind a
+    // symlink (such as `/var` on macOS).
+    let site_packages = Uri::from_file_path(venv.site_packages().canonicalize().unwrap()).unwrap();
     assert!(
         paths.contains(&site_packages.to_string()),
         "The search paths should come from the configured interpreter, got {paths:?}"
