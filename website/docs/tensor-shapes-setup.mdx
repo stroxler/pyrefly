@@ -59,11 +59,25 @@ your project can choose the runtime library versions it needs.
 `Int` — the bridge between runtime integer values and type-level symbols — and
 other runtime helpers used by shape annotations.
 
-Tensor shape support is enabled automatically when Pyrefly can resolve the
-`shape_extensions` package, so nothing else needs configuring, as long as
-Pyrefly resolves imports against the
+Tensor shape inference is enabled automatically when Pyrefly can resolve the
+`shape_extensions` package, so there is no tensor-shape-specific flag to set.
+Pyrefly must resolve imports against the
 [Python environment](../configuration#python-interpreter-path) you installed
 into.
+
+:::note Shape errors are hidden in basic mode
+When the IDE finds no Pyrefly configuration or migratable mypy or Pyright
+configuration, its default `auto` mode falls back to the
+[`basic` preset](../configuration#preset-basic). Basic mode still computes
+shapes and provides inferred types and inlay hints, but it suppresses every
+tensor-shape diagnostic. Installing the stubs alone therefore does not show
+shape errors in this mode.
+
+Run `pyrefly init` to create a project configuration (and migrate any existing
+type-checker settings), or set
+[`python.pyrefly.typeCheckingMode`](../IDE#pythonpyreflytypecheckingmode) to
+`default` or `strict` for unconfigured files.
+::::
 
 ### Checking against a local copy of the stubs
 
