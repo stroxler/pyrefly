@@ -49,6 +49,8 @@ pub enum LspEvent {
     /// Inform the server that a request is cancelled.
     /// Server should know about this ASAP to avoid wasting time on cancelled requests.
     CancelRequest(RequestId),
+    /// Confirm that initial configuration-derived state has committed.
+    InitialWorkspaceConfigurationApplied,
     // Part 2: Events that can be queued in FIFO order and handled at a later time.
     DidOpenTextDocument(DidOpenTextDocumentParams),
     DidChangeTextDocument(DidChangeTextDocumentParams),
@@ -123,6 +125,9 @@ impl LspEvent {
         match self {
             Self::RecheckFinished => "RecheckFinished".to_owned(),
             Self::CancelRequest(_) => "CancelRequest".to_owned(),
+            Self::InitialWorkspaceConfigurationApplied => {
+                "InitialWorkspaceConfigurationApplied".to_owned()
+            }
             Self::InvalidateConfigFind => "InvalidateConfigFind".to_owned(),
             Self::DidOpenTextDocument(_) => "DidOpenTextDocument".to_owned(),
             Self::DidChangeTextDocument(_) => "DidChangeTextDocument".to_owned(),
@@ -170,7 +175,9 @@ impl LspEvent {
 
     fn kind(&self) -> LspEventKind {
         match self {
-            Self::RecheckFinished | Self::CancelRequest(_) => LspEventKind::Priority,
+            Self::RecheckFinished
+            | Self::CancelRequest(_)
+            | Self::InitialWorkspaceConfigurationApplied => LspEventKind::Priority,
             Self::DidOpenTextDocument(_)
             | Self::DidChangeTextDocument(_)
             | Self::DidCloseTextDocument(_)

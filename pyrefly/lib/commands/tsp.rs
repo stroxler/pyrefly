@@ -136,7 +136,7 @@ pub fn run_tsp(
         let surface = telemetry.surface();
         let agent_session_id = telemetry.agent_session_id();
         let agent_invocation_id = telemetry.agent_invocation_id();
-        let lsp_server = Server::new(
+        let (lsp_server, _) = Server::new(
             connection,
             lsp_queue,
             initialize_info.params.clone(),
