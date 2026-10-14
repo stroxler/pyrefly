@@ -33,14 +33,19 @@ tracking:
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import InlayCodeBlock from '@site/src/components/InlayCodeBlock';
+import {
+  nanoGPTForwardCode,
+  nanoGPTForwardHints,
+} from '@site/src/components/tensorShapeInlayExamples';
 
 <Tabs>
-  <TabItem value="before" label="Without tensor shapes" default>
-    <img src="/img/tensor-shapes/nanogpt-forward-before.png" alt="NanoGPT forward without tensor shape hints — every variable is bare Tensor" />
-  </TabItem>
-  <TabItem value="after" label="With tensor shapes">
-    <img src="/img/tensor-shapes/nanogpt-forward-after.png" alt="NanoGPT forward with tensor shape hints — every variable shows its full shape" />
-  </TabItem>
+    <TabItem value="before" label="Without tensor shapes" default>
+        <InlayCodeBlock code={nanoGPTForwardCode} />
+    </TabItem>
+    <TabItem value="after" label="With tensor shapes">
+        <InlayCodeBlock code={nanoGPTForwardCode} hints={nanoGPTForwardHints} />
+    </TabItem>
 </Tabs>
 
 With tensor shapes enabled, Pyrefly infers and displays the shape of every

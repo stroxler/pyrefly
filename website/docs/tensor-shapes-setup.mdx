@@ -10,6 +10,18 @@ description: How to configure Pyrefly for tensor shape checking and set up your 
  * LICENSE file in the root directory of this source tree.
  */}
 
+import InlayCodeBlock from '@site/src/components/InlayCodeBlock';
+import {
+  nanoGPTAttentionBodyCode,
+  nanoGPTAttentionBodyHints,
+  nanoGPTAttentionQKVCode,
+  nanoGPTAttentionQKVHints,
+  nanoGPTForwardSignatureCode,
+  nanoGPTForwardSignatureHints,
+  nanoGPTMLPCode,
+  nanoGPTMLPHints,
+} from '@site/src/components/tensorShapeInlayExamples';
+
 # Getting Started with Pyrefly Tensor Shapes
 
 This page walks you through configuring Pyrefly for tensor shape checking and
@@ -218,18 +230,27 @@ without needing any `assert_type` calls.
 Here's what inlay hints look like on a real model (NanoGPT). The MLP
 module shows shapes flowing through linear layers and activations:
 
-<img src="/img/tensor-shapes/nanogpt-mlp.png" alt="NanoGPT MLP module with inlay type hints showing Tensor[B, T, 4 * NEmbedding] after the expansion layer" />
+<InlayCodeBlock code={nanoGPTMLPCode} hints={nanoGPTMLPHints} />
 
 The forward method signature shows how `x.size()` unpacks into typed
 dimensions:
 
-<img src="/img/tensor-shapes/nanogpt-forward-signature.png" alt="NanoGPT forward signature with x.size() unpacking to b: Int[B], t: Int[T], c: Int[NEmbedding]" />
+<InlayCodeBlock
+    code={nanoGPTForwardSignatureCode}
+    hints={nanoGPTForwardSignatureHints}
+/>
 
 And the attention module, where view/transpose reshapes for multi-head
 attention are fully tracked:
 
-<img src="/img/tensor-shapes/nanogpt-attention-qkv.png" alt="NanoGPT attention QKV computation with inlay type hints showing Tensor[B, NHead, T, NEmbedding // NHead]" />
+<InlayCodeBlock
+    code={nanoGPTAttentionQKVCode}
+    hints={nanoGPTAttentionQKVHints}
+/>
 
 The full attention body, including both flash and manual paths:
 
-<img src="/img/tensor-shapes/nanogpt-attention-body.png" alt="NanoGPT attention body with flash and manual attention paths fully shape-tracked" />
+<InlayCodeBlock
+    code={nanoGPTAttentionBodyCode}
+    hints={nanoGPTAttentionBodyHints}
+/>
