@@ -93,11 +93,12 @@ fn test_did_change_configuration_dynamic_registration() {
 }
 
 #[test]
-fn test_invalid_workspace_configuration_response_does_not_crash() {
+fn test_invalid_workspace_configuration_response_opens_barrier_with_defaults() {
     let root = get_test_files_root();
-    let scope_uri = Uri::from_file_path(root.path()).unwrap();
+    let root_path = root.path().join("basic");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
     let mut interaction = LspInteraction::new();
-    interaction.set_root(root.path().to_path_buf());
+    interaction.set_root(root_path);
     let settings = InitializeSettings {
         workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
         configuration: Some(None),
@@ -112,11 +113,18 @@ fn test_invalid_workspace_configuration_response_does_not_crash() {
         .expect_any_message()
         .expect("Failed to initialize");
     interaction.client.send_initialized();
-    interaction
+    let configuration = interaction
         .client
         .expect_configuration_request(Some(vec![&scope_uri]))
-        .expect("Failed to receive configuration request")
-        .send_unchecked_response(json!("not-a-list"));
+        .expect("Failed to receive configuration request");
+
+    interaction.client.did_open("foo.py");
+    let definition = interaction.client.definition("foo.py", 6, 16);
+    configuration.send_unchecked_response(json!("not-a-list"));
+
+    definition
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9)
+        .expect("The request should run with default settings");
 
     interaction.shutdown().expect("Failed to shutdown");
 }
