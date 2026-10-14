@@ -805,7 +805,7 @@ impl CalcStack {
             None
         } else {
             // The actual cycle is the set of nodes between the occurrence we just pushed
-            // and the most recent *previous* occurrence of this CaclId (i.e. the second-to-last)
+            // and the most recent *previous* occurrence of this CalcId (i.e. the second-to-last)
             let cycle_start = target_positions[target_positions.len() - 2];
             let cycle_entries: Vec<CalcId> =
                 stack[cycle_start + 1..].iter().rev().duped().collect();

@@ -1582,7 +1582,7 @@ a = True if # E: Parse
 );
 
 testcase!(
-    test_syntax_error_resulting_in_empty_defintion,
+    test_syntax_error_resulting_in_empty_definition,
     r#"
 @:a=1 # E: Parse
     "#,
