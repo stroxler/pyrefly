@@ -2521,7 +2521,7 @@ mod tests {
              untyped-def-behavior = "check-and-infer-return-type"
              search-path = ["../.."]
              python-platform = "darwin"
-             python-version = "1.2.3"
+             python-version = "3.12.3"
              site-packages-path = ["venv/lib/python1.2.3/site-packages"]
              python-interpreter = "venv/my/python"
              output-format = "min-text"
@@ -2578,7 +2578,7 @@ mod tests {
                 fallback_search_path: Default::default(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
-                    python_version: Some(PythonVersion::new(1, 2, 3)),
+                    python_version: Some(PythonVersion::new(3, 12, 3)),
                     site_package_path: Some(vec![PathBuf::from(
                         "venv/lib/python1.2.3/site-packages"
                     )]),
@@ -2751,7 +2751,7 @@ mod tests {
              untyped_def_behavior = "check-and-infer-return-type"
              search_path = ["../.."]
              python_platform = "darwin"
-             python_version = "1.2.3"
+             python_version = "3.12.3"
              site_package_path = ["venv/lib/python1.2.3/site-packages"]
              python-interpreter-path = "venv/my/python"
              replace_imports_with_any = ["fibonacci"]
@@ -2829,7 +2829,7 @@ mod tests {
             [tool.pyrefly]
              project_includes = ["./tests", "./implementation"]
                  python_platform = "darwin"
-                 python_version = "1.2.3"
+                 python_version = "3.12.3"
                  output-format = "json"
 
             [tool.pyrefly.coverage]
@@ -2849,7 +2849,7 @@ mod tests {
                 .unwrap(),
                 python_environment: PythonEnvironment {
                     python_platform: Some(PythonPlatform::mac()),
-                    python_version: Some(PythonVersion::new(1, 2, 3)),
+                    python_version: Some(PythonVersion::new(3, 12, 3)),
                     site_package_path: None,
                     interpreter_site_package_path: config
                         .python_environment
@@ -2892,7 +2892,7 @@ mod tests {
             [tool.pysa]
             pysa_value = 2
             [tool.pyrefly]
-            python_version = "1.2.3"
+            python_version = "3.12.3"
         "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
             .unwrap()
@@ -2903,7 +2903,7 @@ mod tests {
             ConfigFile {
                 project_includes: ConfigFile::default_project_includes(),
                 python_environment: PythonEnvironment {
-                    python_version: Some(PythonVersion::new(1, 2, 3)),
+                    python_version: Some(PythonVersion::new(3, 12, 3)),
                     python_platform: None,
                     site_package_path: None,
                     interpreter_site_package_path: config
@@ -2947,7 +2947,7 @@ mod tests {
                  [tool.pysa]
                  pysa_value = 2
                      [tool.pyrefly]
-                     python_version = "1.2.3"
+                     python_version = "3.12.3"
                          inzo = "overthinker"
                          "#;
         let config = ConfigFile::parse_pyproject_toml(config_str)
