@@ -51,6 +51,8 @@ pub enum LspEvent {
     CancelRequest(RequestId),
     /// Confirm that initial configuration-derived state has committed.
     InitialWorkspaceConfigurationApplied,
+    /// Report that every event held for the initial settings has been processed.
+    InitialWorkspaceConfigurationDrained,
     // Part 2: Events that can be queued in FIFO order and handled at a later time.
     DidOpenTextDocument(DidOpenTextDocumentParams),
     DidChangeTextDocument(DidChangeTextDocumentParams),
@@ -128,6 +130,9 @@ impl LspEvent {
             Self::InitialWorkspaceConfigurationApplied => {
                 "InitialWorkspaceConfigurationApplied".to_owned()
             }
+            Self::InitialWorkspaceConfigurationDrained => {
+                "InitialWorkspaceConfigurationDrained".to_owned()
+            }
             Self::InvalidateConfigFind => "InvalidateConfigFind".to_owned(),
             Self::DidOpenTextDocument(_) => "DidOpenTextDocument".to_owned(),
             Self::DidChangeTextDocument(_) => "DidChangeTextDocument".to_owned(),
@@ -177,7 +182,8 @@ impl LspEvent {
         match self {
             Self::RecheckFinished
             | Self::CancelRequest(_)
-            | Self::InitialWorkspaceConfigurationApplied => LspEventKind::Priority,
+            | Self::InitialWorkspaceConfigurationApplied
+            | Self::InitialWorkspaceConfigurationDrained => LspEventKind::Priority,
             Self::DidOpenTextDocument(_)
             | Self::DidChangeTextDocument(_)
             | Self::DidCloseTextDocument(_)

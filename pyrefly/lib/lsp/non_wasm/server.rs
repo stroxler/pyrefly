@@ -2115,8 +2115,31 @@ impl Server {
             LspEvent::TspExtraRequest { .. } => {
                 unreachable!("extra TSP connection requests are answered by the TSP loop")
             }
-            LspEvent::InitialWorkspaceConfigurationApplied => {
-                unreachable!("initial configuration events are consumed before dispatch")
+            // A duplicate initial response commits again after the barrier is open.
+            LspEvent::InitialWorkspaceConfigurationApplied => {}
+            LspEvent::InitialWorkspaceConfigurationDrained => {
+                // Held opens skip indexing, so indexing starts only after every held
+                // request has run. A later response applies like any configuration change.
+                self.awaiting_initial_workspace_config
+                    .store(false, Ordering::Relaxed);
+                if self.indexing_mode != IndexingMode::None {
+                    // We need to resolve configs after invalidation completes, so enqueue that
+                    // calculation in the recheck queue to ensure ordering.
+                    self.recheck_queue.queue_task(
+                        TelemetryEventKind::PopulateProjectFiles,
+                        Box::new(move |server, _telemetry, telemetry_event| {
+                            let configs: Vec<_> = server
+                                .open_files
+                                .read()
+                                .keys()
+                                .filter_map(|path| path.parent())
+                                .filter_map(|dir| server.state.config_finder().directory(dir))
+                                .collect();
+                            server.populate_project_files_for_configs(configs, telemetry_event);
+                        }),
+                    );
+                    self.populate_workspace_files_if_necessary(telemetry_event);
+                }
             }
             LspEvent::RecheckFinished => {
                 // We did a commit and want to get back to a stable state.
@@ -4308,8 +4331,7 @@ impl Server {
                 Some(&self.lsp_thread_pool),
             );
         }
-        // Skip background indexing if we're still waiting for the initial workspace config.
-        // The indexing will be triggered when we receive the config response.
+        // Skip indexing until the events held for the initial settings have run.
         if !self
             .awaiting_initial_workspace_config
             .load(Ordering::Relaxed)
@@ -4845,7 +4867,7 @@ impl Server {
     ) {
         let is_initial_workspace_configuration = self
             .awaiting_initial_workspace_config
-            .swap(false, Ordering::Relaxed);
+            .load(Ordering::Relaxed);
         let mut modified = false;
         for (i, id) in request.items.iter().enumerate() {
             if let Some(value) = response.get(i) {
@@ -4912,25 +4934,6 @@ impl Server {
                 }
             }),
         );
-
-        if is_initial_workspace_configuration && self.indexing_mode != IndexingMode::None {
-            // We need to resolve configs after invalidation completes, so enqueue that
-            // calculation in the recheck queue to ensure ordering.
-            self.recheck_queue.queue_task(
-                TelemetryEventKind::PopulateProjectFiles,
-                Box::new(move |server, _telemetry, telemetry_event| {
-                    let configs: Vec<_> = server
-                        .open_files
-                        .read()
-                        .keys()
-                        .filter_map(|path| path.parent())
-                        .filter_map(|dir| server.state.config_finder().directory(dir))
-                        .collect();
-                    server.populate_project_files_for_configs(configs, telemetry_event);
-                }),
-            );
-            self.populate_workspace_files_if_necessary(telemetry_event);
-        }
     }
 
     /// Create a handle with analysis config that decides language service behavior.

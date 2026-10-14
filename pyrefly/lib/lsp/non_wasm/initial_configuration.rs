@@ -80,6 +80,9 @@ impl<'a> InitialConfigurationEvents<'a> {
                         Some(event) => event,
                         None => {
                             self.state = State::Ready;
+                            let _ = self
+                                .queue
+                                .send(LspEvent::InitialWorkspaceConfigurationDrained);
                             continue;
                         }
                     },
@@ -239,6 +242,13 @@ mod tests {
             events.recv().unwrap().event(),
             LspEvent::DidChangeTextDocument(_)
         ));
+        assert!(
+            matches!(
+                events.recv().unwrap().event(),
+                LspEvent::InitialWorkspaceConfigurationDrained
+            ),
+            "the drain must finish before any event that was not held"
+        );
         assert_eq!(
             request_id(&events.recv().unwrap()),
             Some(RequestId::from(2))
