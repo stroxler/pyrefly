@@ -326,6 +326,37 @@ fn test_duplicate_initial_configuration_response_does_not_crash() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+#[test]
+fn test_shutdown_bypasses_initial_configuration_barrier() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("basic");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path);
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let _configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request");
+
+    interaction
+        .shutdown()
+        .expect("Shutdown should not wait for initial configuration");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_workspace_discovers_project_venv() {
