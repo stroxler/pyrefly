@@ -29,24 +29,35 @@ getting your first shape-annotated code running.
 
 ## Installation
 
-Tensor shape checking requires shape-aware stubs to be available through normal
-import resolution. Install them from PyPI:
+Pyrefly publishes shape-aware stub packages for these libraries:
+
+- **PyTorch:** `pyrefly-torch-stubs`
+- **JAX:** `jax-pyrefly-stubs` (not `pyrefly-jax-stubs`)
+- **NumPy:** `pyrefly-numpy-stubs`
+- **einops:** `pyrefly-einops-stubs` (currently for PyTorch tensors)
+
+Coverage is partial and growing. Install the packages for the libraries your
+project uses. For example, to enable PyTorch shape checking:
 
 ```bash
 pip install pyrefly-torch-stubs
 ```
 
-`pyrefly-torch-stubs` is a PEP 561 stub-only package: it carries type
-information for PyTorch, and leaves the runtime `torch` package alone. PyTorch's
-own type stubs don't carry shape information, so these stubs take precedence
-over them and provide shape-aware versions (e.g., `nn.Conv2d.__init__` that
-captures kernel size, stride, and padding as type-level values, and a `forward`
-that computes the output spatial dimensions).
+The packages are PEP 561 stub-only distributions: they provide shape-aware type
+information without replacing or shadowing the runtime libraries. For example,
+`pyrefly-torch-stubs` provides versions of APIs such as `nn.Conv2d.__init__`
+that capture kernel size, stride, and padding as type-level values, plus a
+`forward` method that computes the output spatial dimensions.
 
-Installing it also pulls in `pyrefly-shape-extensions`, which provides the
-`shape_extensions` package. `shape_extensions` exports `Int` — the bridge
-between runtime integer values and type-level symbols. Both packages are
-versioned in lockstep with Pyrefly.
+All tensor-shape packages are released with the same version number as Pyrefly.
+The stub packages pin their Pyrefly shape dependencies to that exact version,
+including `pyrefly-shape-extensions`, so upgrade Pyrefly and its shape packages
+together. The PyTorch, JAX, and NumPy runtime dependencies remain unpinned, so
+your project can choose the runtime library versions it needs.
+
+`pyrefly-shape-extensions` provides the `shape_extensions` import. It exports
+`Int` — the bridge between runtime integer values and type-level symbols — and
+other runtime helpers used by shape annotations.
 
 Tensor shape support is enabled automatically when Pyrefly can resolve the
 `shape_extensions` package, so nothing else needs configuring, as long as
