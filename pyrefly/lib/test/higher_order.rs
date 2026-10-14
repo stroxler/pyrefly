@@ -2069,7 +2069,7 @@ def go(v: Any) -> None:
 );
 
 testcase!(
-    bug = "A constructor with several matching overloads leaks its type parameter when T solves to Any",
+    bug = "A constructor with several matching overloads leaks its type parameter",
     test_several_overloaded_constructors_with_gradual_argument,
     r#"
 from typing import Any, Callable, Iterable, assert_type, overload
@@ -2080,7 +2080,18 @@ class A[T]:
     @overload
     def __init__(self, x: T) -> None: ...
     def __init__(self, x: Any) -> None: ...
+class B[T]:
+    @overload
+    def __init__(self, x: T) -> None: ...
+    @overload
+    def __init__(self, x: Iterable[T]) -> None: ...
+    def __init__(self, x: Any) -> None: ...
 def go(v: Any) -> None:
     assert_type(apply(A, v), A[Any])  # E: assert_type(A[T], A[Any]) failed
+    assert_type(apply(A, 1), A[int])  # E: assert_type(A[T], A[int]) failed
+    assert_type(apply(A, [1]), A[int])
+    assert_type(apply(B, v), B[Any])  # E: assert_type(B[T], B[Any]) failed
+    assert_type(apply(B, 1), B[int])  # E: assert_type(B[T], B[int]) failed
+    assert_type(apply(B, [1]), B[list[int]])  # E: assert_type(B[T], B[list[int]]) failed
     "#,
 );
