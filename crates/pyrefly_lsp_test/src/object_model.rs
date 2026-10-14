@@ -245,9 +245,9 @@ impl<'a, R: lsp_types::Request> ServerRequestHandle<'a, R> {
         self.client.send_response::<R>(self.id, result)
     }
 
-    pub fn send_unchecked_response(self, result: Value) {
+    pub fn send_unchecked_response(&self, result: Value) {
         self.client.send_message(Message::Response(Response {
-            id: self.id,
+            id: self.id.clone(),
             result: Some(result),
             error: None,
         }));

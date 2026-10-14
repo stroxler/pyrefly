@@ -282,6 +282,50 @@ fn test_initial_configuration_processes_request_cancellation() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+#[test]
+fn test_duplicate_initial_configuration_response_does_not_crash() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("basic");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request");
+
+    configuration.send_unchecked_response(json!([{}]));
+    configuration.send_unchecked_response(json!([{}]));
+    interaction.client.did_open("foo.py");
+    interaction
+        .client
+        .definition("foo.py", 6, 16)
+        .expect_response(json!({
+            "uri": Uri::from_file_path(root_path.join("bar.py")).unwrap().to_string(),
+            "range": {
+                "start": {"line": 6, "character": 6},
+                "end": {"line": 6, "character": 9}
+            }
+        }))
+        .expect("The duplicate response should not stop the server");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_workspace_discovers_project_venv() {
