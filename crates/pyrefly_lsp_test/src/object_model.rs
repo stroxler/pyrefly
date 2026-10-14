@@ -22,6 +22,7 @@ use crossbeam_channel::RecvTimeoutError;
 use crossbeam_channel::Sender;
 use lsp_server::RequestId;
 use lsp_server::ResponseError;
+use lsp_types::CancelNotification;
 use lsp_types::CodeActionRequest;
 use lsp_types::CompletionList;
 use lsp_types::CompletionRequest;
@@ -165,6 +166,10 @@ impl<'a, R: lsp_types::Request> ClientRequestHandle<'a, R> {
 
     pub fn expect_response_error(self, expected: Value) -> Result<(), LspMessageError> {
         self.client.expect_response_error(self.id, expected)
+    }
+
+    pub fn expect_response_error_code(self, expected: i32) -> Result<(), LspMessageError> {
+        self.client.expect_response_error_code(self.id, expected)
     }
 
     pub fn expect_response_with(
@@ -543,6 +548,11 @@ impl TestClient {
         self.send_notification::<DidChangeConfigurationNotification>(json!({"settings": {}}));
     }
 
+    /// Cancel a client request by its JSON-RPC request ID.
+    pub fn cancel_request(&self, id: &RequestId) {
+        self.send_notification::<CancelNotification>(json!({"id": id}));
+    }
+
     pub fn completion(
         &self,
         file: &'static str,
@@ -883,6 +893,24 @@ impl TestClient {
             }
         })?;
         assert_eq!(json!(expected), json!(actual));
+        Ok(())
+    }
+
+    pub fn expect_response_error_code(
+        &self,
+        id: RequestId,
+        expected: i32,
+    ) -> Result<(), LspMessageError> {
+        let actual = self.expect_message(&format!("Response error id={}", id), |msg| {
+            if let Message::Response(x) = msg
+                && x.id == id
+            {
+                Some(Ok(x.error.unwrap()))
+            } else {
+                None
+            }
+        })?;
+        assert_eq!(actual.code, expected);
         Ok(())
     }
 
