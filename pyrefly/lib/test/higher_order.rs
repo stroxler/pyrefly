@@ -2046,3 +2046,42 @@ def seven[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14](
 reveal_type(seven(f, f, f, f, f, f, f))  # E: revealed type: tuple[Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown]
     "#,
 );
+
+// https://github.com/facebook/pyrefly/issues/5236
+testcase!(
+    bug = "A constructor with one matching overload leaks its type parameter when T solves to Any",
+    test_lone_overloaded_constructor_with_gradual_argument,
+    r#"
+from typing import Any, Callable, Iterable, assert_type, overload
+def apply[T, R](f: Callable[[T], R], x: T) -> R: ...
+class Box[T]:
+    @overload
+    def __init__(self) -> None: ...
+    @overload
+    def __init__(self, it: Iterable[T]) -> None: ...
+    def __init__(self, it: Any = None) -> None: ...
+def go(v: Any) -> None:
+    assert_type(apply(list, v), list[Any])  # E: assert_type(list[_T], list[Any]) failed
+    assert_type(apply(set, v), set[Any])  # E: assert_type(set[_T], set[Any]) failed
+    assert_type(apply(frozenset, v), frozenset[Any])  # E: assert_type(frozenset[_T_co], frozenset[Any]) failed
+    assert_type(apply(Box, v), Box[Any])  # E: assert_type(Box[T], Box[Any]) failed
+    sum(apply(list, v))  # E: No matching overload found for function `sum`
+    "#,
+);
+
+testcase!(
+    bug = "A constructor with several matching overloads leaks its type parameter when T solves to Any",
+    test_several_overloaded_constructors_with_gradual_argument,
+    r#"
+from typing import Any, Callable, Iterable, assert_type, overload
+def apply[T, R](f: Callable[[T], R], x: T) -> R: ...
+class A[T]:
+    @overload
+    def __init__(self, x: Iterable[T]) -> None: ...
+    @overload
+    def __init__(self, x: T) -> None: ...
+    def __init__(self, x: Any) -> None: ...
+def go(v: Any) -> None:
+    assert_type(apply(A, v), A[Any])  # E: assert_type(A[T], A[Any]) failed
+    "#,
+);
