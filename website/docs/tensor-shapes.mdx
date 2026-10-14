@@ -57,7 +57,7 @@ variables.
 dir: overview
 source: microtorch
 shared: microtorch
-description: See tensor shape tracking, variadic batch dimensions, and shape mismatch errors in action.
+description: See tensor shape tracking through matrix multiplication and concatenation, and shape mismatch errors in action.
 ```
 
 ## How it works
@@ -92,7 +92,7 @@ Arithmetic works too: if `a: Int[3]` and `b: Int[4]`, then
 **Generic type parameters** let you write shape-polymorphic modules:
 
 ```python
-class Linear[N: IntVar, M: IntVar]:
+class Linear[N: IntVar, M: IntVar](nn.Module):
     def __init__(self, n: Int[N], m: Int[M]):
         ...
 
@@ -125,15 +125,15 @@ Some PyTorch operators have simple shape signatures that can be expressed as
 standard type stubs. For example, `torch.mm`:
 
 ```python
-def mm[M: IntVar, K: IntVar, N: IntVar](x: Tensor[[M, K]], y: Tensor[[K, N]]) -> Tensor[[M, N]]:
+def mm[N: IntVar, K: IntVar, M: IntVar](input: Tensor[[N, K]], mat2: Tensor[[K, M]]) -> Tensor[[N, M]]:
     ...
 ```
 
 For operators with more complex shape logic (like `reshape`, `cat`, or
-`F.interpolate`), Pyrefly uses a small DSL to specify shape transforms:
+`F.interpolate`), the stubs use a small DSL to specify shape transforms:
 
 ```python
-# Internal library definition — not user-facing code
+# Abridged from the published Torch stubs (torch-stubs/_shapes.pyi)
 @type_shape_dsl_function
 def repeat_shape(shape: IntTuple, repeats: IntTuple) -> IntTuple:
     if len(repeats) < len(shape):
