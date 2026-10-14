@@ -2049,7 +2049,6 @@ reveal_type(seven(f, f, f, f, f, f, f))  # E: revealed type: tuple[Unknown, Unkn
 
 // https://github.com/facebook/pyrefly/issues/5236
 testcase!(
-    bug = "A constructor with one matching overload leaks its type parameter when T solves to Any",
     test_lone_overloaded_constructor_with_gradual_argument,
     r#"
 from typing import Any, Callable, Iterable, assert_type, overload
@@ -2061,11 +2060,11 @@ class Box[T]:
     def __init__(self, it: Iterable[T]) -> None: ...
     def __init__(self, it: Any = None) -> None: ...
 def go(v: Any) -> None:
-    assert_type(apply(list, v), list[Any])  # E: assert_type(list[_T], list[Any]) failed
-    assert_type(apply(set, v), set[Any])  # E: assert_type(set[_T], set[Any]) failed
-    assert_type(apply(frozenset, v), frozenset[Any])  # E: assert_type(frozenset[_T_co], frozenset[Any]) failed
-    assert_type(apply(Box, v), Box[Any])  # E: assert_type(Box[T], Box[Any]) failed
-    sum(apply(list, v))  # E: No matching overload found for function `sum`
+    assert_type(apply(list, v), list[Any])
+    assert_type(apply(set, v), set[Any])
+    assert_type(apply(frozenset, v), frozenset[Any])
+    assert_type(apply(Box, v), Box[Any])
+    sum(apply(list, v))
     "#,
 );
 

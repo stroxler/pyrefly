@@ -2028,10 +2028,13 @@ impl Solver {
             return None;
         }
         // A gradual solved type accepts every branch, so pruning against only gradual types
-        // cannot tell them apart, and neither can anything else downstream.
-        if solved_vars_in_argument
-            .iter()
-            .all(|(_, solved_var)| solved_var.solved_ty.is_any())
+        // cannot tell them apart, and neither can anything else downstream. A lone branch has
+        // nothing to be told apart from, so it is still probed: committing its probe solves the
+        // vars that only the branch mentions.
+        if branches.len() > 1
+            && solved_vars_in_argument
+                .iter()
+                .all(|(_, solved_var)| solved_var.solved_ty.is_any())
         {
             return Some(OverloadPruning::Ambiguous);
         }
