@@ -357,6 +357,31 @@ fn test_shutdown_bypasses_initial_configuration_barrier() {
         .expect("Shutdown should not wait for initial configuration");
 }
 
+#[test]
+fn test_client_without_configuration_capability_has_no_barrier() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("basic");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path);
+
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+            ..Default::default()
+        })
+        .expect("Failed to initialize");
+
+    interaction.client.did_open("foo.py");
+    interaction
+        .client
+        .definition("foo.py", 6, 16)
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9)
+        .expect("The request should not wait for workspace configuration");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_workspace_discovers_project_venv() {
