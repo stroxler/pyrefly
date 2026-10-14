@@ -439,6 +439,48 @@ fn test_workspace_folder_change_waits_for_initial_configuration() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+// bug = "The first diagnostics use default settings instead of the initial settings."
+#[test]
+fn test_initial_configuration_publishes_provisional_diagnostics() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("tests_requiring_config");
+    let type_errors_path = root_path.join("type_errors.py");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path);
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request");
+
+    interaction.client.did_open("type_errors.py");
+    configuration.send_configuration_response(json!([
+        {"pyrefly": {"displayTypeErrors": "force-off"}},
+        {"pyrefly": {"displayTypeErrors": "force-off"}}
+    ]));
+
+    interaction
+        .client
+        .expect_publish_diagnostics_must_have_error_count(type_errors_path, 1)
+        .expect("The first diagnostics should use default settings");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_workspace_discovers_project_venv() {
