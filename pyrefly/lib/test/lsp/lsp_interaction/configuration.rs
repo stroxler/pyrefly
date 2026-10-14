@@ -5,17 +5,24 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::time::Duration;
+
 use lsp_server::ErrorCode;
 use lsp_server::ResponseError;
 use lsp_types::ConfigurationRequest;
 use lsp_types::DidChangeWorkspaceFoldersNotification;
 use lsp_types::RegistrationRequest;
 use lsp_types::Uri;
+use pyrefly_lsp_test::IndexingMode;
+use pyrefly_lsp_test::LspArgs;
 use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
+use pyrefly_lsp_test::object_model::LspInteractionArgs;
 use pyrefly_lsp_test::object_model::ServerRequestHandle;
+use pyrefly_lsp_test::object_model::TestTelemetry;
 use pyrefly_util::fs_anyhow::create_dir_all;
 use pyrefly_util::fs_anyhow::write;
+use pyrefly_util::telemetry::TelemetryEventKind;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
@@ -475,6 +482,80 @@ fn test_initial_configuration_prevents_provisional_diagnostics() {
         .client
         .expect_publish_diagnostics_must_have_error_count(type_errors_path, 0)
         .expect("The first diagnostics should honor the initial configuration");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
+#[test]
+fn test_deferred_requests_run_before_startup_indexing() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("tests_requiring_config");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let telemetry = TestTelemetry::new();
+    let telemetry_events = telemetry.subscribe();
+    let mut interaction = LspInteraction::new_with_args(LspInteractionArgs {
+        args: LspArgs {
+            indexing_mode: IndexingMode::LazyNonBlockingBackground,
+            ..LspInteractionArgs::default().args
+        },
+        telemetry: Box::new(telemetry),
+        ..Default::default()
+    });
+    interaction.set_root(root_path);
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request");
+
+    interaction.client.did_open("foo.py");
+    let definition = interaction.client.definition("foo.py", 6, 16);
+    configuration.send_configuration_response(json!([{}, {}]));
+    definition
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9)
+        .expect("The deferred request should complete before startup indexing");
+
+    let mut saw_definition = false;
+    let mut saw_project_indexing = false;
+    let mut saw_workspace_indexing = false;
+    while !saw_project_indexing || !saw_workspace_indexing {
+        let event = telemetry_events
+            .recv_timeout(Duration::from_secs(10))
+            .expect("Expected startup scheduling telemetry");
+        match &event.event.kind {
+            TelemetryEventKind::LspEvent(name) if name == "LspRequest(textDocument/definition)" => {
+                saw_definition = true;
+            }
+            TelemetryEventKind::PopulateProjectFiles => {
+                assert!(
+                    saw_definition,
+                    "Project indexing ran before the deferred request"
+                );
+                saw_project_indexing = true;
+            }
+            TelemetryEventKind::PopulateWorkspaceFiles => {
+                assert!(
+                    saw_definition,
+                    "Workspace indexing ran before the deferred request"
+                );
+                saw_workspace_indexing = true;
+            }
+            _ => {}
+        }
+    }
 
     interaction.shutdown().expect("Failed to shutdown");
 }
