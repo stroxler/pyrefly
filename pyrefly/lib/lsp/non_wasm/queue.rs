@@ -272,11 +272,23 @@ impl LspQueue {
 
     /// Return the next event with its original queue metadata.
     pub fn recv(&self) -> Result<QueuedEvent, RecvError> {
+        Ok(self
+            .recv_until(None)?
+            .expect("a receive without a deadline waits until an event arrives"))
+    }
+
+    /// Like [`LspQueue::recv`], but return `None` if no event arrives before
+    /// `deadline`.
+    pub fn recv_until(&self, deadline: Option<Instant>) -> Result<Option<QueuedEvent>, RecvError> {
         // If a delayed request is held, wake once its window expires so we can
         // deliver it. The slot is only written by the same thread that calls
         // `recv` (via `send_delayed` during event processing), so it can't change
         // while we block here.
-        let deadline = self.delayed.lock().as_ref().map(|(_, ready_at)| *ready_at);
+        let delayed_deadline = self.delayed.lock().as_ref().map(|(_, ready_at)| *ready_at);
+        let wake_at = match (delayed_deadline, deadline) {
+            (Some(delayed), Some(deadline)) => Some(delayed.min(deadline)),
+            (delayed, deadline) => delayed.or(deadline),
+        };
 
         let mut event_receiver_selector = Select::new_biased();
         // Biased selector will pick the receiver with lower index over higher ones,
@@ -284,17 +296,18 @@ impl LspQueue {
         let priority_receiver_index = event_receiver_selector.recv(&self.priority.1);
         let queued_events_receiver_index = event_receiver_selector.recv(&self.normal.1);
 
-        let selected = match deadline {
-            Some(deadline) => match event_receiver_selector.select_deadline(deadline) {
+        let selected = match wake_at {
+            Some(wake_at) => match event_receiver_selector.select_deadline(wake_at) {
                 Ok(selected) => selected,
-                Err(_) => {
+                Err(_) if delayed_deadline == Some(wake_at) => {
                     let (event, _ready_at) = self
                         .delayed
                         .lock()
                         .take()
                         .expect("a deadline is only set while a delayed request is held");
-                    return Ok(event);
+                    return Ok(Some(event));
                 }
+                Err(_) => return Ok(None),
             },
             None => event_receiver_selector.select(),
         };
@@ -307,7 +320,7 @@ impl LspQueue {
         if id == last_mutation {
             self.last_mutation.store(0, Ordering::Relaxed);
         }
-        Ok(QueuedEvent::from_parts(id, x, queue_time))
+        Ok(Some(QueuedEvent::from_parts(id, x, queue_time)))
     }
 
     /// Return whether an observed mutation follows `event` in the live queue.
@@ -492,6 +505,34 @@ mod tests {
         let delivered_enqueue_time = queue.recv().unwrap().enqueued_at();
 
         assert_eq!(delivered_enqueue_time, enqueued_at);
+    }
+
+    #[test]
+    fn test_recv_until_returns_none_at_deadline() {
+        let queue = LspQueue::new();
+        assert!(queue.recv_until(Some(Instant::now())).unwrap().is_none());
+
+        queue.send(request()).unwrap();
+        assert!(
+            queue.recv_until(Some(Instant::now())).unwrap().is_some(),
+            "a queued event should be returned before the deadline is checked"
+        );
+    }
+
+    #[test]
+    fn test_recv_until_delivers_delayed_request_before_deadline() {
+        let queue = LspQueue::new();
+        queue.send(request()).unwrap();
+        let queued = queue.recv().unwrap();
+        queue.send_delayed(queued, Instant::now());
+
+        assert!(matches!(
+            queue
+                .recv_until(Some(Instant::now() + Duration::from_secs(60)))
+                .unwrap()
+                .map(QueuedEvent::into_parts),
+            Some((_, LspEvent::LspRequest(_), _))
+        ));
     }
 
     #[test]

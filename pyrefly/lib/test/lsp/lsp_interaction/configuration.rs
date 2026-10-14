@@ -560,6 +560,52 @@ fn test_deferred_requests_run_before_startup_indexing() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+#[test]
+fn test_initial_configuration_timeout_continues_with_defaults() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("basic");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path);
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request");
+
+    interaction.client.did_open("foo.py");
+    interaction
+        .client
+        .definition("foo.py", 6, 16)
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9)
+        .expect("The response deadline should run the request with default settings");
+
+    configuration.send_configuration_response(json!([
+        {"pyrefly": {"disableLanguageServices": true}},
+        {"pyrefly": {"disableLanguageServices": true}}
+    ]));
+    interaction
+        .client
+        .definition("foo.py", 6, 16)
+        .expect_response(json!(null))
+        .expect("A late response should apply like a later configuration change");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_workspace_discovers_project_venv() {

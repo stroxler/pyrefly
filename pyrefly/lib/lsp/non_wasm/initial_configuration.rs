@@ -7,16 +7,22 @@
 
 use std::collections::VecDeque;
 use std::mem::take;
+use std::time::Duration;
 use std::time::Instant;
 
 use crossbeam_channel::RecvError;
 use crossbeam_channel::TryRecvError;
 use lsp_server::RequestId;
 use tracing::info;
+use tracing::warn;
 
 use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
 use crate::lsp::non_wasm::queue::QueuedEvent;
+
+/// How long to wait for the client to answer the initial `workspace/configuration`
+/// request before continuing with default settings.
+const RESPONSE_DEADLINE: Duration = Duration::from_secs(10);
 
 #[derive(Default)]
 struct DeferredEvents {
@@ -90,9 +96,25 @@ impl<'a> InitialConfigurationEvents<'a> {
                         unreachable!("LspQueue owns its priority sender")
                     }
                 },
-                State::Waiting { .. } | State::Applying { .. } | State::Ready => {
-                    self.queue.recv()?
-                }
+                State::Waiting {
+                    started_at,
+                    deferred,
+                    ..
+                } => match self
+                    .queue
+                    .recv_until(Some(*started_at + RESPONSE_DEADLINE))?
+                {
+                    Some(event) => event,
+                    None => {
+                        warn!(
+                            "No initial workspace configuration response after {:.2}s, continuing with defaults",
+                            started_at.elapsed().as_secs_f32()
+                        );
+                        self.state = State::Draining(take(deferred));
+                        continue;
+                    }
+                },
+                State::Applying { .. } | State::Ready => self.queue.recv()?,
             };
 
             match &mut self.state {
