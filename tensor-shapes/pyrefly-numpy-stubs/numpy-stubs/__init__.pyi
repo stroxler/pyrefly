@@ -206,7 +206,7 @@ from numpy._shapes import (
     vecdot_shape,
     vecmat_shape,
 )
-from numpy._typing import ArrayLike
+from numpy._typing import _ArrayLikeInt_co, ArrayLike
 from numpy._typing._extended_precision import (
     complex256 as complex256,
     float128 as float128,
@@ -479,8 +479,12 @@ type _ArrayIndex = (
     _BasicIndex
     | _IndexScalar
     | _IndexSequence
+    | _ArrayLikeInt_co
     | ndarray
-    | tuple[_BasicIndex | _IndexScalar | _IndexSequence | ndarray, ...]
+    | tuple[
+        _BasicIndex | _IndexScalar | _IndexSequence | _ArrayLikeInt_co | ndarray,
+        ...,
+    ]
 )
 type _ArrayScalar = None | py_bool | int | float | complex | str | bytes | generic
 
