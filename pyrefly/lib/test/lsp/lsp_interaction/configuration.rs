@@ -5,12 +5,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use lsp_server::ErrorCode;
+use lsp_server::ResponseError;
 use lsp_types::ConfigurationRequest;
 use lsp_types::DidChangeWorkspaceFoldersNotification;
 use lsp_types::RegistrationRequest;
 use lsp_types::Uri;
 use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
+use pyrefly_lsp_test::object_model::ServerRequestHandle;
 use pyrefly_util::fs_anyhow::create_dir_all;
 use pyrefly_util::fs_anyhow::write;
 use serde_json::json;
@@ -118,6 +121,91 @@ fn test_invalid_workspace_configuration_response_does_not_crash() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+/// Starts a server whose client supports `workspace/configuration`, and
+/// returns the initial configuration request without answering it.
+fn start_without_initial_configuration_response<'a>(
+    interaction: &'a LspInteraction,
+    scope_uri: &Uri,
+) -> ServerRequestHandle<'a, ConfigurationRequest> {
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    interaction
+        .client
+        .expect_configuration_request(Some(vec![scope_uri]))
+        .expect("Failed to receive configuration request")
+}
+
+// bug = "A request sent before the initial settings response ignores its search paths."
+#[test]
+fn test_initial_configuration_search_paths_ignored_by_earlier_requests() {
+    let test_files_root = get_test_files_root();
+    let workspace_root = test_files_root.path().join("workspace");
+    let extra_path = test_files_root.path().join("extra");
+    create_dir_all(&workspace_root).expect("Failed to create the workspace");
+    create_dir_all(&extra_path).expect("Failed to create the extra search path");
+    write(
+        &workspace_root.join("main.py"),
+        "from dependency import VALUE\nVALUE\n",
+    )
+    .expect("Failed to write the workspace module");
+    write(&extra_path.join("dependency.py"), "VALUE = 1\n")
+        .expect("Failed to write the dependency module");
+
+    let scope_uri = Uri::from_file_path(&workspace_root).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    let configuration = start_without_initial_configuration_response(&interaction, &scope_uri);
+
+    interaction.client.did_open("workspace/main.py");
+    let definition = interaction.client.definition("workspace/main.py", 1, 2);
+    let extra_path = extra_path.to_string_lossy().into_owned();
+    configuration.send_configuration_response(json!([
+        {"pyrefly": {"extraSearchPaths": [extra_path]}},
+        {}
+    ]));
+
+    definition
+        .expect_definition_response_from_root("workspace/main.py", 0, 23, 0, 28)
+        .expect("The request should not find the module on the extra search path");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
+#[test]
+fn test_initial_configuration_error_response_uses_default_settings() {
+    let test_files_root = get_test_files_root();
+    let root_path = test_files_root.path().join("basic");
+    let scope_uri = Uri::from_file_path(&root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path);
+    let configuration = start_without_initial_configuration_response(&interaction, &scope_uri);
+
+    interaction.client.did_open("foo.py");
+    let definition = interaction.client.definition("foo.py", 6, 16);
+    configuration.send_error_response(ResponseError {
+        code: ErrorCode::InternalError as i32,
+        message: "configuration unavailable".to_owned(),
+        data: None,
+    });
+
+    definition
+        .expect_definition_response_from_root("bar.py", 6, 6, 6, 9)
+        .expect("The request should answer with default settings");
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[test]
 fn test_initial_configuration_preserves_client_event_order() {
     let test_files_root = get_test_files_root();
@@ -136,24 +224,7 @@ fn test_initial_configuration_preserves_client_event_order() {
     let scope_uri = Uri::from_file_path(&workspace_root).unwrap();
     let mut interaction = LspInteraction::new();
     interaction.set_root(test_files_root.path().to_path_buf());
-    let settings = InitializeSettings {
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
-        configuration: Some(None),
-        ..Default::default()
-    };
-
-    interaction
-        .client
-        .send_initialize(interaction.client.get_initialize_params(&settings));
-    interaction
-        .client
-        .expect_any_message()
-        .expect("Failed to initialize");
-    interaction.client.send_initialized();
-    let configuration = interaction
-        .client
-        .expect_configuration_request(Some(vec![&scope_uri]))
-        .expect("Failed to receive configuration request");
+    let configuration = start_without_initial_configuration_response(&interaction, &scope_uri);
 
     interaction.client.did_open("workspace/main.py");
     let first_definition = interaction.client.definition("workspace/main.py", 1, 2);

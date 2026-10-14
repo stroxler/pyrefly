@@ -253,6 +253,14 @@ impl<'a> ServerRequestHandle<'a, ConfigurationRequest> {
     pub fn send_configuration_response(self, result: Value) {
         self.client.send_configuration_response(self.id, result);
     }
+
+    pub fn send_error_response(self, error: ResponseError) {
+        self.client.send_message(Message::Response(Response {
+            id: self.id,
+            result: None,
+            error: Some(error),
+        }));
+    }
 }
 
 pub struct TestClient {
