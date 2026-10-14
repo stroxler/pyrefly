@@ -852,7 +852,6 @@ def f(x: Shaped[ndarray, "[M]"], y: M) -> None:
 );
 
 testcase!(
-    bug = "Bare shape defaults reject symbolic shapes in both directions",
     test_bare_array_gradual_assignability,
     shaped_env(),
     r#"
@@ -862,8 +861,8 @@ from shape_extensions import IntTuple
 def take_bare(value: ndarray) -> None: ...
 
 def check[S: IntTuple](shaped: ndarray[S], bare: ndarray) -> ndarray[S]:
-    take_bare(shaped)  # E: is not assignable to parameter `value`
-    return bare  # E: is not assignable to declared return type
+    take_bare(shaped)
+    return bare
 
 def check_concrete(shaped: ndarray[[2, 3]], bare: ndarray) -> ndarray[[2, 3]]:
     take_bare(shaped)

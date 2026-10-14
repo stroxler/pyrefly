@@ -3060,6 +3060,12 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     }
                 };
                 match (as_shape(got_arg), as_shape(want_arg)) {
+                    (Some(got_shape), Some(_))
+                        if got_shape.is_shapeless() && matches!(want_arg, Type::Var(_)) =>
+                    {
+                        // A gradual argument must still override an inference variable's default.
+                        self.is_subset_eq(&got_shape.to_shape_arg_type(), want_arg)?;
+                    }
                     (Some(got_shape), Some(want_shape)) => {
                         // A direct `IntTuple` bound gives this parameter shape semantics. Compare
                         // its projected dimensions rather than its internal representation. Shape
@@ -3261,10 +3267,23 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         got_shape: &IntTuple,
         want_shape: &IntTuple,
     ) -> Result<(), SubsetError> {
-        // The subset logic only has two real cases: a fixed-rank shape or a shape
-        // with a variadic middle. Normalize direct shapeless shapes to the
-        // variadic form locally so the case analysis below does not need a third
-        // `Unbounded` axis that behaves the same as `Unpacked([], IntTuple, [])`.
+        // `is_shapeless` matches exactly `IntTupleView::Gradual`. An unpacked shape with a
+        // gradual middle still has fixed dimensions that must be checked.
+        if got_shape.is_shapeless() {
+            if let IntTupleView::Unpacked {
+                prefix: [],
+                middle: middle @ Type::Var(_),
+                suffix: [],
+            } = want_shape.view()
+            {
+                self.is_subset_eq(&got_shape.to_shape_arg_type(), middle)?;
+            }
+            return Ok(());
+        }
+        if want_shape.is_shapeless() {
+            return Ok(());
+        }
+
         enum ShapeView<'a> {
             Concrete(&'a [Int]),
             Unpacked {

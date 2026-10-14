@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     ) -> jax.Array[Shape]:
         def take_bare(value: jax.Array) -> None: ...
 
-        take_bare(shaped)  # E: is not assignable to parameter `value`
-        return bare  # E: is not assignable to declared return type
+        take_bare(shaped)
+        return bare
 
     def check_gradual_array_defaults(
         concrete: jax.Array[[2, 3]], gradual: jax.Array

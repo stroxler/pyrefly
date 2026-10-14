@@ -77,8 +77,8 @@ if TYPE_CHECKING:  # noqa: C901
     ) -> Tensor[Shape]:
         def take_bare(value: Tensor) -> None: ...
 
-        take_bare(shaped)  # E: is not assignable to parameter `value`
-        return bare  # E: is not assignable to declared return type
+        take_bare(shaped)
+        return bare
 
     @overload
     def depth_result(depth: Int[1]) -> Tensor[[32]]: ...

@@ -6880,11 +6880,14 @@ class Array[Shape: IntTuple = IntTuple]: ...
 type ArrayLike[Shape: IntTuple = []] = Array[Shape] | float
 
 def as_array[Shape: IntTuple = []](value: ArrayLike[Shape]) -> Array[Shape]: ...
+def as_unpacked[Shape: IntTuple = []](value: Array[[*Shape]] | float) -> Array[Shape]: ...
 
 def check(explicit: Array[IntTuple], bare: Array, any_shape: Array[Any]) -> None:
     assert_type(as_array(explicit), Array[IntTuple])
     assert_type(as_array(bare), Array[IntTuple])
     assert_type(as_array(any_shape), Array[IntTuple])
+    assert_type(as_unpacked(bare), Array[IntTuple])
+    assert_type(as_unpacked(1.0), Array[[]])
 "#,
 );
 
