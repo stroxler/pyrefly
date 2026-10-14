@@ -154,9 +154,8 @@ fn start_without_initial_configuration_response<'a>(
         .expect("Failed to receive configuration request")
 }
 
-// bug = "A request sent before the initial settings response ignores its search paths."
 #[test]
-fn test_initial_configuration_search_paths_ignored_by_earlier_requests() {
+fn test_initial_configuration_waits_for_derived_state() {
     let test_files_root = get_test_files_root();
     let workspace_root = test_files_root.path().join("workspace");
     let extra_path = test_files_root.path().join("extra");
@@ -184,8 +183,8 @@ fn test_initial_configuration_search_paths_ignored_by_earlier_requests() {
     ]));
 
     definition
-        .expect_definition_response_from_root("workspace/main.py", 0, 23, 0, 28)
-        .expect("The request should not find the module on the extra search path");
+        .expect_definition_response_from_root("extra/dependency.py", 0, 0, 0, 5)
+        .expect("The initial search path should commit before the request runs");
 
     interaction.shutdown().expect("Failed to shutdown");
 }
@@ -439,9 +438,8 @@ fn test_workspace_folder_change_waits_for_initial_configuration() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
-// bug = "The first diagnostics use default settings instead of the initial settings."
 #[test]
-fn test_initial_configuration_publishes_provisional_diagnostics() {
+fn test_initial_configuration_prevents_provisional_diagnostics() {
     let test_files_root = get_test_files_root();
     let root_path = test_files_root.path().join("tests_requiring_config");
     let type_errors_path = root_path.join("type_errors.py");
@@ -475,8 +473,8 @@ fn test_initial_configuration_publishes_provisional_diagnostics() {
 
     interaction
         .client
-        .expect_publish_diagnostics_must_have_error_count(type_errors_path, 1)
-        .expect("The first diagnostics should use default settings");
+        .expect_publish_diagnostics_must_have_error_count(type_errors_path, 0)
+        .expect("The first diagnostics should honor the initial configuration");
 
     interaction.shutdown().expect("Failed to shutdown");
 }

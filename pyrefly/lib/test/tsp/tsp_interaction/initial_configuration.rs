@@ -7,6 +7,7 @@
 
 //! Integration tests for requests that arrive before the initial `workspace/configuration` response.
 
+use lsp_server::ErrorCode;
 use lsp_types::Uri;
 use serde_json::json;
 use tempfile::TempDir;
@@ -16,11 +17,11 @@ use crate::lsp::non_wasm::protocol::Response;
 use crate::test::python_env::TestVenv;
 use crate::test::tsp::tsp_interaction::object_model::InitializeSettings;
 use crate::test::tsp::tsp_interaction::object_model::TspInteraction;
+use crate::test::tsp::tsp_interaction::object_model::get_current_snapshot;
 
-// bug = "A TSP request sent before the initial settings response ignores its interpreter."
 #[cfg(unix)]
 #[test]
-fn test_initial_configuration_interpreter_ignored_by_earlier_tsp_requests() {
+fn test_initial_configuration_blocks_tsp_requests() {
     let temp_dir = TempDir::new().unwrap();
     let workspace = temp_dir.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
@@ -50,6 +51,18 @@ fn test_initial_configuration_interpreter_ignored_by_earlier_tsp_requests() {
         error: None,
     }));
 
+    // The server holds the request until the settings commit. The commit moves
+    // the snapshot, so the request no longer names the current state.
+    let response = tsp.client.receive_response_skip_notifications();
+    assert_eq!(
+        response.error.map(|error| error.code),
+        Some(ErrorCode::ServerCancelled as i32),
+        "The held request should name an outdated snapshot"
+    );
+
+    let snapshot = get_current_snapshot(&mut tsp, 3);
+    tsp.server
+        .get_python_search_paths(main_uri.as_str(), snapshot);
     let response = tsp.client.receive_response_skip_notifications();
     assert!(
         response.error.is_none(),
@@ -59,8 +72,8 @@ fn test_initial_configuration_interpreter_ignored_by_earlier_tsp_requests() {
     let paths: Vec<String> = serde_json::from_value(response.result.unwrap()).unwrap();
     let site_packages = Uri::from_file_path(venv.site_packages()).unwrap();
     assert!(
-        !paths.contains(&site_packages.to_string()),
-        "The request should answer with the default interpreter, got {paths:?}"
+        paths.contains(&site_packages.to_string()),
+        "The search paths should come from the configured interpreter, got {paths:?}"
     );
 
     tsp.shutdown();

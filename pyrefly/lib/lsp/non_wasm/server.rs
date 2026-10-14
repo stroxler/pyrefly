@@ -1815,7 +1815,7 @@ pub fn lsp_loop(
     let from = telemetry.surface();
     let agent_session_id = telemetry.agent_session_id();
     let agent_invocation_id = telemetry.agent_invocation_id();
-    let (server, _) = Server::new(
+    let (server, initial_workspace_configuration_request) = Server::new(
         connection,
         lsp_queue,
         initialization.params,
@@ -1845,7 +1845,12 @@ pub fn lsp_loop(
             .name("lsp-event-loop".into())
             .stack_size(ThreadPool::stack_size())
             .spawn_scoped(scope, || {
-                event_loop::run(&server, telemetry, lsp_start_time)
+                event_loop::run(
+                    &server,
+                    telemetry,
+                    lsp_start_time,
+                    initial_workspace_configuration_request,
+                )
             })
             .expect("failed to spawn LSP event loop thread");
         scope.spawn(|| {
@@ -2110,7 +2115,9 @@ impl Server {
             LspEvent::TspExtraRequest { .. } => {
                 unreachable!("extra TSP connection requests are answered by the TSP loop")
             }
-            LspEvent::InitialWorkspaceConfigurationApplied => {}
+            LspEvent::InitialWorkspaceConfigurationApplied => {
+                unreachable!("initial configuration events are consumed before dispatch")
+            }
             LspEvent::RecheckFinished => {
                 // We did a commit and want to get back to a stable state.
                 self.validate_in_memory_and_commit_if_possible(
@@ -2292,6 +2299,14 @@ impl Server {
                                 );
                             }
                         }
+                    } else if let Some(Ok(params)) = as_request::<ConfigurationRequest>(&request) {
+                        // A terminal error response carries no result. Treat it like
+                        // an empty response so an initial request releases the barrier.
+                        warn!(
+                            "workspace/configuration failed, continuing with defaults: {:?}",
+                            x.error
+                        );
+                        self.workspace_configuration_response(&params, &[], telemetry_event);
                     }
                 } else {
                     info!("Response for unknown request: {x:?}");
