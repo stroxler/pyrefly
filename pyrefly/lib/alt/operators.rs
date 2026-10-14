@@ -872,12 +872,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     }
                 }
                 match (left, right) {
-                    // Membership against a known container still calls its `__contains__`
-                    // method and produces `bool`, even when the item is Any.
-                    (Type::Any(style), _) if !matches!(op, CmpOp::In | CmpOp::NotIn) => {
+                    // A rich comparison with an Any operand can return anything, but identity and
+                    // membership tests always produce `bool`: `is` has no dunder method, and `in`
+                    // converts the result of `__contains__` to `bool`.
+                    (Type::Any(style), _) | (_, Type::Any(style))
+                        if !matches!(op, CmpOp::Is | CmpOp::IsNot | CmpOp::In | CmpOp::NotIn) =>
+                    {
                         style.propagate()
                     }
-                    (_, Type::Any(style)) => style.propagate(),
                     // If the RHS of a containment check isn't a quantified, it may contain a
                     // nested quantified that on_quantifieds would fail to detect.
                     _ if (!matches!(op, CmpOp::In | CmpOp::NotIn)
