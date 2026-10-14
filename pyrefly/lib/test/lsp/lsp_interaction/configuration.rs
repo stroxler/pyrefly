@@ -382,6 +382,55 @@ fn test_client_without_configuration_capability_has_no_barrier() {
     interaction.shutdown().expect("Failed to shutdown");
 }
 
+#[test]
+fn test_workspace_folder_change_waits_for_initial_configuration() {
+    let test_files_root = get_test_files_root();
+    let first_root = test_files_root.path().join("first");
+    let second_root = test_files_root.path().join("second");
+    create_dir_all(&first_root).expect("Failed to create the first workspace");
+    create_dir_all(&second_root).expect("Failed to create the second workspace");
+    let first_uri = Uri::from_file_path(&first_root).unwrap();
+    let second_uri = Uri::from_file_path(&second_root).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("first".to_owned(), first_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let initial_configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&first_uri]))
+        .expect("Failed to receive initial configuration request");
+
+    interaction
+        .client
+        .send_notification::<DidChangeWorkspaceFoldersNotification>(json!({
+            "event": {
+                "added": [{"uri": second_uri, "name": "second"}],
+                "removed": [],
+            }
+        }));
+    initial_configuration.send_configuration_response(json!([{}, {}]));
+
+    interaction
+        .client
+        .expect_configuration_request(Some(vec![&first_uri, &second_uri]))
+        .expect("The deferred folder change should request updated settings")
+        .send_configuration_response(json!([{}, {}, {}]));
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_workspace_discovers_project_venv() {
