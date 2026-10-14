@@ -2301,7 +2301,10 @@ impl Server {
             }
             LspEvent::LspResponse(x) => {
                 telemetry_event.request_id = Some(x.id.to_string());
-                if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
+                // Release the lock before the response is handled: a handler can send a
+                // request of its own, and `send_request` takes the same lock.
+                let request = self.outgoing_requests.lock().remove(&x.id);
+                if let Some(request) = request {
                     if let Some((request, response)) =
                         as_request_response_pair::<ConfigurationRequest>(&request, &x)
                     {
