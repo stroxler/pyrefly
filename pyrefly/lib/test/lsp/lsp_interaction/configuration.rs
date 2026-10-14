@@ -11,6 +11,8 @@ use lsp_types::RegistrationRequest;
 use lsp_types::Uri;
 use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
+use pyrefly_util::fs_anyhow::create_dir_all;
+use pyrefly_util::fs_anyhow::write;
 use serde_json::json;
 
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
@@ -112,6 +114,61 @@ fn test_invalid_workspace_configuration_response_does_not_crash() {
         .expect_configuration_request(Some(vec![&scope_uri]))
         .expect("Failed to receive configuration request")
         .send_unchecked_response(json!("not-a-list"));
+
+    interaction.shutdown().expect("Failed to shutdown");
+}
+
+#[test]
+fn test_initial_configuration_preserves_client_event_order() {
+    let test_files_root = get_test_files_root();
+    let workspace_root = test_files_root.path().join("workspace");
+    create_dir_all(&workspace_root).expect("Failed to create the workspace");
+    write(
+        &workspace_root.join("main.py"),
+        "from first import VALUE\nVALUE\n",
+    )
+    .expect("Failed to write the workspace module");
+    write(&workspace_root.join("first.py"), "VALUE = 1\n")
+        .expect("Failed to write the first dependency");
+    write(&workspace_root.join("second.py"), "VALUE = 2\n")
+        .expect("Failed to write the second dependency");
+
+    let scope_uri = Uri::from_file_path(&workspace_root).unwrap();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    let settings = InitializeSettings {
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+        configuration: Some(None),
+        ..Default::default()
+    };
+
+    interaction
+        .client
+        .send_initialize(interaction.client.get_initialize_params(&settings));
+    interaction
+        .client
+        .expect_any_message()
+        .expect("Failed to initialize");
+    interaction.client.send_initialized();
+    let configuration = interaction
+        .client
+        .expect_configuration_request(Some(vec![&scope_uri]))
+        .expect("Failed to receive configuration request");
+
+    interaction.client.did_open("workspace/main.py");
+    let first_definition = interaction.client.definition("workspace/main.py", 1, 2);
+    interaction
+        .client
+        .did_change("workspace/main.py", "from second import VALUE\nVALUE\n");
+    let second_definition = interaction.client.definition("workspace/main.py", 1, 2);
+    configuration.send_configuration_response(json!([{}, {}]));
+
+    first_definition
+        .expect_definition_response_from_root("workspace/first.py", 0, 0, 0, 5)
+        .expect("The first request should observe the opened document");
+    second_definition
+        .expect_definition_response_from_root("workspace/second.py", 0, 0, 0, 5)
+        .expect("The second request should observe the changed document");
 
     interaction.shutdown().expect("Failed to shutdown");
 }
