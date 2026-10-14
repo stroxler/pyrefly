@@ -17,6 +17,7 @@ use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::ignore::Ignore;
 use pyrefly_python::ignore::Tool;
+use pyrefly_python::ignore::apply_suppression_edits_to_line;
 use pyrefly_python::ignore::physical_lines_with_endings;
 use pyrefly_python::module::GENERATED_TOKEN;
 use pyrefly_python::module::Module;
@@ -136,17 +137,25 @@ impl SerializedError {
     /// Returns None if the error is not from a filesystem path.
     pub fn from_error(error: &Error) -> Option<Self> {
         if let ModulePathDetails::FileSystem(path) = error.path().details() {
-            let line = error.display_range().start.line_within_file();
-            let line_start = error.lined_buffer().line_start(line);
-            let suppression_edit = error.quick_fixes().iter().find_map(|fix| match fix {
-                ErrorQuickFix::RemoveUnusedSuppression(edit) => Some(SerializedSuppressionEdit {
-                    tool: edit.tool,
-                    start: (edit.range.start() - line_start).to_usize(),
-                    end: (edit.range.end() - line_start).to_usize(),
-                    expected: edit.expected.clone(),
-                    replacement: edit.replacement.clone(),
-                }),
+            let removal_edit = error.quick_fixes().iter().find_map(|fix| match fix {
+                ErrorQuickFix::RemoveUnusedSuppression(edit) => Some(edit),
                 ErrorQuickFix::ReplaceWithEnumMember { .. } | ErrorQuickFix::AssertNotNone => None,
+            });
+            let line = removal_edit
+                .map(|edit| {
+                    error
+                        .lined_buffer()
+                        .display_pos(edit.range.start(), None)
+                        .line_within_file()
+                })
+                .unwrap_or_else(|| error.display_range().start.line_within_file());
+            let line_start = error.lined_buffer().line_start(line);
+            let suppression_edit = removal_edit.map(|edit| SerializedSuppressionEdit {
+                tool: edit.tool,
+                start: (edit.range.start() - line_start).to_usize(),
+                end: (edit.range.end() - line_start).to_usize(),
+                expected: edit.expected.clone(),
+                replacement: edit.replacement.clone(),
             });
             Some(Self {
                 path: (**path).clone(),
@@ -224,25 +233,29 @@ fn dedup_errors(errors: &[SerializedError]) -> SmallMap<usize, String> {
     formatted_errors
 }
 
-/// Reads and validates a Python source file. Returns the source text, parsed AST,
-/// and suppressions derived from the same token stream.
-fn read_and_validate_file(path: &Path) -> anyhow::Result<(String, ModModule, Ignore)> {
-    let source_type = if path.extension().and_then(|e| e.to_str()) == Some("ipynb") {
-        return Err(anyhow!("Cannot suppress errors in notebook file"));
-    } else {
-        PySourceType::Python
-    };
+enum ValidatedFile {
+    Supported(String, ModModule, Ignore),
+    Unsupported(&'static str),
+}
+
+/// Reads and validates a Python source file.
+fn read_and_validate_file(path: &Path) -> anyhow::Result<ValidatedFile> {
+    if path.extension().and_then(|e| e.to_str()) == Some("ipynb") {
+        return Ok(ValidatedFile::Unsupported(
+            "Cannot suppress errors in notebook file",
+        ));
+    }
     let file = fs_anyhow::read_to_string(path)?;
     let (parsed, parse_errors, _unsupported_syntax_errors) =
-        Ast::parse_with_version(&file, PythonVersion::default(), source_type);
+        Ast::parse_with_version(&file, PythonVersion::default(), PySourceType::Python);
     if !parse_errors.is_empty() {
-        return Err(anyhow!("File is not parsable"));
+        return Ok(ValidatedFile::Unsupported("File is not parsable"));
     }
     if file.contains(GENERATED_TOKEN) {
-        return Err(anyhow!("Generated file"));
+        return Ok(ValidatedFile::Unsupported("Generated file"));
     }
     let ignore = Ignore::from_tokens(&file, parsed.tokens());
-    Ok((file, parsed.into_syntax(), ignore))
+    Ok(ValidatedFile::Supported(file, parsed.into_syntax(), ignore))
 }
 
 /// Linter pragma prefixes (lowercase) that, when present on the line directly
@@ -380,8 +393,9 @@ fn next_comment_start(line: &str, previous_comment_start: usize) -> Option<usize
 /// * [`SuppressionMode::AddAndRemoveUnused`]: performs both in a single pass.
 ///
 /// Returns a list of files that failed to be patched, a list of files that were patched,
-/// and the total number of unused ignore comments removed.
-/// The list of failures includes the error that occurred, which may be a read or write error.
+/// and the total number of unused ignore comments removed. Remove-only updates validate every
+/// supported file before writing any; unsupported files are skipped and are not failures.
+/// Other modes may patch valid files even when another file fails.
 fn update_suppressions_in_files(
     path_errors: &SmallMap<PathBuf, Vec<SerializedError>>,
     comment_location: CommentLocation,
@@ -390,6 +404,7 @@ fn update_suppressions_in_files(
     let mut failures = vec![];
     let mut successes = vec![];
     let mut total_unused_removed = 0;
+    let mut pending_writes = Vec::new();
 
     for (path, errors) in path_errors {
         let mut errors_to_suppress: Vec<&SerializedError> = Vec::new();
@@ -403,9 +418,17 @@ fn update_suppressions_in_files(
         }
 
         let (file, ast, ignore) = match read_and_validate_file(path) {
-            Ok(result) => result,
-            Err(e) => {
-                failures.push((path, e));
+            Ok(ValidatedFile::Supported(file, ast, ignore)) => (file, ast, ignore),
+            Ok(ValidatedFile::Unsupported(reason)) if mode == SuppressionMode::RemoveUnused => {
+                info!("Skipping {}: {reason}", path.display());
+                continue;
+            }
+            Ok(ValidatedFile::Unsupported(reason)) => {
+                failures.push((path, anyhow!(reason)));
+                continue;
+            }
+            Err(error) => {
+                failures.push((path, error));
                 continue;
             }
         };
@@ -422,6 +445,20 @@ fn update_suppressions_in_files(
                 .or_default()
                 .push(error);
         }
+        if let Some((&line, _)) = unused_line_errors
+            .iter()
+            .find(|(line, _)| **line >= source_lines.len())
+        {
+            failures.push((
+                path,
+                anyhow!(
+                    "Unused suppression diagnostic line {} is past the end of {}",
+                    line + 1,
+                    path.display(),
+                ),
+            ));
+            continue;
+        }
 
         let mut cleaned_lines: Vec<Cow<'_, str>> = Vec::with_capacity(source_lines.len());
         let mut unused_count = 0;
@@ -430,7 +467,6 @@ fn update_suppressions_in_files(
         for (idx, source_line) in source_lines.iter().enumerate() {
             let line = source_line.text();
             if let Some(line_unused) = unused_line_errors.get(&idx) {
-                let mut updated_line = line.to_owned();
                 let mut edits = Vec::with_capacity(line_unused.len());
                 for error in line_unused {
                     let Some(edit) = error.suppression_edit.as_ref() else {
@@ -441,6 +477,19 @@ fn update_suppressions_in_files(
                         ));
                         break;
                     };
+                    let tool_matches_kind = if error.is_unused_type_ignore() {
+                        edit.tool == Tool::Type
+                    } else {
+                        matches!(edit.tool, Tool::Pyrefly | Tool::Pyre)
+                    };
+                    if !tool_matches_kind {
+                        clean_error = Some(anyhow!(
+                            "Suppression edit tool does not match diagnostic kind for {}:{}",
+                            path.display(),
+                            idx + 1,
+                        ));
+                        break;
+                    }
                     edits.push(edit);
                 }
                 if clean_error.is_some() {
@@ -455,23 +504,17 @@ fn update_suppressions_in_files(
                         && a.replacement == b.replacement
                         && a.tool == b.tool
                 });
+                if edits.windows(2).any(|pair| pair[1].end > pair[0].start) {
+                    clean_error = Some(anyhow!(
+                        "Conflicting suppression edits for {}:{}",
+                        path.display(),
+                        idx + 1,
+                    ));
+                    break;
+                }
 
-                for edit in edits {
-                    if edit.start > edit.end
-                        || edit.end > updated_line.len()
-                        || !updated_line.is_char_boundary(edit.start)
-                        || !updated_line.is_char_boundary(edit.end)
-                    {
-                        clean_error = Some(anyhow!(
-                            "Invalid suppression edit range {}..{} for {}:{}",
-                            edit.start,
-                            edit.end,
-                            path.display(),
-                            idx + 1,
-                        ));
-                        break;
-                    }
-                    if updated_line.get(edit.start..edit.end) != Some(&edit.expected) {
+                for edit in &edits {
+                    if line.get(edit.start..edit.end) != Some(&edit.expected) {
                         clean_error = Some(anyhow!(
                             "Suppression edit no longer matches {}:{}",
                             path.display(),
@@ -479,15 +522,37 @@ fn update_suppressions_in_files(
                         ));
                         break;
                     }
-                    updated_line.replace_range(edit.start..edit.end, &edit.replacement);
-                    unused_count += 1;
+                    let is_current_suppression = ignore
+                        .iter()
+                        .flat_map(|(_, suppressions)| suppressions)
+                        .any(|supp| {
+                            supp.tool() == edit.tool
+                                && supp.comment_line().to_zero_indexed() as usize == idx
+                                && supp.comment_offset() == edit.start
+                                && supp.comment_end_offset() == edit.end
+                        });
+                    if !is_current_suppression {
+                        clean_error = Some(anyhow!(
+                            "Suppression edit no longer identifies a suppression at {}:{}",
+                            path.display(),
+                            idx + 1,
+                        ));
+                        break;
+                    }
                 }
                 if clean_error.is_some() {
                     break;
                 }
 
-                updated_line.truncate(updated_line.trim_end().len());
-                if updated_line.trim().is_empty() {
+                let edit_count = edits.len();
+                let updated_line = apply_suppression_edits_to_line(
+                    line,
+                    edits
+                        .iter()
+                        .map(|edit| (edit.start..edit.end, edit.replacement.as_str())),
+                );
+                unused_count += edit_count;
+                if updated_line.is_empty() {
                     lines_to_skip.insert(idx);
                 }
                 cleaned_lines.push(Cow::Owned(updated_line));
@@ -679,14 +744,21 @@ fn update_suppressions_in_files(
             }
         }
         if !deduped_errors.is_empty() || unused_count > 0 {
-            if let Err(e) = fs_anyhow::write(path, buf) {
-                failures.push((path, e));
+            pending_writes.push((path, buf, unused_count));
+        }
+    }
+
+    if mode != SuppressionMode::RemoveUnused || failures.is_empty() {
+        for (path, buf, unused_count) in pending_writes {
+            if let Err(error) = fs_anyhow::write(path, buf) {
+                failures.push((path, error));
             } else {
                 successes.push(path);
                 total_unused_removed += unused_count;
             }
         }
     }
+
     (failures, successes, total_unused_removed)
 }
 
@@ -761,51 +833,14 @@ pub fn remove_unused_ignores_from_serialized(
             .push(error);
     }
 
-    for (path, errors) in &errors_by_path {
-        let Ok((file, _, _)) = read_and_validate_file(path) else {
-            continue;
-        };
-        let source_lines = physical_lines_with_endings(&file);
-        for error in errors {
-            let edit = error.suppression_edit.as_ref().ok_or_else(|| {
-                anyhow!(
-                    "Unused suppression diagnostic for {}:{} has no structured suppression edit",
-                    path.display(),
-                    error.line + 1,
-                )
-            })?;
-            let line = source_lines
-                .get(error.line)
-                .map(|line| line.text())
-                .unwrap_or_default();
-            if edit.start > edit.end
-                || edit.end > line.len()
-                || !line.is_char_boundary(edit.start)
-                || !line.is_char_boundary(edit.end)
-            {
-                return Err(anyhow!(
-                    "Invalid suppression edit range {}..{} for {}:{}",
-                    edit.start,
-                    edit.end,
-                    path.display(),
-                    error.line + 1,
-                ));
-            }
-            if line.get(edit.start..edit.end) != Some(&edit.expected) {
-                return Err(anyhow!(
-                    "Suppression edit no longer matches {}:{}",
-                    path.display(),
-                    error.line + 1,
-                ));
-            }
-        }
-    }
-
-    let (_, successes, removals) = update_suppressions_in_files(
+    let (failures, successes, removals) = update_suppressions_in_files(
         &errors_by_path,
         CommentLocation::LineBefore,
         SuppressionMode::RemoveUnused,
     );
+    if let Some((_, error)) = failures.into_iter().next() {
+        return Err(error);
+    }
 
     info!(
         "Removed {} unused error suppression(s) in {} file(s)",
@@ -841,6 +876,7 @@ mod tests {
     use crate::state::load::FileContents;
     use crate::state::require::Require;
     use crate::state::state::State;
+    use crate::test::util::UNUSED_SUPPRESSION_TEST_CASES;
 
     fn get_path(tdir: &TempDir) -> PathBuf {
         tdir.path().join("test.py")
@@ -957,6 +993,36 @@ mod tests {
         let got_file = fs_anyhow::read_to_string(&get_path(&tdir)).unwrap();
         assert_eq!(after, got_file);
         assert_eq!(removals, expected_removals);
+    }
+
+    #[test]
+    fn test_file_level_type_ignore_is_not_unused() {
+        let (errors, _tdir) = get_errors("# type: ignore\n\nx: int = \"bad\"\n");
+        let collected = errors.collect_errors();
+        assert!(errors.collect_unused_ignore_errors(&collected).is_empty());
+    }
+
+    #[test]
+    fn test_remove_unused_suppression_shared_cases() {
+        for case in UNUSED_SUPPRESSION_TEST_CASES {
+            assert_remove_ignores(case.code, case.expected, 1);
+        }
+    }
+
+    #[test]
+    fn test_remove_unused_suppressions_around_other_comment() {
+        let before = "x = 1  # type: ignore  # noqa  # pyrefly: ignore\n";
+        let (errors, tdir) = get_errors(before);
+        let collected = errors.collect_errors();
+        let unused_errors = errors.collect_unused_ignore_errors(&collected);
+        let removals =
+            suppress::remove_unused_ignores(unused_errors, UnusedIgnoreKind::All).unwrap();
+
+        assert_eq!(
+            fs_anyhow::read_to_string(&get_path(&tdir)).unwrap(),
+            "x = 1  # noqa\n"
+        );
+        assert_eq!(removals, 2);
     }
 
     #[test]
@@ -1932,6 +1998,151 @@ def f() -> int:
                 .unwrap_err()
                 .to_string();
         assert!(error.contains("has no structured suppression edit"));
+        assert_eq!(fs_anyhow::read_to_string(&path).unwrap(), input);
+    }
+
+    #[test]
+    fn test_stale_serialized_edit_inside_string_is_rejected() {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = get_path(&tdir);
+        let original = "x = 1\n# pyrefly: ignore\n";
+        let changed = "\"\"\"x = 1\n# pyrefly: ignore\n\"\"\"\n";
+        let error = serialized_unused_suppression(
+            original,
+            path.clone(),
+            1,
+            "unused-ignore",
+            Tool::Pyrefly,
+            0,
+            "# pyrefly: ignore".len(),
+            "",
+        );
+        fs_anyhow::write(&path, changed).unwrap();
+
+        let error =
+            suppress::remove_unused_ignores_from_serialized(vec![error], UnusedIgnoreKind::Pyrefly)
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("no longer identifies a suppression"));
+        assert_eq!(fs_anyhow::read_to_string(&path).unwrap(), changed);
+    }
+
+    #[test]
+    fn test_conflicting_serialized_edits_are_rejected() {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = get_path(&tdir);
+        let input = "x = 1  # pyrefly: ignore [bad-assignment, unknown-name]\n";
+        let start = input.find('#').unwrap();
+        let end = input.trim_end().len();
+        let errors = vec![
+            serialized_unused_suppression(
+                input,
+                path.clone(),
+                0,
+                "unused-ignore",
+                Tool::Pyrefly,
+                start,
+                end,
+                "# pyrefly: ignore [bad-assignment]",
+            ),
+            serialized_unused_suppression(
+                input,
+                path.clone(),
+                0,
+                "unused-ignore",
+                Tool::Pyrefly,
+                start,
+                end,
+                "",
+            ),
+        ];
+        fs_anyhow::write(&path, input).unwrap();
+
+        let error =
+            suppress::remove_unused_ignores_from_serialized(errors, UnusedIgnoreKind::Pyrefly)
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("Conflicting suppression edits"));
+        assert_eq!(fs_anyhow::read_to_string(&path).unwrap(), input);
+    }
+
+    #[test]
+    fn test_serialized_edit_past_end_prevents_all_writes() {
+        let tdir = tempfile::tempdir().unwrap();
+        let valid_path = tdir.path().join("valid.py");
+        let stale_path = tdir.path().join("stale.py");
+        let input = "x = 1  # pyrefly: ignore\n";
+        fs_anyhow::write(&valid_path, input).unwrap();
+        fs_anyhow::write(&stale_path, input).unwrap();
+        let valid = serialized_unused_suppression(
+            input,
+            valid_path.clone(),
+            0,
+            "unused-ignore",
+            Tool::Pyrefly,
+            input.find('#').unwrap(),
+            input.trim_end().len(),
+            "",
+        );
+        let stale = SerializedError {
+            path: stale_path.clone(),
+            line: 5,
+            name: "unused-ignore".to_owned(),
+            suppression_edit: None,
+        };
+
+        let error = suppress::remove_unused_ignores_from_serialized(
+            vec![valid, stale],
+            UnusedIgnoreKind::Pyrefly,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("past the end"));
+        assert_eq!(fs_anyhow::read_to_string(&valid_path).unwrap(), input);
+        assert_eq!(fs_anyhow::read_to_string(&stale_path).unwrap(), input);
+    }
+
+    #[test]
+    fn test_missing_serialized_edit_file_is_rejected() {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = get_path(&tdir);
+        let error = SerializedError {
+            path: path.clone(),
+            line: 0,
+            name: "unused-ignore".to_owned(),
+            suppression_edit: None,
+        };
+
+        let message =
+            suppress::remove_unused_ignores_from_serialized(vec![error], UnusedIgnoreKind::Pyrefly)
+                .unwrap_err()
+                .to_string();
+        assert!(message.contains("When reading file"));
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn test_serialized_edit_tool_must_match_error_kind() {
+        let tdir = tempfile::tempdir().unwrap();
+        let path = get_path(&tdir);
+        let input = "x = 1  # pyrefly: ignore\n";
+        fs_anyhow::write(&path, input).unwrap();
+        let error = serialized_unused_suppression(
+            input,
+            path.clone(),
+            0,
+            "unused-type-ignore",
+            Tool::Pyrefly,
+            input.find('#').unwrap(),
+            input.trim_end().len(),
+            "",
+        );
+
+        let message =
+            suppress::remove_unused_ignores_from_serialized(vec![error], UnusedIgnoreKind::Type)
+                .unwrap_err()
+                .to_string();
+        assert!(message.contains("tool does not match diagnostic kind"));
         assert_eq!(fs_anyhow::read_to_string(&path).unwrap(), input);
     }
 

@@ -665,7 +665,7 @@ impl Errors {
         }
 
         // Iterate over each module and check for unused ignores
-        for (load, _, config) in &self.loads {
+        for (load, ranges, config) in &self.loads {
             let module = &load.module_info;
             let module_path = module.path();
             let ignore = module.ignore();
@@ -676,6 +676,12 @@ impl Errors {
 
             for (applies_to_line, suppressions) in ignore.iter() {
                 for supp in suppressions {
+                    if ranges
+                        .as_ref()
+                        .is_some_and(|ranges| ranges.ignore_all.contains(supp))
+                    {
+                        continue;
+                    }
                     let tool = supp.tool();
                     // Only check tools that are enabled and that we support
                     // reporting unused ignores for (Pyrefly and Pyre).

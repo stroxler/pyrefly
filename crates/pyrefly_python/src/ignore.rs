@@ -34,6 +34,8 @@
 //! We are permissive with whitespace, allowing `#type:ignore[code]` and
 //! `#  type:  ignore  [  code  ]`, but do not allow a space before the colon.
 
+use std::ops::Range;
+
 use clap::ValueEnum;
 use dupe::Dupe;
 use enum_iterator::Sequence;
@@ -359,6 +361,27 @@ pub struct SuppressionEdit {
     pub replacement: String,
 }
 
+/// Applies line-relative suppression edits in right-to-left order and cleans up the line.
+pub fn apply_suppression_edits_to_line<'a>(
+    line: &str,
+    edits: impl IntoIterator<Item = (Range<usize>, &'a str)>,
+) -> String {
+    let mut updated = line.to_owned();
+    let mut removed_whole_comment = false;
+    for (range, replacement) in edits {
+        updated.replace_range(range, replacement);
+        removed_whole_comment |= replacement.is_empty();
+    }
+    if removed_whole_comment {
+        updated.truncate(updated.trim_end().len());
+    }
+    if updated.trim().is_empty() {
+        String::new()
+    } else {
+        updated
+    }
+}
+
 impl Suppression {
     /// A blanket suppression for `tool` that matches every error code.
     fn blanket(
@@ -456,7 +479,7 @@ impl Suppression {
                 + 1;
             let codes_end = comment[codes_start..]
                 .find(']')
-                .map_or(comment.len(), |offset| codes_start + offset);
+                .map_or(comment.trim_end().len(), |offset| codes_start + offset);
             let codes = &comment[codes_start..codes_end];
             let separator = if codes.contains(", ") { ", " } else { "," };
             let kept = codes

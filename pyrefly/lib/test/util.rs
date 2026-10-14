@@ -23,6 +23,7 @@ use pyrefly_build::source_db::map_db::MapDatabase;
 use pyrefly_config::error::ErrorDisplayConfig;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_config::error_kind::Severity;
+use pyrefly_python::ignore::Tool;
 use pyrefly_python::ignore::TypeIgnoreUnknownTagBehavior;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -62,6 +63,60 @@ use crate::state::state::StateReader;
 use crate::state::subscriber::TestSubscriber;
 use crate::types::class::Class;
 use crate::types::types::Type;
+
+pub(crate) struct UnusedSuppressionTestCase {
+    pub name: &'static str,
+    pub code: &'static str,
+    pub expected: &'static str,
+}
+
+pub(crate) const UNUSED_SUPPRESSION_TEST_CASES: &[UnusedSuppressionTestCase] = &[
+    UnusedSuppressionTestCase {
+        name: "own-line CRLF",
+        code: "# pyrefly: ignore\r\nx = 1\r\n",
+        expected: "x = 1\r\n",
+    },
+    UnusedSuppressionTestCase {
+        name: "inline CRLF",
+        code: "x = 1  # pyrefly: ignore\r\n",
+        expected: "x = 1\r\n",
+    },
+    UnusedSuppressionTestCase {
+        name: "own-line CR",
+        code: "# pyrefly: ignore\rx = 1\r",
+        expected: "x = 1\r",
+    },
+    UnusedSuppressionTestCase {
+        name: "inline CR",
+        code: "x = 1  # pyrefly: ignore\ry = 2\r",
+        expected: "x = 1\ry = 2\r",
+    },
+    UnusedSuppressionTestCase {
+        name: "trailing whitespace",
+        code: "x = 1  # pyrefly: ignore   \n",
+        expected: "x = 1\n",
+    },
+    UnusedSuppressionTestCase {
+        name: "inline following comment",
+        code: "x = 1  # pyrefly: ignore  # noqa\n",
+        expected: "x = 1  # noqa\n",
+    },
+    UnusedSuppressionTestCase {
+        name: "own-line following comment",
+        code: "# pyrefly: ignore  # noqa\nx = 1\n",
+        expected: "# noqa\nx = 1\n",
+    },
+    UnusedSuppressionTestCase {
+        name: "indented own-line",
+        code: "def f():\n    # pyrefly: ignore\n    x = 1\n",
+        expected: "def f():\n    x = 1\n",
+    },
+    UnusedSuppressionTestCase {
+        name: "last line without newline",
+        code: "x = 1  # pyrefly: ignore",
+        expected: "x = 1",
+    },
+];
 
 pub fn get_test_files_root() -> TempDir {
     let mut source_files =
@@ -194,6 +249,8 @@ pub struct TestEnv {
     method_assign_error: bool,
     missing_override_decorator_error: bool,
     missing_super_call_error: bool,
+    unused_ignore_errors: bool,
+    pyre_ignores: bool,
     not_required_key_access_error: bool,
     pytorch_efficiency_lint_error: bool,
     incompatible_comparison_error: bool,
@@ -260,6 +317,8 @@ impl TestEnv {
             method_assign_error: false,
             missing_override_decorator_error: false,
             missing_super_call_error: false,
+            unused_ignore_errors: false,
+            pyre_ignores: false,
             not_required_key_access_error: false,
             pytorch_efficiency_lint_error: false,
             incompatible_comparison_error: false,
@@ -454,6 +513,16 @@ impl TestEnv {
 
     pub fn enable_missing_super_call_error(mut self) -> Self {
         self.missing_super_call_error = true;
+        self
+    }
+
+    pub fn enable_unused_ignore_errors(mut self) -> Self {
+        self.unused_ignore_errors = true;
+        self
+    }
+
+    pub fn enable_pyre_ignores(mut self) -> Self {
+        self.pyre_ignores = true;
         self
     }
 
@@ -724,6 +793,13 @@ impl TestEnv {
         }
         let unknown_tag_behavior = self.type_ignore_unknown_tag_behavior;
         config.root.type_ignore_unknown_tag_behavior = Some(unknown_tag_behavior);
+        if self.pyre_ignores {
+            config.root.enabled_ignores = Some(
+                [Tool::Pyrefly, Tool::Type, Tool::Pyre]
+                    .into_iter()
+                    .collect(),
+            );
+        }
         if config.root.errors.is_none() {
             config.root.errors = Some(ErrorDisplayConfig::new(HashMap::new()));
         };
@@ -769,6 +845,10 @@ impl TestEnv {
         }
         if self.missing_super_call_error {
             errors.set_error_severity(ErrorKind::MissingSuperCall, Severity::Error);
+        }
+        if self.unused_ignore_errors {
+            errors.set_error_severity(ErrorKind::UnusedIgnore, Severity::Error);
+            errors.set_error_severity(ErrorKind::UnusedTypeIgnore, Severity::Error);
         }
         if self.not_required_key_access_error {
             errors.set_error_severity(ErrorKind::NotRequiredKeyAccess, Severity::Error);
