@@ -14,6 +14,14 @@ from shape_extensions import assert_shape, IntTuple
 
 if TYPE_CHECKING:
 
+    def check_bare_array_assignability[Shape: IntTuple](
+        shaped: jax.Array[Shape], bare: jax.Array
+    ) -> jax.Array[Shape]:
+        def take_bare(value: jax.Array) -> None: ...
+
+        take_bare(shaped)  # E: is not assignable to parameter `value`
+        return bare  # E: is not assignable to declared return type
+
     def check_gradual_array_defaults(
         concrete: jax.Array[[2, 3]], gradual: jax.Array
     ) -> None:
