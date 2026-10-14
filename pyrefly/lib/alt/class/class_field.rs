@@ -3179,7 +3179,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             name,
                             &errors2,
                         );
-                        if errors2.is_empty() {
+                        if !errors2.has_hard() {
                             // The new type is compatible with the inherited one; use the child's
                             // inferred type to preserve type precision. Skip the override check
                             // since we've already validated compatibility above.

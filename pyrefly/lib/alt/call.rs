@@ -1359,7 +1359,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 if !overload_table.is_empty() {
                     ctor_table = Some(overload_table);
                 }
-                let has_errors = !dunder_new_errors.is_empty();
+                let has_errors = dunder_new_errors.has_hard();
                 errors.extend(dunder_new_errors);
                 if let Some(callee_range) = callee_range {
                     self.record_attribute_definition_index(
@@ -1428,7 +1428,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             if !init_table.is_empty() {
                 ctor_table = Some(init_table);
             }
-            // Report `__init__` errors only when there are no `__new__` errors, to avoid redundant errors.
+            // Report `__init__` errors only when `__new__` has no hard errors, to avoid redundant errors.
             if !dunder_new_has_errors {
                 errors.extend(dunder_init_errors);
             }

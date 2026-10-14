@@ -1225,7 +1225,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             // Check if the default is compatible with the parameter type.
                             let default_errors = self.error_collector();
                             self.expr_check(default, Some((&upper_ty, tcc)), &default_errors);
-                            if default_errors.is_empty() {
+                            if !default_errors.has_hard() {
                                 // The default is compatible; re-infer using the original expected
                                 // type so that Quantifieds (which will be freshened on each call)
                                 // end up in the default.
@@ -2004,13 +2004,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let (primary_return, primary_errors) = try_call(&application.decoratee_arg);
         // Many decorators can't accept Self but are semantically valid on the method;
         // retry with the receiver normalized to its bound class.
-        let raw_return = if primary_errors.is_empty() {
+        let raw_return = if !primary_errors.has_hard() {
+            errors.extend(primary_errors);
             primary_return
         } else if let Some(rewritten) =
             self.decorator_compatible_decoratee_arg(&application.decoratee_arg)
             && let (fallback_return, fallback_errors) = try_call(&rewritten)
-            && fallback_errors.is_empty()
+            && !fallback_errors.has_hard()
         {
+            errors.extend(fallback_errors);
             fallback_return
         } else {
             errors.extend(primary_errors);

@@ -2162,7 +2162,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 &probe_errors,
             )
             .ty;
-        if !probe_errors.is_empty() {
+        if probe_errors.has_hard() {
             return;
         }
 
