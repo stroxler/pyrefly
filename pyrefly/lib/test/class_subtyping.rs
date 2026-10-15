@@ -523,8 +523,11 @@ def f(cls: type, cls2, cls3: type[Any], c: bool):
     class B(cls2): ...  # E: Type of base class is Unknown
     class C(Known, cls2): ...  # E: Type of base class is Unknown
     class D(cls3): ...
+    class D2(cls2.attr): ...  # E: Type of base class is Unknown
+    # A union of a known class and an implicit `Any` is not reported.
     Partial = Known if c else cls2
     class E(Partial): ...
+    # NewType reports its own error instead.
     N = NewType("N", cls2)  # E: Second argument to NewType is invalid
 
 Untyped = ident(Known)
@@ -541,7 +544,7 @@ class I(Dynamic): ...
 );
 
 testcase!(
-    test_unknown_base_class_no_duplicate_errors,
+    test_unknown_base_class_error_recovery_any_not_reported,
     TestEnv::new().enable_unknown_base_class_error(),
     r#"
 from missing import M  # E: Cannot find module `missing`

@@ -1778,9 +1778,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         BaseClassParseResult::Parsed(parsed)
                     }
                     Some(result) => result,
-                    None if ty.has_top_level_implicit_any() => {
-                        BaseClassParseResult::UnknownType(range)
-                    }
                     None => BaseClassParseResult::AnyType,
                 }
             }

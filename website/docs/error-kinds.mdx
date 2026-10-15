@@ -2132,7 +2132,8 @@ class C:
 Default severity: `ignore`
 
 A class whose base class has an implicit `Any` (unknown) type, for example from a missing
-annotation. Pyrefly can't check attribute accesses on such a class.
+annotation. Pyrefly can't check attribute accesses on such a class. A bare `type`
+annotation counts as unknown, because it means `type[Any]` with an implicit `Any`.
 
 An explicit `Any` base, such as `class Foo(Any)`, is not reported. Neither is a base
 that comes from an unresolved import or an undefined name, since that error is already
