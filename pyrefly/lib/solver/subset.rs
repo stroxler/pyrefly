@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::iter;
@@ -3295,7 +3294,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             Concrete(&'a [Int]),
             Unpacked {
                 prefix: &'a [Int],
-                middle: Cow<'a, Type>,
+                middle: &'a Type,
                 suffix: &'a [Int],
             },
         }
@@ -3303,18 +3302,16 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         fn shape_view(shape: &IntTuple) -> ShapeView<'_> {
             match shape.view() {
                 IntTupleView::Concrete(dims) => ShapeView::Concrete(dims),
-                IntTupleView::Gradual => ShapeView::Unpacked {
-                    prefix: &[],
-                    middle: Cow::Owned(IntTuple::shapeless().to_shape_arg_type()),
-                    suffix: &[],
-                },
+                IntTupleView::Gradual => {
+                    unreachable!("gradual shapes are accepted before comparing dimensions")
+                }
                 IntTupleView::Unpacked {
                     prefix,
                     middle,
                     suffix,
                 } => ShapeView::Unpacked {
                     prefix,
-                    middle: Cow::Borrowed(middle),
+                    middle,
                     suffix,
                 },
             }
@@ -3379,9 +3376,9 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 if middle_start <= middle_end {
                     let middle_slice = &got_dims[middle_start..middle_end];
                     let tuple_ty = pack_middle_slice(middle_slice);
-                    self.is_subset_eq(&tuple_ty, want_middle.as_ref())?;
-                    if is_tuple_carrier_shape_middle(want_middle.as_ref()) {
-                        self.is_subset_eq(want_middle.as_ref(), &tuple_ty)?;
+                    self.is_subset_eq(&tuple_ty, want_middle)?;
+                    if is_tuple_carrier_shape_middle(want_middle) {
+                        self.is_subset_eq(want_middle, &tuple_ty)?;
                     }
                 }
             }
@@ -3459,8 +3456,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     }
                 };
 
-                let got_folded = fold(got_extra_prefix, got_middle.as_ref(), got_extra_suffix);
-                let want_folded = fold(want_extra_prefix, want_middle.as_ref(), want_extra_suffix);
+                let got_folded = fold(got_extra_prefix, got_middle, got_extra_suffix);
+                let want_folded = fold(want_extra_prefix, want_middle, want_extra_suffix);
 
                 // Equivalence materializes one side at a time. The rank marker
                 // remains consistent with an unmaterialized gradual rank, but
@@ -3475,8 +3472,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 }
 
                 self.is_subset_eq(&got_folded, &want_folded)?;
-                if is_tuple_carrier_shape_middle(got_middle.as_ref())
-                    || is_tuple_carrier_shape_middle(want_middle.as_ref())
+                if is_tuple_carrier_shape_middle(got_middle)
+                    || is_tuple_carrier_shape_middle(want_middle)
                 {
                     self.is_subset_eq(&want_folded, &got_folded)?;
                 }
@@ -3521,9 +3518,9 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 if middle_start <= middle_end {
                     let middle_slice = &want_dims[middle_start..middle_end];
                     let tuple_ty = pack_middle_slice(middle_slice);
-                    self.is_subset_eq(got_middle.as_ref(), &tuple_ty)?;
-                    if is_tuple_carrier_shape_middle(got_middle.as_ref()) {
-                        self.is_subset_eq(&tuple_ty, got_middle.as_ref())?;
+                    self.is_subset_eq(got_middle, &tuple_ty)?;
+                    if is_tuple_carrier_shape_middle(got_middle) {
+                        self.is_subset_eq(&tuple_ty, got_middle)?;
                     }
                 }
             }
