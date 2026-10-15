@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::env::current_dir;
 use std::ops::Sub;
+use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
@@ -163,6 +164,16 @@ fn file_fact(module_info: &ModuleInfo) -> src::File {
 
     // Normalize to forward slashes so Glean keys are consistent across platforms.
     src::File::new(relative_path.replace('\\', "/"))
+}
+
+/// The file fact of the module that defines a cross-module reference target, or `None` if that
+/// module is not a source file of the repository: a Buck build output under `buck-out/` (e.g. a
+/// generated Thrift module) or a file outside the working directory. Glean only indexes source
+/// files, so such a file would never have facts of its own. The target name is kept either way.
+fn definition_file_fact(module_info: &ModuleInfo) -> Option<src::File> {
+    let file = file_fact(module_info);
+    let is_source_file = !file.key.starts_with("buck-out/") && !Path::new(&*file.key).is_absolute();
+    is_source_file.then_some(file)
 }
 
 fn gather_nonlocal_variables(body: &[Stmt]) -> (Arc<SmallSet<Name>>, Arc<SmallSet<Name>>) {
@@ -525,7 +536,7 @@ impl GleanState<'_> {
         base_type: Option<&Type>,
         additional_definitions: Vec<DefinitionLocation>,
     ) -> Vec<DefinitionLocation> {
-        let file = Some(file_fact(module));
+        let file = definition_file_fact(module);
         let type_name = base_type.and_then(|ty| ty.qname());
         let local_name = module.code_at(def_range);
         let module_name = module.name();
@@ -1236,7 +1247,7 @@ impl GleanState<'_> {
             .unwrap_or(None);
 
         let name = module.to_string();
-        let file = definition.map(|def| file_fact(&def.module));
+        let file = definition.and_then(|def| definition_file_fact(&def.module));
 
         DefinitionLocation { name, file }
     }
@@ -1761,7 +1772,43 @@ pub fn glean(transaction: &Transaction, handle: &Handle, ownership: bool) -> Gle
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use pyrefly_python::module_path::ModulePath;
+
     use super::*;
+
+    fn module_at(path: &str) -> ModuleInfo {
+        ModuleInfo::new(
+            ModuleName::from_str("m"),
+            ModulePath::filesystem(PathBuf::from(path)),
+            Arc::new(String::new()),
+        )
+    }
+
+    #[test]
+    fn test_definition_file_fact_source_file() {
+        let file = definition_file_fact(&module_at("fbcode/foo/bar.py"));
+        assert_eq!(file.map(|f| *f.key), Some("fbcode/foo/bar.py".to_owned()));
+    }
+
+    #[test]
+    fn test_definition_file_fact_buck_out() {
+        let path = "buck-out/.pyrelsp/art/fbcode/foo/__bar-python-bar.thrift__/out/gen-python/foo";
+        assert!(
+            definition_file_fact(&module_at(path)).is_none(),
+            "Buck outputs have no file fact"
+        );
+    }
+
+    #[test]
+    fn test_definition_file_fact_outside_working_directory() {
+        let file = definition_file_fact(&module_at("/nonexistent/site-packages/foo.py"));
+        assert!(
+            file.is_none(),
+            "files outside the working directory have no file fact"
+        );
+    }
 
     #[test]
     fn test_compute_scope_module() {
