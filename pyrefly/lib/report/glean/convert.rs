@@ -1803,7 +1803,15 @@ mod tests {
 
     #[test]
     fn test_definition_file_fact_outside_working_directory() {
-        let file = definition_file_fact(&module_at("/nonexistent/site-packages/foo.py"));
+        // Windows only treats a path with a drive as absolute, so build the path from the
+        // root of the working directory, which is absolute on every platform.
+        let root = current_dir().unwrap();
+        let path = root
+            .ancestors()
+            .last()
+            .unwrap()
+            .join("nonexistent/site-packages/foo.py");
+        let file = definition_file_fact(&module_at(path.to_str().unwrap()));
         assert!(
             file.is_none(),
             "files outside the working directory have no file fact"
