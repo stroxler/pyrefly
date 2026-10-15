@@ -869,3 +869,17 @@ def check_concrete(shaped: ndarray[[2, 3]], bare: ndarray) -> ndarray[[2, 3]]:
     return bare
 "#,
 );
+
+testcase!(
+    test_inttuple_bound_return,
+    shaped_env(),
+    r#"
+from shape_extensions import IntTuple
+
+def bounded[S: IntTuple](x: S) -> IntTuple:
+    return x
+
+def unbounded[T](x: T) -> IntTuple:
+    return x  # E: Returned type `T` is not assignable to declared return type `IntTuple`
+"#,
+);
