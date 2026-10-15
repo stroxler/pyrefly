@@ -118,6 +118,8 @@ enum BaseClassParseResult<'a> {
     /// We can't parse the base class but we also don't want to error on it for some reason (e.g. the error
     /// will be reported elsewhere, or the base class literally just has the `Any` type)
     AnyType,
+    /// The base class has an implicit `Any` type, e.g. from a missing annotation.
+    UnknownType(TextRange),
     /// This base class does not participate in inheritance related computation (e.g. `Generic`, `Protocol`, etc.)
     Ignored,
 }
@@ -128,7 +130,8 @@ impl BaseClassParseResult<'_> {
             BaseClassParseResult::InvalidBase(..)
             | BaseClassParseResult::InvalidExpr(..)
             | BaseClassParseResult::InvalidType(..)
-            | BaseClassParseResult::AnyType => true,
+            | BaseClassParseResult::AnyType
+            | BaseClassParseResult::UnknownType(..) => true,
             BaseClassParseResult::Parsed(parsed) => parsed.has_dynamic_base,
             _ => false,
         }
@@ -1775,12 +1778,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         BaseClassParseResult::Parsed(parsed)
                     }
                     Some(result) => result,
+                    None if ty.has_top_level_implicit_any() => {
+                        BaseClassParseResult::UnknownType(range)
+                    }
                     None => BaseClassParseResult::AnyType,
                 }
             }
             _ => {
                 if is_new_type || !ty.is_any() {
                     BaseClassParseResult::InvalidType(ty, range)
+                } else if ty.has_top_level_implicit_any() {
+                    BaseClassParseResult::UnknownType(range)
                 } else {
                     BaseClassParseResult::AnyType
                 }
@@ -1880,6 +1888,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .into_iter()
             .filter_map(|x| match x {
                 BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
+                BaseClassParseResult::UnknownType(range) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::UnknownBaseClass,
+                        "Type of base class is Unknown".to_owned(),
+                    );
+                    None
+                }
                 BaseClassParseResult::InvalidBase(range) => {
                     if is_new_type {
                         self.error(
