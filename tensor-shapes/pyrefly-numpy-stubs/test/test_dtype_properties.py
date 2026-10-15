@@ -24,6 +24,13 @@ def check_floating_hierarchy_is_not_gradual() -> None:
     assert_type(np.floating, type[np.floating])
 
 
+def check_array_dtype_covariance(
+    x: np.ndarray[[int], np.dtype[np.float32]],
+) -> None:
+    widened: np.ndarray[tuple[Any, ...], np.dtype[np.floating]] = x
+    assert_type(widened, np.ndarray[tuple[Any, ...], np.dtype[np.floating]])
+
+
 def test_signed_scalar_hierarchy() -> None:
     assert_shape(np.zeros((2,), dtype=np.int8).shape, (2,))
     assert_type(np.signedinteger, type[np.signedinteger])
@@ -125,7 +132,7 @@ def test_zeros_builtin_dtype_object_falls_back_to_unknown() -> None:
 
     assert_type(d, np.dtype[Any])
     assert_shape(x.shape, (2,))
-    assert_type(x.dtype, Any)
+    assert_type(x.dtype, np.dtype[Any])
     assert x.dtype == np.dtype(int)
 
 
