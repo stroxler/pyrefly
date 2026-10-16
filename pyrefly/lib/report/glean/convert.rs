@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::env::current_dir;
+use std::iter;
 use std::ops::Sub;
 use std::path::Path;
 use std::slice;
@@ -286,6 +287,10 @@ struct GleanState<'a> {
             Option<src::File>,
         ),
     >,
+    /// The local scope of the statement being processed, e.g. `m.f.<locals>` for a statement
+    /// in the body of function `m.f`, `m.C` in the body of class `m.C`, or `m` at the top
+    /// level of module `m`. Imports in the statement bind names in this scope.
+    statement_scope: String,
 }
 
 struct AssignInfo<'a> {
@@ -330,6 +335,7 @@ impl GleanState<'_> {
             names: HashSet::new(),
             locations_fqnames: HashMap::new(),
             import_names: HashMap::new(),
+            statement_scope: module_info.name().to_string(),
         }
     }
 
@@ -536,21 +542,44 @@ impl GleanState<'_> {
         container: &python::DeclarationContainer,
         scope_type: ScopeType,
     ) -> python::Name {
+        let scope = self.scope_in(container, &scope_type);
+        if !self.names.contains(&scope) {
+            self.record_name(scope.clone());
+        }
+        self.record_name_with_position(join_names(&scope, name), name.range.start())
+    }
+
+    fn scope_in(&self, container: &python::DeclarationContainer, scope_type: &ScopeType) -> String {
         let (container_fq_name, is_function_container) = match container {
             python::DeclarationContainer::module(module) => (module.key.name.key.as_str(), false),
             python::DeclarationContainer::cls(cls) => (cls.key.name.key.as_str(), false),
             python::DeclarationContainer::func(func) => (func.key.name.key.as_str(), true),
         };
-        let scope = compute_scope(
+        compute_scope(
             container_fq_name,
             is_function_container,
-            &scope_type,
+            scope_type,
             &self.module_name.to_string(),
-        );
-        if !self.names.contains(&scope) {
-            self.record_name(scope.clone());
-        }
-        self.record_name_with_position(join_names(&scope, name), name.range.start())
+        )
+    }
+
+    /// The fully qualified name of `local_name` as used in the current statement. If an
+    /// enclosing scope visible from the statement imports `local_name`, this is the import's
+    /// name in the innermost such scope, e.g. `m.f.<locals>.os` for a use of `os` in function
+    /// `m.f` that runs `import os`. Otherwise it is the module-level name, e.g. `m.os`.
+    ///
+    /// The visible scopes are the statement's own scope, then those of the enclosing functions,
+    /// innermost first, then the module, as in Python's name resolution. The scope of an
+    /// enclosing function is the prefix of the statement's scope that ends in `.<locals>`.
+    fn qualified_use_name(&self, local_name: &str) -> String {
+        iter::successors(Some(self.statement_scope.as_str()), |scope| {
+            scope
+                .rfind(".<locals>.")
+                .map(|end| &scope[..end + ".<locals>".len()])
+        })
+        .map(|scope| join_names(scope, local_name))
+        .find(|name| self.import_names.contains_key(name))
+        .unwrap_or_else(|| join_names(self.module_name.as_str(), local_name))
     }
 
     fn get_definition_location(
@@ -634,7 +663,7 @@ impl GleanState<'_> {
         range: TextRange,
         only_resolved_name: bool,
     ) -> Vec<DefinitionLocation> {
-        let as_name = join_names(self.module_name.as_str(), self.module.code_at(range));
+        let as_name = self.qualified_use_name(self.module.code_at(range));
 
         let mut definitions = vec![];
         if let Some((resolved_name, from_name, resolved_file, from_file)) =
@@ -701,7 +730,7 @@ impl GleanState<'_> {
         if let Some(base_range) = base_range {
             self.find_definition_for_typed_attribute(base_range, &Name::new(name))
         } else {
-            let as_name = join_names(self.module_name.as_str(), name);
+            let as_name = self.qualified_use_name(name);
             let identifier = Identifier::new(name, range);
             let definition = self
                 .transaction
@@ -817,7 +846,7 @@ impl GleanState<'_> {
             return vec![];
         }
 
-        let base_expr_name = join_names(self.module_name.as_str(), self.module.code_at(base_range));
+        let base_expr_name = self.qualified_use_name(self.module.code_at(base_range));
         let additional_definitions = if self.names.contains(&base_expr_name) {
             self.get_additional_definitions(base_range, false)
                 .into_iter()
@@ -1284,7 +1313,8 @@ impl GleanState<'_> {
         from_file: Option<src::File>,
         top_level_declaration: &python::Declaration,
     ) -> DeclarationInfo {
-        let as_name_fqname = join_names(self.module_name.as_str(), as_name);
+        self.record_name(self.statement_scope.clone());
+        let as_name_fqname = join_names(&self.statement_scope, as_name);
         let from_name_fact = python::Name::new(from_name.id().to_string());
         let as_name_fact = python::Name::new(as_name_fqname.clone());
 
@@ -1581,6 +1611,7 @@ impl GleanState<'_> {
         let top_level_decl = &*context.top_level_decl;
 
         let mut this_ctx = context.clone();
+        self.statement_scope = self.scope_in(container, &ScopeType::Local);
 
         let mut decl_infos = vec![];
         // Declared before the statement's other facts, so that uses of a walrus target
