@@ -362,7 +362,12 @@ class Array[Shape: _Shape = _Shape]:
         order: str = ...,
         out_sharding: _NamedSharding | _PartitionSpec | None = ...,
     ) -> Array[IntTuple]: ...
-    def ravel(self, order: str = "C") -> Array[ravel_shape(Shape)]: ...
+    def ravel(
+        self,
+        order: str = "C",
+        *,
+        out_sharding: _NamedSharding | _PartitionSpec | None = None,
+    ) -> Array[ravel_shape(Shape)]: ...
     def flatten(
         self,
         order: str = "C",
@@ -388,6 +393,7 @@ class Array[Shape: _Shape = _Shape]:
         axis: Axis = None,
         *,
         total_repeat_length: None = None,
+        out_sharding: _NamedSharding | _PartitionSpec | None = None,
     ) -> Array[repeat_shape(Shape, Repeats, Axis)]: ...
     # TODO(stroxler): Separate dynamic repeat counts from invalid concrete counts and axes.
     @overload
@@ -397,6 +403,7 @@ class Array[Shape: _Shape = _Shape]:
         axis: int | None = None,
         *,
         total_repeat_length: int | None = None,
+        out_sharding: _NamedSharding | _PartitionSpec | None = None,
     ) -> Array[IntTuple]: ...
     @overload
     # Any non-tuple sequence axis is gradual; see `jax/numpy/__init__.pyi`.
