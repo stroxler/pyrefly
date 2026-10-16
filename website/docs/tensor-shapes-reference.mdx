@@ -15,6 +15,100 @@ description: Complete reference for Int, Tensor, and tensor shape type system AP
 This page documents the types, functions, and type-level constructs that make
 up pyrefly's tensor shape type system.
 
+## Declaring shape variables and runtime evaluation
+
+### PEP 695 syntax (recommended)
+
+Use native PEP 695 type parameters and add `from __future__ import annotations`
+at the top of every implementation file that contains shape annotations:
+
+```python
+from __future__ import annotations
+
+from torch import Tensor
+from shape_extensions import IntTuple, IntVar
+
+
+def project[Batch: IntTuple, M: IntVar, N: IntVar](
+    x: Tensor[[*Batch, M, N]],
+) -> Tensor[[*Batch, M * N]]:
+    ...
+```
+
+The future import and the bounds serve different purposes and belong together.
+`N: IntVar` declares a symbolic integer parameter; the future import prevents
+Python from evaluating shape arithmetic and bare splats when the function is
+defined. `Batch: IntTuple` similarly declares a whole-shape parameter.
+
+### Type expressions evaluated at runtime
+
+The future import defers annotations, not ordinary expressions. Python still
+evaluates a type passed to `cast` or `assert_type`, and tools such as
+`typing.get_type_hints` or frameworks that inspect annotations may explicitly
+evaluate deferred annotations. Use runtime wrappers around PEP 695 parameters
+where those expressions would otherwise fail:
+
+```python
+from __future__ import annotations
+
+from typing import cast
+
+from shape_extensions import Elements, IntTuple, IntVar
+from torch import Tensor
+
+
+def double_last[Batch: IntTuple, N: IntVar](value: object) -> Tensor[[*Batch, N * 2]]:
+    return cast(Tensor[[*Elements[Batch], IntVar[N] * 2]], value)
+```
+
+Pyrefly checks the wrapped and unwrapped spellings identically:
+
+- `IntVar[N]` makes arithmetic on a PEP 695 dimension parameter safe to
+  evaluate. At runtime, a bare `N * 2` raises `TypeError`.
+- `Elements[Batch]` makes a whole-shape parameter safe to unpack. At runtime, a
+  bare `*Batch` raises `TypeError`.
+
+Importing `shape_extensions` also patches supported PyTorch classes, including
+`Tensor`, `nn.Linear`, and `nn.Conv2d`, to accept shape subscripts at runtime.
+It applies the patch whether PyTorch is imported before or after it, without
+importing PyTorch itself.
+
+The second argument to `assert_type` is another ordinary expression. Wrap its
+parameters as above, or quote the type to avoid runtime evaluation:
+
+```python
+assert_type(result, "Tensor[[*Batch, N * 2]]")
+```
+
+Imports under `TYPE_CHECKING` are appropriate only when no runtime expression or
+annotation resolver needs those names.
+
+### Legacy type variables
+
+For code that cannot use PEP 695 syntax, declare module-level legacy variables.
+Use `IntVar` for individual dimensions and the runtime-safe
+`shape_extensions.TypeVar` for whole shapes:
+
+```python
+from typing import Generic
+
+from shape_extensions import Int, IntTuple, IntVar, TypeVar
+from torch import Tensor
+
+N = IntVar("N")
+Batch = TypeVar("Batch", bound=IntTuple)
+
+
+class Doubler(Generic[N]):
+    def forward(self, x: Tensor[[*Batch, N]]) -> Tensor[[*Batch, N * 2]]:
+        ...
+```
+
+`shape_extensions.TypeVar` has ordinary legacy `TypeVar` semantics in Pyrefly
+and can be unpacked directly when annotations are evaluated. If you instead use
+`typing.TypeVar`, write `*Elements[Batch]` for runtime evaluation. Legacy
+`IntVar` objects already support arithmetic such as `N * 2`.
+
 ## `Int[X]`
 
 `Int[X]` is a type constructor that bridges runtime integer values to
