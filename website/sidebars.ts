@@ -210,13 +210,29 @@ let docsSidebar = [
             },
             {
                 type: 'doc' as const,
-                id: 'tensor-shapes-jaxtyping',
-                label: 'Jaxtyping Compatibility',
-            },
-            {
-                type: 'doc' as const,
                 id: 'tensor-shapes-ai-porting',
                 label: 'Agent Skill',
+            },
+            {
+                type: 'category' as const,
+                label: 'Reference',
+                items: [
+                    {
+                        type: 'doc' as const,
+                        id: 'tensor-shapes-reference',
+                        label: 'Shape Types',
+                    },
+                    {
+                        type: 'doc' as const,
+                        id: 'tensor-shapes-library-authors',
+                        label: 'Shape Transformation DSL',
+                    },
+                    {
+                        type: 'doc' as const,
+                        id: 'tensor-shapes-jaxtyping',
+                        label: 'Jaxtyping Support',
+                    },
+                ],
             },
             {
                 type: 'category' as const,
@@ -243,16 +259,6 @@ let docsSidebar = [
                         label: '4. Configs and Dynamic Patterns',
                     },
                 ],
-            },
-            {
-                type: 'doc' as const,
-                id: 'tensor-shapes-reference',
-                label: 'API Reference',
-            },
-            {
-                type: 'doc' as const,
-                id: 'tensor-shapes-library-authors',
-                label: 'Stub Library Author Reference',
             },
             {
                 type: 'doc' as const,
