@@ -1,6 +1,6 @@
 ---
 title: Tensor Shapes
-description: An overview of Pyrefly's tensor shape type system for static type checking of PyTorch models.
+description: An overview of Pyrefly's type system for statically checking array and tensor shapes.
 ---
 
 {/*
@@ -19,20 +19,28 @@ change between releases. Library and stub authors interact more directly with
 the shape DSL and should expect that authoring API to evolve.
 ::::
 
-Pyrefly can track **tensor shapes** through your PyTorch models, giving you
-**end-to-end static type checking** of shape transformations.
+Pyrefly can track the shapes of **arrays and tensors** through NumPy, JAX, and
+PyTorch code, giving you **end-to-end static type checking** of shape
+transformations.
 
-## Why tensor shapes?
+Pyrefly publishes shape-aware stub libraries for all three: [`pyrefly-numpy-stubs`,
+`jax-pyrefly-stubs`, and `pyrefly-torch-stubs`](./tensor-shapes-setup.mdx#installation).
+A stub library is a package of type declarations that describes another
+library's API to a type checker without changing the library at runtime. These
+stubs teach Pyrefly how array operations transform shapes.
 
-When you write PyTorch code, the hardest thing to keep track of is tensor
-shapes. Every operator transforms shapes in non-trivial ways, and shape
-mistakes don't always crash — they can silently produce wrong results. With
-Pyrefly's tensor shape support, you get **automatic inlay type hints showing
-tensor shapes as you type**, so you can see exactly what shape every
-intermediate tensor has without running your code or adding print statements.
+## Why track shapes?
 
-Here's the same NanoGPT forward method, without and with tensor shape
-tracking:
+When you write array code, the hardest thing to keep track of is often shapes.
+Every operator transforms shapes in non-trivial ways, and shape mistakes don't
+always crash — they can silently produce wrong results. With Pyrefly's shape
+support, you get **automatic inlay type hints showing shapes as you type**, so
+you can see exactly what shape every intermediate value has without running
+your code or adding print statements.
+
+The examples below use PyTorch, but the same type system and shape inference
+also support NumPy and JAX. Here's the same NanoGPT forward method, without and
+with tensor shape tracking:
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -65,17 +73,18 @@ description: See tensor shape tracking through matrix multiplication and concate
 
 ## How it works
 
-Pyrefly's tensor shape support is built on two extensions that work together:
+Pyrefly's shape support is built on two extensions that work together:
 
 1. **Symbolic integer arithmetic** in the core type system — lets you write
    `Tensor[[B, C, H, W]]` and have arithmetic like `D // NHead` work at the
    type level.
-2. **Shape transform specifications** for PyTorch operators — a library of
-   shape rules that tells Pyrefly how each operator transforms shapes.
+2. **Shape transform specifications** for array operators — libraries of shape
+   rules that tell Pyrefly how NumPy, JAX, and PyTorch operations transform
+   shapes.
 
-With these two extensions, you can use Pyrefly to typecheck real-world PyTorch
-models, where the tensor shapes of all local variables are inferred from just
-a few annotations at class and function boundaries.
+With these two extensions, you can use Pyrefly to typecheck real-world array
+code, where the shapes of local variables are inferred from just a few
+annotations at class and function boundaries.
 
 ### Symbolic integer arithmetic
 
@@ -124,7 +133,7 @@ them as inlay type hints in your editor.
 
 ### Shape transform specifications
 
-Some PyTorch operators have simple shape signatures that can be expressed as
+Some array operators have simple shape signatures that can be expressed as
 standard type stubs. For example, `torch.mm`:
 
 ```python
@@ -152,7 +161,7 @@ def repeat_shape(shape: IntTuple, repeats: IntTuple) -> IntTuple:
     )
 ```
 
-This means you can extend Pyrefly's shape coverage for new PyTorch operators
+This means you can extend Pyrefly's shape coverage for new array operators
 without touching Pyrefly's internals — see the
 [contributing guide](./tensor-shapes-contributing.mdx) for details.
 
@@ -225,7 +234,8 @@ for class examples, supported syntax, and remaining gaps.
 ## Get involved
 
 Tensor shapes are under active development. We welcome contributions —
-especially new fixture stubs and DSL specifications for PyTorch operators.
+especially new fixture stubs and DSL specifications for NumPy, JAX, and
+PyTorch operators.
 See the [contributing guide](./tensor-shapes-contributing.mdx) to get started.
 
 Join the conversation:
