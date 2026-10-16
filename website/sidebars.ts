@@ -214,6 +214,11 @@ let docsSidebar = [
                 label: 'Jaxtyping Compatibility',
             },
             {
+                type: 'doc' as const,
+                id: 'tensor-shapes-ai-porting',
+                label: 'Agent Skill',
+            },
+            {
                 type: 'category' as const,
                 label: 'Tutorials',
                 items: [
@@ -238,11 +243,6 @@ let docsSidebar = [
                         label: '4. Configs and Dynamic Patterns',
                     },
                 ],
-            },
-            {
-                type: 'doc' as const,
-                id: 'tensor-shapes-ai-porting',
-                label: 'Agent Skill',
             },
             {
                 type: 'doc' as const,
