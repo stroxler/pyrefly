@@ -172,36 +172,11 @@ they stay synchronized with the code as it changes. Only the shapes at the
 model boundary need annotations; Pyrefly infers the intermediate shapes from
 the shape-aware PyTorch stubs.
 
-## Related Work
-
-Tensor shape checking is not a new idea. Several projects have explored this
-space, each with different trade-offs. Here's how Pyrefly's approach compares.
-
-### Pyre and Pyright (static type checking)
-
-An early attempt at tensor shapes in Pyre, the precursor of Pyrefly, is
-described in [this PyCon 2021 talk](https://www.youtube.com/watch?v=ld9rwCvGdhc&t=11470s).
-That system used `Literal` to wrap concrete sizes and explicit type constructors
-like `IntDiv` for arithmetic — avoiding the need to support integers as type
-arguments or arithmetic on type variables, but at the cost of verbose syntax
-(e.g., `Tensor[float, M, Literal[2], IntDiv[M, 2]]`).
-
-More recently, [this video](https://www.youtube.com/watch?v=gJRkJVs3GAI) details
-two approaches to extend Pyright with tensor shapes, with the author concluding
-neither was the right approach. Both suffered from verbose syntax and a large set
-of type-level operators.
-
-Pyrefly's system is leaner by design:
-
-- No constraint solver — Pyrefly prioritizes "more shape inference with fewer
-  annotations" rather than "more red squiggles with more annotations."
-- The complexity of specifying shape transforms for PyTorch operators is
-  separated into a DSL available to library maintainers, keeping the type
-  system features available to users simple.
-
-Pyrefly also has experimental static support for a subset of
-[jaxtyping annotations](./tensor-shapes-jaxtyping.mdx), offering shared shape
-syntax across JAX, NumPy, and PyTorch.
+For comparisons with other shape-typing libraries and earlier type-checker
+experiments, see [Related Work](./tensor-shapes-related-work.mdx). Projects that
+already use jaxtyping can opt into Pyrefly's
+[static jaxtyping support](./tensor-shapes-jaxtyping.mdx) with
+`@static_jaxtyping`.
 
 ## Get involved
 

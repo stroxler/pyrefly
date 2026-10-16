@@ -256,6 +256,11 @@ let docsSidebar = [
             },
             {
                 type: 'doc' as const,
+                id: 'tensor-shapes-related-work',
+                label: 'Related Work',
+            },
+            {
+                type: 'doc' as const,
                 id: 'tensor-shapes-contributing',
                 label: 'Contributing',
             },
