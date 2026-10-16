@@ -139,6 +139,9 @@ pub struct DirEntryCache {
     pkgutil_cache: LockedMap<PathBuf, bool>,
     /// Cached partial-package marker check, keyed by `py.typed` path.
     partial_py_typed_cache: LockedMap<PathBuf, bool>,
+    /// Cached compiled modules in a directory, keyed by directory. Each maps a module
+    /// name to its file, for every file name accepted by [`compiled_module_name`].
+    compiled_module_cache: LockedMap<PathBuf, SmallMap<String, PathBuf>>,
 }
 
 impl Debug for DirEntryCache {
@@ -153,6 +156,7 @@ impl DirEntryCache {
             entry_cache: LockedMap::new(),
             pkgutil_cache: LockedMap::new(),
             partial_py_typed_cache: LockedMap::new(),
+            compiled_module_cache: LockedMap::new(),
         }
     }
 
@@ -209,13 +213,26 @@ impl DirEntryCache {
     /// Finds a compiled module file in `dir` named `name` with any suffix accepted by
     /// [`compiled_module_name`], including ABI-tagged extension modules.
     fn find_compiled_module(&self, dir: &Path, name: &str) -> Option<PathBuf> {
-        self.get_entries(dir)?
+        let key = dir.to_path_buf();
+        if let Some(modules) = self.compiled_module_cache.get(&key) {
+            return modules.get(name).cloned();
+        }
+        let modules: SmallMap<String, PathBuf> = self
+            .get_entries(dir)
             .iter()
-            .find_map(|(file_name, is_dir)| {
+            .flat_map(|entries| entries.iter())
+            .filter(|(_, is_dir)| !**is_dir)
+            .filter_map(|(file_name, _)| {
                 let file_name = file_name.to_str()?;
-                (!is_dir && compiled_module_name(file_name) == Some(name))
-                    .then(|| dir.join(file_name))
+                Some((
+                    compiled_module_name(file_name)?.to_owned(),
+                    dir.join(file_name),
+                ))
             })
+            .collect();
+        let found = modules.get(name).cloned();
+        self.compiled_module_cache.insert(key, modules);
+        found
     }
 
     fn get_entries(&self, dir: &Path) -> Option<Arc<SmallMap<OsString, bool>>> {
@@ -462,8 +479,8 @@ fn find_one_part_in_root(
         }
     }
 
-    // ABI-tagged names cannot be enumerated as phantom paths, so they are found by
-    // scanning the cached listing after the untagged candidates above.
+    // ABI-tagged names cannot be enumerated as phantom paths, so they are found from
+    // the directory listing after the untagged candidates above.
     if style_filter != Some(ModuleStyle::Interface)
         && let Some(path) = dir_cache.find_compiled_module(root, name)
     {
@@ -1288,6 +1305,44 @@ mod tests {
         assert_eq!(
             find_module_prefixes(ModuleName::from_str("fo"), [root.to_path_buf()].iter()),
             vec![ModuleName::from_str("foo")]
+        );
+    }
+
+    #[test]
+    fn test_find_compiled_module_reuses_cache() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = tempdir.path();
+        TestPath::setup_test_directory(
+            root,
+            vec![
+                TestPath::file("a.cpython-312-x86_64-linux-gnu.so"),
+                TestPath::file("b.abi3.so"),
+                TestPath::file("c.py"),
+                TestPath::dir("d.abi3.so", vec![]),
+            ],
+        );
+        let cache = DirEntryCache::new();
+        // The first lookup indexes `root`; the rest are answered from that index.
+        assert_eq!(
+            cache.find_compiled_module(root, "a"),
+            Some(root.join("a.cpython-312-x86_64-linux-gnu.so"))
+        );
+        assert!(
+            cache
+                .compiled_module_cache
+                .get(&root.to_path_buf())
+                .is_some(),
+            "the first lookup should index the directory"
+        );
+        assert_eq!(
+            cache.find_compiled_module(root, "b"),
+            Some(root.join("b.abi3.so"))
+        );
+        assert_eq!(cache.find_compiled_module(root, "c"), None);
+        assert_eq!(
+            cache.find_compiled_module(root, "d"),
+            None,
+            "a directory is not a compiled module"
         );
     }
 
