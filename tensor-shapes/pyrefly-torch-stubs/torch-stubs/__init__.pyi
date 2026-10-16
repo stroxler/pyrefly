@@ -16,6 +16,9 @@ from math import e as e, nan as nan
 from types import EllipsisType
 from typing import Any, Callable, Literal, overload, Self, TYPE_CHECKING, Unpack
 
+# Torch does not require NumPy, so this import is intentionally not a package
+# dependency.
+import numpy as np
 from shape_extensions import (
     broadcast,
     Flag,
@@ -1283,8 +1286,14 @@ class Tensor[Shape: _Shape = _Shape](_TensorBase):
         """Returns tensor as a nested Python list."""
         ...
 
-    def numpy(self: Tensor) -> Any:
-        """Returns tensor as a NumPy array."""
+    def numpy[Shape: IntTuple](self: Tensor[Shape]) -> np.ndarray[Shape]:
+        """Return a NumPy array with the same shape.
+
+        NumPy is an optional dependency of this stub package. Installing
+        `pyrefly-numpy-stubs` adds shape inference for values created through
+        NumPy APIs; otherwise only shape information already present in NumPy's
+        own annotations is preserved.
+        """
         ...
 
     # TODO: Restrict this to statically single-element tensors once the type
@@ -4252,8 +4261,14 @@ def as_tensor(
     """Create tensor from data, sharing memory with the input when possible."""
     ...
 
-def from_numpy(ndarray: Any) -> Tensor:
-    """Create a CPU tensor that shares memory with a numpy array."""
+def from_numpy[Shape: IntTuple](ndarray: np.ndarray[Shape]) -> Tensor[Shape]:
+    """Create a shape-preserving CPU tensor that shares memory with a NumPy array.
+
+    NumPy is an optional dependency of this stub package. Installing
+    `pyrefly-numpy-stubs` adds shape inference for values created through NumPy
+    APIs; otherwise only shape information already present in NumPy's own
+    annotations is preserved.
+    """
     ...
 
 @overload
