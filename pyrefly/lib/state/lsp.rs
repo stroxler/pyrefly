@@ -32,6 +32,7 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_types::class::ClassType;
 use pyrefly_types::function::FuncMetadata;
 use pyrefly_types::function::FunctionKind;
 use pyrefly_types::type_alias::TypeAliasData;
@@ -2188,11 +2189,47 @@ impl<'a> Transaction<'a> {
         }))
     }
 
+    /// Find `forward` definitions for a PyTorch module instance.
+    fn find_nn_module_forward_definitions(
+        &self,
+        handle: &Handle,
+        preference: FindPreference,
+        cls: &ClassType,
+        ty: &Type,
+    ) -> Option<Vec1<FindDefinitionItemWithDocstring>> {
+        let is_nn_module = self
+            .ad_hoc_solve(handle, "check_nn_module", |solver| {
+                let class = cls.class_object();
+                let mro = solver.get_mro_for_class(class);
+                iter::once(class)
+                    .chain(
+                        mro.ancestors_no_object()
+                            .iter()
+                            .map(|base| base.class_object()),
+                    )
+                    .any(|base| {
+                        base.has_toplevel_qname("torch.nn", "Module")
+                            || base.has_toplevel_qname("torch.nn.modules.module", "Module")
+                    })
+            })
+            .unwrap_or(false);
+        if !is_nn_module {
+            return None;
+        }
+        self.find_attribute_definition_for_base_type(
+            handle,
+            preference,
+            ty.clone(),
+            &Name::new_static("forward"),
+        )
+        .ok()
+    }
+
     /// When a name or attribute in a call position resolves to a class, find
     /// `__init__` and `__new__` definitions. When it resolves to a class
-    /// instance, find `__call__`. Returns all found definitions, or empty if
-    /// neither case applies. Does not match functions/callables — those should
-    /// use the normal go-to-definition path.
+    /// instance, find `forward` for PyTorch modules and `__call__` otherwise.
+    /// Returns all found definitions, or empty if neither case applies.
+    /// Functions and callables use the normal go-to-definition path.
     ///
     /// When a class synthesizes its own `__init__` or `__new__` (e.g.
     /// dataclass, pydantic, TypedDict, NamedTuple), we skip the corresponding
@@ -2239,10 +2276,21 @@ impl<'a> Transaction<'a> {
                 );
                 defs
             }
-            Type::ClassType(_) => self
-                .find_attribute_definition_for_base_type(handle, preference, ty, &dunder::CALL)
-                .map(Vec1::into_vec)
-                .unwrap_or_default(),
+            Type::ClassType(cls) | Type::SelfType(cls) => {
+                if let Some(defs) =
+                    self.find_nn_module_forward_definitions(handle, preference, cls, &ty)
+                {
+                    return defs.into_vec();
+                }
+                self.find_attribute_definition_for_base_type(handle, preference, ty, &dunder::CALL)
+                    .map(Vec1::into_vec)
+                    .unwrap_or_default()
+            }
+            Type::NNModule(module) => self.find_call_target_definitions(
+                handle,
+                preference,
+                module.class.clone().to_type(),
+            ),
             _ => vec![],
         }
     }
