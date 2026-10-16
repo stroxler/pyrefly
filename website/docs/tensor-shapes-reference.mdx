@@ -15,13 +15,6 @@ description: Complete reference for Int, Tensor, and tensor shape type system AP
 This page documents the types, functions, and type-level constructs that make
 up pyrefly's tensor shape type system.
 
-```sandbox
-dir: reference
-source: microtorch
-shared: microtorch
-description: Experiment with type-level arithmetic in shapes and concatenation.
-```
-
 ## `Int[X]`
 
 `Int[X]` is a type constructor that bridges runtime integer values to
@@ -118,6 +111,12 @@ enumerated:
 ```python
 def forward[Bs: IntTuple](self, x: Tensor[[*Bs, InDim]]) -> Tensor[[*Bs, OutDim]]:
     ...
+```
+
+```sandbox
+dir: reference
+source: microtorch
+shared: microtorch
 ```
 
 This accepts any number of leading dimensions (batch, sequence, etc.) and

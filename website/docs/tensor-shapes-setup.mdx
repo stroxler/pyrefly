@@ -201,18 +201,17 @@ class Doubler[N: IntVar](nn.Module):
         return self.fc(x)
 ```
 
+```sandbox
+dir: setup
+source: microtorch
+shared: microtorch
+```
+
 Old-style generics also work: `N = IntVar("N")` declares a module-level type
 variable whose arithmetic (`N + 1`) evaluates without error, for use with
 `Generic[N]` bases. See the runnable
 [NanoGPT example](https://github.com/facebook/pyrefly/blob/main/tensor-shapes/pyrefly-torch-stubs/examples/runtime/nanogpt_sym_int_var_runnable.py)
 for a complete model written this way.
-
-```sandbox
-dir: setup
-source: microtorch
-shared: microtorch
-description: Experiment with Int dimension parameters, TYPE_CHECKING imports, and building typed tensors — no setup required.
-```
 
 ## Hello world
 

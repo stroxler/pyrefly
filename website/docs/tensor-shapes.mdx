@@ -52,17 +52,16 @@ import {
 
 <InlayCodeBlock code={linearModelCode} hints={linearModelHints} />
 
-Pyrefly infers a `(1000, 1)` shape for `predictions`, a `(3, 3)` shape for
-`gram_matrix`, and a `(1000, 4)` shape for the combined `results`. It also
-rejects a coefficient matrix whose leading dimension does not match the three
-input features.
-
 ```sandbox
 dir: overview
 source: microtorch
 shared: microtorch
-description: Explore this linear-model example, then change an array dimension to see Pyrefly catch a matrix multiplication error.
 ```
+
+Pyrefly infers a `(1000, 1)` shape for `predictions`, a `(3, 3)` shape for
+`gram_matrix`, and a `(1000, 4)` shape for the combined `results`. It also
+rejects a coefficient matrix whose leading dimension does not match the three
+input features.
 
 ## How it works
 
