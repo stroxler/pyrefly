@@ -80,6 +80,7 @@ from jax._shapes import (
     swapaxes_shape,
     take_along_axis_shape,
     take_shape,
+    tensordot_axes_shape,
     tensordot_shape,
     tile_shape,
     top_k_shape,
@@ -1051,6 +1052,22 @@ def outer(
     b: _ArrayLike[Any] | Sequence[Any],
     out: None = None,
 ) -> _Array[IntTuple]: ...
+@overload
+def tensordot[
+    Left: _Shape,
+    Right: _Shape,
+    LeftAxes: IntTuple,
+    RightAxes: IntTuple,
+](
+    a: _ArrayLike[Left],
+    b: _ArrayLike[Right],
+    axes: tuple[LeftAxes, RightAxes],
+    *,
+    precision: Any = None,
+    preferred_element_type: Any = None,
+    out_sharding: _NamedSharding | _PartitionSpec | None = None,
+) -> _Array[tensordot_axes_shape(Left, Right, LeftAxes, RightAxes)]: ...
+@overload
 def tensordot[
     Left: _Shape = [],
     Right: _Shape = [],

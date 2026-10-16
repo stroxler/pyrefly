@@ -841,6 +841,50 @@ def vecmat_shape(left: IntTuple, right: IntTuple) -> IntTuple:
     return gufunc_broadcast(spec, operands)
 
 @type_shape_dsl_function
+def tensordot_axes_shape(
+    left: IntTuple,
+    right: IntTuple,
+    left_axes: IntTuple,
+    right_axes: IntTuple,
+) -> IntTuple:
+    if len(left_axes) != len(right_axes):
+        return dsl.Invalid("tensordot axis sequences must have equal length")
+    if any(axis < 0 - len(left) or axis >= len(left) for axis in left_axes):
+        return dsl.Invalid("axis out of bounds")
+    if any(axis < 0 - len(right) or axis >= len(right) for axis in right_axes):
+        return dsl.Invalid("axis out of bounds")
+    left_norm = dsl.IntTuple(
+        axis + len(left) if axis < 0 else axis for axis in left_axes
+    )
+    right_norm = dsl.IntTuple(
+        axis + len(right) if axis < 0 else axis for axis in right_axes
+    )
+    left_indices = dsl.IntTuple(i for i in range(len(left)))
+    right_indices = dsl.IntTuple(i for i in range(len(right)))
+    left_rem = dsl.IntTuple(
+        dimension
+        for dimension, index in zip(left, left_indices)
+        if not any(index == axis for axis in left_norm)
+    )
+    right_rem = dsl.IntTuple(
+        dimension
+        for dimension, index in zip(right, right_indices)
+        if not any(index == axis for axis in right_norm)
+    )
+    if len(left_rem) + len(left_norm) != len(left):
+        return dsl.Invalid("duplicate axis")
+    if len(right_rem) + len(right_norm) != len(right):
+        return dsl.Invalid("duplicate axis")
+    mismatches = dsl.IntTuple(
+        1
+        for left_axis, right_axis in zip(left_norm, right_norm)
+        if left[left_axis] != right[right_axis]
+    )
+    if len(mismatches) != 0:
+        return dsl.Invalid("tensordot contracted dimensions must match")
+    return dsl.concat(left_rem, right_rem)
+
+@type_shape_dsl_function
 def tensordot_shape(
     left: IntTuple,
     right: IntTuple,
