@@ -290,6 +290,21 @@ import distutils
 "#,
 );
 
+// `tomllib` is `3.11-` in typeshed's VERSIONS. https://github.com/facebook/pyrefly/issues/5162
+testcase!(
+    bug = "An optional import whose `except` clause binds a fallback should not be reported",
+    test_optional_import_with_fallback,
+    TestEnv::one("tomli", "").with_version(PythonVersion::new(3, 10, 0)),
+    r#"
+from typing_extensions import reveal_type
+try:
+    import tomllib  # E: Cannot find module `tomllib`
+except ModuleNotFoundError:
+    import tomli as tomllib
+reveal_type(tomllib)  # E: revealed type: Module[tomli] | Module[tomllib]
+"#,
+);
+
 // On 3.14 `typing.pyi` re-exports `ForwardRef` from `annotationlib`, which is itself `3.14-`.
 // Imports originating inside bundled typeshed are resolved against a config pinned to the
 // default version, so version filtering must not apply to them or that re-export silently
