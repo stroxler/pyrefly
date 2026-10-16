@@ -208,6 +208,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // recombine the surviving partial callables into an overload, so per-call resolution still works.
         if let Type::Overload(overload) = &target_ty {
             let mut partials: Vec<Callable> = Vec::new();
+            // The soft errors of the accepted branches, reported only if the partial is built from
+            // them; the fallback re-infers the call and reports its own errors.
+            let mut accepted_trials = Vec::new();
             for ot in overload.signatures.iter() {
                 let (branch_sig, quantified) = match ot {
                     OverloadType::Function(func) => (func.signature.clone(), None),
@@ -219,7 +222,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         (sig, Some(qs))
                     }
                 };
-                // Trial-check the bound arguments against this branch; keep it only if they fit.
+                // Trial-check the bound arguments against this branch; keep it only if they produce
+                // no hard errors.
                 // Optional params keep the still-unbound parameters from erroring as missing.
                 let mut probe = branch_sig.clone();
                 make_params_optional(&mut probe);
@@ -239,7 +243,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 let specialization_ok = quantified
                     .map(|qs| self.finish_quantified(qs, false).is_ok())
                     .unwrap_or(true);
-                if !trial.is_empty() || !specialization_ok {
+                if trial.has_hard() || !specialization_ok {
                     continue;
                 }
                 let branch_sig = if generic {
@@ -255,9 +259,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 // Defer the whole overload rather than silently drop a matched branch we can't
                 // represent, which would break a call that only matched that branch.
                 match partial_callable(&branch_sig, &args[1..], &bound_kw_names) {
-                    Some(partial) => partials.push(partial),
+                    Some(partial) => {
+                        partials.push(partial);
+                        accepted_trials.push(trial);
+                    }
                     None => return fallback(self),
                 }
+            }
+            for trial in accepted_trials {
+                errors.extend(trial);
             }
             return match partials.len() {
                 0 => fallback(self),

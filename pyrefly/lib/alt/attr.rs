@@ -1101,7 +1101,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 Some((branch, &type_check_context)),
                                 &branch_errors,
                             );
-                            branch_errors.is_empty()
+                            !branch_errors.has_hard()
                         }
                         TypeOrExpr::Type(got, _) => self.is_subset_eq(got, branch),
                     }) {

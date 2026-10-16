@@ -2095,3 +2095,39 @@ def go(v: Any) -> None:
     assert_type(apply(B, [1]), B[list[int]])  # E: assert_type(B[T], B[list[int]]) failed
     "#,
 );
+
+// A soft error must not make a branch of an overloaded value look like it doesn't apply, whether
+// the value is read (`-w`) or assigned to an attribute (`c.w = ...`), and the soft errors of every
+// accepted branch are reported. A deprecated dunder is the soft error that arises inside each
+// branch of the read; its warning has an unsupported-operation message naming the branch's type,
+// which is a separate problem and is why it is reported once per branch.
+testcase!(
+    test_overloaded_value_branches_with_soft_errors,
+    r#"
+from typing import Callable, assert_type, overload
+from typing_extensions import deprecated
+
+class Wrapper[A, R]:
+    def __init__(self, fn: Callable[[A], R]) -> None: ...
+    @deprecated("use something else")
+    def __neg__(self) -> R: ...
+
+@overload
+def f(x: int) -> str: ...
+@overload
+def f(x: str) -> int: ...
+def f(x: int | str) -> str | int: ...
+
+@deprecated("old")
+def old(x: int) -> str: ...
+
+class C:
+    def __init__(self) -> None:
+        self.w = Wrapper(f)
+
+w = Wrapper(f)
+assert_type(-w, int | str)  # E: Unary `-` is not supported on `Wrapper[int, str]`  # E: Unary `-` is not supported on `Wrapper[str, int]`
+c = C()
+c.w = Wrapper(old)  # E: `old` is deprecated
+"#,
+);
