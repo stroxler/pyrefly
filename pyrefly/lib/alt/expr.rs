@@ -774,13 +774,21 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             callable_errors,
                             None,
                         );
-                        if matches!(ret, Type::Any(AnyStyle::Implicit)) {
-                            self.error(
+                        match ret {
+                            Type::Any(AnyStyle::Implicit) => {
+                                self.error(
+                                    callable_errors,
+                                    lambda.body.range(),
+                                    ErrorKind::UnknownReturnType,
+                                    "The return type of this lambda is unknown; it is inferred as an implicit `Any`".to_owned(),
+                                );
+                            }
+                            Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
                                 callable_errors,
                                 lambda.body.range(),
-                                ErrorKind::UnknownReturnType,
-                                "The return type of this lambda is unknown; it is inferred as an implicit `Any`".to_owned(),
-                            );
+                                "The return type of this lambda",
+                            ),
+                            _ => {}
                         }
                         let (yield_keys, yield_from_keys) =
                             self.bindings().lambda_yield_keys(lambda.range);
@@ -2501,20 +2509,38 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             x.attr.range,
             AttributeReferenceKind::Textual,
         );
-        let result = self.attr_infer(base, &x.attr.id, x.range, errors, None);
-        // Like pyright, every access whose type is unknown is reported, including accesses on a
-        // base that is itself unknown. Missing attributes produce an error `Any` instead, which
-        // is reported as `missing-attribute`.
-        if matches!(result.ty(), Type::Any(AnyStyle::Implicit)) {
-            self.error(
+        // A caller that discards errors gets no reports, so the checks below are skipped.
+        if !errors.is_active() {
+            return self.attr_infer(base, &x.attr.id, x.range, errors, None);
+        }
+        let attr_errors = self.error_collector();
+        let result = self.attr_infer(base, &x.attr.id, x.range, &attr_errors, None);
+        // An error `Any` is reported where it arises, not at every access it flows through: a
+        // failed access, such as a missing attribute, is itself the cause, and an access on a base
+        // that is already an error `Any` only propagates it.
+        let from_error_here =
+            !attr_errors.has_hard() && !matches!(base.ty(), Type::Any(AnyStyle::Error));
+        errors.extend(attr_errors);
+        match result.ty() {
+            // Like pyright, every access whose type is an implicit `Any` is reported, including
+            // accesses on a base that is itself unknown.
+            Type::Any(AnyStyle::Implicit) => {
+                self.error(
+                    errors,
+                    x.attr.range,
+                    ErrorKind::UnknownAttributeAccess,
+                    format!(
+                        "The type of attribute `{}` is unknown; it is inferred as an implicit `Any`",
+                        x.attr.id
+                    ),
+                );
+            }
+            Type::Any(AnyStyle::Error) if from_error_here => self.error_unknown_from_error(
                 errors,
                 x.attr.range,
-                ErrorKind::UnknownAttributeAccess,
-                format!(
-                    "The type of attribute `{}` is unknown; it is inferred as an implicit `Any`",
-                    x.attr.id
-                ),
-            );
+                format!("The type of attribute `{}`", x.attr.id),
+            ),
+            _ => {}
         }
         result
     }

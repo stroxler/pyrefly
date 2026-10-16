@@ -283,6 +283,10 @@ mod tests {
             errors.severity(ErrorKind::UnknownReturnType),
             Severity::Error
         );
+        assert_eq!(
+            errors.severity(ErrorKind::UnknownFromError),
+            Severity::Error
+        );
     }
 
     #[test]
@@ -306,6 +310,10 @@ mod tests {
             errors.severity(ErrorKind::UnknownReturnType),
             Severity::Error
         );
+        assert_eq!(
+            errors.severity(ErrorKind::UnknownFromError),
+            Severity::Error
+        );
     }
 
     #[test]
@@ -327,6 +335,10 @@ mod tests {
         );
         assert_eq!(
             errors.severity(ErrorKind::UnknownAttributeAccess),
+            Severity::Error
+        );
+        assert_eq!(
+            errors.severity(ErrorKind::UnknownFromError),
             Severity::Error
         );
     }
@@ -399,6 +411,10 @@ mod tests {
         let errors = pyrefly_cfg.root.errors.as_ref().unwrap();
         assert_eq!(
             errors.severity(ErrorKind::UnknownArgumentType),
+            Severity::Error
+        );
+        assert_eq!(
+            errors.severity(ErrorKind::UnknownFromError),
             Severity::Error
         );
     }

@@ -804,22 +804,28 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         })
     }
 
-    /// Flag a call argument whose type is an implicit `Any` (unknown). Emitted into
-    /// `arg_errors` (not `call_errors`), which is not used to decide overload/hint
-    /// matches.
+    /// Flag a call argument whose type is unknown: an implicit `Any`, or an error `Any` that comes
+    /// from an error. Emitted into `arg_errors` (not `call_errors`), which is not used to decide
+    /// overload/hint matches.
     fn maybe_error_unknown_argument_type(
         &self,
         ty: &Type,
         range: TextRange,
         arg_errors: &ErrorCollector,
     ) {
-        if matches!(ty, Type::Any(AnyStyle::Implicit)) {
-            self.error(
-                arg_errors,
-                range,
-                ErrorKind::UnknownArgumentType,
-                "The type of this argument is unknown".to_owned(),
-            );
+        match ty {
+            Type::Any(AnyStyle::Implicit) => {
+                self.error(
+                    arg_errors,
+                    range,
+                    ErrorKind::UnknownArgumentType,
+                    "The type of this argument is unknown".to_owned(),
+                );
+            }
+            Type::Any(AnyStyle::Error) => {
+                self.error_unknown_from_error(arg_errors, range, "The type of this argument")
+            }
+            _ => {}
         }
     }
 

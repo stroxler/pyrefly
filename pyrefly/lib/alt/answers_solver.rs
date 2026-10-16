@@ -3859,6 +3859,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         self.heap.mk_any_error()
     }
 
+    /// Reports a value whose type is an error `Any`, which comes from an error such as an
+    /// unresolved import or name. `subject` describes the value, e.g. "The type of `x`".
+    pub fn error_unknown_from_error(
+        &self,
+        errors: &ErrorCollector,
+        range: TextRange,
+        subject: impl Display,
+    ) {
+        errors
+            .error_builder(
+                range,
+                ErrorKind::UnknownFromError,
+                format!("{subject} is unknown because it comes from an error"),
+            )
+            .emit();
+    }
+
     /// Adds an error with the given context and returns Type::Any(Error)
     pub fn error_with_context(
         &self,

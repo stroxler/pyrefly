@@ -528,3 +528,119 @@ def mk(cb, obj) -> None:
     k = lambda: 1
 "#,
 );
+
+testcase!(
+    test_unknown_from_error,
+    TestEnv::new().enable_unknown_from_error_error(),
+    r#"
+import missing_module  # pyrefly: ignore[missing-import]
+
+class A:
+    foo: NotDefined  # E: Could not find name `NotDefined`
+
+def make() -> NotDefined: ...  # E: Could not find name `NotDefined`
+def make_from(v: int) -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+def takes(x: int) -> None: ...
+
+a = A()
+x = make()  # E: The type of `x` is unknown because it comes from an error
+takes(make())  # E: The type of this argument is unknown because it comes from an error
+
+def get():
+    return make()  # E: The type of the returned value is unknown because it comes from an error
+
+f = lambda: make()  # E: The return type of this lambda is unknown because it comes from an error
+
+for item in make():  # E: The type of `item` is unknown because it comes from an error
+    pass
+c = [i for i in make()]  # E: The type of `i` is unknown because it comes from an error
+with make() as cm:  # E: The type of `cm` is unknown because it comes from an error
+    pass
+p1, p2 = make()  # E: The type of `p1` is unknown because it comes from an error  # E: The type of `p2` is unknown because it comes from an error
+(r1, r2), r3 = make()  # E: The type of `r1` is unknown because it comes from an error  # E: The type of `r2` is unknown because it comes from an error  # E: The type of `r3` is unknown because it comes from an error
+
+class B:
+    attr = make()  # E: The type of this attribute is unknown because it comes from an error
+    for k in make():  # E: The type of this attribute is unknown because it comes from an error
+        pass
+    def __init__(self) -> None:
+        self.inst = make()  # E: The type of this attribute is unknown because it comes from an error
+
+# A suppressed root error still makes its uses visible.
+takes(missing_module.value)  # E: The type of attribute `value` is unknown because it comes from an error
+
+# Only the innermost site of a nested unknown value is reported.
+takes(a.foo)  # E: The type of attribute `foo` is unknown because it comes from an error
+y = a.foo  # E: The type of attribute `foo` is unknown because it comes from an error
+
+# Accesses on a value that is already unknown only propagate it.
+z = a.foo.bar.baz  # E: The type of attribute `foo` is unknown because it comes from an error
+
+# The error that causes the unknown type is reported instead.
+takes(undefined_name)  # E: Could not find name `undefined_name`
+takes(a.missing)  # E: Object of class `A` has no attribute `missing`
+w = a.missing.bar  # E: Object of class `A` has no attribute `missing`
+for item2 in undefined_name:  # E: Could not find name `undefined_name`
+    pass
+for u1, u2 in undefined_name:  # E: Could not find name `undefined_name`
+    pass
+c2 = [i2 for i2 in undefined_name]  # E: Could not find name `undefined_name`
+with undefined_name as cm2:  # E: Could not find name `undefined_name`
+    pass
+q1, q2 = undefined_name  # E: Could not find name `undefined_name`
+(n1, n2), n3 = undefined_name  # E: Could not find name `undefined_name`
+c3 = [x3 for x3, y3 in undefined_name]  # E: Could not find name `undefined_name`
+m4 = (p4, q4) = undefined_name  # E: Could not find name `undefined_name`
+match undefined_name:  # E: Could not find name `undefined_name`
+    case [first, *rest]:
+        pass
+class C:
+    for k2 in undefined_name:  # E: Could not find name `undefined_name`
+        pass
+def add():
+    return 1 + "a"  # E: `+` is not supported between `Literal[1]` and `Literal['a']`
+
+# An error whose kind is disabled, here `unknown-argument-type` for `p`, does not hide the report.
+def g(p):
+    v = make_from(p)  # E: The type of `v` is unknown because it comes from an error
+"#,
+);
+
+testcase!(
+    bug = "An unrelated error within the range hides the unknown-from-error report",
+    test_unknown_from_error_hidden_by_unrelated_error,
+    TestEnv::new().enable_unknown_from_error_error(),
+    r#"
+def make_from(v: int) -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+def make() -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+# `y` is unknown because of `make_from`'s return annotation, not because of the bad argument.
+y = make_from("s")  # E: Argument `Literal['s']` is not assignable to parameter `v` with type `int`
+
+# A nested report with a different cause, here the argument's, also hides the report on `z`.
+z = make_from(make())  # E: The type of this argument is unknown because it comes from an error
+"#,
+);
+
+testcase!(
+    test_unknown_from_error_not_hidden_by_unknown_kinds,
+    TestEnv::new()
+        .enable_unknown_from_error_error()
+        .enable_unknown_argument_type_error(),
+    r#"
+from typing_extensions import deprecated
+
+def make_from(v: int) -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+@deprecated("old")
+def old() -> int: ...
+
+# Soft errors, like the unknown argument or the deprecated call, don't cause the error `Any`, so
+# they don't hide the report.
+def g(p):
+    v = make_from(p)  # E: The type of `v` is unknown because it comes from an error  # E: The type of this argument is unknown
+w = make_from(old())  # E: The type of `w` is unknown because it comes from an error  # E: `old` is deprecated
+"#,
+);

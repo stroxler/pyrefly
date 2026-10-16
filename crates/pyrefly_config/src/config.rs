@@ -3841,6 +3841,10 @@ output-format = "omit-errors"
             Severity::Ignore
         );
         assert_eq!(
+            errors.severity(ErrorKind::UnknownFromError),
+            Severity::Ignore
+        );
+        assert_eq!(
             errors.severity(ErrorKind::UnknownReturnType),
             Severity::Ignore
         );

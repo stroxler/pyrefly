@@ -135,6 +135,7 @@
     "unknown-attribute-type": ["all"],
     "unknown-base-class": ["all"],
     "unknown-column": ["legacy", "default", "strict", "all"],
+    "unknown-from-error": ["all"],
     "unknown-name": ["basic", "legacy", "default", "strict", "all"],
     "unknown-return-type": ["all"],
     "unknown-variable-type": ["all"],

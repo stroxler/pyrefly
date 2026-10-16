@@ -441,6 +441,10 @@ pub enum ErrorKind {
     UnknownBaseClass,
     /// Accessing a DataFrame column that does not exist in the inferred schema.
     UnknownColumn,
+    /// A value whose type is unknown because it comes from an error, such as an unresolved import
+    /// or name. Reported only where the unknown type arises, and not where a shown or suppressed
+    /// error lies within its range.
+    UnknownFromError,
     /// Attempting to use a name that is not defined.
     UnknownName,
     /// A function without a return annotation, or a lambda, returns a value whose type is an
@@ -642,6 +646,7 @@ impl ErrorKind {
             ErrorKind::UnknownAttributeType => Severity::Ignore,
             ErrorKind::UnknownBaseClass => Severity::Ignore,
             ErrorKind::UnknownAttributeAccess => Severity::Ignore,
+            ErrorKind::UnknownFromError => Severity::Ignore,
             ErrorKind::UnknownReturnType => Severity::Ignore,
             ErrorKind::UnknownVariableType => Severity::Ignore,
             ErrorKind::UnnecessaryComparison => Severity::Warn,

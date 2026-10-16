@@ -2382,14 +2382,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             self.expand_mut(ty);
         });
         // Flag an unannotated variable bound by a loop, unpacking, `with` or comprehension
-        // whose inferred type is an implicit `Any` (unknown). Plain assignments are reported
+        // whose inferred type is an implicit or error `Any`. Plain assignments are reported
         // where they are solved. These binding kinds also serve as anonymous intermediates
         // (a whole unpacked tuple, a `with` item without `as`, a subscript or attribute
         // target), so only a binding keyed as a name definition at `range` is a variable.
         // A comprehension target forwards to its iteration binding, which is keyed at the
         // iterable, so that binding carries the target's range instead. A target in a class
-        // body defines a class attribute, which is reported as `unknown-attribute-type` like
-        // a plain class-body assignment.
+        // body defines a class attribute, which is reported by the class field check like a
+        // plain class-body assignment.
         let target_range = match binding {
             Binding::IterableValueLoop(None, _, _, false)
             | Binding::ContextValue(None, _, _, _, false) => Some(range),
@@ -2398,24 +2398,57 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             _ => None,
         };
         if let Some(target_range) = target_range
-            && matches!(type_info.ty(), Type::Any(AnyStyle::Implicit))
+            && matches!(
+                type_info.ty(),
+                Type::Any(AnyStyle::Implicit | AnyStyle::Error)
+            )
             && self
                 .bindings()
                 .is_valid_key(&Key::Definition(ShortIdentifier::from_text_range(
                     target_range,
                 )))
         {
-            self.error(
-                errors,
-                target_range,
-                ErrorKind::UnknownVariableType,
-                format!(
-                    "The type of `{}` is unknown; it is inferred as an implicit `Any`",
-                    self.module().code_at(target_range)
+            let name = self.module().code_at(target_range);
+            match type_info.ty() {
+                Type::Any(AnyStyle::Implicit) => {
+                    self.error(
+                        errors,
+                        target_range,
+                        ErrorKind::UnknownVariableType,
+                        format!(
+                            "The type of `{name}` is unknown; it is inferred as an implicit `Any`"
+                        ),
+                    );
+                }
+                Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+                    errors,
+                    self.target_value_range(binding).unwrap_or(target_range),
+                    format!("The type of `{name}`"),
                 ),
-            );
+                _ => {}
+            }
         }
         SolveResult::Answer(type_info)
+    }
+
+    /// The range of the expression that a loop, `with`, comprehension, unpacking or match capture
+    /// target takes its value from, if the binding records one. An `unknown-from-error` report on
+    /// the target is anchored there rather than at the target, so that a root error in that
+    /// expression lies within the report's range and explains it.
+    pub fn target_value_range(&self, binding: &Binding) -> Option<TextRange> {
+        match binding {
+            Binding::IterableValueLoop(_, e, _, _)
+            | Binding::IterableValueComprehension(e, _, _)
+            | Binding::Expr(_, e) => Some(e.range()),
+            Binding::ContextValue(_, _, range, _, _) => Some(*range),
+            Binding::UnpackedValue(x) => self.target_value_range(self.bindings().get(x.source)),
+            // Comprehension unpacking forwards to its iteration value, chained assignment shares
+            // its right-hand side, and a sequence pattern narrows the match subject.
+            Binding::Forward(idx)
+            | Binding::MultiTargetAssign(_, idx, _, _)
+            | Binding::Narrow(idx, _, _) => self.target_value_range(self.bindings().get(*idx)),
+            _ => None,
+        }
     }
 
     /// Compute the TypeInfo for a NameAssign that participates in first-use pinning.
@@ -4185,21 +4218,29 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             None,
             errors,
         );
-        // Flag unannotated variables whose inferred type is an implicit `Any` (unknown).
+        // Flag unannotated variables whose inferred type is an implicit or error `Any`.
         // Annotated variables have a declared type; attribute assignments (`receiver_idx`)
         // and class-body assignments are covered by attribute-specific checks, so they are
         // excluded here to avoid a double report.
-        if annot_key.is_none()
-            && receiver_idx.is_none()
-            && !is_class_body_assignment
-            && matches!(&ty, Type::Any(AnyStyle::Implicit))
-        {
-            self.error(
-                errors,
-                expr.range(),
-                ErrorKind::UnknownVariableType,
-                format!("The type of `{name}` is unknown; it is inferred as an implicit `Any`"),
-            );
+        if annot_key.is_none() && receiver_idx.is_none() && !is_class_body_assignment {
+            match &ty {
+                Type::Any(AnyStyle::Implicit) => {
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorKind::UnknownVariableType,
+                        format!(
+                            "The type of `{name}` is unknown; it is inferred as an implicit `Any`"
+                        ),
+                    );
+                }
+                Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+                    errors,
+                    expr.range(),
+                    format!("The type of `{name}`"),
+                ),
+                _ => {}
+            }
         }
         // A user-defined module-level `TYPE_CHECKING` (or pyrefly's `TYPE_CHECKING_WITH_PYREFLY`)
         // constant is treated as `True` by type checkers and `False` at runtime, so it must be a
@@ -4482,14 +4523,24 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         errors: &ErrorCollector,
     ) {
         let Some(declared_ty) = hint else {
-            if !annotated && matches!(return_ty, Type::Any(AnyStyle::Implicit)) {
-                self.error(
-                    errors,
-                    range,
-                    ErrorKind::UnknownReturnType,
-                    "The type of the returned value is unknown; it is inferred as an implicit `Any`"
-                        .to_owned(),
-                );
+            if !annotated {
+                match return_ty {
+                    Type::Any(AnyStyle::Implicit) => {
+                        self.error(
+                            errors,
+                            range,
+                            ErrorKind::UnknownReturnType,
+                            "The type of the returned value is unknown; it is inferred as an implicit `Any`"
+                                .to_owned(),
+                        );
+                    }
+                    Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+                        errors,
+                        range,
+                        "The type of the returned value",
+                    ),
+                    _ => {}
+                }
             }
             return;
         };

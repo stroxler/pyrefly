@@ -2048,26 +2048,36 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 let (value_ty, annotation, is_inherited) =
                     self.analyze_class_field_value(value, class, name, None, false, range, errors);
                 // A class-body name bound by unpacking, a `for` loop or `with` is a class
-                // attribute, so an unknown type is reported like a plain class-body assignment,
-                // at the binding that produced it. Imports, walrus targets and match captures
+                // attribute, so an unknown type is reported like a plain class-body assignment: an
+                // implicit `Any` at the binding that produced it, and an error `Any` at the value it
+                // came from, like other targets. Imports, walrus targets and match captures
                 // also end up here and are not reported, as at other scopes. So is a name whose
                 // final value merges several bindings, which is only checked as a whole here.
+                let binding = self.bindings().get(*definition);
                 let is_reported_target = matches!(
-                    self.bindings().get(*definition),
+                    binding,
                     Binding::IterableValueLoop(..)
                         | Binding::ContextValue(..)
                         | Binding::UnpackedValue(..)
                 );
-                if is_reported_target
-                    && annotation.is_none()
-                    && matches!(value_ty, Type::Any(AnyStyle::Implicit))
-                {
-                    self.error(
-                        errors,
-                        self.bindings().idx_to_key(*definition).range(),
-                        ErrorKind::UnknownAttributeType,
-                        "This expression is implicitly inferred to be `Any`. Please provide an explicit type annotation.".to_owned(),
-                    );
+                if is_reported_target && annotation.is_none() {
+                    let range = self.bindings().idx_to_key(*definition).range();
+                    match value_ty {
+                        Type::Any(AnyStyle::Implicit) => {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorKind::UnknownAttributeType,
+                                "This expression is implicitly inferred to be `Any`. Please provide an explicit type annotation.".to_owned(),
+                            );
+                        }
+                        Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+                            errors,
+                            self.target_value_range(binding).unwrap_or(range),
+                            "The type of this attribute",
+                        ),
+                        _ => {}
+                    }
                 }
                 (
                     initialization,
@@ -2589,15 +2599,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             (None, _) => self.expr_infer(x, errors),
         };
         self.expand_mut(&mut ty);
-        // An unannotated attribute whose value has a bare implicit `Any` type (e.g. from an
-        // untyped call) is reported separately from the `None`/empty-tuple sentinel cases above.
-        if annotation.is_none() && matches!(&ty, Type::Any(AnyStyle::Implicit)) {
-            self.error(
-                errors,
-                x.range(),
-                ErrorKind::UnknownAttributeType,
-                "This expression is implicitly inferred to be `Any`. Please provide an explicit type annotation.".to_owned(),
-            );
+        // An unannotated attribute whose value has a bare implicit or error `Any` type (e.g. from
+        // an untyped call) is reported separately from the `None`/empty-tuple sentinel cases above.
+        if annotation.is_none() {
+            match &ty {
+                Type::Any(AnyStyle::Implicit) => {
+                    self.error(
+                        errors,
+                        x.range(),
+                        ErrorKind::UnknownAttributeType,
+                        "This expression is implicitly inferred to be `Any`. Please provide an explicit type annotation.".to_owned(),
+                    );
+                }
+                Type::Any(AnyStyle::Error) => {
+                    self.error_unknown_from_error(errors, x.range(), "The type of this attribute")
+                }
+                _ => {}
+            }
         }
         ty
     }
