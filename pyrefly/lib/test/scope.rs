@@ -789,23 +789,60 @@ z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable 
 // Inside a function, deleting a name from a target list must make the name local
 // to that function, the way `del e` does.
 testcase!(
-    bug = "`del` rejects a bracketed target list and doesn't delete its names",
     test_del_target_list,
     r#"
 a = 1
 b = 2
-del (a, b)  # E: Invalid target for `del`
-a + b  # Should report that `a` and `b` are uninitialized
+del (a, b)
+a + b  # E: `a` is uninitialized  # E: `b` is uninitialized
 c = 3
 d = 4
-del [c, d]  # E: Invalid target for `del`
-c + d  # Should report that `c` and `d` are uninitialized
+del [c, d]
+c + d  # E: `c` is uninitialized  # E: `d` is uninitialized
 g = h = i = 6
-del (g, [h, i])  # E: Invalid target for `del`
-g + h + i  # Should report that `g`, `h` and `i` are uninitialized
+del (g, [h, i])
+g + h + i  # E: `g` is uninitialized  # E: `h` is uninitialized  # E: `i` is uninitialized
 e = 5
 def f():
-    del (e,)  # E: Invalid target for `del`
+    del (e,)  # E: `e` is uninitialized
+"#,
+);
+
+testcase!(
+    test_del_starred_target_in_function,
+    r#"
+def f():
+    del *h  # E: Parse error: Invalid delete target  # E: `h` is uninitialized
+    del (*e,)  # E: Parse error: Invalid delete target  # E: `e` is uninitialized
+"#,
+);
+
+testcase!(
+    test_del_empty_target_list,
+    r#"
+del ()
+del []
+"#,
+);
+
+testcase!(
+    test_del_target_list_attributes_and_items,
+    r#"
+from typing import Literal, NotRequired, TypedDict, assert_type
+class A:
+    x: int | None
+class TD(TypedDict):
+    k: int
+    opt: NotRequired[int]
+def f(a: A, b: A, td: TD, l: list[int]) -> None:
+    a.x = 1
+    b.x = 2
+    assert_type(a.x, Literal[1])
+    del (a.x, [b.x])
+    assert_type(a.x, int | None)
+    assert_type(b.x, int | None)
+    del (td["opt"], l[0])
+    del (td["k"],)  # E: Key `k` in TypedDict `TD` may not be deleted
 "#,
 );
 

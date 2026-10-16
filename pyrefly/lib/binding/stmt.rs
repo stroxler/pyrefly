@@ -21,6 +21,7 @@ use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprSet;
+use ruff_python_ast::ExprStarred;
 use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Pattern;
@@ -875,21 +876,40 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Return(x) => {
                 self.record_return(x);
             }
-            Stmt::Delete(mut x) => {
-                for target in &mut x.targets {
+            Stmt::Delete(x) => {
+                let mut targets = x.targets;
+                // `targets` is used as a stack, so it is reversed to pop the targets
+                // from left to right.
+                targets.reverse();
+                while let Some(target) = targets.pop() {
+                    let mut target = match target {
+                        Expr::Tuple(ExprTuple { elts, .. }) | Expr::List(ExprList { elts, .. }) => {
+                            // The elements are pushed in reverse so that the leftmost one
+                            // is popped next.
+                            targets.extend(elts.into_iter().rev());
+                            continue;
+                        }
+                        // The export pass records every name `Ast::expr_lvalue` finds as deleted,
+                        // and each of those names needs a `Key::Delete` binding here.
+                        Expr::Starred(ExprStarred { value, .. }) => {
+                            targets.push(*value);
+                            continue;
+                        }
+                        target => target,
+                    };
                     let mut delete_idx = self.declare_current_idx(Key::Delete(target.range()));
-                    if let Expr::Name(name) = target {
+                    if let Expr::Name(name) = &target {
                         self.ensure_expr_name(name, delete_idx.usage());
                         self.scopes.mark_as_deleted(&name.id);
                     } else {
-                        self.ensure_expr(target, delete_idx.usage());
+                        self.ensure_expr(&mut target, delete_idx.usage());
                     }
                     let idx = self.insert_binding_current(
                         delete_idx,
                         Binding::Delete(Box::new(target.clone())),
                     );
                     if let Expr::Attribute(_) = target
-                        && let Some((identifier, _)) = identifier_and_chain_prefix_for_expr(target)
+                        && let Some((identifier, _)) = identifier_and_chain_prefix_for_expr(&target)
                     {
                         self.narrow_if_name_is_defined(identifier, idx);
                     }
