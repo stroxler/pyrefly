@@ -376,3 +376,22 @@ from typing import Protocol
 class P(Protocol, Protocol): ...  # E: Duplicate base class `Protocol`
 "#,
 );
+
+// https://github.com/facebook/pyrefly/issues/5219
+testcase!(
+    bug = "An explicit `object` base puts `object` ahead of later bases in the MRO",
+    test_explicit_object_base_constructor,
+    r#"
+class Base:
+    def __init__(self, x: int = 0) -> None:
+        self.x = x
+
+class Mixin(object):
+    pass
+
+class C(Mixin, Base):
+    pass
+
+C(x=1)  # E: Unexpected keyword argument `x` in function `object.__init__`
+"#,
+);
