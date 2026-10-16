@@ -5637,14 +5637,32 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// `import X` in a transitive dep stays at `Step::Nothing`. The
     /// `module_exists` call still demands `Step::Load` so incremental
     /// re-check picks up edits to `m`.
-    fn report_module_find_error(&self, m: ModuleName, range: TextRange, errors: &ErrorCollector) {
+    fn report_module_find_error(
+        &self,
+        m: ModuleName,
+        range: TextRange,
+        is_optional_import: bool,
+        errors: &ErrorCollector,
+    ) {
         let result = self.exports.module_exists(m);
         let error = match &result {
             FindingOrError::Finding(f) => f.error.as_ref(),
             FindingOrError::Error(e) => Some(e),
         };
+        // An optional import's fallback handles a module that isn't available, not one that is
+        // found without type information.
+        let handled_by_fallback = is_optional_import
+            && match error {
+                Some(
+                    FindError::MissingImport(..)
+                    | FindError::MissingSource(..)
+                    | FindError::MissingSourceForStubs(..),
+                ) => true,
+                Some(FindError::UntypedImport(..) | FindError::Ignored) | None => false,
+            };
         if let Some(error) = error
             && let Some(kind) = error.kind()
+            && !handled_by_fallback
         {
             let (ctx, msg) = error.display();
             let (header, details) = msg.split_off_first();
@@ -6815,8 +6833,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             }
             Binding::Quantified(q) => q.clone().to_value(),
             Binding::Module(x) => {
-                if let Some(error_range) = x.3 {
-                    self.report_module_find_error(x.0, error_range, errors);
+                if let Some((error_range, is_optional_import)) = x.3 {
+                    self.report_module_find_error(x.0, error_range, is_optional_import, errors);
                 }
                 self.binding_to_type_module(x.0, &x.1, x.2)
             }

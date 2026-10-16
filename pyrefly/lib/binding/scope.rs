@@ -1420,6 +1420,9 @@ pub struct Scope {
     /// Stack of active `with` bodies, recording whether each has encountered a live
     /// statement that may raise. Resets in new function scopes.
     with_may_raise: Vec<bool>,
+    /// Stack of active `try` bodies, recording the names bound by each one's `except`
+    /// clauses. Resets in a new scope.
+    try_fallbacks: Vec<SmallSet<Name>>,
     /// Names that are read but not locally defined in this scope — implicit captures
     /// from enclosing scopes. Populated during `init_current_static` from the
     /// `Definitions` phase. Used to seed flow entries for captured variables.
@@ -1452,6 +1455,7 @@ impl Scope {
             variables: SmallMap::new(),
             finally_depth: 0,
             with_may_raise: Vec::new(),
+            try_fallbacks: Vec::new(),
             implicit_captures: SmallSet::new(),
             shadowed_implicit_builtins: SmallMap::new(),
             final_names: SmallSet::new(),
@@ -1818,6 +1822,30 @@ impl Scopes {
     /// Exit a finally block (PEP 765).
     pub fn exit_finally(&mut self) {
         self.current_mut().finally_depth -= 1;
+    }
+
+    /// Enter the body of a `try` statement whose `except` clauses bind `fallbacks`.
+    pub fn enter_try_body(&mut self, fallbacks: SmallSet<Name>) {
+        self.current_mut().try_fallbacks.push(fallbacks);
+    }
+
+    /// Exit the body of a `try` statement.
+    pub fn exit_try_body(&mut self) {
+        self.current_mut()
+            .try_fallbacks
+            .pop()
+            .expect("exit_try_body must match an active try body");
+    }
+
+    /// Check if the `except` clauses of the innermost `try` statement with `except` clauses
+    /// whose body we're in bind `name`, so that an import of `name` there is an optional import.
+    /// Only the innermost one counts, because its clauses are the ones that handle the failed
+    /// import.
+    pub fn has_try_fallback(&self, name: &Name) -> bool {
+        self.current()
+            .try_fallbacks
+            .last()
+            .is_some_and(|fallbacks| fallbacks.contains(name))
     }
 
     /// Check if we're in a finally block at the current scope level.

@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use dupe::Dupe;
 use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
@@ -13,6 +14,7 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::AtomicNodeIndex;
+use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprList;
@@ -72,6 +74,7 @@ use crate::binding::scope::LoopExit;
 use crate::binding::scope::Scope;
 use crate::binding::scope::TerminationKind;
 use crate::config::error_kind::ErrorKind;
+use crate::export::definitions::Definitions;
 use crate::export::definitions::MutableCaptureKind;
 use crate::export::special::SpecialExport;
 use crate::state::loader::FindingOrError;
@@ -1744,7 +1747,35 @@ impl<'a> BindingsBuilder<'a> {
                 //   |                     ^
                 //   ----> handler --------|
 
+                // A name has a fallback only if every `except` clause binds it, because any of
+                // them may be the one that handles the failed import. A `try` statement without
+                // `except` clauses can't handle it, so its body doesn't count as a `try` body.
+                let fallbacks = x
+                    .handlers
+                    .iter()
+                    .map(|ExceptHandler::ExceptHandler(h)| {
+                        Definitions::new(
+                            &h.body,
+                            self.module_info.name(),
+                            self.module_info.path().is_init(),
+                            self.sys_info.dupe(),
+                        )
+                        .definitions
+                        .into_iter()
+                        .filter_map(|(name, d)| d.has_value_definition.then_some(name))
+                        .collect::<SmallSet<_>>()
+                    })
+                    .reduce(|all, next| {
+                        all.into_iter().filter(|name| next.contains(name)).collect()
+                    });
+                let has_handlers = fallbacks.is_some();
+                if let Some(fallbacks) = fallbacks {
+                    self.scopes.enter_try_body(fallbacks);
+                }
                 self.stmts(x.body, parent);
+                if has_handlers {
+                    self.scopes.exit_try_body();
+                }
                 self.stmts(x.orelse, parent);
                 self.finish_branch();
 
@@ -1856,12 +1887,19 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Import(x) => {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
+                    let bound_name = x
+                        .asname
+                        .as_ref()
+                        .map_or_else(|| m.first_component(), |asname| asname.id.clone());
+                    let is_optional_import = self.scopes.has_try_fallback(&bound_name);
                     // A `__files__`/`__recursefiles__` directory import names a directory
                     // rather than a module on disk, so it has no missing-module diagnostic
                     // range. Every import still binds a name, which the static definitions
                     // pass has already declared; skipping the binding would leave that
                     // declaration without one.
-                    let diagnostic_range = self.import_diagnostic_range(m, x.range);
+                    let diagnostic_range = self
+                        .import_diagnostic_range(m, x.range)
+                        .map(|range| (range, is_optional_import));
 
                     match x.asname {
                         Some(asname) => {
@@ -2117,6 +2155,12 @@ impl<'a> BindingsBuilder<'a> {
 
     fn bind_module_exports(&mut self, x: StmtImportFrom, m: ModuleName) {
         let module_range = x.range;
+        // A statement with no names failed to parse, so it has no fallback to check.
+        let is_optional_import = !x.names.is_empty()
+            && x.names.iter().all(|a| {
+                self.scopes
+                    .has_try_fallback(&a.asname.as_ref().unwrap_or(&a.name).id)
+            });
         // Single solve-time module-existence check per `from X import …`
         // statement. Surfaces a `MissingImport` (or other find-error)
         // diagnostic for `X` without firing bind-time `module_exists`,
@@ -2131,7 +2175,8 @@ impl<'a> BindingsBuilder<'a> {
                 m,
                 m.components().into_boxed_slice(),
                 None,
-                self.import_diagnostic_range(m, module_range),
+                self.import_diagnostic_range(m, module_range)
+                    .map(|range| (range, is_optional_import)),
             ))),
         );
         for x in x.names {

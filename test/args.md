@@ -111,6 +111,18 @@ ERROR * Cannot find type stubs for module `django` * (glob)
 [1]
 ```
 
+## An optional import still reports a module without type stubs
+
+```scrut {output_stream.stdout}
+$ touch $TMPDIR/pyrefly.toml && \
+> mkdir -p $TMPDIR/optional_import_site/django && \
+> touch $TMPDIR/optional_import_site/django/__init__.py && \
+> printf 'try:\n    import django\nexcept ImportError:\n    django = None\n' > $TMPDIR/optional_import.py && \
+> $PYREFLY check $TMPDIR/optional_import.py --error untyped-import --site-packages-path $TMPDIR/optional_import_site --output-format=min-text
+ERROR * Cannot find type stubs for module `django` * (glob)
+[1]
+```
+
 ## The `--preset` flag sets the preset and suppresses the upsell
 
 ```scrut {output_stream: stderr}

@@ -2634,8 +2634,17 @@ pub enum Binding {
     /// statements and `None` when the binding is constructed
     /// internally — for example by `solve_import`'s submodule fallback,
     /// where the cascade is responsible for any missing-module
-    /// diagnostic.
-    Module(Box<(ModuleName, Box<[Name]>, Option<Idx<Key>>, Option<TextRange>)>),
+    /// diagnostic. The `bool` next to the range records whether the import is an optional
+    /// import, whose bound names all have a fallback in an `except` clause, in which case
+    /// only a module found without type information is reported.
+    Module(
+        Box<(
+            ModuleName,
+            Box<[Name]>,
+            Option<Idx<Key>>,
+            Option<(TextRange, bool)>,
+        )>,
+    ),
     /// A name that might be a legacy type parameter. Solving this gives the Quantified type if so.
     /// - The first `bool` flag records that this function / class has scoped type parameters, in
     ///   which case the use of legacy type parameters is invalid; the error is reported at the

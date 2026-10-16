@@ -292,16 +292,145 @@ import distutils
 
 // `tomllib` is `3.11-` in typeshed's VERSIONS. https://github.com/facebook/pyrefly/issues/5162
 testcase!(
-    bug = "An optional import whose `except` clause binds a fallback should not be reported",
     test_optional_import_with_fallback,
     TestEnv::one("tomli", "").with_version(PythonVersion::new(3, 10, 0)),
     r#"
 from typing_extensions import reveal_type
 try:
-    import tomllib  # E: Cannot find module `tomllib`
+    import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib
 reveal_type(tomllib)  # E: revealed type: Module[tomli] | Module[tomllib]
+"#,
+);
+
+testcase!(
+    test_optional_import_with_none_fallback,
+    TestEnv::new_with_version(PythonVersion::new(3, 10, 0)),
+    r#"
+try:
+    import tomllib
+except Exception:
+    tomllib = None
+"#,
+);
+
+testcase!(
+    test_optional_from_import_with_fallback,
+    TestEnv::one("tomli", "def loads(s: str) -> dict[str, object]: ...")
+        .with_version(PythonVersion::new(3, 10, 0)),
+    r#"
+try:
+    from tomllib import loads
+except ModuleNotFoundError:
+    from tomli import loads
+
+try:
+    from tomllib import load, loads  # E: Cannot find module `tomllib`
+except ModuleNotFoundError:
+    from tomli import loads
+"#,
+);
+
+testcase!(
+    test_import_in_try_without_fallback,
+    r#"
+try:
+    import not_a_real_module  # E: Cannot find module `not_a_real_module`
+except ImportError:
+    pass
+"#,
+);
+
+testcase!(
+    test_optional_import_needs_fallback_in_every_handler,
+    r#"
+try:
+    import nomod_x  # E: Cannot find module `nomod_x`
+except ImportError:
+    pass
+except Exception:
+    nomod_x = None
+"#,
+);
+
+testcase!(
+    test_optional_import_with_missing_fallback,
+    r#"
+try:
+    import nomod_x
+except:
+    import nomod_x  # E: Cannot find module `nomod_x`
+
+try:
+    from nomod_x import y
+except:
+    from nomod_z import y  # E: Cannot find module `nomod_z`
+"#,
+);
+
+testcase!(
+    test_optional_import_fallback_in_outer_try,
+    r#"
+try:
+    try:
+        import nomod  # E: Cannot find module `nomod`
+    except ImportError:
+        pass
+except Exception:
+    nomod = None
+"#,
+);
+
+testcase!(
+    test_optional_import_inner_try_finally,
+    r#"
+try:
+    try:
+        import nomod
+    finally:
+        pass
+except ImportError:
+    nomod = None
+"#,
+);
+
+testcase!(
+    test_optional_import_in_def_or_class,
+    r#"
+try:
+    def f():
+        import nomod_def  # E: Cannot find module `nomod_def`
+    class C:
+        import nomod_class  # E: Cannot find module `nomod_class`
+except ImportError:
+    nomod_def = None
+    nomod_class = None
+"#,
+);
+
+testcase!(
+    test_optional_import_chained_fallbacks,
+    r#"
+try:
+    import nomod_a
+except ImportError:
+    try:
+        import nomod_b as nomod_a
+    except ImportError:
+        nomod_a = None
+"#,
+);
+
+testcase!(
+    bug = "A name imported from a module that lacks it at this version should have a fallback",
+    test_optional_from_import_of_missing_name,
+    TestEnv::new_with_version(PythonVersion::new(3, 10, 0)),
+    r#"
+try:
+    from typing import Self  # E: Could not import `Self` from `typing`
+except ImportError:
+    from typing_extensions import Self
 "#,
 );
 
