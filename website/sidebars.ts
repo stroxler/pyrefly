@@ -209,6 +209,11 @@ let docsSidebar = [
                 label: 'Getting Started',
             },
             {
+                type: 'doc' as const,
+                id: 'tensor-shapes-jaxtyping',
+                label: 'Jaxtyping Compatibility',
+            },
+            {
                 type: 'category' as const,
                 label: 'Tutorials',
                 items: [
