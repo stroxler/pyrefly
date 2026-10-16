@@ -785,6 +785,30 @@ z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable 
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/5177
+// Inside a function, deleting a name from a target list must make the name local
+// to that function, the way `del e` does.
+testcase!(
+    bug = "`del` rejects a bracketed target list and doesn't delete its names",
+    test_del_target_list,
+    r#"
+a = 1
+b = 2
+del (a, b)  # E: Invalid target for `del`
+a + b  # Should report that `a` and `b` are uninitialized
+c = 3
+d = 4
+del [c, d]  # E: Invalid target for `del`
+c + d  # Should report that `c` and `d` are uninitialized
+g = h = i = 6
+del (g, [h, i])  # E: Invalid target for `del`
+g + h + i  # Should report that `g`, `h` and `i` are uninitialized
+e = 5
+def f():
+    del (e,)  # E: Invalid target for `del`
+"#,
+);
+
 testcase!(
     test_uninitialized_when_shadowing,
     r#"
