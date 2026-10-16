@@ -29,6 +29,7 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprNamed;
 use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Parameter;
@@ -39,6 +40,9 @@ use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::StmtImport;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::name::Name;
+use ruff_python_ast::visitor::source_order::SourceOrderVisitor;
+use ruff_python_ast::visitor::source_order::walk_expr;
+use ruff_python_ast::visitor::source_order::walk_stmt;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -192,6 +196,26 @@ fn gather_nonlocal_variables(body: &[Stmt]) -> (Arc<SmallSet<Name>>, Arc<SmallSe
     }
 
     (Arc::new(globals), Arc::new(nonlocals))
+}
+
+/// The walrus (`:=`) expressions that `stmt` evaluates itself. Those in nested statement
+/// bodies are excluded, because they belong to the nested statements, which are processed
+/// with their own context.
+fn named_exprs(stmt: &Stmt) -> Vec<&ExprNamed> {
+    struct Collector<'a>(Vec<&'a ExprNamed>);
+    impl<'a> SourceOrderVisitor<'a> for Collector<'a> {
+        fn visit_stmt(&mut self, _: &'a Stmt) {}
+
+        fn visit_expr(&mut self, expr: &'a Expr) {
+            if let Expr::Named(named) = expr {
+                self.0.push(named);
+            }
+            walk_expr(self, expr);
+        }
+    }
+    let mut collector = Collector(vec![]);
+    walk_stmt(&mut collector, stmt);
+    collector.0
 }
 
 fn create_sname(name: &str) -> python::SName {
@@ -1559,6 +1583,16 @@ impl GleanState<'_> {
         let mut this_ctx = context.clone();
 
         let mut decl_infos = vec![];
+        // Declared before the statement's other facts, so that uses of a walrus target
+        // later in the same statement resolve to it.
+        for named in named_exprs(stmt) {
+            let info = AssignInfo {
+                range: named.range(),
+                type_info: None,
+                value: Some(named.value.as_ref()),
+            };
+            self.variable_facts(&named.target, &info, context, None, &mut decl_infos);
+        }
         match stmt {
             Stmt::ClassDef(cls) => {
                 let cls_fq_name =

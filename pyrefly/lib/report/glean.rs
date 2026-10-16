@@ -217,6 +217,16 @@ class Container:
         self.y: Optional[Node] = None
 "#;
 
+    let walrus = r#"import re
+
+def first_a(s: str) -> str | None:
+    if (m := re.match("a", s)) is not None:
+        return m.group(0)
+    return None
+
+doubles = [y for x in range(3) if (y := x * 2)]
+"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
@@ -228,6 +238,7 @@ class Container:
         ("exports_all", exports_all),
         ("generated_file", &generated_file),
         ("attr_annotation", attr_annotation),
+        ("walrus", walrus),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
     let transaction = state.transaction();
