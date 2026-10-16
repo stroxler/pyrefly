@@ -38,37 +38,30 @@ support, you get **automatic inlay type hints showing shapes as you type**, so
 you can see exactly what shape every intermediate value has without running
 your code or adding print statements.
 
-The examples below use PyTorch, but the same type system and shape inference
-also support NumPy and JAX. Here's the same NanoGPT forward method, without and
-with tensor shape tracking:
+Consider a small linear-model workflow: compute predictions for 1,000
+observations, form a Gram matrix, and join the predictions back onto the
+features. Without running the code, Pyrefly tracks every array shape:
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import InlayCodeBlock from '@site/src/components/InlayCodeBlock';
 import {
-  nanoGPTForwardCode,
-  nanoGPTForwardHints,
+  linearModelCode,
+  linearModelHints,
+  nanoGPTBlockCode,
+  nanoGPTBlockHints,
 } from '@site/src/components/tensorShapeInlayExamples';
 
-<Tabs>
-    <TabItem value="before" label="Without tensor shapes" default>
-        <InlayCodeBlock code={nanoGPTForwardCode} />
-    </TabItem>
-    <TabItem value="after" label="With tensor shapes">
-        <InlayCodeBlock code={nanoGPTForwardCode} hints={nanoGPTForwardHints} />
-    </TabItem>
-</Tabs>
+<InlayCodeBlock code={linearModelCode} hints={linearModelHints} />
 
-With tensor shapes enabled, Pyrefly infers and displays the shape of every
-intermediate tensor — `Tensor[[B, T, NEmbedding]]` for embeddings,
-`Tensor[[T]]` for position indices — without any manual annotations on local
-variables.
+Pyrefly infers a `(1000, 1)` shape for `predictions`, a `(3, 3)` shape for
+`gram_matrix`, and a `(1000, 4)` shape for the combined `results`. It also
+rejects a coefficient matrix whose leading dimension does not match the three
+input features.
 
 ```sandbox
 dir: overview
 source: microtorch
 shared: microtorch
-description: See tensor shape tracking through matrix multiplication and concatenation, and shape mismatch errors in action.
+description: Explore this linear-model example, then change an array dimension to see Pyrefly catch a matrix multiplication error.
 ```
 
 ## How it works
@@ -164,6 +157,20 @@ def repeat_shape(shape: IntTuple, repeats: IntTuple) -> IntTuple:
 This means you can extend Pyrefly's shape coverage for new array operators
 without touching Pyrefly's internals — see the
 [contributing guide](./tensor-shapes-contributing.mdx) for details.
+
+## Understand array code at a glance
+
+Shape information does more than catch bugs: it makes unfamiliar array code
+easier to read. In this NanoGPT forward pass, Pyrefly's inlay hints show the
+batch, sequence, and embedding dimensions as they flow through position
+broadcasting and every transformer block:
+
+<InlayCodeBlock code={nanoGPTBlockCode} hints={nanoGPTBlockHints} />
+
+The hints provide information that would otherwise require shape comments, but
+they stay synchronized with the code as it changes. Only the shapes at the
+model boundary need annotations; Pyrefly infers the intermediate shapes from
+the shape-aware PyTorch stubs.
 
 ## Related Work
 

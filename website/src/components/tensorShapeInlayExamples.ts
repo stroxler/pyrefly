@@ -9,32 +9,34 @@
 
 import type { InlayHint } from './InlayCodeBlock';
 
-export const nanoGPTForwardCode = `b, t = idx.size()
-assert t <= self.config.block_size, (
-    f"Cannot forward sequence of length {t}, block size is only {self.config.block_size}"
-)
-pos = torch.arange(0, t, dtype=torch.long, device=device)  # shape (t)
+export const linearModelCode = `features = torch.randn((1000, 3))
+coefficients = torch.randn((3, 1))
 
-# forward the GPT model itself
-tok_emb = self.transformer.wte(idx)  # token embeddings of shape (b, t, n_embd)
-pos_emb = self.transformer.wpe(pos)  # position embeddings of shape (t, n_embd)
-tok_pos_emb = tok_emb + pos_emb
-x = self.transformer.drop(tok_pos_emb)
+predictions = features @ coefficients
+gram_matrix = features.transpose() @ features
+results = torch.concatenate((features, predictions), axis=1)`;
+
+export const linearModelHints: readonly InlayHint[] = [
+    { line: 1, after: 'features', label: ': Tensor[[1000, 3]]' },
+    { line: 2, after: 'coefficients', label: ': Tensor[[3, 1]]' },
+    { line: 4, after: 'predictions', label: ': Tensor[[1000, 1]]' },
+    { line: 5, after: 'gram_matrix', label: ': Tensor[[3, 3]]' },
+    { line: 6, after: 'results', label: ': Tensor[[1000, 4]]' },
+];
+
+export const nanoGPTBlockCode = `tok_emb = self.transformer.wte(idx)
+pos_emb = self.transformer.wpe(pos)
+x = self.transformer.drop(tok_emb + pos_emb)
 for block in self.transformer.h:
     x = block(x)
-
 x = self.transformer.ln_f(x)`;
 
-export const nanoGPTForwardHints: readonly InlayHint[] = [
-    { line: 1, after: 'b', label: ': Int[B]' },
-    { line: 1, after: 't', label: ': Int[T]' },
-    { line: 5, after: 'pos', label: ': Tensor[[T]]' },
-    { line: 8, after: 'tok_emb', label: ': Tensor[[B, T, NEmbedding]]' },
-    { line: 9, after: 'pos_emb', label: ': Tensor[[T, NEmbedding]]' },
-    { line: 10, after: 'tok_pos_emb', label: ': Tensor[[B, T, NEmbedding]]' },
-    { line: 11, after: 'x', label: ': Tensor[[B, T, NEmbedding]]' },
-    { line: 13, after: 'x', label: ': Tensor[[B, T, NEmbedding]]' },
-    { line: 15, after: 'x', label: ': Tensor[[B, T, NEmbedding]]' },
+export const nanoGPTBlockHints: readonly InlayHint[] = [
+    { line: 1, after: 'tok_emb', label: ': Tensor[[B, T, NEmbedding]]' },
+    { line: 2, after: 'pos_emb', label: ': Tensor[[T, NEmbedding]]' },
+    { line: 3, after: 'x', label: ': Tensor[[B, T, NEmbedding]]' },
+    { line: 5, after: 'x', label: ': Tensor[[B, T, NEmbedding]]' },
+    { line: 6, after: 'x', label: ': Tensor[[B, T, NEmbedding]]' },
 ];
 
 export const nanoGPTMLPCode = `def __init__(self, config: GPTConfig[Any, Any, NEmbedding, Any, Any]):
