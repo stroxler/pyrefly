@@ -21,6 +21,8 @@ import {
   nanoGPTMLPCode,
   nanoGPTMLPHints,
 } from '@site/src/components/tensorShapeInlayExamples';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Getting Started with Pyrefly Tensor Shapes
 
@@ -121,44 +123,59 @@ runtime, use the runtime wrappers or legacy declarations described in
 
 ## Hello world
 
-Here's a minimal example to verify everything works. This example uses the
-recommended PEP 695 syntax with `from __future__ import annotations`. We skip
-`assert_type` — instead, run `pyrefly check` and use your IDE's inlay type hints
-to verify shapes.
+Pick the example for your array library, save it as `hello_shapes.py`, and run
+`pyrefly check hello_shapes.py`. A clean check proves that Pyrefly found the
+shape-aware stubs and inferred the result shape expected by `assert_type`.
 
-Create a file `hello_shapes.py`:
+<Tabs groupId="hello-world-library">
+  <TabItem value="numpy" label="NumPy" default>
+    ```python
+    from __future__ import annotations
 
-```python
-from __future__ import annotations
+    from typing import assert_type
 
-import torch
-import torch.nn as nn
-from torch import Tensor
-from shape_extensions import Int, IntVar
+    import numpy as np
 
 
-class TwoLayerNet[InDim: IntVar, HidDim: IntVar, OutDim: IntVar](nn.Module):
-    def __init__(
-        self,
-        in_dim: Int[InDim],
-        hid_dim: Int[HidDim],
-        out_dim: Int[OutDim],
-    ):
-        super().__init__()
-        self.fc1 = nn.Linear(in_dim, hid_dim)
-        self.fc2 = nn.Linear(hid_dim, out_dim)
+    def multiply(
+        left: np.ndarray[[2, 3], np.dtype[np.float64]],
+        right: np.ndarray[[3, 4], np.dtype[np.float64]],
+    ) -> None:
+        result = left @ right
+        assert_type(result, np.ndarray[[2, 4], np.dtype[np.float64]])
+    ```
+  </TabItem>
+  <TabItem value="pytorch" label="PyTorch">
+    ```python
+    from __future__ import annotations
 
-    def forward[B: IntVar](self, x: Tensor[[B, InDim]]) -> Tensor[[B, OutDim]]:
-        h = self.fc1(x)          # pyrefly infers: Tensor[[B, HidDim]]
-        return self.fc2(torch.relu(h))
-```
+    from typing import assert_type
 
-Run `pyrefly check hello_shapes.py`. You should see no errors — pyrefly
-infers the shapes through the `nn.Linear` calls.
+    import torch
+    from torch import Tensor
 
-If you're using an IDE with Pyrefly's language server, you'll see inlay
-type hints showing the inferred shape of `h` as `Tensor[[B, HidDim]]`
-without needing any `assert_type` calls.
+
+    def multiply(left: Tensor[[2, 3]], right: Tensor[[3, 4]]) -> None:
+        result = torch.matmul(left, right)
+        assert_type(result, Tensor[[2, 4]])
+    ```
+  </TabItem>
+  <TabItem value="jax" label="JAX">
+    ```python
+    from __future__ import annotations
+
+    from typing import assert_type
+
+    import jax
+    import jax.numpy as jnp
+
+
+    def multiply(left: jax.Array[[2, 3]], right: jax.Array[[3, 4]]) -> None:
+        result = jnp.matmul(left, right)
+        assert_type(result, jax.Array[[2, 4]])
+    ```
+  </TabItem>
+</Tabs>
 
 ### Inlay hints in action
 
