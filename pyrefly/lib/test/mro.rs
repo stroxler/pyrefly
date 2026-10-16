@@ -379,7 +379,6 @@ class P(Protocol, Protocol): ...  # E: Duplicate base class `Protocol`
 
 // https://github.com/facebook/pyrefly/issues/5219
 testcase!(
-    bug = "An explicit `object` base puts `object` ahead of later bases in the MRO",
     test_explicit_object_base_constructor,
     r#"
 class Base:
@@ -392,6 +391,17 @@ class Mixin(object):
 class C(Mixin, Base):
     pass
 
-C(x=1)  # E: Unexpected keyword argument `x` in function `object.__init__`
+C(x=1)
+"#,
+);
+
+// Both classes raise `TypeError` at runtime: a duplicate base, and no consistent MRO.
+testcase!(
+    bug = "An explicit `object` before another base should be an inconsistent MRO",
+    test_explicit_object_before_another_base,
+    r#"
+class Base: ...
+class A(object, object): ...
+class C(object, Base): ...
 "#,
 );
