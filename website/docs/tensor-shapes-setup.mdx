@@ -14,12 +14,6 @@ import InlayCodeBlock from '@site/src/components/InlayCodeBlock';
 import {
   nanoGPTAttentionBodyCode,
   nanoGPTAttentionBodyHints,
-  nanoGPTAttentionQKVCode,
-  nanoGPTAttentionQKVHints,
-  nanoGPTForwardSignatureCode,
-  nanoGPTForwardSignatureHints,
-  nanoGPTMLPCode,
-  nanoGPTMLPHints,
 } from '@site/src/components/tensorShapeInlayExamples';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -177,30 +171,16 @@ shape-aware stubs and inferred the result shape expected by `assert_type`.
   </TabItem>
 </Tabs>
 
-### Inlay hints in action
+## See shapes with inlay hints
 
-Here's what inlay hints look like on a real model (NanoGPT). The MLP
-module shows shapes flowing through linear layers and activations:
+Inferred shapes shown inline can make unfamiliar array code much easier to read.
+NanoGPT records tensor shapes in comments around its multi-head attention code;
+inlay hints provide the same context from checked types, so they update with the
+code instead of going stale.
 
-<InlayCodeBlock code={nanoGPTMLPCode} hints={nanoGPTMLPHints} />
-
-The forward method signature shows how `x.size()` unpacks into typed
-dimensions:
-
-<InlayCodeBlock
-    code={nanoGPTForwardSignatureCode}
-    hints={nanoGPTForwardSignatureHints}
-/>
-
-And the attention module, where view/transpose reshapes for multi-head
-attention are fully tracked:
-
-<InlayCodeBlock
-    code={nanoGPTAttentionQKVCode}
-    hints={nanoGPTAttentionQKVHints}
-/>
-
-The full attention body, including both flash and manual paths:
+In Visual Studio Code, open Settings and set
+**Editor > Inlay Hints: Enabled** to **On**. Here is the NanoGPT attention body
+with Pyrefly's inferred shapes displayed inline:
 
 <InlayCodeBlock
     code={nanoGPTAttentionBodyCode}
