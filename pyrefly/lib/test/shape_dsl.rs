@@ -5220,6 +5220,23 @@ def all_arr_forms[Batch: IntTuple, M: IntVar](
 );
 
 testcase!(
+    test_tensor_shapes_legacy_shape_typevar,
+    shape_extensions_env(),
+    r#"
+from typing import Generic
+from shape_extensions import IntTuple, IntVar, TypeVar
+
+Shape = TypeVar("Shape", bound=IntTuple)
+N = IntVar("N")
+
+class Tensor(Generic[Shape]): ...
+
+def append_dim(x: Tensor[[*Shape, N]]) -> Tensor[[*Shape, N]]:
+    return x
+"#,
+);
+
+testcase!(
     test_tensor_shapes_inttuple_tuple_behaviors,
     shape_extensions_env(),
     r#"

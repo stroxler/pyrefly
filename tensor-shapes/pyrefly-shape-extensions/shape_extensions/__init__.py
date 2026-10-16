@@ -52,6 +52,7 @@ __all__ = [
     "RegularNestedList",
     "Shaped",
     "SymbolicArithExpr",
+    "TypeVar",
     "assert_shape",
     "assert_raises",
     "broadcast",
@@ -686,6 +687,51 @@ def broadcast(left: IntTuple, right: IntTuple) -> IntTuple:
     spec = "(),()->()"
     shapes = _dsl.IntTuples((left, right))
     return gufunc_broadcast(spec, shapes)
+
+
+class TypeVar:
+    """Runtime-safe legacy type variable for variadic shape dimensions.
+
+    This accepts the same arguments as ``typing.TypeVar`` on Python 3.12 and is
+    additionally iterable, so a shape variable can be unpacked as ``*S`` when
+    an annotation is evaluated at runtime.
+    """
+
+    __class__ = typing.TypeVar
+
+    def __init__(
+        self,
+        name: str,
+        *constraints,
+        bound=None,
+        covariant=False,
+        contravariant=False,
+        infer_variance=False,
+    ):
+        self.__name__ = name
+        self.__constraints__ = constraints
+        self.__bound__ = bound
+        self.__covariant__ = covariant
+        self.__contravariant__ = contravariant
+        self.__infer_variance__ = infer_variance
+
+    def __repr__(self):
+        return self.__name__
+
+    def __hash__(self):
+        return id(self)
+
+    def __eq__(self, other):
+        return self is other
+
+    def __iter__(self):
+        yield self
+
+    def __typing_subst__(self, arg):
+        return arg
+
+    def has_default(self):
+        return False
 
 
 class IntVar:

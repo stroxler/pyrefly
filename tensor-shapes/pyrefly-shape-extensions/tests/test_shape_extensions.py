@@ -40,6 +40,33 @@ class ShapeVarsRuntimeTest(unittest.TestCase):
         self.assertEqual(typing.get_args(specialized), (int,))
 
 
+class LegacyTypeVarRuntimeTest(unittest.TestCase):
+    def test_supports_generics_and_shape_splats(self) -> None:
+        namespace: dict[str, typing.Any] = {}
+        exec(
+            textwrap.dedent(
+                """
+                from typing import Generic
+                from shape_extensions import IntTuple, TypeVar
+
+                Shape = TypeVar("Shape", bound=IntTuple)
+
+                class Box(Generic[Shape]):
+                    pass
+
+                Specialized = Box[int]
+                unpacked = [1, *Shape, 2]
+                """
+            ),
+            namespace,
+        )
+        shape = namespace["Shape"]
+
+        self.assertIsInstance(shape, typing.TypeVar)
+        self.assertEqual(typing.get_args(namespace["Specialized"]), (int,))
+        self.assertEqual(namespace["unpacked"], [1, shape, 2])
+
+
 class PostImportHookTest(unittest.TestCase):
     def setUp(self) -> None:
         directory = tempfile.TemporaryDirectory()
