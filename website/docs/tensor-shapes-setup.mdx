@@ -56,14 +56,7 @@ search-path = [
 project-excludes = ["tensor-shapes/**"]
 ```
 
-## Annotation syntax
-
-The examples use native PEP 695 type parameters together with
-`from __future__ import annotations`. If Python must evaluate a shape type at
-runtime, use the runtime wrappers or legacy declarations described in
-[Declaring shape variables and runtime evaluation](../tensor-shapes-reference#declaring-shape-variables-and-runtime-evaluation).
-
-## Hello world
+## Start adding shape annotations
 
 Pick the example for your array library, save it as `hello_shapes.py`, and run
 `pyrefly check hello_shapes.py`. A clean check proves that Pyrefly found the
@@ -118,6 +111,19 @@ shape-aware stubs and inferred the result shape expected by `assert_type`.
     ```
   </TabItem>
 </Tabs>
+
+These examples use native PEP 695 type parameters with
+`from __future__ import annotations`. Pyrefly also supports runtime wrappers and
+legacy type variables; see
+[Declaring shape variables and runtime evaluation](../tensor-shapes-reference#declaring-shape-variables-and-runtime-evaluation)
+for the available spellings.
+
+### Use an agent on real code
+
+For most real PyTorch projects, the next step is to have a coding agent annotate
+an existing model. The
+[Agent Skill for Tensor Shape Porting](../tensor-shapes-ai-porting) gives the
+agent a workflow for adding and verifying those annotations.
 
 ## See shapes with inlay hints
 
