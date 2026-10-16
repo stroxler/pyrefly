@@ -23,89 +23,37 @@ import TabItem from '@theme/TabItem';
 This page walks you through configuring Pyrefly for tensor shape checking and
 getting your first shape-annotated code running.
 
-## Installation
+## Install
 
-Pyrefly publishes shape-aware stub packages for these libraries:
+Pyrefly's basic mode—the default when there is no type-checker configuration—does
+not show shape errors. Set
+[`python.pyrefly.typeCheckingMode`](../IDE#pythonpyreflytypecheckingmode) to
+`default` or `strict`, or create a `pyrefly.toml` (for example, with
+`pyrefly init`) to see them.
 
-- **PyTorch:** `pyrefly-torch-stubs`
-- **JAX:** `jax-pyrefly-stubs` (not `pyrefly-jax-stubs`)
-- **NumPy:** `pyrefly-numpy-stubs`
-- **einops:** `pyrefly-einops-stubs` (currently for PyTorch tensors)
-
-Coverage is partial and growing. Install the packages for the libraries your
-project uses. For example, to enable PyTorch shape checking:
+**PyPI.** Install the package for your library into the
+[Python environment](../configuration#python-interpreter-path) Pyrefly uses:
+`pyrefly-numpy-stubs`, `pyrefly-torch-stubs`, `jax-pyrefly-stubs`, or
+`pyrefly-einops-stubs` (for PyTorch).
 
 ```bash
-pip install pyrefly-torch-stubs
+pip install pyrefly-numpy-stubs
 ```
 
-The packages are PEP 561 stub-only distributions: they provide shape-aware type
-information without replacing or shadowing the runtime libraries. For example,
-`pyrefly-torch-stubs` provides versions of APIs such as `nn.Conv2d.__init__`
-that capture kernel size, stride, and padding as type-level values, plus a
-`forward` method that computes the output spatial dimensions.
+The stub packages install `pyrefly-shape-extensions` and enable shape inference
+automatically.
 
-All tensor-shape packages are released with the same version number as Pyrefly.
-The stub packages pin their Pyrefly shape dependencies to that exact version,
-including `pyrefly-shape-extensions`, so upgrade Pyrefly and its shape packages
-together. The PyTorch, JAX, and NumPy runtime dependencies remain unpinned, so
-your project can choose the runtime library versions it needs.
-
-`pyrefly-shape-extensions` provides the `shape_extensions` import. It exports
-`Int` — the bridge between runtime integer values and type-level symbols — and
-other runtime helpers used by shape annotations.
-
-Tensor shape inference is enabled automatically when Pyrefly can resolve the
-`shape_extensions` package, so there is no tensor-shape-specific flag to set.
-Pyrefly must resolve imports against the
-[Python environment](../configuration#python-interpreter-path) you installed
-into.
-
-:::note Shape errors are hidden in basic mode
-When the IDE finds no Pyrefly configuration or migratable mypy or Pyright
-configuration, its default `auto` mode falls back to the
-[`basic` preset](../configuration#preset-basic). Basic mode still computes
-shapes and provides inferred types and inlay hints, but it suppresses every
-tensor-shape diagnostic. Installing the stubs alone therefore does not show
-shape errors in this mode.
-
-Run `pyrefly init` to create a project configuration (and migrate any existing
-type-checker settings), or set
-[`python.pyrefly.typeCheckingMode`](../IDE#pythonpyreflytypecheckingmode) to
-`default` or `strict` for unconfigured files.
-::::
-
-### Checking against a local copy of the stubs
-
-The stubs also live in Pyrefly's source tree under
-[`tensor-shapes/`](https://github.com/facebook/pyrefly/tree/main/tensor-shapes),
-which is where to work if you want to read or modify them. Copy that directory
-into your project and point `search-path` at the two package directories inside
-it. The paths are relative to the location of your `pyrefly.toml` (or of your
-`pyproject.toml`, if you configure Pyrefly under `[tool.pyrefly]`):
+**Local stubs.** To use unreleased stubs, copy
+[`tensor-shapes/`](https://github.com/facebook/pyrefly/tree/main/tensor-shapes)
+into your project, point `search-path` at the library and shape-extension
+packages, and exclude the source copy from checking. For PyTorch:
 
 ```toml
 search-path = [
     "tensor-shapes/pyrefly-torch-stubs",
     "tensor-shapes/pyrefly-shape-extensions",
 ]
-```
-
-A copy that lives inside your project is also checked as project code, including
-the packages' own tests and examples, which deliberately contain errors. Exclude
-the copy from checking; imports still resolve through `search-path`:
-
-```toml
 project-excludes = ["tensor-shapes/**"]
-```
-
-Excluding the copy also lets a project whose `python-version` is earlier than
-3.13 use the stubs. They use PEP 696 type parameter defaults
-(`class Conv1d[..., S: IntVar = 1]`), so checking them as project code under an
-earlier version reports:
-
-```
-ERROR Cannot set default type for a type parameter on Python 3.12 (syntax was added in Python 3.13) [invalid-syntax]
 ```
 
 ## Annotation syntax
