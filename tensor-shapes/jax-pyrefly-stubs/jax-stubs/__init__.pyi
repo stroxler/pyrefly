@@ -198,7 +198,6 @@ from jax._src.mesh import (
     use_abstract_mesh as use_abstract_mesh,
 )
 from jax._src.partition_spec import P as P
-from jax._src.pjit import reshard as reshard
 from jax._src.pmap import pmap as pmap
 from jax._src.shard_map import (
     shard_map as shard_map,
@@ -230,6 +229,7 @@ from jax.ref import (
     new_ref as new_ref,
     Ref as Ref,
 )
+from jax.sharding import reshard as reshard
 from jax.version import (
     __version__ as __version__,
     __version_info__ as __version_info__,
