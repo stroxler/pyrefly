@@ -646,7 +646,11 @@ from torch._shapes import (
 )
 from torch._tensor_str import set_printoptions as set_printoptions
 from torch.amp import autocast as autocast, GradScaler as GradScaler
-from torch.autograd import enable_grad as enable_grad
+from torch.autograd import (
+    enable_grad as enable_grad,
+    set_grad_enabled as set_grad_enabled,
+)
+from torch.compiler import compile as compile
 from torch.func import vmap as vmap
 from torch.functional import (
     align_tensors as align_tensors,
@@ -701,6 +705,7 @@ uint8: Any
 int: Any
 bool: Any
 channels_last: memory_format
+strided: layout
 ops: Any
 
 # ============================================================================
@@ -4218,6 +4223,8 @@ class dtype:
     ...
 
 float: dtype = ...
+complex64: dtype = ...
+complex128: dtype = ...
 
 # ==============================================================================
 # Tensor Creation with dtype support
@@ -4442,6 +4449,10 @@ def meshgrid(
 # The functions below carry no shape information. They are declared because this
 # module shadows torch's own `__init__`, as described at the `torch._C` import
 # above, so omitting them removes them from `torch` for every dependent target.
+def set_default_dtype(d: dtype, /) -> None: ...
+def get_num_threads() -> builtins.int: ...
+def get_float32_matmul_precision() -> str: ...
+def are_deterministic_algorithms_enabled() -> builtins.bool: ...
 def manual_seed(seed: int) -> Generator:
     """Set the seed for generating random numbers on all devices."""
     ...
