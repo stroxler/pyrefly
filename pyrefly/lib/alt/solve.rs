@@ -125,6 +125,7 @@ use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::LinkedKey;
+use crate::binding::binding::ModuleDiagnostic;
 use crate::binding::binding::MultiTargetReceiver;
 use crate::binding::binding::NoneIfRecursive;
 use crate::binding::binding::PrivateAttributeAccessCheck;
@@ -5681,7 +5682,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
-    /// Emit any `FindError` associated with `m` at `range`. Called from
+    /// Emit any `FindError` associated with `m` at `diagnostic.range`. Called from
     /// the `Binding::Module` solver so the missing-module diagnostic
     /// only fires for bindings that are actually solved — unused
     /// `import X` in a transitive dep stays at `Step::Nothing`. The
@@ -5690,8 +5691,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     fn report_module_find_error(
         &self,
         m: ModuleName,
-        range: TextRange,
-        is_optional_import: bool,
+        diagnostic: &ModuleDiagnostic,
         errors: &ErrorCollector,
     ) {
         let result = self.exports.module_exists(m);
@@ -5700,24 +5700,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             FindingOrError::Error(e) => Some(e),
         };
         // An optional import's fallback handles a module that isn't available, not one that is
-        // found without type information.
-        let handled_by_fallback = is_optional_import
-            && match error {
-                Some(
-                    FindError::MissingImport(..)
-                    | FindError::MissingSource(..)
-                    | FindError::MissingSourceForStubs(..),
-                ) => true,
-                Some(FindError::UntypedImport(..) | FindError::Ignored) | None => false,
-            };
+        // found without type information. A missing source cannot fail an import that never
+        // runs, in a stub file or an `if TYPE_CHECKING:` block.
+        let never_runs =
+            diagnostic.is_in_type_checking_block || self.module().path().is_interface();
+        let suppressed = match error {
+            Some(FindError::MissingImport(..)) => diagnostic.is_optional_import,
+            Some(FindError::MissingSource(..) | FindError::MissingSourceForStubs(..)) => {
+                diagnostic.is_optional_import || never_runs
+            }
+            Some(FindError::UntypedImport(..) | FindError::Ignored) | None => false,
+        };
         if let Some(error) = error
             && let Some(kind) = error.kind()
-            && !handled_by_fallback
+            && !suppressed
         {
             let (ctx, msg) = error.display();
             let (header, details) = msg.split_off_first();
             errors
-                .error_builder(range, kind, header)
+                .error_builder(diagnostic.range, kind, header)
                 .with_details(details)
                 .with_context(ctx.as_deref())
                 .emit();
@@ -6883,8 +6884,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             }
             Binding::Quantified(q) => q.clone().to_value(),
             Binding::Module(x) => {
-                if let Some((error_range, is_optional_import)) = x.3 {
-                    self.report_module_find_error(x.0, error_range, is_optional_import, errors);
+                if let Some(diagnostic) = &x.3 {
+                    self.report_module_find_error(x.0, diagnostic, errors);
                 }
                 self.binding_to_type_module(x.0, &x.1, x.2)
             }

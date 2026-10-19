@@ -55,6 +55,7 @@ use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyTypeAlias;
 use crate::binding::binding::LinkedKey;
+use crate::binding::binding::ModuleDiagnostic;
 use crate::binding::binding::NNModuleRegistrationKind;
 use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
@@ -1913,13 +1914,11 @@ impl<'a> BindingsBuilder<'a> {
                         .map_or_else(|| m.first_component(), |asname| asname.id.clone());
                     let is_optional_import = self.scopes.has_try_fallback(&bound_name);
                     // A `__files__`/`__recursefiles__` directory import names a directory
-                    // rather than a module on disk, so it has no missing-module diagnostic
-                    // range. Every import still binds a name, which the static definitions
+                    // rather than a module on disk, so it has no missing-module diagnostic.
+                    // Every import still binds a name, which the static definitions
                     // pass has already declared; skipping the binding would leave that
                     // declaration without one.
-                    let diagnostic_range = self
-                        .import_diagnostic_range(m, x.range)
-                        .map(|range| (range, is_optional_import));
+                    let diagnostic = self.module_diagnostic(m, x.range, is_optional_import);
 
                     match x.asname {
                         Some(asname) => {
@@ -1936,7 +1935,7 @@ impl<'a> BindingsBuilder<'a> {
                                     m,
                                     m.components().into_boxed_slice(),
                                     None,
-                                    diagnostic_range,
+                                    diagnostic,
                                 ))),
                                 FlowStyle::ImportAs(m),
                             );
@@ -1950,7 +1949,7 @@ impl<'a> BindingsBuilder<'a> {
                                     m,
                                     Box::new([first.clone()]),
                                     module_key,
-                                    diagnostic_range,
+                                    diagnostic,
                                 ))),
                             );
                             // Register the import using the first component (e.g., "os" from "os.path")
@@ -2161,15 +2160,20 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn import_diagnostic_range(
+    fn module_diagnostic(
         &self,
         module_name: ModuleName,
         range: TextRange,
-    ) -> Option<TextRange> {
+        is_optional_import: bool,
+    ) -> Option<ModuleDiagnostic> {
         if is_directory_import(module_name) || self.scopes.is_unreachable_from_static_test() {
             None
         } else {
-            Some(range)
+            Some(ModuleDiagnostic {
+                range,
+                is_optional_import,
+                is_in_type_checking_block: self.type_checking_depth > 0,
+            })
         }
     }
 
@@ -2195,8 +2199,7 @@ impl<'a> BindingsBuilder<'a> {
                 m,
                 m.components().into_boxed_slice(),
                 None,
-                self.import_diagnostic_range(m, module_range)
-                    .map(|range| (range, is_optional_import)),
+                self.module_diagnostic(m, module_range, is_optional_import),
             ))),
         );
         for x in x.names {

@@ -2228,6 +2228,48 @@ fn test_search_path_module_beats_later_package() {
         .unwrap();
 }
 
+#[test]
+fn test_missing_source_not_reported_where_import_never_runs() {
+    // The installed `foo` package has no `_types` module; only `foo-stubs` provides it.
+    let tempdir = tempfile::tempdir().unwrap();
+    let root = tempdir.path();
+    std::fs::create_dir_all(root.join("foo")).unwrap();
+    std::fs::create_dir_all(root.join("foo-stubs")).unwrap();
+    std::fs::write(root.join("foo/__init__.py"), "").unwrap();
+    std::fs::write(root.join("foo-stubs/__init__.pyi"), "").unwrap();
+    std::fs::write(root.join("foo-stubs/_types.pyi"), "X = int\n").unwrap();
+
+    let mut env = TestEnv::new()
+        .with_site_package_paths(vec![root.to_path_buf()])
+        .enable_missing_source_error();
+    env.add_with_path(
+        "main",
+        "main.py",
+        r#"
+from typing import TYPE_CHECKING
+import foo._types  # E: Found stubs for `foo._types`, but no source
+from foo._types import X  # E: Found stubs for `foo._types`, but no source
+import whatthepatch  # E: Stubs for `whatthepatch` are bundled with Pyrefly
+if TYPE_CHECKING:
+    import foo._types
+    from foo._types import X
+    import whatthepatch
+    import nonexistent_xyz  # E: Cannot find module `nonexistent_xyz`
+"#,
+    );
+    env.add_with_path(
+        "stub",
+        "stub.pyi",
+        "import foo._types\nfrom foo._types import X\nimport whatthepatch\n",
+    );
+    let (state, handle_fn) = env.to_state();
+    state
+        .transaction()
+        .get_errors(&[handle_fn("main"), handle_fn("stub")])
+        .check_against_expectations()
+        .unwrap();
+}
+
 // ----------------------------------------------------------------------------
 // Cross-module class rebind tests: importers should observe whichever class
 // the visible result chose. See `assign.rs` for the same-module regressions.

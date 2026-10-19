@@ -2501,6 +2501,18 @@ pub struct ClassBodyUnknownName {
     pub allow_class_body_forward_reference: bool,
 }
 
+/// Where and how to report a `FindError` for the module of a `Binding::Module`.
+#[derive(Clone, Debug)]
+pub struct ModuleDiagnostic {
+    pub range: TextRange,
+    /// All names bound by the import have a fallback in an `except` clause, so only a module
+    /// found without type information is reported.
+    pub is_optional_import: bool,
+    /// The import is inside an `if TYPE_CHECKING:` block and never runs, so a module found
+    /// without its source is not reported.
+    pub is_in_type_checking_block: bool,
+}
+
 #[derive(Clone, Debug)]
 pub enum Binding {
     /// An expression, optionally with a Key saying what the type must be.
@@ -2628,21 +2640,19 @@ pub enum Binding {
     /// An import of a module.
     /// Also contains the path along the module to bind, optionally a key
     /// with the previous import to this binding (in which case merge the
-    /// modules), and optionally a `TextRange` at which to emit a
-    /// missing-module diagnostic if `module_exists` returns a `FindError`
-    /// at solve time. The range is `Some` for top-level `import X`
+    /// modules), and optionally a `ModuleDiagnostic` describing where and
+    /// whether to emit a missing-module diagnostic if `module_exists` returns
+    /// a `FindError` at solve time. It is `Some` for top-level `import X`
     /// statements and `None` when the binding is constructed
     /// internally — for example by `solve_import`'s submodule fallback,
     /// where the cascade is responsible for any missing-module
-    /// diagnostic. The `bool` next to the range records whether the import is an optional
-    /// import, whose bound names all have a fallback in an `except` clause, in which case
-    /// only a module found without type information is reported.
+    /// diagnostic.
     Module(
         Box<(
             ModuleName,
             Box<[Name]>,
             Option<Idx<Key>>,
-            Option<(TextRange, bool)>,
+            Option<ModuleDiagnostic>,
         )>,
     ),
     /// A name that might be a legacy type parameter. Solving this gives the Quantified type if so.

@@ -250,6 +250,7 @@ pub struct TestEnv {
     method_assign_error: bool,
     missing_override_decorator_error: bool,
     missing_super_call_error: bool,
+    missing_source_error: bool,
     unused_ignore_errors: bool,
     pyre_ignores: bool,
     not_required_key_access_error: bool,
@@ -320,6 +321,7 @@ impl TestEnv {
             method_assign_error: false,
             missing_override_decorator_error: false,
             missing_super_call_error: false,
+            missing_source_error: false,
             unused_ignore_errors: false,
             pyre_ignores: false,
             not_required_key_access_error: false,
@@ -522,6 +524,11 @@ impl TestEnv {
 
     pub fn enable_missing_super_call_error(mut self) -> Self {
         self.missing_super_call_error = true;
+        self
+    }
+
+    pub fn enable_missing_source_error(mut self) -> Self {
+        self.missing_source_error = true;
         self
     }
 
@@ -862,6 +869,9 @@ impl TestEnv {
         }
         if self.missing_super_call_error {
             errors.set_error_severity(ErrorKind::MissingSuperCall, Severity::Error);
+        }
+        if self.missing_source_error {
+            errors.set_error_severity(ErrorKind::MissingSource, Severity::Error);
         }
         if self.unused_ignore_errors {
             errors.set_error_severity(ErrorKind::UnusedIgnore, Severity::Error);
