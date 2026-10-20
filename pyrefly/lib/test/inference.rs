@@ -672,6 +672,15 @@ def f(a: Any) -> None:  # E: Explicit `Any` is not allowed
     l = [i for i in a]  # E: The type of `i` is an explicit `Any`
     g = lambda: a  # E: The return type of this lambda is an explicit `Any`
     y = cast(Any, 1)  # E: Explicit `Any` is not allowed  # E: The type of `y` is an explicit `Any`
+    lt = a < 1  # E: The type of `lt` is an explicit `Any`
+    gt = 1 < a  # E: The type of `gt` is an explicit `Any`
+    takes(-a)  # E: The type of this argument is an explicit `Any`
+    m = 1
+    m += a  # the target of an augmented assignment is not itself a reported position
+    takes(m)  # E: The type of this argument is an explicit `Any`
+    n = a  # E: The type of `n` is an explicit `Any`
+    n += 1
+    takes(n)  # E: The type of this argument is an explicit `Any`
 
 def ret(a: Any):  # E: Explicit `Any` is not allowed
     return a  # E: The type of the returned value is an explicit `Any`
@@ -705,6 +714,44 @@ def make_from(v: object) -> NotDefined: ...  # E: Could not find name `NotDefine
 
 def f(d: Any) -> None:
     x = make_from(d.attr)  # E: The type of `x` is unknown because it comes from an error  # E: The type of this argument is an explicit `Any`  # E: The type of attribute `attr` is an explicit `Any`
+"#,
+);
+
+// With two `Any` operands the styles are merged, so an error or implicit `Any` is reported as
+// itself rather than being blamed on the user's explicit `Any`, and the reported kind does not
+// depend on which side the explicit `Any` is on.
+testcase!(
+    test_any_operand_styles_merge,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_unknown_from_error_error()
+        .enable_unknown_variable_type_error(),
+    r#"
+from typing import Any
+
+def make_from(v: object) -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+def f(a: Any, b) -> None:
+    e = make_from(0)  # E: The type of `e` is unknown because it comes from an error
+    ae = a < e  # E: The type of `ae` is unknown because it comes from an error
+    ea = e < a  # E: The type of `ea` is unknown because it comes from an error
+    ab = a < b  # E: The type of `ab` is unknown; it is inferred as an implicit `Any`
+    ba = b < a  # E: The type of `ba` is unknown; it is inferred as an implicit `Any`
+    aa = a < a  # E: The type of `aa` is an explicit `Any`
+
+def g(a: Any, b) -> None:
+    m = a  # E: The type of `m` is an explicit `Any`
+    m += b
+    n = m  # E: The type of `n` is unknown; it is inferred as an implicit `Any`
+
+def h(a: Any, b) -> None:
+    e = make_from(0)  # E: The type of `e` is unknown because it comes from an error
+    m = a  # E: The type of `m` is an explicit `Any`
+    m += e
+    n = m  # E: The type of `n` is unknown because it comes from an error
+    p = b  # E: The type of `p` is unknown; it is inferred as an implicit `Any`
+    p += e
+    q = p  # E: The type of `q` is unknown because it comes from an error
 "#,
 );
 

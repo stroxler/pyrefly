@@ -428,6 +428,10 @@ pub enum AnyStyle {
 }
 
 impl AnyStyle {
+    /// Downgrade an explicit `Any` to an implicit one, for a type that is derived from an `Any`
+    /// rather than being the user's `Any` itself, so that the derived type is not reported as a
+    /// use of an annotation the user wrote. An operation on an `Any` operand keeps the operand's
+    /// style instead of downgrading it: see `Type::merge_any_operands`.
     pub fn propagate(self) -> Type {
         match self {
             Self::Implicit | Self::Error => Type::Any(self),
@@ -435,6 +439,9 @@ impl AnyStyle {
         }
     }
 
+    /// Combine the styles of two `Any`s that flow into a single value. An error `Any` wins, so
+    /// that fallout from an earlier error is never blamed on the user's explicit `Any`, and an
+    /// implicit `Any` beats an explicit one for the same reason.
     pub fn merge(self, other: Self) -> Type {
         match (self, other) {
             (Self::Error, _) | (_, Self::Error) => Type::Any(Self::Error),
@@ -2160,6 +2167,18 @@ impl Type {
 
     pub fn any_error() -> Self {
         Type::Any(AnyStyle::Error)
+    }
+
+    /// The result of an operation on `lhs` and `rhs` when either operand is `Any`. Such an
+    /// operation can return anything, so the result is `Any`, keeping the operand's style. When
+    /// both operands are `Any` their styles are merged, so that an error or implicit `Any` is not
+    /// reported as a use of the explicit `Any` the user wrote.
+    pub fn merge_any_operands(lhs: &Type, rhs: &Type) -> Option<Type> {
+        match (lhs, rhs) {
+            (Type::Any(lstyle), Type::Any(rstyle)) => Some(lstyle.merge(*rstyle)),
+            (Type::Any(style), _) | (_, Type::Any(style)) => Some(Type::Any(*style)),
+            _ => None,
+        }
     }
 
     /// Canonicalize a dimension expression to a unique normal form.
