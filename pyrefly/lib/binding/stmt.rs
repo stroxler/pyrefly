@@ -278,7 +278,11 @@ impl<'a> BindingsBuilder<'a> {
     /// For the alias case, we use this range to create `Key::Definition` that matches the
     /// definitions phase, which also uses the function name range. The symbol-list case
     /// instead anchors each name at its own list element, so the names get distinct keys.
-    fn handle_special_import_call(&mut self, func_name_range: TextRange, args: &[Expr]) {
+    fn handle_special_import_call(&mut self, func_name_range: TextRange, args: &mut [Expr]) {
+        // The arguments are only read for their string values, so bind them here.
+        for arg in args.iter_mut() {
+            self.bind_unread_argument(arg);
+        }
         // Extract the module path from the first string argument.
         let module_path = match &args[0] {
             Expr::StringLiteral(lit) => lit.value.to_str(),
@@ -528,7 +532,7 @@ impl<'a> BindingsBuilder<'a> {
             is_annotation: false,
         };
         self.ensure_expr(&mut call.func, static_type_usage);
-        if let Some(expr) = call.arguments.args.iter_mut().next() {
+        for expr in call.arguments.args.iter_mut() {
             self.ensure_expr(expr, static_type_usage);
         }
         for kw in call.arguments.keywords.iter_mut() {
@@ -970,6 +974,7 @@ impl<'a> BindingsBuilder<'a> {
                                         &mut call.func,
                                         arg_name,
                                         members,
+                                        &mut call.arguments.keywords,
                                     );
                                     return;
                                 }
@@ -998,6 +1003,7 @@ impl<'a> BindingsBuilder<'a> {
                                         arg_name,
                                         ErrorKind::NameMismatch,
                                     );
+                                    self.bind_unread_argument(arg_name);
                                     let adjacent_defaults =
                                         self.adjacent_namedtuple_defaults.take();
                                     self.synthesize_typing_named_tuple_def(
@@ -1007,6 +1013,7 @@ impl<'a> BindingsBuilder<'a> {
                                         members,
                                         true,
                                         adjacent_defaults,
+                                        &mut call.arguments.keywords,
                                     );
                                     return;
                                 }
@@ -1020,6 +1027,7 @@ impl<'a> BindingsBuilder<'a> {
                                         arg_name,
                                         ErrorKind::NameMismatch,
                                     );
+                                    self.bind_unread_argument(arg_name);
                                     let adjacent_defaults =
                                         self.adjacent_namedtuple_defaults.take();
                                     self.synthesize_collections_named_tuple_def(
@@ -1042,6 +1050,7 @@ impl<'a> BindingsBuilder<'a> {
                                         &mut call.func,
                                         new_type_name,
                                         base,
+                                        &mut call.arguments.keywords,
                                     );
                                     return;
                                 }
@@ -2003,7 +2012,7 @@ impl<'a> BindingsBuilder<'a> {
                 ) =>
             {
                 let expr_range = stmt_expr.range;
-                let Expr::Call(call) = *stmt_expr.value else {
+                let Expr::Call(mut call) = *stmt_expr.value else {
                     unreachable!("guarded by matches! above")
                 };
                 let Expr::Name(name) = &*call.func else {
@@ -2014,7 +2023,8 @@ impl<'a> BindingsBuilder<'a> {
                 // (the range of the full call expression). The definitions phase
                 // uses the function name range for DefinitionStyle::Import, so
                 // the binding phase must use the same range to produce matching keys.
-                self.handle_special_import_call(name.range, &call.arguments.args);
+                let name_range = name.range;
+                self.handle_special_import_call(name_range, &mut call.arguments.args);
             }
             Stmt::Expr(stmt_expr)
                 if matches!(&*stmt_expr.value,

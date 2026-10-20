@@ -700,6 +700,7 @@ impl<'a> BindingsBuilder<'a> {
                 members,
                 false,
                 None,
+                &mut call.arguments.keywords,
             ),
             _ => unreachable!("caller only passes CollectionsNamedTuple or TypingNamedTuple"),
         };
