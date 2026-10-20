@@ -2270,6 +2270,49 @@ if TYPE_CHECKING:
         .unwrap();
 }
 
+#[test]
+fn test_missing_source_for_submodule_imported_from_package() {
+    // The installed `foo` package has no `_types` module; only `foo-stubs` provides it.
+    // `bar` is not installed at all; only `bar-stubs` provides it and its `sub` module.
+    let tempdir = tempfile::tempdir().unwrap();
+    let root = tempdir.path();
+    std::fs::create_dir_all(root.join("foo")).unwrap();
+    std::fs::create_dir_all(root.join("foo-stubs")).unwrap();
+    std::fs::create_dir_all(root.join("bar-stubs")).unwrap();
+    std::fs::write(root.join("foo/__init__.py"), "").unwrap();
+    std::fs::write(root.join("foo-stubs/__init__.pyi"), "").unwrap();
+    std::fs::write(root.join("foo-stubs/_types.pyi"), "X = int\n").unwrap();
+    std::fs::write(root.join("bar-stubs/__init__.pyi"), "").unwrap();
+    std::fs::write(root.join("bar-stubs/sub.pyi"), "").unwrap();
+
+    let mut env = TestEnv::new()
+        .with_site_package_paths(vec![root.to_path_buf()])
+        .enable_missing_source_error();
+    // `bar` itself has no source, so only the statement-level error for `bar` is reported.
+    env.add_with_path(
+        "main",
+        "main.py",
+        r#"
+from typing import TYPE_CHECKING
+from foo import _types  # E: Found stubs for `foo._types`, but no source
+from bar import sub  # E: Found stubs for `bar`, but no source
+try:
+    from foo import _types as optional_types
+except ImportError:
+    optional_types = None
+if TYPE_CHECKING:
+    from foo import _types as checked_types
+"#,
+    );
+    env.add_with_path("stub", "stub.pyi", "from foo import _types\n");
+    let (state, handle_fn) = env.to_state();
+    state
+        .transaction()
+        .get_errors(&[handle_fn("main"), handle_fn("stub")])
+        .check_against_expectations()
+        .unwrap();
+}
+
 // ----------------------------------------------------------------------------
 // Cross-module class rebind tests: importers should observe whichever class
 // the visible result chose. See `assign.rs` for the same-module regressions.

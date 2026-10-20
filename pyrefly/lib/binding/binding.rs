@@ -2480,12 +2480,13 @@ pub struct ImportBinding {
 /// [`ImportBinding::fallback`].
 #[derive(Clone, Debug)]
 pub struct ImportFallback {
-    /// Per-name range (the `Alias` range, e.g. just `Y` or `Y as Z`).
-    /// Used to anchor a `MissingModuleAttribute` error if the imported
-    /// name can't be resolved inside an existing module. The
-    /// missing-module error itself is handled by a separate
+    /// Diagnostic context for the imported name. Its range is the per-name
+    /// range (the `Alias` range, e.g. just `Y` or `Y as Z`), which anchors a
+    /// `MissingModuleAttribute` error if the name can't be resolved inside an
+    /// existing module, or a find error for the submodule the name refers to.
+    /// The missing-module error for the module itself is handled by a separate
     /// per-statement `Binding::Module`.
-    pub stmt_range: TextRange,
+    pub diagnostic: ModuleDiagnostic,
     /// If true, the import site is dead code (statically unreachable).
     /// Suppress the missing-attribute error in that case — the bind-time
     /// logic did the same via `is_unreachable_from_static_test`.
@@ -2505,7 +2506,7 @@ pub struct ClassBodyUnknownName {
 #[derive(Clone, Debug)]
 pub struct ModuleDiagnostic {
     pub range: TextRange,
-    /// All names bound by the import have a fallback in an `except` clause, so only a module
+    /// The names bound by the import have a fallback in an `except` clause, so only a module
     /// found without type information is reported.
     pub is_optional_import: bool,
     /// The import is inside an `if TYPE_CHECKING:` block and never runs, so a module found

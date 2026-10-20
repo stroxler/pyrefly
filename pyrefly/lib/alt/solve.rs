@@ -5621,7 +5621,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             if self.exports.is_implicit_reexport(m, name) && !fallback.is_unreachable {
                 errors
                     .error_builder(
-                        fallback.stmt_range,
+                        fallback.diagnostic.range,
                         ErrorKind::ImplicitReexport,
                         format!("`{name}` is not exported from module `{m}`"),
                     )
@@ -5636,6 +5636,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         let submodule_name = m.append(name);
         let submodule_error = match self.exports.module_exists(submodule_name) {
             FindingOrError::Finding(_) => {
+                // The statement's `Binding::Module` reports any error for `m` itself, so the
+                // submodule's own error is reported only when `m` has none.
+                if !fallback.is_unreachable && self.exports.module_exists(m).error().is_none() {
+                    self.report_module_find_error(submodule_name, &fallback.diagnostic, errors);
+                }
                 return self.binding_to_type_module(
                     submodule_name,
                     &submodule_name.components(),
@@ -5679,7 +5684,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             if !fallback.is_unreachable {
                 errors
                     .error_builder(
-                        fallback.stmt_range,
+                        fallback.diagnostic.range,
                         ErrorKind::MissingModuleAttribute,
                         format!("Could not import `{name}` from `{m}`"),
                     )

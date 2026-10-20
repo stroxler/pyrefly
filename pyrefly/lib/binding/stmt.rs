@@ -353,10 +353,7 @@ impl<'a> BindingsBuilder<'a> {
                             name: name.clone(),
                             original_name_range: None,
                             check_deprecated: Some(range),
-                            fallback: Some(ImportFallback {
-                                stmt_range: range,
-                                is_unreachable: self.scopes.is_unreachable_from_static_test(),
-                            }),
+                            fallback: Some(self.import_fallback(range, &name)),
                         }))
                     } else {
                         Binding::Any(AnyStyle::Implicit)
@@ -2177,6 +2174,17 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    fn import_fallback(&self, range: TextRange, bound_name: &Name) -> ImportFallback {
+        ImportFallback {
+            diagnostic: ModuleDiagnostic {
+                range,
+                is_optional_import: self.scopes.has_try_fallback(bound_name),
+                is_in_type_checking_block: self.type_checking_depth > 0,
+            },
+            is_unreachable: self.scopes.is_unreachable_from_static_test(),
+        }
+    }
+
     fn bind_module_exports(&mut self, x: StmtImportFrom, m: ModuleName) {
         let module_range = x.range;
         // A statement with no names failed to parse, so it has no fallback to check.
@@ -2255,10 +2263,7 @@ impl<'a> BindingsBuilder<'a> {
                     name: x.name.id.clone(),
                     original_name_range,
                     check_deprecated: Some(x.range),
-                    fallback: Some(ImportFallback {
-                        stmt_range: x.range,
-                        is_unreachable: self.scopes.is_unreachable_from_static_test(),
-                    }),
+                    fallback: Some(self.import_fallback(x.range, &asname.id)),
                 }));
                 // __future__ imports have side effects even if not explicitly used,
                 // so we skip the unused import check for them.
