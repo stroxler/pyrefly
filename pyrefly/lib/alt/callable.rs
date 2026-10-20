@@ -636,6 +636,18 @@ impl CallArgPreEval<'_> {
             }
             Self::Fixed(tys, index) => {
                 let arg_ty = tys[*index].clone();
+                // Every element of a fixed-length splat is reported at the range of the whole
+                // argument, so report the argument once, on its first element, with the element
+                // styles merged. Reporting each element separately puts two error kinds at one
+                // range when the elements have different `Any` styles.
+                let merged_any = (*index == 0)
+                    .then(|| {
+                        tys.iter().fold(None, |acc: Option<Type>, ty| match acc {
+                            None => matches!(ty, Type::Any(_)).then(|| ty.clone()),
+                            Some(acc) => Type::merge_any_operands(&acc, ty),
+                        })
+                    })
+                    .flatten();
                 self.advance_after_match(vararg);
                 solver.check_type_with_options(
                     &arg_ty,
@@ -643,7 +655,9 @@ impl CallArgPreEval<'_> {
                     range,
                     TypeCheckOptions::new(call_errors, tcc).with_call_context(call_context),
                 );
-                solver.maybe_error_any_argument_type(&arg_ty, range, arg_errors);
+                if let Some(merged_any) = merged_any {
+                    solver.maybe_error_any_argument_type(&merged_any, range, arg_errors);
+                }
                 Some(arg_ty)
             }
         }

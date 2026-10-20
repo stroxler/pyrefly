@@ -769,6 +769,36 @@ b = __builtins__  # E: The type of `b` is unknown; it is inferred as an implicit
 "#,
 );
 
+// Each element of a fixed-length splat is matched to its own parameter but reported at the range
+// of the whole argument, so the argument gets one report with the element styles merged. Without
+// the merge, elements with different styles each report, putting two kinds at the same range.
+testcase!(
+    test_splat_argument_any_styles_merge,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_unknown_from_error_error()
+        .enable_unknown_argument_type_error(),
+    r#"
+from typing import Any
+
+def make_from(v: object) -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+def two(a: int, b: int) -> None: ...
+
+def f(a: Any, b) -> None:
+    e = make_from(0)  # E: The type of `e` is unknown because it comes from an error
+    two(*[a, e])  # E: The type of this argument is unknown because it comes from an error
+    two(*[a, b])  # E: The type of this argument is unknown
+    two(*[a, a])  # E: The type of this argument is an explicit `Any`
+    two(*[a, 1])  # E: The type of this argument is an explicit `Any`
+    two(*[1, 2])
+
+def g(t: tuple[Any, int], u: tuple[Any, Any]) -> None:
+    two(*t)  # E: The type of this argument is an explicit `Any`
+    two(*u)  # E: The type of this argument is an explicit `Any`
+"#,
+);
+
 // A return is only reported when the declared return type is concrete. A declared `Any` already
 // tells the reader the value is unchecked, and `object` forces the caller to narrow before use.
 testcase!(
