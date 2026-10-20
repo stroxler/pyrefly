@@ -2494,7 +2494,7 @@ impl Scopes {
         name: Hashed<&Name>,
         idx: Idx<Key>,
         style: FlowStyle,
-    ) {
+    ) -> Option<NameWriteInfo> {
         let len = self.scopes.len();
         for i in (0..len - 1).rev() {
             if !matches!(self.scopes[i].scope.kind, ScopeKind::Comprehension { .. }) {
@@ -2507,9 +2507,14 @@ impl Scopes {
                         *e.get_mut() = e.get().updated_value(idx, style, in_loop);
                     }
                 }
-                break;
+                // The enclosing scope's static table can lack the name, for example in a
+                // lambda (its static table holds only its parameters) or a parameter
+                // default. Then there is no write info.
+                let static_info = self.scopes[i].scope.stat.0.get_hashed(name)?;
+                return Some(static_info.as_name_write_info());
             }
         }
+        unreachable!("the module scope encloses every comprehension")
     }
 
     /// Handle a delete operation by marking a name as uninitialized in this flow.

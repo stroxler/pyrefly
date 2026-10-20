@@ -2241,6 +2241,19 @@ impl<'a> BindingsBuilder<'a> {
         write_info.annotation
     }
 
+    /// Like `bind_name`, but for a walrus target inside a comprehension: the write goes to the
+    /// nearest enclosing non-comprehension scope, and is recorded in that scope's `Anywhere`.
+    pub fn bind_name_in_enclosing_non_comprehension_scope(&mut self, name: &Name, idx: Idx<Key>) {
+        let write_info = self.scopes.define_in_enclosing_non_comprehension_scope(
+            Hashed::new(name),
+            idx,
+            FlowStyle::Other,
+        );
+        if let Some(range) = write_info.and_then(|w| w.anywhere_range) {
+            self.table.record_bind_in_anywhere(name.clone(), range, idx);
+        }
+    }
+
     /// Returns `true` if an error was reported for this reassignment.
     fn check_for_type_alias_redefinition(&self, name: &Name, idx: Idx<Key>) -> bool {
         let Some(prev_idx) = self.scopes.current_flow_idx(name) else {

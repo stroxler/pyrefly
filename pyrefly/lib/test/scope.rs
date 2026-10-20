@@ -1723,7 +1723,6 @@ def demo(text: str) -> None:
 
 // https://github.com/facebook/pyrefly/issues/3670
 testcase!(
-    should_panic = "key lacking binding",
     test_walrus_in_comprehension_read_before_write_multiple_defs,
     r#"
 def f(xs: list[int]) -> None:
@@ -1733,7 +1732,6 @@ def f(xs: list[int]) -> None:
 );
 
 testcase!(
-    should_panic = "key lacking binding",
     test_walrus_in_comprehension_multiple_defs_read_from_nested_function,
     r#"
 from typing import assert_type
