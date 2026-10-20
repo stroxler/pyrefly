@@ -5535,18 +5535,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             // Only a name that flow narrowing made `None` is reported. A `None` that is inferred
             // rather than narrowed says little about the program: an unannotated `x = None`
             // global reads as `None` in every function, even one that reassigns it through
-            // `global`. The binding a name's narrows start from holds its type before narrowing.
+            // `global`.
             Type::None if let Expr::Name(name) = condition => {
-                let mut idx = self
-                    .bindings()
-                    .key_to_idx(&Key::BoundName(ShortIdentifier::expr_name(name)));
-                while let Binding::Forward(next)
-                | Binding::ForwardToFirstUse(next)
-                | Binding::PromoteForward(next)
-                | Binding::Narrow(next, ..) = self.bindings().get(idx)
-                {
-                    idx = *next;
-                }
+                let idx = self.binding_before_narrowing(name);
                 (!self.get_idx(idx).ty().is_none()).then_some(ConditionRedundantReason::NoneValue)
             }
             ty if let Some(kind) = ty.to_func_kind() => Some(ConditionRedundantReason::Function(

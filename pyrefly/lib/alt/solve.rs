@@ -2719,32 +2719,36 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
-    /// The type a name has at its declaration, before any narrowing, or `None` if the name is not
-    /// bound by a declaration: an annotated parameter or assignment, `def`, `class`, or `type`.
-    fn declared_type_of_name(&self, name: &ExprName) -> Option<Type> {
+    /// The binding that a read of `name` starts from, before any forwarding or flow narrowing.
+    pub(crate) fn binding_before_narrowing(&self, name: &ExprName) -> Idx<Key> {
         let mut idx = self
             .bindings()
             .key_to_idx(&Key::BoundName(ShortIdentifier::expr_name(name)));
-        loop {
-            match self.bindings().get(idx) {
-                Binding::Forward(next)
-                | Binding::ForwardToFirstUse(next)
-                | Binding::PromoteForward(next)
-                | Binding::Narrow(next, ..) => idx = *next,
-                Binding::FunctionParameter(param)
-                    if matches!(**param, FunctionParameter::Annotated(_)) =>
-                {
-                    break;
-                }
-                Binding::NameAssign(assign) if assign.annotation.is_some() => break,
-                Binding::Function { .. }
-                | Binding::ClassDef(..)
-                | Binding::TypeAlias(_)
-                | Binding::AnnotatedType(..) => break,
-                // An unannotated assignment, a merge of several definitions, a capture, and the
-                // like all carry an inferred type.
-                _ => return None,
-            }
+        while let Binding::Forward(next)
+        | Binding::ForwardToFirstUse(next)
+        | Binding::PromoteForward(next)
+        | Binding::Narrow(next, ..) = self.bindings().get(idx)
+        {
+            idx = *next;
+        }
+        idx
+    }
+
+    /// The type a name has at its declaration, before any narrowing, or `None` if the name is not
+    /// bound by a declaration: an annotated parameter or assignment, `def`, `class`, or `type`.
+    fn declared_type_of_name(&self, name: &ExprName) -> Option<Type> {
+        let idx = self.binding_before_narrowing(name);
+        match self.bindings().get(idx) {
+            Binding::FunctionParameter(param)
+                if matches!(**param, FunctionParameter::Annotated(_)) => {}
+            Binding::NameAssign(assign) if assign.annotation.is_some() => {}
+            Binding::Function { .. }
+            | Binding::ClassDef(..)
+            | Binding::TypeAlias(_)
+            | Binding::AnnotatedType(..) => {}
+            // An unannotated assignment, a merge of several definitions, a capture, and the
+            // like all carry an inferred type.
+            _ => return None,
         }
         Some(self.get_idx(idx).ty().clone())
     }
