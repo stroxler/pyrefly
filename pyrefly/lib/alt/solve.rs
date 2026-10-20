@@ -2382,8 +2382,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             self.expand_mut(ty);
         });
         // Flag an unannotated variable bound by a loop, unpacking, `with` or comprehension
-        // whose inferred type is an implicit or error `Any`. Plain assignments are reported
-        // where they are solved. These binding kinds also serve as anonymous intermediates
+        // whose inferred type is an implicit, error or explicit `Any`. Plain assignments are
+        // reported where they are solved. These binding kinds also serve as anonymous intermediates
         // (a whole unpacked tuple, a `with` item without `as`, a subscript or attribute
         // target), so only a binding keyed as a name definition at `range` is a variable.
         // A comprehension target forwards to its iteration binding, which is keyed at the
@@ -2398,10 +2398,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             _ => None,
         };
         if let Some(target_range) = target_range
-            && matches!(
-                type_info.ty(),
-                Type::Any(AnyStyle::Implicit | AnyStyle::Error)
-            )
+            && let Type::Any(style) = type_info.ty()
             && self
                 .bindings()
                 .is_valid_key(&Key::Definition(ShortIdentifier::from_text_range(
@@ -2409,8 +2406,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 )))
         {
             let name = self.module().code_at(target_range);
-            match type_info.ty() {
-                Type::Any(AnyStyle::Implicit) => {
+            match style {
+                AnyStyle::Implicit => {
                     self.error(
                         errors,
                         target_range,
@@ -2420,12 +2417,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         ),
                     );
                 }
-                Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+                AnyStyle::Error => self.error_unknown_from_error(
                     errors,
                     self.target_value_range(binding).unwrap_or(target_range),
                     format!("The type of `{name}`"),
                 ),
-                _ => {}
+                AnyStyle::Explicit => self.error_explicit_any_use(
+                    errors,
+                    target_range,
+                    format!("The type of `{name}`"),
+                ),
             }
         }
         SolveResult::Answer(type_info)
@@ -4218,7 +4219,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             None,
             errors,
         );
-        // Flag unannotated variables whose inferred type is an implicit or error `Any`.
+        // Flag unannotated variables whose inferred type is an implicit, error or explicit `Any`.
         // Annotated variables have a declared type; attribute assignments (`receiver_idx`)
         // and class-body assignments are covered by attribute-specific checks, so they are
         // excluded here to avoid a double report.
@@ -4235,6 +4236,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     );
                 }
                 Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+                    errors,
+                    expr.range(),
+                    format!("The type of `{name}`"),
+                ),
+                Type::Any(AnyStyle::Explicit) => self.error_explicit_any_use(
                     errors,
                     expr.range(),
                     format!("The type of `{name}`"),
@@ -4512,8 +4518,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     /// Check if returning an Any-typed expression from a function with a concrete return type,
     /// and emit the appropriate error (NoAnyReturnExplicit or NoAnyReturnImplicit). In a function
-    /// without a return annotation, returning an unknown value is reported as UnknownReturnType,
-    /// since the function's inferred return type becomes unknown too.
+    /// without a return annotation, returning an implicit, error or explicit `Any` is reported as
+    /// UnknownReturnType, UnknownFromError or ExplicitAnyUse.
     fn check_any_return(
         &self,
         annotated: bool,
@@ -4539,6 +4545,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         range,
                         "The type of the returned value",
                     ),
+                    Type::Any(AnyStyle::Explicit) => {
+                        self.error_explicit_any_use(errors, range, "The type of the returned value")
+                    }
                     _ => {}
                 }
             }

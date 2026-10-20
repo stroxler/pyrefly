@@ -208,6 +208,8 @@ pub struct RuleOverrides {
     pub report_invalid_type_form: Option<Severity>,
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
     pub report_explicit_any: Option<Severity>,
+    #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
+    pub report_any: Option<Severity>,
 
     // Abstract/instantiation rules
     #[serde_as(as = "Option<FromInto<DiagnosticLevelOrBool>>")]
@@ -381,6 +383,7 @@ impl RuleOverrides {
         add(self.report_invalid_type_form, ErrorKind::InvalidTypeAlias);
         add(self.report_invalid_type_form, ErrorKind::NotAType);
         add(self.report_explicit_any, ErrorKind::ExplicitAny);
+        add(self.report_any, ErrorKind::ExplicitAnyUse);
         add(self.report_abstract_usage, ErrorKind::BadInstantiation);
         add(self.report_argument_type, ErrorKind::BadArgumentType);
         add(self.report_argument_type, ErrorKind::InvalidArgument);

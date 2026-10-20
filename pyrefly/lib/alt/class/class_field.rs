@@ -2049,10 +2049,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     self.analyze_class_field_value(value, class, name, None, false, range, errors);
                 // A class-body name bound by unpacking, a `for` loop or `with` is a class
                 // attribute, so an unknown type is reported like a plain class-body assignment: an
-                // implicit `Any` at the binding that produced it, and an error `Any` at the value it
-                // came from, like other targets. Imports, walrus targets and match captures
-                // also end up here and are not reported, as at other scopes. So is a name whose
-                // final value merges several bindings, which is only checked as a whole here.
+                // implicit or explicit `Any` at the binding that produced it, and an error `Any` at
+                // the value it came from, like other targets. Imports, walrus targets and match
+                // captures also end up here and are not reported, as at other scopes. So is a name
+                // whose final value merges several bindings, which is only checked as a whole here.
                 let binding = self.bindings().get(*definition);
                 let is_reported_target = matches!(
                     binding,
@@ -2076,6 +2076,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             self.target_value_range(binding).unwrap_or(range),
                             "The type of this attribute",
                         ),
+                        Type::Any(AnyStyle::Explicit) => {
+                            self.error_explicit_any_use(errors, range, "The type of this attribute")
+                        }
                         _ => {}
                     }
                 }
@@ -2599,8 +2602,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             (None, _) => self.expr_infer(x, errors),
         };
         self.expand_mut(&mut ty);
-        // An unannotated attribute whose value has a bare implicit or error `Any` type (e.g. from
-        // an untyped call) is reported separately from the `None`/empty-tuple sentinel cases above.
+        // An unannotated attribute whose value has a bare `Any` type is reported separately from
+        // the `None`/empty-tuple sentinel cases above, under the kind for the style of that `Any`:
+        // an untyped call gives an implicit `Any`, a failed import an error `Any`, and a library
+        // function annotated `-> Any` an explicit `Any`.
         if annotation.is_none() {
             match &ty {
                 Type::Any(AnyStyle::Implicit) => {
@@ -2613,6 +2618,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
                 Type::Any(AnyStyle::Error) => {
                     self.error_unknown_from_error(errors, x.range(), "The type of this attribute")
+                }
+                Type::Any(AnyStyle::Explicit) => {
+                    self.error_explicit_any_use(errors, x.range(), "The type of this attribute")
                 }
                 _ => {}
             }

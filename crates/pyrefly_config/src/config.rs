@@ -3832,6 +3832,7 @@ output-format = "omit-errors"
                 "strict should enable {kind:?} via the implicit-any parent"
             );
         }
+        assert_eq!(errors.severity(ErrorKind::ExplicitAnyUse), Severity::Ignore);
         assert_eq!(
             errors.severity(ErrorKind::UnknownAttributeType),
             Severity::Ignore

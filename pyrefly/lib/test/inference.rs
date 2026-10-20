@@ -644,3 +644,138 @@ def g(p):
 w = make_from(old())  # E: The type of `w` is unknown because it comes from an error  # E: `old` is deprecated
 "#,
 );
+
+// `explicit-any` and `no-any-return-explicit` are enabled to show which kind reports each of these
+// places, and that the three do not overlap on any of them.
+testcase!(
+    test_explicit_any_use,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_explicit_any_error()
+        .enable_no_any_return_explicit_error(),
+    r#"
+import json
+from typing import Any, cast
+
+def takes(x: int) -> None: ...
+
+def f(a: Any) -> None:  # E: Explicit `Any` is not allowed
+    b = a.attr  # E: The type of `b` is an explicit `Any`  # E: The type of attribute `attr` is an explicit `Any`
+    chain = a.one.two  # E: The type of `chain` is an explicit `Any`  # E: The type of attribute `one` is an explicit `Any`  # E: The type of attribute `two` is an explicit `Any`
+    takes(a)  # E: The type of this argument is an explicit `Any`
+    c = json.loads("1")  # E: The type of `c` is an explicit `Any`
+    for item in a:  # E: The type of `item` is an explicit `Any`
+        pass
+    p, q = a  # E: The type of `p` is an explicit `Any`  # E: The type of `q` is an explicit `Any`
+    with a as w:  # E: The type of `w` is an explicit `Any`
+        pass
+    l = [i for i in a]  # E: The type of `i` is an explicit `Any`
+    g = lambda: a  # E: The return type of this lambda is an explicit `Any`
+    y = cast(Any, 1)  # E: Explicit `Any` is not allowed  # E: The type of `y` is an explicit `Any`
+
+def ret(a: Any):  # E: Explicit `Any` is not allowed
+    return a  # E: The type of the returned value is an explicit `Any`
+
+def annotated(a: Any) -> int:  # E: Explicit `Any` is not allowed
+    return a  # E: Returning Any from function declared to return "int"
+
+def get() -> Any: ...  # E: Explicit `Any` is not allowed
+
+class C:
+    for k in get():  # E: The type of this attribute is an explicit `Any`
+        pass
+
+    def __init__(self) -> None:
+        self.inst = json.loads("1")  # E: The type of this attribute is an explicit `Any`
+        self.declared: Any = json.loads("1")  # E: Explicit `Any` is not allowed
+
+e: Any = 1  # E: Explicit `Any` is not allowed
+"#,
+);
+
+testcase!(
+    test_explicit_any_use_does_not_hide_unknown_from_error,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_unknown_from_error_error(),
+    r#"
+from typing import Any
+
+def make_from(v: object) -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+def f(d: Any) -> None:
+    x = make_from(d.attr)  # E: The type of `x` is unknown because it comes from an error  # E: The type of this argument is an explicit `Any`  # E: The type of attribute `attr` is an explicit `Any`
+"#,
+);
+
+// Module globals whose type pyrefly does not model are an implicit `Any`: there is no annotation
+// in the user's code that they could change, so blaming an explicit `Any` would be wrong.
+testcase!(
+    test_unmodelled_module_globals_are_implicit_any,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_unknown_variable_type_error(),
+    r#"
+s = __spec__  # E: The type of `s` is unknown; it is inferred as an implicit `Any`
+l = __loader__  # E: The type of `l` is unknown; it is inferred as an implicit `Any`
+b = __builtins__  # E: The type of `b` is unknown; it is inferred as an implicit `Any`
+"#,
+);
+
+// A return is only reported when the declared return type is concrete. A declared `Any` already
+// tells the reader the value is unchecked, and `object` forces the caller to narrow before use.
+testcase!(
+    test_explicit_any_use_return_annotations,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_explicit_any_error()
+        .enable_no_any_return_explicit_error(),
+    r#"
+from typing import Any
+
+def to_any(a: Any) -> Any:  # E: Explicit `Any` is not allowed  # E: Explicit `Any` is not allowed
+    return a
+
+def to_object(a: Any) -> object:  # E: Explicit `Any` is not allowed
+    return a
+
+def to_concrete(a: Any) -> int:  # E: Explicit `Any` is not allowed
+    return a  # E: Returning Any from function declared to return "int"
+"#,
+);
+
+// The `int` half of the union is never checked, so this should be reported. The check skips any
+// declared return type with a top-level `Any` member, which is too coarse for a union.
+testcase!(
+    bug = "returning an explicit `Any` as `int | Any` is not reported",
+    test_any_return_to_union_with_any,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_explicit_any_error()
+        .enable_no_any_return_explicit_error(),
+    r#"
+from typing import Any
+
+def to_union(a: Any) -> int | Any:  # E: Explicit `Any` is not allowed  # E: Explicit `Any` is not allowed
+    return a
+"#,
+);
+
+// Every argument shape goes through a different call-site path, so each is reported separately.
+testcase!(
+    test_explicit_any_use_argument_shapes,
+    TestEnv::new().enable_explicit_any_use_error(),
+    r#"
+from typing import Any
+
+def positional(x: int) -> None: ...
+def keyword(*, k: int) -> None: ...
+def star(*args: int, **kwargs: int) -> None: ...
+
+def f(a: Any) -> None:
+    positional(a)  # E: The type of this argument is an explicit `Any`
+    keyword(k=a)  # E: The type of this argument is an explicit `Any`
+    star(*a)  # E: The type of this argument is an explicit `Any`
+    star(**a)  # E: The type of this argument is an explicit `Any`
+"#,
+);

@@ -238,6 +238,7 @@ pub struct TestEnv {
     implicitly_defined_attribute_error: bool,
     uninitialized_instance_variable_error: bool,
     explicit_any_error: bool,
+    explicit_any_use_error: bool,
     implicit_any_error: bool,
     unannotated_return_error: bool,
     implicit_any_parameter_error: bool,
@@ -309,6 +310,7 @@ impl TestEnv {
             implicitly_defined_attribute_error: false,
             uninitialized_instance_variable_error: false,
             explicit_any_error: false,
+            explicit_any_use_error: false,
             implicit_any_error: false,
             unannotated_return_error: false,
             implicit_any_parameter_error: false,
@@ -464,6 +466,11 @@ impl TestEnv {
 
     pub fn enable_explicit_any_error(mut self) -> Self {
         self.explicit_any_error = true;
+        self
+    }
+
+    pub fn enable_explicit_any_use_error(mut self) -> Self {
+        self.explicit_any_use_error = true;
         self
     }
 
@@ -833,6 +840,9 @@ impl TestEnv {
         }
         if self.explicit_any_error {
             errors.set_error_severity(ErrorKind::ExplicitAny, Severity::Error);
+        }
+        if self.explicit_any_use_error {
+            errors.set_error_severity(ErrorKind::ExplicitAnyUse, Severity::Error);
         }
         if self.implicit_any_error {
             errors.set_error_severity(ErrorKind::ImplicitAny, Severity::Error);

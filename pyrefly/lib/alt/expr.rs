@@ -788,6 +788,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 lambda.body.range(),
                                 "The return type of this lambda",
                             ),
+                            Type::Any(AnyStyle::Explicit) => self.error_explicit_any_use(
+                                callable_errors,
+                                lambda.body.range(),
+                                "The return type of this lambda",
+                            ),
                             _ => {}
                         }
                         let (yield_keys, yield_from_keys) =
@@ -2536,6 +2541,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 );
             }
             Type::Any(AnyStyle::Error) if from_error_here => self.error_unknown_from_error(
+                errors,
+                x.attr.range,
+                format!("The type of attribute `{}`", x.attr.id),
+            ),
+            Type::Any(AnyStyle::Explicit) => self.error_explicit_any_use(
                 errors,
                 x.attr.range,
                 format!("The type of attribute `{}`", x.attr.id),
