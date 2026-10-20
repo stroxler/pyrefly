@@ -1721,6 +1721,38 @@ def demo(text: str) -> None:
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/3670
+testcase!(
+    should_panic = "key lacking binding",
+    test_walrus_in_comprehension_read_before_write_multiple_defs,
+    r#"
+def f(xs: list[int]) -> None:
+    [(c := 1) for _ in xs if c]  # E: `c` is uninitialized
+    [(c := "") for _ in xs]
+"#,
+);
+
+testcase!(
+    should_panic = "key lacking binding",
+    test_walrus_in_comprehension_multiple_defs_read_from_nested_function,
+    r#"
+from typing import assert_type
+xs = [1]
+[(c := 1) for _ in xs]
+[(c := "") for _ in xs]
+def g() -> None:
+    assert_type(c, int | str)
+"#,
+);
+
+testcase!(
+    test_walrus_in_comprehension_inside_lambda,
+    r#"
+xs = [1]
+f = lambda: [(c := 1) for _ in xs]
+"#,
+);
+
 // Walrus target read on the RHS should not resolve through a class scope.
 // Python raises UnboundLocalError here because comprehensions can't see class
 // scopes; we should not silently resolve `text` to the class's `str`.

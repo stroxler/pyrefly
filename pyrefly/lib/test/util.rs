@@ -184,6 +184,19 @@ pub fn buck_check_source_db(
 
 #[macro_export]
 macro_rules! testcase {
+    (should_panic = $expected:literal, $name:ident, $contents:literal,) => {
+        #[test]
+        #[should_panic(expected = $expected)]
+        fn $name() {
+            $crate::test::util::testcase_for_macro(
+                $crate::test::util::TestEnv::new(),
+                $contents,
+                file!(),
+                line!() + 1,
+            )
+            .unwrap()
+        }
+    };
     (bug = $explanation:literal, $name:ident, $imports:expr, $contents:literal,) => {
         #[test]
         fn $name() -> anyhow::Result<()> {
