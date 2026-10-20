@@ -317,6 +317,7 @@ enum ConditionRedundantReason {
     BytesLiteral(bool),
     /// Class name + member name
     EnumLiteral(Name, Name),
+    NoneValue,
     Function(ModuleName, FunctionKind),
     Class(Name),
     /// Instance of a class that defines neither `__bool__` nor `__len__`, so always truthy
@@ -333,6 +334,7 @@ impl ConditionRedundantReason {
             | ConditionRedundantReason::StrLiteral(b)
             | ConditionRedundantReason::BytesLiteral(b) => Some(*b),
             ConditionRedundantReason::EnumLiteral(..) => None,
+            ConditionRedundantReason::NoneValue => Some(false),
         }
     }
 
@@ -350,6 +352,7 @@ impl ConditionRedundantReason {
             ConditionRedundantReason::EnumLiteral(class_name, member_name) => {
                 format!("Enum literal `{class_name}.{member_name}` used as condition")
             }
+            ConditionRedundantReason::NoneValue => "`None` used as condition".to_owned(),
             ConditionRedundantReason::Function(module_name, func_id) => {
                 format!(
                     "Function object `{}` used as condition",
@@ -600,7 +603,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             Expr::If(x) => {
                 let condition_type = self.expr_infer(&x.test, errors);
                 self.check_dunder_bool_is_callable(&condition_type, x.range(), errors);
-                self.check_redundant_condition(&condition_type, x.range(), errors);
+                self.check_redundant_condition(&x.test, &condition_type, x.range(), errors);
                 self.check_implicit_bool(&condition_type, x.test.range(), errors);
                 match self
                     .bindings()
@@ -2456,7 +2459,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         for comp in comps {
             for if_clause in comp.ifs.iter() {
                 let ty = self.expr_infer(if_clause, errors);
-                self.check_redundant_condition(&ty, if_clause.range(), errors);
+                self.check_redundant_condition(if_clause, &ty, if_clause.range(), errors);
                 self.check_implicit_bool(&ty, if_clause.range(), errors);
             }
         }
@@ -5507,7 +5510,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     }
 
     /// Return the reason why we think `ty` is suspicious to use as a branching condition
-    fn get_condition_redundant_reason(&self, ty: &Type) -> Option<ConditionRedundantReason> {
+    fn get_condition_redundant_reason(
+        &self,
+        condition: &Expr,
+        ty: &Type,
+    ) -> Option<ConditionRedundantReason> {
         match ty {
             Type::Literal(lit) if let Lit::Bool(_) = lit.value => None,
             Type::Literal(lit) if let Lit::Int(i) = &lit.value => {
@@ -5524,6 +5531,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     e.class.class_object().name().clone(),
                     e.member.clone(),
                 ))
+            }
+            // Only a name that flow narrowing made `None` is reported. A `None` that is inferred
+            // rather than narrowed says little about the program: an unannotated `x = None`
+            // global reads as `None` in every function, even one that reassigns it through
+            // `global`. The binding a name's narrows start from holds its type before narrowing.
+            Type::None if let Expr::Name(name) = condition => {
+                let mut idx = self
+                    .bindings()
+                    .key_to_idx(&Key::BoundName(ShortIdentifier::expr_name(name)));
+                while let Binding::Forward(next)
+                | Binding::ForwardToFirstUse(next)
+                | Binding::PromoteForward(next)
+                | Binding::Narrow(next, ..) = self.bindings().get(idx)
+                {
+                    idx = *next;
+                }
+                (!self.get_idx(idx).ty().is_none()).then_some(ConditionRedundantReason::NoneValue)
             }
             ty if let Some(kind) = ty.to_func_kind() => Some(ConditionRedundantReason::Function(
                 self.module().name(),
@@ -5568,11 +5592,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     pub fn check_redundant_condition(
         &self,
+        condition: &Expr,
         condition_type: &Type,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        if let Some(reason) = self.get_condition_redundant_reason(condition_type) {
+        if let Some(reason) = self.get_condition_redundant_reason(condition, condition_type) {
             self.error(
                 errors,
                 range,

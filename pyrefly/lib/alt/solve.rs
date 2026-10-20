@@ -2594,22 +2594,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     fn check_bool_expr(&self, x: &Expr, errors: &ErrorCollector) -> Type {
         let ty = self.expr_infer(x, errors);
         self.check_dunder_bool_is_callable(&ty, x.range(), errors);
-        self.check_redundant_condition(&ty, x.range(), errors);
+        self.check_redundant_condition(x, &ty, x.range(), errors);
         self.check_implicit_bool(&ty, x.range(), errors);
         ty
     }
 
     fn check_bool_expr_and_get_value(&self, x: &Expr, errors: &ErrorCollector) -> Option<bool> {
         let ty = self.expr_infer(x, errors);
-        self.check_bool_type_and_get_value(&ty, x.range(), errors)
+        self.check_bool_type_and_get_value(x, &ty, errors)
     }
 
     fn check_bool_type_and_get_value(
         &self,
+        x: &Expr,
         ty: &Type,
-        range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<bool> {
+        let range = x.range();
         let contains_class_object = self.uses_class_object_attribute_lookup(ty);
         let intrinsic_value = if let Type::TypedDict(td) = ty
             && self
@@ -2634,7 +2635,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         } else {
             self.check_dunder_bool_is_callable_and_get_type(ty, range, errors)
         };
-        self.check_redundant_condition(ty, range, errors);
+        self.check_redundant_condition(x, ty, range, errors);
         self.check_implicit_bool(ty, range, errors);
 
         if contains_class_object {
@@ -2670,7 +2671,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// inside `x == a and x != b` fixes the `and` without saying anything about the program.
     fn declared_bool_value(&self, x: &Expr) -> Option<bool> {
         let swallow = self.error_swallower();
-        let value_of_type = |ty: &Type| self.check_bool_type_and_get_value(ty, x.range(), &swallow);
+        let value_of_type = |ty: &Type| self.check_bool_type_and_get_value(x, ty, &swallow);
         match x {
             Expr::UnaryOp(ExprUnaryOp {
                 op: UnaryOp::Not,
