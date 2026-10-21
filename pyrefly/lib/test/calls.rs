@@ -151,6 +151,105 @@ CurrentClass()
 );
 
 testcase!(
+    test_deprecated_specialized_class_alias,
+    r#"
+from typing import TypeAlias
+from warnings import deprecated
+
+@deprecated("Use New instead")
+class Old[T]:
+    def method(self) -> None: ...
+
+    def clone(self) -> "Old[T]":
+        return Old[T]()
+
+Alias = Old[int]  # E: `Old` is deprecated
+Alias()  # E: `Old` is deprecated
+x: Alias  # E: `Old` is deprecated
+class Child(Alias): ...  # E: `Old` is deprecated
+Child()
+
+(alias := Alias)  # E: `Old` is deprecated
+alias()  # E: `Old` is deprecated
+(called_alias := Alias)()  # E: `Old` is deprecated
+
+instance = Alias()  # E: `Old` is deprecated
+instance.method()
+def take(value: Alias) -> Alias: ...  # E: `Old` is deprecated  # E: `Old` is deprecated
+
+Old[int]()  # E: `Old` is deprecated
+ExplicitAlias: TypeAlias = Old[int]  # E: `Old` is deprecated
+ExplicitAlias()  # E: `Old` is deprecated
+explicit: ExplicitAlias  # E: `Old` is deprecated
+type ScopedAlias = Old[int]  # E: `Old` is deprecated
+scoped: ScopedAlias  # E: `Old` is deprecated
+classes = [Alias]  # E: `Old` is deprecated
+classes[0]()  # E: `Old` is deprecated
+
+@deprecated("Use New instead")
+class Plain: ...
+
+PlainAlias: TypeAlias = Plain  # E: `Plain` is deprecated
+PlainAlias()  # E: `Plain` is deprecated
+
+class Current[T]: ...
+CurrentAlias = Current[int]
+CurrentAlias()
+    "#,
+);
+
+testcase!(
+    test_deprecated_generic_class_alias,
+    r#"
+from typing import TypeVar
+from warnings import deprecated
+
+T = TypeVar("T")
+
+@deprecated("Use New instead")
+class Old[S]: ...
+
+GA = Old[T]  # E: `Old` is deprecated
+GA()  # E: `Old` is deprecated
+ga: GA  # E: `Old` is deprecated
+ga_int: GA[int]  # E: `Old` is deprecated
+GA[int]()  # E: `Old` is deprecated
+class Child(GA[int]): ...  # E: `Old` is deprecated
+
+class Current[S]: ...
+CurrentGA = Current[T]
+CurrentGA()
+current: CurrentGA[int]
+    "#,
+);
+
+// A `type[Old]` value may hold a subclass that is not deprecated, so only references to the
+// class itself or to an alias of it warn.
+testcase!(
+    test_deprecated_class_type_values,
+    r#"
+from warnings import deprecated
+
+@deprecated("Use New instead")
+class Old: ...
+
+def f(c: type[Old], o: Old) -> None:  # E: `Old` is deprecated  # E: `Old` is deprecated
+    c()
+    c.__name__
+    type(o)
+    o.__class__
+    classes = [c]
+    classes[0]()
+
+def g(o: Old) -> type[Old]:  # E: `Old` is deprecated  # E: `Old` is deprecated
+    return type(o)
+
+def h(o: Old) -> None:  # E: `Old` is deprecated
+    g(o)
+    "#,
+);
+
+testcase!(
     test_deprecated_class_header_and_nested,
     r#"
 from warnings import deprecated

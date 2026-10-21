@@ -2790,6 +2790,25 @@ fn test_class_alias_deprecation_change_invalidates() {
     assert!(result.errors.collect_display_errors().is_empty());
 }
 
+/// Specialized class aliases carry deprecation changes through their exported type.
+#[test]
+fn test_specialized_class_alias_deprecation_change_invalidates() {
+    let mut i = Incremental::new();
+    i.set("foo", "class C[T]: pass\nAlias = C[int]");
+    i.set("main", "import foo\nfoo.Alias() # E: use D instead");
+    i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+
+    i.set(
+        "foo",
+        "from warnings import deprecated\n@deprecated('use D instead')\nclass C[T]: pass\nAlias = C[int] # E: use D instead",
+    );
+    i.check(&["foo", "main"], &["foo", "main"]);
+
+    i.set("foo", "class C[T]: pass\nAlias = C[int]");
+    let result = i.check_ignoring_expectations(&["foo", "main"], &["foo", "main"]);
+    assert!(result.errors.collect_display_errors().is_empty());
+}
+
 /// Reading a class object does not depend on the types of its methods.
 #[test]
 fn test_class_reference_method_change_does_not_invalidate() {

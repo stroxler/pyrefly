@@ -532,6 +532,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         errors: &ErrorCollector,
         type_form_context: Option<TypeFormContext<'_>>,
     ) -> TypeInfo {
+        // The value of an assignment expression is checked separately.
+        let mut check_deprecation = !matches!(x, Expr::Named(..));
         let res = match x {
             Expr::Name(x) => {
                 if Ast::is_synthesized_empty_name(x) {
@@ -560,6 +562,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     TypeInfo::of_ty(self.heap.mk_type_of(ty))
                 } else {
                     let base = self.expr_infer_impl(&x.value, None, errors, type_form_context);
+                    if let Type::Forall(forall) = base.ty()
+                        && matches!(forall.body, Forallable::TypeAlias(_))
+                    {
+                        // Specializing a generic alias produces the alias again, and `base` has
+                        // already been checked.
+                        check_deprecation = false;
+                    }
                     self.subscript_infer(
                         &base,
                         &x.slice,
@@ -580,8 +589,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             // at the end.
             _ => TypeInfo::of_ty(self.expr_infer_impl_helper(x, hint, errors, type_form_context)),
         };
-        // The value of an assignment expression is checked separately.
-        if !matches!(x, Expr::Named(..)) {
+        if check_deprecation {
             self.check_for_deprecated_call(res.ty(), x.range(), errors);
         }
         self.record_type_trace(x.range(), res.ty());
@@ -1256,14 +1264,32 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             // This prevents misfiring deprecation warnings on property setters and deleters.
             return;
         }
-        let deprecation = match ty {
-            Type::ClassDef(cls) => cls.deprecation(),
-            _ => ty.function_deprecation(),
+        let alias = match ty {
+            Type::TypeAlias(ta) => Some(&**ta),
+            // A generic alias that has not been specialized.
+            Type::Forall(forall) if let Forallable::TypeAlias(ta) = &forall.body => Some(ta),
+            _ => None,
         };
+        // An alias of a class refers to that class, unlike a `type[C]` value, which may hold a
+        // subclass. A `Ref` is skipped: it is how an alias right-hand side refers to an alias in
+        // the same module, and resolving it could force the alias that is being solved.
+        let cls = match ty {
+            Type::ClassDef(cls) => Some(cls),
+            _ if let Some(TypeAliasData::Value(alias)) = alias
+                && let Type::Type(inner) = alias.as_type_ref()
+                && let Type::ClassType(cls) = &**inner =>
+            {
+                Some(cls.class_object())
+            }
+            _ => None,
+        };
+        let deprecation = cls
+            .and_then(|cls| cls.deprecation())
+            .or_else(|| ty.function_deprecation());
         let Some(deprecation) = deprecation else {
             return;
         };
-        if let Type::ClassDef(cls) = ty
+        if let Some(cls) = cls
             && cls.module_path() == self.module().path()
             && let Some(metadata_idx) = self
                 .bindings()
@@ -1276,8 +1302,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             // The definition range includes decorators, type parameters, bases, and the body.
             return;
         }
-        let deprecated_name = match ty {
-            Type::ClassDef(cls) => Some(if cls.module_name() == self.module().name() {
+        let deprecated_name = match cls {
+            Some(cls) => Some(if cls.module_name() == self.module().name() {
                 cls.qname().name_relative_to_module()
             } else {
                 cls.qname().module_qualified_name()
