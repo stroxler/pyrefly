@@ -9,19 +9,12 @@ use pyrefly_build::handle::Handle;
 pub use pyrefly_glean_schema::report::glean::facts;
 pub use pyrefly_glean_schema::report::glean::schema;
 
-use crate::report::glean::facts::Glean;
 use crate::state::state::Transaction;
 
 pub mod convert;
 
 pub fn glean(transaction: &Transaction, handle: &Handle, ownership: bool) -> String {
-    fn f(transaction: &Transaction, handle: &Handle, ownership: bool) -> Option<Glean> {
-        Some(convert::glean(transaction, handle, ownership))
-    }
-
-    let data = f(transaction, handle, ownership)
-        .expect("Glean data be ready")
-        .entries;
+    let data = convert::glean(transaction, handle, ownership).entries;
     // Compact, because Glean ingests this output at scale and indentation more than doubles its
     // size.
     serde_json::to_string(&data).unwrap()
