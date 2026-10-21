@@ -885,19 +885,31 @@ def to_concrete(a: Any) -> int:  # E: Explicit `Any` is not allowed
 "#,
 );
 
-// The `int` half of the union is never checked, so this should be reported. The check skips any
-// declared return type with a top-level `Any` member, which is too coarse for a union.
+// Returning an `Any` as `int | Any` leaves the `int` member unchecked. `no-any-return` skips this
+// declared type, as mypy does, so the returned value is reported as in an unannotated function. A
+// union whose `Any` member comes from an unresolved annotation is skipped, like the bare annotation.
 testcase!(
-    bug = "returning an explicit `Any` as `int | Any` is not reported",
     test_any_return_to_union_with_any,
     TestEnv::new()
         .enable_explicit_any_use_error()
-        .enable_explicit_any_error()
-        .enable_no_any_return_explicit_error(),
+        .enable_unknown_return_type_error()
+        .enable_unknown_from_error_error()
+        .enable_no_any_return_error(),
     r#"
 from typing import Any
 
-def to_union(a: Any) -> int | Any:  # E: Explicit `Any` is not allowed  # E: Explicit `Any` is not allowed
+def make() -> NotDefined: ...  # E: Could not find name `NotDefined`
+
+def explicit(a: Any) -> int | Any:
+    return a  # E: The type of the returned value is an explicit `Any`
+
+def implicit(a) -> int | Any:
+    return a  # E: The type of the returned value is unknown; it is inferred as an implicit `Any`
+
+def from_error() -> int | Any:
+    return make()  # E: The type of the returned value is unknown because it comes from an error
+
+def unresolved(a: Any) -> NotDefined | None:  # E: Could not find name `NotDefined`
     return a
 "#,
 );

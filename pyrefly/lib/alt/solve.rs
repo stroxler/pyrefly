@@ -4540,29 +4540,41 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let Some(declared_ty) = hint else {
-            if !annotated {
-                match return_ty {
-                    Type::Any(AnyStyle::Implicit) => {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorKind::UnknownReturnType,
-                            "The type of the returned value is unknown; it is inferred as an implicit `Any`"
-                                .to_owned(),
-                        );
-                    }
-                    Type::Any(AnyStyle::Error) => self.error_unknown_from_error(
+        // `no-any-return` follows mypy and skips a declared type that has `Any` as a member, but a
+        // union with an explicit `Any` member still leaves its other members unchecked. Such a
+        // return is reported like one from an unannotated function. A union keeps a single `Any`
+        // style, so this excludes a union whose `Any` is an annotation that failed to resolve,
+        // which is skipped like any declared error `Any`.
+        let unchecked = match hint {
+            None => !annotated,
+            Some(Type::Union(u)) => u
+                .members
+                .iter()
+                .any(|m| matches!(m, Type::Any(AnyStyle::Explicit))),
+            Some(_) => false,
+        };
+        if unchecked {
+            match return_ty {
+                Type::Any(AnyStyle::Implicit) => {
+                    self.error(
                         errors,
                         range,
-                        "The type of the returned value",
-                    ),
-                    Type::Any(AnyStyle::Explicit) => {
-                        self.error_explicit_any_use(errors, range, "The type of the returned value")
-                    }
-                    _ => {}
+                        ErrorKind::UnknownReturnType,
+                        "The type of the returned value is unknown; it is inferred as an implicit `Any`"
+                            .to_owned(),
+                    );
                 }
+                Type::Any(AnyStyle::Error) => {
+                    self.error_unknown_from_error(errors, range, "The type of the returned value")
+                }
+                Type::Any(AnyStyle::Explicit) => {
+                    self.error_explicit_any_use(errors, range, "The type of the returned value")
+                }
+                _ => {}
             }
+            return;
+        }
+        let Some(declared_ty) = hint else {
             return;
         };
         if declared_ty.is_any()
