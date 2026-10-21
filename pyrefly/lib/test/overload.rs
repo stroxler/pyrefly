@@ -2803,3 +2803,29 @@ def g(a: A, i: int, fl: float):
     assert_type(call_box(a, fl), Box[float])
     "#,
 );
+
+// When several overloads match and an argument type contains `Any`, choosing between them
+// materializes the arguments. A lambda argument must not be re-inferred without its parameter
+// type as a hint there, or its parameter is reported as unknown although the hint types it.
+testcase!(
+    test_overload_materialization_does_not_report_unhinted_lambda,
+    TestEnv::new()
+        .enable_implicit_any_lambda_error()
+        .enable_unknown_attribute_access_error(),
+    r#"
+from typing import Any, Callable, Generic, TypeVar, overload
+
+T = TypeVar("T")
+
+class Box(Generic[T]):
+    @overload
+    def then(self, f: Callable[[T], int]) -> int: ...
+    @overload
+    def then(self, f: Callable[[T], str]) -> str: ...
+    def then(self, f: Callable[[T], Any]) -> Any: ...
+
+def f(box: Box[Any]) -> None:
+    box.then(lambda r: r.name)
+    g = lambda r: r.name  # E: Type of lambda parameter `r` is unknown  # E: The type of attribute `name` is unknown
+"#,
+);
