@@ -11271,6 +11271,81 @@ def test(x: Tensor[[2, 3]]) -> None:
 "#,
 );
 
+// The binder binds nothing in a clause whose test it decides statically is false, or
+// in any clause after one it decides is true. Validation skips the same clauses, so
+// nothing in them is inferred, whatever it contains.
+testcase!(
+    test_type_shape_dsl_statically_decided_branches,
+    shape_extensions_env_with_torch(),
+    r#"
+from typing import reveal_type
+import shape_extensions.dsl as dsl
+from shape_extensions import IntTuple, type_shape_dsl_function
+from torch import Tensor
+
+@type_shape_dsl_function
+def undefined_name(shape: IntTuple) -> IntTuple:
+    if 0 == 1:
+        return u  # E: This code is unreachable
+    return shape
+
+@type_shape_dsl_function
+def intrinsic_call(shape: IntTuple) -> IntTuple:
+    if 0 == 1:
+        return dsl.Invalid("never")  # E: This code is unreachable
+    return shape
+
+@type_shape_dsl_function
+def helper_call(shape: IntTuple) -> IntTuple:
+    if 0 == 1:
+        return u(shape)  # E: This code is unreachable
+    return shape
+
+@type_shape_dsl_function
+def yield_callee(shape: IntTuple) -> IntTuple:  # E: Generator function should return `Generator`
+    if 0 == 1:
+        return (yield)(shape)  # E: This code is unreachable
+    return shape
+
+@type_shape_dsl_function
+def walrus_callee(shape: IntTuple) -> IntTuple:
+    if 0 == 1:
+        return (g := 0)(shape)  # E: This code is unreachable
+    return shape
+
+@type_shape_dsl_function
+def else_after_true(shape: IntTuple) -> IntTuple:
+    if 1 == 1:
+        return shape
+    else:
+        return u(shape)  # E: This code is unreachable
+
+# Tests that are decided even though one operand is not. Evaluation must agree and
+# never enter the skipped clause.
+@type_shape_dsl_function
+def unknown_or_true(shape: IntTuple, axis: int) -> IntTuple:
+    if axis < 0 or 1 == 1:
+        return shape
+    else:
+        return u(shape)  # E: This code is unreachable
+
+@type_shape_dsl_function
+def unknown_and_false(shape: IntTuple, axis: int) -> IntTuple:
+    if axis < 0 and 0 == 1:
+        return u(shape)  # E: This code is unreachable
+    return shape
+
+def check_unknown_or_true(x: Tensor[[2, 3]]) -> Tensor[unknown_or_true(IntTuple[2, 3], int)]: ...
+def check_unknown_and_false(x: Tensor[[2, 3]]) -> Tensor[unknown_and_false(IntTuple[2, 3], int)]: ...
+def check_else_after_true(x: Tensor[[2, 3]]) -> Tensor[else_after_true(IntTuple[2, 3])]: ...
+
+def test(x: Tensor[[2, 3]]) -> None:
+    reveal_type(check_unknown_or_true(x))  # E: revealed type: Tensor[[2, 3]]
+    reveal_type(check_unknown_and_false(x))  # E: revealed type: Tensor[[2, 3]]
+    reveal_type(check_else_after_true(x))  # E: revealed type: Tensor[[2, 3]]
+"#,
+);
+
 /// Pins the invariant `iterate_int_tuple` relies on: an unpacked shape's middle
 /// is always gradual, because a concrete one flattens into the prefix.
 #[test]
