@@ -2588,6 +2588,7 @@ mod tests {
     use crate::type_level_dsl::TypeLevelDslCall;
     use crate::type_var::PreInferenceVariance;
     use crate::type_var::Restriction;
+    use crate::types::AnyStyle;
     use crate::types::BoundMethod;
     use crate::types::BoundMethodType;
     use crate::types::Forall;
@@ -2815,5 +2816,18 @@ mod tests {
                 .truncate_class_nesting(3, 3, &Type::any_implicit()),
             wide_union,
         );
+    }
+
+    #[test]
+    fn test_any_style_ord_matches_merge() {
+        // `simplify::flatten_and_dedup` keeps the `max()` of a union's `Any` member styles and
+        // relies on that matching `AnyStyle::merge`. These agree only because the variants are
+        // declared weakest-first; this guards the coupling so reordering them fails here rather
+        // than silently changing which `Any` a union keeps.
+        for a in [AnyStyle::Explicit, AnyStyle::Implicit, AnyStyle::Error] {
+            for b in [AnyStyle::Explicit, AnyStyle::Implicit, AnyStyle::Error] {
+                assert_eq!(Type::Any(a.max(b)), a.merge(b));
+            }
+        }
     }
 }

@@ -755,6 +755,30 @@ def h(a: Any, b) -> None:
 "#,
 );
 
+// A union keeps only its strongest `Any` member, including a union built by substituting a type
+// variable. Otherwise `Any | T` with `T = Unknown` keeps both, and `in` reports the argument once
+// for each style.
+testcase!(
+    test_union_any_styles_merge,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_unknown_argument_type_error()
+        .enable_unknown_variable_type_error(),
+    r#"
+from typing import Any, TypeVar, assert_type
+
+T = TypeVar("T")
+
+def or_any(default: T) -> Any | T: ...
+
+def f(s: str, b="") -> None:
+    x = or_any(b)
+    x in ["a"]  # E: The type of this argument is unknown
+    y = or_any(s)
+    assert_type(y, Any | str)
+"#,
+);
+
 // Module globals whose type pyrefly does not model are an implicit `Any`: there is no annotation
 // in the user's code that they could change, so blaming an explicit `Any` would be wrong.
 testcase!(
