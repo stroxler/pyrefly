@@ -1362,3 +1362,21 @@ def f(a: A) -> None:
     assert_type(a.anything, int | Any)
 "#,
 );
+
+// Calling a special decorator like `property` directly first checks whether it applies to its
+// argument. That check must not report errors for a lambda inferred without the parameter type as a
+// hint, because the normal call then infers the lambda again with the hint.
+testcase!(
+    test_decorator_call_does_not_report_unhinted_lambda,
+    TestEnv::new()
+        .enable_implicit_any_lambda_error()
+        .enable_unknown_attribute_access_error(),
+    r#"
+from functools import cached_property
+
+class C:
+    a = property(lambda self: self.name)
+    b = cached_property(lambda self: self.name)
+    c = staticmethod(lambda x: x.name)  # E: Type of lambda parameter `x` is unknown  # E: The type of attribute `name` is unknown
+"#,
+);
