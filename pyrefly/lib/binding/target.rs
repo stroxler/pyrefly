@@ -788,7 +788,7 @@ impl<'a> BindingsBuilder<'a> {
                 expr: value,
                 legacy_tparams: tparams,
                 is_in_function_scope: self.scopes.in_function_scope(),
-                is_class_body_assignment: self.scopes.in_class_body(),
+                class_key: self.scopes.current_class_key(),
                 first_use: FirstUse::Undetermined,
                 def_idx: if uses_first_use { Some(def_idx) } else { None },
                 receiver_idx,

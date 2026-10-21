@@ -3116,6 +3116,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     name,
                     annot_key.as_ref(),
                     None,
+                    None,
                     expr,
                     None,
                     None,
@@ -4036,6 +4037,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         name: &Name,
         annot_key: Option<&(AnnotationStyle, Idx<KeyAnnotation>)>,
         receiver_idx: Option<Idx<Key>>,
+        class_key: Option<Idx<KeyClass>>,
         expr: &Expr,
         attrs_field_specifier: Option<AttrsSpecifier>,
         last_value_or_narrow: Option<Idx<Key>>,
@@ -4173,12 +4175,23 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 (None, self.heap.mk_any_implicit())
             }
             None => {
+                // An unannotated class-body assignment is contextually typed by the annotation it
+                // inherits, as its class field is. The class field infers the same expression, so
+                // both must use the same hint to report the same errors. Only the class field
+                // checks the value against the inherited annotation.
+                let inherited_ty = class_key.and_then(|k| {
+                    let cls = self.get_idx(k).0.clone()?;
+                    self.get_inherited_type_and_annotation(&cls, name)
+                        .1
+                        .map(|annot| annot.get_type().clone())
+                });
+                let hint = inherited_ty.as_ref().map(|ty| HintRef::new(ty, None));
                 // Bare `x = attr.ib(type=T)`/`field(...)` (legacy, unannotated): same
                 // `_CountingAttr` reasoning as the annotated case.
                 let expr_ty = self
                     .expr_with_options(
                         expr,
-                        ExprOptions::infer(errors, None).with_type_form_context(type_form_context),
+                        ExprOptions::infer(errors, hint).with_type_form_context(type_form_context),
                     )
                     .into_ty();
                 let ty = if attrs_field_specifier.is_some() {
@@ -4202,7 +4215,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         expr: &Expr,
         legacy_tparams: &Option<Box<[Idx<KeyLegacyTypeParam>]>>,
         is_in_function_scope: bool,
-        is_class_body_assignment: bool,
+        class_key: Option<Idx<KeyClass>>,
         attrs_field_specifier: Option<AttrsSpecifier>,
         last_value_or_narrow: Option<Idx<Key>>,
         errors: &ErrorCollector,
@@ -4211,6 +4224,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             name,
             annot_key.as_ref(),
             receiver_idx,
+            class_key,
             expr,
             attrs_field_specifier,
             last_value_or_narrow,
@@ -4221,7 +4235,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // Annotated variables have a declared type; attribute assignments (`receiver_idx`)
         // and class-body assignments are covered by attribute-specific checks, so they are
         // excluded here to avoid a double report.
-        if annot_key.is_none() && receiver_idx.is_none() && !is_class_body_assignment {
+        if annot_key.is_none() && receiver_idx.is_none() && class_key.is_none() {
             match &ty {
                 Type::Any(AnyStyle::Implicit) => {
                     self.error(
@@ -4253,7 +4267,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // placeholder values (e.g. `TYPE_CHECKING = 1`), so skip them.
         // See https://github.com/facebook/pyrefly/issues/3756.
         if !is_in_function_scope
-            && !is_class_body_assignment
+            && class_key.is_none()
             && SysInfo::is_type_checking_constant_name(name.as_str())
             && !self.module().path().is_interface()
             && !self.is_subset_eq(&ty, &self.heap.mk_class_type(self.stdlib.bool().clone()))
@@ -6701,7 +6715,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 &x.expr,
                 &x.legacy_tparams,
                 x.is_in_function_scope,
-                x.is_class_body_assignment,
+                x.class_key,
                 x.attrs_field_specifier,
                 x.last_value_or_narrow,
                 errors,

@@ -779,6 +779,46 @@ def f(s: str, b="") -> None:
 "#,
 );
 
+// An unannotated class-body assignment is contextually typed by the annotation it inherits, both
+// where it is bound in the class body and where it becomes a class field. Otherwise the lambda
+// parameter `n` is `int` or `Any` in one inference and unknown in the other, and both inferences
+// report.
+testcase!(
+    test_class_body_assignment_uses_inherited_annotation_as_hint,
+    TestEnv::new()
+        .enable_explicit_any_use_error()
+        .enable_implicit_any_lambda_error()
+        .enable_unknown_attribute_access_error(),
+    r#"
+from typing import Any, Callable
+
+class Base:
+    f: Callable[[int], str]
+    g: Callable[[Any], object]
+
+class C(Base):
+    f = lambda n: n.foo  # E: Object of class `int` has no attribute `foo`
+    g = lambda n: n.foo  # E: The return type of this lambda is an explicit `Any`  # E: The type of attribute `foo` is an explicit `Any`
+"#,
+);
+
+// When the inherited annotation carries no type, such as a bare `ClassVar`, its type is an implicit
+// `Any`, which hints the value just as the class field does. Otherwise the class-body binding infers
+// `[]` with no hint and reports it as an unknown-element container, which the class field does not.
+testcase!(
+    test_class_body_assignment_hint_from_typeless_inherited_annotation,
+    TestEnv::new().enable_implicit_any_empty_container_error(),
+    r#"
+from typing import ClassVar
+
+class Base:
+    h: ClassVar = {}  # E: Cannot infer type of empty container
+
+class C(Base):
+    h = {}
+"#,
+);
+
 // Module globals whose type pyrefly does not model are an implicit `Any`: there is no annotation
 // in the user's code that they could change, so blaming an explicit `Any` would be wrong.
 testcase!(

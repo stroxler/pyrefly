@@ -2287,8 +2287,8 @@ pub struct NameAssign {
     pub expr: Box<Expr>,
     pub legacy_tparams: Option<Box<[Idx<KeyLegacyTypeParam>]>>,
     pub is_in_function_scope: bool,
-    /// True if this assignment is directly in a class body.
-    pub is_class_body_assignment: bool,
+    /// The class whose body directly contains this assignment, if any.
+    pub class_key: Option<Idx<KeyClass>>,
     pub first_use: FirstUse,
     /// The Definition idx for this NameAssign, if infer_with_first_use is enabled.
     /// Used at solve time for inline first-use pinning and partial answer storage.

@@ -275,6 +275,7 @@ pub struct TestEnv {
     untyped_function_decorator_error: bool,
     untyped_namedtuple_error: bool,
     unused_call_result_error: bool,
+    implicit_any_empty_container_error: bool,
     string_as_iterable_warning: bool,
     unsupported_dynamic_base_error: bool,
     strict_callable_subtyping: bool,
@@ -347,6 +348,7 @@ impl TestEnv {
             untyped_function_decorator_error: false,
             untyped_namedtuple_error: false,
             unused_call_result_error: false,
+            implicit_any_empty_container_error: false,
             string_as_iterable_warning: false,
             unsupported_dynamic_base_error: false,
             strict_callable_subtyping: false,
@@ -599,6 +601,11 @@ impl TestEnv {
 
     pub fn enable_unused_call_result_error(mut self) -> Self {
         self.unused_call_result_error = true;
+        self
+    }
+
+    pub fn enable_implicit_any_empty_container_error(mut self) -> Self {
+        self.implicit_any_empty_container_error = true;
         self
     }
 
@@ -941,6 +948,9 @@ impl TestEnv {
         }
         if self.unused_call_result_error {
             errors.set_error_severity(ErrorKind::UnusedCallResult, Severity::Error);
+        }
+        if self.implicit_any_empty_container_error {
+            errors.set_error_severity(ErrorKind::ImplicitAnyEmptyContainer, Severity::Error);
         }
         if self.string_as_iterable_warning {
             errors.set_error_severity(ErrorKind::StringAsIterable, Severity::Warn);

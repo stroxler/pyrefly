@@ -3022,7 +3022,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     ///   class C(B):
     ///     x = 1
     /// `get_inherited_type_and_annotation(C, 'x')` will get the type from `B` and the annotation from `A`.
-    fn get_inherited_type_and_annotation(
+    pub(crate) fn get_inherited_type_and_annotation(
         &self,
         class: &Class,
         name: &Name,
