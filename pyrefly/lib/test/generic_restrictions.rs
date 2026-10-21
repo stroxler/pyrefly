@@ -168,6 +168,27 @@ def valid(x: int) -> Container[Any]:
  "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/5269
+testcase!(
+    bug = "The argument already has type `T | None`, so the bound holds for `T` itself",
+    test_bound_with_nested_optional_argument,
+    r#"
+from typing import Any
+
+class Pair[T: int]:
+    def __init__(self, delta: T | None) -> None: ...
+
+def optional[T: int](x: T | None) -> T | None:
+    return x
+
+def f[T: int](d: T | None) -> Pair[T]:
+    return Pair(optional(d))  # E: Returned type `Pair[T | None]` is not assignable to declared return type `Pair[T]`  # E: `T | None` is not assignable to upper bound `int` of type variable `T`
+
+def g(d: int | None) -> Pair[Any]:
+    return Pair(optional(d))  # E: `int | None` is not assignable to upper bound `int` of type variable `T`
+ "#,
+);
+
 // A bound of `Any` or `object` accepts everything, so keeping such a parameter free buys no
 // checking and only discards the solution the expected type supplies.
 testcase!(
