@@ -4219,7 +4219,16 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                         drop(v2_ref);
                         drop(variables);
                         if let Some(param) = param {
-                            self.check_restricted_answer(t1, *v2, &param);
+                            // A restriction violation is recorded only while an argument is being
+                            // matched against its parameter. Outside that, the solver may be trying
+                            // a pairing the call never makes, such as `T` against one member of a
+                            // `T | None` hint, and a violation recorded there is never undone.
+                            match self.active_call_context.argument_side() {
+                                ArgumentSide::NotAnalyzingACall => {}
+                                ArgumentSide::Got | ArgumentSide::Want => {
+                                    self.check_restricted_answer(t1, *v2, &param);
+                                }
+                            }
                         }
                         self.is_subset_eq(t1, &t2)
                     }
