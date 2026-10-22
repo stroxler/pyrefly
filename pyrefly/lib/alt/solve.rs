@@ -4580,6 +4580,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 Type::Any(AnyStyle::Explicit) => {
                     self.error_explicit_any_use(errors, range, "The type of the returned value")
                 }
+                _ if return_ty.contains_implicit_any() => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::PartiallyUnknownType,
+                        "The type of the returned value is partially unknown; it contains an implicit `Any`"
+                            .to_owned(),
+                    );
+                }
                 _ => {}
             }
             return;

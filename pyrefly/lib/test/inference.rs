@@ -985,3 +985,21 @@ def access(c: C) -> None:
     c.x  # E: The type of attribute `x` is partially unknown; it contains an implicit `Any`
 "#,
 );
+
+// A partially unknown value is reported when returned from an unannotated function and from a
+// lambda body. The lambda's target is annotated so only the lambda return, not the variable, fires.
+testcase!(
+    test_partially_unknown_return_type,
+    TestEnv::new().enable_partially_unknown_type_error(),
+    r#"
+from typing import Callable
+
+def untyped(p):
+    return p
+
+def g():
+    return [untyped(1)]  # E: The type of the returned value is partially unknown; it contains an implicit `Any`
+
+f: Callable[[], object] = lambda: [untyped(1)]  # E: The return type of this lambda is partially unknown; it contains an implicit `Any`
+"#,
+);

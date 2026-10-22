@@ -1118,6 +1118,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 lambda.body.range(),
                                 "The return type of this lambda",
                             ),
+                            _ if ret.contains_implicit_any() => {
+                                self.error(
+                                    callable_errors,
+                                    lambda.body.range(),
+                                    ErrorKind::PartiallyUnknownType,
+                                    "The return type of this lambda is partially unknown; it contains an implicit `Any`".to_owned(),
+                                );
+                            }
                             _ => {}
                         }
                         let (yield_keys, yield_from_keys) =
