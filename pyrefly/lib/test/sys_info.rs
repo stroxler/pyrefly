@@ -637,3 +637,18 @@ testcase!(
 import foo
 "#,
 );
+
+// A line continuation joins the walrus to an `if` whose test `SysInfo` decides is
+// false, so the binder skips the clause and leaves `q` declared without a binding.
+testcase!(
+    bug = "Panic is a bad thing",
+    should_panic = "key lacking binding",
+    test_walrus_continued_into_statically_false_if,
+    r#"
+import sys
+
+(q := 1) \
+if sys.version_info >= (3, 99):
+    pass
+"#,
+);
