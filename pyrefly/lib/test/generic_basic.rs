@@ -965,3 +965,14 @@ def f(by_type: TypeVarCapture, by_elements: TypeVarTupleCapture) -> None:
     assert_type(by_elements[0, :, None], tuple[int, slice[None, None, None], None])
 "#,
 );
+
+// Parse recovery turns `[* *]` into two nameless type parameters; with a broken return
+// annotation, the binder looks up an `Anywhere` key for the empty name that has no binding.
+testcase!(
+    bug = "Panic is a bad thing",
+    should_panic = "key lacking binding",
+    test_nameless_type_params_with_broken_return_annotation,
+    r#"
+def f[* *]() -  # E: Parse error
+"#,
+);
