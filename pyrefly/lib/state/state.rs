@@ -2412,11 +2412,10 @@ impl<'a> Transaction<'a> {
 
     /// Invalidate based on what a watcher told you. Returns whether the config was invalidated.
     pub fn invalidate_events(&mut self, events: &CategorizedEvents) -> bool {
-        if events.iter().any(|path| {
-            path.extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("pth"))
-        }) {
+        if events
+            .iter()
+            .any(|path| ConfigFile::invalidates_interpreter_queries(path))
+        {
             PythonEnvironment::clear_interpreter_cache();
         }
         *self.data.inputs_changed.get_mut() = true;

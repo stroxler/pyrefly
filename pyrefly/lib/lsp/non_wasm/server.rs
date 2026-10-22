@@ -1089,6 +1089,14 @@ mod tests {
                 true,
             ),
             (
+                "site-packages path configuration",
+                CategorizedEvents {
+                    modified: vec![PathBuf::from("site-packages/_editable_impl_foo.pth")],
+                    ..Default::default()
+                },
+                true,
+            ),
+            (
                 "created source",
                 CategorizedEvents {
                     created: vec![PathBuf::from("module.py")],

@@ -958,6 +958,14 @@ impl ConfigFile {
     /// refreshed.
     const DEPENDENCY_METADATA_FILE_NAMES: &[&str] = &["uv.lock"];
 
+    /// Extension of the path configuration files that Python's `site` module reads from the
+    /// top level of each site-packages directory.
+    const PTH_EXTENSION: &str = "pth";
+
+    /// File extensions whose changes can alter what an interpreter query reports, so cached
+    /// queries must be discarded.
+    const INTERPRETER_METADATA_EXTENSIONS: &[&str] = &[Self::PTH_EXTENSION];
+
     /// Files that don't contain pyrefly-specific config information but indicate that we're at the
     /// root of a Python project, which should be added to the search path.
     pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["mypy.ini", "pyrightconfig.json"];
@@ -968,16 +976,21 @@ impl ConfigFile {
 
     /// Whether this path contains metadata that can change project configuration or dependencies.
     pub fn is_watched_metadata(path: &Path) -> bool {
-        path.extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("pth"))
+        Self::invalidates_interpreter_queries(path)
             || path
                 .file_name()
-                .and_then(|name| name.to_str())
+                .and_then(OsStr::to_str)
                 .is_some_and(|name| {
                     Self::CONFIG_FILE_NAMES.contains(&name)
                         || Self::DEPENDENCY_METADATA_FILE_NAMES.contains(&name)
                 })
+    }
+
+    /// Whether a change to this path can alter what an interpreter query reports.
+    pub fn invalidates_interpreter_queries(path: &Path) -> bool {
+        path.extension()
+            .and_then(OsStr::to_str)
+            .is_some_and(|extension| Self::INTERPRETER_METADATA_EXTENSIONS.contains(&extension))
     }
 
     /// Patterns for metadata files that affect a project rooted at `root`.
@@ -1491,7 +1504,7 @@ impl ConfigFile {
             config.site_package_path().for_each(|site_packages| {
                 result.insert(WatchPattern::root(
                     InternedPath::from_path(site_packages),
-                    "*.pth".to_owned(),
+                    format!("*.{}", Self::PTH_EXTENSION),
                 ));
             });
         }
@@ -3619,6 +3632,29 @@ output-format = "omit-errors"
             TypeIgnoreUnknownTagBehavior::NoEffect,
             "the default is `suppress`, so this only passes if the target config was consulted",
         );
+    }
+
+    #[test]
+    fn test_invalidates_interpreter_queries() {
+        for (path, expected) in [
+            ("/venv/lib/site-packages/_editable_impl_foo.pth", true),
+            ("/project/uv.lock", false),
+            ("/project/pyproject.toml", false),
+            ("/project/pyrefly.toml", false),
+            ("/venv/lib/site-packages/foo.py", false),
+            ("/venv/lib/site-packages/foo.PTH", false),
+        ] {
+            let path = Path::new(path);
+            assert_eq!(
+                ConfigFile::invalidates_interpreter_queries(path),
+                expected,
+                "{}",
+                path.display()
+            );
+            if expected {
+                assert!(ConfigFile::is_watched_metadata(path), "{}", path.display());
+            }
+        }
     }
 
     #[test]
