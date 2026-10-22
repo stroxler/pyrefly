@@ -23,6 +23,7 @@ use ruff_python_ast::name::Name;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyTParams;
 use crate::state::lsp::attribute_symbol_kind_from_type;
+use crate::state::require::Require;
 use crate::test::class_keywords::get_class_metadata;
 use crate::test::util::TestEnv;
 use crate::test::util::get_class;
@@ -16179,5 +16180,23 @@ from shape_extensions import type_shape_dsl_function
 @type_shape_dsl_function
 def f(x):
     return max
+"#,
+);
+
+// In batch mode with unannotated bodies unchecked, as `pyrefly check` runs by default,
+// the binder skips an unannotated `@type_shape_dsl_function` body, but the validator
+// still infers the callee of a call in its `if` test, which has no `BoundName` key.
+testcase!(
+    bug = "Panic is a bad thing",
+    should_panic = "key not found",
+    test_type_shape_dsl_unannotated_call_in_if_test,
+    TestEnv::new_skip_check_infer_return_types().with_run_require(Require::Errors),
+    r#"
+from shape_extensions import type_shape_dsl_function
+
+@type_shape_dsl_function
+def g(x):
+    if f():
+        pass
 "#,
 );
