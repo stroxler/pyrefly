@@ -638,17 +638,26 @@ import foo
 "#,
 );
 
-// A line continuation joins the walrus to an `if` whose test `SysInfo` decides is
-// false, so the binder skips the clause and leaves `q` declared without a binding.
+// A line continuation joins the walrus to the `if`, so the parser recovers a ternary
+// whose test `SysInfo` decides is false, and `q` is defined in the skipped branch.
 testcase!(
-    bug = "Panic is a bad thing",
-    should_panic = "key lacking binding",
     test_walrus_continued_into_statically_false_if,
     r#"
 import sys
 
+# E: Invalid annotated assignment target
 (q := 1) \
-if sys.version_info >= (3, 99):
-    pass
+if sys.version_info >= (3, 99):  # E: Expected `else`, found `:` # E: Expected an expression
+    pass  # E: Unexpected indentation
+"#,
+);
+
+testcase!(
+    test_walrus_in_statically_decided_ternary,
+    r#"
+import sys
+y = (q := 1) if sys.version_info >= (3, 99) else 2
+z = 3 if sys.version_info >= (3, 0) else (r := 4)
+w = [(s := 5) if sys.version_info >= (3, 99) else 6 for _ in range(1)]
 "#,
 );

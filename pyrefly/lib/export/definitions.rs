@@ -982,6 +982,15 @@ impl DefinitionsBuilder {
             Expr::Name(name) => {
                 self.inner.name_reads.insert(name.id.clone());
             }
+            // The binder skips a ternary branch that the environment rules out, so a
+            // walrus in that branch has no binding and must not be defined.
+            Expr::If(x) => {
+                self.named_in_expr(&x.test);
+                let sys_info = self.sys_info;
+                for branch in sys_info.pruned_ternary_branches(x) {
+                    self.named_in_expr(branch);
+                }
+            }
             // Lambda defines a fully separate scope; walrus operators inside
             // a lambda are scoped to the lambda, not the enclosing scope.
             Expr::Lambda(..) => {}
@@ -1010,6 +1019,13 @@ impl DefinitionsBuilder {
             // Stop at lambdas — walrus inside lambda-in-comprehension is
             // scoped to the lambda.
             Expr::Lambda(..) => {}
+            Expr::If(x) => {
+                self.walrus_targets_in_expr(&x.test);
+                let sys_info = self.sys_info;
+                for branch in sys_info.pruned_ternary_branches(x) {
+                    self.walrus_targets_in_expr(branch);
+                }
+            }
             _ => x.recurse(&mut |x| self.walrus_targets_in_expr(x)),
         }
     }
