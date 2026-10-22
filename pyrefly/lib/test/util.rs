@@ -284,6 +284,7 @@ pub struct TestEnv {
     untyped_namedtuple_error: bool,
     unused_call_result_error: bool,
     implicit_any_empty_container_error: bool,
+    partially_unknown_type_error: bool,
     string_as_iterable_warning: bool,
     unsupported_dynamic_base_error: bool,
     strict_callable_subtyping: bool,
@@ -357,6 +358,7 @@ impl TestEnv {
             untyped_namedtuple_error: false,
             unused_call_result_error: false,
             implicit_any_empty_container_error: false,
+            partially_unknown_type_error: false,
             string_as_iterable_warning: false,
             unsupported_dynamic_base_error: false,
             strict_callable_subtyping: false,
@@ -614,6 +616,11 @@ impl TestEnv {
 
     pub fn enable_implicit_any_empty_container_error(mut self) -> Self {
         self.implicit_any_empty_container_error = true;
+        self
+    }
+
+    pub fn enable_partially_unknown_type_error(mut self) -> Self {
+        self.partially_unknown_type_error = true;
         self
     }
 
@@ -959,6 +966,9 @@ impl TestEnv {
         }
         if self.implicit_any_empty_container_error {
             errors.set_error_severity(ErrorKind::ImplicitAnyEmptyContainer, Severity::Error);
+        }
+        if self.partially_unknown_type_error {
+            errors.set_error_severity(ErrorKind::PartiallyUnknownType, Severity::Error);
         }
         if self.string_as_iterable_warning {
             errors.set_error_severity(ErrorKind::StringAsIterable, Severity::Warn);

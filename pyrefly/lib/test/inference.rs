@@ -819,6 +819,23 @@ class C(Base):
 "#,
 );
 
+// A value whose type contains an implicit `Any` without being one, such as `list[Unknown]`, is
+// partially unknown. The exact-`Any` check reports a fully unknown value instead, so the two are
+// disjoint: `v` is partially unknown and `w` is fully unknown.
+testcase!(
+    test_partially_unknown_variable_type,
+    TestEnv::new()
+        .enable_partially_unknown_type_error()
+        .enable_unknown_variable_type_error(),
+    r#"
+def untyped(p):
+    return p
+
+v = [untyped(1)]  # E: The type of `v` is partially unknown; it contains an implicit `Any`
+w = untyped(1)  # E: The type of `w` is unknown; it is inferred as an implicit `Any`
+"#,
+);
+
 // Module globals whose type pyrefly does not model are an implicit `Any`: there is no annotation
 // in the user's code that they could change, so blaming an explicit `Any` would be wrong.
 testcase!(

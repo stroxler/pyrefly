@@ -4257,6 +4257,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     expr.range(),
                     format!("The type of `{name}`"),
                 ),
+                _ if ty.contains_implicit_any() => {
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorKind::PartiallyUnknownType,
+                        format!(
+                            "The type of `{name}` is partially unknown; it contains an implicit `Any`"
+                        ),
+                    );
+                }
                 _ => {}
             }
         }

@@ -364,6 +364,9 @@ pub enum ErrorKind {
     OpenUnpacking,
     /// An error related to parsing or syntax.
     ParseError,
+    /// A value whose type is not itself `Any` but contains an implicit `Any`,
+    /// such as `list[Unknown]` or `Unknown | None`.
+    PartiallyUnknownType,
     /// A potential conflict between an explicit keyword argument and a NotRequired
     /// TypedDict field. The field may be absent at runtime, so the conflict is not
     /// guaranteed. This is a separate error code from BadKeywordArgument to allow
@@ -653,6 +656,7 @@ impl ErrorKind {
             ErrorKind::UnknownFromError => Severity::Ignore,
             ErrorKind::UnknownReturnType => Severity::Ignore,
             ErrorKind::UnknownVariableType => Severity::Ignore,
+            ErrorKind::PartiallyUnknownType => Severity::Ignore,
             ErrorKind::UnnecessaryComparison => Severity::Warn,
             ErrorKind::UnnecessaryTypeConversion => Severity::Warn,
             ErrorKind::Unreachable => Severity::Warn,
