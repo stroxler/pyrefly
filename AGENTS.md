@@ -155,6 +155,17 @@ Follow the tooling conventions in `facebook/AGENTS.md` instead.
 - To run just formatting and linting (much faster than running tests):
   `./test.py --no-test --no-tensor-shapes --no-conformance --no-jsonschema --no-extension`
 
+### Checking a real codebase
+
+Build a release binary before checking anything large: `cargo build --release`,
+then run `target/release/pyrefly check ...`. A debug binary has much larger stack
+frames and is several times slower, so it can overflow the stack or time out on
+inputs that a release binary handles comfortably. Treat a stack overflow or a
+timeout from a debug binary as an artifact of the build mode rather than a
+finding, and reproduce it under a release binary before investigating it as a
+bug. Use a debug binary only when you need one for debugging. (In a Meta-internal
+checkout, build an optimized binary with Buck instead.)
+
 ### Before committing
 
 **Always run formatting and linting before committing, updating a commit, or
