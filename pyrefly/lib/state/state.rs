@@ -2412,11 +2412,18 @@ impl<'a> Transaction<'a> {
 
     /// Invalidate based on what a watcher told you. Returns whether the config was invalidated.
     pub fn invalidate_events(&mut self, events: &CategorizedEvents) -> bool {
-        if events
+        // Python only reads path configuration files at the top level of a site-packages
+        // directory, so only interpreters reporting a changed file's parent need re-querying.
+        let changed_site_packages = events
             .iter()
-            .any(|path| ConfigFile::invalidates_interpreter_queries(path))
-        {
-            PythonEnvironment::clear_interpreter_cache();
+            .filter(|path| ConfigFile::invalidates_interpreter_queries(path))
+            .map(|path| {
+                path.parent()
+                    .expect("a path with an extension ends in a file name, so it has a parent")
+            })
+            .collect::<Vec<_>>();
+        if !changed_site_packages.is_empty() {
+            PythonEnvironment::clear_interpreter_cache_for_site_packages(&changed_site_packages);
         }
         *self.data.inputs_changed.get_mut() = true;
         // Files in an `extends` chain can have any name, so they are found through the loaded
