@@ -16166,15 +16166,13 @@ def check(
 "#,
 );
 
-// `@no_type_check` over `@type_shape_dsl_function` whose body names a builtin
-// crashes the checker with a missing `BoundName` key.
+// `@no_type_check` leaves the body of a `@type_shape_dsl_function` unbound, so the
+// function is not validated as a DSL function.
 testcase!(
-    bug = "Panic is a bad thing",
-    should_panic = "key not found",
     test_type_shape_dsl_under_no_type_check_names_builtin,
     r#"
 from typing import no_type_check
-from shape_extensions import type_shape_dsl_function
+from shape_extensions import type_shape_dsl_function  # E: Cannot find module `shape_extensions`
 
 @no_type_check
 @type_shape_dsl_function
@@ -16184,15 +16182,13 @@ def f(x):
 );
 
 // In batch mode with unannotated bodies unchecked, as `pyrefly check` runs by default,
-// the binder skips an unannotated `@type_shape_dsl_function` body, but the validator
-// still infers the callee of a call in its `if` test, which has no `BoundName` key.
+// the body of an unannotated `@type_shape_dsl_function` is unbound, so the function is
+// not validated as a DSL function.
 testcase!(
-    bug = "Panic is a bad thing",
-    should_panic = "key not found",
     test_type_shape_dsl_unannotated_call_in_if_test,
     TestEnv::new_skip_check_infer_return_types().with_run_require(Require::Errors),
     r#"
-from shape_extensions import type_shape_dsl_function
+from shape_extensions import type_shape_dsl_function  # E: Cannot find module `shape_extensions`
 
 @type_shape_dsl_function
 def g(x):

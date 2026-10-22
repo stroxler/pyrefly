@@ -692,6 +692,8 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    /// Returns the body kind, whether the body statements were bound, whether the return
+    /// type is inferred, and the `self` assignments.
     fn function_body(
         &mut self,
         parameters: &mut Box<Parameters>,
@@ -704,7 +706,7 @@ impl<'a> BindingsBuilder<'a> {
         parent: &NestingContext,
         undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
-    ) -> (BodyKind, bool, Option<SelfAssignments>) {
+    ) -> (BodyKind, bool, bool, Option<SelfAssignments>) {
         // If the first statement in the body is a docstring, remove it
         let body_no_docstring = if let Some(s) = body.first()
             && is_docstring(s)
@@ -768,9 +770,9 @@ impl<'a> BindingsBuilder<'a> {
 
         let is_unannotated =
             !self.check_unannotated_defs && !is_annotated(&return_ann_with_range, parameters);
-        let (is_return_inferred, self_assignments) = if decorators.has_no_type_check
-            || (is_unannotated && !self.analyze_unannotated_for_ide)
-        {
+        let skips_body =
+            decorators.has_no_type_check || (is_unannotated && !self.analyze_unannotated_for_ide);
+        let (is_return_inferred, self_assignments) = if skips_body {
             self.mark_as_returns_any(func_name, class_key, is_async);
             let self_assignments = self.unchecked_function_body_scope(
                 parameters,
@@ -856,7 +858,7 @@ impl<'a> BindingsBuilder<'a> {
             (is_return_inferred, self_assignments)
         };
 
-        (body_kind, is_return_inferred, self_assignments)
+        (body_kind, !skips_body, is_return_inferred, self_assignments)
     }
 
     pub fn function_def(&mut self, mut x: StmtFunctionDef, parent: &NestingContext) {
@@ -907,7 +909,7 @@ impl<'a> BindingsBuilder<'a> {
 
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let calls_super_method = SuperMethodCallFinder::find(&func_name.id, &x.body);
-        let (body_kind, is_return_inferred, self_assignments) = self.function_body(
+        let (body_kind, is_body_bound, is_return_inferred, self_assignments) = self.function_body(
             &mut x.parameters,
             mem::take(&mut x.body),
             &decorators,
@@ -939,7 +941,9 @@ impl<'a> BindingsBuilder<'a> {
                 legacy_tparams: legacy_tparams.into_boxed_slice(),
                 parent: parent.dupe(),
                 shape_dsl_def: shape_metadata.shape_dsl_def,
-                type_shape_dsl_def: shape_metadata.type_shape_dsl_def,
+                // The solver validates a type-level DSL function by inferring expressions in
+                // its body, which only have bindings if the body was bound.
+                type_shape_dsl_def: shape_metadata.type_shape_dsl_def.filter(|_| is_body_bound),
                 uses_shape_dsl_ir_name: shape_metadata.uses_shape_dsl_ir_name,
             },
         );
