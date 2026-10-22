@@ -106,6 +106,7 @@ use crate::binding::metadata::BindingsMetadata;
 use crate::binding::scope::builtin_module_for_name;
 use crate::binding::table::TableKeyed;
 use crate::config::config::ConfigFile;
+use crate::config::environment::environment::PythonEnvironment;
 use crate::config::error_kind::ErrorKind;
 use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
@@ -2411,6 +2412,13 @@ impl<'a> Transaction<'a> {
 
     /// Invalidate based on what a watcher told you. Returns whether the config was invalidated.
     pub fn invalidate_events(&mut self, events: &CategorizedEvents) -> bool {
+        if events.iter().any(|path| {
+            path.extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("pth"))
+        }) {
+            PythonEnvironment::clear_interpreter_cache();
+        }
         *self.data.inputs_changed.get_mut() = true;
         // Files in an `extends` chain can have any name, so they are found through the loaded
         // configs. Many modules share each config, so collect the distinct configs first.
