@@ -193,10 +193,10 @@ impl DocstringRenderState {
             CodeBlockKind::Fenced => {
                 if is_closing_code_fence(current, self.fence_backticks) {
                     self.code_block = None;
-                    self.output.push(format_non_code_line(current, false));
+                    self.output.push(current.trim_start().to_owned());
                 } else {
                     self.output
-                        .push(format_non_code_line(current, is_doctest_prompt));
+                        .push(strip_code_indent(current, self.code_block_indent));
                 }
                 true
             }
@@ -241,7 +241,7 @@ impl DocstringRenderState {
             self.code_block = Some(CodeBlockKind::Fenced);
             self.code_block_indent = leading_spaces;
             self.fence_backticks = backticks;
-            self.output.push(format_non_code_line(current, false));
+            self.output.push(current.trim_start().to_owned());
             self.pending_literal_block = false;
             return true;
         }
@@ -784,8 +784,6 @@ mod tests {
 
     #[test]
     fn test_docstring_fenced_code_block_indentation() {
-        // bug: indentation inside a fenced code block is rendered as `&nbsp;`.
-        // https://github.com/facebook/pyrefly/issues/5008
         let docstring = r#""""
     **Example:**
     ```python
@@ -800,7 +798,7 @@ mod tests {
 **Example:**
 ```python
 test = Test(
-&nbsp;&nbsp;&nbsp;&nbsp;name = "Test"
+    name = "Test"
 )
 ```
 "#
@@ -956,8 +954,6 @@ test = Test(
 
     #[test]
     fn test_docstring_fenced_code_block_under_header() {
-        // bug: indentation inside a fenced code block is rendered as `&nbsp;`.
-        // https://github.com/facebook/pyrefly/issues/5008
         let docstring = r#""""
     Examples:
         ```python
@@ -970,11 +966,11 @@ test = Test(
             Docstring::clean(docstring).replace("  \n", "\n"),
             r#"
 Examples:
-&nbsp;&nbsp;&nbsp;&nbsp;```python
-&nbsp;&nbsp;&nbsp;&nbsp;test = Test(
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name = "Test"
-&nbsp;&nbsp;&nbsp;&nbsp;)
-&nbsp;&nbsp;&nbsp;&nbsp;```
+```python
+test = Test(
+    name = "Test"
+)
+```
 "#
         );
     }
