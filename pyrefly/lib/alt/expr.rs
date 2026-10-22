@@ -3810,7 +3810,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         None
     }
 
-    fn subscript_infer_for_type_with_key_present(
+    pub(crate) fn subscript_infer_for_type_with_key_present(
         &self,
         base: &Type,
         slice: &Expr,
@@ -3829,6 +3829,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             type_form_context,
             &mut aliases,
         )
+    }
+
+    /// Classes whose subscript is a special form (see the `Type::ClassDef` arms in
+    /// `subscript_infer_for_type_with_key_present_inner`). As base class type arguments, these
+    /// must be parsed by that path rather than specialized as generics. `IntTuple` is handled
+    /// directly by the base-class parser; shaped arrays specialize correctly as generics.
+    pub(crate) fn has_special_class_subscript(&self, cls: &Class) -> bool {
+        cls.is_builtin("type")
+            || cls.has_toplevel_qname("pyre_extensions", "PyreReadOnly")
+            || cls.has_toplevel_qname("pyre_extensions", "ReadOnly")
+            || self.is_int_class(cls)
+            || self.is_map_int_tuples_class(cls)
     }
 
     fn subscript_infer_for_type_with_key_present_inner(

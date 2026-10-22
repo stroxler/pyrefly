@@ -5114,6 +5114,25 @@ def check(x: Fixed) -> None:
 );
 
 testcase!(
+    test_int_and_map_int_tuples_type_arguments_preserved_in_base_class,
+    shape_extensions_env(),
+    r#"
+from shape_extensions import Int, IntTuple, MapIntTuples
+from typing import assert_type
+
+class Box[T]:
+    def get(self) -> T: ...
+
+class FixedInt(Box[Int[3]]): ...
+class Mapped(Box[MapIntTuples[lambda S: list[S], tuple[IntTuple[2], IntTuple[3]]]]): ...
+
+def check(x: FixedInt, y: Mapped) -> None:
+    assert_type(x.get(), Int[3])
+    assert_type(y.get(), tuple[list[IntTuple[2]], list[IntTuple[3]]])
+"#,
+);
+
+testcase!(
     test_tensor_shapes_inttuple_assignability,
     shape_extensions_env(),
     r#"

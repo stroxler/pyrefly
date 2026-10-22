@@ -1836,6 +1836,20 @@ f("test")
 );
 
 testcase!(
+    test_pyrereadonly_in_base_class_type_argument,
+    TestEnv::one("pyre_extensions", "class PyreReadOnly[T]: pass"),
+    r#"
+from pyre_extensions import PyreReadOnly
+from typing import assert_type
+class Box[T]:
+    def get(self) -> T: ...
+class C[R](Box[PyreReadOnly[R]]): ...
+def f(c: C[int]):
+    assert_type(c.get(), int)
+    "#,
+);
+
+testcase!(
     test_resolving_any_correctly,
     r#"
 import typing
