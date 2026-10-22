@@ -16164,3 +16164,20 @@ def check(
     assert_type(as_array(different_ranks), Array[[2]])  # E: is not assignable to parameter `value`
 "#,
 );
+
+// `@no_type_check` over `@type_shape_dsl_function` whose body names a builtin
+// crashes the checker with a missing `BoundName` key.
+testcase!(
+    bug = "Panic is a bad thing",
+    should_panic = "key not found",
+    test_type_shape_dsl_under_no_type_check_names_builtin,
+    r#"
+from typing import no_type_check
+from shape_extensions import type_shape_dsl_function
+
+@no_type_check
+@type_shape_dsl_function
+def f(x):
+    return max
+"#,
+);
