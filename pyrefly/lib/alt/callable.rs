@@ -842,6 +842,15 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             Type::Any(AnyStyle::Explicit) => {
                 self.error_explicit_any_use(arg_errors, range, "The type of this argument")
             }
+            _ if ty.contains_implicit_any() => {
+                self.error(
+                    arg_errors,
+                    range,
+                    ErrorKind::PartiallyUnknownType,
+                    "The type of this argument is partially unknown; it contains an implicit `Any`"
+                        .to_owned(),
+                );
+            }
             _ => {}
         }
     }

@@ -949,3 +949,18 @@ def f(a: Any) -> None:
     star(**a)  # E: The type of this argument is an explicit `Any`
 "#,
 );
+
+// An argument whose type contains an implicit `Any` without being one is partially unknown.
+testcase!(
+    test_partially_unknown_argument_type,
+    TestEnv::new().enable_partially_unknown_type_error(),
+    r#"
+def untyped(p):
+    return p
+
+def takes(x: object) -> None: ...
+
+def f() -> None:
+    takes([untyped(1)])  # E: The type of this argument is partially unknown; it contains an implicit `Any`
+"#,
+);
