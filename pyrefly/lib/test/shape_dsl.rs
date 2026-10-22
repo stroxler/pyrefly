@@ -16196,3 +16196,18 @@ def g(x):
         pass
 "#,
 );
+
+// In IDE mode the body of an unannotated `@type_shape_dsl_function` is bound, so the
+// function is validated as a DSL function even though unannotated bodies are unchecked.
+testcase!(
+    test_type_shape_dsl_unannotated_call_in_if_test_in_ide,
+    TestEnv::new_skip_check_infer_return_types().with_run_require(Require::Everything),
+    r#"
+from shape_extensions import type_shape_dsl_function  # E: Cannot find module `shape_extensions`
+
+@type_shape_dsl_function
+def g(x):
+    if f():  # E: Could not find name `f` # E: condition may use only boolean Flag values
+        pass
+"#,
+);
