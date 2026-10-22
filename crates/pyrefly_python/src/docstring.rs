@@ -120,8 +120,7 @@ impl DocstringRenderState {
         let is_doctest_prompt = is_doctest_prompt(trimmed_start);
         let leading_spaces = leading_space_count(&current);
 
-        if self.handle_active_code_block(is_blank, is_doctest_prompt, raw_leading_spaces, &current)
-        {
+        if self.write_code_block_line(is_blank, is_doctest_prompt, raw_leading_spaces, &current) {
             return;
         }
 
@@ -155,8 +154,13 @@ impl DocstringRenderState {
         false
     }
 
-    /// Consume a line while inside a fenced code block, if applicable.
-    fn handle_active_code_block(
+    /// Write this line as part of the open code block, if there is one.
+    ///
+    /// Returns true if the line has been written. Returns false if no code block is open, or if
+    /// this line ends a doctest or literal block. Those blocks end at the first line that is not
+    /// part of them, so the caller still has to render that line. A fenced block ends at its own
+    /// closing fence, which is written here.
+    fn write_code_block_line(
         &mut self,
         is_blank: bool,
         is_doctest_prompt: bool,
