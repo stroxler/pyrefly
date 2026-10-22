@@ -2137,6 +2137,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         Type::Any(AnyStyle::Explicit) => {
                             self.error_explicit_any_use(errors, range, "The type of this attribute")
                         }
+                        _ if value_ty.contains_implicit_any() => {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorKind::PartiallyUnknownType,
+                                "This expression's type is partially unknown; it contains an implicit `Any`. Please provide an explicit type annotation.".to_owned(),
+                            );
+                        }
                         _ => {}
                     }
                 }
@@ -2679,6 +2687,14 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
                 Type::Any(AnyStyle::Explicit) => {
                     self.error_explicit_any_use(errors, x.range(), "The type of this attribute")
+                }
+                _ if ty.contains_implicit_any() => {
+                    self.error(
+                        errors,
+                        x.range(),
+                        ErrorKind::PartiallyUnknownType,
+                        "This expression's type is partially unknown; it contains an implicit `Any`. Please provide an explicit type annotation.".to_owned(),
+                    );
                 }
                 _ => {}
             }

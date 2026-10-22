@@ -964,3 +964,24 @@ def f() -> None:
     takes([untyped(1)])  # E: The type of this argument is partially unknown; it contains an implicit `Any`
 "#,
 );
+
+// A partially unknown value is reported at every attribute position: a class-body attribute value,
+// an instance attribute, a class-body loop target, and an attribute access.
+testcase!(
+    test_partially_unknown_attribute,
+    TestEnv::new().enable_partially_unknown_type_error(),
+    r#"
+def untyped(p):
+    return p
+
+class C:
+    x = [untyped(1)]  # E: This expression's type is partially unknown; it contains an implicit `Any`. Please provide an explicit type annotation.
+    def set(self) -> None:
+        self.y = [untyped(1)]  # E: This expression's type is partially unknown; it contains an implicit `Any`. Please provide an explicit type annotation.
+    for item in [[untyped(1)]]:  # E: This expression's type is partially unknown; it contains an implicit `Any`. Please provide an explicit type annotation.
+        pass
+
+def access(c: C) -> None:
+    c.x  # E: The type of attribute `x` is partially unknown; it contains an implicit `Any`
+"#,
+);

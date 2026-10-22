@@ -2923,6 +2923,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 x.attr.range,
                 format!("The type of attribute `{}`", x.attr.id),
             ),
+            _ if result.ty().contains_implicit_any() => {
+                self.error(
+                    errors,
+                    x.attr.range,
+                    ErrorKind::PartiallyUnknownType,
+                    format!(
+                        "The type of attribute `{}` is partially unknown; it contains an implicit `Any`",
+                        x.attr.id
+                    ),
+                );
+            }
             _ => {}
         }
         result
