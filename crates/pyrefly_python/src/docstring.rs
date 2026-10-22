@@ -274,7 +274,18 @@ impl DocstringRenderState {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum CodeBlockKind {
+    /// A doctest example: lines starting with a `>>>` or `...` prompt, and the blank lines
+    /// between them.
+    ///
+    /// Counts: `>>> add(1, 2)`, `... more`, and a bare `>>>`.
+    /// Doesn't count: an output line such as `3`, which ends the block, or `>>>>` and `....`.
     Doctest,
+    /// A reStructuredText literal block: the lines indented more than a preceding line that
+    /// ends in `::`, and the blank lines between them.
+    ///
+    /// Counts: an indented `x = 1` after a line `Example::`.
+    /// Doesn't count: a line no more indented than `Example::`, which ends the block; an
+    /// indented line with no `::` line before it; a `::` line inside a fenced code block.
     Literal,
     /// A Markdown fenced code block written by the docstring author. It starts at a line of
     /// three or more backticks, optionally followed by an info string such as `python`, and ends
