@@ -88,6 +88,7 @@ struct DocstringRenderState {
     code_block: Option<CodeBlockKind>,
     code_block_indent: usize,
     literal_block_marker_indent: usize,
+    fence_backticks: usize,
 }
 
 impl DocstringRenderState {
@@ -100,6 +101,7 @@ impl DocstringRenderState {
             code_block: None,
             code_block_indent: 0,
             literal_block_marker_indent: 0,
+            fence_backticks: 0,
         }
     }
 
@@ -109,7 +111,9 @@ impl DocstringRenderState {
         let base_line = dedent_docstring_line(line, min_indent, is_first);
         let mut current = base_line.to_owned();
 
-        let saw_literal_marker = self.apply_literal_block_marker(&mut current, raw_leading_spaces);
+        // Inside a fenced code block, a line ending in `::` is code, not a literal-block marker.
+        let saw_literal_marker = self.code_block != Some(CodeBlockKind::Fenced)
+            && self.apply_literal_block_marker(&mut current, raw_leading_spaces);
 
         let trimmed_start = current.trim_start();
         let is_blank = trimmed_start.is_empty();
@@ -186,6 +190,16 @@ impl DocstringRenderState {
                     true
                 }
             }
+            CodeBlockKind::Fenced => {
+                if is_closing_code_fence(current, self.fence_backticks) {
+                    self.code_block = None;
+                    self.output.push(format_non_code_line(current, false));
+                } else {
+                    self.output
+                        .push(format_non_code_line(current, is_doctest_prompt));
+                }
+                true
+            }
         }
     }
 
@@ -223,6 +237,15 @@ impl DocstringRenderState {
             return true;
         }
 
+        if let Some(backticks) = code_fence_opening(current) {
+            self.code_block = Some(CodeBlockKind::Fenced);
+            self.code_block_indent = leading_spaces;
+            self.fence_backticks = backticks;
+            self.output.push(format_non_code_line(current, false));
+            self.pending_literal_block = false;
+            return true;
+        }
+
         if self.pending_literal_block
             && !is_blank
             && raw_leading_spaces <= self.pending_literal_block_indent
@@ -236,8 +259,12 @@ impl DocstringRenderState {
 
     /// Close any open fences and join output lines with markdown line breaks.
     fn finish(mut self) -> String {
-        if self.code_block.is_some() {
-            self.output.push("```".to_owned());
+        match self.code_block {
+            Some(CodeBlockKind::Fenced) => self.output.push("`".repeat(self.fence_backticks)),
+            Some(CodeBlockKind::Doctest | CodeBlockKind::Literal) => {
+                self.output.push("```".to_owned())
+            }
+            None => {}
         }
 
         // Note: markdown doesn't break on just `\n`
@@ -249,6 +276,10 @@ impl DocstringRenderState {
 enum CodeBlockKind {
     Doctest,
     Literal,
+    /// A Markdown fenced code block written by the docstring author. It starts at a line of
+    /// three or more backticks, optionally followed by an info string such as `python`, and ends
+    /// at a line of at least as many backticks and nothing else.
+    Fenced,
 }
 
 /// Return true if this line looks like a doctest prompt.
@@ -260,6 +291,23 @@ fn is_doctest_prompt(line: &str) -> bool {
         return line.as_bytes().get(3).is_none_or(|b| *b != b'.');
     }
     false
+}
+
+/// If this line opens a Markdown code fence, return its number of backticks: three or more,
+/// optionally followed by an info string such as `python`. The info string cannot contain
+/// backticks, so a line like ```` ```x = 1``` ```` is inline code rather than a fence.
+fn code_fence_opening(line: &str) -> Option<usize> {
+    let line = line.trim_start();
+    let info = line.trim_start_matches('`');
+    let backticks = line.len() - info.len();
+    (backticks >= 3 && !info.contains('`')).then_some(backticks)
+}
+
+/// Return true if this line closes a fenced code block opened with `backticks` backticks. As in
+/// CommonMark, the closing fence has at least as many backticks and nothing else.
+fn is_closing_code_fence(line: &str, backticks: usize) -> bool {
+    let line = line.trim();
+    line.len() >= backticks && line.bytes().all(|b| b == b'`')
 }
 
 /// Strip a reStructuredText literal-block marker (`::`) and return the updated line.
@@ -614,7 +662,11 @@ pub fn parse_parameter_documentation(docstring: &str) -> HashMap<String, String>
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Range;
+
+    use crate::docstring::CodeBlockKind;
     use crate::docstring::Docstring;
+    use crate::docstring::DocstringRenderState;
     use crate::docstring::parse_parameter_documentation;
 
     #[test]
@@ -751,6 +803,178 @@ test = Test(
 &nbsp;&nbsp;&nbsp;&nbsp;name = "Test"
 )
 ```
+"#
+        );
+    }
+
+    /// Return the line ranges that `DocstringRenderState` identifies as each kind of code block.
+    fn code_block_ranges(lines: &[&str]) -> Vec<(CodeBlockKind, Range<usize>)> {
+        let mut state = DocstringRenderState::new();
+        let mut ranges: Vec<(CodeBlockKind, Range<usize>)> = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            let before = state.code_block;
+            state.handle_line(line, i == 0, 0);
+            // A closing fence belongs to the block it closes.
+            let fenced = before.filter(|kind| *kind == CodeBlockKind::Fenced);
+            let Some(kind) = state.code_block.or(fenced) else {
+                continue;
+            };
+            if before == Some(kind) {
+                ranges.last_mut().expect("an open block has a range").1.end = i + 1;
+            } else {
+                ranges.push((kind, i..i + 1));
+            }
+        }
+        ranges
+    }
+
+    #[test]
+    fn test_docstring_code_block_ranges() {
+        let lines = [
+            "Summary",
+            ">>> f()",
+            "Example::",
+            "",
+            "    x = 1",
+            "After",
+            "```python",
+            ">>> g()",
+            "```",
+            "```",
+            "y = 2",
+            "```",
+            "Done",
+        ];
+        assert_eq!(
+            code_block_ranges(&lines),
+            vec![
+                (CodeBlockKind::Doctest, 1..2),
+                (CodeBlockKind::Literal, 4..5),
+                (CodeBlockKind::Fenced, 6..9),
+                (CodeBlockKind::Fenced, 9..12),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_docstring_fenced_code_block_edge_cases() {
+        // An unclosed fence runs to the end of the docstring.
+        assert_eq!(
+            code_block_ranges(&["```", "x = 1"]),
+            vec![(CodeBlockKind::Fenced, 0..2)]
+        );
+        // An empty fence is still a code block.
+        assert_eq!(
+            code_block_ranges(&["```", "```", "after"]),
+            vec![(CodeBlockKind::Fenced, 0..2)]
+        );
+        // Backticks that open and close on the same line are inline code, not a fence.
+        assert_eq!(
+            code_block_ranges(&["```x = 1```", "```", "y = 2", "```"]),
+            vec![(CodeBlockKind::Fenced, 1..4)]
+        );
+    }
+
+    #[test]
+    fn test_docstring_fenced_code_block_next_to_other_kinds() {
+        // A `::` line inside a fence is code, so no literal block follows the fence.
+        assert_eq!(
+            code_block_ranges(&["```rst", "Example::", "```", "    indented"]),
+            vec![(CodeBlockKind::Fenced, 0..3)]
+        );
+        // A fence right after a `::` marker wins, and the marker doesn't apply after it.
+        assert_eq!(
+            code_block_ranges(&["Example::", "", "```", "x", "```", "    after"]),
+            vec![(CodeBlockKind::Fenced, 2..5)]
+        );
+        // Backticks inside a literal block are literal text.
+        assert_eq!(
+            code_block_ranges(&["Example::", "", "    ```", "    x", "Done"]),
+            vec![(CodeBlockKind::Literal, 2..4)]
+        );
+        assert_eq!(
+            code_block_ranges(&["Example::", "", "    x", "    ```", "    y", "Done"]),
+            vec![(CodeBlockKind::Literal, 2..5)]
+        );
+        // An indented fence, as in a parameter description.
+        assert_eq!(
+            code_block_ranges(&[
+                "Args:",
+                "    x: an arg",
+                "    ```",
+                "    code",
+                "    ```",
+                "After"
+            ]),
+            vec![(CodeBlockKind::Fenced, 2..5)]
+        );
+        // A `>>>` line right after a fence starts a doctest block.
+        assert_eq!(
+            code_block_ranges(&["```", "x", "```", ">>> f()"]),
+            vec![
+                (CodeBlockKind::Fenced, 0..3),
+                (CodeBlockKind::Doctest, 3..4)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_docstring_fenced_code_block_closing_fence() {
+        // The closing fence needs at least as many backticks as the opening one.
+        assert_eq!(
+            code_block_ranges(&["````", "```", "x", "````"]),
+            vec![(CodeBlockKind::Fenced, 0..4)]
+        );
+        assert_eq!(
+            code_block_ranges(&["```", "x", "````", "after"]),
+            vec![(CodeBlockKind::Fenced, 0..3)]
+        );
+        // A line with an info string doesn't close a fence.
+        assert_eq!(
+            code_block_ranges(&["```", "```python", "x", "```"]),
+            vec![(CodeBlockKind::Fenced, 0..4)]
+        );
+    }
+
+    #[test]
+    fn test_docstring_fenced_code_block_rendering() {
+        // A line ending in `::` inside a fence keeps both colons.
+        assert_eq!(
+            Docstring::clean("\"\"\"Summary\n```rst\nExample::\n```\n\"\"\"").as_str(),
+            "Summary  \n```rst  \nExample::  \n```"
+        );
+        // An unclosed fence gets exactly one closing fence, as long as the opening one.
+        assert_eq!(
+            Docstring::clean("\"\"\"Summary\n```\nx = 1\n\"\"\"").as_str(),
+            "Summary  \n```  \nx = 1  \n```"
+        );
+        assert_eq!(
+            Docstring::clean("\"\"\"Summary\n````\nx = 1\n\"\"\"").as_str(),
+            "Summary  \n````  \nx = 1  \n````"
+        );
+    }
+
+    #[test]
+    fn test_docstring_fenced_code_block_under_header() {
+        // bug: indentation inside a fenced code block is rendered as `&nbsp;`.
+        // https://github.com/facebook/pyrefly/issues/5008
+        let docstring = r#""""
+    Examples:
+        ```python
+        test = Test(
+            name = "Test"
+        )
+        ```
+    """"#;
+        assert_eq!(
+            Docstring::clean(docstring).replace("  \n", "\n"),
+            r#"
+Examples:
+&nbsp;&nbsp;&nbsp;&nbsp;```python
+&nbsp;&nbsp;&nbsp;&nbsp;test = Test(
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name = "Test"
+&nbsp;&nbsp;&nbsp;&nbsp;)
+&nbsp;&nbsp;&nbsp;&nbsp;```
 "#
         );
     }
