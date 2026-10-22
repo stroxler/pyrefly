@@ -966,13 +966,11 @@ def f(by_type: TypeVarCapture, by_elements: TypeVarTupleCapture) -> None:
 "#,
 );
 
-// Parse recovery turns `[* *]` into two nameless type parameters; with a broken return
-// annotation, the binder looks up an `Anywhere` key for the empty name that has no binding.
+// Parse recovery turns `[* *]` into two nameless type parameters, and the broken return
+// annotation makes the binder look up the empty name.
 testcase!(
-    bug = "Panic is a bad thing",
-    should_panic = "key lacking binding",
     test_nameless_type_params_with_broken_return_annotation,
     r#"
-def f[* *]() -  # E: Parse error
+def f[* *]() -  # E: Expected an identifier # E: duplicate type parameter # E: Expected an identifier # E: Expected `:`, found `-` # E: Expected an expression
 "#,
 );

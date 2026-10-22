@@ -2226,7 +2226,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         // Empty names arise from parser error recovery on invalid syntax.
-        // The definitions phase already skips them, so they won't be in the static scope.
+        // `Static::upsert` skips them, so they are never in the static scope.
         if name.is_empty() {
             return None;
         }

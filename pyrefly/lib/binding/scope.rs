@@ -449,6 +449,11 @@ impl Static {
         style: StaticStyle,
         last_range: TextRange,
     ) {
+        // Parse recovery produces empty names, such as a nameless type parameter. The
+        // static scope never holds them, because `bind_name` never binds them.
+        if name.key().is_empty() {
+            return;
+        }
         let (char_len, char_mask) = suggestion_keys(name.key());
         match self.0.entry_hashed(name) {
             Entry::Vacant(e) => {
