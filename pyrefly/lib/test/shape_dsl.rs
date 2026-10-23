@@ -1465,6 +1465,35 @@ def explicit_alias(x: Dim[str]) -> None:  # E: Tensor shape dimensions must be i
 );
 
 testcase!(
+    bug = "Gradual Int arguments leave unsolved IntVars in return arithmetic",
+    test_intvar_gradual_argument_in_return_arithmetic,
+    shape_extensions_env(),
+    r#"
+from typing import assert_type, reveal_type
+from shape_extensions import Int, IntVar
+
+def add[A: IntVar, B: IntVar](a: Int[A], b: Int[B]) -> Int[IntVar[A] + IntVar[B]]: ...
+
+class Dim[N: IntVar]: ...
+
+def add_dims[A: IntVar, B: IntVar](a: Dim[A], b: Dim[B]) -> Dim[IntVar[A] + IntVar[B]]: ...
+
+def check[M: IntVar](
+    symbolic: Int[M], unknown: Int[int], bare: Int, plain: int,
+    symbolic_dim: Dim[M], unknown_dim: Dim[int],
+) -> None:
+    reveal_type(add(unknown, symbolic))  # E: revealed type: Int[M + @_]
+    reveal_type(add(symbolic, unknown))  # E: revealed type: Int[M + @_]
+    reveal_type(add(bare, symbolic))  # E: revealed type: Int[M + @_]
+    reveal_type(add(plain, symbolic))  # E: revealed type: Int[int]
+    reveal_type(add_dims(unknown_dim, symbolic_dim))  # E: revealed type: Dim[M + @_]
+    reveal_type(add_dims(symbolic_dim, unknown_dim))  # E: revealed type: Dim[M + @_]
+    assert_type(add(symbolic, symbolic), Int[M + M])
+    assert_type(add_dims(symbolic_dim, symbolic_dim), Dim[M + M])
+"#,
+);
+
+testcase!(
     test_intvar_bad_call_bound_recovers_to_int_gradual,
     shape_extensions_env(),
     r#"
