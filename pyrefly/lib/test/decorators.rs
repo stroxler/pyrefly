@@ -590,7 +590,12 @@ class OwnLt(D):  # E: Cannot safely extend dataclass `D` with `order=True`
     def __lt__(self, other: object) -> bool:
         return True
 
-reveal_type(OwnLt.__gt__)  # E: revealed type: (self: OwnLt, other: OwnLt) -> bool
+reveal_type(OwnLt.__gt__)  # E: revealed type: (self: D, other: D) -> bool
+
+# `OwnLt` still uses `D`'s generated `__gt__`, so comparing it with `OrderedOverOwnLt` can fail.
+@dataclass(order=True)
+class OrderedOverOwnLt(OwnLt):  # E: Cannot safely extend dataclass `D` with `order=True`
+    y: int = 0
 "#,
 );
 
@@ -612,6 +617,32 @@ class B(A):
         return True
 
 reveal_type(B.__ge__)  # E: revealed type: (self: B, other: A) -> bool
+"#,
+);
+
+// Methods that `total_ordering` fills in on a mixin are user-defined as far as the dataclass is
+// concerned, so they replace the dataclass's generated methods that come later in the MRO.
+testcase!(
+    test_total_ordering_mixin_before_ordered_dataclass,
+    r#"
+from dataclasses import dataclass
+from functools import total_ordering
+
+@dataclass(order=True)
+class D:
+    x: int
+
+@total_ordering
+class Mix:
+    def __lt__(self, other: object) -> bool:
+        return True
+
+class C(Mix, D):
+    pass
+
+@dataclass(order=True)
+class E(C):
+    y: int = 0
 "#,
 );
 

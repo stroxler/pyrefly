@@ -3310,9 +3310,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     /// Stdlib dataclass ordering methods only compare instances of the exact same class, so
     /// comparing instances of a class and its base raises `TypeError` when both fall back to such
-    /// generated methods. Which methods a class uses is resolved by walking its MRO through class
-    /// bodies, because pyrefly also synthesizes ordering methods on classes that merely inherit
-    /// dataclass metadata, which would hide user-defined overrides from a member lookup.
+    /// generated methods.
     fn check_ordered_dataclass_inheritance(
         &self,
         cls: &Class,
@@ -3324,29 +3322,33 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         if metadata.is_new_type() || metadata.dataclass_metadata().is_none() {
             return;
         }
-        // The class whose generated exact-class ordering method `c` uses for `op`, if any.
+        // The class whose generated exact-class ordering method `c` uses for `op`, if any. A
+        // member that its defining class does not declare in its body was synthesized there; it
+        // is a generated exact-class method only if that class has its own ordered stdlib
+        // dataclass metadata.
         let generator_for = |c: &Class, op: &Name| -> Option<Class> {
-            let mro = self.get_mro_for_class(c);
-            for k in iter::once(c).chain(mro.ancestors_no_object().iter().map(|a| a.class_object()))
+            let defining_class = self
+                .get_class_member_with_defining_class(c, op)?
+                .defining_class;
+            if self
+                .get_class_fields(&defining_class)
+                .is_some_and(|f| f.contains(op))
             {
-                if self.get_class_fields(k).is_some_and(|f| f.contains(op)) {
-                    return None;
-                }
-                if let Some(dm) = self.get_metadata_for_class(k).dataclass_metadata()
-                    && !dm.is_inherited
-                    && dm.kws.order
-                {
-                    return matches!(
-                        dm.kind,
-                        DataclassKind::Dataclass {
-                            is_stdlib_dataclass: true,
-                            ..
-                        }
-                    )
-                    .then(|| k.dupe());
-                }
+                return None;
             }
-            None
+            let dm = self
+                .get_metadata_for_class(&defining_class)
+                .dataclass_metadata()?;
+            (dm.kws.order
+                && !dm.is_inherited
+                && matches!(
+                    dm.kind,
+                    DataclassKind::Dataclass {
+                        is_stdlib_dataclass: true,
+                        ..
+                    }
+                ))
+            .then_some(defining_class)
         };
         // `cls() < base()` tries `cls.__lt__` and then the reflected `base.__gt__`, so it fails
         // when both are generated. User-defined methods are assumed to accept mixed instances.

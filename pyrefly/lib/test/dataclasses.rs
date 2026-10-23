@@ -1308,6 +1308,32 @@ class E(C):  # E: Cannot safely extend dataclass `D` with `order=True`
     "#,
 );
 
+// Only the decorated class gets generated ordering methods at runtime; subclasses inherit them.
+testcase!(
+    test_ordering_methods_inherited_by_subclass,
+    r#"
+from dataclasses import dataclass
+from typing import reveal_type
+@dataclass(order=True)
+class D:
+    x: int
+
+class C(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+reveal_type(C.__lt__)  # E: revealed type: (self: D, other: D) -> bool
+
+class OverridesGe(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    def __ge__(self, other: object) -> bool:
+        return True
+
+class InheritsGe(OverridesGe):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+InheritsGe(1) >= 3
+    "#,
+);
+
 testcase!(
     test_parent_dataclass_with_order_overridden,
     r#"
