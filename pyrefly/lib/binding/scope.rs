@@ -3871,13 +3871,14 @@ fn determine_definition_status(
     n_values: usize,
     n_branches: usize,
     n_missing_branches: usize,
-    n_branches_with_termination_key: usize,
     missing_branch_termination_keys: Vec<Idx<Key>>,
 ) -> DefinitionStatus {
     match merge_style {
         MergeStyle::LoopDefinitelyRuns if base_has_value => DefinitionStatus::Defined,
         MergeStyle::LoopDefinitelyRuns if n_values == n_branches => DefinitionStatus::Defined,
-        MergeStyle::LoopDefinitelyRuns if n_missing_branches <= n_branches_with_termination_key => {
+        MergeStyle::LoopDefinitelyRuns
+            if n_missing_branches <= missing_branch_termination_keys.len() =>
+        {
             if !missing_branch_termination_keys.is_empty() {
                 DefinitionStatus::DeferredCheck(missing_branch_termination_keys)
             } else {
@@ -3885,7 +3886,7 @@ fn determine_definition_status(
             }
         }
         _ if n_values == n_branches => DefinitionStatus::Defined,
-        _ if n_missing_branches <= n_branches_with_termination_key => {
+        _ if n_missing_branches <= missing_branch_termination_keys.len() => {
             if !missing_branch_termination_keys.is_empty() {
                 DefinitionStatus::DeferredCheck(missing_branch_termination_keys)
             } else {
@@ -3978,7 +3979,6 @@ impl<'a> BindingsBuilder<'a> {
         phi_key: PhiKey,
         merge_style: MergeStyle,
         n_branches: usize,
-        n_branches_with_termination_key: usize,
     ) -> FlowInfo {
         // Only a promised phi can already appear in a branch's flow.
         let phi_idx = phi_key.promised;
@@ -4106,7 +4106,6 @@ impl<'a> BindingsBuilder<'a> {
             n_values,
             n_branches,
             n_missing_branches,
-            n_branches_with_termination_key,
             missing_branch_termination_keys,
         );
 
@@ -4239,10 +4238,6 @@ impl<'a> BindingsBuilder<'a> {
                 0
             };
 
-        // Count how many branches have a last_stmt_expr (potential type-based termination)
-        let n_branches_with_termination_key =
-            flows.iter().filter(|f| f.last_stmt_expr.is_some()).count();
-
         // Collect all termination keys from flows (for building dense MergeItems)
         let all_termination_keys: Vec<Option<Idx<Key>>> =
             flows.iter().map(|f| f.last_stmt_expr).collect();
@@ -4296,13 +4291,7 @@ impl<'a> BindingsBuilder<'a> {
                 promised: self.promised_idx(&key),
                 key,
             };
-            let flow_info = self.merged_flow_info(
-                merge_item,
-                phi_key,
-                merge_style,
-                n_branches,
-                n_branches_with_termination_key,
-            );
+            let flow_info = self.merged_flow_info(merge_item, phi_key, merge_style, n_branches);
             merged_flow_infos.insert_hashed(name, flow_info);
         }
 
