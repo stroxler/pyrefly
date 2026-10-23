@@ -3392,6 +3392,26 @@ impl Scopes {
         }
     }
 
+    /// Names defined in the current scope that are currently bound by
+    /// `import <module> as <alias>`.
+    ///
+    /// Used when binding `import foo.bar`, which also makes `bar` available as an
+    /// attribute of every alias of `foo`.
+    pub fn module_aliases_at(&self, module: ModuleName) -> Vec<(Name, Idx<Key>)> {
+        let scope = self.current();
+        scope
+            .flow
+            .info
+            .iter()
+            .filter_map(|(name, info)| {
+                let value = info.value()?;
+                (matches!(value.style, FlowStyle::ImportAs(m) if m == module)
+                    && scope.stat.0.contains_key(name))
+                .then(|| (name.clone(), value.idx))
+            })
+            .collect()
+    }
+
     /// Helper for iterating over scopes in a way that respects class body visibility rules.
     fn scope_views(&self) -> impl Iterator<Item = ScopeView<'_>> {
         ScopeViews {
