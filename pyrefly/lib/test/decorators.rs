@@ -567,6 +567,54 @@ class A:
 "#,
 );
 
+// `total_ordering` only fills in methods the class doesn't already have, including methods
+// generated on an ancestor dataclass.
+testcase!(
+    test_total_ordering_on_ordered_dataclass_subclass,
+    r#"
+from dataclasses import dataclass
+from functools import total_ordering
+from typing import reveal_type
+
+@dataclass(order=True)
+class D:
+    x: int
+
+@total_ordering
+class NoOwnMethods(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+# `OwnLt` keeps `D`'s generated `__gt__`, so `OwnLt(1) > D(1)` fails.
+@total_ordering
+class OwnLt(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    def __lt__(self, other: object) -> bool:
+        return True
+
+reveal_type(OwnLt.__gt__)  # E: revealed type: (self: OwnLt, other: OwnLt) -> bool
+"#,
+);
+
+// Methods that `total_ordering` filled in on an ancestor count as defined, so `B` gets nothing new.
+testcase!(
+    test_total_ordering_on_total_ordering_subclass,
+    r#"
+from functools import total_ordering
+from typing import reveal_type
+
+@total_ordering
+class A:
+    def __lt__(self, other: "A") -> bool:
+        return True
+
+@total_ordering
+class B(A):
+    def __gt__(self, other: object) -> bool:
+        return True
+
+reveal_type(B.__ge__)  # E: revealed type: (self: B, other: A) -> bool
+"#,
+);
+
 testcase!(
     test_total_ordering_inherited_rich_cmp,
     r#"
