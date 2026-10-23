@@ -394,6 +394,35 @@ A()  # E: Missing argument `x`
 "#,
 );
 
+// When `order` is omitted, attrs makes it follow `eq`, so `eq=False` generates no ordering methods.
+attrs_testcase!(
+    test_attrs_order_follows_eq,
+    r#"
+import attr
+
+@attr.s(eq=False)
+class NoEq:
+    x: int = attr.ib()
+
+NoEq(1) < NoEq(2)  # E: `<` is not supported between `NoEq` and `NoEq`
+
+class NoEqChild(NoEq):
+    pass
+
+@attr.s(cmp=False)
+class NoCmp:
+    x: int = attr.ib()
+
+NoCmp(1) < NoCmp(2)  # E: `<` is not supported between `NoCmp` and `NoCmp`
+
+@attr.s(eq=True)
+class Eq:
+    x: int = attr.ib()
+
+Eq(1) < Eq(2)
+"#,
+);
+
 // attrs ordering methods have the same exact-class check as stdlib dataclasses, but attrs classes
 // are not checked.
 attrs_testcase!(

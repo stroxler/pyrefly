@@ -1269,6 +1269,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 let attrs_hash =
                     if Self::field_specifiers_reference_attrs(&defaults.field_specifiers) {
                         self.validate_attrs_eq_order_cmp(&call.keywords, *decorator_range, errors);
+                        // attrs defaults an omitted `order` to `eq` and rejects `order=True`
+                        // with `eq=False`, so `order` never holds without `eq`.
+                        kws.order &= kws.eq;
                         DataclassKeywords::attrs_hash_from_map(&call.keywords)
                     } else {
                         None
