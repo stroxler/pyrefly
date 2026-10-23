@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::sys_info::PythonVersion;
+
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -297,5 +300,21 @@ from typing import assert_type
 
 x = dict([("n", dict([("n", dict([("n", dict([("n", dict([("n", 1)]))]))]))]))])
 assert_type(x, dict[str, dict[str, dict[str, dict[str, dict[str, int]]]]])
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/4994
+// https://github.com/facebook/pyrefly/issues/5332
+testcase!(
+    bug = "The `frozendict` constructor rejects all arguments",
+    test_frozendict_constructor,
+    TestEnv::new_with_version(PythonVersion::new(3, 15, 0)),
+    r#"
+from typing import Any, assert_type
+assert_type(frozendict(), frozendict[Any, Any])
+frozendict({"x": 1})  # E: Expected 0 positional arguments, got 1 in function `frozendict.__init__`
+frozendict([("x", 1)])  # E: Expected 0 positional arguments, got 1 in function `frozendict.__init__`
+frozendict(x=1)  # E: Unexpected keyword argument `x` in function `frozendict.__init__`
+frozendict({"x": 1}, y=2)  # E: Expected 0 positional arguments, got 1 in function `frozendict.__init__` # E: Unexpected keyword argument `y` in function `frozendict.__init__`
 "#,
 );
