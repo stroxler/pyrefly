@@ -344,3 +344,45 @@ fn ownership_test() {
         }
     }
 }
+
+#[test]
+fn module_names_only_change_reported_names() {
+    use crate::state::require::Require;
+    use crate::test::util::mk_multi_file_state_assert_no_errors;
+
+    let files = [
+        ("original", "class Widget: pass\ninstance = Widget()\n"),
+        (
+            "caller",
+            "from .original import Widget\ninstance = Widget()\n",
+        ),
+    ];
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
+    let transaction = state.transaction();
+    let original = handles.get("original").unwrap();
+    let caller = handles.get("caller").unwrap();
+    let original_report = glean(&transaction, original, false, &HashMap::new());
+    let facts: serde_json::Value = serde_json::from_str(&original_report).unwrap();
+    let file = facts
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| {
+            entry["predicate"]
+                .as_str()
+                .is_some_and(|name| name.starts_with("src.FileLanguage."))
+        })
+        .unwrap()["facts"][0]["key"]["file"]["key"]
+        .as_str()
+        .unwrap();
+    let module_names = HashMap::from([(file.to_owned(), "public.api".to_owned())]);
+    let renamed = glean(&transaction, original, false, &module_names);
+    assert!(renamed.contains("public.api.Widget"));
+    assert!(!renamed.contains("original.Widget"));
+    let references = glean(&transaction, caller, false, &module_names);
+    assert!(references.contains("public.api.Widget"));
+    assert_eq!(original.module().as_str(), "original");
+    let unchanged = glean(&transaction, original, false, &HashMap::new());
+    assert!(unchanged.contains("original.Widget"));
+    assert!(!unchanged.contains("public.api.Widget"));
+}

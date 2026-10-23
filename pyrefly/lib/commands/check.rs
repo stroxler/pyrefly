@@ -2323,6 +2323,7 @@ impl CheckArgs {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::fs;
     use std::path::Path;
     use std::path::PathBuf;
@@ -2525,12 +2526,21 @@ def go(w: Widget) -> int:
         let cinderx_dir = temp.path().join("cinderx");
         let glean_dir = temp.path().join("glean");
 
+        let names_path = temp.path().join("module_names.json");
+        fs::write(
+            &names_path,
+            serde_json::to_string(&HashMap::from([(module.to_str().unwrap(), "public.api")]))
+                .unwrap(),
+        )
+        .unwrap();
         let args = CheckArgs::parse_from([
             "check",
             "--report-cinderx",
             cinderx_dir.to_str().unwrap(),
             "--report-glean",
             glean_dir.to_str().unwrap(),
+            "--glean-module-names",
+            names_path.to_str().unwrap(),
         ]);
         let (status, errors, _) = args
             .run_once(
@@ -2561,7 +2571,9 @@ def go(w: Widget) -> int:
             .map(|entry| entry.unwrap().path())
             .collect();
         assert_eq!(glean_files.len(), 1, "expected one Glean file per module");
-        assert!(fs::metadata(&glean_files[0]).unwrap().len() > 0);
+        let facts = fs::read_to_string(&glean_files[0]).unwrap();
+        assert!(facts.contains("public.api.Widget"));
+        assert!(!facts.contains("main.Widget"));
     }
 
     #[test]
