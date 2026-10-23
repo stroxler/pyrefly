@@ -323,6 +323,11 @@ struct OutputArgs {
     /// Make each module's file the Glean ownership unit of its facts in the Glean report.
     #[arg(long, requires = "report_glean")]
     report_glean_ownership: bool,
+
+    /// JSON object mapping Glean file paths (relative to the working directory) to
+    /// module names. Affects Glean output only, without changing import resolution.
+    #[arg(long, value_name = "FILE", requires = "report_glean")]
+    glean_module_names: Option<PathBuf>,
     /// Generate a Pysa-compatible JSON file for each module
     #[arg(long, value_name = "OUTPUT_FILE")]
     report_pysa: Option<PathBuf>,
@@ -492,6 +497,7 @@ impl OutputArgs {
             report_timings,
             report_glean,
             report_glean_ownership,
+            glean_module_names,
             report_pysa,
             report_pysa_format,
             report_demand_tree,
@@ -536,6 +542,7 @@ impl OutputArgs {
             || report_timings.is_some()
             || report_glean.is_some()
             || *report_glean_ownership
+            || glean_module_names.is_some()
             || report_pysa.is_some()
             || !matches!(report_pysa_format, report::pysa::PysaFormat::Capnp)
             || report_demand_tree.is_some()
@@ -2252,13 +2259,22 @@ impl CheckArgs {
             )?;
         }
         if let Some(glean) = &self.output.report_glean {
+            let module_names = match &self.output.glean_module_names {
+                Some(path) => serde_json::from_str(&fs_anyhow::read_to_string(path)?)?,
+                None => Default::default(),
+            };
             fs_anyhow::create_dir_all(glean)?;
             for handle in handles {
                 // Generate a safe filename using hash to avoid OS filename length limits
                 let module_hash = blake3::hash(handle.path().to_string().as_bytes());
                 fs_anyhow::write(
                     &glean.join(format!("{}.json", module_hash)),
-                    report::glean::glean(transaction, handle, self.output.report_glean_ownership),
+                    report::glean::glean(
+                        transaction,
+                        handle,
+                        self.output.report_glean_ownership,
+                        &module_names,
+                    ),
                 )?;
             }
         }

@@ -274,7 +274,12 @@ struct GleanState<'a> {
     transaction: &'a Transaction<'a>,
     handle: &'a Handle,
     module: ModuleInfo,
-    module_name: ModuleName,
+    /// The module name written to Glean for this file: its entry in `module_names` if any,
+    /// otherwise `module.name()`. Pyrefly itself keeps using `module.name()` to resolve
+    /// imports, so the two differ for files in Buck targets with a `base_module`.
+    emitted_module_name: ModuleName,
+    /// Glean module names by repository-relative file path (`--glean-module-names`).
+    module_names: &'a HashMap<String, String>,
     facts: Facts,
     names: HashSet<Arc<String>>,
     locations_fqnames: HashMap<TextSize, Arc<String>>,
@@ -321,16 +326,25 @@ impl Facts {
 }
 
 impl GleanState<'_> {
-    fn new<'a>(transaction: &'a Transaction<'a>, handle: &'a Handle) -> GleanState<'a> {
+    fn new<'a>(
+        transaction: &'a Transaction<'a>,
+        handle: &'a Handle,
+        module_names: &'a HashMap<String, String>,
+    ) -> GleanState<'a> {
         let module_info = &transaction.get_module_info(handle).unwrap();
+        let file = file_fact(module_info);
+        let module_name = module_names
+            .get(file.key.as_str())
+            .map_or(module_info.name(), |name| ModuleName::from_str(name));
         GleanState {
             transaction,
             handle,
             module: module_info.clone(),
-            module_name: module_info.name(),
+            emitted_module_name: module_name,
+            module_names,
             facts: Facts::new(
-                file_fact(module_info),
-                python::Module::new(python::Name::new(module_info.name().to_string())),
+                file,
+                python::Module::new(python::Name::new(module_name.to_string())),
             ),
             names: HashSet::new(),
             locations_fqnames: HashMap::new(),
@@ -422,7 +436,7 @@ impl GleanState<'_> {
     fn module_facts(&mut self, range: TextRange) {
         let module_docstring_range = self.transaction.get_module_docstring_range(self.handle);
 
-        for (name, _) in all_modules_with_range(self.module_name, TextSize::ZERO) {
+        for (name, _) in all_modules_with_range(self.emitted_module_name, TextSize::ZERO) {
             self.record_name(name.clone());
             self.facts
                 .modules
@@ -559,7 +573,7 @@ impl GleanState<'_> {
             container_fq_name,
             is_function_container,
             scope_type,
-            &self.module_name.to_string(),
+            &self.emitted_module_name.to_string(),
         )
     }
 
@@ -579,7 +593,7 @@ impl GleanState<'_> {
         })
         .map(|scope| join_names(scope, local_name))
         .find(|name| self.import_names.contains_key(name))
-        .unwrap_or_else(|| join_names(self.module_name.as_str(), local_name))
+        .unwrap_or_else(|| join_names(self.emitted_module_name.as_str(), local_name))
     }
 
     fn get_definition_location(
@@ -589,12 +603,20 @@ impl GleanState<'_> {
         base_type: Option<&Type>,
         additional_definitions: Vec<DefinitionLocation>,
     ) -> Vec<DefinitionLocation> {
+        // `module_name` is the definition's module as Pyrefly resolves it, and is compared
+        // with `self.module.name()`, this file's own resolved name. `emitted_name` is the
+        // definition module's name written to Glean, so that cross-references match the
+        // declarations its own file emits.
+        let module_name = module.name();
         let file = definition_file_fact(module);
+        let emitted_name = file
+            .as_ref()
+            .and_then(|file| self.module_names.get(file.key.as_str()))
+            .map_or(module_name.as_str(), String::as_str);
         let type_name = base_type.and_then(|ty| ty.qname());
         let local_name = module.code_at(def_range);
-        let module_name = module.name();
 
-        if module_name == self.module_name {
+        if module_name == self.module.name() {
             let fqname_type =
                 type_name.and_then(|qname| self.locations_fqnames.get(&qname.range().start()));
 
@@ -617,7 +639,7 @@ impl GleanState<'_> {
             if module_name == ModuleName::builtins() {
                 vec![DefinitionLocation { name: fqname, file }]
             } else {
-                let name = join_names(module_name.as_str(), &fqname);
+                let name = join_names(emitted_name, &fqname);
                 let mut definitions = vec![DefinitionLocation {
                     name: name.clone(),
                     file,
@@ -1299,8 +1321,12 @@ impl GleanState<'_> {
             .find_definition_for_imported_module(self.handle, module, find_preference_glean())
             .unwrap_or(None);
 
-        let name = module.to_string();
         let file = definition.and_then(|def| definition_file_fact(&def.module));
+        let name = file
+            .as_ref()
+            .and_then(|file| self.module_names.get(file.key.as_str()))
+            .cloned()
+            .unwrap_or_else(|| module.to_string());
 
         DefinitionLocation { name, file }
     }
@@ -1392,7 +1418,7 @@ impl GleanState<'_> {
 
     fn get_from_module(&mut self, import_from: &StmtImportFrom) -> DefinitionLocation {
         let resolved_module_prefix = if import_from.level > 0 {
-            self.module_name.new_maybe_relative(
+            self.module.name().new_maybe_relative(
                 self.module.path().is_init(),
                 import_from.level,
                 None,
@@ -1771,9 +1797,15 @@ impl GleanState<'_> {
     }
 }
 
-pub fn glean(transaction: &Transaction, handle: &Handle, ownership: bool) -> Glean {
+/// Emit Glean facts with optional file-based names, preserving semantic module lookup.
+pub fn glean(
+    transaction: &Transaction,
+    handle: &Handle,
+    ownership: bool,
+    module_names: &HashMap<String, String>,
+) -> Glean {
     let ast = &*transaction.get_ast(handle).unwrap();
-    let mut glean_state = GleanState::new(transaction, handle);
+    let mut glean_state = GleanState::new(transaction, handle, module_names);
 
     glean_state.record_name("".to_owned());
     let file_language_fact = src::FileLanguage::new(glean_state.file_fact(), src::Language::Python);

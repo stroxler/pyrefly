@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashMap;
+
 use pyrefly_build::handle::Handle;
 pub use pyrefly_glean_schema::report::glean::facts;
 pub use pyrefly_glean_schema::report::glean::schema;
@@ -13,8 +15,13 @@ use crate::state::state::Transaction;
 
 pub mod convert;
 
-pub fn glean(transaction: &Transaction, handle: &Handle, ownership: bool) -> String {
-    let data = convert::glean(transaction, handle, ownership).entries;
+pub fn glean(
+    transaction: &Transaction,
+    handle: &Handle,
+    ownership: bool,
+    module_names: &HashMap<String, String>,
+) -> String {
+    let data = convert::glean(transaction, handle, ownership, module_names).entries;
     // Compact, because Glean ingests this output at scale and indentation more than doubles its
     // size.
     serde_json::to_string(&data).unwrap()
@@ -268,7 +275,7 @@ class Config:
         let handle = handles
             .get(filename)
             .expect("Handle should exist for test file");
-        let glean_output = glean(&transaction, handle, false);
+        let glean_output = glean(&transaction, handle, false, &HashMap::new());
         let output_path = snapshot_dir.join(format!("{filename}.json"));
 
         if update_snapshots {
@@ -322,7 +329,7 @@ fn ownership_test() {
     let handle = handles
         .get("simple")
         .expect("Handle should exist for test file");
-    let entries = convert::glean(&state.transaction(), handle, true).entries;
+    let entries = convert::glean(&state.transaction(), handle, true, &HashMap::new()).entries;
 
     for entry in entries {
         if let GleanEntry::Predicate {
