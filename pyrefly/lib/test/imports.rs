@@ -234,6 +234,30 @@ import foo.baz
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/5193
+testcase!(
+    bug = "`import foo.bar` should make `bar` available on an alias of `foo`",
+    test_import_submodule_after_parent_alias,
+    env_import_different_submodules(),
+    r#"
+import foo as f
+import foo.bar
+f.bar.x  # E: Module `foo.bar` exists, but was not imported explicitly.
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/5193
+testcase!(
+    bug = "`import foo.bar` should make `bar` available on an alias of `foo`",
+    test_import_submodule_before_parent_alias,
+    env_import_different_submodules(),
+    r#"
+import foo.bar
+import foo as f
+f.bar.x  # E: Module `foo.bar` exists, but was not imported explicitly.
+"#,
+);
+
 testcase!(
     test_bad_import,
     r#"
