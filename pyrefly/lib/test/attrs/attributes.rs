@@ -394,14 +394,16 @@ A()  # E: Missing argument `x`
 "#,
 );
 
+// attrs ordering methods have the same exact-class check as stdlib dataclasses, but attrs classes
+// are not checked.
 attrs_testcase!(
     test_ordered_attrs_inheritance,
     r#"
 import attr
 
-@attr.s()
+@attr.s(order=True)
 class Parent:
-    x: int
+    x: int = attr.ib()
 
 class Child(Parent):
     pass

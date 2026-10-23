@@ -1309,6 +1309,42 @@ class E(C):  # E: Cannot safely extend dataclass `C` with `order=True`
 );
 
 testcase!(
+    test_parent_dataclass_with_order_overridden,
+    r#"
+from dataclasses import dataclass
+@dataclass(order=True)
+class D:
+    x: int
+
+class OverridesInChild(D):
+    def __lt__(self, other: object) -> bool:
+        return True
+
+class OverridesInBase(D):
+    def __ge__(self, other: object) -> bool:
+        return True
+
+class InheritsOverride(OverridesInBase):
+    pass
+
+@dataclass(order=True)
+class OrderedChild(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    y: int = 0
+
+class Above:
+    def __lt__(self, other: object) -> bool:
+        return True
+
+@dataclass(order=True)
+class ShadowsAbove(Above):
+    x: int
+
+class ShadowsAboveChild(ShadowsAbove):  # E: Cannot safely extend dataclass `ShadowsAbove` with `order=True`
+    pass
+    "#,
+);
+
+testcase!(
     test_call_comparison_unbound_with_named_args,
     r#"
 from dataclasses import dataclass

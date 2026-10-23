@@ -1802,8 +1802,11 @@ Default severity: `warn`
 
 This warning is reported when a class inherits from a stdlib dataclass with `order=True`. The class
 definition is valid Python, but mixed comparisons between parent and subclass instances can raise
-`TypeError` at runtime because stdlib dataclass ordering methods only compare instances of the exact
+`TypeError` at runtime because the generated ordering methods only compare instances of the exact
 same class.
+
+The warning is not reported if the subclass, or a class between it and the dataclass, defines its
+own `__lt__`, `__le__`, `__gt__`, or `__ge__`.
 
 ```python
 from dataclasses import dataclass

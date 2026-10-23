@@ -319,7 +319,8 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
         let metaclass = calculated_metaclass.as_ref().map(|m| m.get());
         // Compute base classes with metadata.
-        let bases_with_metadata = self.bases_with_metadata(parsed_results, is_new_type, errors);
+        let bases_with_metadata =
+            self.bases_with_metadata(cls, parsed_results, is_new_type, errors);
         self.check_init_subclass_keywords(
             cls,
             &bases_with_metadata,
@@ -1882,6 +1883,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     fn bases_with_metadata<'s>(
         &self,
+        cls: &Class,
         parsed_results: Vec<BaseClassParseResult<'s>>,
         is_new_type: bool,
         errors: &ErrorCollector,
@@ -1968,6 +1970,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         );
                     }
 
+                    // A user-defined ordering method on the subclass or on the base's MRO
+                    // replaces a synthesized one, so the exact-class comparison no longer applies.
+                    let defines_ordering = |c: &Class, op: &Name| {
+                        self.get_class_fields(c).is_some_and(|f| f.contains(op))
+                    };
                     if !is_new_type
                         && let Some(dm) = metadata.dataclass_metadata()
                         && dm.kws.order
@@ -1978,6 +1985,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 ..
                             }
                         )
+                        && !dunder::RICH_CMPS_TOTAL_ORDERING.iter().any(|op| {
+                            defines_ordering(cls, op)
+                                || self
+                                    .get_class_member_with_defining_class(&class_object, op)
+                                    .is_some_and(|m| defines_ordering(&m.defining_class, op))
+                        })
                     {
                         errors
                             .error_builder(
