@@ -1805,8 +1805,14 @@ definition is valid Python, but mixed comparisons between parent and subclass in
 `TypeError` at runtime because the generated ordering methods only compare instances of the exact
 same class.
 
-The warning is not reported if the subclass, or a class between it and the dataclass, defines its
-own `__lt__`, `__le__`, `__gt__`, or `__ge__`.
+The warning is also reported when the ordering methods are inherited through intermediate classes,
+such as a plain subclass or a dataclass without `order=True`, and the message names the dataclass
+that generates them. It is not reported when every mixed comparison reaches a user-defined
+`__lt__`, `__le__`, `__gt__`, or `__ge__` instead, for example when the subclass, or a mixin listed
+before the dataclass, defines all four. Overriding only some of them is not enough, because the
+remaining generated methods still reject instances of the other class. The warning is also not
+reported if a class created through some other `dataclass_transform` library generates ordering
+methods first, because Pyrefly does not know how those methods compare instances.
 
 ```python
 from dataclasses import dataclass

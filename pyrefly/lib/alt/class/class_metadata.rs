@@ -319,8 +319,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
         let metaclass = calculated_metaclass.as_ref().map(|m| m.get());
         // Compute base classes with metadata.
-        let bases_with_metadata =
-            self.bases_with_metadata(cls, parsed_results, is_new_type, errors);
+        let bases_with_metadata = self.bases_with_metadata(parsed_results, is_new_type, errors);
         self.check_init_subclass_keywords(
             cls,
             &bases_with_metadata,
@@ -1445,6 +1444,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             let mut m = metadata.dataclass_metadata().cloned()?;
             // Avoid accidentally overwriting a non-synthesized `__init__`.
             m.kws.init = false;
+            m.is_inherited = true;
             Some(m)
         });
         let mut has_fresh_local_slots_decorator = false;
@@ -1494,6 +1494,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         default_can_be_positional,
                         pydantic_before_validator_fields: SmallSet::new(),
                         kind,
+                        is_inherited: false,
                     });
                 }
                 // `@dataclass(...)`
@@ -1529,6 +1530,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         default_can_be_positional,
                         pydantic_before_validator_fields: SmallSet::new(),
                         kind,
+                        is_inherited: false,
                     });
                 }
                 _ => {}
@@ -1592,6 +1594,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 default_can_be_positional,
                 pydantic_before_validator_fields: inherited_before_validator_fields,
                 kind,
+                is_inherited: false,
             });
         }
         (dataclass_metadata, has_fresh_local_slots_decorator)
@@ -1883,7 +1886,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     fn bases_with_metadata<'s>(
         &self,
-        cls: &Class,
         parsed_results: Vec<BaseClassParseResult<'s>>,
         is_new_type: bool,
         errors: &ErrorCollector,
@@ -1968,46 +1970,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             ErrorKind::InvalidInheritance,
                             format!("Cannot extend final class `{}`", class_object.name()),
                         );
-                    }
-
-                    // A user-defined ordering method on the subclass or on the base's MRO
-                    // replaces a synthesized one, so the exact-class comparison no longer applies.
-                    let defines_ordering = |c: &Class, op: &Name| {
-                        self.get_class_fields(c).is_some_and(|f| f.contains(op))
-                    };
-                    if !is_new_type
-                        && let Some(dm) = metadata.dataclass_metadata()
-                        && dm.kws.order
-                        && matches!(
-                            dm.kind,
-                            DataclassKind::Dataclass {
-                                is_stdlib_dataclass: true,
-                                ..
-                            }
-                        )
-                        && !dunder::RICH_CMPS_TOTAL_ORDERING.iter().any(|op| {
-                            defines_ordering(cls, op)
-                                || self
-                                    .get_class_member_with_defining_class(&class_object, op)
-                                    .is_some_and(|m| defines_ordering(&m.defining_class, op))
-                        })
-                    {
-                        errors
-                            .error_builder(
-                                range,
-                                ErrorKind::OrderedDataclassInheritance,
-                                format!(
-                                    "Cannot safely extend dataclass `{}` with `order=True`",
-                                    class_object.name()
-                                ),
-                            )
-                            .with_detail(format!(
-                                "Comparisons between instances of `{}` and its subclasses raise \
-                                 `TypeError`. Define `__lt__`, `__le__`, `__gt__`, and `__ge__` \
-                                 on the subclass to allow them.",
-                                class_object.name()
-                            ))
-                            .emit();
                     }
                     if is_new_type {
                         // TODO: raise an error for generic classes and other forbidden types such as hashable

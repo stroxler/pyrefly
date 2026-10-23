@@ -1303,7 +1303,7 @@ class D:
 class C(D):  # E: Cannot safely extend dataclass `D` with `order=True`
     pass
 
-class E(C):  # E: Cannot safely extend dataclass `C` with `order=True`
+class E(C):  # E: Cannot safely extend dataclass `D` with `order=True`
     pass
     "#,
 );
@@ -1312,19 +1312,44 @@ testcase!(
     test_parent_dataclass_with_order_overridden,
     r#"
 from dataclasses import dataclass
+from typing import dataclass_transform
 @dataclass(order=True)
 class D:
     x: int
 
-class OverridesInChild(D):
+class FullOrdering:
     def __lt__(self, other: object) -> bool:
         return True
-
-class OverridesInBase(D):
+    def __le__(self, other: object) -> bool:
+        return True
+    def __gt__(self, other: object) -> bool:
+        return True
     def __ge__(self, other: object) -> bool:
         return True
 
-class InheritsOverride(OverridesInBase):
+class OverridesInChild(D):
+    def __lt__(self, other: object) -> bool:
+        return True
+    def __le__(self, other: object) -> bool:
+        return True
+    def __gt__(self, other: object) -> bool:
+        return True
+    def __ge__(self, other: object) -> bool:
+        return True
+
+class InheritsOverride(OverridesInChild):
+    pass
+
+class InheritsOverrideTwice(InheritsOverride):
+    pass
+
+# The methods it doesn't override are still generated, so `PartialOverride(1) < D(1)` fails.
+class PartialOverride(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    def __ge__(self, other: object) -> bool:
+        return True
+
+@dataclass(order=True)
+class OrderedOverPartial(PartialOverride):  # E: Cannot safely extend dataclass `D` with `order=True`
     pass
 
 @dataclass(order=True)
@@ -1340,6 +1365,39 @@ class ShadowsAbove(Above):
     x: int
 
 class ShadowsAboveChild(ShadowsAbove):  # E: Cannot safely extend dataclass `ShadowsAbove` with `order=True`
+    pass
+
+class MixinFirst(FullOrdering, D):
+    pass
+
+class MixinLast(D, FullOrdering):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+class PartialMixin:
+    def __lt__(self, other: object) -> bool:
+        return True
+
+class PartialMixinFirst(PartialMixin, D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+@dataclass
+class Unordered(D):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+class UnorderedChild(Unordered):  # E: Cannot safely extend dataclass `D` with `order=True`
+    pass
+
+@dataclass(order=True)
+class D2:
+    y: int
+
+class Both(D, D2):  # E: Cannot safely extend dataclass `D` with `order=True`  # E: Cannot safely extend dataclass `D2` with `order=True`
+    pass
+
+@dataclass_transform(order_default=True)
+class ModelBase: ...
+
+class TransformOrdered(D, ModelBase):
     pass
     "#,
 );

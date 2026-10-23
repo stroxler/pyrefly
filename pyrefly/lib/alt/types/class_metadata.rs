@@ -737,6 +737,10 @@ pub struct DataclassMetadata {
     pub pydantic_before_validator_fields: SmallSet<Name>,
     /// Which dataclass flavor this is; carries attrs `auto_attribs`.
     pub kind: DataclassKind,
+    /// Whether this class copied its metadata from a base rather than computing it from its own
+    /// dataclass decorator or `dataclass_transform`. Only classes with non-inherited metadata get
+    /// generated methods (such as `__lt__`) at runtime.
+    pub is_inherited: bool,
 }
 
 impl DataclassMetadata {
