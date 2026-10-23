@@ -4092,13 +4092,14 @@ impl<'a> BindingsBuilder<'a> {
             branch_idxs.insert(branch_idx);
         }
 
-        // n_total_branches is the actual number of branches we iterated over, which includes
-        // the base flow for loops (since base is added to merge_branches for type inference).
-        let n_total_branches = if added_base_to_merge {
-            n_branches + 1
-        } else {
-            n_branches
-        };
+        // `n_branches` already counts the pre-loop path for `Loop`. `LoopDefinitelyRuns` excludes
+        // it, but the base flow was still iterated above and may be counted in `n_values`.
+        let n_total_branches =
+            if added_base_to_merge && matches!(merge_style, MergeStyle::LoopDefinitelyRuns) {
+                n_branches + 1
+            } else {
+                n_branches
+            };
         let n_missing_branches = n_total_branches - n_values;
         let definition_status = determine_definition_status(
             merge_style,
