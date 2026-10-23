@@ -347,26 +347,87 @@ assert_type(b.bar.x, int)
 "#,
 );
 
-// https://github.com/facebook/pyrefly/issues/5193
 testcase!(
-    bug = "`f.bar` is available in these functions at runtime",
     test_import_submodule_parent_alias_in_function,
     env_import_different_submodules(),
     r#"
+from typing import assert_type
 import foo as f
 
 def before():
-    f.bar.x  # E: Module `foo.bar` exists, but was not imported explicitly.
+    assert_type(f.bar.x, int)
 
 import foo.bar
 
 def after():
-    f.bar.x  # E: Module `foo.bar` exists, but was not imported explicitly.
+    assert_type(f.bar.x, int)
     f.baz.x  # E: Module `foo.baz` exists, but was not imported explicitly.
 
 class C:
     def m(self):
-        return f.bar.x  # E: Module `foo.bar` exists, but was not imported explicitly.
+        assert_type(f.bar.x, int)
+"#,
+);
+
+testcase!(
+    test_import_submodule_before_parent_alias_in_function,
+    env_import_different_submodules(),
+    r#"
+from typing import assert_type
+import foo.bar
+
+def before():
+    assert_type(f.bar.x, int)
+
+import foo as f
+
+def after():
+    assert_type(f.bar.x, int)
+    f.baz.x  # E: Module `foo.baz` exists, but was not imported explicitly.
+
+class C:
+    def m(self):
+        assert_type(f.bar.x, int)
+"#,
+);
+
+testcase!(
+    test_import_submodule_parent_alias_in_nested_function,
+    env_import_different_submodules(),
+    r#"
+from typing import assert_type
+def outer():
+    import foo as f
+    def before():
+        assert_type(f.bar.x, int)
+    import foo.bar
+    def after():
+        assert_type(f.bar.x, int)
+    f.baz.x  # E: Module `foo.baz` exists, but was not imported explicitly.
+"#,
+);
+
+testcase!(
+    test_import_submodule_global_alias,
+    env_import_different_submodules(),
+    r#"
+from typing import assert_type
+import foo as f
+
+def g():
+    global f
+    import foo as f
+    import foo.bar
+    assert_type(f.bar.x, int)
+
+def outer():
+    import foo as f2
+
+    def inner():
+        nonlocal f2
+        import foo as f2
+        import foo.bar
+        assert_type(f2.bar.x, int)
 "#,
 );
 

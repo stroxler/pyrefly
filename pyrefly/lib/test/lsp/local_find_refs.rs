@@ -209,6 +209,50 @@ References:
 }
 
 #[test]
+fn references_to_module_alias_in_function() {
+    let main = r#"
+import xxx as zzz
+#             ^
+import xxx.yyy
+
+def g():
+    zzz.yyy.f()
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report(
+        &[("main", main), ("xxx", ""), ("xxx.yyy", "def f(): ...\n")],
+        |state, handle, position| get_test_report(state, handle, position, true),
+    );
+    assert_eq!(
+        r#"
+# main.py
+2 | import xxx as zzz
+                  ^
+References:
+2 | import xxx as zzz
+                  ^^^
+7 |     zzz.yyy.f()
+        ^^^
+
+7 |     zzz.yyy.f()
+        ^
+References:
+2 | import xxx as zzz
+                  ^^^
+7 |     zzz.yyy.f()
+        ^^^
+
+
+# xxx.py
+
+# xxx.yyy.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn pytest_fixture_references_include_injected_parameters() {
     let code = r#"
 import pytest  # type: ignore
