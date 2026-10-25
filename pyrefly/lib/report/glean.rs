@@ -250,6 +250,20 @@ class Config:
     return result
 "#;
 
+    let inherited_members = r#"import argparse
+
+class Base:
+    def greet(self) -> str:
+        return "hi"
+
+class Child(Base):
+    pass
+
+def use(child: Child, parser: argparse.ArgumentParser) -> str:
+    parser.add_argument("--name")
+    return child.greet()
+"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
@@ -264,6 +278,7 @@ class Config:
         ("walrus", walrus),
         ("local_imports", local_imports),
         ("branch_locals", branch_locals),
+        ("inherited_members", inherited_members),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
     let transaction = state.transaction();
