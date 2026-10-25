@@ -242,6 +242,14 @@ class Config:
     from os import sep
 "#;
 
+    let branch_locals = r#"def label(flag: bool) -> str:
+    if flag:
+        result = "yes"
+    else:
+        result = "no"
+    return result
+"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
@@ -255,6 +263,7 @@ class Config:
         ("attr_annotation", attr_annotation),
         ("walrus", walrus),
         ("local_imports", local_imports),
+        ("branch_locals", branch_locals),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
     let transaction = state.transaction();

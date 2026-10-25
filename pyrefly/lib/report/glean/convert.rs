@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::VecDeque;
 use std::env::current_dir;
 use std::iter;
 use std::ops::Sub;
@@ -578,9 +577,13 @@ impl GleanState<'_> {
     }
 
     /// The fully qualified name of `local_name` as used in the current statement. If an
-    /// enclosing scope visible from the statement imports `local_name`, this is the import's
-    /// name in the innermost such scope, e.g. `m.f.<locals>.os` for a use of `os` in function
-    /// `m.f` that runs `import os`. Otherwise it is the module-level name, e.g. `m.os`.
+    /// enclosing scope visible from the statement imports `local_name`, or is a function that
+    /// declares it, this is the name in the innermost such scope, e.g. `m.f.<locals>.os` for a
+    /// use of `os` in function `m.f` that runs `import os`, or `m.f.<locals>.x` for a variable
+    /// `x` that `m.f` assigns. Otherwise it is the module-level name, e.g. `m.os`.
+    ///
+    /// A class body's own declarations are not matched: in `x = x` in a class body, the right
+    /// side refers to the enclosing scope's `x`, but the class attribute is already recorded.
     ///
     /// The visible scopes are the statement's own scope, then those of the enclosing functions,
     /// innermost first, then the module, as in Python's name resolution. The scope of an
@@ -591,8 +594,12 @@ impl GleanState<'_> {
                 .rfind(".<locals>.")
                 .map(|end| &scope[..end + ".<locals>".len()])
         })
-        .map(|scope| join_names(scope, local_name))
-        .find(|name| self.import_names.contains_key(name))
+        .map(|scope| (scope.ends_with(".<locals>"), join_names(scope, local_name)))
+        .find(|(is_function_scope, name)| {
+            self.import_names.contains_key(name)
+                || (*is_function_scope && self.names.contains(name))
+        })
+        .map(|(_, name)| name)
         .unwrap_or_else(|| join_names(self.emitted_module_name.as_str(), local_name))
     }
 
@@ -839,7 +846,6 @@ impl GleanState<'_> {
             self.transaction
                 .ad_hoc_solve(self.handle, "glean_attribute_definition", |solver| {
                     let completions = |ty| solver.completions(ty, Some(attr_name), false, false);
-
                     let tys = match base_type.clone() {
                         Type::Union(u) => u.members,
                         Type::Intersect(i) => i.0,
@@ -869,7 +875,11 @@ impl GleanState<'_> {
         }
 
         let base_expr_name = self.qualified_use_name(self.module.code_at(base_range));
-        let additional_definitions = if self.names.contains(&base_expr_name) {
+        // A local variable's attributes are never declared under the variable's name, so
+        // `m.f.<locals>.x.attr` would not resolve; imports and module-level names can be.
+        let is_local_variable = base_expr_name.contains(".<locals>.")
+            && !self.import_names.contains_key(&base_expr_name);
+        let additional_definitions = if self.names.contains(&base_expr_name) && !is_local_variable {
             self.get_additional_definitions(base_range, false)
                 .into_iter()
                 .map(|ty| DefinitionLocation {
@@ -1606,7 +1616,6 @@ impl GleanState<'_> {
 
     fn generate_facts(&mut self, ast: &ThinVec<Stmt>, range: TextRange) {
         self.module_facts(range);
-        let mut nodes = VecDeque::new();
 
         let root_context = NodeContext {
             container: Arc::new(python::DeclarationContainer::module(self.module_fact())),
@@ -1614,16 +1623,22 @@ impl GleanState<'_> {
             globals: Arc::new(SmallSet::new()),
             nonlocals: Arc::new(SmallSet::new()),
         };
-        ast.visit(&mut |x| nodes.push_back((x, root_context.clone())));
+        let mut statements = vec![];
+        ast.visit(&mut |x| statements.push(x));
+        self.visit_statements(&statements, &root_context);
+    }
 
-        while let Some((node, node_context)) = nodes.pop_front() {
-            // Get next node if in same level. Needed to compute docstring range for variables
-            let next = nodes
-                .front()
-                .filter(|(_, ctx)| ctx.container == node_context.container)
-                .map(|(x, _)| *x);
-            let children_context = self.process_statement(node, next, &node_context);
-            node.recurse(&mut |x| nodes.push_back((x, children_context.clone())));
+    /// Process sibling statements and their nested statements in source order, so that a
+    /// variable assigned in a nested block (e.g. both branches of an `if`) is declared before
+    /// the later statements that use it are processed.
+    fn visit_statements(&mut self, statements: &[&Stmt], context: &NodeContext) {
+        for (i, statement) in statements.iter().enumerate() {
+            // The following sibling, needed to compute the docstring range of variables.
+            let next = statements.get(i + 1).copied();
+            let children_context = self.process_statement(statement, next, context);
+            let mut children = vec![];
+            statement.recurse(&mut |x| children.push(x));
+            self.visit_statements(&children, &children_context);
         }
     }
 
