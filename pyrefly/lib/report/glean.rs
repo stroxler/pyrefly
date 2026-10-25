@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::collections::HashMap;
-
 use pyrefly_build::handle::Handle;
 pub use pyrefly_glean_schema::report::glean::facts;
 pub use pyrefly_glean_schema::report::glean::schema;
@@ -15,13 +13,15 @@ use crate::state::state::Transaction;
 
 pub mod convert;
 
+pub use convert::GleanNaming;
+
 pub fn glean(
     transaction: &Transaction,
     handle: &Handle,
     ownership: bool,
-    module_names: &HashMap<String, String>,
+    naming: &GleanNaming,
 ) -> String {
-    let data = convert::glean(transaction, handle, ownership, module_names).entries;
+    let data = convert::glean(transaction, handle, ownership, naming).entries;
     // Compact, because Glean ingests this output at scale and indentation more than doubles its
     // size.
     serde_json::to_string(&data).unwrap()
@@ -299,7 +299,7 @@ def use(child: Child, parser: argparse.ArgumentParser) -> str:
         let handle = handles
             .get(filename)
             .expect("Handle should exist for test file");
-        let glean_output = glean(&transaction, handle, false, &HashMap::new());
+        let glean_output = glean(&transaction, handle, false, &GleanNaming::default());
         let output_path = snapshot_dir.join(format!("{filename}.json"));
 
         if update_snapshots {
@@ -353,7 +353,8 @@ fn ownership_test() {
     let handle = handles
         .get("simple")
         .expect("Handle should exist for test file");
-    let entries = convert::glean(&state.transaction(), handle, true, &HashMap::new()).entries;
+    let entries =
+        convert::glean(&state.transaction(), handle, true, &GleanNaming::default()).entries;
 
     for entry in entries {
         if let GleanEntry::Predicate {
@@ -371,6 +372,8 @@ fn ownership_test() {
 
 #[test]
 fn module_names_only_change_reported_names() {
+    use std::collections::HashMap;
+
     use crate::state::require::Require;
     use crate::test::util::mk_multi_file_state_assert_no_errors;
 
@@ -385,7 +388,7 @@ fn module_names_only_change_reported_names() {
     let transaction = state.transaction();
     let original = handles.get("original").unwrap();
     let caller = handles.get("caller").unwrap();
-    let original_report = glean(&transaction, original, false, &HashMap::new());
+    let original_report = glean(&transaction, original, false, &GleanNaming::default());
     let facts: serde_json::Value = serde_json::from_str(&original_report).unwrap();
     let file = facts
         .as_array()
@@ -399,14 +402,17 @@ fn module_names_only_change_reported_names() {
         .unwrap()["facts"][0]["key"]["file"]["key"]
         .as_str()
         .unwrap();
-    let module_names = HashMap::from([(file.to_owned(), "public.api".to_owned())]);
-    let renamed = glean(&transaction, original, false, &module_names);
+    let naming = GleanNaming {
+        module_names: HashMap::from([(file.to_owned(), "public.api".to_owned())]),
+        stdlib_root: None,
+    };
+    let renamed = glean(&transaction, original, false, &naming);
     assert!(renamed.contains("public.api.Widget"));
     assert!(!renamed.contains("original.Widget"));
-    let references = glean(&transaction, caller, false, &module_names);
+    let references = glean(&transaction, caller, false, &naming);
     assert!(references.contains("public.api.Widget"));
     assert_eq!(original.module().as_str(), "original");
-    let unchanged = glean(&transaction, original, false, &HashMap::new());
+    let unchanged = glean(&transaction, original, false, &GleanNaming::default());
     assert!(unchanged.contains("original.Widget"));
     assert!(!unchanged.contains("public.api.Widget"));
 }

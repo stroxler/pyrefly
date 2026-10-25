@@ -21,6 +21,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_util::visit::Visit;
 use regex::RegexBuilder;
 use ruff_python_ast::Decorator;
@@ -170,14 +171,46 @@ fn file_fact(module_info: &ModuleInfo) -> src::File {
     src::File::new(relative_path.replace('\\', "/"))
 }
 
+/// Inputs beyond Pyrefly's own import resolution that decide the names and files the Glean
+/// report records.
+#[derive(Default)]
+pub struct GleanNaming {
+    /// Module names by repository-relative file path (`--glean-module-names`).
+    pub module_names: HashMap<String, String>,
+    /// Repository-relative directory holding the stdlib sources that Pyrefly's bundled typeshed
+    /// stdlib stubs describe (`--glean-stdlib-root`), e.g. `third-party/python/3.12/Lib`.
+    pub stdlib_root: Option<String>,
+}
+
 /// The file fact of the module that defines a cross-module reference target, or `None` if that
-/// module is not a source file of the repository: a Buck build output under `buck-out/` (e.g. a
-/// generated Thrift module) or a file outside the working directory. Glean only indexes source
-/// files, so such a file would never have facts of its own. The target name is kept either way.
-fn definition_file_fact(module_info: &ModuleInfo) -> Option<src::File> {
-    let file = file_fact(module_info);
-    let is_source_file = !file.key.starts_with("buck-out/") && !Path::new(&*file.key).is_absolute();
-    is_source_file.then_some(file)
+/// module is not a source file of the repository. Glean only indexes source files, so such a file
+/// would never have facts of its own, and code navigation matches the target by name alone. The
+/// target name is kept either way. A module is not a source file when it is:
+/// - a Buck build output under `buck-out/` (e.g. a generated Thrift module) or a file outside
+///   the working directory;
+/// - a namespace package, whose path is a directory;
+/// - a stub bundled with Pyrefly. A bundled stdlib stub instead takes the path of the stdlib
+///   source it describes under `stdlib_root`, e.g. `logging/__init__.pyi` becomes
+///   `<stdlib_root>/logging/__init__.py`, where the stdlib's own declarations are indexed.
+fn definition_file_fact(module_info: &ModuleInfo, stdlib_root: Option<&str>) -> Option<src::File> {
+    match module_info.path().details() {
+        ModulePathDetails::FileSystem(_) | ModulePathDetails::Memory(_) => {
+            let file = file_fact(module_info);
+            let is_source_file =
+                !file.key.starts_with("buck-out/") && !Path::new(&*file.key).is_absolute();
+            is_source_file.then_some(file)
+        }
+        ModulePathDetails::BundledTypeshed(relative_path) => stdlib_root.map(|root| {
+            let source = relative_path.with_extension("py");
+            src::File::new(format!(
+                "{root}/{}",
+                source.to_string_lossy().replace('\\', "/")
+            ))
+        }),
+        ModulePathDetails::Namespace(_)
+        | ModulePathDetails::BundledTypeshedThirdParty(_)
+        | ModulePathDetails::BundledThirdParty(_) => None,
+    }
 }
 
 fn gather_nonlocal_variables(body: &[Stmt]) -> (Arc<SmallSet<Name>>, Arc<SmallSet<Name>>) {
@@ -273,12 +306,11 @@ struct GleanState<'a> {
     transaction: &'a Transaction<'a>,
     handle: &'a Handle,
     module: ModuleInfo,
-    /// The module name written to Glean for this file: its entry in `module_names` if any,
+    /// The module name written to Glean for this file: its entry in `naming.module_names` if any,
     /// otherwise `module.name()`. Pyrefly itself keeps using `module.name()` to resolve
     /// imports, so the two differ for files in Buck targets with a `base_module`.
     emitted_module_name: ModuleName,
-    /// Glean module names by repository-relative file path (`--glean-module-names`).
-    module_names: &'a HashMap<String, String>,
+    naming: &'a GleanNaming,
     facts: Facts,
     names: HashSet<Arc<String>>,
     locations_fqnames: HashMap<TextSize, Arc<String>>,
@@ -328,11 +360,12 @@ impl GleanState<'_> {
     fn new<'a>(
         transaction: &'a Transaction<'a>,
         handle: &'a Handle,
-        module_names: &'a HashMap<String, String>,
+        naming: &'a GleanNaming,
     ) -> GleanState<'a> {
         let module_info = &transaction.get_module_info(handle).unwrap();
         let file = file_fact(module_info);
-        let module_name = module_names
+        let module_name = naming
+            .module_names
             .get(file.key.as_str())
             .map_or(module_info.name(), |name| ModuleName::from_str(name));
         GleanState {
@@ -340,7 +373,7 @@ impl GleanState<'_> {
             handle,
             module: module_info.clone(),
             emitted_module_name: module_name,
-            module_names,
+            naming,
             facts: Facts::new(
                 file,
                 python::Module::new(python::Name::new(module_name.to_string())),
@@ -615,10 +648,10 @@ impl GleanState<'_> {
         // definition module's name written to Glean, so that cross-references match the
         // declarations its own file emits.
         let module_name = module.name();
-        let file = definition_file_fact(module);
+        let file = definition_file_fact(module, self.naming.stdlib_root.as_deref());
         let emitted_name = file
             .as_ref()
-            .and_then(|file| self.module_names.get(file.key.as_str()))
+            .and_then(|file| self.naming.module_names.get(file.key.as_str()))
             .map_or(module_name.as_str(), String::as_str);
         let type_name = base_type.and_then(|ty| ty.qname());
         let local_name = module.code_at(def_range);
@@ -1349,10 +1382,11 @@ impl GleanState<'_> {
             .find_definition_for_imported_module(self.handle, module, find_preference_glean())
             .unwrap_or(None);
 
-        let file = definition.and_then(|def| definition_file_fact(&def.module));
+        let file = definition
+            .and_then(|def| definition_file_fact(&def.module, self.naming.stdlib_root.as_deref()));
         let name = file
             .as_ref()
-            .and_then(|file| self.module_names.get(file.key.as_str()))
+            .and_then(|file| self.naming.module_names.get(file.key.as_str()))
             .cloned()
             .unwrap_or_else(|| module.to_string());
 
@@ -1830,15 +1864,16 @@ impl GleanState<'_> {
     }
 }
 
-/// Emit Glean facts with optional file-based names, preserving semantic module lookup.
+/// Emit Glean facts, with names and files adjusted by `naming` and Pyrefly's import resolution
+/// unchanged.
 pub fn glean(
     transaction: &Transaction,
     handle: &Handle,
     ownership: bool,
-    module_names: &HashMap<String, String>,
+    naming: &GleanNaming,
 ) -> Glean {
     let ast = &*transaction.get_ast(handle).unwrap();
-    let mut glean_state = GleanState::new(transaction, handle, module_names);
+    let mut glean_state = GleanState::new(transaction, handle, naming);
 
     glean_state.record_name("".to_owned());
     let file_language_fact = src::FileLanguage::new(glean_state.file_fact(), src::Language::Python);
@@ -1918,7 +1953,7 @@ mod tests {
 
     #[test]
     fn test_definition_file_fact_source_file() {
-        let file = definition_file_fact(&module_at("fbcode/foo/bar.py"));
+        let file = definition_file_fact(&module_at("fbcode/foo/bar.py"), None);
         assert_eq!(file.map(|f| *f.key), Some("fbcode/foo/bar.py".to_owned()));
     }
 
@@ -1926,7 +1961,7 @@ mod tests {
     fn test_definition_file_fact_buck_out() {
         let path = "buck-out/.pyrelsp/art/fbcode/foo/__bar-python-bar.thrift__/out/gen-python/foo";
         assert!(
-            definition_file_fact(&module_at(path)).is_none(),
+            definition_file_fact(&module_at(path), None).is_none(),
             "Buck outputs have no file fact"
         );
     }
@@ -1941,11 +1976,45 @@ mod tests {
             .last()
             .unwrap()
             .join("nonexistent/site-packages/foo.py");
-        let file = definition_file_fact(&module_at(path.to_str().unwrap()));
+        let file = definition_file_fact(&module_at(path.to_str().unwrap()), None);
         assert!(
             file.is_none(),
             "files outside the working directory have no file fact"
         );
+    }
+
+    fn module_with_path(path: ModulePath) -> ModuleInfo {
+        ModuleInfo::new(ModuleName::from_str("m"), path, Arc::new(String::new()))
+    }
+
+    #[test]
+    fn test_definition_file_fact_bundled_stdlib_stub() {
+        let stub = module_with_path(ModulePath::bundled_typeshed(PathBuf::from(
+            "logging/__init__.pyi",
+        )));
+        assert_eq!(
+            definition_file_fact(&stub, Some("third-party/python/3.12/Lib")).map(|f| *f.key),
+            Some("third-party/python/3.12/Lib/logging/__init__.py".to_owned()),
+            "a bundled stdlib stub takes the path of the stdlib source it describes"
+        );
+        assert!(
+            definition_file_fact(&stub, None).is_none(),
+            "without a stdlib root, a bundled stub is not a repository file"
+        );
+    }
+
+    #[test]
+    fn test_definition_file_fact_namespace_and_bundled_third_party() {
+        for path in [
+            ModulePath::namespace(PathBuf::from("fbcode/torch")),
+            ModulePath::bundled_typeshed_third_party(PathBuf::from("requests/__init__.pyi")),
+        ] {
+            assert!(
+                definition_file_fact(&module_with_path(path), Some("third-party/python/3.12/Lib"))
+                    .is_none(),
+                "namespace package directories and bundled third-party stubs have no file fact"
+            );
+        }
     }
 
     #[test]

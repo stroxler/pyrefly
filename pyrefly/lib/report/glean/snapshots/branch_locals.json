@@ -706,10 +706,62 @@
                 "start": 25
               },
               "target": {
-                "file": {
-                  "id": 0,
-                  "key": "builtins.pyi"
-                },
+                "id": 0,
+                "key": "str"
+              }
+            },
+            {
+              "source": {
+                "length": 4,
+                "start": 16
+              },
+              "target": {
+                "id": 0,
+                "key": "bool"
+              }
+            },
+            {
+              "source": {
+                "length": 4,
+                "start": 37
+              },
+              "target": {
+                "id": 0,
+                "key": "branch_locals.label.<locals>.flag"
+              }
+            },
+            {
+              "source": {
+                "length": 6,
+                "start": 109
+              },
+              "target": {
+                "id": 0,
+                "key": "branch_locals.label.<locals>.result"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "predicate": "python.XRefsViaNameByFile.4"
+  },
+  {
+    "facts": [
+      {
+        "id": 0,
+        "key": {
+          "file": {
+            "id": 0,
+            "key": "branch_locals.py"
+          },
+          "xrefs": [
+            {
+              "source": {
+                "length": 3,
+                "start": 25
+              },
+              "target": {
                 "name": {
                   "id": 0,
                   "key": "str"
@@ -722,10 +774,6 @@
                 "start": 16
               },
               "target": {
-                "file": {
-                  "id": 0,
-                  "key": "builtins.pyi"
-                },
                 "name": {
                   "id": 0,
                   "key": "bool"
@@ -769,62 +817,6 @@
       }
     ],
     "predicate": "python.xrefs.XRefsByFile.1"
-  },
-  {
-    "facts": [
-      {
-        "id": 0,
-        "key": {
-          "file": {
-            "id": 0,
-            "key": "branch_locals.py"
-          },
-          "xrefs": [
-            {
-              "source": {
-                "length": 3,
-                "start": 25
-              },
-              "target": {
-                "id": 0,
-                "key": "str"
-              }
-            },
-            {
-              "source": {
-                "length": 4,
-                "start": 16
-              },
-              "target": {
-                "id": 0,
-                "key": "bool"
-              }
-            },
-            {
-              "source": {
-                "length": 4,
-                "start": 37
-              },
-              "target": {
-                "id": 0,
-                "key": "branch_locals.label.<locals>.flag"
-              }
-            },
-            {
-              "source": {
-                "length": 6,
-                "start": 109
-              },
-              "target": {
-                "id": 0,
-                "key": "branch_locals.label.<locals>.result"
-              }
-            }
-          ]
-        }
-      }
-    ],
-    "predicate": "python.XRefsViaNameByFile.4"
   },
   {
     "facts": [

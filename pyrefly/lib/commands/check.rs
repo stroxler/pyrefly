@@ -328,6 +328,11 @@ struct OutputArgs {
     /// module names. Affects Glean output only, without changing import resolution.
     #[arg(long, value_name = "FILE", requires = "report_glean")]
     glean_module_names: Option<PathBuf>,
+    /// Directory, relative to the working directory, holding the stdlib sources that the
+    /// typeshed stdlib stubs bundled with Pyrefly describe. Glean cross-references into the
+    /// stdlib then record those source files instead of stub paths. Affects Glean output only.
+    #[arg(long, value_name = "DIR", requires = "report_glean")]
+    glean_stdlib_root: Option<String>,
     /// Generate a Pysa-compatible JSON file for each module
     #[arg(long, value_name = "OUTPUT_FILE")]
     report_pysa: Option<PathBuf>,
@@ -498,6 +503,7 @@ impl OutputArgs {
             report_glean,
             report_glean_ownership,
             glean_module_names,
+            glean_stdlib_root,
             report_pysa,
             report_pysa_format,
             report_demand_tree,
@@ -543,6 +549,7 @@ impl OutputArgs {
             || report_glean.is_some()
             || *report_glean_ownership
             || glean_module_names.is_some()
+            || glean_stdlib_root.is_some()
             || report_pysa.is_some()
             || !matches!(report_pysa_format, report::pysa::PysaFormat::Capnp)
             || report_demand_tree.is_some()
@@ -2259,9 +2266,12 @@ impl CheckArgs {
             )?;
         }
         if let Some(glean) = &self.output.report_glean {
-            let module_names = match &self.output.glean_module_names {
-                Some(path) => serde_json::from_str(&fs_anyhow::read_to_string(path)?)?,
-                None => Default::default(),
+            let naming = report::glean::GleanNaming {
+                module_names: match &self.output.glean_module_names {
+                    Some(path) => serde_json::from_str(&fs_anyhow::read_to_string(path)?)?,
+                    None => Default::default(),
+                },
+                stdlib_root: self.output.glean_stdlib_root.clone(),
             };
             fs_anyhow::create_dir_all(glean)?;
             for handle in handles {
@@ -2273,7 +2283,7 @@ impl CheckArgs {
                         transaction,
                         handle,
                         self.output.report_glean_ownership,
-                        &module_names,
+                        &naming,
                     ),
                 )?;
             }
