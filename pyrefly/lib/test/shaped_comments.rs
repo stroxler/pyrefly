@@ -38,6 +38,65 @@ def replaced(
 );
 
 testcase!(
+    test_shaped_comments_bracket_selectors,
+    shaped_env(),
+    r#"
+# enable-shape-type-comments
+from typing import assert_type
+from arrays import ndarray, dtype
+
+# shapes: M, N
+def transpose(
+    x: ndarray[tuple[int, int], dtype[float]],  # shaped: [0] = [M, N]
+) -> ndarray[tuple[int, int], dtype[float]]:  # shaped: [0] = [N, M]
+    ...
+
+# shapes: *Batch, M, N
+def nested(
+    x: list[ndarray[tuple[int, ...], dtype[float]]],  # shaped: [0][0] = [*Batch, M, N]
+) -> ndarray[
+    tuple[int, ...],  # shaped: = [*Batch, N, M]
+    dtype[float],
+]: ...
+
+def check(x: ndarray[[3, 4], dtype[float]]) -> None:
+    assert_type(transpose(x), ndarray[[4, 3], dtype[float]])
+    assert_type(nested([x]), ndarray[[4, 3], dtype[float]])
+"#,
+);
+
+testcase!(
+    test_shaped_comments_bracket_quoted_dsl_and_list_payloads,
+    shaped_env(),
+    r#"
+# enable-shape-type-comments
+from typing import assert_type
+from arrays import ndarray
+from shape_extensions import broadcast
+
+# shapes: *Left, *Right
+def f(
+    left: "ndarray[tuple[int, ...]]",  # shaped: [0] = Left
+    right: ndarray[tuple[int, ...]],  # shaped: [0] = Right
+) -> ndarray[tuple[int, ...]]:  # shaped: [0] = broadcast(Left, Right)
+    ...
+
+def zero(x: ndarray) -> ndarray: ...  # shaped: [0]
+
+# shapes: M
+def invalid(
+    index: ndarray[tuple[int]],  # shaped: [12] = [M]  # E: out of range
+    rank: ndarray[tuple[int, int]],  # shaped: [0] = [M]  # E: does not agree
+    selector: ndarray,  # shaped: [-1] = [M]  # E: Could not parse `# shaped:` payload
+) -> None: ...
+
+def check(left: ndarray[[3, 1]], right: ndarray[[1, 4]]) -> None:
+    assert_type(f(left, right), ndarray[[3, 4]])
+    assert_type(zero(left), ndarray[[0]])
+"#,
+);
+
+testcase!(
     test_shaped_comments_multiline_tuple_components,
     shaped_env(),
     r#"

@@ -25,8 +25,8 @@
 //! - `# shaped: <shape>`, after a parameter, a return annotation, or an annotated
 //!   assignment, applies the shape as `Shaped[<annotation>, "<shape>"]` does.
 //! - `# shaped: = <payload>` replaces the attached type component, and
-//!   `# shaped: .0.1 = <payload>` replaces the written type argument
-//!   that the path selects. `type =` and `.args[i]` remain accepted aliases.
+//!   `# shaped: [0][1] = <payload>` replaces the written type argument
+//!   that the path selects. `type =`, `.N`, and `.args[N]` remain accepted aliases.
 //!
 //! This module only finds the comments and the annotations they belong to, and
 //! leaves their meaning to the binder. It works on the syntax of the whole module,
@@ -239,6 +239,8 @@ fn parse_directive(range: TextRange, contents: &str, errors: &ErrorCollector) ->
         assignment(rest).or_else(|| rest.strip_prefix("type").and_then(assignment))
     {
         (ShapeCommentTarget::Replace(Box::new([])), payload)
+    } else if let Some((path, payload)) = bracket_assignment(rest) {
+        (ShapeCommentTarget::Replace(path), payload)
     } else if rest.starts_with('.') {
         let mut path = Vec::new();
         let mut selector = rest;
@@ -300,6 +302,23 @@ fn parse_directive(range: TextRange, contents: &str, errors: &ErrorCollector) ->
             None
         }
     }
+}
+
+/// A bracket path is a selector only when it is followed by `=`, not a list payload.
+fn bracket_assignment(mut text: &str) -> Option<(Box<[usize]>, &str)> {
+    let mut path = Vec::new();
+    while let Some(after) = text.strip_prefix('[') {
+        let (index, after) = after.split_once(']')?;
+        if index.is_empty() || !index.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        path.push(index.parse().ok()?);
+        text = after;
+    }
+    if path.is_empty() {
+        return None;
+    }
+    Some((path.into_boxed_slice(), assignment(text)?))
 }
 
 /// Parse one zero-based type-argument selector; the long form remains an alias.
@@ -614,7 +633,7 @@ mod tests {
 
     #[test]
     fn test_shaped_comments_compact_replacements_preserve_payload_positions() {
-        for spelling in ["=", "type =", ".0.12 =", ".args[0].args[12] ="] {
+        for spelling in ["=", "type =", "[0][12] =", ".0.12 =", ".args[0].args[12] ="] {
             let source = format!(
                 "# enable-shape-type-comments\ndef f(x: Array) -> Array: ...  # shaped: {spelling} helper(dims=[1], tag=\"#\")  # pyrefly: ignore\n"
             );
@@ -626,7 +645,7 @@ mod tests {
                 .expect("return annotation")
                 .1;
             let comment = &attached[0];
-            let expected = if spelling.starts_with('.') {
+            let expected = if spelling.starts_with('.') || spelling.starts_with('[') {
                 &[0, 12][..]
             } else {
                 &[][..]
@@ -637,6 +656,58 @@ mod tests {
             assert_eq!(
                 &source[comment.payload.range()],
                 "helper(dims=[1], tag=\"#\")"
+            );
+        }
+    }
+
+    #[test]
+    fn test_shaped_comments_brackets_without_assignment_are_payloads() {
+        for payload in [
+            "[0]",
+            "[0, 1]",
+            "[M, N]",
+            "[0][1]",
+            "[0] == [1]",
+            "[*Batch, M, N]",
+            "[helper(axis=0, tag=\"#\")]",
+            "[0]  # trailing comment",
+        ] {
+            let source = format!(
+                "# enable-shape-type-comments\ndef f(x: Array) -> Array: ...  # shaped: {payload}\n"
+            );
+            let parsed = comments(&source);
+            let attached = parsed
+                .annotations
+                .iter()
+                .next()
+                .expect("return annotation")
+                .1;
+            assert!(
+                matches!(attached[0].target, ShapeCommentTarget::Append),
+                "payload: {payload}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_shaped_comments_invalid_bracket_assignments() {
+        for selector in [
+            "[+1]",
+            "[-1]",
+            "[M]",
+            "[0, 1]",
+            "[]",
+            "[0][]",
+            "[1.0]",
+            "[١]",
+            "[999999999999999999999999999999999999]",
+        ] {
+            let source = format!(
+                "# enable-shape-type-comments\ndef f(x: Array) -> Array: ...  # shaped: {selector} = [M]\n"
+            );
+            assert!(
+                comments(&source).annotations.is_empty(),
+                "invalid selector: {selector}"
             );
         }
     }
