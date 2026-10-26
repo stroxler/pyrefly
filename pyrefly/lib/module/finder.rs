@@ -697,7 +697,7 @@ pub(crate) fn find_import_with_mode(
             config.fallback_search_path,
             FallbackSearchPath::DirectoryRelative(_)
         ) {
-            path.with_error(FindError::DirectoryRelativeImport(module))
+            path.with_error(FindError::FallbackSearchPathRelativeImport(module))
         } else {
             path
         }
@@ -2671,7 +2671,7 @@ mod tests {
     }
 
     #[test]
-    fn test_directory_relative_fallback_reports_directory_relative_import() {
+    fn test_directory_relative_fallback_reports_fallback_search_path_relative_import() {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path();
         TestPath::setup_test_directory(
@@ -2702,13 +2702,13 @@ mod tests {
             result,
             FindingOrError::Finding(Finding {
                 finding: ModulePath::filesystem(root.join("pkg/helper.py")),
-                error: Some(FindError::DirectoryRelativeImport(module)),
+                error: Some(FindError::FallbackSearchPathRelativeImport(module)),
             })
         );
     }
 
     #[test]
-    fn test_explicit_fallback_does_not_report_directory_relative_import() {
+    fn test_explicit_fallback_does_not_report_fallback_search_path_relative_import() {
         let tempdir = tempfile::tempdir().unwrap();
         let root = tempdir.path();
         TestPath::setup_test_directory(root, vec![TestPath::file("helper.py")]);

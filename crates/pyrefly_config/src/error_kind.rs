@@ -171,8 +171,6 @@ pub enum ErrorKind {
     /// Instantiating a class that directly extends `ABC` or directly uses `ABCMeta`, even though
     /// it has no abstract methods.
     DirectAbstractBaseInstantiation,
-    /// An unqualified import that resolves only through the directory-relative fallback path.
-    DirectoryRelativeImport,
     /// Division, floor division, or modulo by a literal zero value.
     DivisionByZero,
     /// A Polars operation produces more than one column with the same name.
@@ -184,6 +182,9 @@ pub enum ErrorKind {
     /// A value whose type is an explicit `Any`, such as a variable, argument, attribute or returned
     /// value. The annotation that introduces the `Any` is reported as [ExplicitAny].
     ExplicitAnyUse,
+    /// An unqualified import that resolves only through the fallback search path heuristic, so it
+    /// may fail at runtime.
+    FallbackSearchPathRelativeImport,
     /// Raised when a class that inherits from an abstract class but is not itself explicitly
     /// abstract (for example, it does not directly inherit from abc.ABC or use abc.ABCMeta) has
     /// unimplemented abstract members.
@@ -606,11 +607,11 @@ impl ErrorKind {
             ErrorKind::CoveragePartial => Severity::Warn,
             ErrorKind::Deprecated => Severity::Warn,
             ErrorKind::DirectAbstractBaseInstantiation => Severity::Warn,
-            ErrorKind::DirectoryRelativeImport => Severity::Warn,
             ErrorKind::DivisionByZero => Severity::Warn,
             ErrorKind::EmptyBody => Severity::Ignore,
             ErrorKind::ExplicitAny => Severity::Ignore,
             ErrorKind::ExplicitAnyUse => Severity::Ignore,
+            ErrorKind::FallbackSearchPathRelativeImport => Severity::Warn,
             ErrorKind::ImplicitAbstractClass => Severity::Ignore,
             ErrorKind::ImplicitAny => Severity::Ignore,
             ErrorKind::ImplicitAnyAttribute => Severity::Ignore,

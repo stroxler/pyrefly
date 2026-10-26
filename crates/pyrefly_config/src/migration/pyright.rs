@@ -596,7 +596,7 @@ impl RuleOverrides {
         );
         add(
             self.report_implicit_relative_import,
-            ErrorKind::DirectoryRelativeImport,
+            ErrorKind::FallbackSearchPathRelativeImport,
         );
 
         // Type argument rules
@@ -852,7 +852,7 @@ include = ["basedpyright.py"]
         let errors = config.root.errors.as_ref().unwrap();
 
         assert_eq!(
-            errors.severity(ErrorKind::DirectoryRelativeImport),
+            errors.severity(ErrorKind::FallbackSearchPathRelativeImport),
             Severity::Ignore
         );
         assert_eq!(errors.severity(ErrorKind::MissingImport), Severity::Ignore);

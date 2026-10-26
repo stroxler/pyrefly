@@ -5855,7 +5855,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 diagnostic.is_optional_import || never_runs
             }
             Some(
-                FindError::DirectoryRelativeImport(..)
+                FindError::FallbackSearchPathRelativeImport(..)
                 | FindError::UntypedImport(..)
                 | FindError::Ignored,
             )

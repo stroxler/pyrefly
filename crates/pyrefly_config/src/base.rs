@@ -144,7 +144,6 @@ impl Preset {
                     (ErrorKind::BadKeywordArgument, Severity::Error),
                     (ErrorKind::BadRaise, Severity::Error),
                     (ErrorKind::BadUnpacking, Severity::Error),
-                    (ErrorKind::DirectoryRelativeImport, Severity::Warn),
                     (ErrorKind::DivisionByZero, Severity::Error),
                     (ErrorKind::InvalidAnnotation, Severity::Error),
                     (ErrorKind::InvalidLiteral, Severity::Error),
