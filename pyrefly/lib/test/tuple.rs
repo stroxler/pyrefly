@@ -1173,3 +1173,36 @@ def g(a: Literal[True], rest: tuple[Literal[False], ...]) -> None:
     assert_type(f((a, *rest)), bool)
 "#,
 );
+
+// https://github.com/facebook/pyrefly/issues/5286
+testcase!(
+    bug = "Unpacking a tuple subclass with an unbounded part unions every position",
+    test_unpack_tuple_subclass_with_unbounded_part,
+    r#"
+from typing import Any, assert_type
+class Variadic[*Ts](tuple[*Ts]): ...
+def f(t: Variadic[str, int | None, *tuple[Any, ...]], u: tuple[str, int | None, *tuple[Any, ...]]):
+    a, b, c = t
+    assert_type(a, str)  # E: assert_type(int | str | Any | None, str) failed
+    assert_type(b, int | None)  # E: assert_type(int | str | Any | None, int | None) failed
+    assert_type(c, Any)  # E: assert_type(int | str | Any | None, Any) failed
+    a, b, *rest = t
+    assert_type(rest, list[Any])  # E: assert_type(list[int | str | Any | None], list[Any]) failed
+    a, b, c = u
+    assert_type(a, str)
+    assert_type(b, int | None)
+    assert_type(c, Any)
+"#,
+);
+
+testcase!(
+    test_unpack_tuple_subclass_with_fixed_length,
+    r#"
+from typing import assert_type
+class Fixed(tuple[str, int]): ...
+def f(t: Fixed):
+    a, b = t
+    assert_type(a, str)
+    assert_type(b, int)
+"#,
+);
