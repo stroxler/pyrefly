@@ -1176,18 +1176,17 @@ def g(a: Literal[True], rest: tuple[Literal[False], ...]) -> None:
 
 // https://github.com/facebook/pyrefly/issues/5286
 testcase!(
-    bug = "Unpacking a tuple subclass with an unbounded part unions every position",
     test_unpack_tuple_subclass_with_unbounded_part,
     r#"
 from typing import Any, assert_type
 class Variadic[*Ts](tuple[*Ts]): ...
 def f(t: Variadic[str, int | None, *tuple[Any, ...]], u: tuple[str, int | None, *tuple[Any, ...]]):
     a, b, c = t
-    assert_type(a, str)  # E: assert_type(int | str | Any | None, str) failed
-    assert_type(b, int | None)  # E: assert_type(int | str | Any | None, int | None) failed
-    assert_type(c, Any)  # E: assert_type(int | str | Any | None, Any) failed
+    assert_type(a, str)
+    assert_type(b, int | None)
+    assert_type(c, Any)
     a, b, *rest = t
-    assert_type(rest, list[Any])  # E: assert_type(list[int | str | Any | None], list[Any]) failed
+    assert_type(rest, list[Any])
     a, b, c = u
     assert_type(a, str)
     assert_type(b, int | None)

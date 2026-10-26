@@ -1141,6 +1141,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             {
                 vec![Iterable::FixedLen(elts.clone())]
             }
+            Type::ClassType(cls) | Type::SelfType(cls)
+                if let Some(Tuple::Unpacked(tuple)) = self.as_tuple(cls)
+                    && let (prefix, _, suffix) = tuple.parts()
+                    && (!prefix.is_empty() || !suffix.is_empty()) =>
+            {
+                self.iterate(
+                    &self.heap.mk_tuple(Tuple::Unpacked(tuple)),
+                    range,
+                    errors,
+                    orig_context,
+                )
+            }
             Type::IntTuple(int_tuple) => self.iterate_int_tuple(int_tuple),
             Type::Tuple(Tuple::Concrete(elts)) => vec![Iterable::FixedLen(elts.clone())],
             Type::Tuple(Tuple::Unbounded(elt)) => vec![Iterable::OfType((**elt).clone())],
