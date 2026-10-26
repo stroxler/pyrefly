@@ -3335,10 +3335,14 @@ impl Scopes {
                         annotation: existing_annot,
                         method: existing_method,
                         receiver_kind: existing_receiver,
+                        has_instance_write: existing_instance_write,
                     },
                     _,
                 )) = field_definitions.get_mut(name.key())
                 {
+                    if matches!(receiver_kind, MethodSelfKind::Instance) {
+                        *existing_instance_write = true;
+                    }
                     if existing_method.recognized_attribute_defining_method
                         && !method.recognized_attribute_defining_method
                     {
@@ -3366,6 +3370,10 @@ impl Scopes {
                                 annotation,
                                 method,
                                 receiver_kind,
+                                has_instance_write: matches!(
+                                    receiver_kind,
+                                    MethodSelfKind::Instance
+                                ),
                             },
                             range,
                         ),

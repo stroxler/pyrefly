@@ -3486,6 +3486,10 @@ pub enum ClassFieldDefinition {
         // assigns to it via `cls.`). We track this separately from `method` to avoid mutating
         // the method descriptor's own metadata (e.g. keeping `__init__` as an instance method).
         receiver_kind: MethodSelfKind,
+        // Whether any method assigns this attribute through an instance receiver (`self.x = ...`).
+        // `__slots__` only limits instance attributes, so a field written only through `cls`
+        // is not checked against it.
+        has_instance_write: bool,
     },
 }
 

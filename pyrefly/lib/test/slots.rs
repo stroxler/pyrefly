@@ -62,14 +62,13 @@ class Child(Base):
 
 // https://github.com/facebook/pyrefly/issues/5300
 testcase!(
-    bug = "`__slots__` only limits instances, so the write through `cls` is allowed",
     test_slots_attribute_written_through_cls,
     r#"
 class Foo:
     __slots__ = ()
 
     def __init_subclass__(cls) -> None:
-        cls.tag = "x"  # E: Object of class `Foo` has no attribute `tag` (not declared in `__slots__`)
+        cls.tag = "x"
 
 Foo.tag = "y"
 foo = Foo()

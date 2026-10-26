@@ -1967,6 +1967,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 method: _,
                 annotation: annot,
                 receiver_kind,
+                has_instance_write: _,
             } => {
                 let direct_annotation = annot.map(|a| self.get_idx(a).annotation.clone());
                 // Check if there's an inherited property or descriptor field from a parent class.
@@ -2614,10 +2615,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             );
         }
 
-        if matches!(
-            field_definition,
-            ClassFieldDefinition::DefinedInMethod { .. }
-        ) && name != &dunder::SLOTS
+        if let ClassFieldDefinition::DefinedInMethod {
+            has_instance_write: true,
+            ..
+        } = field_definition
+            && name != &dunder::SLOTS
             && let Some(allowed_slots) = self.effective_slots_for_instance_write(class)
             && !allowed_slots.contains::<Name>(name)
         {
