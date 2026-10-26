@@ -2903,7 +2903,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     fn is_ordinary_instance_method_type(ty: &Type) -> bool {
         ty.toplevel_func_metadata()
-            .is_some_and(&|metadata: &FuncMetadata| {
+            .is_some_and(|metadata: &FuncMetadata| {
                 !metadata.flags.is_staticmethod
                     && !metadata.flags.is_classmethod
                     && metadata.flags.property_metadata.is_none()
