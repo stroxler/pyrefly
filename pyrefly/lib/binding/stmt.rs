@@ -1071,6 +1071,7 @@ impl<'a> BindingsBuilder<'a> {
                             _ => {}
                         }
                     }
+                    self.scopes.record_new_instance_name(&name.id, &x.value);
                     self.bind_single_name_assign(
                         &Ast::expr_name_identifier(name.clone()),
                         x.value,

@@ -110,19 +110,18 @@ class C:
 
 // https://github.com/facebook/pyrefly/issues/5280
 testcase!(
-    bug = "attributes set on the instance that `__new__` creates are not counted",
     test_uninitialized_instance_variable_set_in_new,
     TestEnv::new().enable_uninitialized_instance_variable_error(),
     r#"
 from typing import Self
 class Label(str):
-    flag: bool  # E: Instance attribute `flag` is declared but never initialized
+    flag: bool
     def __new__(cls, text: str, flag: bool) -> Self:
         result = super().__new__(cls, text)
         result.flag = flag
         return result
 class Partial:
-    x: int  # E: Instance attribute `x` is declared but never initialized
+    x: int
     y: int  # E: Instance attribute `y` is declared but never initialized
     def __new__(cls) -> Self:
         result = super().__new__(cls)
