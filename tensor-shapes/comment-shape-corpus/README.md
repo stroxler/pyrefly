@@ -25,10 +25,11 @@ Start with [the SciPy demo](scipy/README.md):
 ## Compact notation
 
 `# shaped: payload` uses compatibility semantics; `# shaped: = payload` replaces
-the attached type component. `.0 = payload` selects its first written type
-argument, and paths such as `.0.1` reach nested arguments. The older `type =`
-and `.args[N]` forms remain accepted aliases, but the examples use the shorter
-spellings. Placement, shape contracts, and supported API cases are unchanged.
+the attached type component. `[0] = payload` selects its first written type
+argument, and paths such as `[0][1]` reach nested arguments. Without the `=`,
+`[M, N]` and `[0]` remain ordinary payloads. The older `type =`, `.N`, and
+`.args[N]` forms remain accepted aliases. Placement, shape contracts, and
+supported API cases are unchanged.
 
 ## Run
 

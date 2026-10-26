@@ -46,23 +46,23 @@ def cho_factor(
 # shapes: N
 def cho_solve(
     c_and_lower: tuple[
-        np.ndarray[tuple[int, int], np.dtype[np.float64]],  # shaped: .0 = [N, N]
+        np.ndarray[tuple[int, int], np.dtype[np.float64]],  # shaped: [0] = [N, N]
         _LowerFlag,
     ],
-    b: np.ndarray[tuple[int], np.dtype[np.float64]],  # shaped: .0 = [N]
+    b: np.ndarray[tuple[int], np.dtype[np.float64]],  # shaped: [0] = [N]
     overwrite_b: bool = False,
     check_finite: bool = True,
-) -> np.ndarray[tuple[int], np.dtype[np.float64]]:  # shaped: .0 = [N]
+) -> np.ndarray[tuple[int], np.dtype[np.float64]]:  # shaped: [0] = [N]
     ...
 @overload
 # shapes: N, K
 def cho_solve(
     c_and_lower: tuple[
-        np.ndarray[tuple[int, int], np.dtype[np.float64]],  # shaped: .0 = [N, N]
+        np.ndarray[tuple[int, int], np.dtype[np.float64]],  # shaped: [0] = [N, N]
         _LowerFlag,
     ],
-    b: np.ndarray[tuple[int, int], np.dtype[np.float64]],  # shaped: .0 = [N, K]
+    b: np.ndarray[tuple[int, int], np.dtype[np.float64]],  # shaped: [0] = [N, K]
     overwrite_b: bool = False,
     check_finite: bool = True,
-) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:  # shaped: .0 = [N, K]
+) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:  # shaped: [0] = [N, K]
     ...

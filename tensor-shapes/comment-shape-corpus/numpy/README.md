@@ -55,7 +55,7 @@ not every rejection indicates that NumPy itself would raise an exception.
 - `diag` uses independent shape declarations on each overload.
 - Matrix contractions connect the dimensions of separate arguments.
 - Comments directly on tuple carriers use `# shaped: = payload` and keep dtype
-  arguments readable. A whole-array comment can use `.0 = payload` instead.
+  arguments readable. A whole-array comment can use `[0] = payload` instead.
 - `tile` turns an ordinary `tuple[int, int]` argument into an `IntTuple` and
   multiplies symbolic dimensions without changing the visible parameter type.
 - `expand_dims` demonstrates a DSL call inside the return carrier comment. Its

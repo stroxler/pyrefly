@@ -48,8 +48,8 @@ def tensordot(
 
 # shapes: *Shape
 def roll(
-    a: np.ndarray[tuple[int, ...], np.dtype[_Scalar]],  # shaped: .0 = Shape
+    a: np.ndarray[tuple[int, ...], np.dtype[_Scalar]],  # shaped: [0] = Shape
     shift: int | tuple[int, ...],
     axis: int | tuple[int, ...] | None = None,
-) -> np.ndarray[tuple[int, ...], np.dtype[_Scalar]]:  # shaped: .0 = Shape
+) -> np.ndarray[tuple[int, ...], np.dtype[_Scalar]]:  # shaped: [0] = Shape
     ...
