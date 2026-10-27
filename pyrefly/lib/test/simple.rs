@@ -2603,6 +2603,18 @@ async def f(make_c: Callable[[], C], make_d: Callable[[], D]) -> None:
 );
 
 testcase!(
+    test_unused_coroutine_ignores_structural_match,
+    r#"
+import argparse
+async def f() -> int:
+    return 1
+async def main() -> None:
+    f()  # E: Result of async function call is unused. Did you forget to `await`?
+    argparse.Namespace()
+"#,
+);
+
+testcase!(
     test_loop_forever,
     r#"
 # Used to loop forever, https://github.com/facebook/pyrefly/issues/519
