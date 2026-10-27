@@ -184,7 +184,6 @@ e._replace(anything="ok")
 );
 
 testcase!(
-    bug = "Field names cannot start with `_`, so `_private` and `__await__` should not resolve",
     test_named_tuple_dynamic_fields_underscore_attribute,
     r#"
 import collections
@@ -199,8 +198,8 @@ Base = collections.namedtuple("Base", ["name"])
 Ext = collections.namedtuple("Ext", [*Base._fields, "extra"])
 e = Ext("n", "x")
 assert_type(e.extra, Any)
-y = e._private
-f(e)
+y = e._private  # E: has no attribute `_private`
+f(e)  # E: Argument `Ext` is not assignable to parameter `x` with type `HasAwait` in function `f`
     "#,
 );
 

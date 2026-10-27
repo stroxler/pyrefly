@@ -1844,9 +1844,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     None if metadata.has_base_any() => {
                         acc.found_type(self.heap.mk_any_implicit(), base)
                     }
-                    None if metadata
-                        .named_tuple_metadata()
-                        .is_some_and(|m| m.has_dynamic_fields) =>
+                    // Namedtuple field names cannot start with `_`, so a dynamic field can
+                    // never supply an underscore attribute such as `__await__`.
+                    None if !attr_name.starts_with('_')
+                        && metadata
+                            .named_tuple_metadata()
+                            .is_some_and(|m| m.has_dynamic_fields) =>
                     {
                         acc.found_type(self.heap.mk_any_implicit(), base)
                     }
