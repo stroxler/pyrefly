@@ -122,8 +122,7 @@ jobs:
       group: pr-state-${{ matrix.pr }}
     runs-on: ubuntu-latest
     permissions:
-      issues: write # read labels and timeline, and update labels
-      pull-requests: read # read the PR and reviews
+      pull-requests: write # read the PR, reviews, labels, and timeline, and update labels
       checks: read # distinguish unsigned CLAs from pending checks
     steps:
       - name: Label the PR
