@@ -25,6 +25,10 @@ on:
         type: choice
         options:
           - Backfill state labels on open PRs without one
+          - Update state label on one PR
+      pr_number:
+        description: 'PR number (leave blank for backfill)'
+        type: number
       dry_run:
         description: 'Dry run (preview labels without applying them)'
         type: boolean
@@ -77,6 +81,12 @@ jobs:
             if (context.eventName === 'issue_comment') {
               return [context.payload.issue.number];
             }
+            if (context.eventName === 'workflow_dispatch'
+              && context.payload.inputs.scenario === 'Update state label on one PR') {
+              const number = Number(context.payload.inputs.pr_number);
+              if (!number) throw new Error('pr_number is required to update one PR');
+              return [number];
+            }
             const prs = await github.paginate(github.rest.pulls.list, {
               owner, repo, state: 'open', per_page: 100,
             });
@@ -102,7 +112,7 @@ jobs:
       max-parallel: 4
       matrix:
         pr: ${{ fromJSON(needs.select-prs.outputs.prs) }}
-    # Backfills and event-triggered runs share the same per-PR lock.
+    # Manual and event-triggered runs share the same per-PR lock.
     concurrency:
       group: pr-state-${{ matrix.pr }}
     runs-on: ubuntu-latest
@@ -138,7 +148,9 @@ jobs:
               owner, repo, issue_number, per_page: 100,
             })).map(l => l.name);
             const current = STATE_LABELS.filter(name => labels.includes(name));
-            if (context.eventName === 'workflow_dispatch' && current.length > 0) {
+            if (context.eventName === 'workflow_dispatch'
+              && context.payload.inputs.scenario === 'Backfill state labels on open PRs without one'
+              && current.length > 0) {
               console.log(`#${pull_number}: already labeled, leaving as-is`);
               return;
             }
