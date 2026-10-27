@@ -4654,3 +4654,33 @@ impl<'a> BindingsBuilder<'a> {
         self.start_branch();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn narrow_update_keeps_the_value_and_loop_prior() {
+        let value = Idx::new(0);
+        let entry = Idx::new(1);
+        let body = Idx::new(2);
+        let merged = Idx::new(3);
+        let original = FlowInfo::new_value(value, FlowStyle::Other).updated_narrow(entry, false);
+        let inside = original
+            .updated_narrow(body, true)
+            .updated_narrow(merged, true);
+        assert_eq!(inside.value().expect("initialized value").idx, value);
+        assert_eq!(
+            inside.loop_prior, entry,
+            "loop body must retain its entry prior"
+        );
+        assert_eq!(inside.narrow_depth, 3);
+        let outside = original.updated_narrow(merged, false);
+        assert_eq!(outside.value().expect("initialized value").idx, value);
+        assert_eq!(
+            outside.loop_prior, merged,
+            "a following loop must use the merged view"
+        );
+        assert_eq!(outside.narrow_depth, 2);
+    }
+}

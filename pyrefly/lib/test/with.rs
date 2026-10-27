@@ -5,7 +5,472 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::binding::binding::Key;
+use crate::test::util::TestEnv;
 use crate::testcase;
+
+#[test]
+fn test_with_narrow_following_loop_views_baseline() {
+    let source = r#"
+from contextlib import suppress
+
+def f(x: str | bytes, again: bool) -> None:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+    while again:
+        if isinstance(x, bytes):
+            pass
+        again = False
+"#;
+    for _ in 0..2 {
+        let (state, handles) = TestEnv::one("main", source).to_state();
+        let handle = handles("main");
+        state
+            .transaction()
+            .ad_hoc_solve(&handle, "with_loop_prior", |answers| {
+                let bindings = answers.bindings();
+                let mut inspected = false;
+                for idx in bindings.keys::<Key>() {
+                    if matches!(bindings.idx_to_key(idx), Key::Phi(name) if name.0.as_str() == "x")
+                    {
+                        let expected = answers.heap.mk_class_type(answers.stdlib.str().clone());
+                        assert_eq!(answers.get_idx(idx).ty(), &expected);
+                        assert_eq!(
+                            answers.get_idx(idx).ty(),
+                            &expected,
+                            "cached reread preserves the solved view"
+                        );
+                        inspected = true;
+                    }
+                }
+                assert!(inspected, "source has a following-loop prior for x");
+            })
+            .expect("loop-prior solve");
+    }
+}
+
+testcase!(
+    bug = "Hard returns keep the BASE missing-return diagnostic",
+    test_with_narrow_hard_return_baseline,
+    r#"
+from contextlib import suppress
+
+def hard_return() -> int:  # E: paths are missing an explicit `return`
+    with suppress(ValueError):
+        return 1
+    "#,
+);
+
+testcase!(
+    bug = "Suppressed exceptions retain new plain-name narrows",
+    test_with_narrow_plain_baseline,
+    r#"
+from contextlib import suppress
+from typing import Literal, NoReturn
+
+def may_raise() -> None: ...
+def never() -> NoReturn:
+    raise ValueError()
+class TrueExit:
+    def __enter__(self) -> None: ...
+    def __exit__(self, *args: object) -> Literal[True]:
+        return True
+
+def true_exit(x: str | bytes) -> str:
+    with TrueExit():
+        assert isinstance(x, str)
+    return x
+
+def asserted(x: str | bytes) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+    return x
+
+def early(x: str | bytes) -> str:
+    with suppress(ValueError):
+        may_raise()
+        assert isinstance(x, str)
+    return x
+
+def raised(x: str | bytes) -> str:
+    with suppress(ValueError):
+        if isinstance(x, str):
+            pass
+        else:
+            raise ValueError()
+    return x
+
+def jump(x: str | bytes) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+        return x
+    return x
+
+def no_return(x: str | bytes) -> str:
+    with suppress(ValueError):
+        never()
+        assert isinstance(x, str)  # E: This code is unreachable
+    return x
+
+def hard_break() -> int:
+    for _ in [1]:
+        with suppress(ValueError):
+            break
+    return 1
+
+def hard_continue() -> int:
+    for _ in [1]:
+        with suppress(ValueError):
+            continue
+    return 1
+
+def sibling(x: str | bytes, y: str | bytes) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+    return y  # E: is not assignable to declared return type
+
+def prior(x: str | bytes) -> str:
+    assert isinstance(x, str)
+    with suppress(ValueError):
+        may_raise()
+    return x
+    "#,
+);
+
+testcase!(
+    bug = "Attribute and subscript reads must not hide suppressed root narrows",
+    test_with_narrow_read_exclusions_baseline,
+    r#"
+from contextlib import suppress
+
+class C:
+    value: int
+
+def factory() -> C: ...
+
+def subject_read(x: str | bytes) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+        print(x.upper())
+    return x
+
+def unknown_read(x: str | bytes, path: str) -> str:
+    with suppress(AssertionError, OSError):
+        assert isinstance(x, str)
+        print(open(path).read())
+        print("".join([x]))
+        print(factory().value)
+        print([1][0])
+    return x
+
+def nested_read(x: str | bytes) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+        def read() -> None:
+            print(factory().value)
+    return x
+    "#,
+);
+
+testcase!(
+    bug = "Write targets remain excluded from the bounded narrowing repair",
+    test_with_narrow_write_target_controls,
+    r#"
+from contextlib import nullcontext, suppress
+
+class C:
+    value: int | str
+
+def factory() -> C: ...
+def throw() -> None:
+    raise ValueError()
+
+def assigned(obj: C) -> str:
+    assert isinstance(obj.value, str)
+    with suppress(ValueError):
+        obj.value = 1
+        throw()
+    return obj.value  # E: is not assignable to declared return type
+
+def subscript(items: list[int | str]) -> str:
+    assert isinstance(items[0], str)
+    with suppress(ValueError):
+        items[0] = 1
+        throw()
+    return items[0]  # E: is not assignable to declared return type
+
+def discarded(obj: C, choose: bool) -> str:
+    assert isinstance(obj.value, str)
+    with suppress(ValueError):
+        if choose:
+            obj.value = 1
+            throw()
+            return ""
+        else:
+            obj.value = 2
+    return obj.value  # E: is not assignable to declared return type
+
+def unknown_write(x: str | bytes) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+        factory().value = 1
+    # Unknown write roots conservatively exclude all root repair in this with.
+    return x
+
+def target_forms(obj: C, table: list[int | str]) -> None:
+    with suppress(ValueError):
+        obj.value: int | str = 1  # E: Cannot annotate non-self attribute
+        obj.value += 1
+        table[0] += 1  # E: `+=` is not supported between `str` and
+        del obj.value
+        del table[0]
+        for obj.value in [1]:
+            pass
+        with nullcontext(1) as table[0]:
+            pass
+    "#,
+);
+
+testcase!(
+    bug = "Phi-root and facet narrowing remain outside the bounded repair",
+    test_with_narrow_skipped_baseline,
+    r#"
+from contextlib import suppress
+
+class C:
+    value: int | str
+
+def branchy(x: int | str | bytes, c: bool) -> str | bytes:
+    with suppress(AssertionError):
+        if c:
+            assert isinstance(x, str)
+        else:
+            assert isinstance(x, bytes)
+    # With x=1, either failing assertion is suppressed, so this returns an int.
+    return x
+bad: str | bytes = branchy(1, True)
+
+def facet(obj: C) -> str:
+    with suppress(AssertionError):
+        assert isinstance(obj.value, str)
+    return obj.value
+
+def implicit_capture() -> str:
+    with suppress(AssertionError):
+        assert isinstance(global_value, str)
+    return global_value
+global_value: str | bytes = b""
+
+def outer(x: str | bytes) -> str:
+    def inner() -> str:
+        nonlocal x
+        with suppress(AssertionError):
+            assert isinstance(x, str)
+        return x
+    return inner()
+    "#,
+);
+
+testcase!(
+    bug = "Intermediate with writes and body initialization keep BASE behavior",
+    test_with_narrow_written_state_baseline,
+    r#"
+from contextlib import suppress
+
+def throw() -> None:
+    raise ValueError()
+
+class EnterFail:
+    def __init__(self, value: str) -> None: ...
+    def __enter__(self) -> None:
+        raise ValueError()
+    def __exit__(self, *args: object) -> None: ...
+
+class C:
+    value: int | str
+
+def middle() -> int:
+    v = 0
+    with suppress(ValueError):
+        v = "middle"
+        throw()
+        v = 0
+    return v
+
+def try_middle() -> int:
+    v = 0
+    try:
+        v = "middle"
+        throw()
+        v = 0
+    except ValueError:
+        pass
+    return v
+
+def prefix_return() -> int:
+    v = 0
+    with suppress(ValueError):
+        v = "middle"
+        throw()
+        return 0
+    return v  # E: is not assignable to declared return type
+
+def header_write() -> int:
+    v = 0
+    with suppress(ValueError), EnterFail(v := "header"):
+        v = 0
+    return v
+
+def missing() -> int:
+    with suppress(ValueError):
+        throw()
+        w = 1
+    return w
+
+def rebound(x: int | str | bytes) -> str:
+    assert isinstance(x, str)
+    with suppress(ValueError):
+        x = 1
+        throw()
+    return x  # E: is not assignable to declared return type
+
+def deleted(x: str) -> str:
+    with suppress(ValueError):
+        del x
+        throw()
+    return x  # E: `x`
+
+def invalidated(obj: C) -> str:
+    assert isinstance(obj.value, str)
+    with suppress(ValueError):
+        obj.value = 1
+        throw()
+    return obj.value  # E: is not assignable to declared return type
+    "#,
+);
+
+testcase!(
+    test_with_narrow_exit_policy_controls,
+    r#"
+from contextlib import contextmanager
+from collections.abc import Generator
+from typing import Any, Literal
+
+class FalseExit:
+    def __enter__(self) -> None: ...
+    def __exit__(self, *args: object) -> Literal[False]:
+        return False
+class NoneExit:
+    def __enter__(self) -> None: ...
+    def __exit__(self, *args: object) -> None: ...
+class OptionalExit:
+    def __enter__(self) -> None: ...
+    def __exit__(self, *args: object) -> bool | None:
+        return True
+class AnyExit:
+    def __enter__(self) -> None: ...
+    def __exit__(self, *args: object) -> Any:
+        return True
+class GenericExit[T: (bool, None)]:
+    def __init__(self, value: T) -> None:
+        self.value: T = value
+    def __enter__(self) -> None: ...
+    def __exit__(self, *args: object) -> T:
+        return self.value
+@contextmanager
+def manager() -> Generator[None]:
+    yield None
+
+def false_exit(x: str | bytes) -> str:
+    with FalseExit():
+        assert isinstance(x, str)
+    return x
+
+def none_exit(x: str | bytes) -> str:
+    with NoneExit():
+        assert isinstance(x, str)
+    return x
+
+# These exits preserve the ordinary BASE policy, not a non-suppression proof.
+def optional_exit(x: str | bytes) -> str:
+    with OptionalExit():
+        assert isinstance(x, str)
+    return x
+
+def any_exit(x: str | bytes) -> str:
+    with AnyExit():
+        assert isinstance(x, str)
+    return x
+
+def generated_exit(x: str | bytes) -> str:
+    with manager():
+        assert isinstance(x, str)
+    return x
+
+def generic_exit[T: (bool, None)](x: T, y: T) -> None:
+    with GenericExit(y):
+        assert not isinstance(x, bool)
+    return x
+    "#,
+);
+
+testcase!(
+    bug = "Suppression narrows in combined and async managers",
+    test_with_narrow_manager_and_loop_baseline,
+    r#"
+from contextlib import nullcontext, suppress
+from unittest import TestCase
+
+class AsyncExit:
+    async def __aenter__(self) -> None: ...
+    async def __aexit__(self, *args: object) -> bool:
+        return True
+
+class T(TestCase):
+    def test_as_target(self) -> None:
+        with self.assertRaises(ValueError) as cm:
+            raise ValueError()
+        expected: BaseException = cm.exception
+
+def first_as() -> int:
+    with nullcontext(3) as value:
+        pass
+    return value
+
+def combined(x: str | bytes, path: str) -> str:
+    with suppress(OSError), open(path) as f:
+        assert isinstance(x, str)
+    f.close()  # Later-manager initialization keeps BASE behavior.
+    return x
+
+def nested(x: str | bytes) -> str:
+    with suppress(AssertionError):
+        with suppress(AssertionError):
+            assert isinstance(x, str)
+    return x
+
+async def async_root(x: str | bytes) -> str:
+    async with AsyncExit():
+        assert isinstance(x, str)
+    return x
+
+def in_loop(x: str | bytes, again: bool) -> None:
+    while again:
+        with suppress(AssertionError):
+            assert isinstance(x, str)
+        text: str = x
+        again = False
+
+def following_loop(x: str | bytes, again: bool) -> str:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+    while again:
+        if isinstance(x, bytes):
+            pass
+        again = False
+    return x
+    "#,
+);
 
 testcase!(
     test_simple_with,
