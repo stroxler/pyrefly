@@ -269,6 +269,27 @@ class Later:
         return "later"
 "#;
 
+    let nested_later_class = r#"def build() -> str:
+    return Outer.Inner().method()
+
+class Outer:
+    class Inner:
+        def method(self) -> str:
+            return "inner"
+"#;
+
+    let comprehensions = r#"class Runner:
+    @classmethod
+    def helper(cls, value: str) -> str:
+        return value
+
+    @classmethod
+    def by_path(cls, configs: dict[str, str]) -> dict[str, str]:
+        return {path: cls.helper(value) for path, value in configs.items()}
+
+totals = [n * 2 for n in range(3)]
+"#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
@@ -284,6 +305,8 @@ class Later:
         ("local_imports", local_imports),
         ("branch_locals", branch_locals),
         ("inherited_members", inherited_members),
+        ("nested_later_class", nested_later_class),
+        ("comprehensions", comprehensions),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
     let transaction = state.transaction();
