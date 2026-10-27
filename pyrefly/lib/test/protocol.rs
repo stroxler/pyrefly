@@ -2143,7 +2143,6 @@ class A(Protocol):
 );
 
 testcase!(
-    bug = "Special forms declared outside `typing` are not valid base classes",
     test_protocol_declared_as_special_form_outside_typing,
     r#"
 from typing import TypeVar, _SpecialForm, type_check_only
@@ -2156,10 +2155,10 @@ class _Generic: ...
 Generic: type[_Generic]
 Protocol: _SpecialForm
 
-class G(Generic[T]): ...  # E: `Generic` is not allowed in this context  # E: Invalid base class: `Generic`
-class P(Protocol):  # E: Invalid base class: `Protocol`
+class G(Generic[T]): ...
+class P(Protocol):
     def f(self) -> int: ...
-class PT(Protocol[T]):  # E: Invalid base class: `Protocol`  # E: `Protocol` is not allowed in this context
+class PT(Protocol[T]):
     def f(self, x: T) -> T: ...
 class C:
     def f(self, x: int = 0) -> int: ...
@@ -2167,7 +2166,7 @@ class D: ...
 
 p: P = C()
 pt: PT[int] = C()
-bad: P = D()
+bad: P = D()  # E: `D` is not assignable to `P`
 "#,
 );
 
