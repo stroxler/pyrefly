@@ -183,6 +183,27 @@ e._replace(anything="ok")
     "#,
 );
 
+testcase!(
+    bug = "Field names cannot start with `_`, so `_private` and `__await__` should not resolve",
+    test_named_tuple_dynamic_fields_underscore_attribute,
+    r#"
+import collections
+from typing import Any, Generator, Protocol, assert_type
+
+class HasAwait(Protocol):
+    def __await__(self) -> Generator[Any, None, int]: ...
+
+def f(x: HasAwait) -> None: ...
+
+Base = collections.namedtuple("Base", ["name"])
+Ext = collections.namedtuple("Ext", [*Base._fields, "extra"])
+e = Ext("n", "x")
+assert_type(e.extra, Any)
+y = e._private
+f(e)
+    "#,
+);
+
 // Regression test for https://github.com/facebook/pyrefly/issues/2811
 testcase!(
     test_inline_collections_namedtuple_constructor,
