@@ -200,17 +200,44 @@ fn definition_file_fact(module_info: &ModuleInfo, stdlib_root: Option<&str>) -> 
                 !file.key.starts_with("buck-out/") && !Path::new(&*file.key).is_absolute();
             is_source_file.then_some(file)
         }
-        ModulePathDetails::BundledTypeshed(relative_path) => stdlib_root.map(|root| {
-            let source = relative_path.with_extension("py");
-            src::File::new(format!(
-                "{root}/{}",
-                source.to_string_lossy().replace('\\', "/")
-            ))
-        }),
+        ModulePathDetails::BundledTypeshed(relative_path) => {
+            stdlib_root.map(|root| stdlib_source_file(root, relative_path))
+        }
         ModulePathDetails::Namespace(_)
         | ModulePathDetails::BundledTypeshedThirdParty(_)
         | ModulePathDetails::BundledThirdParty(_) => None,
     }
+}
+
+/// The stdlib source file under `root` that the bundled typeshed stub at `stub_path` describes.
+/// Typeshed and CPython sometimes lay a module out differently: typeshed has `os/__init__.pyi`
+/// for CPython's `os.py`, and `re.pyi` for `re/__init__.py`. So both layouts are tried, the
+/// stub's own first, and the first that exists in the working directory is used.
+fn stdlib_source_file(root: &str, stub_path: &Path) -> src::File {
+    let module_path = stub_path.with_extension("");
+    let candidates = if module_path
+        .file_name()
+        .is_some_and(|name| name == "__init__")
+    {
+        let package = module_path.parent().unwrap_or(Path::new(""));
+        [
+            module_path.with_extension("py"),
+            package.with_extension("py"),
+        ]
+    } else {
+        [
+            module_path.with_extension("py"),
+            module_path.join("__init__.py"),
+        ]
+    };
+    let source = candidates
+        .iter()
+        .find(|candidate| Path::new(root).join(candidate).exists())
+        .unwrap_or(&candidates[0]);
+    src::File::new(format!(
+        "{root}/{}",
+        source.to_string_lossy().replace('\\', "/")
+    ))
 }
 
 fn gather_nonlocal_variables(body: &[Stmt]) -> (Arc<SmallSet<Name>>, Arc<SmallSet<Name>>) {
@@ -670,6 +697,13 @@ impl GleanState<'_> {
 
             if let Some(name) = fqname {
                 vec![DefinitionLocation { name, file }]
+            } else if let Some(qname) = type_name {
+                // The class is defined later in the file, so its declaration isn't recorded
+                // yet; name the member as for a class of another module.
+                vec![DefinitionLocation {
+                    name: join_names(emitted_name, &join_names(qname.id().as_str(), local_name)),
+                    file,
+                }]
             } else {
                 additional_definitions
             }
@@ -882,7 +916,7 @@ impl GleanState<'_> {
                     // The class in the receiver's MRO that declares `attr_name` itself, so that
                     // an inherited member is named after the class that defines it.
                     let defining_type = |ty: Type| match &ty {
-                        Type::ClassType(cls) => iter::once(cls)
+                        Type::ClassType(cls) | Type::SelfType(cls) => iter::once(cls)
                             .chain(
                                 solver
                                     .get_mro_for_class(cls.class_object())
@@ -1937,6 +1971,7 @@ pub fn glean(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::PathBuf;
 
     use pyrefly_python::module_path::ModulePath;
@@ -2000,6 +2035,31 @@ mod tests {
         assert!(
             definition_file_fact(&stub, None).is_none(),
             "without a stdlib root, a bundled stub is not a repository file"
+        );
+    }
+
+    #[test]
+    fn test_stdlib_source_file_follows_cpython_layout() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("os.py"), "").unwrap();
+        fs::create_dir(root.path().join("re")).unwrap();
+        fs::write(root.path().join("re/__init__.py"), "").unwrap();
+        let root_str = root.path().to_str().unwrap();
+        let source = |stub: &str| *stdlib_source_file(root_str, Path::new(stub)).key;
+        assert_eq!(
+            source("os/__init__.pyi"),
+            format!("{root_str}/os.py"),
+            "typeshed's os package is CPython's os.py"
+        );
+        assert_eq!(
+            source("re.pyi"),
+            format!("{root_str}/re/__init__.py"),
+            "typeshed's re module is CPython's re package"
+        );
+        assert_eq!(
+            source("json/__init__.pyi"),
+            format!("{root_str}/json/__init__.py"),
+            "without a source on disk, the stub's own layout is used"
         );
     }
 

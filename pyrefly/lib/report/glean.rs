@@ -257,11 +257,16 @@ class Base:
         return "hi"
 
 class Child(Base):
-    pass
+    def hello(self) -> str:
+        return self.greet()
 
 def use(child: Child, parser: argparse.ArgumentParser) -> str:
     parser.add_argument("--name")
-    return child.greet()
+    return child.greet() + Later().name()
+
+class Later:
+    def name(self) -> str:
+        return "later"
 "#;
 
     let files = [
