@@ -77,14 +77,9 @@ jobs:
             if (context.eventName === 'issue_comment') {
               return [context.payload.issue.number];
             }
-            const params = { owner, repo, state: 'open', per_page: 100 };
-            if (context.eventName === 'workflow_run') {
-              // GitHub supplies the head identity. Nothing produced by the
-              // completed workflow is trusted or executed, including artifacts.
-              const run = context.payload.workflow_run;
-              params.head = `${run.head_repository.owner.login}:${run.head_branch}`;
-            }
-            const prs = await github.paginate(github.rest.pulls.list, params);
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
             if (context.eventName === 'workflow_dispatch') {
               const stateLabels = ['waiting-for-author', 'waiting-for-reviewer', 'waiting-for-merge'];
               return prs.filter(pr => !pr.draft && pr.user.type !== 'Bot'
@@ -93,8 +88,10 @@ jobs:
                 && !pr.labels.some(l => stateLabels.includes(l.name)))
                 .map(pr => pr.number);
             }
+            // GitHub supplies the head SHA. Nothing produced by the completed
+            // workflow is trusted or executed, including artifacts.
             return prs.filter(pr => context.eventName !== 'workflow_run'
-              || pr.head.repo?.full_name === context.payload.workflow_run.head_repository.full_name)
+              || pr.head.sha === context.payload.workflow_run.head_sha)
               .map(pr => pr.number);
 
   evaluate:
