@@ -2079,6 +2079,24 @@ t4: Target = {'y': '', **extra_wrong_type}  # E: `ExtraWrongType` is not assigna
 );
 
 testcase!(
+    test_open_unpacking_does_not_hide_incompatible_field,
+    r#"
+from typing import Literal, TypedDict
+
+class Open(TypedDict):
+    tag: Literal["open"]
+
+class Target(TypedDict):
+    x: int
+    tag: Literal["target"]
+
+def f(o: Open) -> Target:
+    # `x` could come from a subclass of `Open`, but `tag` is incompatible regardless.
+    return {**o}  # E: Unpacked `Open` is not assignable to `Target`
+    "#,
+);
+
+testcase!(
     test_open_unpacking_closed_and_extra_items,
     TestEnv::new().enable_open_unpacking_error(),
     r#"
