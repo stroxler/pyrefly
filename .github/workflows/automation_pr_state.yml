@@ -21,16 +21,16 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: 'Operation to run'
+        description: 'Operation'
         type: choice
         options:
-          - Backfill state labels on open PRs without one
+          - Backfill state labels on all unlabeled PRs
           - Update state label on one PR
       pr_number:
         description: 'PR number (leave blank for backfill)'
         type: number
       dry_run:
-        description: 'Dry run (preview labels without applying them)'
+        description: 'Dry run (preview labels without applying)'
         type: boolean
         default: true
 
@@ -149,7 +149,7 @@ jobs:
             })).map(l => l.name);
             const current = STATE_LABELS.filter(name => labels.includes(name));
             if (context.eventName === 'workflow_dispatch'
-              && context.payload.inputs.scenario === 'Backfill state labels on open PRs without one'
+              && context.payload.inputs.scenario === 'Backfill state labels on all unlabeled PRs'
               && current.length > 0) {
               console.log(`#${pull_number}: already labeled, leaving as-is`);
               return;
