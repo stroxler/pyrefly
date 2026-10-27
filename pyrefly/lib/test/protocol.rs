@@ -1181,6 +1181,30 @@ p6 = C5()  # E: `C5` is not assignable to variable `p6` with type `P6`
 );
 
 testcase!(
+    bug = "`__getattr__` should not satisfy protocol dunder methods, which Python looks up on the type",
+    test_protocol_getattr_dunder_method,
+    r#"
+from typing import Any, Awaitable, Iterable, Protocol, Sized
+
+class HasFoo(Protocol):
+    def foo(self) -> int: ...
+
+class HasName(Protocol):
+    __name__: str
+
+class C:
+    def __getattr__(self, name: str) -> Any: ...
+    def __setattr__(self, name: str, value: Any) -> None: ...
+
+a: Awaitable[int] = C()
+b: Iterable[int] = C()
+c: Sized = C()
+d: HasFoo = C()
+e: HasName = C()
+    "#,
+);
+
+testcase!(
     bug = "Metaclass `__getattr__` should satisfy read-only protocol members",
     test_protocol_metaclass_getattr,
     r#"
