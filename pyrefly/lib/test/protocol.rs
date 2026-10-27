@@ -2171,7 +2171,6 @@ bad: P = D()  # E: `D` is not assignable to `P`
 );
 
 testcase!(
-    bug = "`Protocol: type[_Protocol]` is not recognized as the `Protocol` special form",
     test_protocol_declared_as_type_outside_typing,
     r#"
 from typing import TypeVar, type_check_only
@@ -2185,14 +2184,14 @@ Protocol: type[_Protocol]
 
 class P(Protocol):
     def f(self) -> int: ...
-class PT(Protocol[T]):  # E: `type[_Protocol]` is not subscriptable
+class PT(Protocol[T]):
     def f(self, x: T) -> T: ...
 class C:
     def f(self, x: int = 0) -> int: ...
 class D: ...
 
-p: P = C()  # E: `C` is not assignable to `P`
-pt: PT[int] = C()  # E: `C` is not assignable to `PT[int]`
+p: P = C()
+pt: PT[int] = C()
 bad: P = D()  # E: `D` is not assignable to `P`
 "#,
 );
