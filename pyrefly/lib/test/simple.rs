@@ -2586,7 +2586,7 @@ async def run(engine: Engine) -> None:
 );
 
 testcase!(
-    bug = "`C` extends `Coroutine`, so discarding it should report `unused-coroutine`",
+    bug = "`C` extends `Coroutine`, so each use of `make_c()` should report `unused-coroutine`",
     test_unused_coroutine_extends_any,
     r#"
 from typing import Any, Callable, Coroutine
@@ -2595,6 +2595,10 @@ class D(Any): ...
 async def f(make_c: Callable[[], C], make_d: Callable[[], D]) -> None:
     make_c()
     make_d()
+    if make_c():
+        pass
+    if make_d():
+        pass
 "#,
 );
 
