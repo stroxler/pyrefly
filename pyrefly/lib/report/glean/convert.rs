@@ -913,21 +913,12 @@ impl GleanState<'_> {
             self.transaction
                 .ad_hoc_solve(self.handle, "glean_attribute_definition", |solver| {
                     let completions = |ty| solver.completions(ty, Some(attr_name), false, false);
-                    // The class in the receiver's MRO that declares `attr_name` itself, so that
-                    // an inherited member is named after the class that defines it.
+                    // The class that defines `attr_name`, as found by the solver's own member
+                    // lookup, so that an inherited member is named after its defining class.
                     let defining_type = |ty: Type| match &ty {
-                        Type::ClassType(cls) | Type::SelfType(cls) => iter::once(cls)
-                            .chain(
-                                solver
-                                    .get_mro_for_class(cls.class_object())
-                                    .ancestors_no_object(),
-                            )
-                            .find(|ancestor| {
-                                solver
-                                    .get_class_fields(ancestor.class_object())
-                                    .is_some_and(|fields| fields.contains(attr_name))
-                            })
-                            .map_or(ty.clone(), |ancestor| Type::ClassType(ancestor.clone())),
+                        Type::ClassType(cls) | Type::SelfType(cls) => solver
+                            .get_class_member_with_defining_class(cls.class_object(), attr_name)
+                            .map_or(ty.clone(), |member| Type::ClassDef(member.defining_class)),
                         _ => ty,
                     };
 
