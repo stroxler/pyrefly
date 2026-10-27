@@ -1891,13 +1891,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 } else if !self.may_be_none(&right) {
                     // For non-literal comparisons, only exclude None. Equality can
                     // hold between values of different types.
-                    self.distribute_over_union(ty, |ty| {
-                        if ty.is_none() {
-                            self.heap.mk_never()
-                        } else {
-                            ty.clone()
-                        }
-                    })
+                    self.narrow_is_not(ty, &Type::None)
                 } else {
                     ty.clone()
                 }
