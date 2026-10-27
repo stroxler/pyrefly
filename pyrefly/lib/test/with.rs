@@ -5,12 +5,57 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use ruff_text_size::Ranged;
+
+use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::test::util::TestEnv;
 use crate::testcase;
 
 #[test]
-fn test_with_narrow_following_loop_views_baseline() {
+fn test_with_narrow_query_roles_and_entry_sources() {
+    let source = r#"
+from contextlib import nullcontext, suppress
+
+def suppressing(x: str | bytes) -> None:
+    with suppress(AssertionError):
+        assert isinstance(x, str)
+        print(x)
+
+def non_suppressing(x: str | bytes) -> None:
+    with nullcontext():
+        assert isinstance(x, str)
+        print(x)
+
+def unchanged(x: str | bytes) -> None:
+    with suppress(AssertionError):
+        pass
+"#;
+    let (state, handles) = TestEnv::one("main", source).to_state();
+    let handle = handles("main");
+    state.transaction().ad_hoc_solve(&handle, "with_query_roles", |answers| {
+        let bindings = answers.bindings();
+        let queries = bindings.keys::<Key>().filter(|idx| matches!(bindings.idx_to_key(*idx), Key::SuppressionNarrow(_))).collect::<Vec<_>>();
+        assert_eq!(queries.len(), 2, "unchanged flow adds no suppression narrow query");
+        for idx in queries {
+            let key = bindings.idx_to_key(idx);
+            let Binding::SuppressedException(query) = bindings.get(idx) else { panic!("suppression-only query data") };
+            assert!(query.body.is_none());
+            assert_eq!(query.contexts.len(), 1);
+            let context = query.contexts[0];
+            assert!(matches!(bindings.idx_to_key(context), Key::ContextExpr(_)), "exit comes from the original manager, not its as value");
+            assert!(bindings.idx_to_key(context).range().start() > key.range().start());
+            let known_false = bindings.module().code_at(bindings.idx_to_key(context).range()).starts_with("nullcontext");
+            assert_eq!(answers.get_idx(idx).ty().is_never(), known_false);
+            let completion = bindings.keys::<Key>().find(|candidate| matches!(bindings.idx_to_key(*candidate), Key::SuppressedException(range) if *range == key.range())).expect("normal completion query");
+            assert_ne!(completion, idx);
+            assert!(!answers.get_idx(completion).ty().is_never(), "normal body completion differs from suppression-only eligibility");
+        }
+    }).expect("query-role solve");
+}
+
+#[test]
+fn test_with_narrow_following_loop_views() {
     let source = r#"
 from contextlib import suppress
 
@@ -33,7 +78,10 @@ def f(x: str | bytes, again: bool) -> None:
                 for idx in bindings.keys::<Key>() {
                     if matches!(bindings.idx_to_key(idx), Key::Phi(name) if name.0.as_str() == "x")
                     {
-                        let expected = answers.heap.mk_class_type(answers.stdlib.str().clone());
+                        let expected = answers.unions(vec![
+                            answers.heap.mk_class_type(answers.stdlib.str().clone()),
+                            answers.heap.mk_class_type(answers.stdlib.bytes().clone()),
+                        ]);
                         assert_eq!(answers.get_idx(idx).ty(), &expected);
                         assert_eq!(
                             answers.get_idx(idx).ty(),
@@ -62,8 +110,7 @@ def hard_return() -> int:  # E: paths are missing an explicit `return`
 );
 
 testcase!(
-    bug = "Suppressed exceptions retain new plain-name narrows",
-    test_with_narrow_plain_baseline,
+    test_with_narrow_plain,
     r#"
 from contextlib import suppress
 from typing import Literal, NoReturn
@@ -79,18 +126,18 @@ class TrueExit:
 def true_exit(x: str | bytes) -> str:
     with TrueExit():
         assert isinstance(x, str)
-    return x
+    return x  # E: is not assignable to declared return type
 
 def asserted(x: str | bytes) -> str:
     with suppress(AssertionError):
         assert isinstance(x, str)
-    return x
+    return x  # E: is not assignable to declared return type
 
 def early(x: str | bytes) -> str:
     with suppress(ValueError):
         may_raise()
         assert isinstance(x, str)
-    return x
+    return x  # E: is not assignable to declared return type
 
 def raised(x: str | bytes) -> str:
     with suppress(ValueError):
@@ -98,19 +145,19 @@ def raised(x: str | bytes) -> str:
             pass
         else:
             raise ValueError()
-    return x
+    return x  # E: is not assignable to declared return type
 
 def jump(x: str | bytes) -> str:
     with suppress(AssertionError):
         assert isinstance(x, str)
         return x
-    return x
+    return x  # E: is not assignable to declared return type
 
 def no_return(x: str | bytes) -> str:
     with suppress(ValueError):
         never()
         assert isinstance(x, str)  # E: This code is unreachable
-    return x
+    return x  # E: is not assignable to declared return type
 
 def hard_break() -> int:
     for _ in [1]:
@@ -138,8 +185,7 @@ def prior(x: str | bytes) -> str:
 );
 
 testcase!(
-    bug = "Attribute and subscript reads must not hide suppressed root narrows",
-    test_with_narrow_read_exclusions_baseline,
+    test_with_narrow_read_exclusions,
     r#"
 from contextlib import suppress
 
@@ -152,7 +198,7 @@ def subject_read(x: str | bytes) -> str:
     with suppress(AssertionError):
         assert isinstance(x, str)
         print(x.upper())
-    return x
+    return x  # E: is not assignable to declared return type
 
 def unknown_read(x: str | bytes, path: str) -> str:
     with suppress(AssertionError, OSError):
@@ -161,14 +207,14 @@ def unknown_read(x: str | bytes, path: str) -> str:
         print("".join([x]))
         print(factory().value)
         print([1][0])
-    return x
+    return x  # E: is not assignable to declared return type
 
 def nested_read(x: str | bytes) -> str:
     with suppress(AssertionError):
         assert isinstance(x, str)
         def read() -> None:
             print(factory().value)
-    return x
+    return x  # E: is not assignable to declared return type
     "#,
 );
 
@@ -415,8 +461,8 @@ def generic_exit[T: (bool, None)](x: T, y: T) -> None:
 );
 
 testcase!(
-    bug = "Suppression narrows in combined and async managers",
-    test_with_narrow_manager_and_loop_baseline,
+    bug = "Loop-carried root narrows are conservatively skipped",
+    test_with_narrow_manager_and_loop,
     r#"
 from contextlib import nullcontext, suppress
 from unittest import TestCase
@@ -441,18 +487,18 @@ def combined(x: str | bytes, path: str) -> str:
     with suppress(OSError), open(path) as f:
         assert isinstance(x, str)
     f.close()  # Later-manager initialization keeps BASE behavior.
-    return x
+    return x  # E: is not assignable to declared return type
 
 def nested(x: str | bytes) -> str:
     with suppress(AssertionError):
         with suppress(AssertionError):
             assert isinstance(x, str)
-    return x
+    return x  # E: is not assignable to declared return type
 
 async def async_root(x: str | bytes) -> str:
     async with AsyncExit():
         assert isinstance(x, str)
-    return x
+    return x  # E: is not assignable to declared return type
 
 def in_loop(x: str | bytes, again: bool) -> None:
     while again:
@@ -468,7 +514,7 @@ def following_loop(x: str | bytes, again: bool) -> str:
         if isinstance(x, bytes):
             pass
         again = False
-    return x
+    return x  # E: is not assignable to declared return type
     "#,
 );
 
