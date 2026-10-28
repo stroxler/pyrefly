@@ -1216,6 +1216,27 @@ impl ClassField {
         }
     }
 
+    /// Whether the field's type is declared rather than inferred: an annotated attribute, or a
+    /// property whose getter has an annotated return type.
+    pub fn has_declared_type(&self) -> bool {
+        match &self.0 {
+            ClassFieldInner::Property { ty, .. } => ty
+                .toplevel_func_metadata()
+                .is_some_and(|meta| !meta.flags.is_return_inferred),
+            _ => self.has_explicit_annotation(),
+        }
+    }
+
+    /// The descriptor class whose `__get__` a read of this field calls, if there is one.
+    pub fn descriptor_getter_class(&self) -> Option<&ClassType> {
+        match &self.0 {
+            ClassFieldInner::Descriptor { descriptor, .. } if descriptor.getter => {
+                Some(&descriptor.cls)
+            }
+            _ => None,
+        }
+    }
+
     fn is_function_without_return_annotation(&self) -> bool {
         match &self.0 {
             ClassFieldInner::Property { .. } => false,

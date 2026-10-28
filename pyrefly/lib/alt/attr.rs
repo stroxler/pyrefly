@@ -2564,6 +2564,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         Vec1::try_from_vec(acc).map(AttributeBase).ok()
     }
 
+    /// The classes that an attribute lookup on `base` searches, or `None` if the lookup searches
+    /// anything other than classes, such as a module or `Any`.
+    pub(crate) fn attribute_lookup_classes(&self, base: &Type) -> Option<Vec<Class>> {
+        let mut bases = self.as_attribute_base(base.clone())?.0.into_vec();
+        let mut classes = Vec::new();
+        while let Some(base) = bases.pop() {
+            match base {
+                AttributeBase1::ClassInstance(cls)
+                | AttributeBase1::SelfType(cls)
+                | AttributeBase1::Quantified(_, cls) => classes.push(cls.class_object().dupe()),
+                AttributeBase1::EnumLiteral(lit) => classes.push(lit.class.class_object().dupe()),
+                AttributeBase1::ClassObject(cls) => classes.push(cls.class_object().dupe()),
+                AttributeBase1::Composite { bases: more, .. } => bases.extend(more),
+                _ => return None,
+            }
+        }
+        Some(classes)
+    }
+
     pub(crate) fn try_reproject_class_type_to_shaped_array(
         &self,
         cls: &ClassType,

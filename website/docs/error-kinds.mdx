@@ -2432,7 +2432,11 @@ else:
 The same applies when a declaration fixes the condition's value, such as an annotation, a
 return type, or a `__bool__` method. A value that is only inferred is not enough: a variable
 assigned `False` may be reassigned in ways the analysis does not follow, and narrowing
-describes what the annotations promise rather than what callers pass.
+describes what the annotations promise rather than what callers pass. Likewise, an attribute
+counts only if it is annotated, or is read through a property or descriptor whose getter has an
+annotated return type. A call counts only if the function it calls has an annotated return
+type, and a `__bool__` method only if its own return type is annotated. A constructor call, or
+a call to a generic function, counts through the type the call is inferred to return.
 
 ```python
 from typing import Literal

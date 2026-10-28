@@ -4063,16 +4063,32 @@ def in_function() -> None:
 // is inferred from the code at hand, which a subclass, a monkeypatch, or a later assignment the
 // inference does not see can make wrong.
 testcase!(
-    bug = "Inferred return types and `__bool__` methods settle a test",
     test_inferred_types_do_not_settle_tests,
     r#"
-from typing import Literal, assert_type
+from enum import Enum
+from typing import Final, Literal, TypeVar, assert_type
 
 def enabled():
     return False
 
+def off() -> Literal[False]:
+    return False
+
 if enabled():
-    print(1)  # E: This code is unreachable
+    print(1)
+
+# A bare `Final` holds its value, which here is only inferred.
+ENABLED: Final = enabled()
+if ENABLED:
+    print(5)
+
+class Config:
+    DEBUG: Final = False
+
+    @classmethod
+    def method(cls) -> None:
+        if cls.DEBUG:
+            print(6)  # E: This code is unreachable
 
 class Empty:
     def __bool__(self):
@@ -4080,11 +4096,86 @@ class Empty:
 
 def user_bool(e: Empty) -> None:
     if e:
-        print(2)  # E: This code is unreachable
+        print(2)
+
+class AlsoEmpty:
+    def __bool__(self):
+        return False
+
+def union_bool(e: Empty | AlsoEmpty, o: Empty | None) -> None:
+    if e:
+        print(7)
+    if o:
+        print(8)
+
+class Flags:
+    @property
+    def declared(self) -> Literal[False]:
+        return False
+
+    @property
+    def inferred(self):
+        return False
+
+def properties(f: Flags) -> None:
+    if f.declared:
+        print(3)  # E: This code is unreachable
+    if f.inferred:
+        print(4)
 
 class AlwaysEmpty:
     def __bool__(self) -> Literal[False]:
         return False
+
+class CallInferred:
+    def __call__(self):
+        return False
+
+def inferred_call(c: CallInferred, pick: bool) -> None:
+    if c():
+        print(9)
+    # One member of a union callee infers its return type.
+    f = off if pick else enabled
+    if f():
+        print(10)
+
+class CallsItself:
+    def __call__(self):
+        return False
+
+    def m(self) -> None:
+        if self():
+            print(11)
+
+CallsInferred = TypeVar("CallsInferred", bound=CallInferred)
+
+def bounded_call(c: CallsInferred) -> None:
+    if c():
+        print(13)
+
+class InferredGet:
+    def __get__(self, obj: object, owner: type):
+        return False
+
+class Holder:
+    flag: InferredGet = InferredGet()
+
+def descriptor(h: Holder) -> None:
+    if h.flag:
+        print(12)
+
+# An enum member's value is the type of the expression assigned to it, even for a literal.
+class Mode(Enum):
+    A = enabled()
+    B = 0
+
+def enum_value(m: Mode) -> None:
+    if Mode.A.value:
+        print(14)
+    if Mode.B.value:  # E: Integer literal used as condition. It's equivalent to `False`
+        print(15)
+    if m.value:
+        print(16)
 
 # Only the attribute is inferred: its class declares `__bool__`.
 class Builder:
@@ -4098,6 +4189,163 @@ class Builder:
             self.tail = make()
             x = 2
         assert_type(x, Literal[1, 2])
+"#,
+);
+
+// A lambda's return type is inferred, but its type cannot be told apart from an annotated
+// `Callable`. A field holds no record of the expression assigned to it, so a bare `Final` field
+// cannot be told apart from one assigned a literal. A decorated function's type is the
+// decorator's return type, which may be inferred.
+testcase!(
+    bug = "A lambda, a bare `Final` field, and a decorator settle tests through inferred values",
+    test_inferred_values_that_still_settle_tests,
+    r#"
+from typing import Callable, Final, Literal
+
+def enabled():
+    return False
+
+check = lambda: False
+
+def via_lambda() -> None:
+    if check():
+        print(1)  # E: This code is unreachable
+
+class C:
+    def __init__(self) -> None:
+        self.x: Final = enabled()
+
+    def m(self) -> None:
+        if self.x:
+            print(2)  # E: This code is unreachable
+
+def deco(f: Callable[[], bool]):
+    def inner() -> Literal[False]:
+        return False
+    return inner
+
+# The decorator's return type is inferred, but the name is bound by a `def`.
+@deco
+def decorated() -> bool:
+    return True
+
+def via_decorator() -> None:
+    if decorated():
+        print(3)  # E: This code is unreachable
+"#,
+);
+
+// A call with a declared return type is settled by the inferred type of the call, so a generic
+// return, a constructor, and a `__call__` method settle it through their declarations too.
+testcase!(
+    test_call_settled_by_declared_return_type,
+    r#"
+from typing import Literal, TypeVar, overload
+
+T = TypeVar("T")
+
+def off() -> Literal[False]:
+    return False
+
+@overload
+def always_off(x: int) -> Literal[False]: ...
+@overload
+def always_off(x: str) -> Literal[False]: ...
+def always_off(x):
+    return False
+
+@overload
+def pick(x: Literal[0]) -> Literal[False]: ...
+@overload
+def pick(x: int) -> bool: ...
+def pick(x: int) -> bool:
+    return x != 0
+
+def ident(x: T) -> T:
+    return x
+
+class AlwaysFalse:
+    def __bool__(self) -> Literal[False]:
+        return False
+
+class Off:
+    def __call__(self) -> Literal[False]:
+        return False
+
+def calls(flag: Literal[False], o: Off) -> None:
+    if off():
+        print(1)  # E: This code is unreachable
+    if ident(flag):
+        print(2)  # E: This code is unreachable
+    if AlwaysFalse():
+        print(3)  # E: This code is unreachable
+    if o():
+        print(4)  # E: This code is unreachable
+    # One overload returns `Literal[False]`, so the call is inferred to pick it.
+    if pick(0):
+        print(6)  # E: This code is unreachable
+    # The overloads declare the return type, whatever the implementation infers.
+    if always_off(1):
+        print(7)  # E: This code is unreachable
+
+# The callee is inferred rather than looked up as a declaration, so a call through an unannotated
+# alias is settled by the declared return type of the function the alias holds.
+hook = off
+
+def through_alias() -> None:
+    if hook():
+        print(5)  # E: This code is unreachable
+"#,
+);
+
+// An attribute is looked up the way an attribute read is, so it is declared when every class the
+// read searches declares it. A read through a descriptor returns its `__get__` return type.
+testcase!(
+    test_attribute_settled_by_every_class_the_read_searches,
+    r#"
+from enum import Enum
+from typing import Literal, TypeVar
+
+class Cfg:
+    on: Literal[False] = False
+
+class OtherCfg:
+    on: Literal[False] = False
+
+C = TypeVar("C", bound=Cfg)
+
+class Mode(Enum):
+    A = 1
+
+    @property
+    def on(self) -> Literal[False]:
+        return False
+
+class Off:
+    def __get__(self, obj: object, owner: type) -> Literal[False]:
+        return False
+
+class Holder:
+    flag = Off()
+
+def off() -> Literal[False]:
+    return False
+
+def also_off() -> Literal[False]:
+    return False
+
+def reads(c: C, u: Cfg | OtherCfg, h: Holder, pick: bool) -> None:
+    if c.on:
+        print(1)  # E: This code is unreachable
+    if u.on:
+        print(2)  # E: This code is unreachable
+    if Mode.A.on:
+        print(3)  # E: This code is unreachable
+    if h.flag:
+        print(4)  # E: This code is unreachable
+    f = off if pick else also_off
+    if f():
+        print(5)  # E: This code is unreachable
 "#,
 );
 
