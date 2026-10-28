@@ -4903,3 +4903,16 @@ def checked_cast[T](value: int | str, cls: type[T]) -> T:
     raise TypeError()
     "#,
 );
+
+testcase!(
+    test_issubclass_narrows_union,
+    r#"
+from typing import assert_type
+class A: ...
+def f(x: int | type[A]):
+    if isinstance(x, type) and issubclass(x, A):
+        assert_type(x, type[A])
+    else:
+        assert_type(x, int)
+    "#,
+);
