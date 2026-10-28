@@ -40,6 +40,7 @@ use starlark_map::small_set::SmallSet;
 use crate::binding::stmt::SpecialImportForm;
 use crate::binding::stmt::is_special_import_function;
 use crate::binding::stmt::special_import_form;
+use crate::binding::stmt::special_import_module;
 use crate::export::deprecation::parse_deprecation;
 use crate::export::special::SpecialExport;
 use crate::types::globals::ImplicitGlobal;
@@ -828,8 +829,7 @@ impl DefinitionsBuilder {
                     && !arguments.args.is_empty()
                     && let Expr::StringLiteral(path_lit) = &arguments.args[0]
                 {
-                    let module_name_str = path_lit.value.to_str().replace('/', ".");
-                    let m = ModuleName::from_string(module_name_str);
+                    let m = special_import_module(path_lit.value.to_str());
 
                     match special_import_form(&arguments.args) {
                         SpecialImportForm::Wildcard => {

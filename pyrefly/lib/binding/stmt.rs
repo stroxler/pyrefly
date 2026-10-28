@@ -8,6 +8,7 @@
 use dupe::Dupe;
 use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
+use pyrefly_python::keywords::is_reserved_keyword;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -101,6 +102,35 @@ pub(crate) const SPECIAL_IMPORT_FUNCTIONS: &[&str] = &[
 /// Returns true if the given name is a special import function.
 pub(crate) fn is_special_import_function(name: &str) -> bool {
     SPECIAL_IMPORT_FUNCTIONS.contains(&name)
+}
+
+/// The module that the path argument of a special import call names. This is the configerator
+/// compiler's Python-safe name for the file, which configs spell in import statements and stubs
+/// are laid out under: `/` and `.` both separate components, and a keyword component gets a
+/// trailing underscore. A Thrift path also maps `-` to `_`, e.g. `"a/if/b-c.thrift.python"`
+/// names `a.if_.b_c.thrift.python`. Other paths keep their hyphens, because the finder locates
+/// those files by their real names and unescapes only keywords.
+pub(crate) fn special_import_module(path: &str) -> ModuleName {
+    let file_name = path
+        .rsplit_once('/')
+        .map_or(path, |(_, file_name)| file_name);
+    let is_thrift = file_name.split('.').skip(1).any(|ext| ext == "thrift");
+    let components: Vec<String> = path
+        .split(['/', '.'])
+        .map(|component| {
+            let component = if is_thrift {
+                component.replace('-', "_")
+            } else {
+                component.to_owned()
+            };
+            if is_reserved_keyword(&component) {
+                format!("{component}_")
+            } else {
+                component
+            }
+        })
+        .collect();
+    ModuleName::from_string(components.join("."))
 }
 
 /// What the second argument of a special import call asks for.
@@ -320,9 +350,7 @@ impl<'a> BindingsBuilder<'a> {
             _ => return,
         };
 
-        // Convert path separators to dots to form a module name.
-        let module_name_str = module_path.replace('/', ".");
-        let m = ModuleName::from_string(module_name_str);
+        let m = special_import_module(module_path);
 
         let module_found = matches!(self.lookup.module_exists(m), FindingOrError::Finding(_));
 
