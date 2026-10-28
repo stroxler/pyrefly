@@ -910,6 +910,21 @@ def test(cond: bool):
 "#,
 );
 
+// A branch that ends in an expression statement may still define the name, so its termination
+// key says nothing about a different branch that does not.
+testcase!(
+    test_uninitialized_branch_not_covered_by_another_branch_termination,
+    r#"
+def f(c: bool, l: list[int]) -> None:
+    if c:
+        n = 1
+        l.append(1)
+    else:
+        pass
+    print(n)  # E: `n` may be uninitialized
+"#,
+);
+
 testcase!(
     test_initialize_on_usage,
     r#"

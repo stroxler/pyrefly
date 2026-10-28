@@ -3926,6 +3926,181 @@ def impossible_isinstance(x: int) -> None:
 "#,
 );
 
+// A suite that declarations settle as dead never runs, so it should not contribute to the types
+// after the chain. See https://github.com/facebook/pyrefly/issues/3537.
+testcase!(
+    bug = "A suite settled dead by declarations still contributes to the merge",
+    test_suite_settled_dead_by_declarations_is_pruned,
+    r#"
+from typing import Final, Literal, assert_type
+
+FLAG: Final = False
+ON: Final = True
+
+if FLAG:
+    x = 1  # E: This code is unreachable
+else:
+    x = 2
+assert_type(x, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+
+# An annotation settles the test without `Final`.
+ANNOTATED: Literal[False] = False
+
+if ANNOTATED:
+    a = 1  # E: This code is unreachable
+else:
+    a = 2
+assert_type(a, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+
+def parameter(value: Literal[False]) -> None:
+    if value:
+        y = 1  # E: This code is unreachable
+    else:
+        y = 2
+    assert_type(y, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+
+class Config:
+    DEBUG: Final = False
+
+    def method(self) -> None:
+        if self.DEBUG:
+            z = 1  # E: This code is unreachable
+        else:
+            z = 2
+        assert_type(z, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+
+def preempted(other: bool) -> None:
+    if ON:
+        w = 1
+    elif other:
+        w = 2  # E: This code is unreachable
+    else:
+        w = 3  # E: This code is unreachable
+    assert_type(w, Literal[1])  # E: assert_type(Literal[1, 2, 3], Literal[1]) failed
+"#,
+);
+
+// A name assigned only in suites that run is initialized, whatever the dead suites do.
+testcase!(
+    bug = "A suite settled dead by declarations still makes a name possibly uninitialized",
+    test_uninitialized_ignores_suite_settled_dead_by_declarations,
+    r#"
+from typing import Final
+
+FLAG: Final = False
+ON: Final = True
+
+def dead_if() -> None:
+    if FLAG:
+        pass  # E: This code is unreachable
+    else:
+        x = 1
+    print(x)  # E: `x` may be uninitialized
+
+def dead_elif(other: bool) -> None:
+    if ON:
+        y = 1
+    elif other:
+        pass  # E: This code is unreachable
+    print(y)  # E: `y` may be uninitialized
+"#,
+);
+
+// Control cannot fall off the end of a function through a suite that never runs.
+testcase!(
+    bug = "A suite settled dead by declarations still falls off the end of the function",
+    test_implicit_return_ignores_suite_settled_dead_by_declarations,
+    r#"
+from typing import Final
+
+FLAG: Final = False
+ON: Final = True
+
+def dead_if() -> int:  # E: Function declared to return `int`, but one or more paths are missing an explicit `return`
+    if FLAG:
+        pass  # E: This code is unreachable
+    else:
+        return 1
+
+def dead_elif(other: bool) -> int:  # E: Function declared to return `int`, but one or more paths are missing an explicit `return`
+    if ON:
+        return 1
+    elif other:
+        pass  # E: This code is unreachable
+"#,
+);
+
+// An earlier test of the same name narrows it in each branch, and the merge of those narrows
+// is what a later test reads. The narrowing does not change the declaration that settles it.
+testcase!(
+    bug = "A test is not settled when an earlier test narrowed the same name",
+    test_test_settled_after_earlier_narrowing,
+    r#"
+from typing import Final, Literal, assert_type
+
+FLAG: Final = False
+
+if FLAG:
+    print(0)  # E: This code is unreachable
+if FLAG:
+    x = 1
+else:
+    x = 2
+assert_type(x, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+
+def in_function() -> None:
+    if FLAG:
+        print(0)  # E: This code is unreachable
+    if FLAG:
+        y = 1
+    else:
+        y = 2
+    assert_type(y, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+"#,
+);
+
+// A test is settled only by declared types. An unannotated return type, `__bool__`, or attribute
+// is inferred from the code at hand, which a subclass, a monkeypatch, or a later assignment the
+// inference does not see can make wrong.
+testcase!(
+    bug = "Inferred return types and `__bool__` methods settle a test",
+    test_inferred_types_do_not_settle_tests,
+    r#"
+from typing import Literal, assert_type
+
+def enabled():
+    return False
+
+if enabled():
+    print(1)  # E: This code is unreachable
+
+class Empty:
+    def __bool__(self):
+        return False
+
+def user_bool(e: Empty) -> None:
+    if e:
+        print(2)  # E: This code is unreachable
+
+class AlwaysEmpty:
+    def __bool__(self) -> Literal[False]:
+        return False
+
+# Only the attribute is inferred: its class declares `__bool__`.
+class Builder:
+    def __init__(self) -> None:
+        self.tail = AlwaysEmpty()
+
+    def append(self, make) -> None:
+        if not self.tail:
+            x = 1
+        else:
+            self.tail = make()
+            x = 2
+        assert_type(x, Literal[1, 2])
+"#,
+);
+
 // A call that never returns leaves the rest of its suite dead. The flow does not terminate
 // syntactically, and whether the call diverges is known only once its return type is solved,
 // so the diagnostic is deferred.
