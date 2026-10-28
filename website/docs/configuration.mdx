@@ -654,8 +654,8 @@ baseline-format = "minimal"
 ### `baseline-error-level`
 
 The severity assigned to diagnostics that match the baseline. The default value,
-`"ignore"`, suppresses them from CLI output. Set this to `"info"`, `"warn"`, or
-`"error"` to report matched diagnostics at that severity. Reported matches follow
+`"ignore"`, suppresses them from CLI output. Set this to `"hint"`, `"info"`, `"warn"`,
+or `"error"` to report matched diagnostics at that severity. Reported matches follow
 the normal [`min-severity`](#min-severity) filtering and exit-status behaviour.
 
 ```toml
@@ -663,7 +663,7 @@ baseline = "baseline.json"
 baseline-error-level = "warn"
 ```
 
-- Type: `"ignore"` | `"info"` | `"warn"` | `"error"`
+- Type: `"ignore"` | `"hint"` | `"info"` | `"warn"` | `"error"`
 - Default: `"ignore"`
 - Flag equivalent: `--baseline-error-level`
 - Notes:
@@ -713,6 +713,13 @@ below this threshold are hidden from output. Diagnostics at or above the thresho
 displayed and cause a nonzero exit code — for example, `--min-severity warn` makes
 warnings cause a nonzero exit.
 
+The lowest threshold, `"hint"`, also shows hint-level diagnostics such as
+[`unused-parameter`](../error-kinds#unused-parameter),
+[`unused-variable`](../error-kinds#unused-variable), and
+[`unused-import`](../error-kinds#unused-import). These are hidden by default, and
+showing them makes them count toward the exit code like any other displayed
+diagnostic.
+
 ```toml
 # pyrefly.toml — show warnings and errors
 min-severity = "warn"
@@ -724,7 +731,7 @@ min-severity = "warn"
 min-severity = "warn"
 ```
 
-- Type: `"ignore"` | `"info"` | `"warn"` | `"error"`
+- Type: `"ignore"` | `"hint"` | `"info"` | `"warn"` | `"error"`
 - Default: `"error"`
 - Flag equivalent: `--min-severity`
 - Notes:
@@ -856,7 +863,7 @@ Enables every error kind at `error` severity. Directives like `reveal-type` rema
 
 ### `errors`
 
-Configure the severity for each kind of error that Pyrefly emits: `error`, `warn`, `ignore`.
+Configure the severity for each kind of error that Pyrefly emits: `error`, `warn`, `info`, `hint`, or `ignore`.
 
 :::info
 Want full type-check squiggles in your editor? Run `pyrefly init` to create a `pyrefly.toml` (or update `pyproject.toml`).
