@@ -179,12 +179,6 @@ jobs:
               console.log(`#${pull_number}: already labeled, leaving as-is`);
               return;
             }
-            // TODO(rechen): This check prevents non-dry runs from doing anything on PRs that don't
-            // already have a label; remove this once we're ready to roll out to all PRs.
-            if (!dryRun && current.length === 0) {
-              console.log(`#${pull_number}: not labeled, skipping`);
-              return;
-            }
             const sweep = context.eventName === 'schedule'
               || context.payload.inputs?.scenario === 'Reconcile PRs updated since last sweep';
             const manual = context.eventName === 'workflow_dispatch' && !sweep;
