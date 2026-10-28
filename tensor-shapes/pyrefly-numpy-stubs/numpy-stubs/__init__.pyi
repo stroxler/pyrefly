@@ -947,6 +947,11 @@ class ndarray(Generic[_ShapeT_co, _DTypeT_co]):
         *,
         where: Any = True,
     ) -> ndarray[reduce_shape(_ShapeT_co, Axis, KeepDims), _dtype[bool_]]: ...
+    @overload
+    def argmax(
+        self, axis: None = None, out: None = None, *, keepdims: Literal[False] = False
+    ) -> intp: ...
+    @overload
     def argmax[Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
         self,
         axis: Axis = None,
@@ -954,6 +959,11 @@ class ndarray(Generic[_ShapeT_co, _DTypeT_co]):
         *,
         keepdims: KeepDims = False,
     ) -> ndarray[reduce_shape(_ShapeT_co, Axis, KeepDims), _dtype[intp]]: ...
+    @overload
+    def argmin(
+        self, axis: None = None, out: None = None, *, keepdims: Literal[False] = False
+    ) -> intp: ...
+    @overload
     def argmin[Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
         self,
         axis: Axis = None,
@@ -1954,6 +1964,14 @@ def argmin[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
     a: ArrayLike, axis: Axis = None, *, out: Out, keepdims: KeepDims = False
 ) -> Out: ...
 @overload
+def argmin(
+    a: ArrayLike,
+    axis: None = None,
+    out: None = None,
+    *,
+    keepdims: Literal[False] = False,
+) -> intp: ...
+@overload
 def argmin[
     Shape: _Shape,
     DType,
@@ -1982,6 +2000,14 @@ def argmax[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
 def argmax[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
     a: ArrayLike, axis: Axis = None, *, out: Out, keepdims: KeepDims = False
 ) -> Out: ...
+@overload
+def argmax(
+    a: ArrayLike,
+    axis: None = None,
+    out: None = None,
+    *,
+    keepdims: Literal[False] = False,
+) -> intp: ...
 @overload
 def argmax[
     Shape: _Shape,

@@ -198,7 +198,7 @@ def test_argmin_3d_axis() -> None:
 
 def test_argmin_no_axis_and_keepdims() -> None:
     flat = np.argmin(np.ones((2, 3)))
-    assert_type(flat, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(flat, np.intp)
     assert_shape(flat.shape, ())
     kept = np.argmin(np.ones((2, 3)), axis=0, keepdims=True)
     assert_type(kept, np.ndarray[[1, 3], np.dtype[np.intp]])
@@ -211,9 +211,9 @@ def test_argmin_argmax_reject_tuple_axis() -> None:
     with assert_raises(TypeError):
         np.argmin(a, axis=(0, 1))  # E: No matching overload
     with assert_raises(TypeError):
-        a.argmin(axis=(0, 1))  # E: not a valid `Flag[int | None]`
+        a.argmin(axis=(0, 1))  # E: No matching overload
     with assert_raises(TypeError):
-        a.argmax(axis=(0, 1))  # E: not a valid `Flag[int | None]`
+        a.argmax(axis=(0, 1))  # E: No matching overload
 
 
 def test_expand_dims_matrix_negative_axis() -> None:
@@ -396,9 +396,8 @@ def test_argmax_default_and_explicit_none() -> None:
     a = np.arange(6).reshape(2, 3)
     omitted = np.argmax(a)
     explicit = np.argmax(a, axis=None, keepdims=False)
-    # Scalar reductions are currently modeled as zero-dimensional arrays.
-    assert_type(omitted, np.ndarray[[], np.dtype[np.intp]])
-    assert_type(explicit, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(omitted, np.intp)
+    assert_type(explicit, np.intp)
     assert_shape(omitted.shape, ())
     assert_shape(explicit.shape, ())
     assert isinstance(omitted, np.intp)
@@ -485,8 +484,10 @@ class ArrayConvertible:
 
 def test_index_reductions_scalar_and_array_convertible_inputs() -> None:
     scalar = np.argmax(7)
+    assert_type(scalar, np.intp)
     assert scalar == 0
     scalar = np.argmin(np.float64(7))
+    assert_type(scalar, np.intp)
     assert scalar == 0
     converted = np.argmax(ArrayConvertible(), axis=1)  # E: No matching overload
     assert converted.shape == (2,)
@@ -499,7 +500,7 @@ def test_index_reductions_vector_and_scalar_results() -> None:
     positive = np.argmax(vector, axis=0)
     negative = np.argmin(vector, axis=-1)
     zero_rank = np.argmax(scalar, axis=0)
-    # Scalar reductions are currently modeled as zero-dimensional arrays.
+    # Explicit-axis scalar results still need rank-sensitive result modeling.
     assert_type(positive, np.ndarray[[], np.dtype[np.intp]])
     assert_type(negative, np.ndarray[[], np.dtype[np.intp]])
     assert_type(zero_rank, np.ndarray[[], np.dtype[np.intp]])
@@ -517,7 +518,7 @@ def test_index_reductions_vector_and_scalar_results() -> None:
     assert negative == zero_rank == 0
     method_default = vector.argmax()
     method_axis = vector.argmin(axis=0)
-    assert_type(method_default, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(method_default, np.intp)
     assert_type(method_axis, np.ndarray[[], np.dtype[np.intp]])
     assert isinstance(method_default, np.intp)
     assert isinstance(method_axis, np.intp)
