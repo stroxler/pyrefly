@@ -26,6 +26,7 @@ diagnostics correspond to the kinds below.
 
 Diagnostics have several possible severity levels, which can be [configured](../configuration#errors) in `pyrefly.toml` or via CLI:
 - **ignore**: the diagnostic is not emitted
+- **hint**: the diagnostic shows up as a faint hint in the IDE, and `pyrefly check` doesn't mention it unless `--min-severity hint` is passed
 - **info**: the diagnostic shows up blue in the IDE
 - **warn**: the diagnostic shows up yellow in the IDE
 - **error**: the diagnostic shows up red in the IDE
@@ -2730,11 +2731,43 @@ Default severity: `ignore`
 
 This error is raised when a `# pyrefly: ignore` comment is not used to suppress an error, and can be safely removed.
 
+## unused-import
+
+Default severity: `hint`
+
+A module-level import whose name is never used. The IDE greys it out. Star imports, `__future__` imports, re-exports written as `import x as x`, and names listed in `__all__` are not reported.
+
+```python
+import os  # unused-import: Import `os` may be unused
+```
+
+## unused-parameter
+
+Default severity: `hint`
+
+A function parameter that is never used in the function body. The IDE greys it out. Parameters whose names start with `_`, `self`, `cls`, `*args` and `**kwargs` are not reported, and neither are the parameters of overloads, abstract methods, `@override` methods, or functions whose body is only a placeholder such as `pass`, `...` or `raise NotImplementedError`. Functions without annotations get no parameter hints when [`check-unannotated-defs`](../configuration#check-unannotated-defs) is off, as in the `basic` preset.
+
+```python
+def handler(request: str, context: str) -> str:  # unused-parameter: Parameter `context` is unused
+    return request
+```
+
 ## unused-type-ignore
 
 Default severity: `ignore`
 
 This error is raised when a `# type: ignore` comment is not used to suppress any error, and can be safely removed. This rule is distinct from `unused-ignore` so that projects using multiple type checkers can leave `# type: ignore` comments for other tools (e.g. mypy) without pyrefly flagging them. Enable this rule if your project uses pyrefly exclusively.
+
+## unused-variable
+
+Default severity: `hint`
+
+A local variable that is assigned but never used. The IDE greys it out. Variables with a leading underscore, such as `_` or `_unused`, are not reported. Functions without annotations get no variable hints when [`check-unannotated-defs`](../configuration#check-unannotated-defs) is off, as in the `basic` preset.
+
+```python
+def f() -> None:
+    result = compute()  # unused-variable: Variable `result` is unused
+```
 
 ## useless-overload-body
 

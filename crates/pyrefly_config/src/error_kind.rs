@@ -511,8 +511,14 @@ pub enum ErrorKind {
     UnusedCoroutine,
     /// A suppression comment is unused (no error to suppress, or specific codes are unused)
     UnusedIgnore,
+    /// A module-level import whose name is never used.
+    UnusedImport,
+    /// A function parameter that is never used in the function body.
+    UnusedParameter,
     /// A `# type: ignore` comment is unused (no error to suppress on that line)
     UnusedTypeIgnore,
+    /// A local variable that is assigned but never used.
+    UnusedVariable,
     /// `@overload` bodies are never executed, so executable body logic is usually dead code.
     UselessOverloadBody,
     /// The inferred variance of a type variable does not match its declared variance.
@@ -683,7 +689,10 @@ impl ErrorKind {
             ErrorKind::UntypedNamedtuple => Severity::Ignore,
             ErrorKind::UnusedCallResult => Severity::Ignore,
             ErrorKind::UnusedIgnore => Severity::Ignore,
+            ErrorKind::UnusedImport => Severity::Hint,
+            ErrorKind::UnusedParameter => Severity::Hint,
             ErrorKind::UnusedTypeIgnore => Severity::Ignore,
+            ErrorKind::UnusedVariable => Severity::Hint,
             ErrorKind::VarianceMismatch => Severity::Warn,
             // Overload bodies are runtime-dead, so this should warn rather than fail CI by default.
             ErrorKind::UselessOverloadBody => Severity::Warn,
@@ -723,6 +732,9 @@ impl ErrorKind {
                 ErrorKind::Deprecated
                     | ErrorKind::RedundantCast
                     | ErrorKind::UnnecessaryTypeConversion
+                    | ErrorKind::UnusedImport
+                    | ErrorKind::UnusedParameter
+                    | ErrorKind::UnusedVariable
             )
     }
 

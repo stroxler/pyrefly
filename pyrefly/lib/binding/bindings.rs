@@ -228,7 +228,6 @@ pub struct Bindings {
     scope_trace: Option<ScopeTrace>,
     /// Names `del`eted at module scope; retained outside the LSP `scope_trace`.
     module_deletes: SmallSet<Name>,
-    unused_parameters: Vec<UnusedParameter>,
     unused_imports: Vec<UnusedImport>,
     unused_variables: Vec<UnusedVariable>,
     pytest_info: Option<PytestBindingInfo>,
@@ -319,7 +318,6 @@ pub struct BindingsBuilder<'a> {
     pub analyze_unannotated_for_ide: bool,
     pub infer_return_types: InferReturnTypes,
     pub treat_all_caps_as_final: bool,
-    unused_parameters: Vec<UnusedParameter>,
     unused_imports: Vec<UnusedImport>,
     unused_variables: Vec<UnusedVariable>,
     django_relation_classes: Vec<DjangoRelationClass>,
@@ -421,7 +419,6 @@ impl Bindings {
             annotated_metadata_ranges: Vec::new(),
             scope_trace: None,
             module_deletes: SmallSet::new(),
-            unused_parameters: Vec::new(),
             unused_imports: Vec::new(),
             unused_variables: Vec::new(),
             pytest_info: None,
@@ -493,10 +490,6 @@ impl Bindings {
         let key = KeyUndecoratedFunctionRange(def_index);
         let idx = self.key_to_idx_hashed_opt(Hashed::new(&key))?;
         Some(KeyUndecoratedFunctionRange::range_with(idx, self))
-    }
-
-    pub fn unused_parameters(&self) -> &[UnusedParameter] {
-        &self.unused_parameters
     }
 
     pub fn unused_imports(&self) -> &[UnusedImport] {
@@ -743,7 +736,6 @@ impl Bindings {
             analyze_unannotated_for_ide,
             infer_return_types,
             treat_all_caps_as_final,
-            unused_parameters: Vec::new(),
             unused_imports: Vec::new(),
             unused_variables: Vec::new(),
             django_relation_classes: Vec::new(),
@@ -893,7 +885,6 @@ impl Bindings {
                 None
             },
             module_deletes,
-            unused_parameters: builder.unused_parameters,
             unused_imports: builder.unused_imports,
             unused_variables: builder.unused_variables,
             pytest_info: builder.pytest_info,
@@ -1176,15 +1167,37 @@ impl<'a> BindingsBuilder<'a> {
         self.table.insert_idx(idx, value)
     }
 
-    pub fn record_unused_parameters(&mut self, unused: Vec<UnusedParameter>) {
-        self.unused_parameters.extend(unused);
+    pub fn record_unused_parameters(&self, unused: Vec<UnusedParameter>) {
+        for parameter in unused {
+            self.error(
+                parameter.range,
+                ErrorKind::UnusedParameter,
+                format!("Parameter `{}` is unused", parameter.name),
+            );
+        }
     }
 
     pub fn record_unused_imports(&mut self, unused: Vec<UnusedImport>) {
+        for import in &unused {
+            self.error(
+                import.range,
+                ErrorKind::UnusedImport,
+                format!("Import `{}` may be unused", import.name),
+            );
+        }
         self.unused_imports.extend(unused);
     }
 
     pub fn record_unused_variables(&mut self, unused: Vec<UnusedVariable>) {
+        for variable in &unused {
+            if !Ast::is_intentionally_unused(variable.name.as_str()) {
+                self.error(
+                    variable.range,
+                    ErrorKind::UnusedVariable,
+                    format!("Variable `{}` is unused", variable.name),
+                );
+            }
+        }
         self.unused_variables.extend(unused);
     }
 
