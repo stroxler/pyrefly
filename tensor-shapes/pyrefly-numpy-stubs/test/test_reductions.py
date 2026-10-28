@@ -73,6 +73,27 @@ def test_reduce_scalar_and_empty_axis_tuple() -> None:
 
 if TYPE_CHECKING:
 
+    def check_index_reductions_unknown_rank(
+        a: np.ndarray, b: np.ndarray[IntTuple, Any], keepdims: bool
+    ) -> None:
+        assert_type(a.argmax(axis=0), np.ndarray[IntTuple, np.dtype[np.intp]])
+        assert_type(a.argmax(keepdims=True), np.ndarray[IntTuple, np.dtype[np.intp]])
+        assert_type(
+            a.argmax(axis=0, keepdims=keepdims),
+            np.ndarray[IntTuple, np.dtype[np.intp]],
+        )
+        assert_type(b.argmin(axis=0), np.ndarray[IntTuple, np.dtype[np.intp]])
+        assert_type(b.argmin(keepdims=True), np.ndarray[IntTuple, np.dtype[np.intp]])
+        assert_type(np.argmax(a, axis=0), np.ndarray[IntTuple, np.dtype[np.intp]])
+        assert_type(
+            np.argmax(a, keepdims=True), np.ndarray[IntTuple, np.dtype[np.intp]]
+        )
+        assert_type(
+            np.argmax(a, axis=0, keepdims=keepdims),
+            np.ndarray[IntTuple, np.dtype[np.intp]],
+        )
+        assert_type(np.argmin(b, axis=0), np.ndarray[IntTuple, np.dtype[np.intp]])
+
     def check_symbolic_reductions[D: IntVar, S: IntTuple](
         leading: np.ndarray[[D, *S], Any], trailing: np.ndarray[[*S, D], Any]
     ) -> None:
@@ -358,3 +379,121 @@ def check_symbolic_axis_becomes_gradual[N: IntVar](
     a: np.ndarray[[N, 3]], axis: Int[N]
 ) -> None:
     assert_type(np.sum(a, axis=axis), np.ndarray[IntTuple, Any])
+
+
+def test_argmax_axes_and_dtype() -> None:
+    a = np.arange(24).reshape(2, 3, 4)
+    result = np.argmax(a, axis=1)
+    assert_type(result, np.ndarray[[2, 4], np.dtype[np.intp]])
+    assert_shape(result.shape, (2, 4))
+    assert_shape(np.argmax(a, axis=-1).shape, (2, 3))
+    assert_shape(np.argmax(a, axis=-3).shape, (3, 4))
+    assert result.dtype == np.dtype(np.intp)
+    assert np.array_equal(result, np.full((2, 4), 2))
+
+
+def test_argmax_default_and_explicit_none() -> None:
+    a = np.arange(6).reshape(2, 3)
+    omitted = np.argmax(a)
+    explicit = np.argmax(a, axis=None, keepdims=False)
+    # Scalar reductions are currently modeled as zero-dimensional arrays.
+    assert_type(omitted, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(explicit, np.ndarray[[], np.dtype[np.intp]])
+    assert_shape(omitted.shape, ())
+    assert_shape(explicit.shape, ())
+    assert isinstance(omitted, np.intp)
+    assert omitted == explicit == 5
+
+
+def test_argmax_keepdims() -> None:
+    a = np.ones((2, 3, 4))
+    flattened = np.argmax(a, keepdims=True)
+    columns = np.argmax(a, axis=-2, keepdims=True)
+    assert_type(flattened, np.ndarray[[1, 1, 1], np.dtype[np.intp]])
+    assert_type(columns, np.ndarray[[2, 1, 4], np.dtype[np.intp]])
+    assert_shape(flattened.shape, (1, 1, 1))
+    assert_shape(columns.shape, (2, 1, 4))
+
+
+def test_argmax_methods_and_sequence_input() -> None:
+    a = np.ones((2, 3))
+    assert_type(a.argmax(axis=1), np.ndarray[[2], np.dtype[np.intp]])
+    assert_type(a.argmin(axis=0), np.ndarray[[3], np.dtype[np.intp]])
+    assert_shape(a.argmax(axis=1).shape, (2,))
+    assert_shape(a.argmin(axis=0).shape, (3,))
+    assert np.argmax([[1, 3, 2], [4, 2, 1]], axis=1).shape == (2,)
+    assert np.argmin([[1, 3, 2], [4, 2, 1]], axis=1).shape == (2,)
+
+
+def test_argmax_invalid_axes() -> None:
+    a = np.ones((2, 3))
+    with assert_raises(TypeError):
+        np.argmax(a, axis=(0, 1))  # E: No matching overload
+    with assert_raises(TypeError):
+        np.argmax(a, axis=True)  # E: No matching overload
+    with assert_raises(ValueError):
+        np.argmax(a, axis=2)  # E: axis out of bounds
+    with assert_raises(ValueError):
+        np.argmax(a, axis=-3)  # E: axis out of bounds
+
+
+def test_index_reductions_out_keyword() -> None:
+    a = np.arange(6).reshape(2, 3)
+    out = np.zeros(2, dtype=np.int32)
+    largest = np.argmax(a, axis=1, out=out)  # E: No matching overload
+    assert largest is out
+    assert_shape(largest.shape, (2,))
+    assert np.array_equal(out, [2, 2])
+    smallest = np.argmin(a, axis=1, out=out)  # E: No matching overload
+    assert smallest is out
+    assert_shape(smallest.shape, (2,))
+    assert np.array_equal(out, [0, 0])
+
+
+def test_index_reductions_out_positional_and_none() -> None:
+    a = np.arange(6).reshape(2, 3)
+    out = np.zeros((2, 1), dtype=np.int32)
+    result = np.argmax(a, 1, out, keepdims=True)  # E: No matching overload
+    assert result is out
+    assert_shape(result.shape, (2, 1))
+    result = np.argmin(a, 1, out, keepdims=True)  # E: No matching overload
+    assert result is out
+    assert_shape(result.shape, (2, 1))
+    explicit_none = np.argmax(a, axis=1, out=None)  # E: No matching overload
+    assert explicit_none.shape == (2,)
+    positional_none = np.argmin(a, 1, None)  # E: No matching overload
+    assert positional_none.shape == (2,)
+    scalar_out = np.zeros((), dtype=np.intp)
+    assert np.argmax(a, out=scalar_out) is scalar_out  # E: No matching overload
+    assert_shape(scalar_out.shape, ())
+    assert np.argmin([3, 1, 2], out=scalar_out) is scalar_out  # E: No matching overload
+    list_result = np.argmax([3, 1, 2], None, scalar_out)  # E: No matching overload
+    assert list_result is scalar_out
+
+
+class ArrayConvertible:
+    def __array__(self, dtype: object = None) -> np.ndarray:
+        return np.ones((2, 3))
+
+
+def test_index_reductions_scalar_and_array_convertible_inputs() -> None:
+    scalar = np.argmax(7)  # E: No matching overload
+    assert scalar == 0
+    scalar = np.argmin(np.float64(7))  # E: No matching overload
+    assert scalar == 0
+    converted = np.argmax(ArrayConvertible(), axis=1)  # E: No matching overload
+    assert converted.shape == (2,)
+    assert_shape(np.ones((2, 3)).shape, (2, 3))
+
+
+if TYPE_CHECKING:
+
+    def check_argmax_gradual_and_symbolic[N: IntVar](
+        a: np.ndarray[[N, 3], Any], axis: int, keepdims: bool
+    ) -> None:
+        assert_type(np.argmax(a, axis=1), np.ndarray[[N], np.dtype[np.intp]])
+        assert_type(np.argmax(a, axis=axis), np.ndarray[IntTuple, np.dtype[np.intp]])
+        assert_type(
+            np.argmax(a, axis=1, keepdims=keepdims),
+            np.ndarray[IntTuple, np.dtype[np.intp]],
+        )
