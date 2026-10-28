@@ -197,7 +197,10 @@ jobs:
             const newEvents = sweep
               ? (await listTimeline()).filter(e => Date.parse(e.created_at ?? e.submitted_at) > changedAt)
               : [];
-            if (sweep && newEvents.length === 0) return;
+            if (sweep && newEvents.length === 0) {
+              console.log(`#${pull_number}: no events since the latest state label change, nothing to do`);
+              return;
+            }
             const lifecycle = (context.eventName === 'pull_request_target'
               && ['reopened', 'ready_for_review', 'converted_to_draft', 'closed'].includes(context.payload.action))
               || newEvents.some(e => ['reopened', 'ready_for_review', 'convert_to_draft'].includes(e.event));
@@ -209,8 +212,12 @@ jobs:
               || newEvents.some(e => (['labeled', 'unlabeled'].includes(e.event) && e.label?.name === 'cla signed')
                 || (e.event === 'commented' && isClaComment(e)));
             const claComment = context.eventName === 'issue_comment' && isClaComment(context.payload.comment);
-            if (claComment && labels.includes('cla signed')) return;
+            if (claComment && labels.includes('cla signed')) {
+              console.log(`#${pull_number}: CLA bot comment but CLA is already signed, nothing to do`);
+              return;
+            }
             if ((pr.state !== 'open' || pr.draft) && !lifecycle && !manual) {
+              console.log(`#${pull_number}: closed or draft PR, nothing to do`);
               return;
             }
 
@@ -224,7 +231,10 @@ jobs:
                 const cla = checks.filter(c => c.app?.slug === 'meta-cla')
                   .sort((a, b) => Date.parse(b.started_at || 0) - Date.parse(a.started_at || 0))[0];
                 // Missing, pending, and inconclusive checks are not unsigned.
-                if (!['success', 'action_required'].includes(cla?.conclusion)) return;
+                if (!['success', 'action_required'].includes(cla?.conclusion)) {
+                  console.log(`#${pull_number}: inconclusive CLA check, nothing to do`);
+                  return;
+                }
                 claSigned = cla.conclusion === 'success';
               }
               if (!claSigned && (lifecycle || claChanged || claComment || manual)) {
@@ -268,7 +278,10 @@ jobs:
                   && context.payload.comment.user.login.toLowerCase() === author
                   && [...(context.payload.comment.body || '').matchAll(/(?<![\w@])@([a-z0-9-]+)(?![\w/-])/gi)]
                     .some(([, login]) => mentionTargets.has(login.toLowerCase()));
-                if (context.eventName === 'issue_comment' && !authorMention) return;
+                if (context.eventName === 'issue_comment' && !authorMention) {
+                  console.log(`#${pull_number}: issue comment is not a review request, nothing to do`);
+                  return;
+                }
                 const timeline = context.eventName !== 'workflow_run' && !sweep
                   && ((approved && !changesRequested) || !latestFeedback)
                   ? []
@@ -297,6 +310,7 @@ jobs:
                   if (!claSigned) {
                     state = 'waiting-for-author';
                   } else if (current.includes('waiting-for-merge') || state !== 'waiting-for-reviewer') {
+                    console.log(`#${pull_number}: review request cannot approve or undo waiting-for-merge, leaving as-is`);
                     return;
                   }
                 } else if (context.eventName === 'workflow_run' || (sweep && !lifecycle && !claChanged)) {
@@ -308,14 +322,27 @@ jobs:
                   const dismissed = timeline.some(e => e.event === 'review_dismissed'
                     && Date.parse(e.created_at) > changedAt
                     && reviews.some(r => r.id === e.dismissed_review?.review_id));
-                  if (newReviews.length === 0 && !dismissed && lastRerequest <= changedAt) return;
+                  if (newReviews.length === 0 && !dismissed && lastRerequest <= changedAt) {
+                    console.log(`#${pull_number}: no reviews, dismissals, or re-requests since the latest state label change, nothing to do`);
+                    return;
+                  }
                   if (state === 'waiting-for-merge'
-                    && !newReviews.some(r => r.state === 'APPROVED') && !dismissed) return;
+                    && !newReviews.some(r => r.state === 'APPROVED') && !dismissed) {
+                    console.log(`#${pull_number}: no approval since the latest state label change, leaving as-is`);
+                    return;
+                  }
                   if (state === 'waiting-for-author' && current.includes('waiting-for-merge')
-                    && !newReviews.some(r => r.state === 'CHANGES_REQUESTED') && !dismissed) return;
+                    && !newReviews.some(r => r.state === 'CHANGES_REQUESTED') && !dismissed) {
+                    console.log(`#${pull_number}: no change request to undo waiting-for-merge, leaving as-is`);
+                    return;
+                  }
                   // A re-request alone cannot undo waiting-for-merge.
-                  if (current.includes('waiting-for-merge') && newReviews.length === 0 && !dismissed) return;
+                  if (current.includes('waiting-for-merge') && newReviews.length === 0 && !dismissed) {
+                    console.log(`#${pull_number}: re-request cannot undo waiting-for-merge, leaving as-is`);
+                    return;
+                  }
                 } else if (!lifecycle && !claChanged && !manual) {
+                  console.log(`#${pull_number}: event does not affect the state, nothing to do`);
                   return;
                 }
                 if (!claSigned) state = 'waiting-for-author';
