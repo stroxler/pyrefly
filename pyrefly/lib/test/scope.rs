@@ -925,6 +925,96 @@ def f(c: bool, l: list[int]) -> None:
 "#,
 );
 
+// A boolean operation merges flows in which `x` is still possibly uninitialized, which must not
+// make it initialized.
+testcase!(
+    test_uninitialized_survives_boolean_operation,
+    r#"
+def from_if(b: bool, c: bool, d: bool) -> int:
+    if b:
+        pass
+    else:
+        x = 1
+    y = c and d
+    return x  # E: `x` may be uninitialized
+
+def from_loop(xs: list[int], c: bool, d: bool) -> int:
+    for i in xs:
+        x = i
+    y = c and d
+    return x  # E: `x` may be uninitialized
+
+def g() -> int: ...
+
+def from_try(c: bool, d: bool) -> int:
+    try:
+        x = g()
+    except Exception:
+        pass
+    y = c or d
+    return x  # E: `x` may be uninitialized
+"#,
+);
+
+// A loop that may run zero times leaves `x` possibly uninitialized. Only the branch that ends in
+// a call that never returns is decided by its termination key, so the doubt from the other branch
+// remains.
+testcase!(
+    test_uninitialized_keeps_doubt_of_branch_without_termination_key,
+    r#"
+from typing import NoReturn
+
+def stop() -> NoReturn: ...
+
+def after_match(xs: list[int], n: int) -> None:
+    for i in xs:
+        x = i
+    match n:
+        case 1:
+            stop()
+        case _:
+            pass
+    print(x)  # E: `x` may be uninitialized
+
+def after_try(xs: list[int]) -> None:
+    for i in xs:
+        x = i
+    try:
+        pass
+    except ValueError:
+        stop()
+    print(x)  # E: `x` may be uninitialized
+
+def after_loop(xs: list[int], ys: list[int]) -> None:
+    for i in xs:
+        x = i
+    for y in ys:
+        stop()
+    print(x)  # E: `x` may be uninitialized
+"#,
+);
+
+// A loop that may run zero times leaves `path` possibly uninitialized. The `else` carries that
+// value, but it never reaches the merge, so it must not make `path` possibly uninitialized after it.
+testcase!(
+    test_uninitialized_ignores_possibly_unset_branch_that_diverges,
+    r#"
+from typing import Literal, assert_never
+
+def f(location: Literal["build", "install"], items: list[int]) -> None:
+    for i in items:
+        path = i
+        print(path)
+    if location == "build":
+        path = 1
+    elif location == "install":
+        path = 2
+    else:
+        assert_never(location)
+    print(path)
+"#,
+);
+
 testcase!(
     test_initialize_on_usage,
     r#"
