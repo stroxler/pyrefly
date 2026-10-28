@@ -644,8 +644,10 @@ pub struct Flow {
     // - Static tests based on stuff like sys.version_info don't exclude branches at runtime, since the program may execute in different environments
     // - With-blocks may swallow exceptions, so we cannot guarantee that future blocks are definitely unreachable
     is_definitely_unreachable: bool,
-    /// The key for the last `Binding::StmtExpr` in this flow, if any.
-    /// Used to check for type-based termination (NoReturn/Never) at solve time.
+    /// A key that solves to `Never` when control cannot leave this flow normally, if any:
+    /// usually the last `Binding::StmtExpr`, which may be a `NoReturn` call, or a binding
+    /// wrapping it, such as the `Binding::BranchEnd` of an `if` suite that its test makes dead.
+    /// Used to check for type-based termination at solve time.
     last_stmt_expr: Option<Idx<Key>>,
     /// The name of the function defined by the immediately preceding statement in this flow,
     /// and whether it was decorated with `@overload`.
@@ -3052,7 +3054,8 @@ impl Scopes {
     /// This is used for type-based termination (accounting for flows that
     /// ended in a `Never` or `NoReturn` value) in Phi-nodes when merging flows.
     ///
-    /// Should be set to Some(key) for StmtExpr, and None for other statements.
+    /// Should be set to Some(key) for StmtExpr and for the `BranchEnd` of an `if` suite, and None
+    /// for other statements.
     pub fn set_last_stmt_expr(&mut self, key: Option<Idx<Key>>) {
         self.current_mut().flow.last_stmt_expr = key;
     }
@@ -3978,7 +3981,7 @@ fn determine_definition_status(
 struct MergeBranchEntry {
     /// The flow info for this name in this branch, or None if the branch doesn't have this name.
     flow_info: Option<FlowInfo>,
-    /// The last StmtExpr in the flow this branch came from, if any.
+    /// The `last_stmt_expr` of the flow this branch came from, if any.
     /// Used for type-based termination checking at solve time.
     termination_key: Option<Idx<Key>>,
 }

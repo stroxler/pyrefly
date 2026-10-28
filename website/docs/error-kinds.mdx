@@ -2469,7 +2469,11 @@ if sys.platform == "win32":
 ```
 
 A dead `if` branch is skipped entirely, so nothing inside it is analysed. A `while` body is
-still bound and type-checked as ordinary code, so real problems inside it are reported.
+still bound and type-checked as ordinary code, so real problems inside it are reported. An `if`
+branch that declarations make dead is also analysed, but it does not contribute to the types
+of names after the `if` statement, with three exceptions: a name assigned only in the dead
+branch keeps the type assigned there, and values that leave the branch through `break` or
+`continue`, or that reach an `except` handler, are still counted.
 
 Unreachable regions are grayed out in the editor. Blocks disabled by the environment (e.g.
 `sys.platform == "linux"`) are grayed out, but do not receive an error.

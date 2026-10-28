@@ -994,6 +994,11 @@ pub enum Key {
     /// One syntactic exception-class expression from an `except` clause. A clause
     /// listing a tuple of classes has one of these per element.
     ExceptionClass(TextRange),
+    /// The test of one `if` or `elif` clause, keyed by the test's range.
+    BranchTest(TextRange),
+    /// The end of one suite in an `if`/`elif`/`else` chain, keyed by the clause's range. The
+    /// fall-through of a chain with no `else` is keyed by the empty range at the chain's start.
+    BranchEnd(TextRange),
 }
 
 impl Ranged for Key {
@@ -1033,6 +1038,8 @@ impl Ranged for Key {
             Self::Exhaustive(_, r) => *r,
             Self::SuppressedException(r) | Self::SuppressionNarrow(r) => *r,
             Self::ExceptionClass(r) => *r,
+            Self::BranchTest(r) => *r,
+            Self::BranchEnd(r) => *r,
         }
     }
 }
@@ -1086,6 +1093,8 @@ impl DisplayWith<ModuleInfo> for Key {
             }
             Self::SuppressionNarrow(r) => write!(f, "Key::SuppressionNarrow({})", ctx.display(r)),
             Self::ExceptionClass(r) => write!(f, "Key::ExceptionClass({})", ctx.display(r)),
+            Self::BranchTest(r) => write!(f, "Key::BranchTest({})", ctx.display(r)),
+            Self::BranchEnd(r) => write!(f, "Key::BranchEnd({})", ctx.display(r)),
         }
     }
 }
@@ -1207,13 +1216,34 @@ pub struct PrivateAttributeAccessCheck {
 
 #[derive(Clone, Debug)]
 pub struct BranchSuite {
-    /// This suite's test. An `else` has none.
-    pub test: Option<Expr>,
+    /// This suite's [`Binding::BranchTest`]. An `else` has none.
+    pub test: Option<Idx<Key>>,
     /// The suite's reportable body, if it has one.
     pub range: Option<TextRange>,
+}
+
+/// The test of one `if` or `elif` clause.
+#[derive(Clone, Debug)]
+pub struct BranchTest {
+    pub test: Expr,
+    /// The [`Binding::BranchTest`] of the closest earlier clause in the same chain, if any.
+    pub previous: Option<Idx<Key>>,
     /// Whether the test's value holds in every environment, so that a false test kills this
     /// suite and a true one kills the suites below it.
-    pub test_is_environment_independent: bool,
+    pub is_environment_independent: bool,
+}
+
+/// The end of one suite in an `if`/`elif`/`else` chain, or of the chain's fall-through.
+#[derive(Clone, Debug)]
+pub struct BranchEnd {
+    /// The [`Binding::BranchTest`] that decides whether the suite runs.
+    pub test: Idx<Key>,
+    /// The test value under which the suite runs: `true` for an `if` or `elif` suite, and
+    /// `false` for an `else` suite or a fall-through, which run when the last test fails.
+    pub runs_when: bool,
+    /// The suite's termination key, if any: usually its last expression statement, and for a
+    /// fall-through, the chain's exhaustiveness check.
+    pub last: Option<Idx<Key>>,
 }
 
 impl DisplayWith<Bindings> for ExprOrBinding {
@@ -1291,14 +1321,14 @@ pub enum BindingExpect {
         /// End of the region. Any definitely-dead tail is excluded, being reported on its own.
         end: TextSize,
     },
-    /// Suites in one `if`/`elif`/`else` chain. A suite runs only when every earlier
-    /// environment-independent test is false and its own test is true. The tests' types can
-    /// settle either half, but only once solved, so binding leaves the flow reachable and defers
-    /// the diagnostics here.
+    /// Suites in one `if`/`elif`/`else` chain. A suite is dead when control never evaluates its
+    /// test, because an earlier environment-independent test is always true, or when declarations
+    /// settle its test against it. Both are known only once the tests are solved, so binding
+    /// leaves the flow reachable and defers the diagnostics here.
     ///
-    /// Only the tests' own values are consulted, never the narrowing they perform. `if x is None:`
-    /// on a `str` narrows to `Never` too, but reporting that would condemn a defensive check that
-    /// a wrong annotation makes real, and such checks are everywhere.
+    /// Narrowing never makes a suite dead. `if x is None:` on a `str` narrows to `Never` too, but
+    /// reporting that would condemn a defensive check that a wrong annotation makes real, and such
+    /// checks are everywhere.
     BranchSuiteReachability(Box<[BranchSuite]>),
     /// An `except` clause that earlier clauses in the same `try` statement may already
     /// catch everything for. Only emitted when there is at least one earlier clause.
@@ -2265,8 +2295,8 @@ pub enum FirstUse {
 pub struct BranchInfo {
     /// The type key from this branch.
     pub value_key: Idx<Key>,
-    /// The last `Binding::StmtExpr` in this branch, if any.
-    /// Used to check for type-based termination (NoReturn/Never) at solve time.
+    /// The branch's termination key, if any: it solves to `Never` when control cannot leave
+    /// the branch normally, in which case the branch is left out of the join.
     pub termination_key: Option<Idx<Key>>,
 }
 
@@ -2749,6 +2779,13 @@ pub enum Binding {
     /// control flow resumes after the `with`.
     /// Resolves to `Never` if the body terminates and no context manager suppresses.
     SuppressedException(Box<SuppressedException>),
+    /// Resolves to `Never` when control never evaluates the test, because an earlier test in
+    /// the chain is always true. Otherwise resolves to `Literal[True]` or `Literal[False]` when
+    /// declarations settle the test's value in every environment, and to `bool` when they don't.
+    BranchTest(Box<BranchTest>),
+    /// Resolves to `Never` when control cannot leave the suite normally: either its test makes
+    /// it dead, or its `last` termination key is `Never`. Resolves to `None` otherwise.
+    BranchEnd(Box<BranchEnd>),
     Sentinel(
         Box<(
             Option<Idx<KeyAnnotation>>,
@@ -3107,6 +3144,20 @@ impl DisplayWith<Bindings> for Binding {
                     None => write!(f, "terminated)"),
                 }
             }
+            Self::BranchTest(x) => {
+                write!(f, "BranchTest({}, ", m.display(&x.test))?;
+                match x.previous {
+                    Some(previous) => write!(f, "{})", ctx.display(previous)),
+                    None => write!(f, "first)"),
+                }
+            }
+            Self::BranchEnd(x) => {
+                write!(f, "BranchEnd({}, {}, ", ctx.display(x.test), x.runs_when)?;
+                match x.last {
+                    Some(last) => write!(f, "{})", ctx.display(last)),
+                    None => write!(f, "none)"),
+                }
+            }
         }
     }
 }
@@ -3201,7 +3252,9 @@ impl Binding {
             | Binding::ClassBodyUnknownName(_)
             | Binding::Exhaustive(_)
             | Binding::ExceptionClass(_, _)
-            | Binding::SuppressedException(_) => None,
+            | Binding::SuppressedException(_)
+            | Binding::BranchTest(_)
+            | Binding::BranchEnd(_) => None,
         }
     }
 }

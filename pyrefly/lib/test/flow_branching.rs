@@ -3709,6 +3709,15 @@ def truthy_preempts_the_rest(value: Literal[True], other: bool) -> None:
     else:
         print(8)  # E: This code is unreachable
 
+# The `elif` test is narrowed to `Never` by the test above it, which does not hide the suites below.
+def preempted_test_narrowed_to_never(value: Literal[True]) -> None:
+    if value:
+        pass
+    elif value:
+        print(23)  # E: This code is unreachable
+    else:
+        print(24)  # E: This code is unreachable
+
 def falsy_else_is_live(value: Literal[False]) -> None:
     if value:
         print(9)  # E: This code is unreachable
@@ -3762,6 +3771,12 @@ def wrapped_class_object_bool() -> None:
         print(18)
     else:
         print(19)  # E: This code is unreachable
+
+# The inner suite is inside one already reported, so it is not reported again.
+def nested_in_dead(value: Literal[False]) -> None:
+    if value:
+        if value:  # E: This code is unreachable
+            print(23)
 
 def genuinely_live(value: bool, mixed: Literal[False] | Literal[True]) -> None:
     if value:
@@ -3929,7 +3944,6 @@ def impossible_isinstance(x: int) -> None:
 // A suite that declarations settle as dead never runs, so it should not contribute to the types
 // after the chain. See https://github.com/facebook/pyrefly/issues/3537.
 testcase!(
-    bug = "A suite settled dead by declarations still contributes to the merge",
     test_suite_settled_dead_by_declarations_is_pruned,
     r#"
 from typing import Final, Literal, assert_type
@@ -3941,7 +3955,7 @@ if FLAG:
     x = 1  # E: This code is unreachable
 else:
     x = 2
-assert_type(x, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+assert_type(x, Literal[2])
 
 # An annotation settles the test without `Final`.
 ANNOTATED: Literal[False] = False
@@ -3950,14 +3964,14 @@ if ANNOTATED:
     a = 1  # E: This code is unreachable
 else:
     a = 2
-assert_type(a, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+assert_type(a, Literal[2])
 
 def parameter(value: Literal[False]) -> None:
     if value:
         y = 1  # E: This code is unreachable
     else:
         y = 2
-    assert_type(y, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+    assert_type(y, Literal[2])
 
 class Config:
     DEBUG: Final = False
@@ -3967,7 +3981,7 @@ class Config:
             z = 1  # E: This code is unreachable
         else:
             z = 2
-        assert_type(z, Literal[2])  # E: assert_type(Literal[1, 2], Literal[2]) failed
+        assert_type(z, Literal[2])
 
 def preempted(other: bool) -> None:
     if ON:
@@ -3976,13 +3990,108 @@ def preempted(other: bool) -> None:
         w = 2  # E: This code is unreachable
     else:
         w = 3  # E: This code is unreachable
-    assert_type(w, Literal[1])  # E: assert_type(Literal[1, 2, 3], Literal[1]) failed
+    assert_type(w, Literal[1])
+"#,
+);
+
+// A call to a function declared to return `Literal[False]` settles its test like a name does,
+// and a declared-true `if` with no `else` leaves no path past it on which `y` is unset. A test
+// that reads the environment settles nothing, even when declarations alone would decide it.
+testcase!(
+    test_pruning_after_calls_fall_throughs_and_environment_tests,
+    r#"
+import sys
+from typing import Final, Literal, assert_type
+
+ON: Final = True
+
+def off() -> Literal[False]:
+    return False
+
+def declared_call() -> None:
+    if off():
+        x = 1  # E: This code is unreachable
+    else:
+        x = 2
+    assert_type(x, Literal[2])
+
+def fall_through() -> None:
+    if not off():
+        y = 1
+    print(y)
+
+def environment() -> None:
+    if sys.platform.startswith("win") or ON:
+        x = 1
+    else:
+        x = 2
+    assert_type(x, Literal[1, 2])
+
+# The environment removes the first clause, and the `elif` still preempts the `else`.
+def after_environment_clause() -> None:
+    if sys.platform == "win32":
+        x = 1
+    elif ON:
+        x = 2
+    else:
+        x = 3  # E: This code is unreachable
+    assert_type(x, Literal[2])
+"#,
+);
+
+// The first `if` leaves `x` set or unset depending on keys of its own suites. The second `if`'s
+// `else` never reaches the merge, but a branch whose state depends on keys is not decided by its
+// own termination key, so its doubt carries through.
+testcase!(
+    bug = "A branch that never reaches the merge keeps doubt it carries from an earlier `if`",
+    test_doubt_from_earlier_if_survives_branch_that_never_returns,
+    r#"
+from typing import NoReturn
+
+def stop() -> NoReturn: ...
+
+def f(c: bool, d: bool) -> None:
+    if c:
+        x = 1
+    else:
+        pass
+    if d:
+        x = 2
+    else:
+        stop()
+    print(x)  # E: `x` may be uninitialized
+"#,
+);
+
+// The suite that assigns `x` never runs, and control never evaluates the test that assigns `n`,
+// so both names are unset after the `if`.
+testcase!(
+    bug = "A name assigned only in dead code is only possibly uninitialized, and may keep its type",
+    test_name_assigned_only_in_dead_code,
+    r#"
+from typing import Final, Literal, Never, assert_type
+
+FLAG: Final = False
+ON: Final = True
+
+def dead_suite() -> None:
+    if FLAG:
+        x = 1  # E: This code is unreachable
+    print(x)  # E: `x` may be uninitialized
+    assert_type(x, Literal[1])
+
+def walrus_in_preempted_test(other: int) -> None:
+    if ON:
+        pass
+    elif n := other:
+        print(n)  # E: This code is unreachable
+    print(n)  # E: `n` may be uninitialized
+    assert_type(n, Never)
 "#,
 );
 
 // A name assigned only in suites that run is initialized, whatever the dead suites do.
 testcase!(
-    bug = "A suite settled dead by declarations still makes a name possibly uninitialized",
     test_uninitialized_ignores_suite_settled_dead_by_declarations,
     r#"
 from typing import Final
@@ -3995,14 +4104,14 @@ def dead_if() -> None:
         pass  # E: This code is unreachable
     else:
         x = 1
-    print(x)  # E: `x` may be uninitialized
+    print(x)
 
 def dead_elif(other: bool) -> None:
     if ON:
         y = 1
     elif other:
         pass  # E: This code is unreachable
-    print(y)  # E: `y` may be uninitialized
+    print(y)
 "#,
 );
 

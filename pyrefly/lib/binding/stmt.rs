@@ -45,7 +45,9 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingTypeAlias;
+use crate::binding::binding::BranchEnd;
 use crate::binding::binding::BranchSuite;
+use crate::binding::binding::BranchTest;
 use crate::binding::binding::ExceptClauseCatches;
 use crate::binding::binding::ExhaustiveBinding;
 use crate::binding::binding::ExhaustivenessKind;
@@ -1566,6 +1568,9 @@ impl<'a> BindingsBuilder<'a> {
                 // is carried over to the else branch.
                 let mut negated_prev_ops = NarrowOps::new();
                 let mut branch_suites = Vec::new();
+                // The `BranchTest` of the latest clause bound so far, which decides whether
+                // control reaches the next clause.
+                let mut previous_test = None;
                 let mut contains_environment_test_with_no_else = false;
                 let mut is_first_branch = true;
                 let mut following_runtime_only_branch = false;
@@ -1632,13 +1637,29 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         NarrowOps::from_expr(self, test.as_ref())
                     };
-                    // The solver typechecks each test and uses the same inferred type to decide
-                    // whether this suite, or any environment-independent suites below it, is dead.
+                    // The solver decides from the declarations in each test whether this suite is
+                    // dead. An environment-independent test that is always true also makes every
+                    // suite below it dead.
+                    let this_test = test.map(|test| {
+                        self.insert_binding(
+                            Key::BranchTest(test.range()),
+                            Binding::BranchTest(Box::new(BranchTest {
+                                test,
+                                previous: previous_test,
+                                is_environment_independent: test_is_environment_independent,
+                            })),
+                        )
+                    });
                     branch_suites.push(BranchSuite {
                         range: self.unreachable_body_range(&body),
-                        test,
-                        test_is_environment_independent,
+                        test: this_test,
                     });
+                    // An `if` or `elif` suite runs when its own test is true, and an `else`
+                    // suite when the latest test is false.
+                    let decided_by = this_test
+                        .map(|test| (test, true))
+                        .or(previous_test.map(|test| (test, false)));
+                    previous_test = this_test.or(previous_test);
                     self.bind_narrow_ops(
                         &new_narrow_ops,
                         NarrowUseLocation::Span(range),
@@ -1651,6 +1672,17 @@ impl<'a> BindingsBuilder<'a> {
                         self.type_checking_depth -= 1;
                     } else {
                         self.stmts(body, parent);
+                    }
+                    if let Some((test, runs_when)) = decided_by {
+                        let end = self.insert_binding(
+                            Key::BranchEnd(range),
+                            Binding::BranchEnd(Box::new(BranchEnd {
+                                test,
+                                runs_when,
+                                last: self.scopes.last_stmt_expr(),
+                            })),
+                        );
+                        self.scopes.set_last_stmt_expr(Some(end));
                     }
                     if this_branch_chosen == Some(true)
                         && !test_is_environment_independent
@@ -1714,7 +1746,19 @@ impl<'a> BindingsBuilder<'a> {
                 if exhaustive {
                     self.finish_exhaustive_fork();
                 } else {
-                    self.finish_non_exhaustive_fork(&negated_prev_ops, exhaustive_key);
+                    // The fall-through runs when the latest test is false.
+                    let fall_through_key = match previous_test {
+                        Some(test) => Some(self.insert_binding(
+                            Key::BranchEnd(TextRange::empty(if_range.start())),
+                            Binding::BranchEnd(Box::new(BranchEnd {
+                                test,
+                                runs_when: false,
+                                last: exhaustive_key,
+                            })),
+                        )),
+                        None => exhaustive_key,
+                    };
+                    self.finish_non_exhaustive_fork(&negated_prev_ops, fall_through_key);
                 }
                 // Preserve the configured-environment termination without treating it as
                 // universally unreachable. This keeps later bindings out of a dead branch
