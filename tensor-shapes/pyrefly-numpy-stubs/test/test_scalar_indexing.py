@@ -12,10 +12,10 @@ from shape_extensions import assert_raises, assert_shape, IntTuple
 
 
 def _assert_immutable_scalar(value: Any) -> None:
-    # The baseline checker incorrectly models these values as zero-rank arrays.
+    assert isinstance(value, np.float64)
+    assert not isinstance(value, np.ndarray)
+    assert_shape(value.shape, ())
     if not TYPE_CHECKING:
-        assert isinstance(value, np.float64)
-        assert not isinstance(value, np.ndarray)
         with assert_raises(TypeError):
             value[()] = 0.0
 
@@ -24,10 +24,10 @@ def test_matrix_full_integer_indexing_is_a_scalar() -> None:
     matrix: np.ndarray[[4, 4], np.dtype[np.float64]] = np.ones((4, 4), dtype=np.float64)
     value = matrix[1, 0]
     negative = matrix[-1, -1]
-    # Known bug: the static result is an ndarray, but NumPy returns a scalar.
-    assert_type(value, np.ndarray[[], np.dtype[np.float64]])
-    assert_type(negative, np.ndarray[[], np.dtype[np.float64]])
-    assert_shape(value.shape, ())
+    # Fixed-rank overloads also match a gradual rank, so their safe result is Any.
+    assert_type(value, Any)
+    assert_type(negative, Any)
+    assert_shape(value.shape, IntTuple, runtime=())
     _assert_immutable_scalar(value)
     _assert_immutable_scalar(negative)
     assert value == negative == 1.0
@@ -36,8 +36,8 @@ def test_matrix_full_integer_indexing_is_a_scalar() -> None:
 def test_vector_integer_tuple_indexing_is_a_scalar() -> None:
     vector = np.ones(4, dtype=np.float64)
     value = vector[(1,)]
-    assert_type(value, np.ndarray[[], np.dtype[np.float64]])
-    assert_shape(value.shape, ())
+    assert_type(value, Any)
+    assert_shape(value.shape, IntTuple, runtime=())
     _assert_immutable_scalar(value)
     assert value == 1.0
 
@@ -46,9 +46,9 @@ def test_empty_tuple_and_ellipsis_have_different_result_kinds() -> None:
     scalar_array = np.ones((), dtype=np.float64)
     extracted = scalar_array[()]
     retained = scalar_array[...]
-    assert_type(extracted, np.ndarray[[], np.dtype[np.float64]])
+    assert_type(extracted, Any)
     assert_type(retained, np.ndarray[[], np.dtype[np.float64]])
-    assert_shape(extracted.shape, ())
+    assert_shape(extracted.shape, IntTuple, runtime=())
     assert_shape(retained.shape, ())
     _assert_immutable_scalar(extracted)
     assert isinstance(retained, np.ndarray)
@@ -80,10 +80,10 @@ def _index_unknown_rank(
     value: np.ndarray[IntTuple, np.dtype[np.float64]],
 ) -> Any:
     if TYPE_CHECKING:
-        assert_type(value[0], np.ndarray[IntTuple, np.dtype[np.float64]])
-        assert_type(value[(0,)], np.ndarray[IntTuple, np.dtype[np.float64]])
-        assert_type(value[(0, 0)], np.ndarray[IntTuple, np.dtype[np.float64]])
-        assert_type(value[()], np.ndarray[IntTuple, np.dtype[np.float64]])
+        assert_type(value[0], Any)
+        assert_type(value[(0,)], Any)
+        assert_type(value[(0, 0)], Any)
+        assert_type(value[()], Any)
         assert_type(value[...], np.ndarray[IntTuple, np.dtype[np.float64]])
     return value[0]
 
