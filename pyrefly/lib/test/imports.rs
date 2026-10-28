@@ -3139,6 +3139,32 @@ from bar import c  # E: `c` is not exported from module `bar`
 "#,
 );
 
+fn env_implicit_reexport_submodule() -> TestEnv {
+    let mut t = TestEnv::new();
+    t.add_with_path(
+        "foo",
+        "foo/__init__.py",
+        r#"
+from . import a
+from .b import b
+"#,
+    );
+    t.add_with_path("foo.a", "foo/a.py", "x: int = 1");
+    t.add_with_path("foo.b", "foo/b.py", "b: int = 1");
+    t
+}
+
+// https://github.com/facebook/pyrefly/issues/5134
+testcase!(
+    bug = "`from . import a` in `foo/__init__.py` binds the submodule `foo.a`",
+    test_implicit_reexport_submodule,
+    env_implicit_reexport_submodule().enable_implicit_reexport_error(),
+    r#"
+from foo import a  # E: `a` is not exported from module `foo`
+from foo import b  # E: `b` is not exported from module `foo`
+"#,
+);
+
 // A directory import without an alias binds its first component, like any other
 // dotted import.
 testcase!(
