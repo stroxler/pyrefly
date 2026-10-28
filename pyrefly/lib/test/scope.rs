@@ -994,6 +994,67 @@ def after_loop(xs: list[int], ys: list[int]) -> None:
 "#,
 );
 
+// The first `if` leaves `x` unset in both branches. The fall-through of the exhaustive chain
+// below never runs, so its own termination key decides that branch, whatever keys the first
+// `if` had.
+testcase!(
+    test_uninitialized_later_merge_decided_by_own_termination_key,
+    r#"
+def f(n: int, r: bool) -> None:
+    x: int
+    if n in (1, 2):
+        if r:
+            print(0)
+        if n == 1:
+            x = 1
+        elif n == 2:
+            x = 2
+        print(x)
+"#,
+);
+
+// The loop may have set `x`, and only the `if` suite deletes it, so `x` is still bound when the
+// loop ran and `c` is false.
+testcase!(
+    test_uninitialized_possibly_set_branch_is_not_unassigned,
+    r#"
+def g(xs: list[int], c: bool) -> None:
+    for i in xs:
+        x = i
+    if c:
+        del x  # E: `x` may be uninitialized
+        print("a")
+    else:
+        print("b")
+    print(x)  # E: `x` may be uninitialized
+"#,
+);
+
+// No branch assigns `x`, so it is unset on every path that reaches the merge, even though each
+// branch ends in a call that might never return. When every branch ends in a call that never
+// returns, the read is dead and still reads a name no path assigns.
+testcase!(
+    test_uninitialized_when_no_branch_assigns,
+    r#"
+import sys
+def f() -> None: ...
+def g(c: bool) -> None:
+    x: int
+    if c:
+        f()
+    else:
+        f()
+    print(x)  # E: `x` is uninitialized
+def h(c: bool) -> None:
+    x: int
+    if c:
+        sys.exit(1)
+    else:
+        sys.exit(2)
+    print(x)  # E: This code is unreachable  # E: `x` is uninitialized
+"#,
+);
+
 // A loop that may run zero times leaves `path` possibly uninitialized. The `else` carries that
 // value, but it never reaches the merge, so it must not make `path` possibly uninitialized after it.
 testcase!(

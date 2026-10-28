@@ -3949,6 +3949,7 @@ fn determine_definition_status(
     merge_style: MergeStyle,
     base_has_value: bool,
     n_values: usize,
+    n_possibly_set_branches: usize,
     n_branches: usize,
     n_unterminated_missing_branches: usize,
     missing_branch_termination_keys: Vec<Idx<Key>>,
@@ -3956,6 +3957,9 @@ fn determine_definition_status(
     match merge_style {
         MergeStyle::LoopDefinitelyRuns if base_has_value => DefinitionStatus::Defined,
         _ if n_values == n_branches => DefinitionStatus::Defined,
+        // With no branch that defines the name or may have set it, the name is unset on every
+        // path that reaches the merge, whichever branches turn out to terminate.
+        _ if n_values == 0 && n_possibly_set_branches == 0 => DefinitionStatus::NotDefined,
         // Every branch that leaves the name unset may still never reach the merge, which only
         // its own termination key can tell.
         _ if n_unterminated_missing_branches == 0 => {
@@ -4196,6 +4200,7 @@ impl<'a> BindingsBuilder<'a> {
         let mut styles = Vec::with_capacity(merge_branches.len());
         let mut styled_idxs = SmallSet::with_capacity(merge_branches.len());
         let mut n_values = 0;
+        let mut n_possibly_set_branches = 0;
         // Collect termination keys from branches that don't define the variable.
         // These will be used for deferred uninitialized checks at solve time.
         let mut missing_branch_termination_keys = Vec::new();
@@ -4220,6 +4225,7 @@ impl<'a> BindingsBuilder<'a> {
             // branch, and its style does not count. Without one, its style carries the doubt.
             let unset_unless_terminated = matches!(style, Some(FlowStyle::PossiblyUninitialized))
                 && merge_branch.termination_key.is_some();
+            n_possibly_set_branches += usize::from(unset_unless_terminated);
             // A branch with FlowStyle::Uninitialized (e.g., after exception variable
             // unbinding via mark_as_deleted) does not define the variable.
             let defines = style.is_some_and(|style| !matches!(style, FlowStyle::Uninitialized))
@@ -4269,6 +4275,7 @@ impl<'a> BindingsBuilder<'a> {
             merge_style,
             base_has_value,
             n_values,
+            n_possibly_set_branches,
             n_branches,
             n_unterminated_missing_branches,
             missing_branch_termination_keys,
