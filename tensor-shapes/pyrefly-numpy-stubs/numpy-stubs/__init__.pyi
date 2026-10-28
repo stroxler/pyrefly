@@ -1946,18 +1946,42 @@ def max(
     initial: _ArrayScalar = ...,
 ) -> Any: ...
 @overload
+def argmin[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
+    a: ArrayLike, axis: Axis, out: Out, *, keepdims: KeepDims = False
+) -> Out: ...
+@overload
+def argmin[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
+    a: ArrayLike, axis: Axis = None, *, out: Out, keepdims: KeepDims = False
+) -> Out: ...
+@overload
 def argmin[
     Shape: _Shape,
     DType,
     Axis: Flag[_SingleAxis],
     KeepDims: Flag[py_bool],
 ](
-    a: ndarray[Shape, DType], axis: Axis = None, *, keepdims: KeepDims = False
+    a: ndarray[Shape, DType],
+    axis: Axis = None,
+    out: None = None,
+    *,
+    keepdims: KeepDims = False,
 ) -> ndarray[reduce_shape(Shape, Axis, KeepDims), dtype[intp]]: ...
 @overload
-def argmin(
-    a: Sequence[ArrayLike], axis: _SingleAxis = None, *, keepdims: py_bool = False
+def argmin[Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
+    a: Sequence[ArrayLike] | _ArrayScalar,
+    axis: Axis = None,
+    out: None = None,
+    *,
+    keepdims: KeepDims = False,
 ) -> Any: ...
+@overload
+def argmax[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
+    a: ArrayLike, axis: Axis, out: Out, *, keepdims: KeepDims = False
+) -> Out: ...
+@overload
+def argmax[Out: ndarray, Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
+    a: ArrayLike, axis: Axis = None, *, out: Out, keepdims: KeepDims = False
+) -> Out: ...
 @overload
 def argmax[
     Shape: _Shape,
@@ -1965,11 +1989,19 @@ def argmax[
     Axis: Flag[_SingleAxis],
     KeepDims: Flag[py_bool],
 ](
-    a: ndarray[Shape, DType], axis: Axis = None, *, keepdims: KeepDims = False
+    a: ndarray[Shape, DType],
+    axis: Axis = None,
+    out: None = None,
+    *,
+    keepdims: KeepDims = False,
 ) -> ndarray[reduce_shape(Shape, Axis, KeepDims), dtype[intp]]: ...
 @overload
-def argmax(
-    a: Sequence[ArrayLike], axis: _SingleAxis = None, *, keepdims: py_bool = False
+def argmax[Axis: Flag[_SingleAxis], KeepDims: Flag[py_bool]](
+    a: Sequence[ArrayLike] | _ArrayScalar,
+    axis: Axis = None,
+    out: None = None,
+    *,
+    keepdims: KeepDims = False,
 ) -> Any: ...
 @overload
 def zeros[N: IntVar, ScalarT: generic](

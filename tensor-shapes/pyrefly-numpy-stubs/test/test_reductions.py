@@ -440,11 +440,13 @@ def test_argmax_invalid_axes() -> None:
 def test_index_reductions_out_keyword() -> None:
     a = np.arange(6).reshape(2, 3)
     out = np.zeros(2, dtype=np.int32)
-    largest = np.argmax(a, axis=1, out=out)  # E: No matching overload
+    largest = np.argmax(a, axis=1, out=out)
+    assert_type(largest, np.ndarray[[2], np.dtype[np.int32]])
     assert largest is out
     assert_shape(largest.shape, (2,))
     assert np.array_equal(out, [2, 2])
-    smallest = np.argmin(a, axis=1, out=out)  # E: No matching overload
+    smallest = np.argmin(a, axis=1, out=out)
+    assert_type(smallest, np.ndarray[[2], np.dtype[np.int32]])
     assert smallest is out
     assert_shape(smallest.shape, (2,))
     assert np.array_equal(out, [0, 0])
@@ -453,21 +455,26 @@ def test_index_reductions_out_keyword() -> None:
 def test_index_reductions_out_positional_and_none() -> None:
     a = np.arange(6).reshape(2, 3)
     out = np.zeros((2, 1), dtype=np.int32)
-    result = np.argmax(a, 1, out, keepdims=True)  # E: No matching overload
+    result = np.argmax(a, 1, out, keepdims=True)
+    assert_type(result, np.ndarray[[2, 1], np.dtype[np.int32]])
     assert result is out
     assert_shape(result.shape, (2, 1))
-    result = np.argmin(a, 1, out, keepdims=True)  # E: No matching overload
+    result = np.argmin(a, 1, out, keepdims=True)
+    assert_type(result, np.ndarray[[2, 1], np.dtype[np.int32]])
     assert result is out
     assert_shape(result.shape, (2, 1))
-    explicit_none = np.argmax(a, axis=1, out=None)  # E: No matching overload
-    assert explicit_none.shape == (2,)
-    positional_none = np.argmin(a, 1, None)  # E: No matching overload
-    assert positional_none.shape == (2,)
+    explicit_none = np.argmax(a, axis=1, out=None)
+    assert_type(explicit_none, np.ndarray[[2], np.dtype[np.intp]])
+    assert_shape(explicit_none.shape, (2,))
+    positional_none = np.argmin(a, 1, None)
+    assert_type(positional_none, np.ndarray[[2], np.dtype[np.intp]])
+    assert_shape(positional_none.shape, (2,))
     scalar_out = np.zeros((), dtype=np.intp)
-    assert np.argmax(a, out=scalar_out) is scalar_out  # E: No matching overload
+    assert np.argmax(a, out=scalar_out) is scalar_out
     assert_shape(scalar_out.shape, ())
-    assert np.argmin([3, 1, 2], out=scalar_out) is scalar_out  # E: No matching overload
-    list_result = np.argmax([3, 1, 2], None, scalar_out)  # E: No matching overload
+    assert np.argmin([3, 1, 2], out=scalar_out) is scalar_out
+    list_result = np.argmax([3, 1, 2], None, scalar_out)
+    assert_type(list_result, np.ndarray[[], np.dtype[np.intp]])
     assert list_result is scalar_out
 
 
@@ -477,9 +484,9 @@ class ArrayConvertible:
 
 
 def test_index_reductions_scalar_and_array_convertible_inputs() -> None:
-    scalar = np.argmax(7)  # E: No matching overload
+    scalar = np.argmax(7)
     assert scalar == 0
-    scalar = np.argmin(np.float64(7))  # E: No matching overload
+    scalar = np.argmin(np.float64(7))
     assert scalar == 0
     converted = np.argmax(ArrayConvertible(), axis=1)  # E: No matching overload
     assert converted.shape == (2,)
