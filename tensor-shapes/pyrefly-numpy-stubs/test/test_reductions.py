@@ -493,6 +493,48 @@ def test_index_reductions_scalar_and_array_convertible_inputs() -> None:
     assert_shape(np.ones((2, 3)).shape, (2, 3))
 
 
+def test_index_reductions_vector_and_scalar_results() -> None:
+    vector = np.arange(3)
+    scalar = np.ones(())
+    positive = np.argmax(vector, axis=0)
+    negative = np.argmin(vector, axis=-1)
+    zero_rank = np.argmax(scalar, axis=0)
+    # Scalar reductions are currently modeled as zero-dimensional arrays.
+    assert_type(positive, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(negative, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(zero_rank, np.ndarray[[], np.dtype[np.intp]])
+    assert_shape(positive.shape, ())
+    assert_shape(negative.shape, ())
+    assert_shape(zero_rank.shape, ())
+    zero_rank_kept = np.argmin(scalar, axis=-1, keepdims=True)
+    assert_type(zero_rank_kept, np.ndarray[[], np.dtype[np.intp]])
+    assert isinstance(zero_rank_kept, np.intp)
+    assert_shape(zero_rank_kept.shape, ())
+    assert isinstance(positive, np.intp)
+    assert isinstance(negative, np.intp)
+    assert isinstance(zero_rank, np.intp)
+    assert positive == 2
+    assert negative == zero_rank == 0
+    method_default = vector.argmax()
+    method_axis = vector.argmin(axis=0)
+    assert_type(method_default, np.ndarray[[], np.dtype[np.intp]])
+    assert_type(method_axis, np.ndarray[[], np.dtype[np.intp]])
+    assert isinstance(method_default, np.intp)
+    assert isinstance(method_axis, np.intp)
+    assert_shape(method_default.shape, ())
+    assert_shape(method_axis.shape, ())
+    kept = np.argmax(vector, axis=0, keepdims=True)
+    assert_type(kept, np.ndarray[[1], np.dtype[np.intp]])
+    assert_shape(kept.shape, (1,))
+    scalar_out = np.zeros((), dtype=np.int32)
+    result = np.argmax(vector, 0, scalar_out)
+    assert_type(result, np.ndarray[[], np.dtype[np.int32]])
+    assert result is scalar_out
+    assert_shape(result.shape, ())
+    with assert_raises(ValueError):
+        np.argmax(vector, axis=1)  # E: axis out of bounds
+
+
 if TYPE_CHECKING:
 
     def check_argmax_gradual_and_symbolic[N: IntVar](
