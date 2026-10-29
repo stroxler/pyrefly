@@ -24,7 +24,9 @@
 //!   are invisible to nested functions and comprehensions; comprehension targets are
 //!   comprehension-local while a walrus binds in the enclosing non-comprehension scope;
 //!   unbound class-body names fall back to the module and unbound module names to
-//!   builtins ([`Symbol::fallback`]).
+//!   builtins ([`Symbol::fallback`]). Declarations come from the [`declarations`] walker
+//!   and lookup from the [`lexical`] engine, which a type checker's binder can consume
+//!   with its own policies.
 //! - Evaluation order: assignment values before targets (targets left to right, each
 //!   evaluating its object and index before storing); augmented assignment reads the
 //!   target, then the value, then stores; the callee, then positional and starred
@@ -62,6 +64,8 @@
 pub mod declarations;
 pub mod engine;
 pub mod exports;
+pub mod facts;
+pub mod flow_point;
 pub mod history;
 pub mod ir;
 pub mod lexical;
@@ -84,6 +88,7 @@ pub use engine::load;
 pub use exports::ExportProvider;
 pub use exports::ExportTarget;
 pub use exports::SyntacticExports;
+pub use flow_point::ProgramWithFlowPoints;
 pub use history::Def;
 pub use history::History;
 pub use ir::*;
@@ -99,4 +104,14 @@ pub use ruff_text_size::TextRange;
 /// [`Program::syntax_errors`] and as a [`GapKind::SyntaxError`] at module entry.
 pub fn analyze_python(source: &str, module: ModuleName, is_init: bool) -> Program {
     lower::lower(source, module, is_init)
+}
+
+/// Parse and lower with opt-in source flow-point observation. The points identify
+/// structured source boundaries, not allocated CFG blocks or branch feasibility.
+pub fn analyze_python_with_flow_points(
+    source: &str,
+    module: ModuleName,
+    is_init: bool,
+) -> ProgramWithFlowPoints {
+    lower::lower_with_flow_points(source, module, is_init)
 }
