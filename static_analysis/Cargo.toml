@@ -1,0 +1,20 @@
+[package]
+name = "pyrefly_static_analysis"
+version = "0.0.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Experimental neutral Python frontend (scopes, operation CFG) and generic dataflow engine"
+
+[dependencies]
+pyrefly_python = { path = "../crates/pyrefly_python" }
+pyrefly_util = { path = "../crates/pyrefly_util" }
+ruff_python_ast = "0.0.14"
+ruff_python_parser = "0.0.14"
+ruff_source_file = "0.0.14"
+ruff_text_size = "0.0.14"
+starlark_map = "0.14.2"
+
+[lints]
+workspace = true

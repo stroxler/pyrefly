@@ -2548,6 +2548,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyrefly_static_analysis"
+version = "0.0.0"
+dependencies = [
+ "pyrefly_python",
+ "pyrefly_util",
+ "ruff_python_ast",
+ "ruff_python_parser",
+ "ruff_source_file",
+ "ruff_text_size",
+ "starlark_map",
+]
+
+[[package]]
 name = "pyrefly_types"
 version = "1.4.0"
 dependencies = [
