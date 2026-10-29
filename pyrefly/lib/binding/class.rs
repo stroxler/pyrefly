@@ -458,7 +458,7 @@ impl<'a> BindingsBuilder<'a> {
                 .push((body_range, class_indices.class_idx));
         }
         self.init_static_scope(&body, false);
-        self.stmts(
+        self.region_stmts(
             body,
             &NestingContext::class(ShortIdentifier::new(&x.name), parent.dupe()),
         );

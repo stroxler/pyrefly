@@ -73,6 +73,7 @@ pyrefly_derive = { path = "../crates/pyrefly_derive" }
 pyrefly_glean_schema = { path = "../crates/pyrefly_glean_schema" }
 pyrefly_graph = { path = "../crates/pyrefly_graph" }
 pyrefly_python = { path = "../crates/pyrefly_python" }
+pyrefly_static_analysis = { path = "../static_analysis", optional = true }
 pyrefly_types = { path = "../crates/pyrefly_types" }
 pyrefly_util = { path = "../crates/pyrefly_util" }
 rayon = "1.11.0"
@@ -116,6 +117,8 @@ tikv-jemallocator = "0.7.0"
 mimalloc = { version = "0.1.52", default-features = false }
 
 [features]
+# Bind statement structure with the shared structured driver (experimental).
+bindings-driver = ["dep:pyrefly_static_analysis"]
 debug-stack-overflow = ["dep:backtrace-on-stack-overflow"]
 default = ["third-party-stubs"]
 third-party-stubs = ["pyrefly_bundled/third-party-stubs"]

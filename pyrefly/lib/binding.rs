@@ -11,6 +11,8 @@ pub mod binding;
 pub mod bindings;
 pub mod class;
 pub mod django;
+#[cfg(feature = "bindings-driver")]
+pub mod driver;
 pub mod expr;
 pub mod function;
 pub mod metadata;
@@ -23,5 +25,6 @@ pub mod scope;
 pub mod shape_comments;
 pub mod shape_type;
 pub mod stmt;
+pub mod structure;
 pub mod table;
 pub mod target;

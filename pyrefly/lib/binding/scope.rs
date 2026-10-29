@@ -39,7 +39,6 @@ use starlark_map::Hashed;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use thin_vec::ThinVec;
 use vec1::Vec1;
 
 use crate::binding::binding::Binding;
@@ -1293,6 +1292,15 @@ pub enum LoopExit {
     Break,
     #[display("continue")]
     Continue,
+}
+
+/// What remains of a loop between its body and the end of its `else` suite.
+pub struct LoopTail {
+    breaks: Vec<Flow>,
+    /// The flow before the loop, if some `break` needs merging with it.
+    base_if_breaks: Option<Flow>,
+    loop_raises: bool,
+    other_range: TextRange,
 }
 
 /// Flow snapshots for all possible exitpoints from a loop.
@@ -2663,7 +2671,7 @@ impl Scopes {
     /// Copy walrus-defined names from the current flow into the innermost
     /// loop's base flow. The while-loop condition always evaluates at least
     /// once, so any walrus target there is guaranteed to be assigned after the
-    /// loop. Without this propagation, `teardown_loop` sees the name only in
+    /// loop. Without this propagation, `teardown_loop_body` sees the name only in
     /// the loop flow and marks it `PossiblyUninitialized`.
     pub fn propagate_new_flow_entries_to_loop_base(&mut self) {
         let scope = self.current_mut();
@@ -4541,15 +4549,15 @@ impl<'a> BindingsBuilder<'a> {
             .push(Loop::new(base, finally_depth));
     }
 
-    pub fn teardown_loop(
+    /// Tear down a loop after its body: merge the loopback flow, which is the flow at the
+    /// top of the loop, and negate the loop test. The result is the flow entering the
+    /// loop's `else` suite; `teardown_loop_else` finishes the loop after that suite.
+    pub fn teardown_loop_body(
         &mut self,
         range: TextRange,
         narrow_ops: &NarrowOps,
-        orelse: ThinVec<Stmt>,
-        parent: &NestingContext,
-        is_while_true: bool,
         loop_definitely_runs: bool,
-    ) {
+    ) -> LoopTail {
         let loop_raises = self.scopes.terminated_by_raise();
         let finished_loop = self.scopes.finish_loop();
         let (breaks, other_exits): (Vec<Flow>, Vec<Flow>) = finished_loop
@@ -4581,7 +4589,22 @@ impl<'a> BindingsBuilder<'a> {
             NarrowUseLocation::Span(other_range),
             &Usage::NonPinningValue(None),
         );
-        self.stmts(orelse, parent);
+        LoopTail {
+            breaks,
+            base_if_breaks,
+            loop_raises,
+            other_range,
+        }
+    }
+
+    /// Finish a loop after its `else` suite by merging in the `break` exits.
+    pub fn teardown_loop_else(&mut self, tail: LoopTail, is_while_true: bool) {
+        let LoopTail {
+            breaks,
+            base_if_breaks,
+            loop_raises,
+            other_range,
+        } = tail;
         // Exiting from a break skips past any `else`, so we merge them after, and the
         // test is not negated in flows coming from breaks.
         //
@@ -4603,10 +4626,6 @@ impl<'a> BindingsBuilder<'a> {
                 self.merge_flow(base, breaks, other_range, MergeStyle::Inclusive)
             }
         }
-    }
-
-    pub fn add_loop_exitpoint(&mut self, exit: LoopExit) {
-        self.scopes.add_loop_exit(exit);
     }
 
     /// Start a new fork in control flow (e.g. an if/else, match statement, etc)

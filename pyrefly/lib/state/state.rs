@@ -62,6 +62,7 @@ use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::timer::Timer;
 use pyrefly_util::uniques::UniqueFactory;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
@@ -955,7 +956,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn get_ast(&self, handle: &Handle) -> Option<Arc<ruff_python_ast::ModModule>> {
+    pub fn get_ast(&self, handle: &Handle) -> Option<Arc<ModModule>> {
         self.with_module_inner(handle, |x| x.get_ast())
     }
 
@@ -2751,6 +2752,34 @@ impl<'a> Transaction<'a> {
     ) -> Option<ModuleName> {
         let module_data = self.get_module(handle);
         builtin_module_for_name(&self.lookup(module_data), handle.module(), name)
+    }
+
+    /// Run `f` with the inputs of `handle`'s bindings: its AST, load, exports, export lookup,
+    /// configuration and `tensor_shapes` bit. For tests that compare binding constructors.
+    #[cfg(all(test, feature = "bindings-driver"))]
+    pub(crate) fn with_bindings_inputs<R>(
+        &self,
+        handle: &Handle,
+        f: impl FnOnce(&ModModule, &Load, &Exports, &dyn LookupExport, &ConfigFile, bool) -> R,
+    ) -> R {
+        let module_data = self.get_module(handle);
+        self.demand(module_data, Step::Exports);
+        let ast = module_data
+            .state
+            .get_ast()
+            .expect("the AST is kept until the answers step");
+        let load = module_data.state.get_load().expect("the module is loaded");
+        let exports = self.lookup_export(module_data);
+        let config = module_data.config.read().dupe();
+        let tensor_shapes = self.tensor_shapes_available(&config, handle, None);
+        f(
+            &ast,
+            &load,
+            &exports,
+            &self.lookup(module_data),
+            &config,
+            tensor_shapes,
+        )
     }
 
     pub(crate) fn get_exports_data(&self, handle: &Handle) -> Arc<Exports> {

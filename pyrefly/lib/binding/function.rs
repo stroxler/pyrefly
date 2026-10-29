@@ -430,7 +430,7 @@ impl<'a> BindingsBuilder<'a> {
             );
             self.bind_name(&dunder_class_identifier.id, idx, FlowStyle::Other);
         }
-        self.stmts(
+        self.region_stmts(
             body,
             &NestingContext::function(ShortIdentifier::new(func_name), parent.dupe()),
         );

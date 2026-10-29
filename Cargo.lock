@@ -2367,6 +2367,7 @@ dependencies = [
  "pyrefly_graph",
  "pyrefly_lsp_test",
  "pyrefly_python",
+ "pyrefly_static_analysis",
  "pyrefly_types",
  "pyrefly_util",
  "rayon",

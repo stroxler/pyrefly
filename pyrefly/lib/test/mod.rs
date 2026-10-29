@@ -14,6 +14,10 @@ mod assign_any;
 mod attribute_narrow;
 mod attributes;
 mod attrs;
+#[cfg(feature = "bindings-driver")]
+mod bindings_driver;
+#[cfg(feature = "bindings-driver")]
+mod bindings_driver_bench;
 mod callable;
 mod calls;
 mod cinderx;

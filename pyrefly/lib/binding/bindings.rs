@@ -9,7 +9,6 @@ use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::slice;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -92,13 +91,15 @@ use crate::binding::binding::LambdaParamId;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::LegacyTypeParamModule;
 use crate::binding::binding::NarrowUseLocation;
-use crate::binding::binding::SuiteGate;
 use crate::binding::binding::TypeAliasParams;
 use crate::binding::binding::TypeAliasRefBinding;
 use crate::binding::binding::TypeLevelLambdaParameter;
 use crate::binding::binding::TypeParameter;
+#[cfg(feature = "bindings-driver")]
+use crate::binding::driver::DriverReport;
+#[cfg(feature = "bindings-driver")]
+use crate::binding::driver::DriverState;
 use crate::binding::expr::Usage;
-use crate::binding::function::function_last_expressions;
 use crate::binding::metadata::BindingsMetadata;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowOps;
@@ -253,6 +254,9 @@ pub struct Bindings {
     /// these declarations, since the following assignment counts as the
     /// initializer.
     subsequently_initialized: SmallSet<Idx<KeyAnnotation>>,
+    /// What the structured driver did, if it sequenced the statement structure.
+    #[cfg(feature = "bindings-driver")]
+    driver_report: Option<DriverReport>,
 }
 
 impl Display for Bindings {
@@ -353,6 +357,9 @@ pub struct BindingsBuilder<'a> {
     /// Set while binding a statement that control passes only conditionally, and consumed by
     /// `stmts()` on the next statement, which is the first the condition can strand.
     pub(super) pending_gate: Option<GateCondition>,
+    /// The structured driver's state, when it sequences the statement structure.
+    #[cfg(feature = "bindings-driver")]
+    pub(super) driver: Option<Box<DriverState>>,
 }
 
 /// An enum tracking whether we are in a generator expression
@@ -428,6 +435,8 @@ impl Bindings {
             shape_declarations: ShapeDeclarations::default(),
             subsequently_initialized: SmallSet::new(),
             promote_ranges: SmallSet::new(),
+            #[cfg(feature = "bindings-driver")]
+            driver_report: None,
         }
     }
 
@@ -452,6 +461,64 @@ impl Bindings {
 
     pub fn module_ranges(&self) -> &Arc<ModuleRanges> {
         &self.module_ranges
+    }
+
+    /// What the structured driver did, if these bindings were built with it.
+    #[cfg(feature = "bindings-driver")]
+    pub fn driver_report(&self) -> Option<&DriverReport> {
+        self.driver_report.as_ref()
+    }
+
+    /// Everything these bindings hold except the driver report, for comparing binding
+    /// constructors: the table with dependencies rendered as keys, then every field with
+    /// table indices included.
+    #[cfg(all(test, feature = "bindings-driver"))]
+    pub(crate) fn parity_view(&self) -> (String, String) {
+        let Self {
+            module_info,
+            sys_info,
+            table,
+            metadata,
+            module_ranges,
+            annotated_metadata_ranges,
+            scope_trace,
+            module_deletes,
+            unused_imports,
+            unused_variables,
+            pytest_info,
+            promote_ranges,
+            lambda_yield_keys,
+            owned_lambda_params,
+            class_scopes,
+            shape_declarations,
+            subsequently_initialized,
+            driver_report: _,
+        } = self;
+        let fields = format!(
+            "{:#?}\n{:#?}",
+            (
+                module_info,
+                sys_info,
+                table,
+                metadata,
+                module_ranges,
+                annotated_metadata_ranges,
+                scope_trace,
+                module_deletes,
+            ),
+            (
+                unused_imports,
+                unused_variables,
+                pytest_info,
+                promote_ranges,
+                lambda_yield_keys,
+                owned_lambda_params,
+                class_scopes,
+                shape_declarations,
+                subsequently_initialized,
+            ),
+        );
+        (self.to_string(), fields)
     }
 
     /// Whether `range` lies inside `Annotated` metadata. Pyrefly does not type-check metadata, so
@@ -699,6 +766,8 @@ impl Bindings {
         self.function_has_return_annotation_at_short_identifier(short_identifier)
     }
 
+    /// Bind a module. With the `bindings-driver` feature, the shared structured driver
+    /// sequences the statement structure.
     pub fn new(
         x: ModModule,
         module_info: ModuleInfo,
@@ -712,6 +781,40 @@ impl Bindings {
         analyze_unannotated_for_ide: bool,
         infer_return_types: InferReturnTypes,
         treat_all_caps_as_final: bool,
+    ) -> Self {
+        Self::build(
+            x,
+            module_info,
+            exports,
+            solver,
+            lookup,
+            sys_info,
+            errors,
+            enable_trace,
+            check_unannotated_defs,
+            analyze_unannotated_for_ide,
+            infer_return_types,
+            treat_all_caps_as_final,
+            cfg!(feature = "bindings-driver"),
+        )
+    }
+
+    /// Bind a module; `driven` selects the structured driver, which requires the
+    /// `bindings-driver` feature.
+    pub(crate) fn build(
+        x: ModModule,
+        module_info: ModuleInfo,
+        exports: &Exports,
+        solver: &Solver,
+        lookup: &dyn LookupExport,
+        sys_info: SysInfo,
+        errors: &ErrorCollector,
+        enable_trace: bool,
+        check_unannotated_defs: bool,
+        analyze_unannotated_for_ide: bool,
+        infer_return_types: InferReturnTypes,
+        treat_all_caps_as_final: bool,
+        #[cfg_attr(not(feature = "bindings-driver"), expect(unused_variables))] driven: bool,
     ) -> Self {
         let pytest_info = PytestBindingInfo::from_module(&x);
         // Compute module ranges from the AST before consuming it. These are
@@ -756,6 +859,8 @@ impl Bindings {
             type_checking_depth: 0,
             in_unreachable_suite: false,
             pending_gate: None,
+            #[cfg(feature = "bindings-driver")]
+            driver: driven.then(|| Box::new(DriverState::new())),
         };
         builder.init_static_scope(&x.body, true);
         if module_info.name() != ModuleName::builtins() {
@@ -766,7 +871,7 @@ impl Bindings {
         }
         builder.inject_shadowed_implicit_builtins();
         builder.inject_globals();
-        builder.stmts(x.body, &NestingContext::toplevel());
+        builder.region_stmts(x.body, &NestingContext::toplevel());
         assert_eq!(builder.scopes.loop_depth(), 0);
 
         builder.process_deferred_bound_names();
@@ -894,6 +999,8 @@ impl Bindings {
             shape_declarations: builder.shape_declarations.finish(),
             subsequently_initialized: builder.subsequently_initialized,
             promote_ranges: builder.promote_ranges,
+            #[cfg(feature = "bindings-driver")]
+            driver_report: builder.driver.map(|driver| driver.into_report()),
         }
     }
 
@@ -1053,7 +1160,7 @@ impl CurrentIdx {
     }
 }
 
-fn extract_new_defaults(stmt: &Stmt, name: &str) -> Option<Vec<Expr>> {
+pub(crate) fn extract_new_defaults(stmt: &Stmt, name: &str) -> Option<Vec<Expr>> {
     if let Stmt::Assign(assign) = stmt
         && let [Expr::Attribute(outer)] = assign.targets.as_slice()
         && outer.attr.id == dunder::DEFAULTS
@@ -1079,7 +1186,7 @@ fn extract_new_defaults(stmt: &Stmt, name: &str) -> Option<Vec<Expr>> {
 /// generator-ness syntactically rather than by reachability. Reporting therefore starts at
 /// the first dead statement that is not one, so the idiom is never itself blamed, and a
 /// region made up entirely of them is not reported at all.
-fn is_empty_generator_yield(x: &Stmt) -> bool {
+pub(crate) fn is_empty_generator_yield(x: &Stmt) -> bool {
     matches!(x, Stmt::Expr(x) if matches!(&*x.value, Expr::Yield(_) | Expr::YieldFrom(_)))
 }
 
@@ -1432,155 +1539,34 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn stmts(&mut self, xs: ThinVec<Stmt>, parent: &NestingContext) {
-        let suite_end = xs.last().map(|x| x.range().end());
-        // A suite has at most two dead regions, and the certain one is always last: nothing after
-        // a definite exit is live, so no gate can open past it. They are kept disjoint so the
-        // same code is never blamed twice.
-        let mut gates: Vec<SuiteGate> = Vec::new();
-        let mut gated_end = None;
-        let mut certain_start = None;
-        let mut prev_end = None;
+        #[cfg(feature = "bindings-driver")]
+        if self.driver.is_some() {
+            self.driven_suite(xs, parent);
+            return;
+        }
+        let mut suite = self.start_suite(&xs);
         let mut iter = xs.into_iter().peekable();
         while let Some(x) = iter.next() {
-            // A leading `yield` is load-bearing and never blamed, so a region starts past it.
-            // See `is_empty_generator_yield`.
-            let is_yield = is_empty_generator_yield(&x);
-            let can_open_region =
-                !is_yield && !self.in_unreachable_suite && certain_start.is_none();
-            // A statement that begins the certain region cannot also begin a gated one: the
-            // gated region ends where the certain one starts, so it would be empty.
-            let starts_certain_region = can_open_region && self.scopes.is_definitely_unreachable();
-            // Set while binding an earlier statement that control passes only conditionally.
-            // This statement begins that gate's region; a leading `yield` leaves the value
-            // pending so the region starts past it too.
-            if !is_yield
-                && let Some(condition) = self.pending_gate.take()
-                && can_open_region
-                && !starts_certain_region
-            {
-                gates.push(SuiteGate {
-                    condition,
-                    start: x.range().start(),
-                });
-            }
-            if starts_certain_region {
-                certain_start = Some(x.range().start());
-                // The gated region stops where the certain one takes over, so the two abut
-                // rather than overlap.
-                gated_end = prev_end;
-                self.in_unreachable_suite = true;
-            }
-            if let Stmt::Assign(assign) = &x
-                && let [Expr::Name(name)] = assign.targets.as_slice()
-                && let Expr::Call(call) = assign.value.as_ref()
-                && let Some(defaults) = iter
-                    .peek()
-                    .and_then(|next| extract_new_defaults(next, &name.id))
-                && let Some(special) = self.as_special_export(&call.func)
-                && matches!(
-                    special,
-                    SpecialExport::TypingNamedTuple | SpecialExport::CollectionsNamedTuple
-                )
+            if let Some(next) = iter.peek()
+                && self.absorbs_next_stmt(&x, next)
             {
                 iter.next();
-                self.adjacent_namedtuple_defaults = Some(defaults);
             }
-            prev_end = Some(x.range().end());
-            // A `with` body can leave `last_stmt_expr` set, and the `with` arm already gates on
-            // it, so only an expression statement of this suite opens a divergence gate.
-            let is_expr_stmt = matches!(&x, Stmt::Expr(_));
-            // Every path through a compound statement may end in an expression, which makes the
-            // statement itself a gate. The keys are promised before binding, and the walker
-            // prunes the same statically-dead branches the binder abandons, so each one is
-            // fulfilled by binding `x` below. An empty list means every path terminates
-            // syntactically, which the flow already knows.
-            //
-            // A gate opened by the last statement of a suite is dropped unread, so finding one
-            // is wasted work. It is worth skipping rather than discarding: the walk covers the
-            // whole region reachable along `x`'s last statement, and binding descends into that
-            // same region and walks it again for each statement nested inside, so a suite whose
-            // last statement is a deep nest of compound statements is rescanned once per level.
-            let paths = (!is_expr_stmt && iter.peek().is_some())
-                .then(|| function_last_expressions(slice::from_ref(&x), self.sys_info))
-                .flatten()
-                // An answer the environment decided holds for this configuration only, and a
-                // suite dead under one configuration is live under another. An exhaustive path
-                // is refused for a different reason: its deadness comes from narrowing, which
-                // `assert_never` deliberately relies on, so reporting it condemns the idiom.
-                .filter(|paths| {
-                    !paths.decided_by_environment
-                        && !paths.clauses.is_empty()
-                        && paths.clauses.iter().any(|c| !c.is_empty())
-                        && !paths.clauses.iter().any(|clause| {
-                            clause
-                                .iter()
-                                .any(|(last, _)| matches!(last, LastStmt::Exhaustive(..)))
-                        })
-                })
-                .map(|paths| {
-                    paths
-                        .clauses
-                        .into_iter()
-                        .map(|clause| {
-                            clause
-                                .into_iter()
-                                .map(|(last, e)| {
-                                    let idx = self
-                                        .last_statement_idx_for_implicit_return(last.clone(), e);
-                                    (last, idx)
-                                })
-                                .collect::<Box<[_]>>()
-                        })
-                        .collect::<Box<[_]>>()
-                });
+            self.suite_stmt_before(&mut suite, &x, iter.peek().is_some());
             self.stmt(x, parent);
-            // A gate still pending was skipped by the `yield` carve-out above and must survive to
-            // the statement that carve-out is holding it for. A `yield` cannot diverge anyway.
-            if self.pending_gate.is_none() {
-                if is_expr_stmt && let Some(result) = self.scopes.last_stmt_expr() {
-                    self.pending_gate = Some(GateCondition::ExpressionReturns { result });
-                } else if let Some(last_exprs) = paths {
-                    self.pending_gate = Some(GateCondition::SomePathReturns { last_exprs });
-                }
-            }
-            self.adjacent_namedtuple_defaults = None;
+            self.suite_stmt_after(&mut suite);
         }
-        // A gate in the final position has no following code to judge.
-        self.pending_gate = None;
-        // Without a certain region the gated one runs to the end of the suite; with one it stops
-        // where that takes over, since the certain region is reported on its own.
-        let gated_end = if certain_start.is_some() {
-            gated_end
-        } else {
-            suite_end
-        };
-        // Every gate must open before the region ends, or it describes nothing. Construction
-        // above upholds that; dropping any that do not keeps the range handed to the solver
-        // well formed rather than relying on it.
-        if let Some(end) = gated_end {
-            gates.retain(|gate| gate.start < end);
+        self.finish_suite(suite);
+    }
+
+    /// Bind the body of a function or class: a suite that no enclosing loop reaches.
+    pub fn region_stmts(&mut self, xs: ThinVec<Stmt>, parent: &NestingContext) {
+        #[cfg(feature = "bindings-driver")]
+        if self.driver.is_some() {
+            self.driven_region(xs, parent);
+            return;
         }
-        if let Some(first) = gates.first()
-            && let Some(end) = gated_end
-        {
-            self.insert_binding(
-                KeyExpect::GatedSuiteReachability(TextRange::new(first.start, end)),
-                BindingExpect::GatedSuiteReachability {
-                    gates: gates.into_boxed_slice(),
-                    end,
-                },
-            );
-        }
-        if let (Some(start), Some(end)) = (certain_start, suite_end) {
-            self.error(
-                TextRange::new(start, end),
-                ErrorKind::Unreachable,
-                "This code is unreachable".to_owned(),
-            );
-        }
-        if certain_start.is_some() {
-            self.in_unreachable_suite = false;
-        }
+        self.stmts(xs, parent);
     }
 
     fn inject_globals(&mut self) {

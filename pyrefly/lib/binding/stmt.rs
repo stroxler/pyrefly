@@ -12,7 +12,6 @@ use pyrefly_python::keywords::is_reserved_keyword;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_python::sys_info::SysInfo;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::ExceptHandler;
@@ -45,12 +44,7 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingTypeAlias;
-use crate::binding::binding::BranchEnd;
-use crate::binding::binding::BranchSuite;
-use crate::binding::binding::BranchTest;
 use crate::binding::binding::ExceptClauseCatches;
-use crate::binding::binding::ExhaustiveBinding;
-use crate::binding::binding::ExhaustivenessKind;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::GateCondition;
 use crate::binding::binding::ImportBinding;
@@ -257,7 +251,7 @@ impl<'a> BindingsBuilder<'a> {
     /// Both definite-assignment and reachability rely on this, so it must not over-report:
     /// claiming a loop runs when it may not lets an unbound name through, and marks live
     /// code after the loop as dead.
-    fn is_definitely_nonempty_iterable(&self, iter: &Expr) -> bool {
+    pub(crate) fn is_definitely_nonempty_iterable(&self, iter: &Expr) -> bool {
         // At least one element that is not an unpacking, which may contribute nothing.
         let has_a_definite_element =
             |elts: &[Expr]| elts.iter().any(|e| !matches!(e, Expr::Starred(_)));
@@ -887,10 +881,18 @@ impl<'a> BindingsBuilder<'a> {
     /// Evaluate the statements and update the bindings.
     /// Every statement should end up in the bindings, perhaps with a location that is never used.
     pub fn stmt(&mut self, x: Stmt, parent: &NestingContext) {
+        let may_raise_if_completed = self.stmt_prelude(&x);
+        self.stmt_impl(x, parent);
+        self.stmt_postlude(may_raise_if_completed);
+    }
+
+    /// The bookkeeping that precedes binding any statement. Returns whether completing the
+    /// statement may raise, for `stmt_postlude`.
+    pub fn stmt_prelude(&mut self, x: &Stmt) -> bool {
         // A statement header is evaluated before any branch can jump, so it may raise even when
-        // every branch terminates the flow and the postlude below is therefore ignored. A bare
+        // every branch terminates the flow and the postlude is therefore ignored. A bare
         // `return`/`break`/`continue` evaluates nothing, which is what keeps it unsuppressible.
-        let header_may_raise = match &x {
+        let header_may_raise = match x {
             Stmt::Return(x) => x.value.is_some(),
             // An `elif` test lives in `elif_else_clauses` rather than in `test`, and each one is
             // evaluated before its own branch runs.
@@ -912,21 +914,7 @@ impl<'a> BindingsBuilder<'a> {
         if header_may_raise {
             self.scopes.record_may_raise_in_with();
         }
-        let may_raise_if_completed = !matches!(
-            &x,
-            Stmt::Break(_) | Stmt::Continue(_) | Stmt::Pass(_) | Stmt::Return(_)
-        );
-        self.stmt_impl(x, parent);
-        // Recorded here rather than at the end of `stmt_impl`, which returns early on a
-        // dozen paths. `record_may_raise_in_with` ignores a flow that has already
-        // terminated, so a statement that was dead to begin with is not counted.
-        if may_raise_if_completed {
-            self.scopes.record_may_raise_in_with();
-        }
-    }
-
-    fn stmt_impl(&mut self, x: Stmt, parent: &NestingContext) {
-        self.with_semantic_checker(|semantic, context| semantic.visit_stmt(&x, context));
+        self.with_semantic_checker(|semantic, context| semantic.visit_stmt(x, context));
 
         // Clear last_stmt_expr at the start - will be set again if this is a StmtExpr
         self.scopes.set_last_stmt_expr(None);
@@ -943,7 +931,24 @@ impl<'a> BindingsBuilder<'a> {
         ) {
             self.scopes.set_last_func_def(None);
         }
+        !matches!(
+            x,
+            Stmt::Break(_) | Stmt::Continue(_) | Stmt::Pass(_) | Stmt::Return(_)
+        )
+    }
 
+    /// The bookkeeping that follows binding any statement.
+    pub fn stmt_postlude(&mut self, may_raise_if_completed: bool) {
+        // Recorded here rather than at the end of `stmt_impl`, which returns early on a
+        // dozen paths. `record_may_raise_in_with` ignores a flow that has already
+        // terminated, so a statement that was dead to begin with is not counted.
+        if may_raise_if_completed {
+            self.scopes.record_may_raise_in_with();
+        }
+    }
+
+    /// Bind a statement, after `stmt_prelude` and before `stmt_postlude`.
+    pub fn stmt_impl(&mut self, x: Stmt, parent: &NestingContext) {
         match x {
             Stmt::FunctionDef(x) => {
                 self.function_def(x, parent);
@@ -1440,338 +1445,15 @@ impl<'a> BindingsBuilder<'a> {
                     );
                 }
             }
-            Stmt::For(mut x) => {
-                if x.is_async
-                    && !self.scopes.is_in_async_def()
-                    && !self.module_info.allows_top_level_await()
-                {
-                    self.error(
-                        x.range(),
-                        ErrorKind::InvalidSyntax,
-                        "`async for` can only be used inside an async function".to_owned(),
-                    );
-                }
-                let mut loop_header_targets = SmallSet::new();
-                Ast::expr_lvalue(&x.target, &mut |name| {
-                    loop_header_targets.insert(name.id.clone());
-                });
-                // Check if the iterable is definitely non-empty before binding
-                // (must be done before x.iter is moved)
-                let loop_definitely_runs = self.is_definitely_nonempty_iterable(&x.iter);
-                let in_class_body = self.scopes.in_class_body();
-                self.bind_target_with_expr(&mut x.target, &mut x.iter, &|expr, ann| {
-                    Binding::IterableValueLoop(
-                        ann,
-                        Box::new(expr.clone()),
-                        IsAsync::new(x.is_async),
-                        in_class_body,
-                    )
-                });
-                // Note that we set up the loop *after* the header is fully bound, because the
-                // loop iterator is only evaluated once before the loop begins. But the loop header
-                // targets - which get re-bound each iteration - are excluded from the loop Phi logic.
-                self.setup_loop(x.range, &loop_header_targets);
-                self.stmts(x.body, parent);
-                self.teardown_loop(
-                    x.range,
-                    &NarrowOps::new(),
-                    x.orelse,
-                    parent,
-                    false,
-                    loop_definitely_runs,
-                );
+            Stmt::For(x) => {
+                let state = self.for_header(x.range, *x.target, *x.iter, x.is_async);
+                self.loop_stmt(state, x.body, x.orelse, parent);
             }
-            Stmt::While(mut x) => {
-                let was_unreachable = self.scopes.is_definitely_unreachable();
-                self.setup_loop(x.range, &SmallSet::new());
-                // Note that it is important we ensure *after* we set up the loop, so that both the
-                // narrowing and type checking are aware that the test might be impacted by changes
-                // made in the loop (e.g. if we reassign the test variable).
-                // Typecheck the test condition during solving.
-                let test_link = self.bind_bool_condition(&mut x.test);
-                // The while condition always evaluates at least once, so walrus
-                // targets are guaranteed to be assigned after the loop.
-                self.scopes.propagate_new_flow_entries_to_loop_base();
-                let static_test = self.sys_info.evaluate_bool(&x.test);
-                let test_is_environment_independent = !SysInfo::depends_on_sys_info(&x.test);
-                let is_while_true = static_test == Some(true);
-                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.insert_bool_condition(test_link, *x.test);
-                // An environment-dependent condition is false only under the configuration
-                // being checked, so its body stays ordinary live code: binding it as dead
-                // would silence real diagnostics in it, such as an undefined name.
-                if static_test == Some(false) && test_is_environment_independent {
-                    // Both termination flags must be restored, not just one:
-                    // `is_unreachable_from_static_test` is defined in terms of the pair, and
-                    // a body ending in `return` leaves `has_terminated` set behind it.
-                    let termination = self.scopes.save_termination();
-                    self.scopes.set_definitely_unreachable(true);
-                    let owns_unreachable_suite = !self.in_unreachable_suite;
-                    if owns_unreachable_suite {
-                        self.report_unreachable_body(&x.body);
-                        self.in_unreachable_suite = true;
-                    }
-                    self.stmts(x.body, parent);
-                    if owns_unreachable_suite {
-                        self.in_unreachable_suite = false;
-                    }
-                    self.scopes.restore_termination(termination);
-                } else {
-                    self.bind_narrow_ops(
-                        &narrow_ops,
-                        NarrowUseLocation::Span(x.range),
-                        &Usage::NonPinningValue(None),
-                    );
-                    self.stmts(x.body, parent);
-                }
-                // For while True: loops, the loop body definitely runs at least once
-                self.teardown_loop(
-                    x.range,
-                    &narrow_ops,
-                    x.orelse,
-                    parent,
-                    is_while_true,
-                    is_while_true,
-                );
-                if is_while_true
-                    && !test_is_environment_independent
-                    && self.scopes.has_terminated()
-                    && !was_unreachable
-                {
-                    // Another Python environment can skip the loop.
-                    self.scopes.set_definitely_unreachable(false);
-                    self.scopes
-                        .mark_flow_termination(TerminationKind::StaticTest);
-                }
+            Stmt::While(x) => {
+                let state = self.while_header(x.range, *x.test, &x.body);
+                self.loop_stmt(state, x.body, x.orelse, parent);
             }
-            Stmt::If(mut x) => {
-                let is_definitely_unreachable = self.scopes.is_definitely_unreachable();
-                let mut exhaustive = false;
-                let if_range = x.range;
-                // Process the first `if` test before forking so that walrus-defined names
-                // are in the base flow and visible after the if-statement. This mirrors the
-                // fix for ternary expressions in expr.rs (Expr::If handling).
-                // Every test is checked by one `BranchSuiteReachability` binding, which is
-                // reserved here so that a link to it can own the lambdas in the tests.
-                let reachability_idx =
-                    self.idx_for_promise(KeyExpect::BranchSuiteReachability(if_range));
-                let tests_link = self.declare_current_idx(Key::UsageLink(if_range));
-                let tests_usage = Usage::NonPinningValue(Some(tests_link.idx()));
-                self.ensure_expr(&mut x.test, &mut tests_usage.clone());
-                self.start_fork(if_range);
-                // Type narrowing operations that are carried over from one branch to the next. For example, in:
-                //   if x is None:
-                //     pass
-                //   else:
-                //     pass
-                // x is bound to Narrow(x, Is(None)) in the if branch, and the negation, Narrow(x, IsNot(None)),
-                // is carried over to the else branch.
-                let mut negated_prev_ops = NarrowOps::new();
-                let mut branch_suites = Vec::new();
-                // The `BranchTest` of the latest clause bound so far, which decides whether
-                // control reaches the next clause.
-                let mut previous_test = None;
-                let mut contains_environment_test_with_no_else = false;
-                let mut is_first_branch = true;
-                let mut following_runtime_only_branch = false;
-                let mut branches = Ast::if_branches_owned(x);
-                while let Some((range, mut test, body)) = branches.next() {
-                    self.start_branch();
-                    self.bind_narrow_ops(
-                        &negated_prev_ops,
-                        NarrowUseLocation::Start(range),
-                        &Usage::NonPinningValue(None),
-                    );
-                    // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
-                    let this_branch_chosen = match &test {
-                        None => {
-                            contains_environment_test_with_no_else = false;
-                            Some(true)
-                        }
-                        Some(x) => self.sys_info.evaluate_bool(x),
-                    };
-                    // The first `if` test was already processed before the fork (above).
-                    // Only process elif/else tests here, inside the branch.
-                    if !is_first_branch {
-                        self.ensure_expr_opt(test.as_mut(), &mut tests_usage.clone());
-                        // Lift walrus-defined names from the elif condition into the
-                        // fork's base flow. The elif condition always executes when
-                        // control reaches past the preceding branch, so any walrus
-                        // bindings must be visible after the if/elif block.
-                        if test.is_some() {
-                            self.scopes.propagate_new_flow_entries_to_fork_base();
-                        }
-                    }
-                    is_first_branch = false;
-                    let later_branches_are_type_checking = test
-                        .as_ref()
-                        .is_some_and(SysInfo::is_not_type_checking_guard);
-                    // A suite is only dead everywhere if its test never consults the runtime
-                    // environment. A `sys.version_info`, `sys.platform`, `os.name`, or
-                    // `TYPE_CHECKING` guard is dead under this configuration alone, and the
-                    // suite is live under another, so reporting it would be a false positive.
-                    // An `else` has no test of its own and inherits the ones above it.
-                    let test_is_environment_independent = test
-                        .as_ref()
-                        .is_none_or(|test| !SysInfo::depends_on_sys_info(test));
-                    let is_type_checking_branch = (test.is_none() && following_runtime_only_branch)
-                        || test.as_ref().is_some_and(SysInfo::is_type_checking_guard);
-                    // Record this before any early `continue`: a `not TYPE_CHECKING` guard
-                    // always evaluates statically to `false`, so its branch is skipped below,
-                    // yet the following `else` branch must still be treated as type-checking-only.
-                    following_runtime_only_branch |= later_branches_are_type_checking;
-                    let new_narrow_ops = if this_branch_chosen == Some(false) {
-                        if test_is_environment_independent {
-                            self.report_unreachable_body(&body);
-                        }
-                        // Skip the body in this case - it typically means a check (e.g. a sys version,
-                        // platform, or TYPE_CHECKING check) where the body is not statically analyzable.
-                        // However, we still need to check for `yield`/`yield from` in the skipped
-                        // body, because Python determines generator status syntactically at compile
-                        // time, regardless of reachability.
-                        if Ast::body_contains_yield(&body) {
-                            self.scopes.mark_has_yield_in_dead_code();
-                        }
-                        self.abandon_branch();
-                        continue;
-                    } else {
-                        NarrowOps::from_expr(self, test.as_ref())
-                    };
-                    // The solver decides from the declarations in each test whether this suite is
-                    // dead. An environment-independent test that is always true also makes every
-                    // suite below it dead.
-                    let this_test = test.map(|test| {
-                        self.insert_binding(
-                            Key::BranchTest(test.range()),
-                            Binding::BranchTest(Box::new(BranchTest {
-                                test,
-                                previous: previous_test,
-                                is_environment_independent: test_is_environment_independent,
-                            })),
-                        )
-                    });
-                    branch_suites.push(BranchSuite {
-                        range: self.unreachable_body_range(&body),
-                        test: this_test,
-                    });
-                    // An `if` or `elif` suite runs when its own test is true, and an `else`
-                    // suite when the latest test is false.
-                    let decided_by = this_test
-                        .map(|test| (test, true))
-                        .or(previous_test.map(|test| (test, false)));
-                    previous_test = this_test.or(previous_test);
-                    self.bind_narrow_ops(
-                        &new_narrow_ops,
-                        NarrowUseLocation::Span(range),
-                        &Usage::NonPinningValue(None),
-                    );
-                    negated_prev_ops.and_all(new_narrow_ops.negate());
-                    if is_type_checking_branch {
-                        self.type_checking_depth += 1;
-                        self.stmts(body, parent);
-                        self.type_checking_depth -= 1;
-                    } else {
-                        self.stmts(body, parent);
-                    }
-                    if let Some((test, runs_when)) = decided_by {
-                        let end = self.insert_binding(
-                            Key::BranchEnd(range),
-                            Binding::BranchEnd(Box::new(BranchEnd {
-                                test,
-                                runs_when,
-                                last: self.scopes.last_stmt_expr(),
-                            })),
-                        );
-                        self.scopes.set_last_stmt_expr(Some(end));
-                    }
-                    if this_branch_chosen == Some(true)
-                        && !test_is_environment_independent
-                        && self.scopes.has_terminated()
-                    {
-                        contains_environment_test_with_no_else = true;
-                    }
-                    self.finish_branch();
-                    if this_branch_chosen == Some(true) {
-                        // Choosing an environment-independent branch kills every later suite
-                        // in every environment. Choosing an environment-dependent one only
-                        // kills those we can rule out without consulting the environment.
-                        let mut report_all_remaining = test_is_environment_independent;
-                        for (_, remaining_test, body) in branches {
-                            // `Some(false)`: this suite is dead everywhere. `Some(true)`: this
-                            // branch is taken wherever it is reached, so every suite after it
-                            // is dead everywhere, even though this one is live where the
-                            // branch is chosen. `None`: the answer depends on the environment.
-                            let unconditional = remaining_test.as_ref().and_then(|test| {
-                                if SysInfo::depends_on_sys_info(test) {
-                                    None
-                                } else {
-                                    self.sys_info.evaluate_bool(test)
-                                }
-                            });
-                            if report_all_remaining || unconditional == Some(false) {
-                                self.report_unreachable_body(&body);
-                            }
-                            report_all_remaining |= unconditional == Some(true);
-                            if Ast::body_contains_yield(&body) {
-                                self.scopes.mark_has_yield_in_dead_code();
-                            }
-                        }
-                        exhaustive = true;
-                        break; // We definitely picked this branch if we got here, nothing below is reachable.
-                    }
-                }
-                self.insert_binding_idx(
-                    reachability_idx,
-                    BindingExpect::BranchSuiteReachability(branch_suites.into_boxed_slice()),
-                );
-                self.insert_binding_current(
-                    tests_link,
-                    Binding::UsageLink(LinkedKey::Expect(reachability_idx)),
-                );
-                // Create Exhaustive binding for type-based exhaustiveness checking.
-                // This is done BEFORE finish_*_fork() so the binding exists in the right scope.
-                // Only do this when there's no else clause (not syntactically exhaustive).
-                let exhaustive_key = if !exhaustive {
-                    let narrow_entries = self.build_narrow_entries(&negated_prev_ops);
-                    Some(self.insert_binding(
-                        Key::Exhaustive(ExhaustivenessKind::IfElif, if_range),
-                        Binding::Exhaustive(Box::new(ExhaustiveBinding {
-                            kind: ExhaustivenessKind::IfElif,
-                            narrow_entries,
-                        })),
-                    ))
-                } else {
-                    None
-                };
-                if exhaustive {
-                    self.finish_exhaustive_fork();
-                } else {
-                    // The fall-through runs when the latest test is false.
-                    let fall_through_key = match previous_test {
-                        Some(test) => Some(self.insert_binding(
-                            Key::BranchEnd(TextRange::empty(if_range.start())),
-                            Binding::BranchEnd(Box::new(BranchEnd {
-                                test,
-                                runs_when: false,
-                                last: exhaustive_key,
-                            })),
-                        )),
-                        None => exhaustive_key,
-                    };
-                    self.finish_non_exhaustive_fork(&negated_prev_ops, fall_through_key);
-                }
-                // Preserve the configured-environment termination without treating it as
-                // universally unreachable. This keeps later bindings out of a dead branch
-                // while suppressing diagnostics that only apply to code live in this config.
-                if contains_environment_test_with_no_else
-                    && !is_definitely_unreachable
-                    && self.scopes.has_terminated()
-                {
-                    self.scopes
-                        .mark_flow_termination(TerminationKind::StaticTest);
-                    self.scopes.set_definitely_unreachable(false);
-                }
-            }
+            Stmt::If(x) => self.if_stmt(x, parent),
             Stmt::With(x) => {
                 if x.is_async
                     && !self.scopes.is_in_async_def()
@@ -2315,32 +1997,14 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Pass(_) => { /* no-op */ }
             Stmt::Break(x) => {
-                // PEP 765: Disallow break in finally block if not inside a nested loop
-                if self.sys_info.version().at_least(3, 14)
-                    && self.scopes.in_finally()
-                    && !self.scopes.loop_protects_from_finally_exit()
-                {
-                    self.error(
-                        x.range,
-                        ErrorKind::InvalidSyntax,
-                        "`break` in a `finally` block will silence exceptions".to_owned(),
-                    );
-                }
-                self.add_loop_exitpoint(LoopExit::Break);
+                #[cfg(feature = "bindings-driver")]
+                self.assert_not_driven("break");
+                self.loop_exit_stmt(x.range, LoopExit::Break);
             }
             Stmt::Continue(x) => {
-                // PEP 765: Disallow continue in finally block if not inside a nested loop
-                if self.sys_info.version().at_least(3, 14)
-                    && self.scopes.in_finally()
-                    && !self.scopes.loop_protects_from_finally_exit()
-                {
-                    self.error(
-                        x.range,
-                        ErrorKind::InvalidSyntax,
-                        "`continue` in a `finally` block will silence exceptions".to_owned(),
-                    );
-                }
-                self.add_loop_exitpoint(LoopExit::Continue);
+                #[cfg(feature = "bindings-driver")]
+                self.assert_not_driven("continue");
+                self.loop_exit_stmt(x.range, LoopExit::Continue);
             }
             Stmt::IpyEscapeCommand(x) => {
                 if self.module_info.is_notebook() {
