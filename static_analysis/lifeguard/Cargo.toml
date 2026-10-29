@@ -1,0 +1,19 @@
+[package]
+name = "pyrefly_static_analysis_lifeguard"
+version = "0.0.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Experimental lazy-import safety analysis built on pyrefly_static_analysis"
+
+[[bin]]
+name = "lifeguard-spike"
+path = "src/main.rs"
+
+[dependencies]
+pyrefly_static_analysis = { path = ".." }
+starlark_map = "0.14.2"
+
+[lints]
+workspace = true

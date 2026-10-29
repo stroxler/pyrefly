@@ -2574,6 +2574,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyrefly_static_analysis_lifeguard"
+version = "0.0.0"
+dependencies = [
+ "pyrefly_static_analysis",
+ "starlark_map",
+]
+
+[[package]]
 name = "pyrefly_static_analysis_spmd"
 version = "0.0.0"
 dependencies = [

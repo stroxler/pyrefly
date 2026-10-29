@@ -36,6 +36,7 @@ members = [
   "static_analysis",
   "static_analysis/pyrefly_exports",
   "static_analysis/spmd",
+  "static_analysis/lifeguard",
   "pyrefly",
   "pyrefly_wasm",
 ]
