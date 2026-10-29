@@ -2574,6 +2574,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyrefly_static_analysis_spmd"
+version = "0.0.0"
+dependencies = [
+ "pyrefly_python",
+ "pyrefly_static_analysis",
+ "serde_json",
+]
+
+[[package]]
 name = "pyrefly_types"
 version = "1.4.0"
 dependencies = [

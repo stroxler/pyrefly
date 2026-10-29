@@ -1,0 +1,16 @@
+[package]
+name = "pyrefly_static_analysis_spmd"
+version = "0.0.0"
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Experimental SPMD contract consumer of the neutral Python analysis engine"
+
+[dependencies]
+pyrefly_static_analysis = { path = ".." }
+pyrefly_python = { path = "../../crates/pyrefly_python" }
+serde_json = "1"
+
+[lints]
+workspace = true

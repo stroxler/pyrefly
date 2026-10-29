@@ -1,0 +1,12 @@
+{
+  "function": "mlp",
+  "global": true,
+  "mesh": ["tp"],
+  "inputs": {
+    "x": {"rank": 2, "grad": "yes", "axes": {"tp": "I"}},
+    "w1": {"rank": 2, "grad": "yes", "axes": {"tp": "S(1)"}},
+    "w2": {"rank": 2, "grad": "yes", "axes": {"tp": "S(0)"}}
+  },
+  "return": {"rank": 2, "grad": "yes", "axes": {"tp": "I"}},
+  "partial_outputs": [{"line": 14, "axes": ["tp"]}]
+}
