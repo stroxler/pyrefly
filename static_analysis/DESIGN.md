@@ -19,6 +19,8 @@ Pyrefly's type-specific `Bindings` and `Answers` are not the shared intermediate
 
 ## Shared work versus domain work
 
+The structured driver owns statement-level structure over the parsed AST: suite order, the decomposition of `if`/`elif`/`else` and loops, which arms run given a backend's static truth for their tests, and the loop that a `break` or `continue` leaves. Lowering is a backend of the driver that emits blocks and terminators. A backend owns its values and its policy for deciding tests; the driver never evaluates a test itself.
+
 The frontend owns declarations, scope visibility, evaluation order, deferred versus immediate code regions, and explicit flow edges. Statement ranges provide a coarse grouping of ordered expression operations. Consumers do not reparse source or reconstruct scopes by walking the AST.
 
 The engine owns frame bookkeeping, branch/loop propagation, joins, convergence limits, and deterministic diagnostic collection. A domain defines abstract values plus arbitrary state: heap/typestate facts, capability state, ambient meshes, effects, or other context. An operation may change existing facts; it need not have a useful return value.

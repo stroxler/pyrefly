@@ -5,8 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-//! Lowering from the Ruff AST to the operation CFG. This is the only module that walks
-//! syntax; every other component consumes [`Program`].
+//! Lowering from the Ruff AST to the operation CFG. Statement structure (suites,
+//! `if`, loops, `break`/`continue`, function bodies) is walked by the shared
+//! [`structured`](crate::structured) driver; this module lowers what the driver hands it.
+//! Every other component consumes [`Program`].
 //!
 //! Operations are emitted in CPython's evaluation order: an assignment evaluates its
 //! value before any target subexpression, a call evaluates the callee before its
@@ -65,6 +67,13 @@ use crate::ir::Trigger;
 use crate::scope::GENERATOR_ARG;
 use crate::scope::ScopeTable;
 use crate::scope::annotation_may_have_effects;
+use crate::structured;
+use crate::structured::Arm;
+use crate::structured::Borrowed;
+use crate::structured::Driver;
+use crate::structured::Jump;
+use crate::structured::LoopHeader;
+use crate::structured::Structured;
 
 pub fn lower(source: &str, module: ModuleName, is_init: bool) -> Program {
     let (ast, parse_errors, unsupported) = Ast::parse(source, PySourceType::Python);
@@ -81,13 +90,14 @@ pub fn lower(source: &str, module: ModuleName, is_init: bool) -> Program {
         table,
         ops: Vec::new(),
         r: RegionState::new(ScopeId(0)),
+        driver: Driver::default(),
     };
     let module_scope = lowerer.table.module();
     lowerer.r = RegionState::new(module_scope);
     if let Some((_, range)) = syntax_errors.first() {
         lowerer.gap(GapKind::SyntaxError, None, *range);
     }
-    lowerer.stmts(&ast.body);
+    structured::suite(&mut lowerer, &ast.body);
     lowerer.terminate(Terminator::Return(None));
     let state = std::mem::replace(&mut lowerer.r, RegionState::new(module_scope));
     let (blocks, num_regs) = state.into_blocks();
@@ -167,10 +177,26 @@ enum Unwind<'a> {
     DeleteName(&'a Identifier),
 }
 
-struct Loop {
+/// Where `break` and `continue` go, and the unwind depth at the loop body.
+#[derive(Clone, Copy)]
+struct LoopTarget {
     break_to: BlockId,
     continue_to: BlockId,
     depth: usize,
+}
+
+/// The blocks of a loop being lowered.
+struct LoopBlocks {
+    head: BlockId,
+    orelse: BlockId,
+    after: BlockId,
+}
+
+/// The blocks of an `if` being lowered: the join, and the block that the next arm's test
+/// starts in.
+struct IfBlocks {
+    after: BlockId,
+    next: Option<BlockId>,
 }
 
 /// The region currently being lowered.
@@ -181,7 +207,6 @@ struct RegionState<'a> {
     current: Option<BlockId>,
     num_regs: u32,
     unwind: Vec<Unwind<'a>>,
-    loops: Vec<Loop>,
     stmt: TextRange,
     /// `finally` bodies lowered so far by unwinding.
     finally_copies: usize,
@@ -195,7 +220,6 @@ impl<'a> RegionState<'a> {
             current: Some(BlockId(0)),
             num_regs: 0,
             unwind: Vec::new(),
-            loops: Vec::new(),
             stmt: TextRange::default(),
             finally_copies: 0,
         }
@@ -222,6 +246,7 @@ struct Lowerer<'a> {
     regions: Vec<Option<Region>>,
     ops: Vec<Op>,
     r: RegionState<'a>,
+    driver: Driver<LoopTarget>,
 }
 
 /// The source of a deferred region's body.
@@ -393,17 +418,7 @@ impl<'a> Lowerer<'a> {
 
     // Statements.
 
-    fn stmts(&mut self, body: &'a [Stmt]) {
-        for x in body {
-            self.exception_edge();
-            let outer = self.r.stmt;
-            self.r.stmt = x.range();
-            self.stmt(x);
-            self.r.stmt = outer;
-        }
-        self.exception_edge();
-    }
-
+    /// A statement that the structured driver does not decompose.
     fn stmt(&mut self, x: &'a Stmt) {
         match x {
             Stmt::FunctionDef(f) => {
@@ -438,7 +453,7 @@ impl<'a> Lowerer<'a> {
                 };
                 let scope = self.table.scope_of_node(c.range);
                 let outer = std::mem::replace(&mut self.r.scope, scope);
-                self.stmts(&c.body);
+                structured::suite(self, &c.body);
                 self.r.scope = outer;
                 let dst = self.reg();
                 self.emit(
@@ -565,89 +580,6 @@ impl<'a> Lowerer<'a> {
                 self.gap(GapKind::TypeParams, Some(dst), x.range);
                 self.assign(&x.name, dst);
             }
-            Stmt::For(x) => {
-                let iterable = self.expr(&x.iter);
-                let iterator = self.reg();
-                self.emit(
-                    OpKind::Iter {
-                        iterable,
-                        dst: iterator,
-                        is_async: x.is_async,
-                    },
-                    x.iter.range(),
-                );
-                let head = self.new_block();
-                let body = self.new_block();
-                let orelse = self.new_block();
-                let after = self.new_block();
-                self.jump(head);
-                self.start(head);
-                self.terminate(Terminator::Choice(vec![body, orelse]));
-                self.start(body);
-                let item = self.reg();
-                self.emit(
-                    OpKind::Next {
-                        iterator,
-                        dst: item,
-                        is_async: x.is_async,
-                    },
-                    x.target.range(),
-                );
-                self.assign(&x.target, item);
-                self.loop_body(&x.body, after, head);
-                self.start(orelse);
-                self.stmts(&x.orelse);
-                self.jump(after);
-                self.start(after);
-            }
-            Stmt::While(x) => {
-                let head = self.new_block();
-                let body = self.new_block();
-                let orelse = self.new_block();
-                let after = self.new_block();
-                self.jump(head);
-                self.start(head);
-                if is_truthy_constant(&x.test) {
-                    self.terminate(Terminator::Jump(body));
-                } else {
-                    let cond = self.expr(&x.test);
-                    self.terminate(Terminator::Branch {
-                        cond,
-                        then: body,
-                        orelse,
-                    });
-                }
-                self.start(body);
-                self.loop_body(&x.body, after, head);
-                self.start(orelse);
-                self.stmts(&x.orelse);
-                self.jump(after);
-                self.start(after);
-            }
-            Stmt::If(x) => {
-                let after = self.new_block();
-                for (test, body) in Ast::if_branches(x) {
-                    match test {
-                        Some(test) => {
-                            let cond = self.expr(test);
-                            let then = self.new_block();
-                            let next = self.new_block();
-                            self.terminate(Terminator::Branch {
-                                cond,
-                                then,
-                                orelse: next,
-                            });
-                            self.start(then);
-                            self.stmts(body);
-                            self.jump(after);
-                            self.start(next);
-                        }
-                        None => self.stmts(body),
-                    }
-                }
-                self.jump(after);
-                self.start(after);
-            }
             Stmt::With(x) => {
                 let depth = self.r.unwind.len();
                 for item in &x.items {
@@ -672,7 +604,7 @@ impl<'a> Lowerer<'a> {
                         is_async: x.is_async,
                     });
                 }
-                self.stmts(&x.body);
+                structured::suite(self, &x.body);
                 self.unwind_to(depth);
                 self.r.unwind.truncate(depth);
             }
@@ -703,7 +635,7 @@ impl<'a> Lowerer<'a> {
                         });
                         self.start(body);
                     }
-                    self.stmts(&case.body);
+                    structured::suite(self, &case.body);
                     self.jump(after);
                     self.start(next);
                     if case.guard.is_none() && case.pattern.is_irrefutable() {
@@ -811,37 +743,12 @@ impl<'a> Lowerer<'a> {
             Stmt::Expr(x) => {
                 self.expr(&x.value);
             }
-            Stmt::Break(_) | Stmt::Continue(_) => {
-                let l = self.r.loops.last().map(|l| {
-                    (
-                        l.depth,
-                        if matches!(x, Stmt::Break(_)) {
-                            l.break_to
-                        } else {
-                            l.continue_to
-                        },
-                    )
-                });
-                // Outside a loop this is a syntax error that the parser reports.
-                if let Some((depth, to)) = l {
-                    self.unwind_to(depth);
-                    self.jump(to);
-                }
+            Stmt::If(_) | Stmt::While(_) | Stmt::For(_) | Stmt::Break(_) | Stmt::Continue(_) => {
+                unreachable!("the structured driver decomposes `if`, loops and jumps")
             }
             Stmt::IpyEscapeCommand(x) => self.gap(GapKind::IpyEscape, None, x.range),
             Stmt::Global(_) | Stmt::Nonlocal(_) | Stmt::Pass(_) => {}
         }
-    }
-
-    fn loop_body(&mut self, body: &'a [Stmt], break_to: BlockId, continue_to: BlockId) {
-        self.r.loops.push(Loop {
-            break_to,
-            continue_to,
-            depth: self.r.unwind.len(),
-        });
-        self.stmts(body);
-        self.r.loops.pop();
-        self.jump(continue_to);
     }
 
     /// `try`: the body may raise at any statement boundary. Exceptions go to a dispatch
@@ -865,9 +772,9 @@ impl<'a> Lowerer<'a> {
         if let Some(dispatch) = dispatch {
             self.r.unwind.push(Unwind::Handler(dispatch));
         }
-        self.stmts(&x.body);
+        structured::suite(self, &x.body);
         self.r.unwind.truncate(protected);
-        self.stmts(&x.orelse);
+        structured::suite(self, &x.orelse);
         let finish = self.new_block();
         self.jump(finish);
         if let Some(dispatch) = dispatch {
@@ -888,7 +795,7 @@ impl<'a> Lowerer<'a> {
                     // Python deletes the bound exception however the handler is left.
                     self.r.unwind.push(Unwind::DeleteName(name));
                 }
-                self.stmts(&h.body);
+                structured::suite(self, &h.body);
                 self.unwind_to(handler_depth);
                 self.r.unwind.truncate(handler_depth);
                 self.jump(finish);
@@ -925,7 +832,7 @@ impl<'a> Lowerer<'a> {
             return;
         }
         self.r.finally_copies += 1;
-        self.stmts(body);
+        structured::suite(self, body);
     }
 
     fn decorators(
@@ -1088,7 +995,7 @@ impl<'a> Lowerer<'a> {
         }
         match body {
             Body::Function(f) => {
-                self.stmts(&f.body);
+                structured::region(self, &f.body);
                 if self.r.current.is_some() {
                     let none = self.literal(Literal::None, f.range);
                     self.terminate(Terminator::Return(Some(none)));
@@ -1738,6 +1645,190 @@ impl<'a> Lowerer<'a> {
             Expr::NoneLiteral(_) => StaticExpr::Literal(Literal::None),
             Expr::EllipsisLiteral(_) => StaticExpr::Literal(Literal::Ellipsis),
             _ => StaticExpr::Other(x.range()),
+        }
+    }
+}
+
+/// Lowering as a structured backend: arms and loops become blocks and terminators.
+/// Lowering never decides a test statically, so every arm is visited.
+impl<'a> Structured for Lowerer<'a> {
+    type Syntax = Borrowed<'a>;
+    /// The enclosing statement range, restored after each statement.
+    type Suite = TextRange;
+    type If = IfBlocks;
+    type Loop = LoopBlocks;
+    type Target = LoopTarget;
+
+    fn driver(&mut self) -> &mut Driver<LoopTarget> {
+        &mut self.driver
+    }
+
+    fn suite_start(&mut self, _: &[Stmt]) -> TextRange {
+        self.r.stmt
+    }
+
+    fn absorbs(&mut self, _: &Stmt, _: &Stmt) -> bool {
+        false
+    }
+
+    fn stmt_before(&mut self, _: &mut TextRange, stmt: &Stmt, _: Option<&Stmt>) {
+        self.exception_edge();
+        self.r.stmt = stmt.range();
+    }
+
+    fn stmt_after(&mut self, outer: &mut TextRange) {
+        self.r.stmt = *outer;
+    }
+
+    fn suite_end(&mut self, _: TextRange) {
+        self.exception_edge();
+    }
+
+    fn other_stmt(&mut self, stmt: &'a Stmt) {
+        self.stmt(stmt);
+    }
+
+    fn if_start(&mut self, _: TextRange, _: &mut &'a Expr) -> IfBlocks {
+        IfBlocks {
+            after: self.new_block(),
+            next: None,
+        }
+    }
+
+    fn arm_start(
+        &mut self,
+        state: &mut IfBlocks,
+        _: TextRange,
+        _: bool,
+        test: Option<&mut &'a Expr>,
+    ) -> Option<bool> {
+        if let Some(test) = test {
+            let cond = self.expr(test);
+            let then = self.new_block();
+            let next = self.new_block();
+            self.terminate(Terminator::Branch {
+                cond,
+                then,
+                orelse: next,
+            });
+            self.start(then);
+            state.next = Some(next);
+        }
+        None
+    }
+
+    fn arm_skip(&mut self, _: &mut IfBlocks, _: Arm<Borrowed<'a>>) {
+        unreachable!("lowering never decides a test statically")
+    }
+
+    fn arm_enter(&mut self, _: &mut IfBlocks, _: TextRange, _: Option<&'a Expr>, _: &[Stmt]) {}
+
+    fn arm_exit(&mut self, state: &mut IfBlocks, _: TextRange) {
+        self.jump(state.after);
+        if let Some(next) = state.next.take() {
+            self.start(next);
+        }
+    }
+
+    fn arm_dead(&mut self, _: &mut IfBlocks, _: Arm<Borrowed<'a>>) {
+        unreachable!("lowering never decides a test statically")
+    }
+
+    fn if_end(&mut self, state: IfBlocks, _: bool) {
+        self.jump(state.after);
+        self.start(state.after);
+    }
+
+    fn loop_start(
+        &mut self,
+        header: LoopHeader<Borrowed<'a>>,
+        _: &[Stmt],
+    ) -> (LoopBlocks, LoopTarget) {
+        let iterator = match header {
+            LoopHeader::For { iter, is_async, .. } => {
+                let iterable = self.expr(iter);
+                let iterator = self.reg();
+                self.emit(
+                    OpKind::Iter {
+                        iterable,
+                        dst: iterator,
+                        is_async,
+                    },
+                    iter.range(),
+                );
+                Some(iterator)
+            }
+            LoopHeader::While { .. } => None,
+        };
+        let head = self.new_block();
+        let body = self.new_block();
+        let orelse = self.new_block();
+        let after = self.new_block();
+        self.jump(head);
+        self.start(head);
+        match header {
+            LoopHeader::For {
+                target, is_async, ..
+            } => {
+                self.terminate(Terminator::Choice(vec![body, orelse]));
+                self.start(body);
+                let item = self.reg();
+                self.emit(
+                    OpKind::Next {
+                        iterator: iterator.expect("a `for` header creates an iterator"),
+                        dst: item,
+                        is_async,
+                    },
+                    target.range(),
+                );
+                self.assign(target, item);
+            }
+            LoopHeader::While { test, .. } => {
+                if is_truthy_constant(test) {
+                    self.terminate(Terminator::Jump(body));
+                } else {
+                    let cond = self.expr(test);
+                    self.terminate(Terminator::Branch {
+                        cond,
+                        then: body,
+                        orelse,
+                    });
+                }
+                self.start(body);
+            }
+        }
+        (
+            LoopBlocks {
+                head,
+                orelse,
+                after,
+            },
+            LoopTarget {
+                break_to: after,
+                continue_to: head,
+                depth: self.r.unwind.len(),
+            },
+        )
+    }
+
+    fn loop_else(&mut self, state: &mut LoopBlocks) {
+        self.jump(state.head);
+        self.start(state.orelse);
+    }
+
+    fn loop_end(&mut self, state: LoopBlocks) {
+        self.jump(state.after);
+        self.start(state.after);
+    }
+
+    fn loop_jump(&mut self, jump: Jump, _: TextRange, target: Option<LoopTarget>) {
+        // Outside a loop this is a syntax error that the parser reports.
+        if let Some(target) = target {
+            self.unwind_to(target.depth);
+            self.jump(match jump {
+                Jump::Break => target.break_to,
+                Jump::Continue => target.continue_to,
+            });
         }
     }
 }

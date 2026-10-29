@@ -12,6 +12,11 @@
 //! evaluation order. An [`Engine`] runs any [`Domain`] over a region; [`History`]
 //! answers reaching-definition queries without a domain.
 //!
+//! Lowering walks statement structure (suites, `if`, loops, `break`/`continue`, function
+//! bodies) through the [`structured`] driver. Another backend, such as a type checker's
+//! binder, can drive its own values over the same parsed AST with that driver, without
+//! lowering.
+//!
 //! # Supported semantics
 //!
 //! - Scopes follow CPython's syntactic rules: any binding (including in dead code)
@@ -60,6 +65,7 @@ pub mod history;
 pub mod ir;
 mod lower;
 mod scope;
+pub mod structured;
 
 pub use engine::Binding;
 pub use engine::Convergence;

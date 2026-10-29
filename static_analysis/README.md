@@ -40,6 +40,8 @@ The frontend takes inspiration from the public Pyrefly binding/declaration pass 
 
 A domain can change an existing name's facts or object/typestate information and carry arbitrary ambient state. It is not limited to returning a type for an expression. Tests include a small resource/lock domain, alongside the two primary consumers.
 
+Statement structure is sequenced by a structured driver (`structured.rs`) that owns suite order, `if`/loop decomposition, the application of a backend's static truth for tests, and `break`/`continue` attribution. Lowering is one backend of that driver; a backend that keeps its own values (for example a type checker's flow environments) can reuse it over the same parsed AST without lowering.
+
 Execution order is not type-inference dependency order. A downstream Pyrefly adapter could add contextual typing, narrowing, first-use dependencies and synthesized bindings without putting those policies in the common frontend.
 
 ## What this does not establish
