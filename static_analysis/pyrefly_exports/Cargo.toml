@@ -1,0 +1,20 @@
+[package]
+name = "pyrefly_static_analysis_exports"
+version = "0.0.0"
+edition = "2024"
+license.workspace = true
+publish = false
+repository.workspace = true
+description = "Experimental export-provenance bridge for a shared Python analysis frontend"
+
+[dependencies]
+pyrefly = { path = "../../pyrefly", default-features = false }
+pyrefly_python = { path = "../../crates/pyrefly_python" }
+pyrefly_static_analysis = { path = ".." }
+pyrefly_types = { path = "../../crates/pyrefly_types" }
+ruff_python_ast = "0.0.14"
+ruff_text_size = "0.0.14"
+starlark_map = "0.14.2"
+
+[lints]
+workspace = true

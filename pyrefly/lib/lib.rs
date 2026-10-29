@@ -34,7 +34,9 @@ mod compat;
 #[doc(hidden)]
 pub mod embed;
 mod error;
-mod export;
+// Experimental export-only adapter for the static_analysis spike. This is not a stable API.
+#[doc(hidden)]
+pub mod export;
 #[doc(hidden)]
 pub mod lsp;
 mod memory_project;

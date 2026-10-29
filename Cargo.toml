@@ -34,6 +34,7 @@ members = [
   "crates/pyrefly_util",
   "crates/tsp_types",
   "static_analysis",
+  "static_analysis/pyrefly_exports",
   "pyrefly",
   "pyrefly_wasm",
 ]
