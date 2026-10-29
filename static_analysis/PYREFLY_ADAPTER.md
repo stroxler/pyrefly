@@ -1,5 +1,10 @@
 # Pyrefly bindings as a downstream consumer
 
+This is the earlier capability-gap sketch. The implemented structured driver, shared
+declaration/lexical-navigation mechanisms and optional feedback seam are described in
+[SHARED_FRONTEND.md](SHARED_FRONTEND.md); remaining full-syntax and expression-driving
+work below is still separate from those demonstrated pieces.
+
 ## Goal and evidence boundary
 
 The long-term capability target is an exact match or superset of today's binding pass, without making `Bindings` or `Answers` the shared frontend API. Adoption by Pyrefly remains optional: a substantial performance cost could make sharing undesirable even if it is technically possible.

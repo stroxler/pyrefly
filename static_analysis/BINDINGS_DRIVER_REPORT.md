@@ -1,5 +1,10 @@
 # Bindings-driver experiment: result
 
+**Historical statement-driver measurements.** This report describes the first structured-flow
+iteration. Declaration/scope sharing and optional facts feedback were added afterward;
+see [the current shared-frontend report](SHARED_FRONTEND.md). The timings below do not
+measure that broader implementation.
+
 ## Conclusion
 
 The shared base can drive Pyrefly's **actual statement-level binding traversal**, with the
