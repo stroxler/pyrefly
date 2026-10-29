@@ -39,6 +39,9 @@ use ruff_source_file::LineIndex;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
+use crate::flow_point::FlowPointCollector;
+use crate::flow_point::FlowPointId;
+use crate::flow_point::ProgramWithFlowPoints;
 use crate::ir::Access;
 use crate::ir::Arg;
 use crate::ir::BinaryOp;
@@ -76,6 +79,24 @@ use crate::structured::LoopHeader;
 use crate::structured::Structured;
 
 pub fn lower(source: &str, module: ModuleName, is_init: bool) -> Program {
+    lower_impl(source, module, is_init, None).program
+}
+
+/// Lower with an observer attached to the actual borrowed CFG backend.
+pub fn lower_with_flow_points(
+    source: &str,
+    module: ModuleName,
+    is_init: bool,
+) -> ProgramWithFlowPoints {
+    lower_impl(source, module, is_init, Some(FlowPointCollector::default()))
+}
+
+fn lower_impl(
+    source: &str,
+    module: ModuleName,
+    is_init: bool,
+    flow_points: Option<FlowPointCollector>,
+) -> ProgramWithFlowPoints {
     let (ast, parse_errors, unsupported) = Ast::parse(source, PySourceType::Python);
     let syntax_errors: Vec<(String, TextRange)> = parse_errors
         .iter()
@@ -91,6 +112,7 @@ pub fn lower(source: &str, module: ModuleName, is_init: bool) -> Program {
         ops: Vec::new(),
         r: RegionState::new(ScopeId(0)),
         driver: Driver::default(),
+        flow_points,
     };
     let module_scope = lowerer.table.module();
     lowerer.r = RegionState::new(module_scope);
@@ -119,6 +141,7 @@ pub fn lower(source: &str, module: ModuleName, is_init: bool) -> Program {
         regions,
         table,
         ops,
+        flow_points,
         ..
     } = lowerer;
     let parts = table.into_parts();
@@ -153,7 +176,10 @@ pub fn lower(source: &str, module: ModuleName, is_init: bool) -> Program {
             program.symbols[symbol.index()].captured = true;
         }
     }
-    program
+    ProgramWithFlowPoints {
+        program,
+        flow_points: flow_points.map_or_else(Vec::new, |collector| collector.points),
+    }
 }
 
 /// The number of `finally` bodies a region may copy onto exit paths before further
@@ -247,6 +273,7 @@ struct Lowerer<'a> {
     ops: Vec<Op>,
     r: RegionState<'a>,
     driver: Driver<LoopTarget>,
+    flow_points: Option<FlowPointCollector>,
 }
 
 /// The source of a deferred region's body.
@@ -1661,6 +1688,17 @@ impl<'a> Structured for Lowerer<'a> {
 
     fn driver(&mut self) -> &mut Driver<LoopTarget> {
         &mut self.driver
+    }
+
+    fn observes_flow_points(&self) -> bool {
+        self.flow_points.is_some()
+    }
+
+    fn flow_point(&mut self, point: FlowPointId) {
+        self.flow_points
+            .as_mut()
+            .expect("flow points are emitted only when observation is enabled")
+            .observe(point);
     }
 
     fn suite_start(&mut self, _: &[Stmt]) -> TextRange {

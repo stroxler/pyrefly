@@ -46,6 +46,8 @@ Declaration collection is shared through a per-scope event scanner (`declaration
 
 Lexical navigation is shared through `lexical.rs`: backends supply parent/category/barrier information and candidate probes, while visible-scope and nonlocal-search structure is reusable. Found values, initialization, error recovery and type-specific selection remain backend-owned. Runtime annotation/type-parameter evaluation still has explicit gaps.
 
+Source flow-point observation is optional (`analyze_python_with_flow_points`), with IDs stable for the same module/source across backend pruning. Points identify structural occurrences, not allocated CFG blocks; a block mapping is still needed for automatic engine pruning. The optional `FlowFacts` interface includes assumptions/coverage metadata and conditional completion facts without requiring a type-analysis provider. Missing facts stay unknown, and source/dependency freshness is part of the provider contract.
+
 Execution order is not type-inference dependency order. A downstream Pyrefly adapter could add contextual typing, narrowing, first-use dependencies and synthesized bindings without putting those policies in the common frontend.
 
 ## What this does not establish

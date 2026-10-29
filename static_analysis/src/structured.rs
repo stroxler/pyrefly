@@ -31,7 +31,11 @@ use pyrefly_python::ast::Ast;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::Suite;
+use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+
+use crate::flow_point::FlowPointId;
+use crate::flow_point::FlowPointKind;
 
 /// How a backend holds the AST: by value, so payloads can move into its output without
 /// cloning, or by reference.
@@ -214,6 +218,10 @@ pub struct Coverage {
 /// current region, innermost last, and the coverage counters.
 pub struct Driver<T> {
     loops: Vec<T>,
+    /// The lexical source suite, populated only while an observer is active.
+    source_region: Option<TextRange>,
+    /// A definition's body suite, distinguished from suites synthesized for its headers.
+    scope_body: Option<TextRange>,
     pub coverage: Coverage,
 }
 
@@ -221,6 +229,8 @@ impl<T> Default for Driver<T> {
     fn default() -> Self {
         Self {
             loops: Vec::new(),
+            source_region: None,
+            scope_body: None,
             coverage: Coverage::default(),
         }
     }
@@ -244,6 +254,16 @@ pub trait Structured: Sized {
     type Target: Clone;
 
     fn driver(&mut self) -> &mut Driver<Self::Target>;
+
+    /// Enable source-point observation for this traversal. Keep this choice fixed while
+    /// driving a suite; the default path allocates no observer storage.
+    fn observes_flow_points(&self) -> bool {
+        false
+    }
+
+    /// Observe a source boundary in traversal order, bracketing the corresponding
+    /// backend step. No reachability or type-dependent policy is implied by its presence.
+    fn flow_point(&mut self, _point: FlowPointId) {}
 
     fn suite_start(&mut self, suite: &[Stmt]) -> Self::Suite;
     /// Whether `stmt` absorbs the statement that follows it, dropping `next` from the
@@ -298,8 +318,41 @@ pub trait Structured: Sized {
     fn loop_jump(&mut self, jump: Jump, range: TextRange, target: Option<Self::Target>);
 }
 
-/// Drive a suite.
+/// The span is computed from the complete suite, before any backend pruning or absorption.
+fn suite_range(body: &[Stmt]) -> Option<TextRange> {
+    Some(TextRange::new(
+        body.first()?.range().start(),
+        body.last()?.range().end(),
+    ))
+}
+
+fn point<B: Structured>(b: &mut B, range: TextRange, kind: FlowPointKind) {
+    if b.observes_flow_points() {
+        let region = b
+            .driver()
+            .source_region
+            .expect("an observed nonempty suite has a lexical source region");
+        b.flow_point(FlowPointId {
+            region,
+            range,
+            kind,
+        });
+    }
+}
+
+/// Drive a suite. Empty suites emit no points because they have no source occurrence.
 pub fn suite<B: Structured>(b: &mut B, suite: SuiteOf<B>) {
+    let outer_region = b.driver().source_region;
+    let range = b
+        .observes_flow_points()
+        .then(|| suite_range(B::Syntax::suite(&suite)))
+        .flatten();
+    if let Some(range) = range {
+        if outer_region.is_none() || b.driver().scope_body == Some(range) {
+            b.driver().source_region = Some(range);
+        }
+        point(b, range, FlowPointKind::SuiteEntry);
+    }
     b.driver().coverage.suites += 1;
     let mut state = b.suite_start(B::Syntax::suite(&suite));
     let mut iter = suite.into_iter().peekable();
@@ -318,13 +371,22 @@ pub fn suite<B: Structured>(b: &mut B, suite: SuiteOf<B>) {
         b.stmt_after(&mut state);
     }
     b.suite_end(state);
+    if let Some(range) = range {
+        point(b, range, FlowPointKind::SuiteExit);
+    }
+    b.driver().source_region = outer_region;
 }
 
 /// Drive the body of a function: a suite with no enclosing loop.
 pub fn region<B: Structured>(b: &mut B, body: SuiteOf<B>) {
     b.driver().coverage.regions += 1;
     let outer = mem::take(&mut b.driver().loops);
+    let outer_region = b.driver().source_region;
+    if b.observes_flow_points() {
+        b.driver().source_region = suite_range(B::Syntax::suite(&body));
+    }
     suite(b, body);
+    b.driver().source_region = outer_region;
     b.driver().loops = outer;
 }
 
@@ -337,12 +399,23 @@ fn statement<B: Structured>(b: &mut B, x: StmtOf<B>) {
             orelse,
         } => {
             b.driver().coverage.loops += 1;
+            let range = match &header {
+                LoopHeader::While { range, .. } | LoopHeader::For { range, .. } => *range,
+            };
+            point(b, range, FlowPointKind::LoopHeader);
             let (mut state, target) = b.loop_start(header, B::Syntax::suite(&body));
             b.driver().loops.push(target);
+            point(b, range, FlowPointKind::LoopBody);
             suite(b, body);
             b.driver().loops.pop();
+            point(b, range, FlowPointKind::LoopBackedge);
             b.loop_else(&mut state);
+            point(b, range, FlowPointKind::LoopExit);
+            if !B::Syntax::suite(&orelse).is_empty() {
+                point(b, range, FlowPointKind::LoopElse);
+            }
             suite(b, orelse);
+            point(b, range, FlowPointKind::LoopJoin);
             b.loop_end(state);
         }
         Shape::Jump(jump, range) => {
@@ -352,11 +425,37 @@ fn statement<B: Structured>(b: &mut B, x: StmtOf<B>) {
             if target.is_none() {
                 driver.coverage.jumps_outside_loop += 1;
             }
+            point(
+                b,
+                range,
+                match jump {
+                    Jump::Break => FlowPointKind::Break,
+                    Jump::Continue => FlowPointKind::Continue,
+                },
+            );
             b.loop_jump(jump, range, target);
         }
         Shape::Other(x) => {
             b.driver().coverage.other += 1;
+            let scope = if b.observes_flow_points() {
+                match B::Syntax::stmt(&x) {
+                    Stmt::FunctionDef(f) => Some((f.range, suite_range(&f.body))),
+                    Stmt::ClassDef(c) => Some((c.range, suite_range(&c.body))),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let outer_scope_body = b.driver().scope_body;
+            if let Some((range, body_region)) = scope {
+                point(b, range, FlowPointKind::ScopeEntry);
+                b.driver().scope_body = body_region;
+            }
             b.other_stmt(x);
+            if let Some((range, _)) = scope {
+                b.driver().scope_body = outer_scope_body;
+                point(b, range, FlowPointKind::ScopeExit);
+            }
         }
     }
 }
@@ -365,6 +464,7 @@ fn if_<B: Structured>(b: &mut B, range: TextRange, arms: Vec<Arm<B::Syntax>>) {
     b.driver().coverage.ifs += 1;
     let mut arms = arms.into_iter();
     let mut first = arms.next().expect("an `if` statement has a first arm");
+    point(b, range, FlowPointKind::IfFork);
     let mut state = b.if_start(
         range,
         first
@@ -376,6 +476,9 @@ fn if_<B: Structured>(b: &mut B, range: TextRange, arms: Vec<Arm<B::Syntax>>) {
     let mut is_first = true;
     let mut next = Some(first);
     while let Some(mut arm) = next.take().or_else(|| arms.next()) {
+        if arm.test.is_some() {
+            point(b, arm.range, FlowPointKind::ArmTest);
+        }
         let truth = b.arm_start(&mut state, arm.range, is_first, arm.test.as_mut());
         is_first = false;
         let truth = if arm.test.is_none() {
@@ -389,8 +492,10 @@ fn if_<B: Structured>(b: &mut B, range: TextRange, arms: Vec<Arm<B::Syntax>>) {
             continue;
         }
         b.driver().coverage.arms_visited += 1;
+        point(b, arm.range, FlowPointKind::ArmEntry);
         b.arm_enter(&mut state, arm.range, arm.test, B::Syntax::suite(&arm.body));
         suite(b, arm.body);
+        point(b, arm.range, FlowPointKind::ArmExit);
         b.arm_exit(&mut state, arm.range);
         if truth == Some(true) {
             exhaustive = true;
@@ -400,5 +505,6 @@ fn if_<B: Structured>(b: &mut B, range: TextRange, arms: Vec<Arm<B::Syntax>>) {
             }
         }
     }
+    point(b, range, FlowPointKind::IfJoin);
     b.if_end(state, exhaustive);
 }
