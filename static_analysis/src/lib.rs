@@ -59,10 +59,12 @@
 //! - Dynamic name definitions (`globals()`, `exec`, `setattr` on modules) and
 //!   interleaving at suspension points: these are domain concerns.
 
+pub mod declarations;
 pub mod engine;
 pub mod exports;
 pub mod history;
 pub mod ir;
+pub mod lexical;
 mod lower;
 mod scope;
 pub mod structured;

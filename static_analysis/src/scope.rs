@@ -7,28 +7,27 @@
 
 //! The scope prepass: which scope owns each name.
 //!
-//! The binding collection follows Pyrefly's export `Definitions` builder (assignment,
-//! import, `def`/`class`, `del`, `for`/`with`/`except` targets, match captures, and the
-//! PEP 572 rule that a walrus in a comprehension binds in the enclosing scope), but it
-//! answers a runtime question rather than a type-binding one: Python decides ownership
-//! syntactically, so no branch is pruned by platform or version checks, and a name bound
-//! only in dead code is still local. `global`/`nonlocal` redirect a name to the owning
-//! scope, and class scopes are invisible to the scopes nested inside them.
+//! The declarations come from the shared [`declarations`] walker, which Pyrefly's export
+//! `Definitions` also consumes, but this sink answers a runtime question rather than a
+//! type-binding one: Python decides ownership syntactically, so every expression position
+//! is kept, no branch is pruned by platform or version checks, and a name bound only in
+//! dead code is still local. Name lookup is the shared [`lexical`] resolution:
+//! `global`/`nonlocal` redirect a name to the owning scope, and class scopes are invisible
+//! to the scopes nested inside them.
 
-use pyrefly_python::ast::Ast;
-use ruff_python_ast::Comprehension;
 use ruff_python_ast::Expr;
-use ruff_python_ast::ExprContext;
-use ruff_python_ast::Parameters;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_python_ast::visitor::Visitor;
 use ruff_python_ast::visitor::walk_expr;
-use ruff_python_ast::visitor::walk_stmt;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::declarations;
+use crate::declarations::ChildScope;
+use crate::declarations::Declaration;
+use crate::declarations::DeclarationSink;
 use crate::ir::RegionId;
 use crate::ir::Scope;
 use crate::ir::ScopeId;
@@ -36,6 +35,11 @@ use crate::ir::ScopeKind;
 use crate::ir::Symbol;
 use crate::ir::SymbolId;
 use crate::ir::SymbolOrigin;
+use crate::lexical;
+use crate::lexical::Category;
+use crate::lexical::Probe;
+use crate::lexical::Resolution;
+use crate::lexical::ScopeChain;
 
 /// The parameter through which a generator expression receives its first iterator,
 /// named as CPython names it.
@@ -72,7 +76,7 @@ impl ScopeTable {
             num_regions: 1,
         };
         builder.push(ScopeKind::Module, None, RegionId(0), range);
-        builder.visit_body(body);
+        declarations::walk_suite(body, &mut builder);
         let mut table = builder.finish();
         // Module and class bodies look names up dynamically (`LOAD_NAME`/`LOAD_GLOBAL`):
         // an unbound class-local name falls back to the module, and an unbound module
@@ -150,6 +154,35 @@ enum Lookup {
     ScopeError,
 }
 
+/// The scope tree as [`lexical`] navigates it.
+#[derive(Clone, Copy)]
+struct Tree<'s>(&'s [Scope]);
+
+impl ScopeChain for Tree<'_> {
+    type Id = ScopeId;
+    type Barrier = ();
+
+    fn parent(&self, id: ScopeId) -> Option<ScopeId> {
+        self.0[id.index()].parent
+    }
+
+    fn category(&self, id: ScopeId) -> Category {
+        match self.0[id.index()].kind {
+            ScopeKind::Module => Category::Module,
+            ScopeKind::Class => Category::Class,
+            ScopeKind::Function | ScopeKind::Lambda => Category::Function,
+            ScopeKind::Comprehension => Category::Comprehension,
+            ScopeKind::Builtins => {
+                unreachable!("lookup from the builtins scope is answered directly")
+            }
+        }
+    }
+
+    fn barrier(&self, _: ScopeId) {}
+
+    fn join(_: (), _: ()) {}
+}
+
 /// Python's lexical lookup.
 fn lookup(
     scopes: &[Scope],
@@ -158,48 +191,23 @@ fn lookup(
     scope: ScopeId,
     name: &Name,
 ) -> Lookup {
-    let module = ScopeId(0);
-    let in_module = || match scopes[module.index()].symbols.get(name) {
-        Some(s) => Lookup::Found(*s),
-        None => Lookup::Builtin,
+    let symbols = |id: ScopeId| scopes[id.index()].symbols.get(name).copied();
+    // The builtins scope sees only itself.
+    if scopes[scope.index()].kind == ScopeKind::Builtins {
+        return symbols(scope).map_or(Lookup::Builtin, Lookup::Found);
+    }
+    // Only the module can both own a name and declare it, and there the declaration is
+    // a no-op (`global`) or a syntax error (`nonlocal`).
+    let probe = |id: ScopeId| match symbols(id) {
+        Some(symbol) => Probe::Owned(symbol),
+        None if globals[id.index()].contains(name) => Probe::Global,
+        None if nonlocals[id.index()].contains(name) => Probe::Nonlocal,
+        None => Probe::Absent,
     };
-    let mut current = scope;
-    let mut is_origin = true;
-    loop {
-        let s = &scopes[current.index()];
-        // A class scope is visible only to its own body.
-        if is_origin || s.kind != ScopeKind::Class {
-            if globals[current.index()].contains(name) {
-                return in_module();
-            }
-            if nonlocals[current.index()].contains(name) {
-                // `nonlocal` skips the module: find the nearest enclosing function binding.
-                let mut p = s.parent;
-                while let Some(id) = p {
-                    let ps = &scopes[id.index()];
-                    if ps.kind != ScopeKind::Class && ps.kind != ScopeKind::Module {
-                        if let Some(symbol) = ps.symbols.get(name) {
-                            return Lookup::Found(*symbol);
-                        }
-                        if nonlocals[id.index()].contains(name) {
-                            return lookup(scopes, globals, nonlocals, id, name);
-                        }
-                    }
-                    p = ps.parent;
-                }
-                return Lookup::ScopeError;
-            }
-            if let Some(symbol) = s.symbols.get(name) {
-                return Lookup::Found(*symbol);
-            }
-        }
-        match s.parent {
-            Some(p) if scopes[p.index()].kind != ScopeKind::Builtins => {
-                current = p;
-                is_origin = false;
-            }
-            _ => return in_module(),
-        }
+    match lexical::resolve(Tree(scopes), scope, probe) {
+        Resolution::Found(symbol) => Lookup::Found(symbol),
+        Resolution::Unbound => Lookup::Builtin,
+        Resolution::Nonlocal(_) => Lookup::ScopeError,
     }
 }
 
@@ -271,8 +279,7 @@ impl Builder {
         id
     }
 
-    /// Enter a new scope for the node at `range`. Functions, lambdas and generator
-    /// expressions get their own region; other scopes run in the current region.
+    /// Create the scope for the node at `range`, with its own region if it is deferred.
     fn enter(&mut self, kind: ScopeKind, range: TextRange, deferred: bool) -> ScopeId {
         let region = if deferred {
             self.num_regions += 1;
@@ -285,13 +292,6 @@ impl Builder {
         id
     }
 
-    fn in_scope(&mut self, scope: ScopeId, f: impl FnOnce(&mut Self)) {
-        let outer = self.current;
-        self.current = scope;
-        f(self);
-        self.current = outer;
-    }
-
     fn bind(&mut self, name: &Name, origin: SymbolOrigin) {
         if name.is_empty() {
             return;
@@ -300,64 +300,6 @@ impl Builder {
         if !bound.contains_key(name) {
             bound.insert(name.clone(), origin);
         }
-    }
-
-    /// A walrus binds in the nearest enclosing scope that is not a comprehension.
-    fn bind_walrus(&mut self, name: &Name) {
-        let mut scope = self.current;
-        while self.scopes[scope.index()].kind == ScopeKind::Comprehension {
-            scope = self.scopes[scope.index()]
-                .parent
-                .expect("a comprehension always has a parent scope");
-        }
-        let bound = &mut self.decls[scope.index()].bound;
-        if !bound.contains_key(name) {
-            bound.insert(name.clone(), SymbolOrigin::Bound);
-        }
-    }
-
-    /// Defaults are evaluated in the current scope; parameters bind in `scope`.
-    fn parameters(&mut self, parameters: &Parameters, scope: ScopeId) {
-        for p in parameters.iter_non_variadic_params() {
-            if let Some(default) = &p.default {
-                self.visit_expr(default);
-            }
-        }
-        self.in_scope(scope, |b| {
-            for p in parameters.iter() {
-                b.bind(&p.name().id, SymbolOrigin::Parameter);
-            }
-        });
-    }
-
-    fn comprehension(
-        &mut self,
-        range: TextRange,
-        generators: &[Comprehension],
-        deferred: bool,
-        elts: &[&Expr],
-    ) {
-        // The first iterable is evaluated in the enclosing scope.
-        self.visit_expr(&generators[0].iter);
-        let scope = self.enter(ScopeKind::Comprehension, range, deferred);
-        self.in_scope(scope, |b| {
-            if deferred {
-                // A generator expression receives its first iterator as parameter `.0`.
-                b.bind(&Name::new_static(GENERATOR_ARG), SymbolOrigin::Parameter);
-            }
-            for (i, g) in generators.iter().enumerate() {
-                if i > 0 {
-                    b.visit_expr(&g.iter);
-                }
-                b.visit_expr(&g.target);
-                for cond in &g.ifs {
-                    b.visit_expr(cond);
-                }
-            }
-            for e in elts {
-                b.visit_expr(e);
-            }
-        });
     }
 
     fn finish(mut self) -> ScopeTable {
@@ -426,118 +368,78 @@ impl Builder {
     }
 }
 
-impl<'a> Visitor<'a> for Builder {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::FunctionDef(f) => {
-                for d in &f.decorator_list {
-                    self.visit_expr(&d.expression);
+impl<'a> DeclarationSink<'a> for Builder {
+    fn declare(&mut self, declaration: Declaration<'a>) {
+        match declaration {
+            Declaration::Import(a) => match &a.asname {
+                Some(alias) => self.bind(&alias.id, SymbolOrigin::Bound),
+                None => {
+                    let root = a.name.id.split('.').next().unwrap_or_default();
+                    self.bind(&Name::new(root), SymbolOrigin::Bound)
                 }
-                let scope = self.enter(ScopeKind::Function, f.range, true);
-                self.parameters(&f.parameters, scope);
-                self.bind(&f.name.id, SymbolOrigin::Bound);
-                self.in_scope(scope, |b| b.visit_body(&f.body));
-            }
-            Stmt::ClassDef(c) => {
-                for d in &c.decorator_list {
-                    self.visit_expr(&d.expression);
-                }
-                if let Some(arguments) = &c.arguments {
-                    self.visit_arguments(arguments);
-                }
-                self.bind(&c.name.id, SymbolOrigin::Bound);
-                let scope = self.enter(ScopeKind::Class, c.range, false);
-                self.in_scope(scope, |b| b.visit_body(&c.body));
-            }
-            Stmt::Import(x) => {
-                for a in &x.names {
-                    match &a.asname {
-                        Some(alias) => self.bind(&alias.id, SymbolOrigin::Bound),
-                        None => {
-                            let root = a.name.id.split('.').next().unwrap_or_default();
-                            self.bind(&Name::new(root), SymbolOrigin::Bound)
-                        }
-                    }
+            },
+            Declaration::ImportFrom(x) => {
+                // Star imports are reported as a gap by lowering.
+                for a in x.names.iter().filter(|a| &a.name != "*") {
+                    self.bind(
+                        &a.asname.as_ref().unwrap_or(&a.name).id,
+                        SymbolOrigin::Bound,
+                    )
                 }
             }
-            Stmt::ImportFrom(x) => {
-                for a in &x.names {
-                    if &a.name != "*" {
-                        self.bind(
-                            &a.asname.as_ref().unwrap_or(&a.name).id,
-                            SymbolOrigin::Bound,
-                        );
-                    }
-                }
+            Declaration::Function(x) => self.bind(&x.name.id, SymbolOrigin::Bound),
+            Declaration::Class(x) => self.bind(&x.name.id, SymbolOrigin::Bound),
+            Declaration::Assign(x, _)
+            | Declaration::AugAssign(x, _)
+            | Declaration::Annotated(x, _)
+            | Declaration::Store(x)
+            | Declaration::Delete(x)
+            | Declaration::Walrus(x) => self.bind(&x.id, SymbolOrigin::Bound),
+            Declaration::Handler(x) | Declaration::Capture(x) => {
+                self.bind(&x.id, SymbolOrigin::Bound)
             }
-            Stmt::Global(x) => {
-                for n in &x.names {
-                    self.decls[self.current.index()]
-                        .globals
-                        .insert(n.id.clone());
-                }
+            Declaration::Parameter(x) => self.bind(&x.id, SymbolOrigin::Parameter),
+            Declaration::Global(x) => {
+                self.decls[self.current.index()]
+                    .globals
+                    .insert(x.id.clone());
             }
-            Stmt::Nonlocal(x) => {
-                for n in &x.names {
-                    self.decls[self.current.index()]
-                        .nonlocals
-                        .insert(n.id.clone());
-                }
+            Declaration::Nonlocal(x) => {
+                self.decls[self.current.index()]
+                    .nonlocals
+                    .insert(x.id.clone());
             }
-            Stmt::Try(x) => {
-                for ruff_python_ast::ExceptHandler::ExceptHandler(h) in &x.handlers {
-                    if let Some(name) = &h.name {
-                        self.bind(&name.id, SymbolOrigin::Bound);
-                    }
-                }
-                walk_stmt(self, stmt);
-            }
-            Stmt::Match(x) => {
-                for case in &x.cases {
-                    Ast::pattern_lvalue(&case.pattern, &mut |id| {
-                        self.bind(&id.id, SymbolOrigin::Bound)
-                    });
-                }
-                walk_stmt(self, stmt);
-            }
-            // The value of a `type` alias is lazily evaluated in its own scope.
-            Stmt::TypeAlias(x) => self.visit_expr(&x.name),
-            _ => walk_stmt(self, stmt),
         }
     }
 
-    /// Annotations are never evaluated, so they bind nothing.
-    fn visit_annotation(&mut self, _: &'a Expr) {}
-
-    fn visit_expr(&mut self, x: &'a Expr) {
-        match x {
-            Expr::Name(n) => {
-                if matches!(n.ctx, ExprContext::Store | ExprContext::Del) {
-                    self.bind(&n.id, SymbolOrigin::Bound);
-                }
+    /// Functions, lambdas and generator expressions get their own region; other scopes run
+    /// in the current region.
+    fn child(&mut self, child: ChildScope<'a>) {
+        let (kind, range, deferred) = match child {
+            ChildScope::Function(x) => (ScopeKind::Function, x.range, true),
+            ChildScope::Lambda(x) => (ScopeKind::Lambda, x.range, true),
+            ChildScope::Class(x) => (ScopeKind::Class, x.range, false),
+            ChildScope::Comprehension {
+                range,
+                is_generator,
+                ..
+            } => (ScopeKind::Comprehension, range, is_generator),
+        };
+        let scope = self.enter(kind, range, deferred);
+        let outer = self.current;
+        self.current = scope;
+        if matches!(
+            child,
+            ChildScope::Comprehension {
+                is_generator: true,
+                ..
             }
-            Expr::Named(n) => {
-                self.visit_expr(&n.value);
-                if let Expr::Name(target) = &*n.target {
-                    self.bind_walrus(&target.id);
-                }
-            }
-            Expr::Lambda(l) => {
-                let scope = self.enter(ScopeKind::Lambda, l.range, true);
-                if let Some(parameters) = &l.parameters {
-                    self.parameters(parameters, scope);
-                }
-                self.in_scope(scope, |b| b.visit_expr(&l.body));
-            }
-            Expr::ListComp(c) => self.comprehension(c.range, &c.generators, false, &[&c.elt]),
-            Expr::SetComp(c) => self.comprehension(c.range, &c.generators, false, &[&c.elt]),
-            Expr::DictComp(c) => {
-                let elts: Vec<&Expr> = c.key.as_deref().into_iter().chain([&*c.value]).collect();
-                self.comprehension(c.range, &c.generators, false, &elts)
-            }
-            Expr::Generator(c) => self.comprehension(c.range, &c.generators, true, &[&c.elt]),
-            _ => walk_expr(self, x),
+        ) {
+            // A generator expression receives its first iterator as parameter `.0`.
+            self.bind(&Name::new_static(GENERATOR_ARG), SymbolOrigin::Parameter);
         }
+        declarations::walk_child(child, self);
+        self.current = outer;
     }
 }
 
