@@ -29,6 +29,8 @@ Assignment preserves a value reference, not a link that follows later rebinding 
 
 Ambient context is carried and joined along paths, rather than kept as a process-global mode. Scoped entry/exit and call contracts belong in analysis semantics. Unknown context or differing predecessor contexts must not be resolved by choosing one predecessor arbitrarily.
 
+The reusable declaration scanner and lexical navigation engine are separate from a backend's value tables. Runtime ownership requests unpruned syntax; configured/type-aware declaration views can select positions and branches through explicit policy hooks. Name occurrences carry a syntactic role and do not stand in for runtime reads. Candidate payloads, initialization and type-specific filtering stay in the consumer.
+
 ## Expression ordering and inference ordering
 
 Expression-flow consumption is useful for custom type systems, but runtime evaluation order is not type-inference dependency order. Ordinary assignment evaluates RHS before target expressions; augmented assignment evaluates its target/read before the RHS. Short-circuit operators and conditional expressions contain control flow.

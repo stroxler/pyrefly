@@ -23,7 +23,7 @@ fn nonlocal_global_barrier() {
             }
         )
     });
-    // Known bug: the old lookup passes the middle function's global declaration
-    // and incorrectly finds outer.x. CPython rejects this nonlocal declaration.
-    assert!(!has_scope_error);
+    // An enclosing global directive blocks nonlocal lookup, even when a farther
+    // enclosing function owns a name with the same spelling.
+    assert!(has_scope_error);
 }

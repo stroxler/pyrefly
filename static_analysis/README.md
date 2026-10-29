@@ -42,6 +42,10 @@ A domain can change an existing name's facts or object/typestate information and
 
 Statement structure is sequenced by a structured driver (`structured.rs`) that owns suite order, `if`/loop decomposition, the application of a backend's static truth for tests, and `break`/`continue` attribution. Lowering is one backend of that driver; a backend that keeps its own values (for example a type checker's flow environments) can reuse it over the same parsed AST without lowering.
 
+Declaration collection is shared through a per-scope event scanner (`declarations.rs`). The runtime scope builder consumes its declaration and nested-scope events without pruning dead code. Other sinks can select configured views and interpret metadata, while traversal and ownership rules remain in the shared walker. `NameSite` occurrences are syntactic, not an execution-read stream; the operation IR and history remain the runtime-use interfaces.
+
+Lexical navigation is shared through `lexical.rs`: backends supply parent/category/barrier information and candidate probes, while visible-scope and nonlocal-search structure is reusable. Found values, initialization, error recovery and type-specific selection remain backend-owned. Runtime annotation/type-parameter evaluation still has explicit gaps.
+
 Execution order is not type-inference dependency order. A downstream Pyrefly adapter could add contextual typing, narrowing, first-use dependencies and synthesized bindings without putting those policies in the common frontend.
 
 ## What this does not establish
