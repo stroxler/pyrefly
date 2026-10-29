@@ -13,8 +13,23 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations::Context;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations::Declaration;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations::DeclarationSink;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations::NameSite;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations::Position;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::declarations::TestSite;
 use pyrefly_types::function::Deprecation;
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Alias;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
@@ -27,9 +42,13 @@ use ruff_python_ast::Identifier;
 use ruff_python_ast::Operator;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtAnnAssign;
+use ruff_python_ast::StmtAssign;
+use ruff_python_ast::StmtAugAssign;
 use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtFunctionDef;
+use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -354,36 +373,33 @@ fn is_overload_decorator(decorator: &Decorator) -> bool {
 }
 
 impl Definitions {
+    /// Collect the definitions of a scope body. With the `bindings-driver` feature, they come
+    /// from the shared declaration walker; otherwise from [`Definitions::new_legacy`].
     pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, sys_info: SysInfo) -> Self {
-        let mut builder = DefinitionsBuilder {
-            module_name,
-            sys_info,
-            is_init,
-            inner: Definitions::default(),
-            in_main_guard: false,
-            submodule_import_roots: SmallMap::new(),
-            module_aliases: SmallMap::new(),
-        };
-        builder.stmts(x);
-        // An `import foo.bar` rebinds a name that is bound by `import foo as <alias>` at
-        // that point in the same scope, so it is a definition site of the alias: reads from
-        // an enclosed scope need an `Anywhere` to see the rebinding, and the import counts
-        // as the alias's last definition site, as it already does for `foo` itself. A `global` or
-        // `nonlocal` alias is owned by another scope and never has an `Anywhere` here.
-        for (root, range) in &builder.submodule_import_roots {
-            for alias in builder.module_aliases.get(root).into_iter().flatten() {
-                if let Some(definition) = builder.inner.definitions.get_mut(alias)
-                    && !matches!(definition.style, DefinitionStyle::MutableCapture(..))
-                {
-                    definition.needs_anywhere = true;
-                    if range.start() > definition.last_range.start() {
-                        definition.last_range = *range;
-                    }
-                }
-            }
+        #[cfg(feature = "bindings-driver")]
+        {
+            let mut sink = SharedDefinitions {
+                builder: DefinitionsBuilder::new(module_name, is_init, sys_info),
+                outer_main_guards: Vec::new(),
+                comprehension_depth: 0,
+            };
+            declarations::walk_suite(x, &mut sink);
+            sink.builder.finish()
         }
+        #[cfg(not(feature = "bindings-driver"))]
+        Self::new_legacy(x, module_name, is_init, sys_info)
+    }
 
-        builder.inner
+    /// Collect the definitions of a scope body with this module's own traversal.
+    pub fn new_legacy(
+        x: &[Stmt],
+        module_name: ModuleName,
+        is_init: bool,
+        sys_info: SysInfo,
+    ) -> Self {
+        let mut builder = DefinitionsBuilder::new(module_name, is_init, sys_info);
+        builder.stmts(x);
+        builder.finish()
     }
 
     pub fn inject_implicit_globals(&mut self) {
@@ -469,6 +485,40 @@ impl Definitions {
 }
 
 impl DefinitionsBuilder {
+    fn new(module_name: ModuleName, is_init: bool, sys_info: SysInfo) -> Self {
+        Self {
+            module_name,
+            sys_info,
+            is_init,
+            inner: Definitions::default(),
+            in_main_guard: false,
+            submodule_import_roots: SmallMap::new(),
+            module_aliases: SmallMap::new(),
+        }
+    }
+
+    fn finish(mut self) -> Definitions {
+        // An `import foo.bar` rebinds a name that is bound by `import foo as <alias>` at
+        // that point in the same scope, so it is a definition site of the alias: reads from
+        // an enclosed scope need an `Anywhere` to see the rebinding, and the import counts
+        // as the alias's last definition site, as it already does for `foo` itself. A `global` or
+        // `nonlocal` alias is owned by another scope and never has an `Anywhere` here.
+        for (root, range) in &self.submodule_import_roots {
+            for alias in self.module_aliases.get(root).into_iter().flatten() {
+                if let Some(definition) = self.inner.definitions.get_mut(alias)
+                    && !matches!(definition.style, DefinitionStyle::MutableCapture(..))
+                {
+                    definition.needs_anywhere = true;
+                    if range.start() > definition.last_range.start() {
+                        definition.last_range = *range;
+                    }
+                }
+            }
+        }
+
+        self.inner
+    }
+
     fn stmts(&mut self, xs: &[Stmt]) {
         for x in xs {
             self.stmt(x);
@@ -580,113 +630,301 @@ impl DefinitionsBuilder {
         }
     }
 
+    /// `import a.b` or `import a.b as c`.
+    fn import(&mut self, a: &Alias) {
+        let imported_module = ModuleName::from_name(&a.name.id);
+        if self.is_init
+            && let Some(submodule) =
+                implicitly_imported_submodule(self.module_name, imported_module)
+        {
+            self.inner.implicitly_imported_submodules.insert(submodule);
+        }
+        match &a.asname {
+            None => {
+                if imported_module.as_str().contains('.') {
+                    self.submodule_import_roots
+                        .insert(imported_module.first_component(), a.name.range);
+                }
+                self.add_name(
+                    &imported_module.first_component(),
+                    a.name.range,
+                    DefinitionStyle::ImportModule(imported_module),
+                )
+            }
+            Some(alias) => {
+                if !imported_module.as_str().contains('.') {
+                    self.module_aliases
+                        .entry(imported_module.first_component())
+                        .or_default()
+                        .push(alias.id.clone());
+                }
+                self.add_identifier(
+                    alias,
+                    if alias.id == a.name.id {
+                        DefinitionStyle::ImportAsEq(imported_module)
+                    } else {
+                        DefinitionStyle::ImportAs(imported_module, a.name.id.clone())
+                    },
+                )
+            }
+        };
+    }
+
+    /// `from m import ...`, including `*`.
+    fn import_from(&mut self, x: &StmtImportFrom) {
+        let name = self.module_name.new_maybe_relative(
+            self.is_init,
+            x.level,
+            x.module.as_ref().map(|x| &x.id),
+        );
+        if self.is_init
+            && let Some(imported_module) = name
+            && let Some(submodule) =
+                implicitly_imported_submodule(self.module_name, imported_module)
+        {
+            self.inner.implicitly_imported_submodules.insert(submodule);
+        }
+        for a in &x.names {
+            if &a.name == "*" {
+                if let Some(module) = name {
+                    self.inner.import_all.insert(module, a.name.range);
+                }
+                continue;
+            }
+            let style = match name {
+                None => DefinitionStyle::ImportInvalidRelative,
+                Some(name) => {
+                    if a.asname.as_ref().map(|x| &x.id) == Some(&a.name.id) {
+                        DefinitionStyle::ImportAsEq(name)
+                    } else if a.asname.is_some() {
+                        DefinitionStyle::ImportAs(name, a.name.id.clone())
+                    } else {
+                        DefinitionStyle::Import(name)
+                    }
+                }
+            };
+            if matches!(&style, &DefinitionStyle::ImportAsEq(_))
+                && a.name.id == dunder::ALL
+                && let Some(module) = name
+            {
+                self.inner.dunder_all = DunderAll {
+                    kind: DunderAllKind::Specified,
+                    entries: vec![DunderAllEntry::Module(x.range, module)],
+                }
+            }
+            self.add_identifier(a.asname.as_ref().unwrap_or(&a.name), style);
+        }
+    }
+
+    fn class_def(&mut self, x: &StmtClassDef) {
+        if let Some(decoration) = x
+            .decorator_list
+            .iter()
+            .find_map(|d| parse_deprecation(&d.expression))
+        {
+            self.inner.deprecated.insert(x.name.id.clone(), decoration);
+        }
+        self.add_identifier_with_body(
+            &x.name,
+            DefinitionStyle::Unannotated(SymbolKind::Class),
+            Some(&x.body),
+        );
+    }
+
+    fn function_def(&mut self, x: &StmtFunctionDef) {
+        let is_overload = x.decorator_list.iter().any(is_overload_decorator);
+        // If the function is not an overload and decorated with
+        // `@deprecated`, we mark it as deprecated.
+        if !is_overload
+            && let Some(decoration) = x
+                .decorator_list
+                .iter()
+                .find_map(|d| parse_deprecation(&d.expression))
+        {
+            self.inner.deprecated.insert(x.name.id.clone(), decoration);
+        }
+        self.add_identifier_with_body(
+            &x.name,
+            DefinitionStyle::Unannotated(SymbolKind::Function),
+            Some(&x.body),
+        );
+    }
+
+    /// `__all__ = value` or `__all__: T = value`.
+    fn assign_dunder_all(&mut self, value: &Expr) {
+        match DunderAllEntry::as_list(value) {
+            Some(mut entries) => {
+                self.resolve_module_entries(&mut entries);
+                self.inner.dunder_all = DunderAll {
+                    kind: DunderAllKind::Specified,
+                    entries,
+                };
+            }
+            None => {
+                self.inner.dunder_all = DunderAll {
+                    kind: DunderAllKind::Unresolvable(value.range()),
+                    entries: Vec::new(),
+                };
+            }
+        }
+    }
+
+    /// A name that is an entire target of `x`.
+    fn assign(&mut self, name: &ExprName, x: &StmtAssign) {
+        self.add_name(
+            &name.id,
+            name.range,
+            DefinitionStyle::Unannotated(SymbolKind::Variable),
+        );
+        if name.id == dunder::ALL {
+            self.assign_dunder_all(&x.value);
+        }
+    }
+
+    /// The name target of an annotated assignment.
+    fn annotated(&mut self, name: &ExprName, x: &StmtAnnAssign) {
+        if let Some(value) = &x.value
+            && name.id == dunder::ALL
+        {
+            self.assign_dunder_all(value);
+        }
+        self.add_name(
+            &name.id,
+            name.range,
+            DefinitionStyle::Annotated(SymbolKind::Variable, ShortIdentifier::expr_name(name)),
+        );
+        if is_final_annotation(&x.annotation) {
+            let final_string_value = match x.value.as_deref() {
+                Some(Expr::StringLiteral(s)) => Some(s.value.to_string()),
+                _ => None,
+            };
+            self.inner
+                .final_names
+                .insert(name.id.clone(), final_string_value);
+        }
+    }
+
+    /// The name target of an augmented assignment.
+    fn aug_assign(&mut self, name: &ExprName, x: &StmtAugAssign) {
+        if name.id == dunder::ALL && x.op == Operator::Add {
+            match DunderAllEntry::as_list(&x.value) {
+                Some(mut entries) => {
+                    self.resolve_module_entries(&mut entries);
+                    self.inner.dunder_all.kind = DunderAllKind::Specified;
+                    self.inner.dunder_all.entries.extend(entries);
+                }
+                None => {
+                    self.inner.dunder_all = DunderAll {
+                        kind: DunderAllKind::Unresolvable(x.value.range()),
+                        entries: Vec::new(),
+                    };
+                }
+            }
+        }
+        self.add_name(
+            &name.id,
+            name.range,
+            DefinitionStyle::Unannotated(SymbolKind::Variable),
+        )
+    }
+
+    /// The definitions an expression statement makes by convention: special import
+    /// function calls and mutations of `__all__`.
+    fn expr_stmt(&mut self, value: &Expr) {
+        // Handle special import function calls:
+        //   import_thrift("path", "*") → from path import *
+        //   import_thrift("path", "alias") → import path as alias
+        //   import_thrift("path", ["A", "B"]) → from path import A, B
+        if let Expr::Call(ExprCall {
+            func, arguments, ..
+        }) = value
+            && let Expr::Name(func_name) = &**func
+            && is_special_import_function(&func_name.id)
+            && arguments.keywords.is_empty()
+            && !arguments.args.is_empty()
+            && let Expr::StringLiteral(path_lit) = &arguments.args[0]
+        {
+            let m = special_import_module(path_lit.value.to_str());
+
+            match special_import_form(&arguments.args) {
+                SpecialImportForm::Wildcard => {
+                    self.inner.import_all.insert(m, func_name.range);
+                }
+                SpecialImportForm::Alias(alias) => {
+                    self.add_name(
+                        &Name::new(alias),
+                        func_name.range,
+                        DefinitionStyle::Import(m),
+                    );
+                }
+                SpecialImportForm::Symbols(symbols) => {
+                    for (symbol, range) in symbols {
+                        self.add_name(&Name::new(symbol), range, DefinitionStyle::Import(m));
+                    }
+                }
+            }
+        }
+        if let Expr::Call(
+            ExprCall {
+                func, arguments, ..
+            },
+            ..,
+        ) = value
+            && let Expr::Attribute(ExprAttribute { value, attr, .. }) = &**func
+            && DunderAllEntry::is_all(value)
+            && arguments.len() == 1
+            && arguments.keywords.is_empty()
+            && !self.in_main_guard
+        {
+            if !matches!(self.inner.dunder_all.kind, DunderAllKind::Unresolvable(_)) {
+                self.inner.dunder_all.kind = DunderAllKind::Specified;
+            }
+            match attr.as_str() {
+                "extend" => match DunderAllEntry::as_list(&arguments.args[0]) {
+                    Some(mut entries) => {
+                        self.resolve_module_entries(&mut entries);
+                        self.inner.dunder_all.entries.extend(entries);
+                    }
+                    None => {
+                        self.inner.dunder_all.kind =
+                            DunderAllKind::Unresolvable(arguments.args[0].range());
+                    }
+                },
+                "append" => match DunderAllEntry::as_item(&arguments.args[0]) {
+                    Some(entry) => self.inner.dunder_all.entries.push(entry),
+                    None => {
+                        self.inner.dunder_all.kind =
+                            DunderAllKind::Unresolvable(arguments.args[0].range());
+                    }
+                },
+                "remove" => {
+                    if let Some(DunderAllEntry::Name(range, remove)) =
+                        DunderAllEntry::as_item(&arguments.args[0])
+                    {
+                        self.inner
+                            .dunder_all
+                            .entries
+                            .push(DunderAllEntry::Remove(range, remove));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn stmt(&mut self, x: &Stmt) {
         match x {
             Stmt::Import(x) => {
                 for a in &x.names {
-                    let imported_module = ModuleName::from_name(&a.name.id);
-                    if self.is_init
-                        && let Some(submodule) =
-                            implicitly_imported_submodule(self.module_name, imported_module)
-                    {
-                        self.inner.implicitly_imported_submodules.insert(submodule);
-                    }
-                    match &a.asname {
-                        None => {
-                            if imported_module.as_str().contains('.') {
-                                self.submodule_import_roots
-                                    .insert(imported_module.first_component(), a.name.range);
-                            }
-                            self.add_name(
-                                &imported_module.first_component(),
-                                a.name.range,
-                                DefinitionStyle::ImportModule(imported_module),
-                            )
-                        }
-                        Some(alias) => {
-                            if !imported_module.as_str().contains('.') {
-                                self.module_aliases
-                                    .entry(imported_module.first_component())
-                                    .or_default()
-                                    .push(alias.id.clone());
-                            }
-                            self.add_identifier(
-                                alias,
-                                if alias.id == a.name.id {
-                                    DefinitionStyle::ImportAsEq(imported_module)
-                                } else {
-                                    DefinitionStyle::ImportAs(imported_module, a.name.id.clone())
-                                },
-                            )
-                        }
-                    };
+                    self.import(a);
                 }
             }
-            Stmt::ImportFrom(x) => {
-                let name = self.module_name.new_maybe_relative(
-                    self.is_init,
-                    x.level,
-                    x.module.as_ref().map(|x| &x.id),
-                );
-                if self.is_init
-                    && let Some(imported_module) = name
-                    && let Some(submodule) =
-                        implicitly_imported_submodule(self.module_name, imported_module)
-                {
-                    self.inner.implicitly_imported_submodules.insert(submodule);
-                }
-                for a in &x.names {
-                    if &a.name == "*" {
-                        if let Some(module) = name {
-                            self.inner.import_all.insert(module, a.name.range);
-                        }
-                    } else {
-                        let style = match name {
-                            None => DefinitionStyle::ImportInvalidRelative,
-                            Some(name) => {
-                                if a.asname.as_ref().map(|x| &x.id) == Some(&a.name.id) {
-                                    DefinitionStyle::ImportAsEq(name)
-                                } else if a.asname.is_some() {
-                                    DefinitionStyle::ImportAs(name, a.name.id.clone())
-                                } else {
-                                    DefinitionStyle::Import(name)
-                                }
-                            }
-                        };
-                        if matches!(&style, &DefinitionStyle::ImportAsEq(_))
-                            && a.name.id == dunder::ALL
-                            && let Some(module) = name
-                        {
-                            self.inner.dunder_all = DunderAll {
-                                kind: DunderAllKind::Specified,
-                                entries: vec![DunderAllEntry::Module(x.range, module)],
-                            }
-                        }
-                        self.add_identifier(a.asname.as_ref().unwrap_or(&a.name), style);
-                    }
-                }
-            }
-            Stmt::ClassDef(StmtClassDef {
-                name,
-                body,
-                decorator_list,
-                ..
-            }) => {
-                let mut deprecated_decoration = None;
-                for d in decorator_list {
+            Stmt::ImportFrom(x) => self.import_from(x),
+            Stmt::ClassDef(x) => {
+                for d in &x.decorator_list {
                     self.named_in_expr(&d.expression);
-                    if deprecated_decoration.is_none() {
-                        deprecated_decoration = parse_deprecation(&d.expression);
-                    }
                 }
-                if let Some(decoration) = deprecated_decoration {
-                    self.inner.deprecated.insert(name.id.clone(), decoration);
-                }
-                self.add_identifier_with_body(
-                    name,
-                    DefinitionStyle::Unannotated(SymbolKind::Class),
-                    Some(body),
-                );
+                self.class_def(x);
                 return; // These things are inside a scope
             }
             Stmt::Nonlocal(x) => {
@@ -710,23 +948,12 @@ impl DefinitionsBuilder {
             Stmt::Assign(x) => {
                 self.named_in_expr(&x.value);
                 for t in &x.targets {
-                    self.expr_lvalue(t);
-                    if DunderAllEntry::is_all(t) {
-                        match DunderAllEntry::as_list(&x.value) {
-                            Some(mut entries) => {
-                                self.resolve_module_entries(&mut entries);
-                                self.inner.dunder_all = DunderAll {
-                                    kind: DunderAllKind::Specified,
-                                    entries,
-                                };
-                            }
-                            None => {
-                                self.inner.dunder_all = DunderAll {
-                                    kind: DunderAllKind::Unresolvable(x.value.range()),
-                                    entries: Vec::new(),
-                                };
-                            }
+                    match t {
+                        Expr::Name(name) => {
+                            self.assign(name, x);
+                            self.inner.name_reads.insert(name.id.clone());
                         }
+                        t => self.expr_lvalue(t),
                     }
                 }
             }
@@ -734,76 +961,15 @@ impl DefinitionsBuilder {
                 if let Some(value) = &x.value {
                     self.named_in_expr(value);
                 }
-                if let Some(v) = &x.value
-                    && DunderAllEntry::is_all(&x.target)
-                {
-                    match DunderAllEntry::as_list(v.as_ref()) {
-                        Some(mut entries) => {
-                            self.resolve_module_entries(&mut entries);
-                            self.inner.dunder_all = DunderAll {
-                                kind: DunderAllKind::Specified,
-                                entries,
-                            };
-                        }
-                        None => {
-                            self.inner.dunder_all = DunderAll {
-                                kind: DunderAllKind::Unresolvable(v.range()),
-                                entries: Vec::new(),
-                            };
-                        }
-                    }
-                }
-                let has_final_annotation = is_final_annotation(&x.annotation);
-                let final_string_value = if has_final_annotation {
-                    match x.value.as_deref() {
-                        Some(Expr::StringLiteral(s)) => Some(s.value.to_string()),
-                        _ => None,
-                    }
-                } else {
-                    None
-                };
                 match &*x.target {
-                    Expr::Name(x) => {
-                        self.add_name(
-                            &x.id,
-                            x.range,
-                            DefinitionStyle::Annotated(
-                                SymbolKind::Variable,
-                                ShortIdentifier::expr_name(x),
-                            ),
-                        );
-                        if has_final_annotation {
-                            self.inner
-                                .final_names
-                                .insert(x.id.clone(), final_string_value);
-                        }
-                    }
-                    _ => self.expr_lvalue(&x.target),
+                    Expr::Name(name) => self.annotated(name, x),
+                    target => self.expr_lvalue(target),
                 }
             }
             Stmt::AugAssign(x) => {
                 self.named_in_expr(&x.value);
-                if DunderAllEntry::is_all(&x.target) && x.op == Operator::Add {
-                    match DunderAllEntry::as_list(&x.value) {
-                        Some(mut entries) => {
-                            self.resolve_module_entries(&mut entries);
-                            self.inner.dunder_all.kind = DunderAllKind::Specified;
-                            self.inner.dunder_all.entries.extend(entries);
-                        }
-                        None => {
-                            self.inner.dunder_all = DunderAll {
-                                kind: DunderAllKind::Unresolvable(x.value.range()),
-                                entries: Vec::new(),
-                            };
-                        }
-                    }
-                }
                 if let Expr::Name(name) = &*x.target {
-                    self.add_name(
-                        &name.id,
-                        name.range,
-                        DefinitionStyle::Unannotated(SymbolKind::Variable),
-                    )
+                    self.aug_assign(name, x);
                 }
             }
             Stmt::Delete(x) => {
@@ -816,89 +982,7 @@ impl DefinitionsBuilder {
             }
             Stmt::Expr(StmtExpr { value, .. }) => {
                 self.named_in_expr(value);
-                // Handle special import function calls:
-                //   import_thrift("path", "*") → from path import *
-                //   import_thrift("path", "alias") → import path as alias
-                //   import_thrift("path", ["A", "B"]) → from path import A, B
-                if let Expr::Call(ExprCall {
-                    func, arguments, ..
-                }) = &**value
-                    && let Expr::Name(func_name) = &**func
-                    && is_special_import_function(&func_name.id)
-                    && arguments.keywords.is_empty()
-                    && !arguments.args.is_empty()
-                    && let Expr::StringLiteral(path_lit) = &arguments.args[0]
-                {
-                    let m = special_import_module(path_lit.value.to_str());
-
-                    match special_import_form(&arguments.args) {
-                        SpecialImportForm::Wildcard => {
-                            self.inner.import_all.insert(m, func_name.range);
-                        }
-                        SpecialImportForm::Alias(alias) => {
-                            self.add_name(
-                                &Name::new(alias),
-                                func_name.range,
-                                DefinitionStyle::Import(m),
-                            );
-                        }
-                        SpecialImportForm::Symbols(symbols) => {
-                            for (symbol, range) in symbols {
-                                self.add_name(
-                                    &Name::new(symbol),
-                                    range,
-                                    DefinitionStyle::Import(m),
-                                );
-                            }
-                        }
-                    }
-                }
-                if let Expr::Call(
-                    ExprCall {
-                        func, arguments, ..
-                    },
-                    ..,
-                ) = &**value
-                    && let Expr::Attribute(ExprAttribute { value, attr, .. }) = &**func
-                    && DunderAllEntry::is_all(value)
-                    && arguments.len() == 1
-                    && arguments.keywords.is_empty()
-                    && !self.in_main_guard
-                {
-                    if !matches!(self.inner.dunder_all.kind, DunderAllKind::Unresolvable(_)) {
-                        self.inner.dunder_all.kind = DunderAllKind::Specified;
-                    }
-                    match attr.as_str() {
-                        "extend" => match DunderAllEntry::as_list(&arguments.args[0]) {
-                            Some(mut entries) => {
-                                self.resolve_module_entries(&mut entries);
-                                self.inner.dunder_all.entries.extend(entries);
-                            }
-                            None => {
-                                self.inner.dunder_all.kind =
-                                    DunderAllKind::Unresolvable(arguments.args[0].range());
-                            }
-                        },
-                        "append" => match DunderAllEntry::as_item(&arguments.args[0]) {
-                            Some(entry) => self.inner.dunder_all.entries.push(entry),
-                            None => {
-                                self.inner.dunder_all.kind =
-                                    DunderAllKind::Unresolvable(arguments.args[0].range());
-                            }
-                        },
-                        "remove" => {
-                            if let Some(DunderAllEntry::Name(range, remove)) =
-                                DunderAllEntry::as_item(&arguments.args[0])
-                            {
-                                self.inner
-                                    .dunder_all
-                                    .entries
-                                    .push(DunderAllEntry::Remove(range, remove));
-                            }
-                        }
-                        _ => {}
-                    }
-                }
+                self.expr_stmt(value);
             }
             Stmt::TypeAlias(x) => {
                 // Note: We don't call named_in_expr here because named expressions
@@ -908,35 +992,11 @@ impl DefinitionsBuilder {
                     self.expr_lvalue(&x.name)
                 }
             }
-            Stmt::FunctionDef(StmtFunctionDef {
-                name,
-                body,
-                decorator_list,
-                ..
-            }) => {
-                let mut is_overload = false;
-                let mut deprecated_decoration = None;
-                for d in decorator_list {
+            Stmt::FunctionDef(x) => {
+                for d in &x.decorator_list {
                     self.named_in_expr(&d.expression);
-                    is_overload = is_overload || is_overload_decorator(d);
-                    if deprecated_decoration.is_none() {
-                        deprecated_decoration = parse_deprecation(&d.expression);
-                    }
                 }
-                // If the function is not an overload and decorated with
-                // `@deprecated`, we mark it as deprecated.
-                if let Some(deprecated_decoration) = deprecated_decoration
-                    && !is_overload
-                {
-                    self.inner
-                        .deprecated
-                        .insert(name.id.clone(), deprecated_decoration);
-                }
-                self.add_identifier_with_body(
-                    name,
-                    DefinitionStyle::Unannotated(SymbolKind::Function),
-                    Some(body),
-                );
+                self.function_def(x);
                 return; // don't recurse because a separate scope
             }
             Stmt::For(x) => {
@@ -1063,6 +1123,103 @@ impl DefinitionsBuilder {
                 }
             }
             _ => x.recurse(&mut |x| self.walrus_targets_in_expr(x)),
+        }
+    }
+}
+
+/// Pyrefly's view of the shared declaration events. Its policies reproduce
+/// [`Definitions::new_legacy`]: `if` arms and conditional expressions are pruned by the
+/// configured environment, no optional expression position is visited (parameter defaults,
+/// class arguments, `elif` tests, match guards, exception types and non-name augmented
+/// targets), and the names it records as read are the expressions outside comprehensions
+/// (including assignment targets) and walrus targets.
+#[cfg(feature = "bindings-driver")]
+struct SharedDefinitions {
+    builder: DefinitionsBuilder,
+    /// `in_main_guard` outside each enclosing `if` arm.
+    outer_main_guards: Vec<bool>,
+    comprehension_depth: usize,
+}
+
+#[cfg(feature = "bindings-driver")]
+impl<'a> DeclarationSink<'a> for SharedDefinitions {
+    fn declare(&mut self, declaration: Declaration<'a>) {
+        let b = &mut self.builder;
+        let variable = DefinitionStyle::Unannotated(SymbolKind::Variable);
+        match declaration {
+            Declaration::Import(a) => b.import(a),
+            Declaration::ImportFrom(x) => b.import_from(x),
+            Declaration::Function(x) => b.function_def(x),
+            Declaration::Class(x) => b.class_def(x),
+            Declaration::Assign(name, x) => b.assign(name, x),
+            Declaration::AugAssign(name, x) => b.aug_assign(name, x),
+            Declaration::Annotated(name, x) => b.annotated(name, x),
+            Declaration::Store(name) => b.add_name(&name.id, name.range, variable),
+            Declaration::Delete(name) => b.add_name(&name.id, name.range, DefinitionStyle::Delete),
+            Declaration::Walrus(name) => b.add_name(&name.id, name.range, variable),
+            Declaration::Handler(x) | Declaration::Capture(x) => b.add_identifier(x, variable),
+            Declaration::Global(x) => b.add_identifier(
+                x,
+                DefinitionStyle::MutableCapture(MutableCaptureKind::Global),
+            ),
+            Declaration::Nonlocal(x) => b.add_identifier(
+                x,
+                DefinitionStyle::MutableCapture(MutableCaptureKind::Nonlocal),
+            ),
+            Declaration::Parameter(_) => {
+                unreachable!("`Definitions` walks suites, which declare no parameters")
+            }
+        }
+    }
+
+    fn name(&mut self, name: &'a ExprName, site: NameSite) {
+        let read = match site {
+            NameSite::Expression => self.comprehension_depth == 0,
+            NameSite::WalrusTarget => true,
+            NameSite::AnnAssignTarget | NameSite::AugAssignTarget | NameSite::Pattern => false,
+        };
+        if read {
+            self.builder.inner.name_reads.insert(name.id.clone());
+        }
+    }
+
+    fn keeps(&mut self, _: Position) -> bool {
+        false
+    }
+
+    fn enter(&mut self, context: Context<'a>) {
+        match context {
+            Context::Comprehension => self.comprehension_depth += 1,
+            Context::IfArm { test, truth } => {
+                self.outer_main_guards.push(self.builder.in_main_guard);
+                self.builder.in_main_guard |=
+                    truth != Some(true) && test.is_some_and(Ast::is_main_guard);
+            }
+        }
+    }
+
+    fn exit(&mut self, context: Context<'a>) {
+        match context {
+            Context::Comprehension => self.comprehension_depth -= 1,
+            Context::IfArm { .. } => {
+                self.builder.in_main_guard = self
+                    .outer_main_guards
+                    .pop()
+                    .expect("every `if` arm exit follows its entry");
+            }
+        }
+    }
+
+    fn static_truth(&mut self, test: &'a Expr, site: TestSite) -> Option<bool> {
+        match site {
+            TestSite::If => self.builder.sys_info.evaluate_bool(test),
+            TestSite::Conditional => self.builder.sys_info.evaluate_bool_with_sys_info(test),
+        }
+    }
+
+    fn statement(&mut self, stmt: &'a Stmt) {
+        if let Stmt::Expr(x) = stmt {
+            self.builder.expr_stmt(&x.value);
         }
     }
 }

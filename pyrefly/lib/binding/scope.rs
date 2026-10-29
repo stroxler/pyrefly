@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#[cfg(feature = "bindings-driver")]
+use std::cell::Cell;
 use std::cmp::max;
 use std::fmt::Debug;
 use std::mem;
@@ -19,6 +21,16 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::lexical;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::lexical::Category;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::lexical::NonlocalError;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::lexical::Probe;
+#[cfg(feature = "bindings-driver")]
+use pyrefly_static_analysis::lexical::ScopeChain;
 use pyrefly_util::suggest::Candidate;
 use pyrefly_util::suggest::Search;
 use pyrefly_util::suggest::char_mask;
@@ -501,17 +513,16 @@ impl Static {
         }
     }
 
-    /// Populate static definitions from a list of statements.
+    /// Populate static definitions from the definitions of a scope body.
     /// Returns the set of implicit captures (names read but not locally defined),
     /// the fallback builtins shadowed by module definitions, the set of all Final
     /// names, and a map of Final variable string values.
-    fn stmts(
+    fn definitions(
         &mut self,
-        x: &[Stmt],
+        mut d: Definitions,
         module_info: &ModuleInfo,
         top_level: bool,
         lookup: &dyn LookupExport,
-        sys_info: SysInfo,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
         scopes: Option<&Scopes>,
     ) -> (
@@ -520,12 +531,6 @@ impl Static {
         SmallSet<Name>,
         SmallMap<Name, String>,
     ) {
-        let mut d = Definitions::new(
-            x,
-            module_info.name(),
-            module_info.path().is_init(),
-            sys_info,
-        );
         if top_level {
             d.inject_implicit_globals();
         }
@@ -1339,9 +1344,10 @@ pub struct Fork {
     range: TextRange,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 enum FlowBarrier {
     /// Allow flow information from containing scopes, and check for name initialization errors.
+    #[default]
     AllowFlowChecked,
     /// Allow flow information from containing scopes, and skip checks for name initialization errors.
     AllowFlowUnchecked,
@@ -1637,6 +1643,62 @@ pub struct Scopes {
     keep_scope_tree: bool,
     /// True when the module is a stub (`.pyi`).
     is_interface: bool,
+    /// What the shared declaration walker and lexical navigation did, if this binding
+    /// uses them instead of the legacy declaration traversal and scope iteration.
+    #[cfg(feature = "bindings-driver")]
+    shared: Option<Cell<ScopeReport>>,
+}
+
+/// How often a binding used the shared declaration walker and lexical navigation.
+#[cfg(feature = "bindings-driver")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ScopeReport {
+    /// Scope bodies whose static definitions came from the shared walker.
+    pub declaration_walks: usize,
+    /// Name searches over the visible scopes.
+    pub visible_scope_searches: usize,
+    /// `nonlocal` declarations resolved.
+    pub nonlocal_searches: usize,
+}
+
+/// The scope stack as [`lexical`] navigates it, innermost scope last.
+#[cfg(feature = "bindings-driver")]
+#[derive(Clone, Copy)]
+struct Stack<'a>(&'a [ScopeTreeNode]);
+
+/// Pyrefly's barriers: the flow barrier, and whether a class annotation scope hides
+/// static type information.
+#[cfg(feature = "bindings-driver")]
+impl ScopeChain for Stack<'_> {
+    type Id = usize;
+    type Barrier = (FlowBarrier, bool);
+
+    fn parent(&self, id: usize) -> Option<usize> {
+        id.checked_sub(1)
+    }
+
+    fn category(&self, id: usize) -> Category {
+        match self.0[id].scope.kind {
+            ScopeKind::Annotation { class_scope } => Category::Annotation { class_scope },
+            ScopeKind::Class(_) => Category::Class,
+            ScopeKind::Comprehension { .. } => Category::Comprehension,
+            ScopeKind::Function(_) | ScopeKind::Method(_) => Category::Function,
+            ScopeKind::Module => Category::Module,
+            ScopeKind::TypeAlias => Category::TypeAlias,
+        }
+    }
+
+    fn barrier(&self, id: usize) -> (FlowBarrier, bool) {
+        let scope = &self.0[id].scope;
+        (
+            scope.flow_barrier,
+            matches!(scope.kind, ScopeKind::Annotation { class_scope: true }),
+        )
+    }
+
+    fn join(a: (FlowBarrier, bool), b: (FlowBarrier, bool)) -> (FlowBarrier, bool) {
+        (max(a.0, b.0), a.1 || b.1)
+    }
 }
 
 impl Scopes {
@@ -1649,6 +1711,34 @@ impl Scopes {
             }),
             keep_scope_tree,
             is_interface,
+            #[cfg(feature = "bindings-driver")]
+            shared: None,
+        }
+    }
+
+    /// Use the shared declaration walker and lexical navigation from now on.
+    #[cfg(feature = "bindings-driver")]
+    pub fn use_shared(&mut self) {
+        self.shared = Some(Cell::default());
+    }
+
+    /// What the shared machinery did, if this binding used it.
+    #[cfg(feature = "bindings-driver")]
+    pub fn shared_report(&self) -> Option<ScopeReport> {
+        self.shared.as_ref().map(Cell::get)
+    }
+
+    /// Count a use of the shared machinery, if this binding uses it.
+    #[cfg(feature = "bindings-driver")]
+    fn counting_shared(&self, count: impl FnOnce(&mut ScopeReport)) -> bool {
+        match &self.shared {
+            Some(report) => {
+                let mut counts = report.get();
+                count(&mut counts);
+                report.set(counts);
+                true
+            }
+            None => false,
         }
     }
 
@@ -1936,6 +2026,23 @@ impl Scopes {
         false
     }
 
+    /// Whether the innermost enclosing function has yielded so far. After its body is
+    /// bound, this says whether it is a generator.
+    pub fn is_in_generator_def(&self) -> bool {
+        for scope in self.iter_rev() {
+            match &scope.kind {
+                ScopeKind::Function(function_scope) => {
+                    return function_scope.yields_and_returns.is_generator;
+                }
+                ScopeKind::Method(method_scope) => {
+                    return method_scope.yields_and_returns.is_generator;
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
     /// Check if a name is defined as a type parameter in any enclosing Annotation scope.
     pub fn name_shadows_enclosing_annotation_scope(&self, name: &Name) -> bool {
         // Skip the current scope, which we know isn't relevant to the check.
@@ -2049,14 +2156,22 @@ impl Scopes {
         sys_info: SysInfo,
         get_annotation_idx: &mut impl FnMut(ShortIdentifier) -> Idx<KeyAnnotation>,
     ) {
-        let mut initialize = |scope: &mut Scope, myself: Option<&Self>| {
+        let (name, is_init) = (module_info.name(), module_info.path().is_init());
+        #[cfg(feature = "bindings-driver")]
+        let definitions = if self.counting_shared(|r| r.declaration_walks += 1) {
+            Definitions::new(x, name, is_init, sys_info)
+        } else {
+            Definitions::new_legacy(x, name, is_init, sys_info)
+        };
+        #[cfg(not(feature = "bindings-driver"))]
+        let definitions = Definitions::new(x, name, is_init, sys_info);
+        let initialize = |scope: &mut Scope, myself: Option<&Self>| {
             let (implicit_captures, shadowed_implicit_builtins, final_names, final_string_values) =
-                scope.stat.stmts(
-                    x,
+                scope.stat.definitions(
+                    definitions,
                     module_info,
                     top_level,
                     lookup,
-                    sys_info,
                     get_annotation_idx,
                     myself,
                 );
@@ -3484,7 +3599,29 @@ impl Scopes {
     }
 
     /// Helper for iterating over scopes in a way that respects class body visibility rules.
+    #[cfg(feature = "bindings-driver")]
     fn scope_views(&self) -> impl Iterator<Item = ScopeView<'_>> {
+        if self.counting_shared(|r| r.visible_scope_searches += 1) {
+            let stack = Stack(self.scopes.as_slice());
+            Either::Left(
+                lexical::visible(stack, self.scopes.len() - 1).map(move |view| ScopeView {
+                    lookup_depth: view.depth,
+                    scope: &stack.0[view.id].scope,
+                    flow_barrier: view.barrier.0,
+                    static_barrier: view.barrier.1,
+                }),
+            )
+        } else {
+            Either::Right(self.legacy_scope_views())
+        }
+    }
+
+    #[cfg(not(feature = "bindings-driver"))]
+    fn scope_views(&self) -> impl Iterator<Item = ScopeView<'_>> {
+        self.legacy_scope_views()
+    }
+
+    fn legacy_scope_views(&self) -> impl Iterator<Item = ScopeView<'_>> {
         ScopeViews {
             scopes: self.iter_rev().enumerate(),
             flow_barrier: FlowBarrier::AllowFlowChecked,
@@ -3728,30 +3865,45 @@ impl Scopes {
         lookup: &dyn LookupExport,
         current_module: ModuleName,
     ) -> Result<Box<StaticInfo>, MutableCaptureError> {
-        let found = match kind {
-            MutableCaptureKind::Global => self
-                .scopes
-                .first()
-                .scope
-                .stat
-                .0
-                .get_hashed(name)
-                .map_or_else(
-                    || {
-                        builtin_module_for_name(lookup, current_module, name.key()).map(|module| {
-                            let (char_len, char_mask) = suggestion_keys(name.key());
-                            Ok(Box::new(StaticInfo {
-                                range: TextRange::default(),
-                                style: StaticStyle::ImplicitBuiltinImport(module),
-                                last_range: TextRange::default(),
-                                char_len,
-                                char_mask,
-                            }))
-                        })
+        match kind {
+            MutableCaptureKind::Global => Self::look_up_global_capture(
+                &self.scopes.first().scope,
+                name,
+                lookup,
+                current_module,
+            ),
+            MutableCaptureKind::Nonlocal => self.look_up_nonlocal_capture(name),
+        }
+    }
+
+    /// The enclosing definition a `nonlocal` declaration refers to. The declaring scope is
+    /// not on the stack.
+    fn look_up_nonlocal_capture(
+        &self,
+        name: Hashed<&Name>,
+    ) -> Result<Box<StaticInfo>, MutableCaptureError> {
+        #[cfg(feature = "bindings-driver")]
+        if self.counting_shared(|r| r.nonlocal_searches += 1) {
+            let stack = Stack(self.scopes.as_slice());
+            let probe = |id: usize| match stack.0[id].scope.stat.0.get_hashed(name) {
+                None => Probe::Absent,
+                Some(static_info) => match &static_info.style {
+                    StaticStyle::MutableCapture(MutableCapture { kind, .. }) => match kind {
+                        MutableCaptureKind::Nonlocal => Probe::Nonlocal,
+                        MutableCaptureKind::Global => Probe::Global,
                     },
-                    |static_info| Some(Ok(Box::new(static_info.clone()))),
-                ),
-            MutableCaptureKind::Nonlocal => self.iter_rev().find_map(|scope| {
+                    _ => Probe::Owned(Box::new(static_info.clone())),
+                },
+            };
+            return lexical::resolve_nonlocal(stack, Some(self.scopes.len() - 1), probe).map_err(
+                |e| match e {
+                    NonlocalError::Global => MutableCaptureError::NonlocalScope,
+                    NonlocalError::NotFound => MutableCaptureError::NotFound,
+                },
+            );
+        }
+        self.iter_rev()
+            .find_map(|scope| {
                 if matches!(scope.kind, ScopeKind::Class(..)) {
                     None
                 } else {
@@ -3780,9 +3932,33 @@ impl Scopes {
                             },
                         })
                 }
-            }),
-        };
-        found.unwrap_or(Result::Err(MutableCaptureError::NotFound))
+            })
+            .unwrap_or(Result::Err(MutableCaptureError::NotFound))
+    }
+
+    /// The module definition a `global` declaration refers to, or the builtin it falls back to.
+    fn look_up_global_capture(
+        module: &Scope,
+        name: Hashed<&Name>,
+        lookup: &dyn LookupExport,
+        current_module: ModuleName,
+    ) -> Result<Box<StaticInfo>, MutableCaptureError> {
+        match module.stat.0.get_hashed(name) {
+            Some(static_info) => Ok(Box::new(static_info.clone())),
+            None => match builtin_module_for_name(lookup, current_module, name.key()) {
+                Some(module) => {
+                    let (char_len, char_mask) = suggestion_keys(name.key());
+                    Ok(Box::new(StaticInfo {
+                        range: TextRange::default(),
+                        style: StaticStyle::ImplicitBuiltinImport(module),
+                        last_range: TextRange::default(),
+                        char_len,
+                        char_mask,
+                    }))
+                }
+                None => Err(MutableCaptureError::NotFound),
+            },
+        }
     }
 
     pub fn validate_mutable_capture_and_get_key(
@@ -4805,5 +4981,178 @@ mod tests {
             "a following loop must use the merged view"
         );
         assert_eq!(outside.narrow_depth, 2);
+    }
+}
+
+/// The shared lexical navigation must see the scope stack exactly as the legacy iteration
+/// and capture search do, for every stack of scope kinds up to a small depth.
+#[cfg(all(test, feature = "bindings-driver"))]
+mod shared_navigation_tests {
+    use ruff_python_ast::name::Name;
+
+    use super::*;
+
+    fn identifier() -> Identifier {
+        Identifier::new(Name::new_static("f"), TextRange::default())
+    }
+
+    /// One scope of each kind the binder pushes, with its real flow barrier.
+    fn scope_kinds() -> Vec<fn() -> Scope> {
+        vec![
+            || Scope::annotation(TextRange::default(), true),
+            || Scope::annotation(TextRange::default(), false),
+            || {
+                let indices = ClassIndices {
+                    def_index: ClassDefIndex(0),
+                    class_idx: Idx::new(0),
+                    class_object_idx: Idx::new(0),
+                    base_type_idx: Idx::new(0),
+                    metadata_idx: Idx::new(0),
+                    mro_idx: Idx::new(0),
+                    disjoint_base_idx: Idx::new(0),
+                    synthesized_fields_idx: Idx::new(0),
+                    variance_idx: Idx::new(0),
+                    class_checks_idx: Idx::new(0),
+                    abstract_class_check_idx: Idx::new(0),
+                    subscript_symmetry_idx: Idx::new(0),
+                };
+                Scope::class_body(TextRange::default(), indices, identifier(), false)
+            },
+            || Scope::comprehension(TextRange::default(), true),
+            || Scope::function(TextRange::default(), identifier(), false),
+            || Scope::lambda(TextRange::default(), identifier(), false),
+            || Scope::method(TextRange::default(), identifier(), false),
+            || Scope::type_alias(TextRange::default()),
+        ]
+    }
+
+    /// Every sequence of `kinds` of length `1..=depth`, as indices.
+    fn sequences(kinds: usize, depth: usize) -> Vec<Vec<usize>> {
+        let mut all = vec![vec![]];
+        let mut last = vec![vec![]];
+        for _ in 0..depth {
+            last = last
+                .iter()
+                .flat_map(|seq: &Vec<usize>| {
+                    (0..kinds).map(move |k| {
+                        let mut next = seq.clone();
+                        next.push(k);
+                        next
+                    })
+                })
+                .collect();
+            all.extend(last.iter().cloned());
+        }
+        all
+    }
+
+    fn views(scopes: &Scopes) -> Vec<(usize, *const Scope, FlowBarrier, bool)> {
+        scopes
+            .scope_views()
+            .map(|v| {
+                (
+                    v.lookup_depth,
+                    v.scope as *const Scope,
+                    v.flow_barrier,
+                    v.static_barrier,
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn visible_scopes_match_legacy() {
+        let kinds = scope_kinds();
+        for seq in sequences(kinds.len(), 4) {
+            let mut scopes = Scopes::module(TextRange::default(), false, false);
+            for &k in &seq {
+                scopes.push(kinds[k]());
+            }
+            let legacy = views(&scopes);
+            scopes.use_shared();
+            assert_eq!(views(&scopes), legacy, "scope kinds {seq:?}");
+            assert_eq!(
+                scopes.shared_report().map(|r| r.visible_scope_searches),
+                Some(1)
+            );
+        }
+    }
+
+    /// What a scope's static table may say about `x`.
+    #[derive(Clone, Copy, Debug)]
+    enum Entry {
+        Absent,
+        Definition,
+        Nonlocal,
+        Global,
+    }
+
+    /// For every stack of up to three scopes above the module, with every kind of entry
+    /// for `x` in each, a `nonlocal x` in a new scope resolves the same way. Each capture's
+    /// `original` is resolved as the binder resolves it, when its scope is entered.
+    #[test]
+    fn nonlocal_capture_search_matches_legacy() {
+        let name = Name::new_static("x");
+        let kinds = scope_kinds();
+        let entries = [
+            Entry::Absent,
+            Entry::Definition,
+            Entry::Nonlocal,
+            Entry::Global,
+        ];
+        for seq in sequences(kinds.len() * entries.len(), 3) {
+            for module_entry in entries {
+                let mut scopes = Scopes::module(TextRange::default(), false, false);
+                let mut stack = vec![(None, module_entry)];
+                stack.extend(
+                    seq.iter()
+                        .map(|i| (Some(i / entries.len()), entries[i % entries.len()])),
+                );
+                for (i, (kind, entry)) in stack.into_iter().enumerate() {
+                    let style = |kind, original| {
+                        StaticStyle::MutableCapture(MutableCapture {
+                            kind,
+                            original,
+                            has_value_definition: false,
+                        })
+                    };
+                    let style = match entry {
+                        Entry::Absent => None,
+                        Entry::Definition => Some(StaticStyle::SingleDef(None)),
+                        Entry::Nonlocal => Some(style(
+                            MutableCaptureKind::Nonlocal,
+                            match kind {
+                                None => Err(MutableCaptureError::NotFound),
+                                Some(_) => scopes.look_up_nonlocal_capture(Hashed::new(&name)),
+                            },
+                        )),
+                        Entry::Global => Some(style(
+                            MutableCaptureKind::Global,
+                            Err(MutableCaptureError::NotFound),
+                        )),
+                    };
+                    if let Some(kind) = kind {
+                        scopes.push(kinds[kind]());
+                    }
+                    if let Some(style) = style {
+                        let range = TextRange::new((i as u32).into(), (i as u32).into());
+                        scopes.current_mut().stat.upsert(
+                            Hashed::new(name.clone()),
+                            range,
+                            style,
+                            TextRange::default(),
+                        );
+                    }
+                }
+                let legacy = format!("{:?}", scopes.look_up_nonlocal_capture(Hashed::new(&name)));
+                scopes.use_shared();
+                let shared = format!("{:?}", scopes.look_up_nonlocal_capture(Hashed::new(&name)));
+                assert_eq!(
+                    shared, legacy,
+                    "stack {seq:?}, module entry {module_entry:?}"
+                );
+                assert_eq!(scopes.shared_report().map(|r| r.nonlocal_searches), Some(1));
+            }
+        }
     }
 }

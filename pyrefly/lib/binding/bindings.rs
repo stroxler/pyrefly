@@ -109,6 +109,8 @@ use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::MutableCaptureError;
 use crate::binding::scope::NameReadInfo;
+#[cfg(feature = "bindings-driver")]
+use crate::binding::scope::ScopeReport;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
 use crate::binding::scope::UnusedImport;
@@ -257,6 +259,9 @@ pub struct Bindings {
     /// What the structured driver did, if it sequenced the statement structure.
     #[cfg(feature = "bindings-driver")]
     driver_report: Option<DriverReport>,
+    /// What the shared declaration walker and lexical navigation did, if they were used.
+    #[cfg(feature = "bindings-driver")]
+    scope_report: Option<ScopeReport>,
 }
 
 impl Display for Bindings {
@@ -437,6 +442,8 @@ impl Bindings {
             promote_ranges: SmallSet::new(),
             #[cfg(feature = "bindings-driver")]
             driver_report: None,
+            #[cfg(feature = "bindings-driver")]
+            scope_report: None,
         }
     }
 
@@ -469,6 +476,13 @@ impl Bindings {
         self.driver_report.as_ref()
     }
 
+    /// What the shared declaration walker and lexical navigation did, if these bindings
+    /// were built with them.
+    #[cfg(feature = "bindings-driver")]
+    pub fn scope_report(&self) -> Option<&ScopeReport> {
+        self.scope_report.as_ref()
+    }
+
     /// Everything these bindings hold except the driver report, for comparing binding
     /// constructors: the table with dependencies rendered as keys, then every field with
     /// table indices included.
@@ -493,6 +507,7 @@ impl Bindings {
             shape_declarations,
             subsequently_initialized,
             driver_report: _,
+            scope_report: _,
         } = self;
         let fields = format!(
             "{:#?}\n{:#?}",
@@ -800,7 +815,8 @@ impl Bindings {
     }
 
     /// Bind a module; `driven` selects the structured driver, which requires the
-    /// `bindings-driver` feature.
+    /// `bindings-driver` feature. With `enable_trace`, the driver maps arm continuations
+    /// to their flow points without keeping the full flow-point trace.
     pub(crate) fn build(
         x: ModModule,
         module_info: ModuleInfo,
@@ -814,7 +830,77 @@ impl Bindings {
         analyze_unannotated_for_ide: bool,
         infer_return_types: InferReturnTypes,
         treat_all_caps_as_final: bool,
+        driven: bool,
+    ) -> Self {
+        Self::build_impl(
+            x,
+            module_info,
+            exports,
+            solver,
+            lookup,
+            sys_info,
+            errors,
+            enable_trace,
+            check_unannotated_defs,
+            analyze_unannotated_for_ide,
+            infer_return_types,
+            treat_all_caps_as_final,
+            driven,
+            false,
+        )
+    }
+
+    /// Like [`Bindings::build`], but a driven binding also keeps the full flow-point trace.
+    #[cfg(feature = "bindings-driver")]
+    pub(crate) fn build_with_flow_points(
+        x: ModModule,
+        module_info: ModuleInfo,
+        exports: &Exports,
+        solver: &Solver,
+        lookup: &dyn LookupExport,
+        sys_info: SysInfo,
+        errors: &ErrorCollector,
+        enable_trace: bool,
+        check_unannotated_defs: bool,
+        analyze_unannotated_for_ide: bool,
+        infer_return_types: InferReturnTypes,
+        treat_all_caps_as_final: bool,
+        driven: bool,
+    ) -> Self {
+        Self::build_impl(
+            x,
+            module_info,
+            exports,
+            solver,
+            lookup,
+            sys_info,
+            errors,
+            enable_trace,
+            check_unannotated_defs,
+            analyze_unannotated_for_ide,
+            infer_return_types,
+            treat_all_caps_as_final,
+            driven,
+            true,
+        )
+    }
+
+    fn build_impl(
+        x: ModModule,
+        module_info: ModuleInfo,
+        exports: &Exports,
+        solver: &Solver,
+        lookup: &dyn LookupExport,
+        sys_info: SysInfo,
+        errors: &ErrorCollector,
+        enable_trace: bool,
+        check_unannotated_defs: bool,
+        analyze_unannotated_for_ide: bool,
+        infer_return_types: InferReturnTypes,
+        treat_all_caps_as_final: bool,
         #[cfg_attr(not(feature = "bindings-driver"), expect(unused_variables))] driven: bool,
+        #[cfg_attr(not(feature = "bindings-driver"), expect(unused_variables))]
+        full_flow_trace: bool,
     ) -> Self {
         let pytest_info = PytestBindingInfo::from_module(&x);
         // Compute module ranges from the AST before consuming it. These are
@@ -860,8 +946,20 @@ impl Bindings {
             in_unreachable_suite: false,
             pending_gate: None,
             #[cfg(feature = "bindings-driver")]
-            driver: driven.then(|| Box::new(DriverState::new())),
+            driver: driven.then(|| {
+                Box::new(if full_flow_trace {
+                    DriverState::with_flow_points()
+                } else if enable_trace {
+                    DriverState::with_flow_bindings()
+                } else {
+                    DriverState::new()
+                })
+            }),
         };
+        #[cfg(feature = "bindings-driver")]
+        if driven {
+            builder.scopes.use_shared();
+        }
         builder.init_static_scope(&x.body, true);
         if module_info.name() != ModuleName::builtins() {
             builder.check_builtin_module(ModuleName::builtins(), false);
@@ -912,6 +1010,8 @@ impl Bindings {
 
         let unused_imports = builder.scopes.collect_module_unused_imports();
         builder.record_unused_imports(unused_imports);
+        #[cfg(feature = "bindings-driver")]
+        let scope_report = builder.scopes.shared_report();
         let scope_trace = builder.scopes.finish();
 
         let semantic_errors = builder.semantic_syntax_errors.into_inner();
@@ -1001,6 +1101,8 @@ impl Bindings {
             promote_ranges: builder.promote_ranges,
             #[cfg(feature = "bindings-driver")]
             driver_report: builder.driver.map(|driver| driver.into_report()),
+            #[cfg(feature = "bindings-driver")]
+            scope_report,
         }
     }
 

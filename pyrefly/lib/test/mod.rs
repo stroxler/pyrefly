@@ -30,6 +30,8 @@ mod contextual;
 mod cycles;
 mod dataclass_transform;
 mod dataclasses;
+#[cfg(feature = "bindings-driver")]
+mod declarations_scopes;
 mod decorators;
 mod delayed_inference;
 mod descriptors;
@@ -39,7 +41,11 @@ mod enums;
 mod explicit_any;
 mod factory_boy;
 mod flow_branching;
+#[cfg(feature = "bindings-driver")]
+mod flow_facts;
 mod flow_looping;
+#[cfg(feature = "bindings-driver")]
+mod flow_points;
 mod functools;
 mod generic_basic;
 mod generic_callable_degeneracy;

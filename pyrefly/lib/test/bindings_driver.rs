@@ -65,6 +65,15 @@ impl Fixture {
     /// bodies as `Require::Everything` does. The AST is cloned, and the solver and error
     /// collector created, before the constructor is timed.
     pub(super) fn build(&self, driven: bool) -> Built {
+        self.build_observed(driven, false)
+    }
+
+    /// Like [`Fixture::build`], but a driven binding keeps the full flow-point trace.
+    pub(super) fn build_with_flow_points(&self, driven: bool) -> Built {
+        self.build_observed(driven, true)
+    }
+
+    fn build_observed(&self, driven: bool, full_flow_trace: bool) -> Built {
         let handle = &self.handle;
         self.state.transaction().with_bindings_inputs(
             handle,
@@ -81,8 +90,13 @@ impl Fixture {
                 let errors = ErrorCollector::new(load.module_info.dupe(), ErrorStyle::Delayed);
                 let ast = ast.clone();
                 let module_info = load.module_info.dupe();
+                let build = if full_flow_trace {
+                    Bindings::build_with_flow_points
+                } else {
+                    Bindings::build
+                };
                 let start = Instant::now();
-                let bindings = Bindings::build(
+                let bindings = build(
                     ast,
                     module_info,
                     exports,

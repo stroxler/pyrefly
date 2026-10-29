@@ -14,6 +14,8 @@ pub mod django;
 #[cfg(feature = "bindings-driver")]
 pub mod driver;
 pub mod expr;
+#[cfg(feature = "bindings-driver")]
+pub mod flow_facts;
 pub mod function;
 pub mod metadata;
 pub mod narrow;

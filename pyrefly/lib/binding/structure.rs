@@ -488,12 +488,13 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    /// Bind what follows the body of an arm, and finish the branch.
-    pub fn if_arm_body_end(&mut self, state: &mut IfState, range: TextRange) {
+    /// Bind what follows the body of an arm, and finish the branch. Return the actual
+    /// continuation binding when this arm is controlled by a test.
+    pub fn if_arm_body_end(&mut self, state: &mut IfState, range: TextRange) -> Option<Idx<Key>> {
         if state.arm.is_type_checking_branch {
             self.type_checking_depth -= 1;
         }
-        if let Some((test, runs_when)) = state.arm.decided_by {
+        let end = state.arm.decided_by.map(|(test, runs_when)| {
             let end = self.insert_binding(
                 Key::BranchEnd(range),
                 Binding::BranchEnd(Box::new(BranchEnd {
@@ -503,7 +504,8 @@ impl<'a> BindingsBuilder<'a> {
                 })),
             );
             self.scopes.set_last_stmt_expr(Some(end));
-        }
+            end
+        });
         let chosen = state.arm.chosen == Some(true);
         if chosen && !state.arm.test_is_environment_independent && self.scopes.has_terminated() {
             state.contains_environment_test_with_no_else = true;
@@ -515,6 +517,7 @@ impl<'a> BindingsBuilder<'a> {
         if chosen {
             state.report_all_remaining = state.arm.test_is_environment_independent;
         }
+        end
     }
 
     /// An arm after a statically chosen one. It is not started.

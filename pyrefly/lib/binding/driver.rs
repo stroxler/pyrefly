@@ -21,8 +21,12 @@
 use std::mem;
 
 use dupe::Dupe;
+use pyrefly_graph::index::Idx;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_static_analysis::flow_point::FlowPointCollector;
+use pyrefly_static_analysis::flow_point::FlowPointId;
+use pyrefly_static_analysis::flow_point::FlowPointKind;
 use pyrefly_static_analysis::structured;
 use pyrefly_static_analysis::structured::Arm;
 use pyrefly_static_analysis::structured::Coverage;
@@ -37,6 +41,7 @@ use ruff_python_ast::Stmt;
 use ruff_text_size::TextRange;
 use thin_vec::ThinVec;
 
+use crate::binding::binding::Key;
 use crate::binding::bindings::Bindings;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::scope::LoopExit;
@@ -50,9 +55,33 @@ use crate::export::exports::LookupExport;
 use crate::module::module_info::ModuleInfo;
 use crate::solver::solver::Solver;
 
+/// An observed source arm exit and its actual Pyrefly `BranchEnd` binding.
+///
+/// Kept downstream: neither inference keys nor their type-dependent interpretation
+/// are part of the neutral driver API. A missing mapping implies no fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlowBinding {
+    pub point: FlowPointId,
+    pub key: Idx<Key>,
+    /// Whether this key can be interpreted as normal-completion evidence. Generator
+    /// and async activations can carry a suspension's result type instead. Finalized
+    /// after the complete enclosing function body, including later or skipped yields.
+    pub completion_safe: bool,
+}
+
+/// Which optional source evidence this binding build retained.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowObservation {
+    Disabled,
+    /// Only actual arm-continuation mappings, not the full source-point trace.
+    Bindings,
+    Full,
+}
+
 /// What the driver did while binding one module.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DriverReport {
+    pub observation: FlowObservation,
     /// Structure sequenced by the driver.
     pub coverage: Coverage,
     /// Statements without nested suites, bound by `stmt_impl`.
@@ -60,6 +89,10 @@ pub struct DriverReport {
     /// Statements whose own structure `stmt_impl` binds, while the driver sequences their
     /// nested suites: `with`, `try`, `match`, function and class definitions.
     pub mixed: usize,
+    /// Source points visited while observation was enabled; empty otherwise.
+    pub flow_points: Vec<FlowPointId>,
+    /// Genuine arm-exit bindings, not a complete type-dependent control-flow graph.
+    pub flow_bindings: Vec<FlowBinding>,
 }
 
 /// The driver's state while it binds a module.
@@ -69,6 +102,13 @@ pub struct DriverState {
     parent: NestingContext,
     leaf: usize,
     mixed: usize,
+    observation: FlowObservation,
+    flow_points: Option<FlowPointCollector>,
+    current_point: Option<FlowPointId>,
+    flow_bindings: Vec<FlowBinding>,
+    /// Indices owned by the currently bound function activation. Nested functions
+    /// replace this list temporarily; class bodies share it with their enclosing function.
+    activation_mappings: Option<Vec<usize>>,
 }
 
 impl DriverState {
@@ -78,14 +118,41 @@ impl DriverState {
             parent: NestingContext::toplevel(),
             leaf: 0,
             mixed: 0,
+            observation: FlowObservation::Disabled,
+            flow_points: None,
+            current_point: None,
+            flow_bindings: Vec::new(),
+            activation_mappings: None,
+        }
+    }
+
+    /// Observe existing arm-continuation mappings without retaining a full source trace.
+    pub fn with_flow_bindings() -> Self {
+        Self {
+            observation: FlowObservation::Bindings,
+            ..Self::new()
+        }
+    }
+
+    /// Explicitly opt in to a complete source trace as well as continuation mappings.
+    pub fn with_flow_points() -> Self {
+        Self {
+            observation: FlowObservation::Full,
+            flow_points: Some(FlowPointCollector::default()),
+            ..Self::with_flow_bindings()
         }
     }
 
     pub fn into_report(self) -> DriverReport {
         DriverReport {
+            observation: self.observation,
             coverage: self.driver.coverage,
             leaf: self.leaf,
             mixed: self.mixed,
+            flow_points: self
+                .flow_points
+                .map_or_else(Vec::new, |collector| collector.points),
+            flow_bindings: self.flow_bindings,
         }
     }
 }
@@ -165,6 +232,44 @@ impl Bindings {
             .clone();
         (bindings, report)
     }
+
+    /// Bind with an explicitly requested full source-point trace and continuation mappings.
+    /// Ordinary trace-enabled driver builds retain only continuation mappings.
+    pub fn new_with_flow_points(
+        x: ModModule,
+        module_info: ModuleInfo,
+        exports: &Exports,
+        solver: &Solver,
+        lookup: &dyn LookupExport,
+        sys_info: SysInfo,
+        errors: &ErrorCollector,
+        enable_trace: bool,
+        check_unannotated_defs: bool,
+        analyze_unannotated_for_ide: bool,
+        infer_return_types: InferReturnTypes,
+        treat_all_caps_as_final: bool,
+    ) -> (Self, DriverReport) {
+        let bindings = Self::build_with_flow_points(
+            x,
+            module_info,
+            exports,
+            solver,
+            lookup,
+            sys_info,
+            errors,
+            enable_trace,
+            check_unannotated_defs,
+            analyze_unannotated_for_ide,
+            infer_return_types,
+            treat_all_caps_as_final,
+            true,
+        );
+        let report = bindings
+            .driver_report()
+            .expect("a driven build has a driver report")
+            .clone();
+        (bindings, report)
+    }
 }
 
 impl<'a> BindingsBuilder<'a> {
@@ -191,7 +296,28 @@ impl<'a> BindingsBuilder<'a> {
 
     pub fn driven_region(&mut self, xs: ThinVec<Stmt>, parent: &NestingContext) {
         let outer = mem::replace(&mut self.driver_state().parent, parent.dupe());
+        let observed_function = parent.is_function() && self.observes_flow_points();
+        let outer_mappings = if observed_function {
+            self.driver_state().activation_mappings.replace(Vec::new())
+        } else {
+            None
+        };
         structured::region(self, xs);
+        if observed_function {
+            // The scope still exists here, and its complete body has recorded yields
+            // even in later/skipped arms or in nested definitions' evaluated headers.
+            let completion_safe =
+                !self.scopes.is_in_async_def() && !self.scopes.is_in_generator_def();
+            let state = self.driver_state();
+            for index in state
+                .activation_mappings
+                .take()
+                .expect("an observed function owns its continuation mapping list")
+            {
+                state.flow_bindings[index].completion_safe = completion_safe;
+            }
+            state.activation_mappings = outer_mappings;
+        }
         self.driver_state().parent = outer;
     }
 }
@@ -206,6 +332,22 @@ impl<'a> Structured for BindingsBuilder<'a> {
 
     fn driver(&mut self) -> &mut Driver<()> {
         &mut self.driver_state().driver
+    }
+
+    fn observes_flow_points(&self) -> bool {
+        self.driver
+            .as_ref()
+            .is_some_and(|state| state.observation != FlowObservation::Disabled)
+    }
+
+    fn flow_point(&mut self, point: FlowPointId) {
+        let state = self.driver_state();
+        if point.kind == FlowPointKind::ArmExit {
+            state.current_point = Some(point);
+        }
+        if let Some(collector) = &mut state.flow_points {
+            collector.observe(point);
+        }
     }
 
     fn suite_start(&mut self, suite: &[Stmt]) -> DrivenSuite {
@@ -276,7 +418,24 @@ impl<'a> Structured for BindingsBuilder<'a> {
     }
 
     fn arm_exit(&mut self, state: &mut IfState, range: TextRange) {
-        self.if_arm_body_end(state, range);
+        let point = self.driver_state().current_point.take();
+        let key = self.if_arm_body_end(state, range);
+        if let (Some(point), Some(key)) = (point, key) {
+            assert_eq!(point.kind, FlowPointKind::ArmExit);
+            assert_eq!(point.range, range);
+            let state = self.driver_state();
+            let index = state.flow_bindings.len();
+            // Function evidence stays fail-closed until its whole activation is known.
+            let completion_safe = state.activation_mappings.is_none();
+            state.flow_bindings.push(FlowBinding {
+                point,
+                key,
+                completion_safe,
+            });
+            if let Some(mappings) = &mut state.activation_mappings {
+                mappings.push(index);
+            }
+        }
     }
 
     fn arm_dead(&mut self, state: &mut IfState, arm: Arm<Owned>) {
